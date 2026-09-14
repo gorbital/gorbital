@@ -11,9 +11,6 @@ import (
 	"apistock.dev/config"
 )
 
-// minOpsTokenLength keeps the interim ops token hard to guess.
-const minOpsTokenLength = 32
-
 // Config is every boot setting of the application: secrets and
 // infrastructure, read from environment variables documented in
 // .env.example. Values operators change at runtime are runtime settings
@@ -30,7 +27,6 @@ type Config struct {
 	DatabaseURL config.Secret // DATABASE_URL
 	DBMaxConns  int32         // APP_DB_MAX_CONNS
 	JobWorkers  int           // APP_JOB_WORKERS
-	OpsToken    config.Secret // OPS_TOKEN: enables /ops/* until authentication is added
 
 	MailDelivery string     // MAIL_DELIVERY: mailpit or provider (mail.go)
 	MailpitAddr  string     // MAILPIT_SMTP_ADDR
@@ -130,11 +126,6 @@ func LoadConfig(src config.Source) (Config, error) {
 			errs = append(errs, fmt.Errorf("APP_JOB_WORKERS must be between 1 and 10000, got %q", v))
 		}
 		cfg.JobWorkers = n
-	}
-
-	cfg.OpsToken = secret("OPS_TOKEN")
-	if !cfg.OpsToken.IsZero() && len(cfg.OpsToken.Reveal()) < minOpsTokenLength {
-		errs = append(errs, fmt.Errorf("OPS_TOKEN must be at least %d characters (generate one with: openssl rand -hex 32)", minOpsTokenLength))
 	}
 
 	cfg.MailDelivery = mailDeliveryMailpit

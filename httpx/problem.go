@@ -107,7 +107,9 @@ func NewMapper(logger *slog.Logger, mappings ...Mapping) (*Mapper, error) {
 }
 
 // Add registers mappings. Each needs a non-nil error, a 4xx or 5xx status and
-// a snake_case code; errors and codes must be unique.
+// a snake_case code. Each error is mapped once; several errors may share a
+// code only with the same status, such as "unauthenticated" returned by
+// different modules.
 func (m *Mapper) Add(mappings ...Mapping) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -121,8 +123,11 @@ func (m *Mapper) Add(mappings ...Mapping) error {
 			return fmt.Errorf("httpx: mapping code %q must be snake_case", mp.Code)
 		}
 		for _, existing := range m.mappings {
-			if errors.Is(existing.Err, mp.Err) || existing.Code == mp.Code {
+			if errors.Is(existing.Err, mp.Err) {
 				return fmt.Errorf("httpx: duplicate mapping for %q: %w", mp.Code, mp.Err)
+			}
+			if existing.Code == mp.Code && existing.Status != mp.Status {
+				return fmt.Errorf("httpx: code %q is mapped with statuses %d and %d", mp.Code, existing.Status, mp.Status)
 			}
 		}
 		m.mappings = append(m.mappings, mp)

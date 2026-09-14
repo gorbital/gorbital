@@ -1,0 +1,109 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"strings"
+	"time"
+
+	"apistock.dev/actor"
+	"apistock.dev/modules/auditpg"
+	"apistock.dev/modules/postgres"
+
+	authmodule "example.com/acme-api/internal/modules/auth"
+	authdomain "example.com/acme-api/internal/modules/auth/domain"
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
+)
+
+// GrantRole gives the account registered with email a platform role, for
+// example the first platform_admin. The change is recorded in the audit log
+// as the "cli" system actor.
+//
+//	go run ./cmd/api grant-role you@example.com platform_admin
+func GrantRole(ctx context.Context, cfg Config, email, role string, w io.Writer) error {
+	return changeRole(ctx, cfg, email, role, true, w)
+}
+
+// RevokeRole removes a platform role from the account registered with email.
+func RevokeRole(ctx context.Context, cfg Config, email, role string, w io.Writer) error {
+	return changeRole(ctx, cfg, email, role, false, w)
+}
+
+// WriteRoles lists the platform roles and their permissions.
+func WriteRoles(w io.Writer) {
+	for _, r := range declarePermissions().Roles() {
+		fmt.Fprintf(w, "%s\n  %s\n  permissions: %s\n", r.Name, r.Description, strings.Join(r.Permissions, ", "))
+	}
+}
+
+func changeRole(ctx context.Context, cfg Config, email, role string, grant bool, w io.Writer) error {
+	if cfg.DatabaseURL.IsZero() {
+		return errors.New("DATABASE_URL is required")
+	}
+	pool, err := postgres.Open(ctx, cfg.DatabaseURL, postgres.WithApplicationName(ServiceName+"-cli"))
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	recorder, err := auditpg.NewStore(pool)
+	if err != nil {
+		return err
+	}
+	m, err := authmodule.New(pool, authusecase.Config{Catalog: declarePermissions(), Recorder: recorder, Emails: noEmails{}})
+	if err != nil {
+		return err
+	}
+	svc := m.Service()
+
+	ctx = actor.With(ctx, actor.System("cli"))
+	user, err := svc.UserByEmail(ctx, email)
+	if errors.Is(err, authdomain.ErrUserNotFound) {
+		return fmt.Errorf("no account uses %s: register it first (POST /v1/auth/register) and verify the email", email)
+	}
+	if err != nil {
+		return err
+	}
+	if grant {
+		err = svc.GrantRole(ctx, user.ID, role)
+	} else {
+		err = svc.RevokeRole(ctx, user.ID, role)
+	}
+	if errors.Is(err, authdomain.ErrUnknownRole) {
+		var names []string
+		for _, r := range svc.Catalog().Roles() {
+			names = append(names, r.Name)
+		}
+		return fmt.Errorf("unknown role %q; roles are: %s", role, strings.Join(names, ", "))
+	}
+	if err != nil {
+		return err
+	}
+	if user, err = svc.User(ctx, user.ID); err != nil {
+		return err
+	}
+	roles := "none"
+	if len(user.Roles) > 0 {
+		roles = strings.Join(user.Roles, ", ")
+	}
+	fmt.Fprintf(w, "✓ %s now has roles: %s\n", email, roles)
+	if grant && !user.EmailVerified() {
+		fmt.Fprintln(w, "  The email address isn't verified yet; the role applies once the user verifies it and signs in.")
+	}
+	return nil
+}
+
+// noEmails is for commands that never send email.
+type noEmails struct{}
+
+func (noEmails) SendVerificationCode(context.Context, string, string, time.Duration) error {
+	return nil
+}
+
+func (noEmails) SendPasswordResetCode(context.Context, string, string, time.Duration) error {
+	return nil
+}
+
+func (noEmails) SendAccountExists(context.Context, string) error   { return nil }
+func (noEmails) SendPasswordChanged(context.Context, string) error { return nil }

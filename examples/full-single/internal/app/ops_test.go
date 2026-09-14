@@ -4,16 +4,37 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
+
+	"apistock.dev/actor"
 
 	"example.com/acme-api/internal/app"
 )
 
-const opsToken = "test-ops-token-0123456789abcdef-0123"
+const testPassword = "correct horse battery"
 
-var bearer = []string{"Authorization", "Bearer " + opsToken}
+// signIn creates a verified account holding role (none when empty), signs
+// it in with a bearer token, and returns the header to send and the user ID.
+func signIn(t *testing.T, a *app.App, email, role string) ([]string, string) {
+	t.Helper()
+	ctx := actor.With(context.Background(), actor.System("test"))
+	u, err := a.Auth().CreateUser(ctx, email, testPassword, true)
+	if err != nil {
+		t.Fatalf("CreateUser(%s) error = %v", email, err)
+	}
+	if role != "" {
+		if err := a.Auth().GrantRole(ctx, u.ID, role); err != nil {
+			t.Fatalf("GrantRole(%s) error = %v", role, err)
+		}
+	}
+	r := do(t, a.Handler(), "POST", "/v1/auth/login", fmt.Sprintf(`{"email":%q,"password":%q,"transport":"bearer"}`, email, testPassword))
+	token, _ := r.json["token"].(string)
+	if r.code != http.StatusOK || token == "" {
+		t.Fatalf("POST /v1/auth/login as %s = %d %s", email, r.code, r.body)
+	}
+	return []string{"Authorization", "Bearer " + token}, u.ID
+}
 
 // startWorkers runs the app's background runners until the test ends.
 func startWorkers(t *testing.T, a *app.App) {
@@ -62,33 +83,43 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 	}
 }
 
-func TestOpsRoutesRequireTheOpsToken(t *testing.T) {
-	disabled := newApp(t, nil).Handler()
-	if r := do(t, disabled, "GET", "/ops/settings", "", bearer...); r.code != http.StatusNotFound {
-		t.Errorf("GET /ops/settings without OPS_TOKEN configured = %d, want 404", r.code)
-	}
-
-	h := newApp(t, map[string]string{"OPS_TOKEN": opsToken}).Handler()
+func TestOpsRoutesRequirePermissions(t *testing.T) {
+	a := newApp(t, nil)
+	h := a.Handler()
 	for name, headers := range map[string][]string{
-		"no token":    nil,
-		"wrong token": {"Authorization", "Bearer " + strings.Repeat("x", len(opsToken))},
-		"basic auth":  {"Authorization", "Basic " + opsToken},
+		"no token":      nil,
+		"unknown token": {"Authorization", "Bearer not-a-session-token"},
+		"basic auth":    {"Authorization", "Basic dXNlcjpwYXNz"},
 	} {
-		r := do(t, h, "GET", "/ops/settings", "", headers...)
-		if r.code != http.StatusUnauthorized || r.json["code"] != "unauthenticated" || r.header.Get("WWW-Authenticate") == "" {
-			t.Errorf("%s: GET /ops/settings = %d %s, want 401 unauthenticated with WWW-Authenticate", name, r.code, r.body)
+		if r := do(t, h, "GET", "/ops/settings", "", headers...); r.code != http.StatusUnauthorized || r.json["code"] != "unauthenticated" {
+			t.Errorf("%s: GET /ops/settings = %d %s, want 401 unauthenticated", name, r.code, r.body)
 		}
 	}
-	if r := do(t, h, "GET", "/ops/settings", "", bearer...); r.code != http.StatusOK {
-		t.Errorf("GET /ops/settings with the token = %d %s, want 200", r.code, r.body)
+
+	noRole, _ := signIn(t, a, "user@example.com", "")
+	if r := do(t, h, "GET", "/ops/settings", "", noRole...); r.code != http.StatusForbidden || r.json["code"] != "forbidden" {
+		t.Errorf("GET /ops/settings without a role = %d %s, want 403 forbidden", r.code, r.body)
+	}
+	viewer, _ := signIn(t, a, "viewer@example.com", "ops_viewer")
+	if r := do(t, h, "GET", "/ops/settings", "", viewer...); r.code != http.StatusOK {
+		t.Errorf("GET /ops/settings as ops_viewer = %d %s, want 200", r.code, r.body)
+	}
+	if r := do(t, h, "PUT", "/ops/settings/example.ping_message", `{"value":"hi","version":0}`, viewer...); r.code != http.StatusForbidden {
+		t.Errorf("PUT /ops/settings as ops_viewer = %d %s, want 403", r.code, r.body)
+	}
+	admin, _ := signIn(t, a, "admin@example.com", "platform_admin")
+	if r := do(t, h, "POST", "/ops/mail/test", `{"to":"ops@example.com"}`, admin...); r.code != http.StatusAccepted {
+		t.Errorf("POST /ops/mail/test as platform_admin = %d %s, want 202", r.code, r.body)
 	}
 	if r := do(t, h, "GET", "/v1/ping", ""); r.code != http.StatusOK {
-		t.Errorf("GET /v1/ping without token = %d, want public routes unaffected", r.code)
+		t.Errorf("GET /v1/ping without a session = %d, want public routes unaffected", r.code)
 	}
 }
 
 func TestRuntimeSettingsThroughOps(t *testing.T) {
-	h := newApp(t, map[string]string{"OPS_TOKEN": opsToken}).Handler()
+	a := newApp(t, nil)
+	h := a.Handler()
+	bearer, adminID := signIn(t, a, "admin@example.com", "platform_admin")
 	const path = "/ops/settings/example.ping_message"
 
 	list := do(t, h, "GET", "/ops/settings", "", bearer...)
@@ -98,7 +129,7 @@ func TestRuntimeSettingsThroughOps(t *testing.T) {
 	}
 
 	r := do(t, h, "PUT", path, `{"value":"hello","version":0,"reason":"demo"}`, bearer...)
-	if r.code != http.StatusOK || r.json["value"] != "hello" || r.json["version"] != float64(1) || r.json["modified"] != true || r.json["updated_by"] != "ops-token" {
+	if r.code != http.StatusOK || r.json["value"] != "hello" || r.json["version"] != float64(1) || r.json["modified"] != true || r.json["updated_by"] != adminID {
 		t.Fatalf("PUT %s = %d %s", path, r.code, r.body)
 	}
 	if ping := do(t, h, "GET", "/v1/ping", ""); ping.json["message"] != "hello" {
@@ -124,7 +155,7 @@ func TestRuntimeSettingsThroughOps(t *testing.T) {
 
 	history := do(t, h, "GET", path+"/history", "", bearer...)
 	changes, _ := history.json["changes"].([]any)
-	if len(changes) != 1 || changes[0].(map[string]any)["new_value"] != "hello" || changes[0].(map[string]any)["actor_id"] != "ops-token" {
+	if len(changes) != 1 || changes[0].(map[string]any)["new_value"] != "hello" || changes[0].(map[string]any)["actor_id"] != adminID {
 		t.Errorf("GET %s/history = %s", path, history.body)
 	}
 
@@ -138,9 +169,10 @@ func TestRuntimeSettingsThroughOps(t *testing.T) {
 }
 
 func TestJobsThroughOps(t *testing.T) {
-	a := newApp(t, map[string]string{"OPS_TOKEN": opsToken})
+	a := newApp(t, nil)
 	startWorkers(t, a)
 	h := a.Handler()
+	bearer, adminID := signIn(t, a, "admin@example.com", "platform_admin")
 	const def = "/ops/jobs/definitions/heartbeat"
 
 	// Look jobs up by name: `aps gen job` adds more definitions to this app.
@@ -169,7 +201,7 @@ func TestJobsThroughOps(t *testing.T) {
 	}
 
 	run := do(t, h, "POST", def+"/run", "", bearer...)
-	if run.code != http.StatusAccepted || run.json["kind"] != "heartbeat" || run.json["actor_id"] != "ops-token" {
+	if run.code != http.StatusAccepted || run.json["kind"] != "heartbeat" || run.json["actor_id"] != adminID {
 		t.Fatalf("POST %s/run = %d %s", def, run.code, run.body)
 	}
 	runPath := fmt.Sprintf("/ops/jobs/runs/%.0f", run.json["id"])

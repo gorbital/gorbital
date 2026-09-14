@@ -65,11 +65,11 @@ func TestAddMailSMTPWithFlags(t *testing.T) {
 	if got := readFile(t, recipes.InfraMailPath); got != string(smtp.InfraMail) {
 		t.Errorf("infra_mail.go is not the SMTP recipe:\n%s", got)
 	}
-	if example := readFile(t, ".env.example"); !strings.Contains(example, "\nSMTP_HOST=\n") || strings.Contains(example, "RESEND_API_KEY") || !strings.Contains(example, "\nOPS_TOKEN=\n") {
+	if example := readFile(t, ".env.example"); !strings.Contains(example, "\nSMTP_HOST=\n") || strings.Contains(example, "RESEND_API_KEY") || !strings.Contains(example, "\nMAIL_DELIVERY=\n") {
 		t.Errorf(".env.example doesn't hold the SMTP block alone:\n%s", example)
 	}
 	env := readFile(t, ".env")
-	for _, want := range []string{"\nSMTP_HOST=smtp.postmarkapp.com\n", "\nSMTP_PORT=587\n", "\nSMTP_TLS=starttls\n", "\nSMTP_USERNAME=server-token\n", "\nSMTP_PASSWORD=\n", "\nOPS_TOKEN=\n"} {
+	for _, want := range []string{"\nSMTP_HOST=smtp.postmarkapp.com\n", "\nSMTP_PORT=587\n", "\nSMTP_TLS=starttls\n", "\nSMTP_USERNAME=server-token\n", "\nSMTP_PASSWORD=\n", "\nMAIL_DELIVERY=\n"} {
 		if !strings.Contains(env, want) {
 			t.Errorf(".env lacks %q:\n%s", want, env)
 		}

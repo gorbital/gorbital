@@ -35,8 +35,17 @@ func testConfig(t *testing.T, env map[string]string) app.Config {
 // builds the app on it. Tests are skipped when the server isn't configured.
 func newApp(t *testing.T, env map[string]string) *app.App {
 	t.Helper()
+	a, _ := newAppWithURL(t, env)
+	return a
+}
+
+// newAppWithURL is newApp that also returns the database URL, for tests that
+// read tables directly.
+func newAppWithURL(t *testing.T, env map[string]string) (*app.App, string) {
+	t.Helper()
 	ctx := context.Background()
-	full := map[string]string{"DATABASE_URL": pgtest.NewDatabase(t)}
+	url := pgtest.NewDatabase(t)
+	full := map[string]string{"DATABASE_URL": url}
 	maps.Copy(full, env)
 	cfg := testConfig(t, full)
 	if err := app.Migrate(ctx, cfg, io.Discard); err != nil {
@@ -51,7 +60,7 @@ func newApp(t *testing.T, env map[string]string) *app.App {
 			t.Errorf("Close() error = %v", err)
 		}
 	})
-	return a
+	return a, url
 }
 
 type response struct {
@@ -166,7 +175,7 @@ func TestLoadConfigReportsAllErrors(t *testing.T) {
 				"APP_MAX_BODY_BYTES": "-1",
 				"APP_DB_MAX_CONNS":   "0",
 				"APP_JOB_WORKERS":    "many",
-				"OPS_TOKEN":          "short-token-value",
+				"MAIL_DELIVERY":      "provider",
 			}[k]
 		},
 		ReadFile: os.ReadFile,
@@ -174,13 +183,10 @@ func TestLoadConfigReportsAllErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("LoadConfig(invalid values) error = nil, want error")
 	}
-	for _, key := range []string{"APP_ENV", "APP_ADDR", "APP_DOCS_ENABLED", "APP_MAX_BODY_BYTES", "APP_DB_MAX_CONNS", "APP_JOB_WORKERS", "OPS_TOKEN"} {
+	for _, key := range []string{"APP_ENV", "APP_ADDR", "APP_DOCS_ENABLED", "APP_MAX_BODY_BYTES", "APP_DB_MAX_CONNS", "APP_JOB_WORKERS", "RESEND_API_KEY"} {
 		if !strings.Contains(err.Error(), key) {
 			t.Errorf("LoadConfig() error does not mention %s:\n%v", key, err)
 		}
-	}
-	if strings.Contains(err.Error(), "short-token-value") {
-		t.Error("LoadConfig() error reveals the OPS_TOKEN value")
 	}
 }
 

@@ -23,7 +23,7 @@ const (
 )
 
 func TestEmailThroughOps(t *testing.T) {
-	env := map[string]string{"OPS_TOKEN": opsToken}
+	env := map[string]string{}
 	mailpitAPI := os.Getenv(envMailpitURL)
 	if addr := os.Getenv(envMailpitSMTP); addr != "" {
 		env["MAILPIT_SMTP_ADDR"] = addr
@@ -31,6 +31,7 @@ func TestEmailThroughOps(t *testing.T) {
 	a := newApp(t, env)
 	startWorkers(t, a)
 	h := a.Handler()
+	bearer, _ := signIn(t, a, "admin@example.com", "platform_admin")
 
 	status := do(t, h, "GET", "/ops/mail", "", bearer...)
 	details, _ := status.json["details"].(map[string]any)

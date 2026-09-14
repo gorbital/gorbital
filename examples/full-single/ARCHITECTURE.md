@@ -15,7 +15,8 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   job_<name>.go          declares one job and its default configuration
   app.go                 construction order and lifecycle
   routes.go              API, health, docs and the middleware chain
-  ops_auth.go            interim OPS_TOKEN protection for /ops/*
+  permissions.go         permissions and platform roles (platform_admin, ops_viewer)
+  admin.go               grant-role, revoke-role and roles commands (cmd/api)
   mail.go                email delivery: Mailpit in development or the provider
   infra_mail.go          the email provider's configuration (replaced by `aps add mail`)
   modules.go             one line per business module (//aps:anchor modules)
@@ -27,6 +28,7 @@ internal/modules/<name>/ one bounded context per directory
   usecase/               application logic; ports.go holds the interfaces it needs
   repository/            storage adapters implementing ports (hand-written SQL)
   delivery/              HTTP adapter: Huma operations ↔ use cases
+internal/modules/auth/   sign-up, sign-in, sessions, passwords and roles: domain, usecase, repository (SQL), delivery
 internal/modules/ops/    admin APIs for runtime settings, jobs, the audit log and email
 api/openapi.json         exported API contract (committed; review changes in pull requests)
 compose.yaml             PostgreSQL and Mailpit for development and tests
@@ -36,7 +38,7 @@ compose.yaml             PostgreSQL and Mailpit for development and tests
 
 ```text
 HTTP → middleware (recover, request ID, tracing, access log, security headers, CORS,
-       cross-origin protection, body limit, ops token) → delivery → usecase → domain
+       cross-origin protection, body limit, session authentication, auth rate limit) → delivery → usecase → domain
      ← domain errors mapped to problem+json in internal/app/module_<name>.go
 ```
 
@@ -51,6 +53,10 @@ A value is never in more than one layer, and secrets are never runtime settings.
 ## Background jobs
 
 Jobs run in the API process on PostgreSQL (River). A job carries the request ID, trace and actor that enqueued it, but never their permissions; it runs as the `jobs` system actor. Add one with `aps gen job <Name>`, or copy `internal/jobs/heartbeat` and `internal/app/job_heartbeat.go` and add a line in `jobs.go`.
+
+## Authentication
+
+`internal/modules/auth` owns sign-up, email codes, sign-in, sessions, password reset and change, account deletion and platform roles, with all four layers: its use cases hold every flow and its repository holds the SQL for `auth_users`, `auth_sessions`, `auth_codes` and `auth_user_roles`. The apistock auth library supplies password hashing, tokens, codes, cookies, the permission catalog and the middleware that puts the signed-in user's actor (with the permissions of their roles) in each request's context. Use cases check `actor.Can(permission)`; declare permissions and roles in `internal/app/permissions.go`.
 
 ## Email
 

@@ -1,6 +1,25 @@
 {
   "components": {
     "schemas": {
+      "AcceptedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "check_your_email"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "type": "object"
+      },
       "AuditEventPage": {
         "additionalProperties": false,
         "properties": {
@@ -33,20 +52,17 @@
           },
           "actor_id": {
             "examples": [
-              "ops-token"
+              "usr_mfrggzdfmztwq2lk"
             ],
             "type": "string"
           },
           "actor_kind": {
             "examples": [
-              "service"
+              "user"
             ],
             "type": "string"
           },
           "actor_label": {
-            "examples": [
-              "Ops token"
-            ],
             "type": "string"
           },
           "id": {
@@ -113,6 +129,38 @@
         ],
         "type": "object"
       },
+      "ChangePasswordInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "current_password": {
+            "maxLength": 512,
+            "type": "string"
+          },
+          "new_password": {
+            "description": "At least 12 characters",
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "type": "object"
+      },
+      "DeleteAccountInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "password": {
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "type": "object"
+      },
       "EchoInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -127,6 +175,22 @@
         },
         "required": [
           "message"
+        ],
+        "type": "object"
+      },
+      "EmailInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "email": {
+            "examples": [
+              "ada@example.com"
+            ],
+            "maxLength": 254,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
         ],
         "type": "object"
       },
@@ -522,6 +586,69 @@
         ],
         "type": "object"
       },
+      "LoginInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "email": {
+            "examples": [
+              "ada@example.com"
+            ],
+            "maxLength": 254,
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 512,
+            "type": "string"
+          },
+          "transport": {
+            "default": "cookie",
+            "description": "cookie (browsers): an HttpOnly session cookie; bearer (native apps): the token in the response",
+            "enum": [
+              "cookie",
+              "bearer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object"
+      },
+      "LoginResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/SessionResponse"
+          },
+          "token": {
+            "description": "Only with transport bearer: send it as Authorization: Bearer \u003ctoken\u003e. It is shown once.",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserResponse"
+          }
+        },
+        "required": [
+          "user",
+          "session"
+        ],
+        "type": "object"
+      },
+      "LogoutAllResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "revoked": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "revoked"
+        ],
+        "type": "object"
+      },
       "MailStatusResponse": {
         "additionalProperties": false,
         "properties": {
@@ -573,6 +700,33 @@
           "details",
           "from_name",
           "from_email"
+        ],
+        "type": "object"
+      },
+      "MeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "permissions": {
+            "description": "Granted by the user's roles",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "session": {
+            "$ref": "#/components/schemas/SessionResponse"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserResponse"
+          }
+        },
+        "required": [
+          "user",
+          "session",
+          "permissions"
         ],
         "type": "object"
       },
@@ -704,6 +858,28 @@
         ],
         "type": "object"
       },
+      "RegisterInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "email": {
+            "examples": [
+              "ada@example.com"
+            ],
+            "maxLength": 254,
+            "type": "string"
+          },
+          "password": {
+            "description": "At least 12 characters",
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object"
+      },
       "ResetDefinitionInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -719,6 +895,36 @@
         },
         "required": [
           "version"
+        ],
+        "type": "object"
+      },
+      "ResetInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "code": {
+            "examples": [
+              "123456"
+            ],
+            "maxLength": 16,
+            "type": "string"
+          },
+          "email": {
+            "examples": [
+              "ada@example.com"
+            ],
+            "maxLength": 254,
+            "type": "string"
+          },
+          "password": {
+            "description": "The new password, at least 12 characters",
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "code",
+          "password"
         ],
         "type": "object"
       },
@@ -738,6 +944,66 @@
         },
         "required": [
           "version"
+        ],
+        "type": "object"
+      },
+      "SessionList": {
+        "additionalProperties": false,
+        "properties": {
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/SessionResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "sessions"
+        ],
+        "type": "object"
+      },
+      "SessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "current": {
+            "description": "The session making this request",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "description": "When the session ends unless used again",
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "ses_nbswy3dpeb3w64tmmq"
+            ],
+            "type": "string"
+          },
+          "ip": {
+            "type": "string"
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "user_agent": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created_at",
+          "last_seen_at",
+          "expires_at",
+          "current"
         ],
         "type": "object"
       },
@@ -1024,11 +1290,77 @@
           "version"
         ],
         "type": "object"
+      },
+      "UserResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "email": {
+            "examples": [
+              "ada@example.com"
+            ],
+            "type": "string"
+          },
+          "email_verified": {
+            "type": "boolean"
+          },
+          "id": {
+            "examples": [
+              "usr_mfrggzdfmztwq2lk"
+            ],
+            "type": "string"
+          },
+          "roles": {
+            "description": "Platform roles, such as platform_admin",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "email_verified",
+          "created_at",
+          "roles"
+        ],
+        "type": "object"
+      },
+      "VerifyInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "code": {
+            "examples": [
+              "123456"
+            ],
+            "maxLength": 16,
+            "type": "string"
+          },
+          "email": {
+            "examples": [
+              "ada@example.com"
+            ],
+            "maxLength": 254,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "code"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
       "bearer": {
-        "description": "Ops token (OPS_TOKEN) for /ops endpoints, until authentication is added.",
+        "description": "Session token from POST /v1/auth/login with \"transport\": \"bearer\". Browsers use the session cookie that login sets instead.",
         "scheme": "bearer",
         "type": "http"
       }
@@ -3212,6 +3544,779 @@
         "summary": "List a runtime setting's changes",
         "tags": [
           "Ops: settings"
+        ]
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "description": "Starts a session. Browsers get an HttpOnly `__Host-session` cookie; native apps pass `\"transport\": \"bearer\"` and get the token in the response.",
+        "operationId": "auth-login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Sign in",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "auth-logout",
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sign out this device",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/logout-all": {
+      "post": {
+        "operationId": "auth-logout-all",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutAllResponse"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sign out every device",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/me": {
+      "delete": {
+        "description": "Requires the password. Signs out every device.",
+        "operationId": "auth-delete-account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccountInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete the account",
+        "tags": [
+          "Auth"
+        ]
+      },
+      "get": {
+        "operationId": "auth-me",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get the signed-in user",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/password": {
+      "put": {
+        "description": "Signs out other devices.",
+        "operationId": "auth-change-password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change the password",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/password/forgot": {
+      "post": {
+        "description": "The response is the same whether or not the address has an account.",
+        "operationId": "auth-forgot-password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedResponse"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Email a password reset code",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/password/reset": {
+      "post": {
+        "description": "Signs out every device.",
+        "operationId": "auth-reset-password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Set a new password with a reset code",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "description": "Emails a 6-digit verification code. The response is the same whether or not the address already has an account.",
+        "operationId": "auth-register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedResponse"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Create an account",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/sessions": {
+      "get": {
+        "operationId": "auth-list-sessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List signed-in devices",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/sessions/{id}": {
+      "delete": {
+        "operationId": "auth-revoke-session",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "examples": [
+                "ses_nbswy3dpeb3w64tmmq"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sign out one device",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/verify-email": {
+      "post": {
+        "operationId": "auth-verify-email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Verify an email address with its code",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/verify-email/resend": {
+      "post": {
+        "description": "At most once a minute per address.",
+        "operationId": "auth-resend-verification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptedResponse"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Send a new verification code",
+        "tags": [
+          "Auth"
         ]
       }
     },

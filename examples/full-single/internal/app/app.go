@@ -21,12 +21,16 @@ import (
 	"apistock.dev/httpx"
 	"apistock.dev/mail"
 	"apistock.dev/modules/auditpg"
+	authlib "apistock.dev/modules/auth"
 	"apistock.dev/modules/jobs"
 	"apistock.dev/modules/openapi"
 	"apistock.dev/modules/postgres"
 	"apistock.dev/modules/settings"
 	"apistock.dev/modules/telemetry"
 
+	authmodule "example.com/acme-api/internal/modules/auth"
+	authdomain "example.com/acme-api/internal/modules/auth/domain"
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 )
 
@@ -43,6 +47,7 @@ type App struct {
 	settings    *settings.Store
 	jobs        *jobs.Client
 	jobsManager *jobs.Manager
+	auth        *authmodule.Module
 	api         huma.API
 	handler     http.Handler
 }
@@ -130,7 +135,11 @@ func (a *App) build(ctx context.Context) error {
 	}
 
 	defs := jobs.NewDefinitions()
-	defineJobs(defs, jobDeps{logger: a.logger})
+	defineJobs(defs, jobDeps{
+		logger: a.logger,
+		// a.auth is built below, before any job runs.
+		authCleanup: func(ctx context.Context) (authdomain.CleanupResult, error) { return a.auth.Service().Cleanup(ctx) },
+	})
 	a.jobs, err = jobs.New(pool, workers,
 		jobs.WithQueues(map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: a.cfg.JobWorkers}}),
 		jobs.WithDefinitions(defs),
@@ -150,8 +159,26 @@ func (a *App) build(ctx context.Context) error {
 	mailer := mail.WithDefaults(jobs.AsyncSender(a.jobs), appSettings.mailDefaults())
 	warnDefaultSender(ctx, a.logger, a.cfg, appSettings)
 
+	// Authentication: users, sessions and the platform roles that grant ops
+	// permissions (permissions.go).
+	a.auth, err = authmodule.New(pool, authusecase.Config{
+		Catalog:                 declarePermissions(),
+		Recorder:                recorder,
+		Emails:                  authlib.NewMailEmails(mailer, ServiceName),
+		Logger:                  a.logger,
+		SessionIdleTTL:          appSettings.authSessionIdleTTL,
+		SessionAbsoluteTTL:      appSettings.authSessionAbsoluteTTL,
+		VerificationCodeTTL:     appSettings.authVerificationCodeTTL,
+		ResetCodeTTL:            appSettings.authResetCodeTTL,
+		DeletedAccountRetention: appSettings.authDeletedAccountRetention,
+	})
+	if err != nil {
+		return err
+	}
+
 	return a.buildHTTP(services{
 		pingMessage: appSettings.pingMessage,
+		auth:        a.auth,
 		ops: opsusecase.Deps{
 			Settings: a.settings,
 			Jobs:     a.jobsManager,
@@ -176,7 +203,7 @@ func (a *App) Run(ctx context.Context) error {
 		opts = append(opts, lifecycle.WithDrainDelay(0)) // no load balancer to drain locally
 	}
 
-	a.logger.InfoContext(ctx, "starting", "addr", "http://"+a.cfg.Addr, "docs_enabled", a.cfg.DocsEnabled, "ops_enabled", !a.cfg.OpsToken.IsZero())
+	a.logger.InfoContext(ctx, "starting", "addr", "http://"+a.cfg.Addr, "docs_enabled", a.cfg.DocsEnabled, "mail_delivery", a.cfg.MailDelivery)
 	return lifecycle.Run(ctx, append([]lifecycle.Runner{server}, a.Workers()...), opts...)
 }
 
@@ -185,6 +212,9 @@ func (a *App) Run(ctx context.Context) error {
 func (a *App) Workers() []lifecycle.Runner {
 	return []lifecycle.Runner{a.settings, a.jobs, a.jobsManager}
 }
+
+// Auth returns the authentication service, for tests and commands.
+func (a *App) Auth() *authusecase.Service { return a.auth.Service() }
 
 // Handler returns the HTTP handler, for tests.
 func (a *App) Handler() http.Handler { return a.handler }

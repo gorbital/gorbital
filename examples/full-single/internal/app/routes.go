@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -10,7 +11,21 @@ import (
 	"apistock.dev/buildinfo"
 	"apistock.dev/httpx"
 	"apistock.dev/modules/openapi"
+	"apistock.dev/ratelimit"
 )
+
+// authRequestsPerMinute bounds sign-up, sign-in, code and password requests
+// per client IP address, on top of the auth module's per-account limits.
+const authRequestsPerMinute = 60
+
+// authLimitKey limits changing requests to /v1/auth/ by client IP. Behind a
+// proxy, add trusted-proxy middleware so RemoteAddr is the client.
+func authLimitKey(r *http.Request) string {
+	if r.Method == http.MethodGet || !strings.HasPrefix(r.URL.Path, "/v1/auth/") {
+		return ""
+	}
+	return ratelimit.ByRemoteIP(r)
+}
 
 type versionOutput struct {
 	Body buildinfo.Info
@@ -26,7 +41,7 @@ func (a *App) buildHTTP(svc services) error {
 
 	mux := http.NewServeMux()
 	api := openapi.New(mux, ServiceName, buildinfo.Read().Version,
-		openapi.WithBearerAuth("Ops token (OPS_TOKEN) for /ops endpoints, until authentication is added."),
+		openapi.WithBearerAuth(`Session token from POST /v1/auth/login with "transport": "bearer". Browsers use the session cookie that login sets instead.`),
 	)
 
 	huma.Register(api, huma.Operation{
@@ -65,17 +80,23 @@ func (a *App) buildHTTP(svc services) error {
 		hsts = 365 * 24 * time.Hour
 	}
 
-	a.api = api
-	a.handler = httpx.Chain(mux,
+	middlewares := []httpx.Middleware{
 		httpx.Recover(a.logger),
 		httpx.RequestID(),
 		a.tel.HTTPMiddleware(),
 		httpx.AccessLog(a.logger),
 		httpx.SecureHeaders(httpx.SecureHeadersOptions{HSTSMaxAge: hsts}),
 		cors,
-		crossOrigin,
+		crossOrigin, // protects cookie-authenticated requests from other sites
 		httpx.BodyLimit(a.cfg.MaxBodyBytes),
-		opsAuth(a.cfg.OpsToken),
-	)
+	}
+	if svc.auth != nil {
+		middlewares = append(middlewares,
+			svc.auth.Middleware(a.logger),
+			ratelimit.Middleware(ratelimit.New(authRequestsPerMinute/60.0, authRequestsPerMinute), authLimitKey, nil),
+		)
+	}
+	a.api = api
+	a.handler = httpx.Chain(mux, middlewares...)
 	return nil
 }

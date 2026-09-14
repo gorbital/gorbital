@@ -1,0 +1,77 @@
+package domain
+
+import "time"
+
+// User is an account.
+type User struct {
+	ID              string
+	Email           string
+	NormalizedEmail string
+	// PasswordHash is the argon2id hash; empty for accounts without a
+	// password. It never leaves the use cases.
+	PasswordHash    string
+	EmailVerifiedAt *time.Time
+	CreatedAt       time.Time
+	// Roles are the user's platform roles, when loaded.
+	Roles []string
+}
+
+// EmailVerified reports whether the user proved they own the address.
+func (u User) EmailVerified() bool { return u.EmailVerifiedAt != nil }
+
+// HasPassword reports whether the account can sign in with a password.
+func (u User) HasPassword() bool { return u.PasswordHash != "" }
+
+// Session is a signed-in device.
+type Session struct {
+	ID     string
+	UserID string
+	// TokenHash is the SHA-256 of the session token; the token itself is
+	// never stored.
+	TokenHash         []byte
+	CreatedAt         time.Time
+	LastSeenAt        time.Time
+	IdleExpiresAt     time.Time
+	AbsoluteExpiresAt time.Time
+	RevokedAt         *time.Time
+	IP                string
+	UserAgent         string
+}
+
+// ActiveAt reports whether the session can be used at now.
+func (s Session) ActiveAt(now time.Time) bool {
+	return s.RevokedAt == nil && now.Before(s.IdleExpiresAt) && now.Before(s.AbsoluteExpiresAt)
+}
+
+// ExpiresAt is when the session ends unless used again.
+func (s Session) ExpiresAt() time.Time {
+	if s.IdleExpiresAt.Before(s.AbsoluteExpiresAt) {
+		return s.IdleExpiresAt
+	}
+	return s.AbsoluteExpiresAt
+}
+
+// Code purposes.
+const (
+	PurposeVerifyEmail   = "verify_email"
+	PurposeResetPassword = "reset_password"
+)
+
+// Code is a one-time code sent by email. Only its hash is stored.
+type Code struct {
+	ID          string
+	UserID      string
+	Purpose     string
+	Hash        []byte
+	Attempts    int
+	MaxAttempts int
+	ExpiresAt   time.Time
+	CreatedAt   time.Time
+}
+
+// CleanupResult counts what a cleanup removed.
+type CleanupResult struct {
+	Sessions int64
+	Codes    int64
+	Users    int64
+}

@@ -85,7 +85,7 @@ go run ./cmd/api openapi > api/openapi.json
 
 ```bash
 cd examples/full-single
-cp .env.example .env                 # set OPS_TOKEN: openssl rand -hex 32
+cp .env.example .env
 docker compose up -d --wait          # its own PostgreSQL on 127.0.0.1:5432 and Mailpit on http://127.0.0.1:8025
 go run ./cmd/migrate
 go run ./cmd/api

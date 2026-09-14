@@ -6,7 +6,7 @@
 
 | Put it in | When | Examples |
 |---|---|---|
-| **Environment** (`internal/app/config.go`, `.env.example`) | It is a secret, infrastructure, or needed before the database connects | `DATABASE_URL`, API keys, `OPS_TOKEN`, listen address, pool size |
+| **Environment** (`internal/app/config.go`, `.env.example`) | It is a secret, infrastructure, or needed before the database connects | `DATABASE_URL`, API keys such as `RESEND_API_KEY`, listen address, pool size |
 | **Runtime setting** (`internal/app/settings.go`) | An operator should change it without a deploy | Code expiry, rate limits, sender name, frontend URL, maintenance mode |
 
 A value is never in both, and secrets are never runtime settings.

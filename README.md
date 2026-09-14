@@ -2,7 +2,7 @@
 
 **Production-ready Go APIs in minutes, as code you own.**
 
-> **Status: pre-alpha.** v0.1 (core library + Minimal preset) is implemented and tested but not released. v0.2 is in progress: PostgreSQL, runtime settings, background jobs, audit storage, email (Resend or SMTP, chosen with `aps add mail`) and their admin APIs are implemented in the library and in the [Full preset example](examples/full-single); authentication is next. The library isn't published at `apistock.dev` yet, so apps are created against a local checkout with `--local`.
+> **Status: pre-alpha.** v0.1 (core library + Minimal preset) is implemented and tested but not released. v0.2 is in progress: PostgreSQL, runtime settings, background jobs, audit storage, email (Resend or SMTP, chosen with `aps add mail`), authentication with platform roles, and their admin APIs are implemented in the library and in the [Full preset example](examples/full-single); `aps new --preset=full` is next. The library isn't published at `apistock.dev` yet, so apps are created against a local checkout with `--local`.
 
 ## Try v0.1 from a checkout
 
@@ -21,14 +21,14 @@ Requires Docker. PostgreSQL always runs in a container.
 
 ```bash
 cd apistock/examples/full-single
-cp .env.example .env                 # set OPS_TOKEN: openssl rand -hex 32
+cp .env.example .env
 docker compose up -d --wait
 set -a; . ./.env; set +a
 go run ./cmd/migrate
 go run ./cmd/api                     # docs at http://127.0.0.1:8080/docs
 ```
 
-It shows runtime settings (`/ops/settings`), Lambda-style background jobs (`/ops/jobs`), the audit log (`/ops/audit`) and email (`/ops/mail`, with every development email in Mailpit at http://127.0.0.1:8025). Choose Resend or SMTP with `aps add mail`. See the [ops API reference](docs/guides/ops-api.md) and the [email guide](docs/guides/email.md).
+It shows sign-up and sign-in (`/v1/auth`; make yourself an admin with `go run ./cmd/api grant-role you@example.com platform_admin`), runtime settings (`/ops/settings`), Lambda-style background jobs (`/ops/jobs`), the audit log (`/ops/audit`) and email (`/ops/mail`, with every development email in Mailpit at http://127.0.0.1:8025). Choose Resend or SMTP with `aps add mail`. See the [ops API reference](docs/guides/ops-api.md) and the [email guide](docs/guides/email.md).
 
 ## What apistock is
 

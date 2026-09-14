@@ -1,21 +1,26 @@
 # Ops API reference
 
-Admin APIs of the Full preset (`internal/modules/ops`), implemented in `examples/full-single`. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0034](../adr/0034-interim-ops-token.md), [ADR-0036](../adr/0036-audit-storage.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md).
+Admin APIs of the Full preset (`internal/modules/ops`), implemented in `examples/full-single`. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0036](../adr/0036-audit-storage.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md), [ADR-0038](../adr/0038-authentication-v0-2.md).
 
 ## Authentication
 
-Until authentication ships, every `/ops/*` request needs the ops token:
+`/ops/*` requests use a signed-in session: a browser's session cookie, or a bearer token from `POST /v1/auth/login` with `"transport": "bearer"`. The account needs a platform role ([authentication guide](authentication.md)):
 
 ```bash
-export OPS_TOKEN=$(openssl rand -hex 32)   # set the same value in the app's environment
-curl -H "Authorization: Bearer $OPS_TOKEN" http://127.0.0.1:8080/ops/settings
+go run ./cmd/api grant-role you@example.com platform_admin
+TOKEN=$(curl -s -X POST http://127.0.0.1:8080/v1/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"your password","transport":"bearer"}' | jq -r .token)
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/settings
 ```
 
 | Situation | Response |
 |---|---|
-| `OPS_TOKEN` not configured | 404 `not_found` for every `/ops/*` path |
-| Missing or wrong token | 401 `unauthenticated`, `WWW-Authenticate: Bearer realm="ops"` |
-| Valid token | Acts as actor `ops-token` with every ops permission |
+| No or invalid session | 401 `unauthenticated` |
+| Signed in without the operation's permission | 403 `forbidden` |
+| Role `platform_admin` | Every ops permission |
+| Role `ops_viewer` | `ops.settings.read`, `ops.jobs.read`, `ops.audit.read`, `ops.mail.read` |
+
+Changes are attributed to the signed-in user in history, job metadata and audit events.
 
 ## Permissions
 
@@ -50,7 +55,7 @@ Missing permission: 403 `forbidden`.
 
 ```bash
 curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
-  -H "Authorization: Bearer $OPS_TOKEN" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"value":"hello","version":0,"reason":"demo"}'
 ```
 
@@ -66,7 +71,7 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
   "invalid_stored_value": false,
   "version": 1,
   "updated_at": "2026-09-14T12:00:00Z",
-  "updated_by": "ops-token",
+  "updated_by": "usr_mfrggzdfmztwq2lk",
   "reason_required": false,
   "restart_required": false,
   "restart_pending": false,
@@ -88,7 +93,7 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 
 ```bash
 curl -X PUT http://127.0.0.1:8080/ops/jobs/definitions/heartbeat \
-  -H "Authorization: Bearer $OPS_TOKEN" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"schedule":"@every 2h","timeout":"30s","version":0,"reason":"less noise"}'
 ```
 
@@ -101,7 +106,7 @@ curl -X PUT http://127.0.0.1:8080/ops/jobs/definitions/heartbeat \
   "modified": true,
   "invalid_override": false,
   "version": 1,
-  "updated_by": "ops-token",
+  "updated_by": "usr_mfrggzdfmztwq2lk",
   "next_run_at": "2026-09-14T14:00:00Z",
   "last_run": {"id": 42, "kind": "heartbeat", "state": "completed", "attempt": 1, "…": "…"}
 }
@@ -136,7 +141,7 @@ Run fields: `id`, `kind`, `queue`, `state`, `attempt`, `max_attempts`, `priority
 | `GET /ops/audit/{id}` | One event | 200 |
 
 ```bash
-curl -H "Authorization: Bearer $OPS_TOKEN" \
+curl -H "Authorization: Bearer $TOKEN" \
   'http://127.0.0.1:8080/ops/audit?action_prefix=settings.&limit=20'
 ```
 
@@ -147,9 +152,8 @@ curl -H "Authorization: Bearer $OPS_TOKEN" \
       "id": 7,
       "occurred_at": "2026-09-14T12:00:00.123Z",
       "recorded_at": "2026-09-14T12:00:00.125Z",
-      "actor_kind": "service",
-      "actor_id": "ops-token",
-      "actor_label": "Ops token",
+      "actor_kind": "user",
+      "actor_id": "usr_mfrggzdfmztwq2lk",
       "action": "settings.value.changed",
       "resource_type": "setting",
       "resource_id": "example.ping_message",
@@ -164,7 +168,7 @@ curl -H "Authorization: Bearer $OPS_TOKEN" \
 ```
 
 - `request_id` links an event to its access log line, trace and any jobs the request enqueued.
-- `ip` and `user_agent` appear when the recording module sets them (authentication events will).
+- `ip` and `user_agent` appear on events recorded during a request, such as sign-ins.
 - Metadata values under sensitive keys such as `password` or `token` are stored as `"[REDACTED]"`; oversized metadata is replaced with `{"metadata_dropped": "too_large"}`.
 - Events can't be changed. Retention policies arrive in v0.5.
 
@@ -186,9 +190,9 @@ Resend details are `{"api_key": "configured"}` or `"missing"`. Change the sender
 
 | Code | Status | When |
 |---|---|---|
-| `unauthenticated` | 401 | Missing or invalid ops token |
+| `unauthenticated` | 401 | No valid session |
 | `forbidden` | 403 | Missing permission |
-| `not_found` | 404 | Ops disabled, or no such route |
+| `not_found` | 404 | No such route |
 | `validation_failed` | 422 | Request doesn't match the schema |
 | `setting_not_found` | 404 | Unknown setting key |
 | `setting_version_conflict` | 409 | Setting changed since it was read |

@@ -7,9 +7,10 @@ import (
 )
 
 func TestAuditLogThroughOps(t *testing.T) {
-	a := newApp(t, map[string]string{"OPS_TOKEN": opsToken})
+	a := newApp(t, nil)
 	startWorkers(t, a)
 	h := a.Handler()
+	bearer, adminID := signIn(t, a, "admin@example.com", "platform_admin")
 	const setting = "/ops/settings/example.ping_message"
 
 	if r := do(t, h, "PUT", setting, `{"value":"audited","version":0,"reason":"audit demo"}`, bearer...); r.code != http.StatusOK {
@@ -29,7 +30,7 @@ func TestAuditLogThroughOps(t *testing.T) {
 	}
 	event := events[0].(map[string]any)
 	metadata, _ := event["metadata"].(map[string]any)
-	if event["actor_kind"] != "service" || event["actor_id"] != "ops-token" || event["resource_type"] != "setting" ||
+	if event["actor_kind"] != "user" || event["actor_id"] != adminID || event["resource_type"] != "setting" ||
 		event["resource_id"] != "example.ping_message" || event["outcome"] != "success" ||
 		metadata["reason"] != "audit demo" || metadata["version"] != float64(1) {
 		t.Errorf("audit event = %v", event)
@@ -49,7 +50,7 @@ func TestAuditLogThroughOps(t *testing.T) {
 	if r := do(t, h, "DELETE", setting, `{"version":1}`, bearer...); r.code != http.StatusOK {
 		t.Fatalf("DELETE %s = %d %s", setting, r.code, r.body)
 	}
-	all := do(t, h, "GET", "/ops/audit?actor_id=ops-token&limit=1", "", bearer...)
+	all := do(t, h, "GET", "/ops/audit?actor_id="+adminID+"&limit=1", "", bearer...)
 	if events, _ := all.json["events"].([]any); len(events) != 1 || all.json["next_cursor"] == nil {
 		t.Errorf("GET /ops/audit?limit=1 = %s, want one event and a next cursor", all.body)
 	}

@@ -4,12 +4,15 @@ import (
 	"log/slog"
 
 	"apistock.dev/modules/jobs"
+
+	"example.com/acme-api/internal/jobs/authcleanup"
 )
 
 // jobDeps are what job workers may use. Add stores and clients here when a
 // job needs them.
 type jobDeps struct {
-	logger *slog.Logger
+	logger      *slog.Logger
+	authCleanup authcleanup.Cleanup
 }
 
 // defineJobs declares every background job. Each job's schedule, timeout and
@@ -18,4 +21,5 @@ type jobDeps struct {
 func defineJobs(defs *jobs.Definitions, deps jobDeps) {
 	//aps:anchor jobs
 	defineHeartbeatJob(defs, deps)
+	defineAuthCleanupJob(defs, deps)
 }

@@ -2,8 +2,11 @@
 //
 // Usage:
 //
-//	api           run the API server
-//	api openapi   print the OpenAPI document
+//	api                              run the API server
+//	api openapi                      print the OpenAPI document
+//	api roles                        list the platform roles
+//	api grant-role <email> <role>    give an account a platform role
+//	api revoke-role <email> <role>   take a platform role away
 package main
 
 import (
@@ -32,6 +35,17 @@ func run(ctx context.Context, args []string) error {
 		switch args[0] {
 		case "openapi":
 			return app.WriteOpenAPI(ctx, cfg, os.Stdout)
+		case "roles":
+			app.WriteRoles(os.Stdout)
+			return nil
+		case "grant-role", "revoke-role":
+			if len(args) != 3 {
+				return fmt.Errorf("usage: api %s <email> <role>", args[0])
+			}
+			if args[0] == "grant-role" {
+				return app.GrantRole(ctx, cfg, args[1], args[2], os.Stdout)
+			}
+			return app.RevokeRole(ctx, cfg, args[1], args[2], os.Stdout)
 		default:
 			return fmt.Errorf("unknown command %q", args[0])
 		}

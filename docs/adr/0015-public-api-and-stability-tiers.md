@@ -27,7 +27,7 @@ Option 3.
 | Audit action names (for example `auth.session.revoked`) | **Stable** | Additive only |
 | Runtime setting keys declared by recipes (for example `auth.verification_code_ttl`, ADR-0031) | **Stable** | Additive only; a removed key's stored rows are ignored, never reused |
 | Job definition names (for example `heartbeat`, ADR-0033) and the mail job kind `apistock.mail.send` | **Stable** | Additive only; renaming orphans overrides, history and queued jobs |
-| Permission names (for example `ops.jobs.run`) | **Stable** | Additive only |
+| Permission and platform role names (for example `ops.jobs.run`, `platform_admin`) | **Stable** | Additive only |
 | `/ops/*` endpoint paths and response fields | **Stable** from 1.0 | Additive only; checked with the OpenAPI breaking-change test |
 | Identity columns of module tables that apps may reference (for example `auth_users.id`) | **Stable** | All other module columns are internal; apps use the Go API |
 | `aps` commands, flags, exit codes, `--json` output (with `schemaVersion`) | **Stable** from CLI 1.0 | Additive only |

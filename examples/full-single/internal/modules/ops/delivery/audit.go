@@ -22,9 +22,9 @@ type AuditEventResponse struct {
 	ID           int64          `json:"id"`
 	OccurredAt   time.Time      `json:"occurred_at"`
 	RecordedAt   time.Time      `json:"recorded_at"`
-	ActorKind    string         `json:"actor_kind" example:"service"`
-	ActorID      string         `json:"actor_id,omitempty" example:"ops-token"`
-	ActorLabel   string         `json:"actor_label,omitempty" example:"Ops token"`
+	ActorKind    string         `json:"actor_kind" example:"user"`
+	ActorID      string         `json:"actor_id,omitempty" example:"usr_mfrggzdfmztwq2lk"`
+	ActorLabel   string         `json:"actor_label,omitempty"`
 	Action       string         `json:"action" example:"settings.value.changed"`
 	ResourceType string         `json:"resource_type,omitempty" example:"setting"`
 	ResourceID   string         `json:"resource_id,omitempty" example:"example.ping_message"`

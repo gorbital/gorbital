@@ -127,7 +127,7 @@ apistock/
 │   ├── jobs/                River, job definitions and Manager (Lambda-style config), AsyncSender   (v0.2)
 │   ├── mail/resend/ · mail/smtp/   Resend HTTP API and standard-library SMTP senders   (v0.2)
 │   ├── auditpg/             append-only audit store with redaction, filtered query API   (v0.2)
-│   ├── auth/                identity, passwords, sessions, oidc (google, apple), totp, passkey
+│   ├── auth/                building blocks: argon2id, tokens, codes, session middleware, permission catalog (v0.2); oidc, totp, passkey (v0.3)
 │   ├── orgs/                organisations, memberships, invitations, org roles
 │   └── releases/            release record at boot + query API
 ├── cli/                     module apistock.dev/cli → cmd/aps
@@ -206,6 +206,8 @@ Three kinds of code: **library** (imported), **derived** (`// Code generated …
 
 Email + password with email verification codes; server-side sessions (no JWT sessions); logout and logout-all; password reset and change; active sessions list and revoke; account deletion; Google and Apple sign-in (web redirect and native token); TOTP with recovery codes; passkeys; platform roles with a permission catalog; 2FA policy per role.
 
+Implemented in v0.2 ([ADR-0038](adr/0038-authentication-v0-2.md), [authentication guide](guides/authentication.md)): the generated app owns `internal/modules/auth` with all four layers (use cases for every flow, a repository with one SQL file per operation, `/v1/auth` endpoints); `modules/auth` provides the building blocks (argon2id, tokens and codes stored as hashes, the session middleware and cookies, the permission catalog, plain emails). Browsers get an HttpOnly `__Host-session` cookie; native clients ask for a bearer token. Durations are runtime settings clamped to hard limits. Roles are read on every request, and the first administrator is granted with `go run ./cmd/api grant-role <email> platform_admin`.
+
 ### 7.2 Tenancy ([ADR-0023](adr/0023-tenancy.md))
 
 - **Single-tenant** (default) or **multi-tenant**, chosen at creation and stored in `apistock.yaml`.
@@ -223,7 +225,7 @@ Implemented in v0.2 ([ADR-0037](adr/0037-email-setup-and-delivery.md), [email gu
 
 `/ops/*`, protected by platform roles and required 2FA. v1: audit logs, system health, release monitor, jobs, retention, maintenance mode, runtime settings. v1.1: feature flags, live observability, incidents, API keys.
 
-Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)), `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)), `/ops/mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)). Until authentication ships they are protected by an interim `OPS_TOKEN` bearer token ([ADR-0034](adr/0034-interim-ops-token.md)); permission checks already run in the ops use cases.
+Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)), `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)), `/ops/mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)). They require a signed-in user whose platform roles grant the operation's permission ([ADR-0038](adr/0038-authentication-v0-2.md)); required 2FA for ops roles arrives in v0.3.
 
 ### 7.5 API contract and docs ([ADR-0027](adr/0027-api-contract-and-docs.md))
 
@@ -302,7 +304,8 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Minimal first run under 60 seconds~~ | Resolved: 12.0 s cold, 1.6 s warm in the spike; 25.0 s cold, 4.8 s warm with the real v0.1 CLI (`scripts/first-run.sh`) |
 | Scalar docs visual check in a real browser | Open: served, CSP-checked and asset-verified in tests, not yet viewed |
 | Publish the library at `apistock.dev` | Open: domain hardening, public repository, first tags (until then apps use `--local`) |
-| `/ops/*` protection before authentication | Interim `OPS_TOKEN` ([ADR-0034](adr/0034-interim-ops-token.md)); replaced by platform roles and 2FA when `modules/auth` ships |
+| ~~`/ops/*` protection before authentication~~ | Resolved: sessions and platform roles replaced the interim `OPS_TOKEN` ([ADR-0038](adr/0038-authentication-v0-2.md)); required 2FA for ops roles is v0.3 |
+| Example business module with its own repository | Open: `examples/full-single` needs a resource module (for example projects) owning a table, the template for `aps gen resource` |
 | `aps new --preset=full` | Open: `examples/full-single` is the golden app it will be generated from (`aps gen job` is done and golden-tested against it) |
 | ~~Audit storage~~ | Resolved: `modules/auditpg` stores events in an append-only `audit_events` table, listed by `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)) |
 | ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `aps add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |

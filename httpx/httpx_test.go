@@ -272,7 +272,7 @@ func TestMapper(t *testing.T) {
 		{Err: errors.New("a"), Status: 200, Code: "ok"},
 		{Err: errors.New("b"), Status: 400, Code: "Not-Snake"},
 		{Err: errNameTaken, Status: 409, Code: "other_code"},
-		{Err: errors.New("c"), Status: 409, Code: "project_name_taken"},
+		{Err: errors.New("c"), Status: 422, Code: "project_name_taken"}, // a shared code needs the same status
 	} {
 		if err := m.Add(bad); err == nil {
 			t.Errorf("Add(%+v) = nil, want error", bad)

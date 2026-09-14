@@ -1,6 +1,6 @@
 # ADR-0024: Authentication methods
 
-**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0006
+**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0006 · **Amended by:** ADR-0038 (flows, tables and SQL live in the generated app's `internal/modules/auth`; `modules/auth` provides building blocks)
 
 ## Context
 

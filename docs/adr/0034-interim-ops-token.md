@@ -1,6 +1,6 @@
 # ADR-0034: Interim ops token
 
-**Status:** Accepted (2026-09-14), temporary · **Amends:** ADR-0026 · **Ends when:** `modules/auth` and platform roles ship (v0.2)
+**Status:** Superseded by ADR-0038 (2026-09-15): `OPS_TOKEN` is removed; `/ops/*` uses signed-in sessions and platform roles · **Amends:** ADR-0026
 
 ## Context
 

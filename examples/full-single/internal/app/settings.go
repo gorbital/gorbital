@@ -4,8 +4,10 @@ import (
 	"errors"
 	netmail "net/mail"
 	"strings"
+	"time"
 
 	"apistock.dev/mail"
+	authlib "apistock.dev/modules/auth"
 	"apistock.dev/modules/settings"
 )
 
@@ -22,6 +24,12 @@ type appSettings struct {
 	mailFromName  *settings.Setting[string]
 	mailFromEmail *settings.Setting[string]
 	mailReplyTo   *settings.Setting[string]
+
+	authSessionIdleTTL          *settings.Setting[time.Duration]
+	authSessionAbsoluteTTL      *settings.Setting[time.Duration]
+	authVerificationCodeTTL     *settings.Setting[time.Duration]
+	authResetCodeTTL            *settings.Setting[time.Duration]
+	authDeletedAccountRetention *settings.Setting[time.Duration]
 }
 
 // mailDefaults fills the sender of every email from the mail.* settings.
@@ -67,6 +75,31 @@ func declareSettings(reg *settings.Registry) appSettings {
 				}
 				return nil
 			}),
+		),
+
+		authSessionIdleTTL: settings.Duration(reg, "auth.session_idle_ttl", authlib.DefaultSessionIdleTTL,
+			settings.Describe("How long a signed-in session lasts without being used."),
+			settings.Range(time.Hour, 90*24*time.Hour),
+			settings.ReasonRequired(),
+		),
+		authSessionAbsoluteTTL: settings.Duration(reg, "auth.session_absolute_ttl", authlib.DefaultSessionAbsoluteTTL,
+			settings.Describe("The longest a session lasts, however often it is used; then the user signs in again."),
+			settings.Range(24*time.Hour, 365*24*time.Hour),
+			settings.ReasonRequired(),
+		),
+		authVerificationCodeTTL: settings.Duration(reg, "auth.verification_code_ttl", authlib.DefaultVerificationCodeTTL,
+			settings.Describe("How long email verification codes stay valid."),
+			settings.Range(5*time.Minute, time.Hour),
+		),
+		authResetCodeTTL: settings.Duration(reg, "auth.reset_code_ttl", authlib.DefaultResetCodeTTL,
+			settings.Describe("How long password reset codes stay valid."),
+			settings.Range(10*time.Minute, 2*time.Hour),
+			settings.ReasonRequired(),
+		),
+		authDeletedAccountRetention: settings.Duration(reg, "auth.deleted_account_retention", authlib.DefaultDeletedAccountRetention,
+			settings.Describe("How long deleted accounts are kept before the auth_cleanup job removes them."),
+			settings.Range(24*time.Hour, 365*24*time.Hour),
+			settings.ReasonRequired(),
 		),
 	}
 }

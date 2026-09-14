@@ -77,15 +77,15 @@ Secrets are never runtime settings, and the sender is never an environment varia
 
 ## Set the sender
 
-Start the app, then change the sender through the admin API. It applies to the next email on every instance, without a restart:
+Start the app, sign in as an account with `platform_admin` and keep the token in `$TOKEN` ([authentication guide](authentication.md#your-first-administrator)), then change the sender through the admin API. It applies to the next email on every instance, without a restart:
 
 ```bash
 curl -X PUT http://127.0.0.1:8080/ops/settings/mail.from_email \
-  -H "Authorization: Bearer $OPS_TOKEN" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"value":"hello@yourdomain.com","version":0}'
 
 curl -X PUT http://127.0.0.1:8080/ops/settings/mail.from_name \
-  -H "Authorization: Bearer $OPS_TOKEN" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"value":"Your App","version":0}'
 ```
 
@@ -94,7 +94,7 @@ Send `version` from `GET /ops/settings/mail.from_email` when the setting was cha
 ## Send a test email
 
 ```bash
-curl http://127.0.0.1:8080/ops/mail -H "Authorization: Bearer $OPS_TOKEN"
+curl http://127.0.0.1:8080/ops/mail -H "Authorization: Bearer $TOKEN"
 ```
 
 ```json
@@ -103,7 +103,7 @@ curl http://127.0.0.1:8080/ops/mail -H "Authorization: Bearer $OPS_TOKEN"
 
 ```bash
 curl -X POST http://127.0.0.1:8080/ops/mail/test \
-  -H "Authorization: Bearer $OPS_TOKEN" -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"to":"you@example.com"}'
 ```
 

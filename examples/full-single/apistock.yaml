@@ -4,6 +4,6 @@ name: acme-api
 module: example.com/acme-api
 preset: full
 tenancy: single
-features: [postgres, settings, jobs, audit, mail, ops]
+features: [postgres, settings, jobs, audit, mail, auth, ops]
 # Email provider, changed with `aps add mail`: resend or smtp.
 mail: resend
