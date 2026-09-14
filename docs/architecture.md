@@ -123,7 +123,7 @@ apistock/
 │   ├── openapi/             Huma integration, problem errors, embedded Scalar docs   (v0.1)
 │   ├── telemetry/           OpenTelemetry SDK + exporters, correlated logs           (v0.1)
 │   ├── postgres/            pool, transactions, migrations runner, pgtest (against Docker PostgreSQL)   (v0.2)
-│   ├── settings/            runtime settings: typed declarations, PostgreSQL store, LISTEN/NOTIFY reload
+│   ├── settings/            runtime settings: typed declarations, PostgreSQL store, LISTEN/NOTIFY reload   (v0.2)
 │   ├── jobs/                River, cron, AsyncSender
 │   ├── mail/resend/ · mail/smtp/
 │   ├── auditpg/             audit store + query API

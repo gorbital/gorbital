@@ -67,7 +67,7 @@ authService, err := auth.New(db, mailer, recorder, auth.WithVerificationCodeTTL(
 | Topic | Decision |
 |---|---|
 | Tables | `settings_values` (key, value `jsonb`, version, updated_at, updated_by, nullable `org_id` reserved for per-org settings) and `settings_history` (key, old value, new value, actor, reason, request ID, time) |
-| Rows | Only changed settings have rows; resetting to the default deletes the row (history keeps the change) |
+| Rows | Only changed settings have rows; resetting to the default stores a NULL value, so rows are never deleted and versions never repeat (a stale version can't match after a reset) |
 | Write | One transaction: version check (optimistic concurrency), upsert or delete, history row, `pg_notify('apistock_settings', key)`. The audit event `settings.value.changed` is recorded through `audit.Recorder` |
 | Propagation | `settings.Store` is an `app.Runner` holding a `LISTEN` connection; on notify it reloads that key; on reconnect it reloads everything; a full resync every 5 minutes covers missed notifications |
 | Startup | `settings.NewStore` loads all values before the app serves traffic; a load failure fails startup |
@@ -114,3 +114,13 @@ Per-org settings (column reserved), feature flags and percentage rollouts (v1.1)
 - Setting keys are public API, additive only (ADR-0015).
 - Generated apps include a "Configuration" section in `ARCHITECTURE.md` with the two-layer rule.
 - The Full preset includes settings; in Custom it is a checkbox that requires PostgreSQL.
+
+## v0.2 implementation notes (2026-09-14)
+
+- Library: `settings.NewRegistry`; declarations `Bool`, `Int`, `Float`, `String`, `Enum`, `Duration`, `StringList`; options `Describe`, `Group`, `ReasonRequired`, `RestartRequired`, `Range`, `OneOf`, `MaxLen`, `MaxItems`, `URL`, `Email`, `Validate`. Invalid declarations panic at startup.
+- `settings.NewStore(ctx, pool, reg, recorder)` loads values and freezes the registry; `Store.Run` is the listener runner; `Store.List`, `Get`, `Set`, `Reset`, `History` and `UnknownKeys` back the `/ops/settings` endpoints.
+- Changes require an authenticated actor in the context (`ErrActorRequired`); every change is one `settings.value.changed` audit event with `version`, `reset` and `reason` metadata, recorded after commit (a failed audit write is logged, not returned).
+- Setting a value equal to the current one, or resetting a setting already at its default, changes nothing.
+- The listener uses a dedicated connection, reloads everything after each (re)connect, and reconnects with backoff up to 30 seconds.
+- Migrations ship embedded as `settings.Migrations`. Tests use `modules/postgres/pgtest` (a test-only dependency).
+- The `/ops/settings` HTTP endpoints arrive with the generated Full preset app (`examples/full-single`).

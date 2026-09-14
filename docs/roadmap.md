@@ -27,7 +27,7 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 ## v0.2: Data and identity
 
-**Status: in progress.** Done (2026-09-14): `modules/postgres` (pool with tracing, `DBTX`, `InTx`, error classification, goose migrations with advisory lock, readiness check, `pgtest` against Docker PostgreSQL), [ADR-0031](adr/0031-runtime-settings.md) runtime settings design, [ADR-0032](adr/0032-repository-sql.md) repository style. Next: `modules/settings`.
+**Status: in progress.** Done (2026-09-14): `modules/postgres` (pool with tracing, `DBTX`, `InTx`, error classification, goose migrations with advisory lock, readiness check, `pgtest` against Docker PostgreSQL), `modules/settings` and core `config.Value[T]` (typed declarations, PostgreSQL store with version checks, history and audit events, LISTEN/NOTIFY with periodic resync; [ADR-0031](adr/0031-runtime-settings.md)), [ADR-0032](adr/0032-repository-sql.md) repository style. Next: `modules/jobs`.
 
 | | |
 |---|---|
