@@ -2,7 +2,18 @@
 
 **Production-ready Go APIs in minutes, as code you own.**
 
-> **Status: pre-alpha, architecture phase.** There is no usable code yet. This repository holds the architecture, decision records (ADRs) and technical spikes. Nothing described below exists until it ships in a tagged release.
+> **Status: pre-alpha.** v0.1 (core library + Minimal preset) is implemented and tested but not released. The library isn't published at `apistock.dev` yet, so apps are created against a local checkout with `--local`. Full and Custom presets arrive in v0.2.
+
+## Try v0.1 from a checkout
+
+```bash
+git clone git@github.com:apistockhq/apistock.git
+cd apistock/cli && go build -o ~/bin/aps ./cmd/aps && cd ../..
+aps new my-api --local ./apistock
+cd my-api && aps dev        # set APP_ADDR in .env to use a port other than 8080
+```
+
+Requires Go 1.26 or later.
 
 ## What apistock is
 

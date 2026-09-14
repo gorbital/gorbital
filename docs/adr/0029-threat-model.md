@@ -49,3 +49,20 @@ Owner: project maintainer. Each accepted risk is recorded here with a review dat
 
 - `SECURITY.md` process in place before the repository is public.
 - Every milestone's definition of done includes its rows from this table.
+
+## v0.1 status (2026-09-14)
+
+| # | Status |
+|---|---|
+| 1 Domain/DNS hijack | **Open, maintainer action** before any public release: registrar lock, DNSSEC, hardware-key 2FA, CAA records, `go-import` monitoring |
+| 2 Template injection | Done: name and module path validation, templates rendered with fixed data, Go output parsed by `go/format` |
+| 3 Writes outside project | Done: `os.Root` for app creation and template generation |
+| 4 Code execution at install | Done: `aps new` runs only `go mod tidy` and `git init` |
+| 5 Malicious recipes | Not yet applicable: no third-party recipes; diff preview arrives with `aps add` |
+| 6 Tampered downloads | Done: Go module proxy and checksum database; lock file records hashes |
+| 7 Compromised CLI release | Ready: release workflow with keyless Sigstore signing and build provenance; takes effect on the first `cli/v*` tag |
+| 8 Maintainer takeover | **Open, maintainer action:** require 2FA in the `apistockhq` organisation, branch protection, `CODEOWNERS` |
+| 9 GitHub token theft | Done: CLI stores no tokens; workflows use read-only permissions, SHA-pinned actions, no persisted credentials, no `pull_request_target` |
+| 10 Secrets committed | Done: `.env*` ignored in generated apps; gitleaks in CI |
+| 19 Sensitive data in logs | Done for v0.1 scope: `config.Secret` redaction, access logs without query strings, validation errors never echo values |
+| 21 Vulnerable dependencies | Done: govulncheck in CI for every module |

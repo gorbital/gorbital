@@ -98,7 +98,7 @@ generated app ──► modules/* ──► core ──► stdlib (+ OpenTelemet
 ```
 
 - A contract enters **core** only when at least two official modules consume it.
-- **Core dependency budget:** standard library, OpenTelemetry API, `golang.org/x` packages.
+- **Core dependency budget:** standard library, OpenTelemetry API (and its tiny dependencies), `golang.org/x` packages. `internal/archtest` fails the build otherwise.
 - Cross-module needs are solved at the composition root. Example: auth takes a `mail.Sender`; the app passes `jobs.AsyncSender(resend)`.
 - CI enforces import rules and the dependency budget.
 
@@ -111,14 +111,17 @@ apistock/
 ├── httpx/                   server, middleware, security headers, CORS, CSRF, problem+json
 ├── health/                  /livez, /readyz, named checks
 ├── actor/                   who is acting (context)
+├── requestid/               request ID generation, validation, context
 ├── audit/                   Event, Recorder
 ├── mail/                    Message, Sender
-├── config/                  Secret type
-├── page/                    cursor pagination, filter, sort
+├── config/                  Secret type, env lookup with _FILE support
+├── page/                    cursor pagination, sort
 ├── ratelimit/               token bucket + middleware
 ├── buildinfo/               version, commit, build time
+├── internal/archtest/       dependency budget test
 ├── modules/
-│   ├── otel/                OpenTelemetry SDK + exporters
+│   ├── openapi/             Huma integration, problem errors, embedded Scalar docs   (v0.1)
+│   ├── telemetry/           OpenTelemetry SDK + exporters, correlated logs           (v0.1)
 │   ├── postgres/            pool, transactions, migrations runner, pgtest
 │   ├── jobs/                River, cron, AsyncSender
 │   ├── mail/resend/ · mail/smtp/
@@ -127,9 +130,11 @@ apistock/
 │   ├── orgs/                organisations, memberships, invitations, org roles
 │   └── releases/            release record at boot + query API
 ├── cli/                     module apistock.dev/cli → cmd/aps
-├── recipes/                 base-minimal, feature recipes, resource templates, presets
-├── examples/                hand-written golden apps: minimal, full-single, full-multi
+│   └── internal/recipes/    templates generated from examples/ (go generate), embedded in aps
+├── examples/                hand-written golden apps: minimal (v0.1), full-single, full-multi
+├── scripts/                 first-run measurement
 ├── spikes/                  throwaway experiments
+├── .github/workflows/       CI and signed aps releases
 └── docs/
 ```
 
@@ -162,7 +167,7 @@ my-api/
 ├── cmd/{api,worker,migrate,seed}/main.go
 ├── api/{openapi.json, postman_collection.json, llms.txt}   (exported from code)
 ├── internal/
-│   ├── app/            app.go · config.go · routes.go · errors.go · infra_*.go · modules.go · architecture_test.go
+│   ├── app/            app.go · config.go · routes.go · infra_*.go · modules.go · module_<name>.go · architecture_test.go
 │   ├── modules/
 │   │   ├── auth/       module.go · domain/ · usecase/ · repository/ · delivery/
 │   │   ├── users/      (same layers)
@@ -220,7 +225,7 @@ Code-first with Huma v2, confined to `delivery/`: developers write Go input/outp
 
 ### 7.6 Observability ([ADR-0007](adr/0007-observability.md), [ADR-0028](adr/0028-local-development-environment.md))
 
-OpenTelemetry is always on in the app (traces, metrics, correlated slog logs; exporters configured with `OTEL_*` env vars). Locally, `aps dev --observability` also starts Grafana (`grafana/otel-lgtm`); plain `aps dev` starts PostgreSQL and Mailpit only.
+`modules/telemetry` keeps OpenTelemetry always on in the app (traces, metrics, slog logs carrying `request_id`, `trace_id` and `span_id`); export is enabled by setting `OTEL_EXPORTER_OTLP_ENDPOINT`. The Minimal preset needs no Docker. From v0.2, `aps dev` starts PostgreSQL and Mailpit, and `aps dev --observability` also starts Grafana (`grafana/otel-lgtm`).
 
 ---
 
@@ -235,6 +240,8 @@ OpenTelemetry is always on in the app (traces, metrics, correlated slog logs; ex
 | `aps dev [--observability]` | Run locally with reload and Docker services |
 | `aps upgrade [--major]` | Upgrade recipes and library on a branch |
 | `aps doctor` | Check configuration, versions and migrations |
+
+**Implemented in v0.1:** `aps new` (Minimal preset; `--module`, `--local`, `--json`, `--no-git`), `aps dev` (build, run, reload, `.env`, port check), `aps version`. Built with the standard library only.
 
 - **Recipes** are declarative: `createFile`, `insertLine@anchor`, `addRequire`, `copyMigration`, `appendEnv`. API endpoints come from Go code (ADR-0027), so recipes never edit a spec file. No code runs at install time.
 - **One wiring file per feature** plus one call line at one anchor.
@@ -253,7 +260,7 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 
 | Release | Delivers |
 |---|---|
-| v0.1 | Core library, Minimal preset, `aps new` and `aps dev`, OpenAPI + Scalar docs |
+| v0.1 ✅ implemented, unreleased | Core library, Minimal preset, `aps new` and `aps dev`, OpenAPI + Scalar docs, CI, signed release workflow |
 | v0.2 | PostgreSQL, jobs, email (Resend/SMTP), email/password auth, users and roles, audit, Full and Custom presets, single-tenant |
 | v0.3 | Google, Apple, TOTP, passkeys |
 | v0.4 | Multi-tenant organisations |
@@ -269,4 +276,6 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~API contract: spec-first vs code-first~~ | Resolved: code-first with Huma ([spike](../spikes/openapi/README.md), ADR-0027) |
 | ~~Unknown request fields: strict vs tolerant~~ | Resolved: tolerant (ADR-0027) |
 | ~~Anchor edits: text insertion vs AST~~ | Resolved: parser-located text insertion ([spike](../spikes/anchor/README.md), ADR-0021) |
-| ~~Minimal first run under 60 seconds~~ | Resolved: 12.0 s cold, 1.6 s warm ([spike](../spikes/firstrun/README.md)) |
+| ~~Minimal first run under 60 seconds~~ | Resolved: 12.0 s cold, 1.6 s warm in the spike; 25.0 s cold, 4.8 s warm with the real v0.1 CLI (`scripts/first-run.sh`) |
+| Scalar docs visual check in a real browser | Open: served, CSP-checked and asset-verified in tests, not yet viewed |
+| Publish the library at `apistock.dev` | Open: domain hardening, public repository, first tags (until then apps use `--local`) |

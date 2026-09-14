@@ -26,8 +26,8 @@ generated app ──► modules/* ──► core ──► stdlib (+ OpenTelemet
 1. **Allowed:** app → any module; module → core; module → its own third-party libraries.
 2. **Forbidden:** module → module; core → anything outside its budget.
 3. **Core admission:** a contract enters core only when at least two official modules consume it.
-4. **Core dependency budget:** standard library, OpenTelemetry **API** (not SDK), `golang.org/x/*`.
-5. **Heavy integrations are modules:** OpenTelemetry SDK and exporters → `modules/otel`; Postgres test helpers → `modules/postgres/pgtest`; validation libraries stay out of core (`httpx.Decode` calls a `Validate() error` method when present).
+4. **Core dependency budget:** standard library, OpenTelemetry **API** (not SDK), `golang.org/x/*`, and the OpenTelemetry API's own small dependencies (currently `github.com/cespare/xxhash/v2`). Enforced by `internal/archtest/budget_test.go`. In v0.1 core links only `go.opentelemetry.io/otel/trace` (and its internal packages) and `golang.org/x/time/rate`.
+5. **Heavy integrations are modules:** OpenTelemetry SDK and exporters → `modules/telemetry`; Huma → `modules/openapi`; Postgres test helpers → `modules/postgres/pgtest`. Request validation comes from Huma schemas in delivery layers, so core has no validation library.
 6. **Community modules** follow the same rules.
 7. **Enforcement:** CI checks import rules per module (`go list -deps`) and fails if core's `go.mod` gains a dependency outside the budget.
 

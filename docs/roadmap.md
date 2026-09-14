@@ -16,9 +16,12 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 ## v0.1: Foundation
 
+**Status: implemented and tested, not released** (2026-09-14). Results below.
+
 | | |
 |---|---|
-| **Delivers** | Core packages (`app`, `httpx`, `health`, `actor`, `audit`, `mail`, `config`, `page`, `ratelimit`, `buildinfo`), `modules/otel`, hand-written `examples/minimal`, Minimal preset recipe, `aps new` (Minimal), `aps dev` (reload), `aps version`, OpenAPI + Scalar `/docs`, security defaults, Dockerfile, project CI (tests, race, lint, govulncheck, gorelease, import rules, golden test) |
+| **Delivers** | Core packages (`app`, `httpx`, `health`, `actor`, `requestid`, `audit`, `mail`, `config`, `page`, `ratelimit`, `buildinfo`), `modules/openapi` (Huma, problem errors, embedded Scalar), `modules/telemetry` (OpenTelemetry, correlated logs), hand-written `examples/minimal`, Minimal recipe generated from it, `aps new` (Minimal), `aps dev` (reload, `.env`, port check), `aps version`, security defaults, Dockerfile, project CI (tests on Go 1.26/1.27, race, golangci-lint, govulncheck, gitleaks, dependency budget, template and OpenAPI drift, end-to-end), signed release workflow for `aps` |
+| **Results** | First run with the real CLI (`scripts/first-run.sh`): **25.0 s** from clean caches, **4.8 s** warm. Generated app passes its own tests. Lint: 0 issues in all modules. `gorelease` starts at the first tag. |
 | **Not included** | Database, auth, Full/Custom presets, Docker services |
 | **Done when** | On a clean machine: `go install` → `aps new my-api` → `aps dev` → `/docs` in under 60 seconds; generator reproduces `examples/minimal` exactly; threat model rows 2–10 and 21 addressed |
 

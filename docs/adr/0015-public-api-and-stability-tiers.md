@@ -34,7 +34,7 @@ Option 3.
 
 - **Everything is v0 until the 1.0 gate** (roadmap). In v0, minor releases may break, with upgrade notes and `//go:fix inline` wrappers where possible.
 - From 1.0: breaking changes only in a new major version.
-- **Go support:** the two most recent Go releases.
+- **Go support:** the two most recent Go releases (Go 1.26 and 1.27 as of September 2026; modules declare `go 1.26.0`). CI tests both.
 - **Deprecation:** `// Deprecated:` comment plus `//go:fix inline` where a mechanical rewrite exists; removal only in the next major.
 - **Stability markers:** every package doc states `Stability: stable` or `Stability: experimental`.
 

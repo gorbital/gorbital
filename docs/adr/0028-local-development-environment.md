@@ -55,3 +55,10 @@ Docker Compose gives production-like PostgreSQL with no manual setup; making Gra
 
 - [First-run spike](../../spikes/firstrun/README.md): Minimal from clean caches in 12.0 s (build CLI, `aps new`, build, `/docs` ready), 1.6 s with warm caches. Target under 60 seconds met.
 - Full preset timing (including Docker image pulls) is measured in v0.2 and documented.
+
+## v0.1 implementation notes
+
+- `aps dev` loads `.env` into the app's environment; variables already set in the real environment win. The app itself has no dotenv dependency.
+- Before starting, `aps dev` checks that `APP_ADDR` (default `127.0.0.1:8080`) is free and, if not, stops with a message suggesting another `APP_ADDR`.
+- Reload polls watched files (Go sources, module files, `.env`, `.html`, `.json`, `.sql`) every 500 ms. A failed build keeps the previous version running. The app runs in its own process group so Ctrl+C stops it exactly once.
+- Measured with the real CLI (`scripts/first-run.sh`): 25.0 s from clean caches (196 MB of modules, mostly OpenTelemetry exporter dependencies), 4.8 s warm. Target met.
