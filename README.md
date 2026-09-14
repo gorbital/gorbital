@@ -1,51 +1,52 @@
 # apistock
 
-**A Go application kit with production-ready foundations you own.**
+**Production-ready Go APIs in minutes, as code you own.**
 
-> **Status: pre-alpha, architecture phase.** There is no usable code yet. This repository currently holds the design documents and architecture decision records (ADRs). Nothing described below exists until it ships in a tagged release.
+> **Status: pre-alpha, architecture phase.** There is no usable code yet. This repository holds the architecture, decision records (ADRs) and technical spikes. Nothing described below exists until it ships in a tagged release.
 
 ## What apistock is
 
-apistock gives Go developers the first weeks of backend foundation work (authentication, PostgreSQL, migrations, email, background jobs, audit logging, observability, CI) as idiomatic Go code that lives in **your** repository.
+apistock is a Go library plus a CLI (`aps`) that creates a complete, working API project: authentication, PostgreSQL, background jobs, email, audit logs, operations APIs, interactive docs and tests, generated as readable Go code in **your** repository.
 
-It is a **kit, not a framework**:
-
-- **Plain Go.** Standard `net/http`, `log/slog`, constructors instead of a DI container, and no reflection-based wiring.
-- **You own the code.** The `aps` CLI writes readable code into your project and never silently overwrites your edits.
-- **Upgradeable.** Security-sensitive logic lives in versioned Go packages (`go get`). Generated glue is upgraded with a git-style 3-way merge.
-- **One required dependency.** PostgreSQL. No Redis, Kafka, collector or SaaS needed to run in production.
-- **No lock-in.** If you uninstall the CLI tomorrow, your app still builds, tests and deploys.
+- **Plain Go.** Standard `net/http`, `log/slog`, constructors instead of a DI container, no reflection wiring.
+- **You own the code.** A layered, domain-driven structure you can read and change; the CLI never silently overwrites your edits.
+- **Security in the library.** Password hashing, sessions, OAuth, 2FA and passkeys live in versioned packages, so fixes arrive with `go get`.
+- **One required service.** PostgreSQL. No Redis, Kafka or SaaS needed in production.
+- **No lock-in.** Uninstall the CLI and your app still builds, tests and deploys.
 
 ## Planned developer experience
 
 ```bash
 go install apistock.dev/cli/cmd/aps@latest
 
-aps new my-api
+aps new my-api          # choose Full, Minimal or Custom; tenancy; email provider
 cd my-api
-aps add postgres
-aps add auth
-aps gen resource Product name:text price_cents:bigint
-aps dev
+aps dev                 # API at :8080, docs at /docs, local email inbox
 ```
+
+| Preset | What you get |
+|---|---|
+| **Minimal** | HTTP server, config, logging, tracing, health checks, security defaults, OpenAPI docs. No database. |
+| **Full** | Everything: PostgreSQL, jobs, email (Resend or SMTP), email/password + Google + Apple sign-in, 2FA, passkeys, users and roles, optional multi-tenant organisations, audit logs, operations APIs. |
+| **Custom** | Pick features from a list. |
 
 ## Documentation
 
-- [Architecture](docs/architecture.md): the full design
-- [v1 scope](docs/scope-v1.md): what v1 includes, excludes and will not build
-- [Architecture decision records](docs/adr/)
+- [Architecture](docs/architecture.md): the design overview
+- [Roadmap](docs/roadmap.md): milestones and what each one delivers
+- [Architecture decision records](docs/adr/README.md)
+- [Spikes](spikes/): experiments that informed decisions
 
 ## Roadmap (summary)
 
-| Phase | Focus |
+| Release | Focus |
 |---|---|
-| 0 | Architecture, ADRs, technical spikes |
-| 1 | Core runtime + hand-written reference app |
-| 2 | Auth, email, jobs, audit as libraries |
-| 3 | `aps` CLI and code generator |
-| 4 | Upgrades (`aps upgrade`) |
-| 5 | `aps dev` and local dev console |
-| 6 | Module SDK, community index, 1.0 |
+| v0.1 | Foundation: core library, Minimal preset, `aps new`, `aps dev`, API docs |
+| v0.2 | PostgreSQL, jobs, email, authentication, users and roles, audit, Full and Custom presets |
+| v0.3 | Google and Apple sign-in, TOTP, passkeys |
+| v0.4 | Multi-tenant organisations |
+| v0.5 | Operations APIs, Postman, `aps upgrade` |
+| v1.0 | External security review, stable API |
 
 ## Contributing
 

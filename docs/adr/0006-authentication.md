@@ -1,6 +1,6 @@
 # ADR-006: Authentication
 
-**Status:** Proposed
+**Status:** Superseded by ADR-0024 (2026-09-14)
 
 **Context:** Auth is high value and high risk; fixes must reach existing apps.
 

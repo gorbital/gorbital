@@ -1,6 +1,6 @@
 # ADR-002: Module architecture
 
-**Status:** Proposed
+**Status:** Superseded by ADR-0019 and ADR-0021 (2026-09-14)
 
 **Context:** Modules need runtime code, installation glue, migrations and docs, from both official and third-party authors.
 

@@ -1,6 +1,6 @@
 # ADR-010: Dashboard architecture
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-14), amended by ADR-0026 (ops APIs, API only) and ADR-0028 (dev console in v1.1)
 
 **Context:** "Dashboard" mixes local dev tooling, production admin and fleet monitoring.
 

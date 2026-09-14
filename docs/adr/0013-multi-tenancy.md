@@ -1,6 +1,6 @@
 # ADR-013: Multi-tenancy
 
-**Status:** Proposed
+**Status:** Superseded by ADR-0023 (2026-09-14)
 
 **Context:** Many SaaS apps need organisations; many other apps don't. Tenancy touches every query.
 

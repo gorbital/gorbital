@@ -1,6 +1,6 @@
 # ADR-011: GitHub integration
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-14)
 
 **Context:** Creating repos and CI is convenient but token handling is a liability.
 

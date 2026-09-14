@@ -1,6 +1,6 @@
 # ADR-004: Dependency injection
 
-**Status:** Proposed
+**Status:** Superseded by ADR-0017 and ADR-0020 (2026-09-14)
 
 **Context:** Apps compose a dozen components with lifecycles.
 

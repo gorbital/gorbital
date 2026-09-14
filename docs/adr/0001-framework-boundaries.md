@@ -1,6 +1,6 @@
 # ADR-001: Framework boundaries
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-14), amended by ADR-0014 and ADR-0019
 
 **Context:** The vision covers runtime libraries, CLI, generator, modules, dashboard, GitHub and mobile. Unclear boundaries lead to runtime coupling to tooling and SaaS.
 

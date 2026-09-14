@@ -1,6 +1,6 @@
 # ADR-005: Database strategy
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-14)
 
 **Context:** Modules need persistence and migrations; apps need productive data access.
 

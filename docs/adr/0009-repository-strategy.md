@@ -1,6 +1,6 @@
 # ADR-009: Repository strategy
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-14), amended by ADR-0019 (core module at repository root)
 
 **Context:** Libraries and templates drift when versioned apart; users shouldn't download every dependency.
 

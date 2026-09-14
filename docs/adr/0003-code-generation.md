@@ -1,6 +1,6 @@
 # ADR-003: Code generation
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-14), amended by ADR-0021 and the merge spike (spikes/merge/README.md)
 
 **Context:** Generated code must stay customisable and upgradeable without overwrites.
 

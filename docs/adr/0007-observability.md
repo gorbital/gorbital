@@ -1,6 +1,6 @@
 # ADR-007: Observability
 
-**Status:** Proposed
+**Status:** Accepted (2026-09-14), amended by ADR-0019 (SDK in its own module) and ADR-0028 (Grafana opt-in)
 
 **Context:** Telemetry must be on by default without vendor lock-in or cognitive load.
 

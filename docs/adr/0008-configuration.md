@@ -1,6 +1,6 @@
 # ADR-008: Configuration
 
-**Status:** Proposed
+**Status:** Superseded by ADR-0020 (2026-09-14)
 
 **Context:** Config systems tend to accumulate precedence rules and formats.
 

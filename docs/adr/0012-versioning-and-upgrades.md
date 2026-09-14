@@ -1,6 +1,6 @@
 # ADR-012: Versioning and upgrades
 
-**Status:** Proposed
+**Status:** Superseded by ADR-0015 and ADR-0016 (2026-09-14)
 
 **Context:** Apps generated on old versions must reach new ones.
 
