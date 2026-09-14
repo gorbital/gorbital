@@ -1,0 +1,30 @@
+# PostgreSQL for apistock's own module tests and examples (ADR-0028).
+#
+#   docker compose up -d --wait
+#   export APISTOCK_TEST_DATABASE_URL=postgres://apistock:apistock@127.0.0.1:55432/apistock?sslmode=disable
+#
+# The host port defaults to 55432 so it doesn't clash with other projects on
+# 5432; override with APISTOCK_POSTGRES_PORT. `docker compose down -v` resets
+# the data.
+name: apistock
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: apistock
+      POSTGRES_PASSWORD: apistock
+      POSTGRES_DB: apistock
+    ports:
+      - "127.0.0.1:${APISTOCK_POSTGRES_PORT:-55432}:5432"
+    volumes:
+      # PostgreSQL 18+ images keep versioned data under /var/lib/postgresql.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apistock -d apistock"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  postgres-data:

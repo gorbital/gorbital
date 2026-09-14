@@ -56,6 +56,28 @@ Docker Compose gives production-like PostgreSQL with no manual setup; making Gra
 - [First-run spike](../../spikes/firstrun/README.md): Minimal from clean caches in 12.0 s (build CLI, `aps new`, build, `/docs` ready), 1.6 s with warm caches. Target under 60 seconds met.
 - Full preset timing (including Docker image pulls) is measured in v0.2 and documented.
 
+## PostgreSQL always runs in Docker (2026-09-14)
+
+Development, tests and CI all get PostgreSQL from a Docker container. apistock never downloads or embeds PostgreSQL binaries and never requires a locally installed `postgres` or `psql`.
+
+| Context | Where PostgreSQL comes from |
+|---|---|
+| Generated app, `aps dev` | Service `postgres` in the app's owned `compose.yaml`, started by `aps dev` (or `docker compose up -d`) |
+| Generated app tests (`repository/`, `test/e2e`) | The same Compose database; `pgtest` creates a throwaway database per test package from a migrated template |
+| apistock repository (module tests, examples) | `compose.yaml` at the repository root; `docker compose up -d --wait` |
+| CI | The same official `postgres` image as a GitHub Actions service container |
+
+| Rule | Decision |
+|---|---|
+| Image | Official `postgres` image, pinned to one major version in every `compose.yaml` and CI; upgraded deliberately |
+| Binding | Host ports bound to `127.0.0.1` only (threat 11) |
+| Host port | Configurable in `.env`; `aps dev` checks it like `APP_ADDR` |
+| Data | Named volume per app, so `docker compose down` keeps data and `down -v` resets it |
+| Health | Compose healthcheck with `pg_isready`; `aps dev` waits for healthy before migrating |
+| Test connection | `pgtest` reads `APISTOCK_TEST_DATABASE_URL`; when it is unset the test is skipped with the exact `docker compose up` command, and CI sets `APISTOCK_REQUIRE_DB=1` so a missing database fails instead of skipping |
+| Migrations and seed | Run by the app's Go commands (`cmd/migrate`, `cmd/seed`), never by `psql` |
+| Rejected | Embedded PostgreSQL downloads (option 2 above) and testcontainers (a Docker API client dependency in every app, and hidden containers the developer can't see in `compose.yaml`) |
+
 ## v0.1 implementation notes
 
 - `aps dev` loads `.env` into the app's environment; variables already set in the real environment win. The app itself has no dotenv dependency.

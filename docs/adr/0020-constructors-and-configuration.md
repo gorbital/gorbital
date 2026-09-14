@@ -1,6 +1,6 @@
 # ADR-0020: Constructors and configuration
 
-**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0008 · **Supersedes (with ADR-0017):** ADR-0004
+**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0008 · **Supersedes (with ADR-0017):** ADR-0004 · **Amended by:** ADR-0031
 
 ## Context
 
@@ -45,7 +45,7 @@ auth.WithPasswordPolicy(policy)
 
 Precedence: code defaults → `.env` (development only) → environment variables → `*_FILE` secrets.
 
-Not supported: YAML/TOML per-environment overlays, runtime-mutable configuration (runtime settings are data managed by the v1.1 configuration center), and configuration managed by a dashboard.
+Not supported: YAML/TOML per-environment overlays, and secrets or infrastructure configuration stored anywhere but the environment. Non-secret tunables that operators change at runtime are runtime settings (ADR-0031), stored in PostgreSQL and edited through `/ops/settings`; library options documented as live accept `config.Value[T]`.
 
 ## Why
 

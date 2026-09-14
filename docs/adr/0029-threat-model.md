@@ -40,6 +40,7 @@ CLI ↔ Go module proxy; recipe → owned code; `apistock.dev` → `go-import` r
 | 20 | SSRF through outgoing requests (webhooks, avatar fetch) | Safe HTTP client blocking private, link-local and metadata addresses | When the feature ships |
 | 21 | Vulnerable dependencies | `govulncheck` in repository CI, generated CI, and module checks | v0.1 |
 | 22 | Open-core dependency changes (for example River Pro, Atlas Pro) | Dependencies behind modules; licences recorded; swap path documented | Ongoing |
+| 23 | Runtime settings abused to weaken security (for example very long session or code expiry) or to leak secrets | No secret type in settings; bounds declared per setting plus hard limits inside library modules; `ops.settings.write` permission (2FA from v0.3); reason, history and audit event per change | v0.2 |
 
 ## Residual risk
 

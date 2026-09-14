@@ -1,6 +1,6 @@
 # ADR-0026: Operations APIs
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0010
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0010 · **Amended by:** ADR-0031
 
 ## Context
 
@@ -25,18 +25,19 @@ Option 3.
 | Release monitor | `GET /ops/releases`, `GET /ops/releases/current` | Each instance records version, commit, build time and start time at boot; no CI webhook required |
 | Jobs overview | `GET /ops/jobs`, `GET /ops/jobs/{id}` | Queues, failed and retrying jobs from River |
 | Retention | `GET/PUT /ops/retention` | Policies for audit events, sessions, releases, deleted accounts; enforced by cron jobs |
-| Maintenance mode | Env flag | Returns 503 with a message for non-ops routes |
+| Maintenance mode | Runtime setting (ADR-0031) | Returns 503 with a message for non-ops routes |
+| Runtime settings | `GET /ops/settings`, `GET/PUT/DELETE /ops/settings/{key}`, `GET /ops/settings/{key}/history` | Moved from v1.1 to v0.2 by ADR-0031 |
 
 ### v1.1
 
-Configuration center (typed settings declared in code, change history, `live` vs `restart required`, propagation via PostgreSQL `LISTEN/NOTIFY`, never secrets), feature flags, live observability (per-instance in-memory recent logs and metrics over SSE), incident reports (grouped errors with triage status plus incidents with timeline), API keys, Prometheus `/metrics` option, optional GitHub deployment webhook.
+Feature flags, live observability (per-instance in-memory recent logs and metrics over SSE), incident reports (grouped errors with triage status plus incidents with timeline), API keys, Prometheus `/metrics` option, optional GitHub deployment webhook.
 
 ### Rules
 
 - `/ops/*` requires platform roles (`ops.*` permissions) and enrolled 2FA.
 - Ops responses contain no secrets, tokens, or unnecessary personal data.
 - **Not built:** application logs stored in PostgreSQL; host CPU/disk metrics presented as app metrics; source code snippets in error responses.
-- The generated `ops` module composes query APIs from `auditpg`, `jobs`, `releases` and `postgres` (ADR-0019); the library modules don't depend on each other.
+- The generated `ops` module composes query APIs from `auditpg`, `jobs`, `releases`, `settings` and `postgres` (ADR-0019); the library modules don't depend on each other.
 - Ops routes can be served on a separate internal port by configuration.
 - No admin web UI in v1.
 

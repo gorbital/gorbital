@@ -25,6 +25,7 @@ Option 3.
 | `internal/` packages | **Internal** | No promise |
 | Error codes in problem+json responses (for example `invalid_credentials`) | **Stable** | Additive only |
 | Audit action names (for example `auth.session.revoked`) | **Stable** | Additive only |
+| Runtime setting keys declared by recipes (for example `auth.verification_code_ttl`, ADR-0031) | **Stable** | Additive only; a removed key's stored rows are ignored, never reused |
 | Identity columns of module tables that apps may reference (for example `auth_users.id`) | **Stable** | All other module columns are internal; apps use the Go API |
 | `aps` commands, flags, exit codes, `--json` output (with `schemaVersion`) | **Stable** from CLI 1.0 | Additive only |
 | `apistock-module.yaml`, `apistock.yaml`, `apistock.lock`, `//aps:anchor` syntax | **Versioned** (`apiVersion`) | CLI reads the current and previous version |
