@@ -1,0 +1,50 @@
+// Package repository stores the projects module's projects in PostgreSQL
+// with hand-written SQL, one file per operation (ADR-0032). The table comes
+// from db/migrations.
+package repository
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apistock.dev/modules/postgres"
+
+	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
+	projectsusecase "example.com/acme-api/internal/modules/projects/usecase"
+)
+
+// Store implements the projects use cases' storage port. It runs on the
+// pool, or on a transaction inside InTx.
+type Store struct {
+	db   postgres.DBTX
+	pool *pgxpool.Pool // nil inside a transaction
+}
+
+var _ projectsusecase.Store = (*Store)(nil)
+
+// NewStore returns a store on pool.
+func NewStore(pool *pgxpool.Pool) *Store {
+	return &Store{db: pool, pool: pool}
+}
+
+// InTx runs fn with a store bound to one transaction. Inside a transaction,
+// fn joins it.
+func (s *Store) InTx(ctx context.Context, fn func(tx projectsusecase.Store) error) error {
+	if s.pool == nil {
+		return fn(s)
+	}
+	return postgres.InTx(ctx, s.pool, func(tx pgx.Tx) error {
+		return fn(&Store{db: tx})
+	})
+}
+
+// constraintError turns the constraint violations the use cases handle into
+// domain errors.
+func constraintError(err error) error {
+	if constraint, ok := postgres.UniqueViolation(err); ok && constraint == "projects_owner_name" {
+		return projectsdomain.ErrProjectNameTaken
+	}
+	return err
+}

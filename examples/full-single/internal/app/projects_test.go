@@ -1,0 +1,133 @@
+package app_test
+
+import (
+	"context"
+	"net/http"
+	"net/url"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// TestProjectsEndToEnd drives the example resource over HTTP: create,
+// validation, owner isolation, pagination, versioned updates, delete and the
+// audit trail.
+func TestProjectsEndToEnd(t *testing.T) {
+	a, dbURL := newAppWithURL(t, nil)
+	h := a.Handler()
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	ada, adaID := signIn(t, a, "ada@example.com", "")
+	bob, _ := signIn(t, a, "bob@example.com", "")
+
+	if r := do(t, h, "POST", "/v1/projects", `{"name":"Website"}`); r.code != http.StatusUnauthorized || r.json["code"] != "unauthenticated" {
+		t.Errorf("create without signing in = %d %s", r.code, r.body)
+	}
+
+	created := do(t, h, "POST", "/v1/projects", `{"name":" Website ","description":"New pages"}`, ada...)
+	if created.code != http.StatusCreated || created.json["name"] != "Website" || created.json["status"] != "active" || created.json["version"] != float64(1) {
+		t.Fatalf("create = %d %s", created.code, created.body)
+	}
+	id, _ := created.json["id"].(string)
+	if !strings.HasPrefix(id, "prj_") {
+		t.Errorf("project id = %q, want prefix prj_", id)
+	}
+	project := "/v1/projects/" + id
+
+	if r := do(t, h, "POST", "/v1/projects", `{"name":"WEBSITE"}`, ada...); r.code != http.StatusConflict || r.json["code"] != "project_name_taken" {
+		t.Errorf("create with a taken name = %d %s", r.code, r.body)
+	}
+	invalid := do(t, h, "POST", "/v1/projects", `{"name":"   "}`, ada...)
+	fieldErrors, _ := invalid.json["errors"].([]any)
+	if invalid.code != http.StatusUnprocessableEntity || invalid.json["code"] != "validation_failed" || len(fieldErrors) != 1 ||
+		fieldErrors[0].(map[string]any)["location"] != "body.name" {
+		t.Errorf("create with a blank name = %d %s", invalid.code, invalid.body)
+	}
+
+	// Someone else's project doesn't exist for them.
+	for _, r := range []response{
+		do(t, h, "GET", project, "", bob...),
+		do(t, h, "PATCH", project, `{"version":1,"name":"Mine now"}`, bob...),
+		do(t, h, "DELETE", project, "", bob...),
+	} {
+		if r.code != http.StatusNotFound || r.json["code"] != "project_not_found" {
+			t.Errorf("another user's request = %d %s, want 404 project_not_found", r.code, r.body)
+		}
+	}
+	if r := do(t, h, "GET", "/v1/projects", "", bob...); r.code != http.StatusOK || len(r.json["items"].([]any)) != 0 {
+		t.Errorf("another user's list = %d %s, want no items", r.code, r.body)
+	}
+
+	if r := do(t, h, "POST", "/v1/projects", `{"name":"Docs","status":"archived"}`, ada...); r.code != http.StatusCreated {
+		t.Fatalf("create Docs = %d %s", r.code, r.body)
+	}
+	var names []string
+	cursor := ""
+	for range 3 {
+		r := do(t, h, "GET", "/v1/projects?limit=1&sort=name&cursor="+url.QueryEscape(cursor), "", ada...)
+		if r.code != http.StatusOK {
+			t.Fatalf("list = %d %s", r.code, r.body)
+		}
+		for _, item := range r.json["items"].([]any) {
+			names = append(names, item.(map[string]any)["name"].(string))
+		}
+		if cursor, _ = r.json["next_cursor"].(string); cursor == "" {
+			break
+		}
+	}
+	if want := []string{"Docs", "Website"}; !slices.Equal(names, want) {
+		t.Errorf("pages sorted by name = %v, want %v", names, want)
+	}
+	first := do(t, h, "GET", "/v1/projects?limit=1", "", ada...)
+	for query, want := range map[string]string{
+		"sort=name&cursor=" + url.QueryEscape(first.json["next_cursor"].(string)): "invalid_cursor",
+		"sort=owner_id": "invalid_sort",
+	} {
+		if r := do(t, h, "GET", "/v1/projects?"+query, "", ada...); r.code != http.StatusBadRequest || r.json["code"] != want {
+			t.Errorf("list ?%s = %d %s, want 400 %s", query, r.code, r.body, want)
+		}
+	}
+	if r := do(t, h, "GET", "/v1/projects?status=archived", "", ada...); r.code != http.StatusOK || len(r.json["items"].([]any)) != 1 {
+		t.Errorf("list archived = %d %s, want Docs only", r.code, r.body)
+	}
+
+	if r := do(t, h, "PATCH", project, `{"name":"No version"}`, ada...); r.code != http.StatusUnprocessableEntity {
+		t.Errorf("update without a version = %d %s, want 422", r.code, r.body)
+	}
+	if r := do(t, h, "PATCH", project, `{"version":2,"name":"Too new"}`, ada...); r.code != http.StatusConflict || r.json["code"] != "project_version_conflict" {
+		t.Errorf("update with a stale version = %d %s", r.code, r.body)
+	}
+	updated := do(t, h, "PATCH", project, `{"version":1,"status":"archived"}`, ada...)
+	if updated.code != http.StatusOK || updated.json["status"] != "archived" || updated.json["name"] != "Website" || updated.json["version"] != float64(2) {
+		t.Errorf("update = %d %s", updated.code, updated.body)
+	}
+
+	if r := do(t, h, "DELETE", project, "", ada...); r.code != http.StatusNoContent {
+		t.Fatalf("delete = %d %s", r.code, r.body)
+	}
+	if r := do(t, h, "GET", project, "", ada...); r.code != http.StatusNotFound {
+		t.Errorf("get after delete = %d %s", r.code, r.body)
+	}
+
+	rows, err := pool.Query(context.Background(), `SELECT action, actor_id FROM audit_events WHERE resource_type = 'project' AND resource_id = $1 ORDER BY id`, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var trail []string
+	for rows.Next() {
+		var action, actorID string
+		if err := rows.Scan(&action, &actorID); err != nil {
+			t.Fatal(err)
+		}
+		trail = append(trail, action+" by "+strings.ReplaceAll(actorID, adaID, "ada"))
+	}
+	if want := []string{"projects.project.created by ada", "projects.project.updated by ada", "projects.project.deleted by ada"}; !slices.Equal(trail, want) {
+		t.Errorf("audit trail = %v, want %v", trail, want)
+	}
+}

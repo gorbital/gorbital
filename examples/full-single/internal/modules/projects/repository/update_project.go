@@ -1,0 +1,34 @@
+package repository
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5"
+
+	"apistock.dev/modules/postgres"
+
+	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
+)
+
+const updateProjectSQL = `
+	UPDATE projects
+	SET name = $3, description = $4, status = $5, updated_at = $6, version = version + 1
+	WHERE id = $1 AND owner_id = $2 AND version = $7
+	RETURNING ` + projectColumns
+
+// UpdateProject saves p when the stored version is still p.Version and
+// returns it with the next version. It returns ErrProjectVersionConflict when
+// no row has that version (changed, deleted or not the owner's) and
+// ErrProjectNameTaken.
+func (s *Store) UpdateProject(ctx context.Context, p projectsdomain.Project) (projectsdomain.Project, error) {
+	rows, err := s.db.Query(ctx, updateProjectSQL,
+		p.ID, p.OwnerID, p.Name, p.Description, string(p.Status), p.UpdatedAt, p.Version)
+	if err != nil {
+		return projectsdomain.Project{}, constraintError(err)
+	}
+	updated, err := pgx.CollectExactlyOneRow(rows, scanProject)
+	if postgres.IsNoRows(err) {
+		return projectsdomain.Project{}, projectsdomain.ErrProjectVersionConflict
+	}
+	return updated, constraintError(err)
+}

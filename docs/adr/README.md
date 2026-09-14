@@ -48,3 +48,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0036](0036-audit-storage.md) | Audit storage | Accepted |
 | [0037](0037-email-setup-and-delivery.md) | Email setup and delivery | Accepted |
 | [0038](0038-authentication-v0-2.md) | Authentication in v0.2 | Accepted |
+| [0039](0039-resource-module-template.md) | Resource module template | Accepted |

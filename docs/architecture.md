@@ -305,7 +305,7 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | Scalar docs visual check in a real browser | Open: served, CSP-checked and asset-verified in tests, not yet viewed |
 | Publish the library at `apistock.dev` | Open: domain hardening, public repository, first tags (until then apps use `--local`) |
 | ~~`/ops/*` protection before authentication~~ | Resolved: sessions and platform roles replaced the interim `OPS_TOKEN` ([ADR-0038](adr/0038-authentication-v0-2.md)); required 2FA for ops roles is v0.3 |
-| Example business module with its own repository | Open: `examples/full-single` needs a resource module (for example projects) owning a table, the template for `aps gen resource` |
+| ~~Example business module with its own repository~~ | Resolved: `examples/full-single/internal/modules/projects` owns the `projects` table with all four layers, user ownership and cross-owner tests ([ADR-0039](adr/0039-resource-module-template.md)); `aps gen resource` is golden-tested against it next |
 | `aps new --preset=full` | Open: `examples/full-single` is the golden app it will be generated from (`aps gen job` is done and golden-tested against it) |
 | ~~Audit storage~~ | Resolved: `modules/auditpg` stores events in an append-only `audit_events` table, listed by `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)) |
 | ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `aps add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |

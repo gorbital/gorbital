@@ -30,6 +30,7 @@ internal/modules/<name>/ one bounded context per directory
   delivery/              HTTP adapter: Huma operations ↔ use cases
 internal/modules/auth/   sign-up, sign-in, sessions, passwords and roles: domain, usecase, repository (SQL), delivery
 internal/modules/ops/    admin APIs for runtime settings, jobs, the audit log and email
+internal/modules/projects/ example business resource owned by the signed-in user: copy it for your own
 api/openapi.json         exported API contract (committed; review changes in pull requests)
 compose.yaml             PostgreSQL and Mailpit for development and tests
 ```
@@ -57,6 +58,16 @@ Jobs run in the API process on PostgreSQL (River). A job carries the request ID,
 ## Authentication
 
 `internal/modules/auth` owns sign-up, email codes, sign-in, sessions, password reset and change, account deletion and platform roles, with all four layers: its use cases hold every flow and its repository holds the SQL for `auth_users`, `auth_sessions`, `auth_codes` and `auth_user_roles`. The apistock auth library supplies password hashing, tokens, codes, cookies, the permission catalog and the middleware that puts the signed-in user's actor (with the permissions of their roles) in each request's context. Use cases check `actor.Can(permission)`; declare permissions and roles in `internal/app/permissions.go`.
+
+## Business resources
+
+`internal/modules/projects` is the example to copy for your own resources, and the shape `aps gen resource` creates. All of it is your code: change any rule, query or response.
+
+- **Ownership:** every project has an `owner_id` (the signed-in user). Every repository method takes the owner ID, and someone else's project returns 404 `project_not_found`, so IDs can't be probed. Deleting an account deletes its projects.
+- **Lists:** `GET /v1/projects` uses keyset pagination through `apistock.dev/page`: `limit`, an opaque `cursor`, and `sort` by one allowlisted field, with one fixed query per sort in `repository/select_projects.go`.
+- **Updates:** `PATCH` sends the `version` it read; a stale version returns 409 `project_version_conflict` instead of overwriting someone else's change.
+- **Audit:** `projects.project.created`, `.updated` (changed field names only) and `.deleted`.
+- **Tests:** domain rules, repository methods on real PostgreSQL, use cases including cross-owner access, and an end-to-end HTTP test in `internal/app/projects_test.go`.
 
 ## Email
 

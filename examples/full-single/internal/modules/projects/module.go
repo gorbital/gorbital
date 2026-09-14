@@ -1,0 +1,44 @@
+// Package projects is the example business module: projects that belong to
+// the signed-in user, with all four layers and its own table (ADR-0039).
+// Copy it for your own resources, or create one like it with
+// aps gen resource.
+package projects
+
+import (
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	projectsdelivery "example.com/acme-api/internal/modules/projects/delivery"
+	projectsrepository "example.com/acme-api/internal/modules/projects/repository"
+	projectsusecase "example.com/acme-api/internal/modules/projects/usecase"
+)
+
+// Module is the projects module.
+type Module struct {
+	svc *projectsusecase.Service
+}
+
+// New builds the module's layers on pool. cfg.Store is set to the module's
+// repository.
+func New(pool *pgxpool.Pool, cfg projectsusecase.Config) (*Module, error) {
+	cfg.Store = projectsrepository.NewStore(pool)
+	svc, err := projectsusecase.NewService(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Module{svc: svc}, nil
+}
+
+// Service returns the use cases, for other wiring (commands, jobs, tests).
+func (m *Module) Service() *projectsusecase.Service { return m.svc }
+
+// Register adds the module's HTTP operations to api. A nil module registers
+// the operations without their dependencies, for exporting the OpenAPI
+// document.
+func (m *Module) Register(api huma.API) {
+	var svc *projectsusecase.Service
+	if m != nil {
+		svc = m.svc
+	}
+	projectsdelivery.Register(api, svc)
+}
