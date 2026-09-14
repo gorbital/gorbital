@@ -41,6 +41,7 @@ CLI ↔ Go module proxy; recipe → owned code; `apistock.dev` → `go-import` r
 | 21 | Vulnerable dependencies | `govulncheck` in repository CI, generated CI, and module checks | v0.1 |
 | 22 | Open-core dependency changes (for example River Pro, Atlas Pro) | Dependencies behind modules; licences recorded; swap path documented | Ongoing |
 | 23 | Runtime settings abused to weaken security (for example very long session or code expiry) or to leak secrets | No secret type in settings; bounds declared per setting plus hard limits inside library modules; `ops.settings.write` permission (2FA from v0.3); reason, history and audit event per change | v0.2 |
+| 24 | Job controls abused: destructive jobs run on demand, schedules set to overload the database, security jobs (session purge, retention) disabled | `ops.jobs.write` and `ops.jobs.run` permissions (2FA from v0.3); reason required to disable or reschedule; minimum 1-minute interval and bounded timeout and attempts; audit event and history per change; job arguments never returned by ops APIs | v0.2 |
 
 ## Residual risk
 

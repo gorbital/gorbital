@@ -1,6 +1,6 @@
 # ADR-0025: Email providers
 
-**Status:** Accepted (2026-09-14)
+**Status:** Accepted (2026-09-14) · **Amended by:** ADR-0033 (two-step mail worker and `jobs.AsyncSender(client)` wiring)
 
 ## Context
 

@@ -1,6 +1,6 @@
 # ADR-0026: Operations APIs
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0010 · **Amended by:** ADR-0031
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0010 · **Amended by:** ADR-0031, ADR-0033
 
 ## Context
 
@@ -23,7 +23,7 @@ Option 3.
 | Audit logs | `GET /ops/audit`, `GET /ops/audit/{id}`, `GET /ops/audit/stats` | Filters: actor, action, resource, org, outcome, time range; cursor pagination |
 | System health | `GET /ops/system` | Database status and pool statistics, migration version, Go runtime, uptime, dependency checks |
 | Release monitor | `GET /ops/releases`, `GET /ops/releases/current` | Each instance records version, commit, build time and start time at boot; no CI webhook required |
-| Jobs overview | `GET /ops/jobs`, `GET /ops/jobs/{id}` | Queues, failed and retrying jobs from River |
+| Jobs | `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs`, `/ops/queues` | Moved to v0.2 and expanded by ADR-0033: editable job configuration, run now, retry, cancel, pause and resume |
 | Retention | `GET/PUT /ops/retention` | Policies for audit events, sessions, releases, deleted accounts; enforced by cron jobs |
 | Maintenance mode | Runtime setting (ADR-0031) | Returns 503 with a message for non-ops routes |
 | Runtime settings | `GET /ops/settings`, `GET/PUT/DELETE /ops/settings/{key}`, `GET /ops/settings/{key}/history` | Moved from v1.1 to v0.2 by ADR-0031 |

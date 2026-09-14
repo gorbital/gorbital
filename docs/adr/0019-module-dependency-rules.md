@@ -1,6 +1,6 @@
 # ADR-0019: Module dependency rules and core budget
 
-**Status:** Accepted (2026-09-14) · **Supersedes (with ADR-0021):** ADR-0002 · **Amends:** ADR-0001, ADR-0007, ADR-0009
+**Status:** Accepted (2026-09-14) · **Supersedes (with ADR-0021):** ADR-0002 · **Amends:** ADR-0001, ADR-0007, ADR-0009 · **Amended by:** ADR-0033
 
 ## Context
 

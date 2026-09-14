@@ -1,6 +1,6 @@
 # ADR-0023: Tenancy
 
-**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0013
+**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0013 · **Amended by:** ADR-0033
 
 ## Context
 
@@ -61,7 +61,7 @@ Row-level security is an optional additional layer in v1.1. `org_id` is carried 
 
 - Multi-tenant = base recipes + the `orgs` recipe; resource templates `resource/single` and `resource/org`.
 - `aps gen resource <Name> --scope=org|user|global`.
-- Library tables (audit, sessions, jobs) always include a nullable `org_id`.
+- apistock's own library tables (audit, sessions, settings) always include a nullable `org_id`. River's job tables don't; a job's org ID is in its metadata (ADR-0033).
 - Golden apps `examples/full-single` and `examples/full-multi`, both tested.
 
 ### Changing modes

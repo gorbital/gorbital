@@ -14,7 +14,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0002](0002-module-architecture.md) | Module architecture | Superseded by 0019, 0021 |
 | [0003](0003-code-generation.md) | Code generation | Accepted, amended by 0021 |
 | [0004](0004-dependency-injection.md) | Dependency injection | Superseded by 0017, 0020 |
-| [0005](0005-database-strategy.md) | Database strategy | Accepted, amended by 0032 |
+| [0005](0005-database-strategy.md) | Database strategy | Accepted, amended by 0032, 0033 |
 | [0006](0006-authentication.md) | Authentication | Superseded by 0024 |
 | [0007](0007-observability.md) | Observability | Accepted, amended by 0019, 0028 |
 | [0008](0008-configuration.md) | Configuration | Superseded by 0020 |
@@ -28,17 +28,18 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0016](0016-scaffold-compatibility-and-upgrades.md) | Scaffold compatibility and upgrade path | Accepted |
 | [0017](0017-application-lifecycle.md) | Application lifecycle | Accepted |
 | [0018](0018-error-contract.md) | Error contract and problem+json | Accepted |
-| [0019](0019-module-dependency-rules.md) | Module dependency rules and core budget | Accepted |
+| [0019](0019-module-dependency-rules.md) | Module dependency rules and core budget | Accepted, amended by 0033 |
 | [0020](0020-constructors-and-configuration.md) | Constructors and configuration | Accepted, amended by 0031 |
 | [0021](0021-generator-operation-model.md) | Generator operation model | Accepted |
 | [0022](0022-generated-application-layout.md) | Generated application layout | Accepted, amended by 0032 |
-| [0023](0023-tenancy.md) | Tenancy | Accepted |
+| [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033 |
 | [0024](0024-authentication-methods.md) | Authentication methods | Accepted |
-| [0025](0025-email-providers.md) | Email providers | Accepted |
-| [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031 |
+| [0025](0025-email-providers.md) | Email providers | Accepted, amended by 0033 |
+| [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033 |
 | [0027](0027-api-contract-and-docs.md) | API contract and documentation | Accepted |
 | [0028](0028-local-development-environment.md) | Local development environment | Accepted |
 | [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted |
 | [0030](0030-context-and-correlation.md) | Context and correlation propagation | Accepted |
 | [0031](0031-runtime-settings.md) | Runtime settings | Accepted |
 | [0032](0032-repository-sql.md) | Hand-written SQL in repositories | Accepted |
+| [0033](0033-background-jobs.md) | Background jobs | Accepted |

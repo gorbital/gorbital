@@ -124,7 +124,7 @@ apistock/
 │   ├── telemetry/           OpenTelemetry SDK + exporters, correlated logs           (v0.1)
 │   ├── postgres/            pool, transactions, migrations runner, pgtest (against Docker PostgreSQL)   (v0.2)
 │   ├── settings/            runtime settings: typed declarations, PostgreSQL store, LISTEN/NOTIFY reload   (v0.2)
-│   ├── jobs/                River, cron, AsyncSender
+│   ├── jobs/                River, job definitions and Manager (Lambda-style config), AsyncSender   (v0.2)
 │   ├── mail/resend/ · mail/smtp/
 │   ├── auditpg/             audit store + query API
 │   ├── auth/                identity, passwords, sessions, oidc (google, apple), totp, passkey
@@ -242,6 +242,7 @@ Two layers. **Environment** holds secrets, credentials and infrastructure (datab
 | `aps new <name>` | Create an app (presets and prompts) |
 | `aps add <feature>` | Add a feature recipe |
 | `aps gen resource <Name> [fields] [--scope=org\|user\|global]` | One-shot layered module |
+| `aps gen job <Name> [--cron SPEC\|--every D]` | Job args, worker, test and definition; config editable in `/ops/jobs` ([ADR-0033](adr/0033-background-jobs.md)) |
 | `aps gen migration <name>` | Empty timestamped migration |
 | `aps dev [--observability]` | Run locally with reload and Docker services |
 | `aps upgrade [--major]` | Upgrade recipes and library on a branch |
