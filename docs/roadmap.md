@@ -27,11 +27,13 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 ## v0.2: Data and identity
 
+**Status: in progress.** Done (2026-09-14): `modules/postgres` (pool with tracing, `DBTX`, `InTx`, error classification, goose migrations with advisory lock, readiness check, `pgtest` against Docker PostgreSQL), [ADR-0031](adr/0031-runtime-settings.md) runtime settings design, [ADR-0032](adr/0032-repository-sql.md) repository style. Next: `modules/settings`.
+
 | | |
 |---|---|
-| **Delivers** | `modules/postgres`, `modules/jobs` (River, cron, AsyncSender), `modules/mail/resend` and `mail/smtp`, `modules/auditpg`, `modules/auth` (email/password, email codes, sessions, logout-all, reset/change password, active sessions, delete account, platform roles, permission catalog), `modules/releases`, Full and Custom presets, tenancy prompt with single-tenant generation, `aps dev` with Docker (PostgreSQL, Mailpit, `--observability` Grafana), `aps gen resource` and `aps gen migration`, seed data, `examples/full-single` |
-| **Not included** | Social login, 2FA, passkeys, multi-tenant, ops APIs |
-| **Done when** | From a fresh `aps new --preset=full`: register → verify email code → login → role-protected endpoint → audit event recorded, all in e2e tests; nullable `org_id` and role-scope columns present in library tables |
+| **Delivers** | `modules/postgres`, `modules/settings` (runtime settings declared in code, stored in PostgreSQL, live on every instance, `/ops/settings` API, `config.Value[T]` in core; [ADR-0031](adr/0031-runtime-settings.md)), `modules/jobs` (River, cron, AsyncSender), `modules/mail/resend` and `mail/smtp`, `modules/auditpg`, `modules/auth` (email/password, email codes, sessions, logout-all, reset/change password, active sessions, delete account, platform roles, permission catalog), `modules/releases`, Full and Custom presets, tenancy prompt with single-tenant generation, `aps dev` with Docker (PostgreSQL, Mailpit, `--observability` Grafana), `aps gen resource` and `aps gen migration`, seed data, `examples/full-single` |
+| **Not included** | Social login, 2FA, passkeys, multi-tenant, ops APIs other than `/ops/settings` |
+| **Done when** | From a fresh `aps new --preset=full`: register → verify email code → login → role-protected endpoint → audit event recorded, all in e2e tests; a setting changed through `/ops/settings` on one instance is served by a second instance without restart and appears in history and the audit log; nullable `org_id` and role-scope columns present in library tables; threat model rows 12, 13, 19 and 23 addressed |
 
 ## v0.3: Strong authentication
 
@@ -54,7 +56,7 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 | | |
 |---|---|
 | **Delivers** | `/ops/*` (audit logs, system health, release monitor, jobs overview, retention), maintenance mode, Postman collection, `llms.txt`, `aps upgrade` (3-way merge on a branch), `aps doctor` |
-| **Not included** | Configuration center, feature flags, live observability, incidents |
+| **Not included** | Feature flags, live observability, incidents |
 | **Done when** | An app generated with v0.2 and edited by script upgrades to v0.5 in CI with no lost edits; ops endpoints require platform roles and 2FA |
 
 ## v1.0: Stable
@@ -66,7 +68,7 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 ## v1.1
 
-Configuration center, feature flags, live observability, incident reports, API keys and service accounts, GitHub login, PostgreSQL row-level security option, idempotency keys, custom local dev console, Resend bounce/complaint webhooks, Prometheus `/metrics` option.
+Feature flags, per-org settings, live observability, incident reports, API keys and service accounts, GitHub login, PostgreSQL row-level security option, idempotency keys, custom local dev console, Resend bounce/complaint webhooks, Prometheus `/metrics` option.
 
 ## Later
 
@@ -74,4 +76,4 @@ Community module index and author tooling, subdomain tenant resolution, per-org 
 
 ## Not planned
 
-Admin web UI inside generated apps, hosted control plane, mobile app, databases other than PostgreSQL, schema- or database-per-tenant, custom router, ORM or DI container, plugin runtime, dashboard-managed configuration, storing application logs in PostgreSQL.
+Admin web UI inside generated apps, hosted control plane, mobile app, databases other than PostgreSQL, schema- or database-per-tenant, custom router, ORM or DI container, plugin runtime, secrets or infrastructure configuration stored in the database, storing application logs in PostgreSQL.
