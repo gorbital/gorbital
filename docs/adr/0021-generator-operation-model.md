@@ -71,5 +71,5 @@ A minimal edit surface means fewer conflicts and simpler removal; replaying oper
 
 ## Consequences
 
-- Open: text-level `insertLine` versus AST editing is decided by the anchor-edit spike; the operation contract stays the same either way.
+- Decided by the [anchor-edit spike](../../spikes/anchor/README.md): `insertLine` uses parser-located text insertion (standard library only), validated with `go/format`; no AST-rewriting dependency.
 - Golden tests: the generator must reproduce `examples/minimal`, `examples/full-single` and `examples/full-multi` exactly.

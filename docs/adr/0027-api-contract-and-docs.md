@@ -36,10 +36,13 @@ Developers must test the API immediately after `aps new`: interactive docs at `/
 | Generator | `aps gen resource` and `aps gen endpoint` create input/output types, operation registration, handler and use-case stubs |
 | Project docs | `apistock.dev/docs` built with Mintlify; MDX and OpenAPI kept in this repository |
 
-### Open for v0.1
+### Unknown request fields: tolerant
 
-1. **Unknown request fields:** Huma rejects them by default. Decide between strict (reject) and tolerant (ignore) for request bodies.
-2. **Non-member responses:** 403 vs 404 for organisations the caller doesn't belong to (v0.4).
+Huma rejects unknown request-body fields by default. apistock apps **ignore unknown fields** (tolerant reader) so older server versions keep accepting requests from newer mobile and web clients. Validation still applies to every known field. The exact Huma configuration is implemented and tested in v0.1.
+
+### Open for v0.4
+
+- **Non-member responses:** 403 vs 404 for organisations the caller doesn't belong to.
 
 ## Why
 
