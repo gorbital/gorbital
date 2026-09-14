@@ -16,7 +16,8 @@ import (
 func runAps(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
-	code := Main(context.Background(), args, &stdout, &stderr)
+	// A non-terminal stdin: commands never prompt in tests.
+	code := Main(context.Background(), args, strings.NewReader(""), &stdout, &stderr)
 	return code, stdout.String(), stderr.String()
 }
 

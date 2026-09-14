@@ -18,11 +18,14 @@ var Version = "v0.1.0-dev"
 const usage = `aps creates and runs apistock applications.
 
 Usage:
-  aps new <name> [flags]   create an application
-  aps dev [flags]          run the application with live reload
-  aps version              print version information
-  aps help                 show this help
+  aps new [<name>] [flags]       create an application
+  aps gen job [<Name>] [flags]   generate a background job (Full preset apps)
+  aps dev [flags]                run the application with live reload
+  aps version                    print version information
+  aps help                       show this help
 
+In a terminal, commands ask for anything you leave out, with arrow-key menus.
+Every question has a flag; pass --yes to accept defaults without questions.
 Run "aps <command> -h" for a command's flags.
 `
 
@@ -32,8 +35,9 @@ type usageError string
 func (e usageError) Error() string { return string(e) }
 
 // Main runs aps with args and returns the process exit code: 0 on success,
-// 1 on failure, 2 on invalid usage.
-func Main(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+// 1 on failure, 2 on invalid usage, 130 when the user cancels a prompt.
+// Prompts read stdin and draw on stderr, only when both are terminals.
+func Main(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usage)
 		return 2
@@ -42,7 +46,9 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	var err error
 	switch args[0] {
 	case "new":
-		err = runNew(ctx, args[1:], stdout, stderr)
+		err = runNew(ctx, args[1:], stdin, stdout, stderr)
+	case "gen":
+		err = runGen(ctx, args[1:], stdin, stdout, stderr)
 	case "dev":
 		err = runDev(ctx, args[1:], stderr)
 	case "version", "-version", "--version":
@@ -61,6 +67,9 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 0
 	case errors.Is(err, flag.ErrHelp):
 		return 0
+	case errors.Is(err, errAborted):
+		fmt.Fprintf(stderr, "aps: %v\n", err)
+		return 130
 	}
 	fmt.Fprintf(stderr, "aps: %v\n", err)
 	var ue usageError

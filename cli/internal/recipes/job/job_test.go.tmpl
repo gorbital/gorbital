@@ -1,0 +1,30 @@
+package ⟦.Package⟧_test
+
+import (
+	"bytes"
+	"context"
+	"log/slog"
+	"strings"
+	"testing"
+
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
+
+	"⟦.Module⟧/internal/jobs/⟦.Package⟧"
+)
+
+func TestWorker(t *testing.T) {
+	var logs bytes.Buffer
+	w := ⟦.Package⟧.NewWorker(slog.New(slog.NewJSONHandler(&logs, nil)))
+
+	job := &river.Job[⟦.Package⟧.Args]{JobRow: &rivertype.JobRow{ID: 7, Attempt: 1}}
+	if err := w.Work(context.Background(), job); err != nil {
+		t.Fatalf("Work() error = %v", err)
+	}
+	if !strings.Contains(logs.String(), `"job_id":7`) {
+		t.Errorf("logs = %s, want a line with the job ID", logs.String())
+	}
+	if (⟦.Package⟧.Args{}).Kind() != ⟦.Package⟧.Name {
+		t.Error("Args.Kind() doesn't return Name")
+	}
+}

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/charmbracelet/huh"
 
 	"apistock.dev/cli/internal/recipes"
 )
@@ -32,17 +35,21 @@ type newResult struct {
 	Files  int    `json:"files"`
 }
 
-func runNew(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	flags := flag.NewFlagSet("aps new", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	module := flags.String("module", "", "Go module path (default: the app name)")
 	preset := flags.String("preset", "minimal", "preset: minimal (full and custom arrive in v0.2)")
-	local := flags.String("local", "", "path to an apistock checkout, used through replace directives")
+	local := flags.String("local", "", "path to an apistock checkout, used through replace directives (default: the checkout you are in, if any)")
 	noGit := flags.Bool("no-git", false, "don't initialise a git repository")
 	skipTidy := flags.Bool("skip-tidy", false, "don't run go mod tidy")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
+	var p promptFlags
+	flags.BoolVar(&p.yes, "yes", false, "use defaults for everything not given by flags, without prompts")
+	flags.BoolVar(&p.noInput, "no-input", false, "never prompt; fail if a required value is missing")
+	flags.BoolVar(&p.plain, "plain", false, "plain line-by-line prompts (screen-reader friendly)")
 	flags.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: aps new <name> [flags]")
+		fmt.Fprintln(stderr, "Usage: aps new [<name>] [flags]\n\nIn a terminal, missing values are asked interactively; pass flags to skip them.\n\nFlags:")
 		flags.PrintDefaults()
 	}
 
@@ -57,6 +64,24 @@ func runNew(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 		name = flags.Arg(0)
 	} else if flags.NArg() > 0 {
 		return usageError(fmt.Sprintf("unexpected arguments: %s", strings.Join(flags.Args(), " ")))
+	}
+	set := map[string]bool{}
+	flags.Visit(func(f *flag.Flag) { set[f.Name] = true })
+
+	// Until the library is published, apps need a checkout; use the one the
+	// command runs in when none is given.
+	detected := false
+	if *local == "" {
+		if dir := findCheckout(); dir != "" {
+			*local, detected = dir, true
+		}
+	}
+
+	ask := shouldPrompt(p, *asJSON, stdin, stdout)
+	if ask {
+		if err := promptNew(&name, module, local, noGit, set, p, stdin, stderr); err != nil {
+			return err
+		}
 	}
 
 	if err := validateName(name); err != nil {
@@ -85,6 +110,19 @@ func runNew(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
+
+	if ask {
+		ok, err := confirm("Create this app?", newSummary(name, *module, *preset, localPath, !*noGit), p, stdin, stderr)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errAborted
+		}
+	} else if detected && !*asJSON {
+		fmt.Fprintf(stderr, "Using the apistock checkout at %s (pass --local to choose another)\n", localPath)
+	}
+
 	if err := os.Mkdir(name, 0o755); err != nil {
 		return err
 	}
@@ -119,6 +157,90 @@ func runNew(ctx context.Context, args []string, stdout, stderr io.Writer) error 
 	return nil
 }
 
+// promptNew asks for every value not given by a flag.
+func promptNew(name, module, local *string, noGit *bool, set map[string]bool, p promptFlags, stdin io.Reader, stderr io.Writer) error {
+	var fields []huh.Field
+	if *name == "" {
+		fields = append(fields, huh.NewInput().Title("App name").
+			Description("Lowercase letters, digits and hyphens, such as my-api. It becomes the directory name.").
+			Placeholder("my-api").Value(name).Validate(validateName))
+	}
+	if !set["module"] {
+		fields = append(fields, huh.NewInput().Title("Go module path").
+			Description("Where the code will live, such as github.com/you/my-api. Leave empty to use the app name.").
+			Placeholder("github.com/you/my-api").Value(module).
+			Validate(func(s string) error {
+				if s == "" {
+					return nil
+				}
+				return validateModule(s)
+			}))
+	}
+	if !set["preset"] {
+		fields = append(fields, huh.NewNote().Title("Preset: Minimal").
+			Description("HTTP API with configuration, telemetry, health checks, security headers and interactive docs.\nFull (PostgreSQL, runtime settings, jobs, authentication) and Custom arrive in v0.2."))
+	}
+	if !set["local"] {
+		fields = append(fields, huh.NewInput().Title("apistock checkout").
+			Description("The library isn't published yet, so apps use a local copy of the apistock repository.").
+			Placeholder("/path/to/apistock").Value(local).
+			Validate(func(s string) error {
+				if strings.TrimSpace(s) == "" {
+					return errors.New("enter the path of your apistock checkout")
+				}
+				_, err := resolveLocal(s)
+				return err
+			}))
+	}
+	gitInit := !*noGit
+	if !set["no-git"] {
+		fields = append(fields, huh.NewConfirm().Title("Initialise a git repository?").
+			Affirmative("Yes").Negative("No").Value(&gitInit))
+	}
+	if len(fields) == 0 {
+		return nil
+	}
+	if err := runForm(huh.NewForm(huh.NewGroup(fields...)), p, stdin, stderr); err != nil {
+		return err
+	}
+	*noGit = !gitInit
+	return nil
+}
+
+func newSummary(name, module, preset, local string, git bool) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "  App:     %s (%s preset)\n", name, preset)
+	fmt.Fprintf(&b, "  Module:  %s\n", module)
+	if local != "" {
+		fmt.Fprintf(&b, "  Library: apistock checkout at %s\n", local)
+	}
+	gitLine := "don't initialise"
+	if git {
+		gitLine = "initialise a repository"
+	}
+	fmt.Fprintf(&b, "  Git:     %s", gitLine)
+	return b.String()
+}
+
+// findCheckout returns the nearest directory at or above the current one
+// whose go.mod declares module apistock.dev, or "".
+func findCheckout() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	for {
+		if data, err := os.ReadFile(filepath.Join(dir, "go.mod")); err == nil && bytes.HasPrefix(data, []byte("module apistock.dev\n")) {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
 func create(dir string, d recipes.Data) ([]recipes.File, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
@@ -139,7 +261,7 @@ func create(dir string, d recipes.Data) ([]recipes.File, error) {
 func validateName(name string) error {
 	switch {
 	case name == "":
-		return usageError("missing app name: aps new <name>")
+		return usageError("missing app name: aps new <name> (or run it in a terminal to be asked)")
 	case len(name) > maxNameLength || !namePattern.MatchString(name):
 		return usageError(fmt.Sprintf("invalid app name %q: use lowercase letters, digits and single hyphens, starting with a letter (max %d characters)", name, maxNameLength))
 	}

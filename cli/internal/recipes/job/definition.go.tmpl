@@ -1,0 +1,26 @@
+package app
+
+import (
+	"time"
+
+	"apistock.dev/modules/jobs"
+
+	"⟦.Module⟧/internal/jobs/⟦.Package⟧"
+)
+
+// define⟦.Ident⟧Job declares the ⟦.Name⟧ job with its code defaults.
+// Operators can override them in /ops/jobs/definitions/⟦.Name⟧.
+func define⟦.Ident⟧Job(defs *jobs.Definitions, deps jobDeps) {
+	jobs.Define(defs, jobs.Definition[⟦.Package⟧.Args]{
+		Name:        ⟦.Package⟧.Name,
+		Description: ⟦printf "%q" .Description⟧,
+		Worker:      ⟦.Package⟧.NewWorker(deps.logger),
+		NewArgs:     func() ⟦.Package⟧.Args { return ⟦.Package⟧.Args{} },
+		Enabled:     ⟦.Enabled⟧,
+		Schedule:    ⟦printf "%q" .Schedule⟧,
+		Timeout:     ⟦.TimeoutExpr⟧,
+		MaxAttempts: ⟦.MaxAttempts⟧,
+		Queue:       ⟦printf "%q" .Queue⟧,
+		Priority:    ⟦.Priority⟧,
+	})
+}
