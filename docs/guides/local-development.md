@@ -38,12 +38,18 @@ docker compose down -v               # stop and delete data (also removes old pg
 
 Set `APISTOCK_POSTGRES_PORT` to use another host port.
 
+## Mailpit
+
+The same `compose.yaml` runs [Mailpit](https://mailpit.axllent.org), a local email inbox, for the SMTP module and example tests: SMTP on **127.0.0.1:51025**, web inbox on **http://127.0.0.1:58025** (`APISTOCK_MAILPIT_SMTP_PORT` and `APISTOCK_MAILPIT_WEB_PORT` to change). Apps have their own Mailpit in their `compose.yaml`, on 1025 and 8025 ([email guide](email.md)).
+
 ## Running tests
 
-Database tests use `pgtest`, which reads the server URL from an environment variable:
+Database tests use `pgtest`, which reads the server URL from an environment variable; email delivery tests read Mailpit's addresses:
 
 ```bash
 export APISTOCK_TEST_DATABASE_URL='postgres://apistock:apistock@127.0.0.1:55432/apistock?sslmode=disable'
+export APISTOCK_TEST_MAILPIT_SMTP=127.0.0.1:51025
+export APISTOCK_TEST_MAILPIT_URL=http://127.0.0.1:58025
 ```
 
 | Module | Command |
@@ -54,6 +60,8 @@ export APISTOCK_TEST_DATABASE_URL='postgres://apistock:apistock@127.0.0.1:55432/
 
 - Without `APISTOCK_TEST_DATABASE_URL`, database tests are **skipped** with instructions.
 - With `APISTOCK_REQUIRE_DB=1` (as in CI), a missing database **fails** the tests instead.
+- Without the Mailpit variables, `modules/mail/smtp`'s Mailpit test is skipped and the example checks that email is queued but not delivered; `APISTOCK_REQUIRE_MAILPIT=1` (as in CI) makes the missing Mailpit a failure.
+- `APS_E2E=1` in `cli` runs the end-to-end tests: a generated Minimal app passes its tests, and a copy of `examples/full-single` builds after `aps add mail` switches it to SMTP and back.
 - Every test gets its own database, cloned from a migrated template, and dropped afterwards; tests are isolated and can run in parallel across packages.
 
 ## Checks
@@ -78,7 +86,7 @@ go run ./cmd/api openapi > api/openapi.json
 ```bash
 cd examples/full-single
 cp .env.example .env                 # set OPS_TOKEN: openssl rand -hex 32
-docker compose up -d --wait          # its own PostgreSQL on 127.0.0.1:5432 (POSTGRES_PORT to change)
+docker compose up -d --wait          # its own PostgreSQL on 127.0.0.1:5432 and Mailpit on http://127.0.0.1:8025
 go run ./cmd/migrate
 go run ./cmd/api
 ```
@@ -87,7 +95,7 @@ The app reads `.env` only through `aps dev`; with plain `go run`, export the var
 
 ## CI
 
-`.github/workflows/ci.yml` runs, per module: gofmt, `go vet`, `go test -race` against a PostgreSQL service container, golangci-lint, govulncheck, OpenAPI drift checks for the example apps, recipe drift for the Minimal preset, an end-to-end generated-app test, and a gitleaks secret scan.
+`.github/workflows/ci.yml` runs, per module: gofmt, `go vet`, `go test -race` against PostgreSQL and Mailpit service containers, golangci-lint, govulncheck, OpenAPI drift checks for the example apps, recipe drift for the Minimal preset, an end-to-end generated-app test, and a gitleaks secret scan.
 
 The workflows are currently **disabled on GitHub** during active development. Re-enable them with:
 

@@ -20,7 +20,8 @@ const usage = `aps creates and runs apistock applications.
 Usage:
   aps new [<name>] [flags]       create an application
   aps gen job [<Name>] [flags]   generate a background job (Full preset apps)
-  aps dev [flags]                run the application with live reload
+  aps add mail [flags]           set up email with Resend or SMTP (Full preset apps)
+  aps dev [flags]              run the application with live reload
   aps version                    print version information
   aps help                       show this help
 
@@ -49,6 +50,8 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io
 		err = runNew(ctx, args[1:], stdin, stdout, stderr)
 	case "gen":
 		err = runGen(ctx, args[1:], stdin, stdout, stderr)
+	case "add":
+		err = runAdd(ctx, args[1:], stdin, stdout, stderr)
 	case "dev":
 		err = runDev(ctx, args[1:], stderr)
 	case "version", "-version", "--version":

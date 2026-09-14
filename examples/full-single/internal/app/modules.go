@@ -13,9 +13,7 @@ import (
 // exporting the OpenAPI document, only values the routes need are set.
 type services struct {
 	pingMessage config.Value[string]
-	settings    opsusecase.SettingsStore
-	jobs        opsusecase.JobsManager
-	audit       opsusecase.AuditLog
+	ops         opsusecase.Deps
 }
 
 // registerModules wires every business module: its HTTP operations and its
@@ -25,7 +23,7 @@ func registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {
 	if err := registerPing(api, mapper, svc.pingMessage); err != nil {
 		return err
 	}
-	if err := registerOps(api, mapper, svc.settings, svc.jobs, svc.audit); err != nil {
+	if err := registerOps(api, mapper, svc.ops); err != nil {
 		return err
 	}
 	return nil

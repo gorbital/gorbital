@@ -16,10 +16,10 @@ import (
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 )
 
-// registerOps wires the operations module: runtime settings, jobs and audit
-// log admin APIs. Error codes are public API: add new ones, never change
-// existing ones.
-func registerOps(api huma.API, mapper *httpx.Mapper, store opsusecase.SettingsStore, manager opsusecase.JobsManager, auditLog opsusecase.AuditLog) error {
+// registerOps wires the operations module: runtime settings, jobs, audit log
+// and email admin APIs. Error codes are public API: add new ones, never
+// change existing ones.
+func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error {
 	err := mapper.Add(
 		httpx.Mapping{Err: opsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
 		httpx.Mapping{Err: opsdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
@@ -40,10 +40,12 @@ func registerOps(api huma.API, mapper *httpx.Mapper, store opsusecase.SettingsSt
 
 		httpx.Mapping{Err: auditpg.ErrEventNotFound, Status: http.StatusNotFound, Code: "audit_event_not_found", Detail: "no audit event has this ID"},
 		httpx.Mapping{Err: auditpg.ErrInvalidFilter, Status: http.StatusUnprocessableEntity, Code: "invalid_audit_filter", Detail: "the audit filter is not valid"},
+
+		httpx.Mapping{Err: opsdomain.ErrInvalidRecipient, Status: http.StatusUnprocessableEntity, Code: "invalid_recipient", Detail: "the recipient is not an email address"},
 	)
 	if err != nil {
 		return fmt.Errorf("ops module: %w", err)
 	}
-	ops.New(store, manager, auditLog).Register(api)
+	ops.New(deps).Register(api)
 	return nil
 }

@@ -12,15 +12,18 @@ const (
 	PermJobsWrite     = "ops.jobs.write"
 	PermJobsRun       = "ops.jobs.run"
 	PermAuditRead     = "ops.audit.read"
+	PermMailRead      = "ops.mail.read"
+	PermMailTest      = "ops.mail.test"
 )
 
 // AllPermissions returns every operations permission.
 func AllPermissions() []string {
-	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead}
+	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead, PermMailRead, PermMailTest}
 }
 
 // Errors returned by operations use cases.
 var (
-	ErrUnauthenticated = errors.New("authentication is required")
-	ErrForbidden       = errors.New("missing permission")
+	ErrUnauthenticated  = errors.New("authentication is required")
+	ErrForbidden        = errors.New("missing permission")
+	ErrInvalidRecipient = errors.New("recipient is not an email address")
 )

@@ -99,6 +99,10 @@ func (w *mailWorker) Work(ctx context.Context, job *river.Job[mailArgs]) error {
 		m.IdempotencyKey = fmt.Sprintf("job-%d", job.ID)
 	}
 	if err := w.sender.Send(ctx, m); err != nil {
+		if errors.Is(err, mail.ErrRejected) {
+			// Retrying the same message can't succeed; the run shows why.
+			return river.JobCancel(fmt.Errorf("send email: %w", err))
+		}
 		return fmt.Errorf("send email: %w", err)
 	}
 	return nil

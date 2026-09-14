@@ -1,6 +1,6 @@
 # CLI guide
 
-`aps` creates apistock apps, generates code in them and runs them locally. Decisions: [ADR-0014](../adr/0014-product-shape-and-presets.md) (presets and prompts), [ADR-0021](../adr/0021-generator-operation-model.md) (generator), [ADR-0035](../adr/0035-interactive-cli.md) (interactive prompts with flag parity).
+`aps` creates apistock apps, generates code in them and runs them locally. Decisions: [ADR-0014](../adr/0014-product-shape-and-presets.md) (presets and prompts), [ADR-0021](../adr/0021-generator-operation-model.md) (generator), [ADR-0035](../adr/0035-interactive-cli.md) (interactive prompts with flag parity), [ADR-0037](../adr/0037-email-setup-and-delivery.md) (`aps add mail`).
 
 ## Installing
 
@@ -104,6 +104,44 @@ What it creates for `CleanupSessions`:
 | `internal/app/jobs.go` | One `defineCleanupSessionsJob(defs, deps)` line after `//aps:anchor jobs` |
 
 Safety checks: the app must have `internal/app/jobs.go` with the anchor; existing files are never overwritten; a job name can be registered once; the git repository must have no uncommitted changes (so the generated diff is easy to review) unless you pass `--allow-dirty`; generated Go is checked with gofmt.
+
+## `aps add mail`
+
+Sets up email in an app created with the Full preset: Resend or any SMTP server. Run it again to switch provider. Full walkthrough: [email guide](email.md).
+
+```bash
+aps add mail                                             # asks for everything
+aps add mail --provider resend --yes                     # Resend; add RESEND_API_KEY to .env yourself
+aps add mail --smtp-host smtp.postmarkapp.com --smtp-username <token>   # SMTP; asks for the password
+aps add mail --provider smtp --dry-run                   # show what would change
+```
+
+| Question | Flag | Default |
+|---|---|---|
+| How should the app send email? (Resend, recommended; SMTP) | `--provider resend\|smtp` (any `--smtp-*` flag implies smtp) | `resend` |
+| Resend API key (optional, hidden) | none: saved only to `.env` | add it to `.env` later |
+| SMTP server (optional) | `--smtp-host` | add it to `.env` later |
+| Port and encryption (587 STARTTLS, 465 TLS, 2525 STARTTLS, 25 none) | `--smtp-port`, `--smtp-tls` | 587, `starttls` (`tls` for 465) |
+| SMTP username (optional) | `--smtp-username` | none |
+| SMTP password (optional, hidden, asked after a username) | none: saved only to `.env` | add it to `.env` later |
+
+Secrets are the one exception to "every question has a flag": they would end up in shell history. Type them at the hidden prompt, or put them in `.env` or the environment.
+
+Other flags: `--dry-run`, `--json`, `--allow-dirty`, `--skip-tidy` (don't run `go mod tidy`), `--yes`, `--no-input`, `--plain`.
+
+What it changes:
+
+| File | Change |
+|---|---|
+| `internal/app/infra_mail.go` | Replaced with the provider's configuration and constructor |
+| `.env.example` | The block between `# aps:begin mail` and `# aps:end mail` holds the provider's variables |
+| `.env` | Updated if it exists, or created from `.env.example` (mode 0600) when there are values to save; values already there are kept |
+| `apistock.yaml` | `mail: resend` or `mail: smtp` |
+| `go.mod` | Requires the provider module (with a `replace` to your apistock checkout when the app uses one), then `go mod tidy` |
+
+After confirming, it prints numbered next steps: where to get the Resend key and verify your domain (or which SMTP variables are left), how to set the sender with `PUT /ops/settings/mail.from_email`, and how to send a test email with `POST /ops/mail/test`. The sender name, address and reply-to are runtime settings, so they're never asked here.
+
+Safety checks: the app must have `internal/app/mail.go` and the `.env.example` block; the git repository must be clean unless `--allow-dirty`; `.env` must be ignored by git before a secret is saved in it; secret values are never printed or included in `--json` output. Running it with the provider already in place changes nothing.
 
 ## `aps dev`
 

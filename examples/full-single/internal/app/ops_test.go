@@ -93,7 +93,7 @@ func TestRuntimeSettingsThroughOps(t *testing.T) {
 
 	list := do(t, h, "GET", "/ops/settings", "", bearer...)
 	settings, _ := list.json["settings"].([]any)
-	if len(settings) != 1 || settings[0].(map[string]any)["key"] != "example.ping_message" {
+	if len(settings) == 0 || settings[0].(map[string]any)["key"] != "example.ping_message" {
 		t.Fatalf("GET /ops/settings = %s", list.body)
 	}
 

@@ -6,6 +6,8 @@ require (
 	apistock.dev v0.0.0
 	apistock.dev/modules/auditpg v0.0.0
 	apistock.dev/modules/jobs v0.0.0
+	apistock.dev/modules/mail/resend v0.0.0
+	apistock.dev/modules/mail/smtp v0.0.0
 	apistock.dev/modules/openapi v0.0.0
 	apistock.dev/modules/postgres v0.0.0
 	apistock.dev/modules/settings v0.0.0
@@ -64,6 +66,8 @@ replace (
 	apistock.dev => ../..
 	apistock.dev/modules/auditpg => ../../modules/auditpg
 	apistock.dev/modules/jobs => ../../modules/jobs
+	apistock.dev/modules/mail/resend => ../../modules/mail/resend
+	apistock.dev/modules/mail/smtp => ../../modules/mail/smtp
 	apistock.dev/modules/openapi => ../../modules/openapi
 	apistock.dev/modules/postgres => ../../modules/postgres
 	apistock.dev/modules/settings => ../../modules/settings

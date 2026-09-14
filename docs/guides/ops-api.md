@@ -1,6 +1,6 @@
 # Ops API reference
 
-Admin APIs of the Full preset (`internal/modules/ops`), implemented in `examples/full-single`. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0034](../adr/0034-interim-ops-token.md), [ADR-0036](../adr/0036-audit-storage.md).
+Admin APIs of the Full preset (`internal/modules/ops`), implemented in `examples/full-single`. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0034](../adr/0034-interim-ops-token.md), [ADR-0036](../adr/0036-audit-storage.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md).
 
 ## Authentication
 
@@ -27,6 +27,8 @@ curl -H "Authorization: Bearer $OPS_TOKEN" http://127.0.0.1:8080/ops/settings
 | `ops.jobs.write` | Change and reset job configuration; pause and resume queues |
 | `ops.jobs.run` | Run a job now, retry or cancel a run |
 | `ops.audit.read` | List and read audit events |
+| `ops.mail.read` | See how the app sends email |
+| `ops.mail.test` | Send a test email |
 
 Missing permission: 403 `forbidden`.
 
@@ -166,6 +168,20 @@ curl -H "Authorization: Bearer $OPS_TOKEN" \
 - Metadata values under sensitive keys such as `password` or `token` are stored as `"[REDACTED]"`; oversized metadata is replaced with `{"metadata_dropped": "too_large"}`.
 - Events can't be changed. Retention policies arrive in v0.5.
 
+## Email
+
+| Method and path | Purpose | Success |
+|---|---|---|
+| `GET /ops/mail` | Provider (`resend` or `smtp`), delivery (`mailpit` or `provider`), non-secret `details` from the environment, and the current `from_name`, `from_email`, `reply_to` | 200 |
+| `POST /ops/mail/test` | Queue a test email: `{to}` | 202 `{status: "queued", to, delivery}` |
+
+```json
+{"provider": "smtp", "delivery": "provider", "details": {"host": "smtp.postmarkapp.com", "port": "587", "tls": "starttls", "auth": "username and password"},
+ "from_name": "Acme", "from_email": "hello@acme.com", "reply_to": "support@acme.com"}
+```
+
+Resend details are `{"api_key": "configured"}` or `"missing"`. Change the sender with `PUT /ops/settings/mail.from_email` (and `mail.from_name`, `mail.reply_to`). The test email's delivery appears in `GET /ops/jobs/runs?kind=apistock.mail.send`. Setup: [email guide](email.md).
+
 ## Error codes
 
 | Code | Status | When |
@@ -189,6 +205,7 @@ curl -H "Authorization: Bearer $OPS_TOKEN" \
 | `invalid_job_state` | 422 | Unknown `state` filter |
 | `audit_event_not_found` | 404 | Unknown audit event ID (or removed by retention) |
 | `invalid_audit_filter` | 422 | Unknown `outcome`, malformed `action_prefix`, or `from` not before `to` |
+| `invalid_recipient` | 422 | The test email recipient isn't an email address |
 
 Error codes are public API: new ones are added, existing ones never change.
 
@@ -203,5 +220,6 @@ Error codes are public API: new ones are added, existing ones never change.
 | `jobs.run.cancelled` | `job` |
 | `jobs.queue.paused` | `job_queue` |
 | `jobs.queue.resumed` | `job_queue` |
+| `mail.test.requested` | `mail` (ID: the provider; the recipient is not recorded) |
 
 `examples/full-single` stores these events in the `audit_events` table (`modules/auditpg`) and lists them with `GET /ops/audit`. Reading the audit log is not itself audited.

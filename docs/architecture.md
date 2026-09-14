@@ -125,7 +125,7 @@ apistock/
 │   ├── postgres/            pool, transactions, migrations runner, pgtest (against Docker PostgreSQL)   (v0.2)
 │   ├── settings/            runtime settings: typed declarations, PostgreSQL store, LISTEN/NOTIFY reload   (v0.2)
 │   ├── jobs/                River, job definitions and Manager (Lambda-style config), AsyncSender   (v0.2)
-│   ├── mail/resend/ · mail/smtp/
+│   ├── mail/resend/ · mail/smtp/   Resend HTTP API and standard-library SMTP senders   (v0.2)
 │   ├── auditpg/             append-only audit store with redaction, filtered query API   (v0.2)
 │   ├── auth/                identity, passwords, sessions, oidc (google, apple), totp, passkey
 │   ├── orgs/                organisations, memberships, invitations, org roles
@@ -215,13 +215,15 @@ Email + password with email verification codes; server-side sessions (no JWT ses
 
 ### 7.3 Email ([ADR-0025](adr/0025-email-providers.md))
 
-Resend or SMTP behind `mail.Sender`. Development always delivers to Mailpit. Sends run as jobs with idempotency.
+Resend or SMTP behind `mail.Sender`. Development always delivers to Mailpit. Sends run as jobs with idempotency; permanent refusals (`mail.ErrRejected`) are cancelled instead of retried.
+
+Implemented in v0.2 ([ADR-0037](adr/0037-email-setup-and-delivery.md), [email guide](guides/email.md)): `aps add mail` asks Resend or SMTP, saves typed secrets only to `.env`, writes `internal/app/infra_mail.go` and the `.env.example` block, and prints next steps; running it again switches provider. The Resend API key and SMTP credentials are environment variables; the sender name, address and reply-to are runtime settings (`mail.*`) filled into each message by `mail.WithDefaults`. `MAIL_DELIVERY` picks Mailpit (development default) or the provider (always in production).
 
 ### 7.4 Operations APIs ([ADR-0026](adr/0026-operations-apis.md))
 
 `/ops/*`, protected by platform roles and required 2FA. v1: audit logs, system health, release monitor, jobs, retention, maintenance mode, runtime settings. v1.1: feature flags, live observability, incidents, API keys.
 
-Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)), `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)). Until authentication ships they are protected by an interim `OPS_TOKEN` bearer token ([ADR-0034](adr/0034-interim-ops-token.md)); permission checks already run in the ops use cases.
+Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)), `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)), `/ops/mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)). Until authentication ships they are protected by an interim `OPS_TOKEN` bearer token ([ADR-0034](adr/0034-interim-ops-token.md)); permission checks already run in the ops use cases.
 
 ### 7.5 API contract and docs ([ADR-0027](adr/0027-api-contract-and-docs.md))
 
@@ -303,4 +305,6 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | `/ops/*` protection before authentication | Interim `OPS_TOKEN` ([ADR-0034](adr/0034-interim-ops-token.md)); replaced by platform roles and 2FA when `modules/auth` ships |
 | `aps new --preset=full` | Open: `examples/full-single` is the golden app it will be generated from (`aps gen job` is done and golden-tested against it) |
 | ~~Audit storage~~ | Resolved: `modules/auditpg` stores events in an append-only `audit_events` table, listed by `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)) |
+| ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `aps add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |
+| Email templates and preview route | Open: owned templates in `internal/emails` with a development preview (ADR-0025) arrive with authentication's emails |
 | Client IP and user agent in audit events | Open: no core middleware carries them in the context yet; `modules/auth` sets them on its events |

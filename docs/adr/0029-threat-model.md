@@ -73,11 +73,11 @@ Owner: project maintainer. Each accepted risk is recorded here with a review dat
 
 | # | Status |
 |---|---|
-| 11 Localhost services | Done for PostgreSQL: `compose.yaml` binds to 127.0.0.1 in the repository and the Full preset |
+| 11 Localhost services | Done for PostgreSQL and Mailpit: `compose.yaml` binds both to 127.0.0.1 in the repository and the Full preset |
 | 12 Account enumeration | Not started (arrives with `modules/auth`) |
 | 13 Session theft | Not started (arrives with `modules/auth`) |
 | 18 Privilege escalation to ops | **Partial:** `/ops/*` is protected by the interim `OPS_TOKEN` (ADR-0034) with permission checks in use cases; platform roles and 2FA replace it with `modules/auth` |
-| 19 Sensitive data in logs | Done for new modules: database URLs never appear in errors, query spans record SQL text but not arguments, validation errors never echo values, job arguments never appear in ops responses, ops token never printed. Audit metadata (`modules/auditpg`, ADR-0036): values under sensitive keys (`password`, `secret`, `token`, `otp`, `recovery_code`, …) redacted at any depth, size bounded, text sanitised; audit events append-only through a trigger. A per-action metadata allowlist was considered and replaced by recorder-side redaction |
+| 19 Sensitive data in logs | Done for new modules: database URLs never appear in errors, query spans record SQL text but not arguments, validation errors never echo values, job arguments never appear in ops responses, ops token never printed. Audit metadata (`modules/auditpg`, ADR-0036): values under sensitive keys (`password`, `secret`, `token`, `otp`, `recovery_code`, …) redacted at any depth, size bounded, text sanitised; audit events append-only through a trigger. A per-action metadata allowlist was considered and replaced by recorder-side redaction. Email (ADR-0037): the Resend API key and SMTP password are `config.Secret`s from the environment, never flags, runtime settings or error text; `aps add mail` saves typed secrets only to a git-ignored `.env` (mode 0600) and never prints them; SMTP credentials are sent only over TLS or to a local server; test email audit events omit the recipient; development email goes to Mailpit, never real people |
 | 22 Open-core dependencies | River (MPL-2.0) and goose (MIT) used without Pro features; `robfig/cron/v3` (MIT) swap path is River's `PeriodicSchedule` |
 | 23 Runtime settings abuse | Done: no secret type, declared bounds, reasons, versions, history and audit events (`modules/settings`) |
 | 24 Job controls abuse | Done: permissions per operation, reasons to disable or reschedule, 1-minute minimum interval, bounded timeout and attempts, history and audit events, arguments hidden (`modules/jobs`) |

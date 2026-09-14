@@ -1,6 +1,6 @@
 // Package usecase holds the operations module's application logic: every
 // operation checks the actor's permission, then calls the settings store,
-// jobs manager or audit log.
+// jobs manager, audit log or mailer.
 package usecase
 
 import (
@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 
 	"apistock.dev/actor"
+	"apistock.dev/mail"
 	"apistock.dev/modules/auditpg"
 	"apistock.dev/modules/jobs"
 	"apistock.dev/modules/settings"
@@ -15,16 +16,28 @@ import (
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
 )
 
+// Deps are the Service's dependencies, wired in internal/app.
+type Deps struct {
+	Settings SettingsStore
+	Jobs     JobsManager
+	Audit    AuditLog
+	// Mailer queues email; it fills the sender from runtime settings.
+	Mailer mail.Sender
+	Mail   MailInfo
+}
+
 // Service runs the operations use cases.
 type Service struct {
 	settings SettingsStore
 	jobs     JobsManager
 	audit    AuditLog
+	mailer   mail.Sender
+	mail     MailInfo
 }
 
 // NewService returns a Service.
-func NewService(store SettingsStore, manager JobsManager, auditLog AuditLog) *Service {
-	return &Service{settings: store, jobs: manager, audit: auditLog}
+func NewService(d Deps) *Service {
+	return &Service{settings: d.Settings, jobs: d.Jobs, audit: d.Audit, mailer: d.Mailer, mail: d.Mail}
 }
 
 func authorize(ctx context.Context, permission string) error {

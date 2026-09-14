@@ -1,0 +1,87 @@
+package app
+
+import (
+	"errors"
+	"fmt"
+	"net"
+	"strconv"
+
+	"apistock.dev/config"
+	"apistock.dev/mail"
+	"apistock.dev/modules/mail/smtp"
+)
+
+// mailProvider is the email provider, chosen with `aps add mail`. To switch
+// provider, run `aps add mail` again: it replaces this file and the provider
+// block in .env.example (ADR-0037).
+const mailProvider = "smtp"
+
+// mailConfig holds the SMTP server and credentials from the environment. The
+// sender name, address and reply-to are runtime settings (settings.go),
+// changed in /ops/settings without a restart.
+type mailConfig struct {
+	SMTPHost     string        // SMTP_HOST
+	SMTPPort     int           // SMTP_PORT
+	SMTPTLS      smtp.TLSMode  // SMTP_TLS: starttls, tls or none
+	SMTPUsername string        // SMTP_USERNAME
+	SMTPPassword config.Secret // SMTP_PASSWORD
+}
+
+// loadMailConfig reads the provider's environment variables. required
+// reports whether email goes through the provider rather than Mailpit.
+func loadMailConfig(get func(string) string, secret func(string) config.Secret, required bool) (mailConfig, []error) {
+	c := mailConfig{
+		SMTPHost:     get("SMTP_HOST"),
+		SMTPPort:     587,
+		SMTPTLS:      smtp.TLSStartTLS,
+		SMTPUsername: get("SMTP_USERNAME"),
+		SMTPPassword: secret("SMTP_PASSWORD"),
+	}
+	var errs []error
+	if v := get("SMTP_PORT"); v != "" {
+		port, err := strconv.Atoi(v)
+		if err != nil || port < 1 || port > 65535 {
+			errs = append(errs, fmt.Errorf("SMTP_PORT must be a port number such as 587, got %q", v))
+		}
+		c.SMTPPort = port
+	}
+	if v := get("SMTP_TLS"); v != "" {
+		mode, err := smtp.ParseTLSMode(v)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("SMTP_TLS must be starttls, tls or none, got %q", v))
+		}
+		c.SMTPTLS = mode
+	}
+	if c.SMTPUsername != "" && c.SMTPPassword.IsZero() {
+		errs = append(errs, errors.New("SMTP_PASSWORD is required when SMTP_USERNAME is set"))
+	}
+	if required && c.SMTPHost == "" {
+		errs = append(errs, errors.New("SMTP_HOST is required to send email over SMTP: add your provider's SMTP server to .env "+
+			"(in development, leave MAIL_DELIVERY empty to use Mailpit instead)"))
+	}
+	return c, errs
+}
+
+// newMailProvider returns the sender that delivers email through the SMTP
+// server.
+func newMailProvider(c mailConfig) (mail.Sender, error) {
+	opts := []smtp.Option{smtp.WithTLS(c.SMTPTLS)}
+	if c.SMTPUsername != "" {
+		opts = append(opts, smtp.WithAuth(c.SMTPUsername, c.SMTPPassword))
+	}
+	return smtp.New(net.JoinHostPort(c.SMTPHost, strconv.Itoa(c.SMTPPort)), opts...)
+}
+
+// details describes the provider's configuration for GET /ops/mail, without
+// secrets.
+func (c mailConfig) details() map[string]string {
+	host := c.SMTPHost
+	if host == "" {
+		host = "missing"
+	}
+	auth := "none"
+	if c.SMTPUsername != "" {
+		auth = "username and password"
+	}
+	return map[string]string{"host": host, "port": strconv.Itoa(c.SMTPPort), "tls": string(c.SMTPTLS), "auth": auth}
+}

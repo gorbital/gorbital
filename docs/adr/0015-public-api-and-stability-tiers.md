@@ -31,7 +31,7 @@ Option 3.
 | `/ops/*` endpoint paths and response fields | **Stable** from 1.0 | Additive only; checked with the OpenAPI breaking-change test |
 | Identity columns of module tables that apps may reference (for example `auth_users.id`) | **Stable** | All other module columns are internal; apps use the Go API |
 | `aps` commands, flags, exit codes, `--json` output (with `schemaVersion`) | **Stable** from CLI 1.0 | Additive only |
-| `apistock-module.yaml`, `apistock.yaml`, `apistock.lock`, `//aps:anchor` syntax | **Versioned** (`apiVersion`) | CLI reads the current and previous version |
+| `apistock-module.yaml`, `apistock.yaml`, `apistock.lock`, `//aps:anchor` syntax, `# aps:begin <name>` / `# aps:end <name>` blocks in `.env.example` (ADR-0037) | **Versioned** (`apiVersion`) | CLI reads the current and previous version |
 | Error message text, log messages and keys, email template HTML | **Not API** | May change in any release |
 
 ### Versioning

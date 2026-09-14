@@ -142,12 +142,12 @@ Authorise work when enqueuing: a job never runs with a user's permissions.
 
 ```go
 workers := river.NewWorkers()
-_ = jobs.AddMailWorker(workers, resendSender) // works "apistock.mail.send" jobs
+_ = jobs.AddMailWorker(workers, sender) // works "apistock.mail.send" jobs; sender is Resend, SMTP or Mailpit
 client, err := jobs.New(pool, workers, jobs.WithQueues(jobs.DefaultQueues()))
-mailer := jobs.AsyncSender(client) // mail.Sender: validates, then enqueues
+mailer := mail.WithDefaults(jobs.AsyncSender(client), senderSettings) // validates, fills the sender, enqueues
 ```
 
-Delivery is retried up to 8 times; each job's ID becomes the provider idempotency key (`job-<id>`) unless the message sets one, so retries never send twice.
+Delivery is retried up to 8 times; each job's ID becomes the provider idempotency key (`job-<id>`) unless the message sets one, so retries never send twice. A send that fails with `mail.ErrRejected` (an unverified domain, a refused address) is cancelled at once instead of retried, and the run keeps the reason. Choosing the provider and the sender settings: [email guide](email.md).
 
 ## Managing jobs in Go
 

@@ -31,6 +31,10 @@ type Config struct {
 	DBMaxConns  int32         // APP_DB_MAX_CONNS
 	JobWorkers  int           // APP_JOB_WORKERS
 	OpsToken    config.Secret // OPS_TOKEN: enables /ops/* until authentication is added
+
+	MailDelivery string     // MAIL_DELIVERY: mailpit or provider (mail.go)
+	MailpitAddr  string     // MAILPIT_SMTP_ADDR
+	Mail         mailConfig // the email provider's secrets (infra_mail.go)
 }
 
 // Production reports whether the app runs in production mode.
@@ -132,6 +136,32 @@ func LoadConfig(src config.Source) (Config, error) {
 	if !cfg.OpsToken.IsZero() && len(cfg.OpsToken.Reveal()) < minOpsTokenLength {
 		errs = append(errs, fmt.Errorf("OPS_TOKEN must be at least %d characters (generate one with: openssl rand -hex 32)", minOpsTokenLength))
 	}
+
+	cfg.MailDelivery = mailDeliveryMailpit
+	if cfg.Production() {
+		cfg.MailDelivery = mailDeliveryProvider
+	}
+	if v := get("MAIL_DELIVERY"); v != "" {
+		cfg.MailDelivery = v
+	}
+	switch {
+	case cfg.MailDelivery != mailDeliveryMailpit && cfg.MailDelivery != mailDeliveryProvider:
+		errs = append(errs, fmt.Errorf("MAIL_DELIVERY must be mailpit or provider, got %q", cfg.MailDelivery))
+	case cfg.Production() && cfg.MailDelivery == mailDeliveryMailpit:
+		errs = append(errs, errors.New("MAIL_DELIVERY=mailpit is for development; production sends email through the provider"))
+	}
+
+	cfg.MailpitAddr = "127.0.0.1:1025"
+	if v := get("MAILPIT_SMTP_ADDR"); v != "" {
+		cfg.MailpitAddr = v
+	}
+	if _, _, err := net.SplitHostPort(cfg.MailpitAddr); err != nil {
+		errs = append(errs, fmt.Errorf("MAILPIT_SMTP_ADDR %q is not host:port", cfg.MailpitAddr))
+	}
+
+	var mailErrs []error
+	cfg.Mail, mailErrs = loadMailConfig(get, secret, cfg.MailDelivery == mailDeliveryProvider)
+	errs = append(errs, mailErrs...)
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, fmt.Errorf("invalid configuration:\n%w", err)

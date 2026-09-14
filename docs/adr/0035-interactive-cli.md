@@ -1,6 +1,6 @@
 # ADR-0035: Interactive CLI with flag parity
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0014, ADR-0021
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0014, ADR-0021 · **Amended by:** ADR-0037 (`aps add mail`; secrets are asked with hidden input and never flags)
 
 ## Context
 
@@ -94,4 +94,5 @@ Safety: runs only inside a Full preset app (the anchor must exist; otherwise it 
 - New `aps gen job` lines are inserted directly after the anchor, so the newest job is listed first.
 - Follow-up questions are asked as separate short steps rather than hidden groups: `huh`'s accessible mode ignores group hide functions, so hiding would make `--plain` users answer questions that don't apply. The question flows are tested in accessible mode with scripted answers.
 - Exit code 130 on cancel; `aps new` prints which apistock checkout it detected when not prompting.
+- `aps add mail` (ADR-0037) follows these rules with one exception: secrets (the Resend API key, the SMTP password) have no flag. They are asked with hidden input only on a terminal, saved only to `.env`, and never printed. In plain mode `huh` reads them without echo, which needs a terminal, so scripted prompt tests use a normal input instead.
 - User documentation: [CLI guide](../guides/cli.md).

@@ -16,7 +16,7 @@ import (
 func TestServiceRequiresPermissions(t *testing.T) {
 	// No store, manager or audit log: authorisation must fail before any is
 	// used.
-	svc := opsusecase.NewService(nil, nil, nil)
+	svc := opsusecase.NewService(opsusecase.Deps{})
 
 	if _, err := svc.ListSettings(context.Background(), ""); !errors.Is(err, opsdomain.ErrUnauthenticated) {
 		t.Errorf("ListSettings() without actor error = %v, want ErrUnauthenticated", err)
@@ -36,6 +36,8 @@ func TestServiceRequiresPermissions(t *testing.T) {
 	checks["PauseQueue"] = svc.PauseQueue(reader, "default")
 	_, checks["ListAuditEvents"] = svc.ListAuditEvents(reader, auditpg.Filter{})
 	_, checks["GetAuditEvent"] = svc.GetAuditEvent(reader, 1)
+	_, checks["MailStatus"] = svc.MailStatus(reader)
+	checks["SendTestEmail"] = svc.SendTestEmail(reader, "ada@example.com")
 	for op, err := range checks {
 		if !errors.Is(err, opsdomain.ErrForbidden) {
 			t.Errorf("%s() with read-only permissions error = %v, want ErrForbidden", op, err)

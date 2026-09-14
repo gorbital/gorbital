@@ -19,12 +19,15 @@ import (
 	"apistock.dev/config"
 	"apistock.dev/health"
 	"apistock.dev/httpx"
+	"apistock.dev/mail"
 	"apistock.dev/modules/auditpg"
 	"apistock.dev/modules/jobs"
 	"apistock.dev/modules/openapi"
 	"apistock.dev/modules/postgres"
 	"apistock.dev/modules/settings"
 	"apistock.dev/modules/telemetry"
+
+	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 )
 
 // ServiceName identifies the service in logs, traces and docs.
@@ -115,9 +118,20 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
+	// The mail worker delivers queued email through Mailpit in development,
+	// or the provider in infra_mail.go.
+	sender, err := newMailSender(a.cfg)
+	if err != nil {
+		return err
+	}
+	workers := river.NewWorkers()
+	if err := jobs.AddMailWorker(workers, sender); err != nil {
+		return err
+	}
+
 	defs := jobs.NewDefinitions()
 	defineJobs(defs, jobDeps{logger: a.logger})
-	a.jobs, err = jobs.New(pool, nil,
+	a.jobs, err = jobs.New(pool, workers,
 		jobs.WithQueues(map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: a.cfg.JobWorkers}}),
 		jobs.WithDefinitions(defs),
 		jobs.WithLogger(a.logger),
@@ -131,11 +145,20 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
+	// Modules send email through mailer: it fills the sender from the mail.*
+	// runtime settings and queues the message for the mail worker.
+	mailer := mail.WithDefaults(jobs.AsyncSender(a.jobs), appSettings.mailDefaults())
+	warnDefaultSender(ctx, a.logger, a.cfg, appSettings)
+
 	return a.buildHTTP(services{
 		pingMessage: appSettings.pingMessage,
-		settings:    a.settings,
-		jobs:        a.jobsManager,
-		audit:       recorder,
+		ops: opsusecase.Deps{
+			Settings: a.settings,
+			Jobs:     a.jobsManager,
+			Audit:    recorder,
+			Mailer:   mailer,
+			Mail:     mailInfo(a.cfg, appSettings),
+		},
 	})
 }
 

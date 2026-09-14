@@ -522,6 +522,60 @@
         ],
         "type": "object"
       },
+      "MailStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "delivery": {
+            "description": "mailpit: every email goes to the development inbox; provider: real email",
+            "enum": [
+              "mailpit",
+              "provider"
+            ],
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Provider configuration from the environment, without secrets",
+            "type": "object"
+          },
+          "from_email": {
+            "description": "Runtime setting mail.from_email",
+            "examples": [
+              "no-reply@acme.com"
+            ],
+            "type": "string"
+          },
+          "from_name": {
+            "description": "Runtime setting mail.from_name",
+            "examples": [
+              "Acme"
+            ],
+            "type": "string"
+          },
+          "provider": {
+            "description": "Chosen with aps add mail",
+            "enum": [
+              "resend",
+              "smtp"
+            ],
+            "type": "string"
+          },
+          "reply_to": {
+            "description": "Runtime setting mail.reply_to",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "delivery",
+          "details",
+          "from_name",
+          "from_email"
+        ],
+        "type": "object"
+      },
       "MessageResponse": {
         "additionalProperties": false,
         "properties": {
@@ -874,6 +928,51 @@
           "reason_required",
           "restart_required",
           "restart_pending"
+        ],
+        "type": "object"
+      },
+      "TestEmailInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "to": {
+            "description": "Who receives the test email",
+            "examples": [
+              "you@example.com"
+            ],
+            "format": "email",
+            "maxLength": 254,
+            "type": "string"
+          }
+        },
+        "required": [
+          "to"
+        ],
+        "type": "object"
+      },
+      "TestEmailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "delivery": {
+            "enum": [
+              "mailpit",
+              "provider"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "to",
+          "delivery"
         ],
         "type": "object"
       },
@@ -2277,6 +2376,140 @@
         "summary": "List enabled scheduled jobs, soonest first",
         "tags": [
           "Ops: job definitions"
+        ]
+      }
+    },
+    "/ops/mail": {
+      "get": {
+        "description": "The provider, whether email goes to Mailpit or the provider, and the current sender. Change the sender with `PUT /ops/settings/mail.from_email`.",
+        "operationId": "ops-get-mail",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Show how the app sends email",
+        "tags": [
+          "Ops: email"
+        ]
+      }
+    },
+    "/ops/mail/test": {
+      "post": {
+        "description": "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=apistock.mail.send`.",
+        "operationId": "ops-send-test-email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestEmailInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestEmailResponse"
+                }
+              }
+            },
+            "description": "Accepted"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Send a test email",
+        "tags": [
+          "Ops: email"
         ]
       }
     },
