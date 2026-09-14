@@ -1,6 +1,6 @@
 # Ops API reference
 
-Admin APIs of the Full preset (`internal/modules/ops`), implemented in `examples/full-single`. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0036](../adr/0036-audit-storage.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md), [ADR-0038](../adr/0038-authentication-v0-2.md).
+Admin APIs of the Full preset (`internal/modules/ops`), implemented in `examples/full-single`. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0036](../adr/0036-audit-storage.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md), [ADR-0038](../adr/0038-authentication-v0-2.md), [ADR-0040](../adr/0040-release-tracking.md).
 
 ## Authentication
 
@@ -18,7 +18,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/settings
 | No or invalid session | 401 `unauthenticated` |
 | Signed in without the operation's permission | 403 `forbidden` |
 | Role `platform_admin` | Every ops permission |
-| Role `ops_viewer` | `ops.settings.read`, `ops.jobs.read`, `ops.audit.read`, `ops.mail.read` |
+| Role `ops_viewer` | `ops.settings.read`, `ops.jobs.read`, `ops.audit.read`, `ops.releases.read`, `ops.mail.read` |
 
 Changes are attributed to the signed-in user in history, job metadata and audit events.
 
@@ -32,6 +32,7 @@ Changes are attributed to the signed-in user in history, job metadata and audit 
 | `ops.jobs.write` | Change and reset job configuration; pause and resume queues |
 | `ops.jobs.run` | Run a job now, retry or cancel a run |
 | `ops.audit.read` | List and read audit events |
+| `ops.releases.read` | List releases and the instances running them |
 | `ops.mail.read` | See how the app sends email |
 | `ops.mail.test` | Send a test email |
 
@@ -171,6 +172,38 @@ curl -H "Authorization: Bearer $TOKEN" \
 - `ip` and `user_agent` appear on events recorded during a request, such as sign-ins.
 - Metadata values under sensitive keys such as `password` or `token` are stored as `"[REDACTED]"`; oversized metadata is replaced with `{"metadata_dropped": "too_large"}`.
 - Events can't be changed. Retention policies arrive in v0.5.
+
+## Releases
+
+Every instance records its build when it starts (version, commit, build time, whether the tree had uncommitted changes, Go version, host), sends a heartbeat every 30 seconds and marks itself stopped when it shuts down cleanly. An instance is **running** until it stops or misses three heartbeats, so crashed instances drop out after about 90 seconds. Instances last seen more than 90 days ago are deleted.
+
+| Method and path | Purpose | Success |
+|---|---|---|
+| `GET /ops/releases?limit=&cursor=` | Releases (one per version and commit), newest first: `first_started_at`, `last_seen_at`, `running`, `starts`, `modified` | 200 `{releases: [...], next_cursor?}` |
+| `GET /ops/releases/current` | Releases running now, each with its running instances; more than one during a rolling deploy | 200 `{releases: [...]}` |
+| `GET /ops/releases/instances?version=&commit=&running=&limit=&cursor=` | Instance starts, newest first | 200 `{instances: [...], next_cursor?}` |
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/releases/current
+```
+
+```json
+{
+  "releases": [
+    {
+      "version": "v1.4.0",
+      "commit": "3f9a1c2b7d4e8a90",
+      "instances": [
+        {"id": 12, "instance_id": "9b1c…", "version": "v1.4.0", "commit": "3f9a1c2b7d4e8a90",
+         "build_time": "2026-09-15T09:58:00Z", "modified": false, "go_version": "go1.26.1", "host": "acme-api-7d9f8-x2kq",
+         "started_at": "2026-09-15T10:02:11Z", "last_seen_at": "2026-09-15T10:31:41Z", "running": true}
+      ]
+    }
+  ]
+}
+```
+
+Builds without version control information or a link-time version show `"version": "dev"` and no commit.
 
 ## Email
 

@@ -20,6 +20,7 @@ require (
 )
 
 require (
+	apistock.dev/modules/releases v0.0.0
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
@@ -77,3 +78,5 @@ replace (
 	apistock.dev/modules/settings => ../../modules/settings
 	apistock.dev/modules/telemetry => ../../modules/telemetry
 )
+
+replace apistock.dev/modules/releases => ../../modules/releases

@@ -12,13 +12,14 @@ const (
 	PermJobsWrite     = "ops.jobs.write"
 	PermJobsRun       = "ops.jobs.run"
 	PermAuditRead     = "ops.audit.read"
+	PermReleasesRead  = "ops.releases.read"
 	PermMailRead      = "ops.mail.read"
 	PermMailTest      = "ops.mail.test"
 )
 
 // AllPermissions returns every operations permission.
 func AllPermissions() []string {
-	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead, PermMailRead, PermMailTest}
+	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead, PermReleasesRead, PermMailRead, PermMailTest}
 }
 
 // Errors returned by operations use cases.

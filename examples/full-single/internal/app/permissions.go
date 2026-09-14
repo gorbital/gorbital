@@ -27,11 +27,12 @@ func declarePermissions() *authlib.Catalog {
 	c.Permission(opsdomain.PermJobsWrite, "Change job configuration; pause and resume queues")
 	c.Permission(opsdomain.PermJobsRun, "Run, retry and cancel jobs")
 	c.Permission(opsdomain.PermAuditRead, "Read the audit log")
+	c.Permission(opsdomain.PermReleasesRead, "Read releases and the instances running them")
 	c.Permission(opsdomain.PermMailRead, "See how the app sends email")
 	c.Permission(opsdomain.PermMailTest, "Send a test email")
 
 	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission", opsdomain.AllPermissions()...)
 	c.Role(roleOpsViewer, "Reads operational data without changing anything",
-		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermMailRead)
+		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead)
 	return c
 }

@@ -25,6 +25,7 @@ import (
 	"apistock.dev/modules/jobs"
 	"apistock.dev/modules/openapi"
 	"apistock.dev/modules/postgres"
+	"apistock.dev/modules/releases"
 	"apistock.dev/modules/settings"
 	"apistock.dev/modules/telemetry"
 
@@ -48,6 +49,7 @@ type App struct {
 	jobs        *jobs.Client
 	jobsManager *jobs.Manager
 	auth        *authmodule.Module
+	releases    *releases.Tracker
 	api         huma.API
 	handler     http.Handler
 }
@@ -176,6 +178,17 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
+	// Release tracking: this instance records its build and a heartbeat while
+	// it runs, listed by /ops/releases (ADR-0040).
+	a.releases, err = releases.NewTracker(pool, buildinfo.Read(), releases.WithLogger(a.logger))
+	if err != nil {
+		return err
+	}
+	releaseLog, err := releases.NewStore(pool)
+	if err != nil {
+		return err
+	}
+
 	// Business modules such as projects build themselves from these in their
 	// module_<name>.go files.
 	return a.buildHTTP(services{
@@ -188,6 +201,7 @@ func (a *App) build(ctx context.Context) error {
 			Settings: a.settings,
 			Jobs:     a.jobsManager,
 			Audit:    recorder,
+			Releases: releaseLog,
 			Mailer:   mailer,
 			Mail:     mailInfo(a.cfg, appSettings),
 		},
@@ -213,9 +227,10 @@ func (a *App) Run(ctx context.Context) error {
 }
 
 // Workers returns the background runners: the settings and job definition
-// listeners and the job client. Run starts them; tests start them directly.
+// listeners, the job client and the release tracker. Run starts them; tests
+// start them directly.
 func (a *App) Workers() []lifecycle.Runner {
-	return []lifecycle.Runner{a.settings, a.jobs, a.jobsManager}
+	return []lifecycle.Runner{a.settings, a.jobs, a.jobsManager, a.releases}
 }
 
 // Auth returns the authentication service, for tests and commands.

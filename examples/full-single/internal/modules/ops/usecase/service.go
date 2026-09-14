@@ -1,6 +1,6 @@
 // Package usecase holds the operations module's application logic: every
 // operation checks the actor's permission, then calls the settings store,
-// jobs manager, audit log or mailer.
+// jobs manager, audit log, release log or mailer.
 package usecase
 
 import (
@@ -21,6 +21,7 @@ type Deps struct {
 	Settings SettingsStore
 	Jobs     JobsManager
 	Audit    AuditLog
+	Releases ReleaseLog
 	// Mailer queues email; it fills the sender from runtime settings.
 	Mailer mail.Sender
 	Mail   MailInfo
@@ -31,13 +32,14 @@ type Service struct {
 	settings SettingsStore
 	jobs     JobsManager
 	audit    AuditLog
+	releases ReleaseLog
 	mailer   mail.Sender
 	mail     MailInfo
 }
 
 // NewService returns a Service.
 func NewService(d Deps) *Service {
-	return &Service{settings: d.Settings, jobs: d.Jobs, audit: d.Audit, mailer: d.Mailer, mail: d.Mail}
+	return &Service{settings: d.Settings, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail}
 }
 
 func authorize(ctx context.Context, permission string) error {

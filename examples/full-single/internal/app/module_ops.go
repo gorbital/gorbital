@@ -9,6 +9,7 @@ import (
 	"apistock.dev/httpx"
 	"apistock.dev/modules/auditpg"
 	"apistock.dev/modules/jobs"
+	"apistock.dev/modules/releases"
 	"apistock.dev/modules/settings"
 
 	"example.com/acme-api/internal/modules/ops"
@@ -16,8 +17,8 @@ import (
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 )
 
-// registerOps wires the operations module: runtime settings, jobs, audit log
-// and email admin APIs. Error codes are public API: add new ones, never
+// registerOps wires the operations module: runtime settings, jobs, audit log,
+// releases and email admin APIs. Error codes are public API: add new ones, never
 // change existing ones.
 func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error {
 	err := mapper.Add(
@@ -40,6 +41,8 @@ func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error
 
 		httpx.Mapping{Err: auditpg.ErrEventNotFound, Status: http.StatusNotFound, Code: "audit_event_not_found", Detail: "no audit event has this ID"},
 		httpx.Mapping{Err: auditpg.ErrInvalidFilter, Status: http.StatusUnprocessableEntity, Code: "invalid_audit_filter", Detail: "the audit filter is not valid"},
+
+		httpx.Mapping{Err: releases.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
 
 		httpx.Mapping{Err: opsdomain.ErrInvalidRecipient, Status: http.StatusUnprocessableEntity, Code: "invalid_recipient", Detail: "the recipient is not an email address"},
 	)

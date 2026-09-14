@@ -129,7 +129,7 @@ apistock/
 │   ├── auditpg/             append-only audit store with redaction, filtered query API   (v0.2)
 │   ├── auth/                building blocks: argon2id, tokens, codes, session middleware, permission catalog (v0.2); oidc, totp, passkey (v0.3)
 │   ├── orgs/                organisations, memberships, invitations, org roles
-│   └── releases/            release record at boot + query API
+│   └── releases/            instance build record at start, heartbeats, release queries   (v0.2)
 ├── cli/                     module apistock.dev/cli → cmd/aps
 │   └── internal/recipes/    templates generated from examples/ (go generate), embedded in aps
 ├── examples/                hand-written golden apps: minimal (v0.1), full-single (v0.2, in progress), full-multi

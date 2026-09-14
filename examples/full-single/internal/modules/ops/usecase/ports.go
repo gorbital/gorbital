@@ -7,6 +7,7 @@ import (
 	"apistock.dev/audit"
 	"apistock.dev/modules/auditpg"
 	"apistock.dev/modules/jobs"
+	"apistock.dev/modules/releases"
 	"apistock.dev/modules/settings"
 )
 
@@ -45,8 +46,17 @@ type AuditLog interface {
 	Get(ctx context.Context, id int64) (auditpg.StoredEvent, error)
 }
 
+// ReleaseLog lists the releases and instances the release tracker records.
+// *releases.Store implements it.
+type ReleaseLog interface {
+	Releases(ctx context.Context, f releases.ReleaseFilter) (releases.ReleasePage, error)
+	Current(ctx context.Context) ([]releases.CurrentRelease, error)
+	Instances(ctx context.Context, f releases.InstanceFilter) (releases.InstancePage, error)
+}
+
 var (
 	_ SettingsStore = (*settings.Store)(nil)
 	_ JobsManager   = (*jobs.Manager)(nil)
 	_ AuditLog      = (*auditpg.Store)(nil)
+	_ ReleaseLog    = (*releases.Store)(nil)
 )

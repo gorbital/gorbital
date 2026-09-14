@@ -174,6 +174,55 @@
         ],
         "type": "object"
       },
+      "CurrentReleaseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "commit": {
+            "examples": [
+              "3f9a1c2b7d4e8a90"
+            ],
+            "type": "string"
+          },
+          "instances": {
+            "items": {
+              "$ref": "#/components/schemas/InstanceResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "version": {
+            "examples": [
+              "v1.4.0"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "instances"
+        ],
+        "type": "object"
+      },
+      "CurrentReleases": {
+        "additionalProperties": false,
+        "properties": {
+          "releases": {
+            "items": {
+              "$ref": "#/components/schemas/CurrentReleaseResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "releases"
+        ],
+        "type": "object"
+      },
       "DeleteAccountInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -277,6 +326,100 @@
         "required": [
           "version",
           "go_version"
+        ],
+        "type": "object"
+      },
+      "InstancePage": {
+        "additionalProperties": false,
+        "properties": {
+          "instances": {
+            "items": {
+              "$ref": "#/components/schemas/InstanceResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "instances"
+        ],
+        "type": "object"
+      },
+      "InstanceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "build_time": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "commit": {
+            "examples": [
+              "3f9a1c2b7d4e8a90"
+            ],
+            "type": "string"
+          },
+          "go_version": {
+            "examples": [
+              "go1.26.1"
+            ],
+            "type": "string"
+          },
+          "host": {
+            "examples": [
+              "acme-api-7d9f8-x2kq"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "instance_id": {
+            "description": "Random per process start",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "description": "Last heartbeat",
+            "format": "date-time",
+            "type": "string"
+          },
+          "modified": {
+            "description": "Built with uncommitted changes",
+            "type": "boolean"
+          },
+          "running": {
+            "description": "Not stopped, with a heartbeat in the last 90 seconds",
+            "type": "boolean"
+          },
+          "started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "stopped_at": {
+            "description": "Set when the instance shut down cleanly",
+            "format": "date-time",
+            "type": "string"
+          },
+          "version": {
+            "examples": [
+              "v1.4.0"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "instance_id",
+          "version",
+          "modified",
+          "started_at",
+          "last_seen_at",
+          "running"
         ],
         "type": "object"
       },
@@ -975,6 +1118,75 @@
         "required": [
           "email",
           "password"
+        ],
+        "type": "object"
+      },
+      "ReleasePage": {
+        "additionalProperties": false,
+        "properties": {
+          "next_cursor": {
+            "type": "string"
+          },
+          "releases": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "releases"
+        ],
+        "type": "object"
+      },
+      "ReleaseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "commit": {
+            "examples": [
+              "3f9a1c2b7d4e8a90"
+            ],
+            "type": "string"
+          },
+          "first_started_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "modified": {
+            "description": "An instance ran a build with uncommitted changes",
+            "type": "boolean"
+          },
+          "running": {
+            "description": "Instances running this release now",
+            "format": "int64",
+            "type": "integer"
+          },
+          "starts": {
+            "description": "Recorded instance starts, including stopped ones",
+            "format": "int64",
+            "type": "integer"
+          },
+          "version": {
+            "examples": [
+              "v1.4.0"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "first_started_at",
+          "last_seen_at",
+          "running",
+          "starts",
+          "modified"
         ],
         "type": "object"
       },
@@ -3172,6 +3384,297 @@
         "summary": "Resume a paused queue",
         "tags": [
           "Ops: job queues"
+        ]
+      }
+    },
+    "/ops/releases": {
+      "get": {
+        "description": "Every version and commit an instance has run, with how many instances run it now.",
+        "operationId": "ops-list-releases",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "next_cursor from the previous page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "next_cursor from the previous page",
+              "maxLength": 512,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleasePage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List releases, newest first",
+        "tags": [
+          "Ops: releases"
+        ]
+      }
+    },
+    "/ops/releases/current": {
+      "get": {
+        "description": "More than one during a rolling deploy. An instance counts as running until it stops or misses three heartbeats.",
+        "operationId": "ops-current-releases",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentReleases"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the releases running now",
+        "tags": [
+          "Ops: releases"
+        ]
+      }
+    },
+    "/ops/releases/instances": {
+      "get": {
+        "operationId": "ops-list-release-instances",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "version",
+            "schema": {
+              "examples": [
+                "v1.4.0"
+              ],
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "commit",
+            "schema": {
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only instances running now",
+            "explode": false,
+            "in": "query",
+            "name": "running",
+            "schema": {
+              "description": "Only instances running now",
+              "type": "boolean"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "next_cursor from the previous page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "next_cursor from the previous page",
+              "maxLength": 30,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstancePage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List instance starts, newest first",
+        "tags": [
+          "Ops: releases"
         ]
       }
     },

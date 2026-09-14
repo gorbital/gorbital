@@ -114,8 +114,9 @@ func TestGeneratedResourcesPass(t *testing.T) {
 		fields    []string
 		migration string
 	}{
-		{"Customer", []string{"email:string:unique", "full_name:string", "account_code:string:unique", "notes:text", "tier:enum(free,pro,enterprise)", "region:enum(eu,us)"}, "20260915000003"},
-		{"Note", []string{"title:string", "body:text"}, "20260915000004"},
+		// Versions far in the future sort after every golden app migration.
+		{"Customer", []string{"email:string:unique", "full_name:string", "account_code:string:unique", "notes:text", "tier:enum(free,pro,enterprise)", "region:enum(eu,us)"}, "20990101000001"},
+		{"Note", []string{"title:string", "body:text"}, "20990101000002"},
 	} {
 		fields, err := ParseFields(r.fields)
 		if err != nil {
