@@ -15,11 +15,11 @@ import (
 	"github.com/riverqueue/river"
 
 	lifecycle "apistock.dev/app"
-	"apistock.dev/audit"
 	"apistock.dev/buildinfo"
 	"apistock.dev/config"
 	"apistock.dev/health"
 	"apistock.dev/httpx"
+	"apistock.dev/modules/auditpg"
 	"apistock.dev/modules/jobs"
 	"apistock.dev/modules/openapi"
 	"apistock.dev/modules/postgres"
@@ -101,8 +101,12 @@ func (a *App) build(ctx context.Context) error {
 	a.cleanup.Add("postgres", func(context.Context) error { pool.Close(); return nil })
 	a.health.Add(postgres.HealthCheck(pool))
 
-	// Audit events are logged until an audit store is added.
-	recorder := audit.NewLogRecorder(a.logger)
+	// Audit events from every module go to the audit_events table, listed by
+	// /ops/audit (ADR-0036).
+	recorder, err := auditpg.NewStore(pool)
+	if err != nil {
+		return err
+	}
 
 	reg := settings.NewRegistry()
 	appSettings := declareSettings(reg)
@@ -131,6 +135,7 @@ func (a *App) build(ctx context.Context) error {
 		pingMessage: appSettings.pingMessage,
 		settings:    a.settings,
 		jobs:        a.jobsManager,
+		audit:       recorder,
 	})
 }
 

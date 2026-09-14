@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"apistock.dev/actor"
+	"apistock.dev/modules/auditpg"
 	"apistock.dev/modules/settings"
 
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
@@ -13,8 +14,9 @@ import (
 )
 
 func TestServiceRequiresPermissions(t *testing.T) {
-	// No store or manager: authorisation must fail before either is used.
-	svc := opsusecase.NewService(nil, nil)
+	// No store, manager or audit log: authorisation must fail before any is
+	// used.
+	svc := opsusecase.NewService(nil, nil, nil)
 
 	if _, err := svc.ListSettings(context.Background(), ""); !errors.Is(err, opsdomain.ErrUnauthenticated) {
 		t.Errorf("ListSettings() without actor error = %v, want ErrUnauthenticated", err)
@@ -32,6 +34,8 @@ func TestServiceRequiresPermissions(t *testing.T) {
 	_, checks["RunJob"] = svc.RunJob(reader, "heartbeat")
 	_, checks["CancelJobRun"] = svc.CancelJobRun(reader, 1)
 	checks["PauseQueue"] = svc.PauseQueue(reader, "default")
+	_, checks["ListAuditEvents"] = svc.ListAuditEvents(reader, auditpg.Filter{})
+	_, checks["GetAuditEvent"] = svc.GetAuditEvent(reader, 1)
 	for op, err := range checks {
 		if !errors.Is(err, opsdomain.ErrForbidden) {
 			t.Errorf("%s() with read-only permissions error = %v, want ErrForbidden", op, err)

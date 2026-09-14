@@ -162,7 +162,7 @@ err := postgres.InTx(ctx, pool, func(tx pgx.Tx) error {
 ## Migrations
 
 - Goose SQL files in `db/migrations`, named `<timestamp>_<description>.sql`, with `-- +goose Up` sections.
-- One ordered history for the app's tables and apistock module tables (modules ship theirs, and they are copied in).
+- One ordered history for the app's tables and apistock module tables (modules ship theirs as `settings.Migrations`, `jobs.Migrations`, `auditpg.Migrations`, and they are copied in).
 - Released migrations are never edited; changes are new files, forward-only.
 - `cmd/migrate` applies them with `postgres.Migrate(ctx, pool, migrations.FS)`, then River's migrations with `jobs.Migrate`. Apps never migrate at startup (ADR-0017).
 - `postgres.Migrate` takes a PostgreSQL advisory lock, so concurrent migrators apply each migration once.

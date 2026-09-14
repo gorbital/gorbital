@@ -1,6 +1,6 @@
 # Ops API reference
 
-Admin APIs of the Full preset (`internal/modules/ops`), implemented in `examples/full-single`. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0034](../adr/0034-interim-ops-token.md).
+Admin APIs of the Full preset (`internal/modules/ops`), implemented in `examples/full-single`. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0034](../adr/0034-interim-ops-token.md), [ADR-0036](../adr/0036-audit-storage.md).
 
 ## Authentication
 
@@ -26,6 +26,7 @@ curl -H "Authorization: Bearer $OPS_TOKEN" http://127.0.0.1:8080/ops/settings
 | `ops.jobs.read` | Read job definitions, scheduled jobs, runs and queues |
 | `ops.jobs.write` | Change and reset job configuration; pause and resume queues |
 | `ops.jobs.run` | Run a job now, retry or cancel a run |
+| `ops.audit.read` | List and read audit events |
 
 Missing permission: 403 `forbidden`.
 
@@ -125,6 +126,46 @@ Run fields: `id`, `kind`, `queue`, `state`, `attempt`, `max_attempts`, `priority
 | `POST /ops/queues/{name}/pause` | Stop every instance fetching from the queue | 204 |
 | `POST /ops/queues/{name}/resume` | Resume it | 204 |
 
+## Audit log
+
+| Method and path | Purpose | Success |
+|---|---|---|
+| `GET /ops/audit?actor_kind=&actor_id=&action=&action_prefix=&resource_type=&resource_id=&org_id=&outcome=&request_id=&from=&to=&limit=&cursor=` | Events, newest first; filters combine; `from` (inclusive) and `to` (exclusive) are RFC 3339 times compared with `occurred_at` | 200 `{events: [...], next_cursor?}` |
+| `GET /ops/audit/{id}` | One event | 200 |
+
+```bash
+curl -H "Authorization: Bearer $OPS_TOKEN" \
+  'http://127.0.0.1:8080/ops/audit?action_prefix=settings.&limit=20'
+```
+
+```json
+{
+  "events": [
+    {
+      "id": 7,
+      "occurred_at": "2026-09-14T12:00:00.123Z",
+      "recorded_at": "2026-09-14T12:00:00.125Z",
+      "actor_kind": "service",
+      "actor_id": "ops-token",
+      "actor_label": "Ops token",
+      "action": "settings.value.changed",
+      "resource_type": "setting",
+      "resource_id": "example.ping_message",
+      "outcome": "success",
+      "request_id": "req_99c4a38756b2eb8f",
+      "trace_id": "951ff1fe97c8f8616496d020314fea38",
+      "metadata": {"reason": "demo", "reset": false, "version": 1}
+    }
+  ],
+  "next_cursor": "7"
+}
+```
+
+- `request_id` links an event to its access log line, trace and any jobs the request enqueued.
+- `ip` and `user_agent` appear when the recording module sets them (authentication events will).
+- Metadata values under sensitive keys such as `password` or `token` are stored as `"[REDACTED]"`; oversized metadata is replaced with `{"metadata_dropped": "too_large"}`.
+- Events can't be changed. Retention policies arrive in v0.5.
+
 ## Error codes
 
 | Code | Status | When |
@@ -146,6 +187,8 @@ Run fields: `id`, `kind`, `queue`, `state`, `attempt`, `max_attempts`, `priority
 | `queue_not_active` | 422 | No worker runs that queue |
 | `invalid_cursor` | 400 | Malformed `cursor` |
 | `invalid_job_state` | 422 | Unknown `state` filter |
+| `audit_event_not_found` | 404 | Unknown audit event ID (or removed by retention) |
+| `invalid_audit_filter` | 422 | Unknown `outcome`, malformed `action_prefix`, or `from` not before `to` |
 
 Error codes are public API: new ones are added, existing ones never change.
 
@@ -161,4 +204,4 @@ Error codes are public API: new ones are added, existing ones never change.
 | `jobs.queue.paused` | `job_queue` |
 | `jobs.queue.resumed` | `job_queue` |
 
-Until an audit store ships, `examples/full-single` records these events in its log.
+`examples/full-single` stores these events in the `audit_events` table (`modules/auditpg`) and lists them with `GET /ops/audit`. Reading the audit log is not itself audited.

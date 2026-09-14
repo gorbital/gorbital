@@ -15,6 +15,7 @@ type services struct {
 	pingMessage config.Value[string]
 	settings    opsusecase.SettingsStore
 	jobs        opsusecase.JobsManager
+	audit       opsusecase.AuditLog
 }
 
 // registerModules wires every business module: its HTTP operations and its
@@ -24,7 +25,7 @@ func registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {
 	if err := registerPing(api, mapper, svc.pingMessage); err != nil {
 		return err
 	}
-	if err := registerOps(api, mapper, svc.settings, svc.jobs); err != nil {
+	if err := registerOps(api, mapper, svc.settings, svc.jobs, svc.audit); err != nil {
 		return err
 	}
 	return nil

@@ -25,7 +25,7 @@ internal/modules/<name>/ one bounded context per directory
   usecase/               application logic; ports.go holds the interfaces it needs
   repository/            storage adapters implementing ports (hand-written SQL)
   delivery/              HTTP adapter: Huma operations ↔ use cases
-internal/modules/ops/    admin APIs for runtime settings and jobs
+internal/modules/ops/    admin APIs for runtime settings, jobs and the audit log
 api/openapi.json         exported API contract (committed; review changes in pull requests)
 compose.yaml             PostgreSQL for development and tests
 ```
@@ -49,6 +49,10 @@ A value is never in more than one layer, and secrets are never runtime settings.
 ## Background jobs
 
 Jobs run in the API process on PostgreSQL (River). A job carries the request ID, trace and actor that enqueued it, but never their permissions; it runs as the `jobs` system actor. Add one with `aps gen job <Name>`, or copy `internal/jobs/heartbeat` and `internal/app/job_heartbeat.go` and add a line in `jobs.go`.
+
+## Audit log
+
+Modules record who did what through `audit.Recorder`; `app.go` passes the `auditpg` store, which writes the append-only `audit_events` table and redacts sensitive metadata keys. `GET /ops/audit` lists events. To commit an event with the change it describes, call `RecordTx` with the same transaction.
 
 ## Rules
 

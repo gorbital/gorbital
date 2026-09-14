@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	apistock.dev v0.0.0
+	apistock.dev/modules/auditpg v0.0.0
 	apistock.dev/modules/jobs v0.0.0
 	apistock.dev/modules/openapi v0.0.0
 	apistock.dev/modules/postgres v0.0.0
@@ -61,6 +62,7 @@ require (
 
 replace (
 	apistock.dev => ../..
+	apistock.dev/modules/auditpg => ../../modules/auditpg
 	apistock.dev/modules/jobs => ../../modules/jobs
 	apistock.dev/modules/openapi => ../../modules/openapi
 	apistock.dev/modules/postgres => ../../modules/postgres

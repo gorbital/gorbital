@@ -1,6 +1,6 @@
-// Package ops is the operations module: admin APIs for runtime settings and
-// background jobs, composed from the apistock settings and jobs modules
-// (ADR-0026, ADR-0031, ADR-0033).
+// Package ops is the operations module: admin APIs for runtime settings,
+// background jobs and the audit log, composed from the apistock settings,
+// jobs and auditpg modules (ADR-0026, ADR-0031, ADR-0033, ADR-0036).
 package ops
 
 import (
@@ -15,13 +15,14 @@ type Module struct {
 	svc *opsusecase.Service
 }
 
-// New builds the module on the settings store and jobs manager.
-func New(store opsusecase.SettingsStore, manager opsusecase.JobsManager) *Module {
-	return &Module{svc: opsusecase.NewService(store, manager)}
+// New builds the module on the settings store, jobs manager and audit log.
+func New(store opsusecase.SettingsStore, manager opsusecase.JobsManager, auditLog opsusecase.AuditLog) *Module {
+	return &Module{svc: opsusecase.NewService(store, manager, auditLog)}
 }
 
 // Register adds the module's HTTP operations to api.
 func (m *Module) Register(api huma.API) {
 	opsdelivery.RegisterSettings(api, m.svc)
 	opsdelivery.RegisterJobs(api, m.svc)
+	opsdelivery.RegisterAudit(api, m.svc)
 }

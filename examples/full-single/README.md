@@ -2,7 +2,7 @@
 
 A Go API created with [apistock](https://apistock.dev) (Full preset, single-tenant).
 
-> Work in progress: authentication, email and audit storage arrive later in v0.2. Until then the admin APIs use `OPS_TOKEN`.
+> Work in progress: authentication and email arrive later in v0.2. Until then the admin APIs use `OPS_TOKEN`.
 
 ## Run
 
@@ -20,6 +20,7 @@ go run ./cmd/api                # or: aps dev
 | http://127.0.0.1:8080/v1/ping | Example endpoint; its reply is a runtime setting |
 | http://127.0.0.1:8080/ops/settings | Runtime settings (bearer `OPS_TOKEN`) |
 | http://127.0.0.1:8080/ops/jobs/definitions | Job configuration, run now, history (bearer `OPS_TOKEN`) |
+| http://127.0.0.1:8080/ops/audit | Audit log: who changed what, filterable (bearer `OPS_TOKEN`) |
 | http://127.0.0.1:8080/livez · /readyz | Health checks |
 
 ## Configuration
@@ -45,6 +46,7 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 | Export the OpenAPI document | `go run ./cmd/api openapi > api/openapi.json` |
 | Add a background job | `aps gen job <Name>` (asks the rest), or with flags: `aps gen job CleanupSessions --schedule "0 3 * * *" --yes` |
 | Change a job's schedule, timeout or retries | `PUT /ops/jobs/definitions/{name}` (no redeploy) |
+| See who changed a setting or job | `GET /ops/audit?resource_id=<key or name>` |
 | Build a container | `docker build -t acme-api .` |
 
 ## Project layout

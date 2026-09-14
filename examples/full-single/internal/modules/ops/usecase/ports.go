@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"apistock.dev/modules/auditpg"
 	"apistock.dev/modules/jobs"
 	"apistock.dev/modules/settings"
 )
@@ -36,7 +37,14 @@ type JobsManager interface {
 	ResumeQueue(ctx context.Context, name string) error
 }
 
+// AuditLog lists recorded audit events. *auditpg.Store implements it.
+type AuditLog interface {
+	List(ctx context.Context, f auditpg.Filter) (auditpg.Page, error)
+	Get(ctx context.Context, id int64) (auditpg.StoredEvent, error)
+}
+
 var (
 	_ SettingsStore = (*settings.Store)(nil)
 	_ JobsManager   = (*jobs.Manager)(nil)
+	_ AuditLog      = (*auditpg.Store)(nil)
 )

@@ -2,7 +2,7 @@
 
 **Production-ready Go APIs in minutes, as code you own.**
 
-> **Status: pre-alpha.** v0.1 (core library + Minimal preset) is implemented and tested but not released. v0.2 is in progress: PostgreSQL, runtime settings, background jobs and their admin APIs are implemented in the library and in the [Full preset example](examples/full-single); authentication, email and audit storage are next. The library isn't published at `apistock.dev` yet, so apps are created against a local checkout with `--local`.
+> **Status: pre-alpha.** v0.1 (core library + Minimal preset) is implemented and tested but not released. v0.2 is in progress: PostgreSQL, runtime settings, background jobs, audit storage and their admin APIs are implemented in the library and in the [Full preset example](examples/full-single); email and authentication are next. The library isn't published at `apistock.dev` yet, so apps are created against a local checkout with `--local`.
 
 ## Try v0.1 from a checkout
 

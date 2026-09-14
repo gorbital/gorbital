@@ -126,7 +126,7 @@ apistock/
 │   ├── settings/            runtime settings: typed declarations, PostgreSQL store, LISTEN/NOTIFY reload   (v0.2)
 │   ├── jobs/                River, job definitions and Manager (Lambda-style config), AsyncSender   (v0.2)
 │   ├── mail/resend/ · mail/smtp/
-│   ├── auditpg/             audit store + query API
+│   ├── auditpg/             append-only audit store with redaction, filtered query API   (v0.2)
 │   ├── auth/                identity, passwords, sessions, oidc (google, apple), totp, passkey
 │   ├── orgs/                organisations, memberships, invitations, org roles
 │   └── releases/            release record at boot + query API
@@ -221,7 +221,7 @@ Resend or SMTP behind `mail.Sender`. Development always delivers to Mailpit. Sen
 
 `/ops/*`, protected by platform roles and required 2FA. v1: audit logs, system health, release monitor, jobs, retention, maintenance mode, runtime settings. v1.1: feature flags, live observability, incidents, API keys.
 
-Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)). Until authentication ships they are protected by an interim `OPS_TOKEN` bearer token ([ADR-0034](adr/0034-interim-ops-token.md)); permission checks already run in the ops use cases.
+Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)), `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)). Until authentication ships they are protected by an interim `OPS_TOKEN` bearer token ([ADR-0034](adr/0034-interim-ops-token.md)); permission checks already run in the ops use cases.
 
 ### 7.5 API contract and docs ([ADR-0027](adr/0027-api-contract-and-docs.md))
 
@@ -302,4 +302,5 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | Publish the library at `apistock.dev` | Open: domain hardening, public repository, first tags (until then apps use `--local`) |
 | `/ops/*` protection before authentication | Interim `OPS_TOKEN` ([ADR-0034](adr/0034-interim-ops-token.md)); replaced by platform roles and 2FA when `modules/auth` ships |
 | `aps new --preset=full` | Open: `examples/full-single` is the golden app it will be generated from (`aps gen job` is done and golden-tested against it) |
-| Audit storage | Open: audit events are logged by `audit.LogRecorder` until `modules/auditpg` ships |
+| ~~Audit storage~~ | Resolved: `modules/auditpg` stores events in an append-only `audit_events` table, listed by `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)) |
+| Client IP and user agent in audit events | Open: no core middleware carries them in the context yet; `modules/auth` sets them on its events |

@@ -1,6 +1,6 @@
 // Package usecase holds the operations module's application logic: every
-// operation checks the actor's permission, then calls the settings store or
-// jobs manager.
+// operation checks the actor's permission, then calls the settings store,
+// jobs manager or audit log.
 package usecase
 
 import (
@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 
 	"apistock.dev/actor"
+	"apistock.dev/modules/auditpg"
 	"apistock.dev/modules/jobs"
 	"apistock.dev/modules/settings"
 
@@ -18,11 +19,12 @@ import (
 type Service struct {
 	settings SettingsStore
 	jobs     JobsManager
+	audit    AuditLog
 }
 
 // NewService returns a Service.
-func NewService(store SettingsStore, manager JobsManager) *Service {
-	return &Service{settings: store, jobs: manager}
+func NewService(store SettingsStore, manager JobsManager, auditLog AuditLog) *Service {
+	return &Service{settings: store, jobs: manager, audit: auditLog}
 }
 
 func authorize(ctx context.Context, permission string) error {
@@ -196,4 +198,20 @@ func (s *Service) ResumeQueue(ctx context.Context, name string) error {
 		return err
 	}
 	return s.jobs.ResumeQueue(ctx, name)
+}
+
+// ListAuditEvents lists audit events, newest first.
+func (s *Service) ListAuditEvents(ctx context.Context, f auditpg.Filter) (auditpg.Page, error) {
+	if err := authorize(ctx, opsdomain.PermAuditRead); err != nil {
+		return auditpg.Page{}, err
+	}
+	return s.audit.List(ctx, f)
+}
+
+// GetAuditEvent returns one audit event.
+func (s *Service) GetAuditEvent(ctx context.Context, id int64) (auditpg.StoredEvent, error) {
+	if err := authorize(ctx, opsdomain.PermAuditRead); err != nil {
+		return auditpg.StoredEvent{}, err
+	}
+	return s.audit.Get(ctx, id)
 }

@@ -1,6 +1,6 @@
 # ADR-0029: Threat model: framework, CLI and ecosystem
 
-**Status:** Accepted (2026-09-14)
+**Status:** Accepted (2026-09-14) · **Amended by:** ADR-0036 (audit metadata controls)
 
 ## Context
 
@@ -77,7 +77,7 @@ Owner: project maintainer. Each accepted risk is recorded here with a review dat
 | 12 Account enumeration | Not started (arrives with `modules/auth`) |
 | 13 Session theft | Not started (arrives with `modules/auth`) |
 | 18 Privilege escalation to ops | **Partial:** `/ops/*` is protected by the interim `OPS_TOKEN` (ADR-0034) with permission checks in use cases; platform roles and 2FA replace it with `modules/auth` |
-| 19 Sensitive data in logs | Done for new modules: database URLs never appear in errors, query spans record SQL text but not arguments, validation errors never echo values, job arguments never appear in ops responses, ops token never printed |
+| 19 Sensitive data in logs | Done for new modules: database URLs never appear in errors, query spans record SQL text but not arguments, validation errors never echo values, job arguments never appear in ops responses, ops token never printed. Audit metadata (`modules/auditpg`, ADR-0036): values under sensitive keys (`password`, `secret`, `token`, `otp`, `recovery_code`, …) redacted at any depth, size bounded, text sanitised; audit events append-only through a trigger. A per-action metadata allowlist was considered and replaced by recorder-side redaction |
 | 22 Open-core dependencies | River (MPL-2.0) and goose (MIT) used without Pro features; `robfig/cron/v3` (MIT) swap path is River's `PeriodicSchedule` |
 | 23 Runtime settings abuse | Done: no secret type, declared bounds, reasons, versions, history and audit events (`modules/settings`) |
 | 24 Job controls abuse | Done: permissions per operation, reasons to disable or reschedule, 1-minute minimum interval, bounded timeout and attempts, history and audit events, arguments hidden (`modules/jobs`) |

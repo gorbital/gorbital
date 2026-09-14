@@ -7,6 +7,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"apistock.dev/httpx"
+	"apistock.dev/modules/auditpg"
 	"apistock.dev/modules/jobs"
 	"apistock.dev/modules/settings"
 
@@ -15,9 +16,10 @@ import (
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 )
 
-// registerOps wires the operations module: runtime settings and jobs admin
-// APIs. Error codes are public API: add new ones, never change existing ones.
-func registerOps(api huma.API, mapper *httpx.Mapper, store opsusecase.SettingsStore, manager opsusecase.JobsManager) error {
+// registerOps wires the operations module: runtime settings, jobs and audit
+// log admin APIs. Error codes are public API: add new ones, never change
+// existing ones.
+func registerOps(api huma.API, mapper *httpx.Mapper, store opsusecase.SettingsStore, manager opsusecase.JobsManager, auditLog opsusecase.AuditLog) error {
 	err := mapper.Add(
 		httpx.Mapping{Err: opsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
 		httpx.Mapping{Err: opsdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
@@ -35,10 +37,13 @@ func registerOps(api huma.API, mapper *httpx.Mapper, store opsusecase.SettingsSt
 		httpx.Mapping{Err: jobs.ErrJobNotFound, Status: http.StatusNotFound, Code: "job_not_found", Detail: "no job has this ID"},
 		httpx.Mapping{Err: jobs.ErrUnknownQueue, Status: http.StatusUnprocessableEntity, Code: "queue_not_active", Detail: "no worker runs this queue"},
 		httpx.Mapping{Err: jobs.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
+
+		httpx.Mapping{Err: auditpg.ErrEventNotFound, Status: http.StatusNotFound, Code: "audit_event_not_found", Detail: "no audit event has this ID"},
+		httpx.Mapping{Err: auditpg.ErrInvalidFilter, Status: http.StatusUnprocessableEntity, Code: "invalid_audit_filter", Detail: "the audit filter is not valid"},
 	)
 	if err != nil {
 		return fmt.Errorf("ops module: %w", err)
 	}
-	ops.New(store, manager).Register(api)
+	ops.New(store, manager, auditLog).Register(api)
 	return nil
 }
