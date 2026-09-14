@@ -40,7 +40,6 @@ recipes + project state
 | `addRequire` | Go module requirement or `tool` directive |
 | `copyMigration` | Module migration into `db/migrations` with a timestamp |
 | `appendEnv` | Documented entry in `.env.example` |
-| `mergeOpenAPI` | Recipe endpoints and schemas into `api/openapi.yaml` |
 
 No operation executes code, runs shell commands, downloads files or writes outside the project.
 
@@ -50,7 +49,7 @@ No operation executes code, runs shell commands, downloads files or writes outsi
 |---|---|
 | Recipe output (base app, `infra_*.go`, module wiring, auth/orgs/ops modules, emails) | **Yes**: operations recorded and replayed for 3-way merges (ADR-0016) |
 | `aps gen resource` output | **No**: one-shot starting point |
-| Derived code (`internal/api`, `internal/db`) | Regenerated from sources, never merged |
+| Derived code (`internal/db`, `api/openapi.json`) | Regenerated from sources, never merged |
 
 ### Rules
 

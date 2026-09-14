@@ -36,7 +36,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0024](0024-authentication-methods.md) | Authentication methods | Accepted |
 | [0025](0025-email-providers.md) | Email providers | Accepted |
 | [0026](0026-operations-apis.md) | Operations APIs | Accepted |
-| [0027](0027-api-contract-and-docs.md) | API contract and documentation | Proposed (pending spike) |
+| [0027](0027-api-contract-and-docs.md) | API contract and documentation | Accepted |
 | [0028](0028-local-development-environment.md) | Local development environment | Accepted |
 | [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted |
 | [0030](0030-context-and-correlation.md) | Context and correlation propagation | Accepted |

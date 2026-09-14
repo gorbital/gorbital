@@ -1,43 +1,61 @@
 # ADR-0027: API contract and documentation
 
-**Status:** Proposed (2026-09-14) · pending the OpenAPI spike
+**Status:** Accepted (2026-09-14) · decided by [spikes/openapi](../../spikes/openapi/README.md)
 
 ## Context
 
-Developers must test the API immediately after `aps new`: interactive docs at `/docs`, an OpenAPI document and a Postman collection. The maintainer wants documentation in the style of Mintlify API reference pages. All of these must come from one source of truth, and the choice shapes how every handler is written.
+Developers must test the API immediately after `aps new`: interactive docs at `/docs`, an OpenAPI document and a Postman collection. Documentation should look like Mintlify API reference pages. All of these need one source of truth, and the choice shapes how every handler is written. The priority is a seamless developer experience: developers focus on business logic, apistock handles contract, docs and validation.
 
 ## Options
 
 | Option | How it works | For | Against |
 |---|---|---|---|
-| **A. Spec-first** | Owned `api/openapi.yaml` → oapi-codegen strict server interfaces (derived) → handwritten delivery handlers | Contract is the source of truth; fits owned/derived model; plain `net/http`; no framework lock-in | Developers edit YAML; two steps per endpoint |
-| **B. Code-first** | Typed Go handlers (Huma) generate OpenAPI | Stay in Go; fast to write | Every handler depends on a third-party framework |
-| **C. Annotations** | Comments (swaggo) generate specs | Easy start | Comments drift from behaviour; not recommended |
+| A. Spec-first | Owned `openapi.yaml` → generated Go interfaces (oapi-codegen) → handlers | Contract-first; no framework in handlers | Developers write YAML; two steps per endpoint |
+| **B. Code-first (Huma)** | Typed Go inputs/outputs and handlers generate OpenAPI 3.1 | Go only; docs and validation automatic; RFC 9457 errors; runs on `net/http` | Third-party dependency in the HTTP layer |
+| C. Annotations (swaggo) | Comments generate specs | Easy start | Comments drift from behaviour |
 
-## Proposed decision
+## Decision
 
-Option A, subject to the spike.
+**Option B: code-first with Huma v2, confined to the `delivery/` layer.**
 
 | Topic | Decision |
 |---|---|
-| Source of truth | `api/openapi.yaml` (OpenAPI 3.1), owned by the app |
-| Generated code | `internal/api` (types, strict server interfaces, request validation), derived, never edited |
-| Recipes | Contribute endpoints with `mergeOpenAPI` (auth adds `/v1/auth/*`) |
-| `aps gen resource` | Adds the spec section, regenerates `internal/api`, and creates the delivery handler stub |
-| Interactive docs | **Scalar** (MIT) served at `/docs`, assets embedded in the binary (offline, no CDN), Mintlify-style layout with request/response examples, code samples and a try-it console |
-| Machine-readable | `GET /openapi.json` |
-| Postman | `api/postman_collection.json` generated from the spec (v0.5) |
-| AI tools | `api/llms.txt` generated and served at `/llms.txt` (v0.5) |
-| Contract tests | `test/e2e/contract_test.go` checks responses against the spec |
-| Production | `/docs` configurable (enabled, disabled, or restricted to ops roles) |
-| Project docs | `apistock.dev/docs` built with Mintlify; content (MDX + OpenAPI) kept in this repository for portability |
+| Where Huma is allowed | `internal/modules/*/delivery`, `internal/modules/*/module.go`, `internal/app`. Never `domain/`, `usecase/`, `repository/` (enforced by `architecture_test.go`) |
+| Router | Standard `http.ServeMux` via the `humago` adapter |
+| Handlers | Typed input/output structs; handlers return domain errors unchanged |
+| Errors | `internal/app` installs `huma.NewError` and `huma.NewErrorWithContext` once at startup, producing `Problem` (RFC 9457 + `code` + `request_id` + `errors[]`) from the app's error mapping table (ADR-0018). This is the only permitted package-level assignment; the architecture test enforces it |
+| Validation | From Go struct tags; 422 `validation_failed` with field locations |
+| Auth and tenancy | Per-operation Huma middlewares for session, org membership and permission; `security` documented |
+| Config | `CreateHooks = nil` (no `$schema` links in responses); built-in docs disabled |
+| Interactive docs | Own `/docs` handler serving an **embedded, pinned Scalar** asset (offline, no CDN), Mintlify-style layout with examples and try-it; configurable enabled / disabled / ops-only |
+| Spec export | `my-api openapi` writes `api/openapi.json`; `aps dev` refreshes it; committed so API changes appear in pull requests |
+| Breaking changes | CI compares `api/openapi.json` with the base branch and fails on breaking changes |
+| Postman and AI | `api/postman_collection.json` and `api/llms.txt` generated from the exported spec (v0.5) |
+| Undocumented routes | Architecture test fails if a route is registered outside Huma operations (except `/docs`, `/livez`, `/readyz`, `/.well-known/*`) |
+| Time values | Generated clocks return UTC |
+| Generator | `aps gen resource` and `aps gen endpoint` create input/output types, operation registration, handler and use-case stubs |
+| Project docs | `apistock.dev/docs` built with Mintlify; MDX and OpenAPI kept in this repository |
 
-## Spike acceptance criteria
+### Open for v0.1
 
-1. A layered module (`domain/usecase/repository/delivery`) implemented with both A and B.
-2. Compare: lines of code per endpoint, compile-time safety, request validation, error mapping to problem+json, readability for newcomers, dependency weight, regeneration workflow.
-3. Scalar renders both specs correctly with examples and try-it.
+1. **Unknown request fields:** Huma rejects them by default. Decide between strict (reject) and tolerant (ignore) for request bodies.
+2. **Non-member responses:** 403 vs 404 for organisations the caller doesn't belong to (v0.4).
+
+## Why
+
+- Developers write only Go; docs, validation and error schemas can't drift from code.
+- The layered architecture limits the dependency to one layer: replacing Huma would rewrite `delivery/` only.
+- Huma is actively maintained (v2.39.1), MIT-licensed, uses the standard router and RFC 9457 errors.
+- The spike showed a single direct dependency and a 6.4 MB stripped binary.
+
+## Trade-offs
+
+- A third-party library shapes handler signatures in every generated app.
+- Error customisation relies on Huma's package-level hooks.
+- If Huma is abandoned, apistock must fork it or migrate `delivery/` layers with a codemod.
 
 ## Consequences
 
-This ADR becomes Accepted, or is revised to Option B, before v0.1 implementation starts.
+- apistock pins and tests Huma versions; upgrades go through the compatibility matrix.
+- `delivery/` code is part of the scaffold compatibility promise (ADR-0016).
+- ADR-0022's delivery layer description refers to Huma operations.
