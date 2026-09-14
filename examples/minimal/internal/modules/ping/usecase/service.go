@@ -1,0 +1,22 @@
+// Package usecase holds the ping module's application logic.
+package usecase
+
+import (
+	"context"
+
+	pingdomain "example.com/acme-api/internal/modules/ping/domain"
+)
+
+// Service runs the ping use cases.
+type Service struct{}
+
+// NewService returns a Service.
+func NewService() *Service { return &Service{} }
+
+// Ping reports that the API is reachable.
+func (s *Service) Ping(context.Context) string { return "pong" }
+
+// Echo validates text and returns it as a message.
+func (s *Service) Echo(_ context.Context, text string) (pingdomain.Message, error) {
+	return pingdomain.NewMessage(text)
+}
