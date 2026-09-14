@@ -1,10 +1,10 @@
-# APIStock v1 Scope
+# apistock v1 Scope
 
 This page is the guard against scope creep. Any work not listed under **In v1** needs an accepted ADR before it starts.
 
 ## The v1 promise
 
-A Go developer can run `aps new`, add PostgreSQL and authentication, generate a resource, and deploy a production-ready API. They own all generated code, and can upgrade to the next APIStock release without losing their edits.
+A Go developer can run `aps new`, add PostgreSQL and authentication, generate a resource, and deploy a production-ready API. They own all generated code, and can upgrade to the next apistock release without losing their edits.
 
 ## In v1
 

@@ -1,6 +1,6 @@
 Architecture review · Draft 1 · 14 Sep 2026
 
-# APIStock: a Go application kit people can own
+# apistock: a Go application kit people can own
 
 A Staff-level review of the plan for an open-source Go framework, CLI, module ecosystem and control plane. It covers what to build, what to hand off to existing projects, and what I would not build at all.
 
@@ -126,7 +126,7 @@ This is the most important section. Each component has a clear owner, a clear de
                                                               │           hosted control plane ◀── mobile
 ```
 
-Figure 1: Everything left of the line is tooling. Everything right of it is a normal Go service with no runtime dependency on APIStock tooling.
+Figure 1: Everything left of the line is tooling. Everything right of it is a normal Go service with no runtime dependency on apistock tooling.
 
 How the parts talk to each other:
 
@@ -167,7 +167,7 @@ This covers 95% of what Fx's lifecycle hooks do, with no container and no reflec
 
 ### HTTP
 
-Since Go 1.22, `http.ServeMux` supports method matching and path wildcards (`GET /products/{id}`). That removes the main reason to pull in a router. Go 1.25 added `http.CrossOriginProtection` for CSRF defence. Chi remains a fine choice and is 100% `net/http`-compatible, so a developer can swap it in without any APIStock code caring.
+Since Go 1.22, `http.ServeMux` supports method matching and path wildcards (`GET /products/{id}`). That removes the main reason to pull in a router. Go 1.25 added `http.CrossOriginProtection` for CSRF defence. Chi remains a fine choice and is 100% `net/http`-compatible, so a developer can swap it in without any apistock code caring.
 
 > **I would not recommend** Fiber (or anything built on fasthttp) for this project. It is not `net/http`-compatible, so every middleware, OTel instrumentation and test helper in the ecosystem needs a special version. That cost multiplies across a module ecosystem.
 
@@ -299,7 +299,7 @@ The template mess you want to avoid comes from one root cause: **templates that 
 
 | Class | Examples | Who edits | How it is updated |
 |---|---|---|---|
-| **Library** (not in repo) | password hashing, session store, River wrapper, OTel setup | APIStock maintainers | `go get`. Semver. Codemods for breaking changes. |
+| **Library** (not in repo) | password hashing, session store, River wrapper, OTel setup | apistock maintainers | `go get`. Semver. Codemods for breaking changes. |
 | **Derived** (in repo, regenerated) | sqlc output, `*_gen.go` files; header `// Code generated … DO NOT EDIT.` | Nobody by hand | Regenerated deterministically from sources the developer owns (SQL files). |
 | **Scaffold** (in repo, owned) | `main.go`, `app.go`, resource handlers, email templates, config structs | The developer | Written once. Later changes are offered as a 3-way merge on a git branch, never forced. |
 
@@ -382,7 +382,7 @@ my-api/
 └── go.mod                     owned    includes `tool` lines for sqlc, goose
 ```
 
-What is deliberately missing: no `pkg/`, no `handlers/ services/ repositories/` split, no `aps` runtime directory, no hidden `.APIStock/` folder of generated magic. Details in §23 and the workflow in §27.
+What is deliberately missing: no `pkg/`, no `handlers/ services/ repositories/` split, no `aps` runtime directory, no hidden `.apistock/` folder of generated magic. Details in §23 and the workflow in §27.
 
 ## 11. Database strategy
 
@@ -489,7 +489,7 @@ Goal: good telemetry with **zero decisions on day one** and **no lock-in on day 
 
 - **Logs:** `log/slog`. Colourised text in dev, JSON in production, always to stdout. Zap and zerolog are not needed; slog is the stdlib contract every module can accept as `*slog.Logger`.
 - **Correlation:** a middleware reads or creates `X-Request-ID`; a slog handler wrapper injects `request_id`, `trace_id` and `span_id` from context into every log line. Developers get correlated logs even with tracing export turned off.
-- **Tracing and metrics:** OpenTelemetry SDK. HTTP server via `otelhttp`, pgx via the otelpgx tracer, River via its OTel middleware. Exporters are configured through the standard `OTEL_*` env vars, not APIStock-specific settings.
+- **Tracing and metrics:** OpenTelemetry SDK. HTTP server via `otelhttp`, pgx via the otelpgx tracer, River via its OTel middleware. Exporters are configured through the standard `OTEL_*` env vars, not apistock-specific settings.
 - **Logs via OTLP:** offered as opt-in. The OTel Go logs API/SDK reached release-candidate status in 2026 and isn't yet under v1 stability guarantees. Stdout JSON stays the default until it is.
 - **Health:** `/livez` (process is up, no dependency checks, so a DB blip doesn't restart every pod) and `/readyz` (registered checks: DB ping, migrations applied, River client healthy).
 - **Error reporting:** a tiny `ErrorReporter` hook called by the recover middleware and job failure handler. Sentry/Honeybadger are community modules; the default reporter logs.
@@ -600,12 +600,12 @@ If a control plane exists and paying users ask for mobile, the architecture is s
 
 ## 18. GitHub integration architecture
 
-The design principle: **GitHub integration is a convenience performed by the developer's own tools, on their own account, producing plain files.** After it runs, there is no connection between the repo and APIStock.
+The design principle: **GitHub integration is a convenience performed by the developer's own tools, on their own account, producing plain files.** After it runs, there is no connection between the repo and apistock.
 
 ```text
  aps new my-api --github
    1  generate files locally                       (always)
-   2  git init, first commit "aps new (APIStock vX.Y.Z)"  (always; uses local git + user's identity)
+   2  git init, first commit "aps new (apistock vX.Y.Z)"  (always; uses local git + user's identity)
    3  write .github/workflows/ci.yml               (only with --github or --ci)
    4  create remote repo + push:
         if `gh` is installed and authenticated → run `gh repo create my-api --private --source . --push`
@@ -616,11 +616,11 @@ The design principle: **GitHub integration is a convenience performed by the dev
 
 - **Delegate authentication to `gh`.** The aps CLI never asks for, stores or transmits a GitHub token in v1. That removes the most sensitive thing a code-generating CLI could hold.
 - **Private by default**; the command prints what it will do and asks for confirmation (skipped with `--yes`).
-- **CI is a plain workflow file**: `go vet`, `go test -race`, `govulncheck`, `golangci-lint`, migration check against a Postgres service container. Actions pinned by commit SHA. No APIStock-hosted actions required.
+- **CI is a plain workflow file**: `go vet`, `go test -race`, `govulncheck`, `golangci-lint`, migration check against a Postgres service container. Actions pinned by commit SHA. No apistock-hosted actions required.
 - **Portable:** `--ci gitlab` writes `.gitlab-ci.yml` instead. Nothing about the app depends on the forge.
 - **Dependabot/Renovate config** is generated so aps module upgrades show up as normal PRs. `aps upgrade` can run in a scheduled workflow to open PRs for recipe-level changes (Phase 4+).
 
-> **I would not recommend** a APIStock-hosted GitHub App or OAuth app in v1. It would require storing user tokens on your servers, make you a supply-chain target for every connected repo, and create exactly the platform dependency you want to avoid. Revisit only for the hosted control plane, with fine-grained, repo-scoped installation tokens.
+> **I would not recommend** a apistock-hosted GitHub App or OAuth app in v1. It would require storing user tokens on your servers, make you a supply-chain target for every connected repo, and create exactly the platform dependency you want to avoid. Revisit only for the hosted control plane, with fine-grained, repo-scoped installation tokens.
 
 ## 19. Open-source / community module architecture
 
@@ -634,7 +634,7 @@ The design principle: **GitHub integration is a convenience performed by the dev
 
 | Level | Requirements | CLI behaviour |
 |---|---|---|
-| **[Official]** | In the APIStock org, maintained by core team, in the compatibility test matrix | Installs after normal preview |
+| **[Official]** | In the apistock org, maintained by core team, in the compatibility test matrix | Installs after normal preview |
 | **[Verified]** | Index PR reviewed; owner verified via repo; releases with GitHub artifact attestations / Sigstore signing; passes `aps module check` in CI; 2FA on org | Installs after preview; shows owner |
 | **[Listed]** | Index PR merged, automated checks only | Extra warning + explicit confirmation |
 | Unlisted | Any Go module path with a recipe | Requires full path and `--trust` flag |
@@ -642,7 +642,7 @@ The design principle: **GitHub integration is a convenience performed by the dev
 ### Versioning, dependencies, compatibility
 
 - Semver via git tags, enforced by Go itself (`/v2` path for breaking majors).
-- Manifest declares `APIStock: ">=1.3.0 <2.0.0"` (core API range) and capability `needs`. Go-level dependency resolution (MVS) stays Go's job. The CLI only checks capability and core-range compatibility.
+- Manifest declares `apistock: ">=1.3.0 <2.0.0"` (core API range) and capability `needs`. Go-level dependency resolution (MVS) stays Go's job. The CLI only checks capability and core-range compatibility.
 - `aps module check` (run by authors in CI): manifest schema, templates render and compile against a fresh app, recipe idempotency (apply twice = no diff), migrations apply and roll forward on Postgres, `go vet`, `govulncheck`.
 
 ### Security model for recipes
@@ -684,7 +684,7 @@ A full worked example is in §28.
 | Tampered module download | Go proxy + checksum DB; `apistock.lock` stores module sum |
 | Compromised aps CLI release | Reproducible builds via GoReleaser; Sigstore signatures + SLSA provenance; `go install` path also available (sumdb-verified) |
 | Maintainer account takeover | Required 2FA in org; protected tags; two-person release approval for official modules |
-| GitHub token leakage | APIStock never handles tokens in v1 (delegates to `gh`); later: OS keychain only, fine-grained scopes, never in files or env dumps |
+| GitHub token leakage | apistock never handles tokens in v1 (delegates to `gh`); later: OS keychain only, fine-grained scopes, never in files or env dumps |
 | Typosquatting (`aps add strpie`) | Short names only from the reviewed index; full paths shown in confirm prompt |
 | Telemetry privacy | Off by default; documented schema; no paths, names or code sent |
 
@@ -698,13 +698,13 @@ This is the part most likely to decide whether the project survives. Scaffolding
 |---|---|---|
 | Bug fix, security patch, new feature in behaviour | Library code | `go get` / Dependabot PR. No CLI needed. This is why §3 principle 3 exists. |
 | Deprecated / renamed API | Library code | Keep old function as a wrapper with `//go:fix inline` for at least one minor version. Go 1.26's `go fix` rewrites callers automatically. |
-| Structural API break in a major version | Library + owned code | APIStock ships `go/analysis` analyzers with suggested fixes (`aps upgrade` runs them), plus a written migration guide. |
+| Structural API break in a major version | Library + owned code | apistock ships `go/analysis` analyzers with suggested fixes (`aps upgrade` runs them), plus a written migration guide. |
 | Improved scaffold (new middleware in `app.go`, new email template) | Owned code | 3-way merge using the base recorded in `apistock.lock` |
 | New tables/columns | Migrations | New migration files copied in; released migrations never change |
 
 ### The `apistock.lock` baseline
 
-For each scaffolded file, `apistock.lock` records the recipe version and the hash of the content APIStock originally wrote. The original content itself is reproducible from `recipe@version` via the module proxy, so the lock file stays small.
+For each scaffolded file, `apistock.lock` records the recipe version and the hash of the content apistock originally wrote. The original content itself is reproducible from `recipe@version` via the module proxy, so the lock file stays small.
 
 ```text
  aps upgrade auth --to v1.6.0         (requires clean git tree; works on branch aps-upgrade/auth-v1.6.0)
@@ -757,17 +757,17 @@ Why not a single Go module for everything: every user would get every dependency
 
 ```
 apistock/
+├── go.mod                      module apistock.dev (core lives at the repo root)
 ├── go.work                     local dev across modules (not used by consumers)
-├── core/                       go module apistock.dev
-│   ├── app/                    lifecycle: Run, Starter, Stopper, shutdown
-│   ├── config/                 Load, Validate, Secret
-│   ├── httpx/                  server, middleware chain, handler adapter, problem+json
-│   ├── health/                 checks registry, /livez /readyz handlers
-│   ├── obs/                    slog handlers, OTel setup, HTTP middleware
-│   ├── actor/                  actor in context
-│   ├── audit/                  Event, Recorder, slog recorder
-│   ├── errs/                   error kinds
-│   └── testkit/                test helpers (imported only by tests)
+├── app/                        lifecycle: Run, Starter, Stopper, shutdown
+├── config/                     Load, Validate, Secret
+├── httpx/                      server, middleware chain, handler adapter, problem+json
+├── health/                     checks registry, /livez /readyz handlers
+├── obs/                        slog handlers, OTel setup, HTTP middleware
+├── actor/                      actor in context
+├── audit/                      Event, Recorder, slog recorder
+├── errs/                       error kinds
+├── testkit/                    test helpers (imported only by tests)
 ├── modules/
 │   ├── postgres/               go module apistock.dev/modules/postgres  (+ recipe/)
 │   ├── auth/                   go module apistock.dev/modules/auth      (+ recipe/, internal/store with sqlc)
@@ -797,7 +797,7 @@ apistock/
 
 ### Why these directories
 
-- **`core/` as the root module path** gives the shortest import path (`apistock.dev/httpx`) for the most-used code.
+- **Core at the repository root** because the `go-import` tag maps `apistock.dev` to the root of the repo. A `core/` subdirectory would not resolve as `apistock.dev`, and root placement gives the most-used code the shortest import path (`apistock.dev/httpx`).
 - **No `pkg/`**: in a library repo everything non-internal is public by definition. `pkg/` adds path length and no meaning.
 - **`recipe/` lives inside each module** so the template and the library it calls are always versioned in the same tag. This is the single most important structural decision against drift.
 - **`cli/internal/`**: the generator is not a public API in v1. Exposing it too early freezes internals that will change a lot. Community extension happens through recipes, not Go APIs of the generator.
@@ -830,7 +830,7 @@ apistock/
 
 ### What existing projects teach
 
-| Project | Got right | Got wrong / complaints | Lesson for APIStock |
+| Project | Got right | Got wrong / complaints | Lesson for apistock |
 |---|---|---|---|
 | Go stdlib | ServeMux patterns, slog, `os.Root`, `go fix` inline | Leaves integration to you | Build on it; integrate, don't wrap |
 | Chi | 100% net/http, tiny | Less needed since 1.22 | Compatibility beats features |
@@ -859,7 +859,7 @@ apistock/
 
 ### Competitive analysis
 
-| Area | Existing approach | Problem | APIStock approach | Honest assessment |
+| Area | Existing approach | Problem | apistock approach | Honest assessment |
 |---|---|---|---|---|
 | Auth | Roll your own; Kratos/Keycloak service; Auth0/Clerk SaaS | DIY is often insecure; services add ops; SaaS adds cost + lock-in | Embedded library with owned handlers; adapter to external IdPs | Real gap in Go. Worth building, but it's a long-term security commitment. |
 | Database | GORM/Ent or hand-rolled pgx | Magic or boilerplate; no module migration story | pgx + sqlc + goose, copied module migrations | Components already excellent; our value is only the conventions. |
@@ -925,7 +925,7 @@ Observability isn't a separate `aps add` step. The base app already has slog, re
 
 | File | Class | Why it exists |
 |---|---|---|
-| `cmd/api/main.go` | scaffold | Entry point; readable in 20 lines; `go run` works without APIStock |
+| `cmd/api/main.go` | scaffold | Entry point; readable in 20 lines; `go run` works without apistock |
 | `internal/app/app.go` | scaffold | The one place dependencies are constructed and ordered |
 | `internal/app/config.go` | scaffold | Every setting discoverable by go-to-definition |
 | `internal/auth/handlers.go` | scaffold | Login/signup/reset HTTP shapes you'll want to change; calls the auth library |
@@ -933,7 +933,7 @@ Observability isn't a separate `aps add` step. The base app already has slog, re
 | `internal/product/*` | scaffold | Feature package; starting point, not a pattern you must keep |
 | `internal/db/sqlc/*` | derived | Regenerated from your SQL; never edited |
 | `db/migrations/*` | owned history | One reviewable schema timeline |
-| `apistock.yaml` / `apistock.lock` | tool | Intent and baselines for add/upgrade; safe to delete if you abandon APIStock |
+| `apistock.yaml` / `apistock.lock` | tool | Intent and baselines for add/upgrade; safe to delete if you abandon apistock |
 | `ARCHITECTURE.md` | scaffold | Explains wiring, code classes and conventions to new teammates and AI agents |
 
 A condensed `app.go` after those commands, to show the level of magic (none):
@@ -1176,7 +1176,7 @@ I changed your order in three ways. The reference app is written by hand *before
 | Microservices tooling, service mesh, event bus | A modular monolith; outbox via River when needed |
 | Mobile app | Existing alerting/monitoring apps |
 | Dashboard-managed production config | Env vars, platform secret stores, GitOps |
-| APIStock-hosted GitHub App / token storage (v1) | `gh` CLI |
+| apistock-hosted GitHub App / token storage (v1) | `gh` CLI |
 | Multi-database support, multi-tenancy in core | Postgres; `orgs` module later |
 
 ## 32. Final recommended architecture
@@ -1202,7 +1202,7 @@ I changed your order in three ways. The reference app is written by hand *before
  │  app code                                                                                          │
  │    ├── official modules: postgres · auth · email · jobs(River) · auditpg · ratelimit              │
  │    ├── community modules: stripe · redis · s3 · …           (same contracts, own repos)           │
- │    └── APIStock core: app · config · httpx · health · obs · actor · audit · errs                  │
+ │    └── apistock core: app · config · httpx · health · obs · actor · audit · errs                  │
  │          └── stdlib · pgx · OpenTelemetry · slog                                                   │
  └─────┬──────────────────────┬──────────────────────┬───────────────────────────────────────────────┘
        ▼                      ▼                      ▼
@@ -1225,9 +1225,9 @@ Then I would pull the reusable, security-sensitive parts out into `apistock.dev`
 
 I would say no, for at least the first year, to the dashboard, the mobile app, a GitHub App, multi-tenancy, a second database, a custom DI system, and any module for a vendor (Stripe, Twilio, Redis). Those are exactly what a community is for, once contracts are stable. The one "platform" feature I would build early is the local `aps dev` console. It's cheap, it's offline, it needs no account, and it's the thing people will screenshot.
 
-I'd hold the line on four rules forever: **no reflection-based wiring, no silent overwrites, Postgres is enough, and the app must keep working if APIStock disappears.** If a feature request conflicts with one of those, the feature loses.
+I'd hold the line on four rules forever: **no reflection-based wiring, no silent overwrites, Postgres is enough, and the app must keep working if apistock disappears.** If a feature request conflicts with one of those, the feature loses.
 
-And I would keep the name and the command exactly as they are now: APIStock and `aps`. Short, clear, and not "framework".
+And I would keep the name and the command exactly as they are now: apistock and `aps`. Short, clear, and not "framework".
 
 ### Sources consulted (September 2026)
 

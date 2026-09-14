@@ -1,12 +1,12 @@
-# APIStock
+# apistock
 
 **A Go application kit with production-ready foundations you own.**
 
 > **Status: pre-alpha, architecture phase.** There is no usable code yet. This repository currently holds the design documents and architecture decision records (ADRs). Nothing described below exists until it ships in a tagged release.
 
-## What APIStock is
+## What apistock is
 
-APIStock gives Go developers the first weeks of backend foundation work (authentication, PostgreSQL, migrations, email, background jobs, audit logging, observability, CI) as idiomatic Go code that lives in **your** repository.
+apistock gives Go developers the first weeks of backend foundation work (authentication, PostgreSQL, migrations, email, background jobs, audit logging, observability, CI) as idiomatic Go code that lives in **your** repository.
 
 It is a **kit, not a framework**:
 
