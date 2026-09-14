@@ -108,6 +108,9 @@ func (d *devRunner) start() error {
 	if err != nil {
 		return err
 	}
+	if err := checkPortFree(appAddr(env)); err != nil {
+		return err
+	}
 	cmd := exec.Command(d.bin)
 	cmd.Env = env
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, d.out
@@ -162,8 +165,11 @@ func snapshot(dir string) (uint64, error) {
 			return nil
 		}
 		info, err := entry.Info()
-		if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
 			return nil // file vanished during the walk
+		}
+		if err != nil {
+			return err
 		}
 		fmt.Fprintf(h, "%s|%d|%d\n", p, info.ModTime().UnixNano(), info.Size())
 		return nil

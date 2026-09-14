@@ -59,12 +59,11 @@ func TestGoldenMinimal(t *testing.T) {
 			return nil
 		}
 		want, _ := os.ReadFile(p)
-		got, err := os.ReadFile(filepath.Join(dir, rel))
-		if err != nil {
-			t.Errorf("golden file %s was not rendered", rel)
-			return nil
-		}
-		if !bytes.Equal(got, want) {
+		got, readErr := os.ReadFile(filepath.Join(dir, rel))
+		switch {
+		case readErr != nil:
+			t.Errorf("golden file %s was not rendered: %v", rel, readErr)
+		case !bytes.Equal(got, want):
 			t.Errorf("rendered %s differs from examples/minimal/%s", rel, rel)
 		}
 		delete(rendered, rel)

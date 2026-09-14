@@ -92,8 +92,8 @@ func TestRecover(t *testing.T) {
 
 	abort := http.HandlerFunc(func(http.ResponseWriter, *http.Request) { panic(http.ErrAbortHandler) })
 	defer func() {
-		if v := recover(); v != http.ErrAbortHandler {
-			t.Errorf("Recover() with ErrAbortHandler recovered %v, want re-panic", v)
+		if err, _ := recover().(error); !errors.Is(err, http.ErrAbortHandler) {
+			t.Errorf("Recover() with ErrAbortHandler: recovered %v, want http.ErrAbortHandler re-panicked", err)
 		}
 	}()
 	serve(httpx.Recover(logger)(abort), httptest.NewRequest("GET", "/", nil))

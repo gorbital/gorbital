@@ -14,6 +14,9 @@ import (
 // ScalarVersion is the embedded Scalar API Reference version.
 const ScalarVersion = "1.44.20"
 
+// maxScalarBytes bounds the decompressed docs script served without gzip.
+const maxScalarBytes = 16 << 20
+
 // The asset is the published standalone build, verified against its SRI hash
 // and gzip-compressed. See internal/scalar/README.txt.
 //
@@ -94,6 +97,7 @@ func MountDocs(mux *http.ServeMux, opts DocsOptions) {
 			return
 		}
 		defer zr.Close()
-		_, _ = io.Copy(w, zr)
+		// The asset is embedded and hash-verified; the limit bounds work per request.
+		_, _ = io.CopyN(w, zr, maxScalarBytes)
 	})
 }

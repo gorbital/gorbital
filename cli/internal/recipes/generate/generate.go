@@ -70,39 +70,7 @@ func Run(src, dst string) error {
 	}
 	defer os.RemoveAll(tmp)
 
-	err = filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(src, p)
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if SkippedDirs[d.Name()] {
-				return filepath.SkipDir
-			}
-			return os.MkdirAll(filepath.Join(tmp, rel), 0o755)
-		}
-		if Skipped(filepath.ToSlash(rel)) {
-			return nil
-		}
-		content, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		text := string(content)
-		if strings.Contains(text, LeftDelim) || strings.Contains(text, RightDelim) {
-			return fmt.Errorf("generate: %s contains the template delimiters %s %s", rel, LeftDelim, RightDelim)
-		}
-		text = strings.ReplaceAll(text, PlaceholderModule, LeftDelim+".Module"+RightDelim)
-		text = strings.ReplaceAll(text, PlaceholderName, LeftDelim+".Name"+RightDelim)
-		return os.WriteFile(filepath.Join(tmp, rel+".tmpl"), []byte(text), 0o644)
-	})
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(tmp, "go.mod.tmpl"), fmt.Appendf(nil, goModTemplate, humaVersion), 0o644); err != nil {
+	if err := writeTemplates(src, tmp, humaVersion); err != nil {
 		return err
 	}
 
@@ -112,6 +80,51 @@ func Run(src, dst string) error {
 		return err
 	}
 	return os.Rename(tmp, dst)
+}
+
+// writeTemplates reads the golden app and writes templates through os.Root,
+// so symlinks can't redirect reads or writes outside src and dst.
+func writeTemplates(src, dst, humaVersion string) error {
+	srcRoot, err := os.OpenRoot(src)
+	if err != nil {
+		return err
+	}
+	defer srcRoot.Close()
+	dstRoot, err := os.OpenRoot(dst)
+	if err != nil {
+		return err
+	}
+	defer dstRoot.Close()
+
+	err = fs.WalkDir(srcRoot.FS(), ".", func(rel string, d fs.DirEntry, err error) error {
+		if err != nil || rel == "." {
+			return err
+		}
+		if d.IsDir() {
+			if SkippedDirs[d.Name()] {
+				return fs.SkipDir
+			}
+			return dstRoot.MkdirAll(rel, 0o755)
+		}
+		if Skipped(rel) {
+			return nil
+		}
+		content, err := srcRoot.ReadFile(rel)
+		if err != nil {
+			return err
+		}
+		text := string(content)
+		if strings.Contains(text, LeftDelim) || strings.Contains(text, RightDelim) {
+			return fmt.Errorf("generate: %s contains the template delimiters %s %s", rel, LeftDelim, RightDelim)
+		}
+		text = strings.ReplaceAll(text, PlaceholderModule, LeftDelim+".Module"+RightDelim)
+		text = strings.ReplaceAll(text, PlaceholderName, LeftDelim+".Name"+RightDelim)
+		return dstRoot.WriteFile(rel+".tmpl", []byte(text), 0o644)
+	})
+	if err != nil {
+		return err
+	}
+	return dstRoot.WriteFile("go.mod.tmpl", fmt.Appendf(nil, goModTemplate, humaVersion), 0o644)
 }
 
 func requiredVersion(goMod, module string) (string, error) {

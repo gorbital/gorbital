@@ -121,8 +121,8 @@ func (m *Mapper) Add(mappings ...Mapping) error {
 			return fmt.Errorf("httpx: mapping code %q must be snake_case", mp.Code)
 		}
 		for _, existing := range m.mappings {
-			if existing.Err == mp.Err || existing.Code == mp.Code {
-				return fmt.Errorf("httpx: duplicate mapping for %q (%v)", mp.Code, mp.Err)
+			if errors.Is(existing.Err, mp.Err) || existing.Code == mp.Code {
+				return fmt.Errorf("httpx: duplicate mapping for %q: %w", mp.Code, mp.Err)
 			}
 		}
 		m.mappings = append(m.mappings, mp)

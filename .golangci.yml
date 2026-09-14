@@ -1,0 +1,46 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - gosec
+    - misspell
+    - nilerr
+    - revive
+    - unconvert
+  settings:
+    gosec:
+      excludes:
+        - G104 # unhandled errors are covered by errcheck with explicit `_ =`
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: error-strings
+        - name: error-naming
+        - name: receiver-naming
+        - name: var-naming
+  exclusions:
+    presets:
+      - std-error-handling
+    paths:
+      - spikes/
+    rules:
+      - path: _test\.go
+        linters: [gosec, bodyclose]
+      # The CLI's job is to run go, git and the app it just built, and to read
+      # and write files in the developer's own project with normal source-code
+      # permissions (0644/0755).
+      - path: ^cli/
+        linters: [gosec]
+        text: "G204|G301|G304|G306"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    paths:
+      - spikes/
