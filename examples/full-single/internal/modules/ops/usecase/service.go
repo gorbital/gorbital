@@ -1,0 +1,199 @@
+// Package usecase holds the operations module's application logic: every
+// operation checks the actor's permission, then calls the settings store or
+// jobs manager.
+package usecase
+
+import (
+	"context"
+	"encoding/json"
+
+	"apistock.dev/actor"
+	"apistock.dev/modules/jobs"
+	"apistock.dev/modules/settings"
+
+	opsdomain "example.com/acme-api/internal/modules/ops/domain"
+)
+
+// Service runs the operations use cases.
+type Service struct {
+	settings SettingsStore
+	jobs     JobsManager
+}
+
+// NewService returns a Service.
+func NewService(store SettingsStore, manager JobsManager) *Service {
+	return &Service{settings: store, jobs: manager}
+}
+
+func authorize(ctx context.Context, permission string) error {
+	a, ok := actor.From(ctx)
+	if !ok || a.Kind == actor.KindAnonymous {
+		return opsdomain.ErrUnauthenticated
+	}
+	if !a.Can(permission) {
+		return opsdomain.ErrForbidden
+	}
+	return nil
+}
+
+// ListSettings returns every runtime setting, or those in group.
+func (s *Service) ListSettings(ctx context.Context, group string) ([]settings.View, error) {
+	if err := authorize(ctx, opsdomain.PermSettingsRead); err != nil {
+		return nil, err
+	}
+	all := s.settings.List()
+	if group == "" {
+		return all, nil
+	}
+	filtered := all[:0]
+	for _, v := range all {
+		if v.Group == group {
+			filtered = append(filtered, v)
+		}
+	}
+	return filtered, nil
+}
+
+// GetSetting returns one setting.
+func (s *Service) GetSetting(ctx context.Context, key string) (settings.View, error) {
+	if err := authorize(ctx, opsdomain.PermSettingsRead); err != nil {
+		return settings.View{}, err
+	}
+	return s.settings.Get(key)
+}
+
+// SetSetting changes a setting's value.
+func (s *Service) SetSetting(ctx context.Context, key string, value json.RawMessage, change settings.Change) (settings.View, error) {
+	if err := authorize(ctx, opsdomain.PermSettingsWrite); err != nil {
+		return settings.View{}, err
+	}
+	return s.settings.Set(ctx, key, value, change)
+}
+
+// ResetSetting returns a setting to its default.
+func (s *Service) ResetSetting(ctx context.Context, key string, change settings.Change) (settings.View, error) {
+	if err := authorize(ctx, opsdomain.PermSettingsWrite); err != nil {
+		return settings.View{}, err
+	}
+	return s.settings.Reset(ctx, key, change)
+}
+
+// SettingHistory returns a setting's changes, newest first.
+func (s *Service) SettingHistory(ctx context.Context, key string, before int64, limit int) ([]settings.HistoryEntry, error) {
+	if err := authorize(ctx, opsdomain.PermSettingsRead); err != nil {
+		return nil, err
+	}
+	return s.settings.History(ctx, key, before, limit)
+}
+
+// ListJobDefinitions returns every job definition.
+func (s *Service) ListJobDefinitions(ctx context.Context) ([]jobs.DefinitionView, error) {
+	if err := authorize(ctx, opsdomain.PermJobsRead); err != nil {
+		return nil, err
+	}
+	return s.jobs.Definitions(ctx)
+}
+
+// ScheduledJobs returns enabled scheduled jobs, soonest first.
+func (s *Service) ScheduledJobs(ctx context.Context) ([]jobs.DefinitionView, error) {
+	if err := authorize(ctx, opsdomain.PermJobsRead); err != nil {
+		return nil, err
+	}
+	return s.jobs.Scheduled(ctx)
+}
+
+// GetJobDefinition returns one job definition.
+func (s *Service) GetJobDefinition(ctx context.Context, name string) (jobs.DefinitionView, error) {
+	if err := authorize(ctx, opsdomain.PermJobsRead); err != nil {
+		return jobs.DefinitionView{}, err
+	}
+	return s.jobs.Definition(ctx, name)
+}
+
+// UpdateJobDefinition changes a job's configuration.
+func (s *Service) UpdateJobDefinition(ctx context.Context, name string, patch jobs.ConfigPatch, change jobs.Change) (jobs.DefinitionView, error) {
+	if err := authorize(ctx, opsdomain.PermJobsWrite); err != nil {
+		return jobs.DefinitionView{}, err
+	}
+	return s.jobs.Update(ctx, name, patch, change)
+}
+
+// ResetJobDefinition returns a job to its code defaults.
+func (s *Service) ResetJobDefinition(ctx context.Context, name string, change jobs.Change) (jobs.DefinitionView, error) {
+	if err := authorize(ctx, opsdomain.PermJobsWrite); err != nil {
+		return jobs.DefinitionView{}, err
+	}
+	return s.jobs.Reset(ctx, name, change)
+}
+
+// JobDefinitionHistory returns a job definition's changes, newest first.
+func (s *Service) JobDefinitionHistory(ctx context.Context, name string, before int64, limit int) ([]jobs.DefinitionChange, error) {
+	if err := authorize(ctx, opsdomain.PermJobsRead); err != nil {
+		return nil, err
+	}
+	return s.jobs.History(ctx, name, before, limit)
+}
+
+// RunJob enqueues an enabled job now.
+func (s *Service) RunJob(ctx context.Context, name string) (jobs.JobRun, error) {
+	if err := authorize(ctx, opsdomain.PermJobsRun); err != nil {
+		return jobs.JobRun{}, err
+	}
+	return s.jobs.RunNow(ctx, name)
+}
+
+// ListJobRuns lists jobs, newest first.
+func (s *Service) ListJobRuns(ctx context.Context, f jobs.JobFilter) (jobs.JobPage, error) {
+	if err := authorize(ctx, opsdomain.PermJobsRead); err != nil {
+		return jobs.JobPage{}, err
+	}
+	return s.jobs.Jobs(ctx, f)
+}
+
+// GetJobRun returns one job.
+func (s *Service) GetJobRun(ctx context.Context, id int64) (jobs.JobRun, error) {
+	if err := authorize(ctx, opsdomain.PermJobsRead); err != nil {
+		return jobs.JobRun{}, err
+	}
+	return s.jobs.Job(ctx, id)
+}
+
+// RetryJobRun makes a job run again now.
+func (s *Service) RetryJobRun(ctx context.Context, id int64) (jobs.JobRun, error) {
+	if err := authorize(ctx, opsdomain.PermJobsRun); err != nil {
+		return jobs.JobRun{}, err
+	}
+	return s.jobs.Retry(ctx, id)
+}
+
+// CancelJobRun cancels a job.
+func (s *Service) CancelJobRun(ctx context.Context, id int64) (jobs.JobRun, error) {
+	if err := authorize(ctx, opsdomain.PermJobsRun); err != nil {
+		return jobs.JobRun{}, err
+	}
+	return s.jobs.Cancel(ctx, id)
+}
+
+// ListQueues returns active queues.
+func (s *Service) ListQueues(ctx context.Context) ([]jobs.Queue, error) {
+	if err := authorize(ctx, opsdomain.PermJobsRead); err != nil {
+		return nil, err
+	}
+	return s.jobs.Queues(ctx)
+}
+
+// PauseQueue stops workers fetching from a queue.
+func (s *Service) PauseQueue(ctx context.Context, name string) error {
+	if err := authorize(ctx, opsdomain.PermJobsWrite); err != nil {
+		return err
+	}
+	return s.jobs.PauseQueue(ctx, name)
+}
+
+// ResumeQueue resumes a paused queue.
+func (s *Service) ResumeQueue(ctx context.Context, name string) error {
+	if err := authorize(ctx, opsdomain.PermJobsWrite); err != nil {
+		return err
+	}
+	return s.jobs.ResumeQueue(ctx, name)
+}

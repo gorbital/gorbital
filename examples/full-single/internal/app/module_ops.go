@@ -1,0 +1,44 @@
+package app
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"apistock.dev/httpx"
+	"apistock.dev/modules/jobs"
+	"apistock.dev/modules/settings"
+
+	"example.com/acme-api/internal/modules/ops"
+	opsdomain "example.com/acme-api/internal/modules/ops/domain"
+	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
+)
+
+// registerOps wires the operations module: runtime settings and jobs admin
+// APIs. Error codes are public API: add new ones, never change existing ones.
+func registerOps(api huma.API, mapper *httpx.Mapper, store opsusecase.SettingsStore, manager opsusecase.JobsManager) error {
+	err := mapper.Add(
+		httpx.Mapping{Err: opsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+		httpx.Mapping{Err: opsdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
+
+		httpx.Mapping{Err: settings.ErrUnknownSetting, Status: http.StatusNotFound, Code: "setting_not_found", Detail: "no setting has this key"},
+		httpx.Mapping{Err: settings.ErrVersionConflict, Status: http.StatusConflict, Code: "setting_version_conflict", Detail: "the setting changed since it was read; read it again"},
+		httpx.Mapping{Err: settings.ErrReasonRequired, Status: http.StatusUnprocessableEntity, Code: "setting_reason_required", Detail: "a reason is required to change this setting"},
+		httpx.Mapping{Err: settings.ErrInvalidValue, Status: http.StatusUnprocessableEntity, Code: "invalid_setting_value", Detail: "the value is not valid for this setting"},
+
+		httpx.Mapping{Err: jobs.ErrUnknownDefinition, Status: http.StatusNotFound, Code: "job_definition_not_found", Detail: "no job definition has this name"},
+		httpx.Mapping{Err: jobs.ErrVersionConflict, Status: http.StatusConflict, Code: "job_definition_version_conflict", Detail: "the job definition changed since it was read; read it again"},
+		httpx.Mapping{Err: jobs.ErrReasonRequired, Status: http.StatusUnprocessableEntity, Code: "job_reason_required", Detail: "a reason is required to disable or reschedule a job"},
+		httpx.Mapping{Err: jobs.ErrInvalidConfig, Status: http.StatusUnprocessableEntity, Code: "invalid_job_config", Detail: "the job configuration is not valid"},
+		httpx.Mapping{Err: jobs.ErrDefinitionDisabled, Status: http.StatusConflict, Code: "job_definition_disabled", Detail: "the job is disabled"},
+		httpx.Mapping{Err: jobs.ErrJobNotFound, Status: http.StatusNotFound, Code: "job_not_found", Detail: "no job has this ID"},
+		httpx.Mapping{Err: jobs.ErrUnknownQueue, Status: http.StatusUnprocessableEntity, Code: "queue_not_active", Detail: "no worker runs this queue"},
+		httpx.Mapping{Err: jobs.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
+	)
+	if err != nil {
+		return fmt.Errorf("ops module: %w", err)
+	}
+	ops.New(store, manager).Register(api)
+	return nil
+}

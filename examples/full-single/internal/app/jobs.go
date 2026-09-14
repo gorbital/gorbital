@@ -1,0 +1,21 @@
+package app
+
+import (
+	"log/slog"
+
+	"apistock.dev/modules/jobs"
+)
+
+// jobDeps are what job workers may use. Add stores and clients here when a
+// job needs them.
+type jobDeps struct {
+	logger *slog.Logger
+}
+
+// defineJobs declares every background job. Each job's schedule, timeout and
+// retries can be changed at runtime through /ops/jobs (ADR-0033).
+// `aps gen job` adds a line at the anchor.
+func defineJobs(defs *jobs.Definitions, deps jobDeps) {
+	//aps:anchor jobs
+	defineHeartbeatJob(defs, deps)
+}

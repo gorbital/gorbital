@@ -1,0 +1,7 @@
+# apistock project file: how this app was created. The aps CLI reads it.
+apiVersion: apistock.dev/v1
+name: acme-api
+module: example.com/acme-api
+preset: full
+tenancy: single
+features: [postgres, settings, jobs, ops]

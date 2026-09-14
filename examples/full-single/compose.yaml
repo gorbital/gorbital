@@ -1,0 +1,28 @@
+# Local services for development and tests (ADR-0028).
+#
+#   docker compose up -d --wait
+#   go run ./cmd/migrate && go run ./cmd/api
+#
+# Ports bind to 127.0.0.1 only. `docker compose down -v` resets the data.
+name: acme-api
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: acme
+      POSTGRES_PASSWORD: acme
+      POSTGRES_DB: acme
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # PostgreSQL 18+ images keep versioned data under /var/lib/postgresql.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acme -d acme"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  postgres-data:

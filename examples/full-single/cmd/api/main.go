@@ -1,0 +1,45 @@
+// The api command runs acme-api.
+//
+// Usage:
+//
+//	api           run the API server
+//	api openapi   print the OpenAPI document
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"apistock.dev/config"
+
+	"example.com/acme-api/internal/app"
+)
+
+func main() {
+	if err := run(context.Background(), os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, "acme-api:", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, args []string) error {
+	cfg, err := app.LoadConfig(config.OS)
+	if err != nil {
+		return err
+	}
+	if len(args) > 0 {
+		switch args[0] {
+		case "openapi":
+			return app.WriteOpenAPI(ctx, cfg, os.Stdout)
+		default:
+			return fmt.Errorf("unknown command %q", args[0])
+		}
+	}
+
+	a, err := app.New(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	return a.Run(ctx)
+}
