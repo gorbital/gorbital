@@ -157,9 +157,6 @@
           },
           "name": {
             "description": "Unique among your projects, ignoring case",
-            "examples": [
-              "Website redesign"
-            ],
             "maxLength": 100,
             "type": "string"
           },
@@ -866,9 +863,6 @@
             "type": "string"
           },
           "description": {
-            "examples": [
-              "New landing page and pricing"
-            ],
             "type": "string"
           },
           "id": {
@@ -878,9 +872,6 @@
             "type": "string"
           },
           "name": {
-            "examples": [
-              "Website redesign"
-            ],
             "type": "string"
           },
           "status": {

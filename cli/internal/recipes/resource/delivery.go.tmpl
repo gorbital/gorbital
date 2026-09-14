@@ -1,0 +1,204 @@
+// Package delivery is the ⟦.PluralHuman⟧ module's HTTP adapter: Huma
+// operations and request and response types for /v1/⟦.Route⟧.
+package delivery
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"apistock.dev/httpx"
+	"apistock.dev/modules/openapi"
+	"apistock.dev/page"
+
+	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+	⟦.Package⟧usecase "⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+// ⟦.Ident⟧Response is ⟦.A⟧ ⟦.Human⟧.
+type ⟦.Ident⟧Response struct {
+	ID string `json:"id" example:"⟦.IDPrefix⟧_mfrggzdfmztwq2lkmfrggzdfmy"`
+⟦- range .Fields⟧
+	⟦.Ident⟧ string `json:"⟦.Name⟧"⟦if .IsEnum⟧ enum:"⟦.EnumTag⟧"⟦end⟧`
+⟦- end⟧
+	Version   int64     `json:"version" example:"1" doc:"Increases with every change; send it back when updating"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ⟦.Ident⟧Page is a page of ⟦.PluralHuman⟧.
+type ⟦.Ident⟧Page struct {
+	Items      []⟦.Ident⟧Response `json:"items"`
+	NextCursor string `json:"next_cursor,omitempty" doc:"Pass as cursor to get the next page; absent on the last page"`
+}
+
+type ⟦.Var⟧Output struct{ Body ⟦.Ident⟧Response }
+
+type ⟦.Var⟧PageOutput struct{ Body ⟦.Ident⟧Page }
+
+type createInput struct {
+	Body struct {
+		_ struct{} `json:"-" additionalProperties:"true"`
+⟦- range .Fields⟧
+⟦- if .IsEnum⟧
+		⟦.Ident⟧ string `json:"⟦.Name⟧,omitempty" enum:"⟦.EnumTag⟧" default:"⟦.FirstValue.Value⟧"`
+⟦- else if eq .Kind "string"⟧
+		⟦.Ident⟧ string `json:"⟦.Name⟧" maxLength:"⟦.MaxLength⟧"⟦if .Unique⟧ doc:"Unique among your ⟦$.PluralHuman⟧, ignoring case"⟦end⟧`
+⟦- else⟧
+		⟦.Ident⟧ string `json:"⟦.Name⟧,omitempty" maxLength:"⟦.MaxLength⟧"`
+⟦- end⟧
+⟦- end⟧
+	}
+}
+
+type listInput struct {
+	page.Params
+⟦- range .Enums⟧
+	⟦.Ident⟧ string `query:"⟦.Name⟧" enum:"⟦.EnumTag⟧" doc:"Only ⟦$.PluralHuman⟧ with this ⟦.Human⟧"`
+⟦- end⟧
+}
+
+type idInput struct {
+	ID string `path:"id" maxLength:"64" example:"⟦.IDPrefix⟧_mfrggzdfmztwq2lkmfrggzdfmy"`
+}
+
+type updateInput struct {
+	ID   string `path:"id" maxLength:"64" example:"⟦.IDPrefix⟧_mfrggzdfmztwq2lkmfrggzdfmy"`
+	Body struct {
+		_       struct{} `json:"-" additionalProperties:"true"`
+		Version int64    `json:"version" minimum:"1" doc:"The version you read. If the ⟦.Human⟧ changed since, the update fails with ⟦.Snake⟧_version_conflict."`
+⟦- range .Fields⟧
+		⟦.Ident⟧ *string `json:"⟦.Name⟧,omitempty"⟦if .IsEnum⟧ enum:"⟦.EnumTag⟧"⟦else⟧ maxLength:"⟦.MaxLength⟧"⟦end⟧`
+⟦- end⟧
+	}
+}
+
+type handler struct {
+	svc *⟦.Package⟧usecase.Service
+}
+
+// Register adds the ⟦.PluralHuman⟧ operations to api. Every operation needs a
+// signed-in user and reaches only that user's ⟦.PluralHuman⟧.
+func Register(api huma.API, svc *⟦.Package⟧usecase.Service) {
+	h := &handler{svc: svc}
+	signedIn := func(op huma.Operation) huma.Operation {
+		op.Tags, op.Security = []string{⟦quote .PluralTitle⟧}, openapi.Bearer
+		op.Errors = append([]int{http.StatusUnauthorized}, op.Errors...)
+		return op
+	}
+
+	huma.Register(api, signedIn(huma.Operation{
+		OperationID: "⟦.Route⟧-create", Method: http.MethodPost, Path: "/v1/⟦.Route⟧",
+		Summary: "Create ⟦.A⟧ ⟦.Human⟧", DefaultStatus: http.StatusCreated,
+		Errors: []int{⟦if .HasUniques⟧http.StatusConflict, ⟦end⟧http.StatusUnprocessableEntity},
+	}), h.create)
+	huma.Register(api, signedIn(huma.Operation{
+		OperationID: "⟦.Route⟧-list", Method: http.MethodGet, Path: "/v1/⟦.Route⟧",
+		Summary:     "List your ⟦.PluralHuman⟧",
+		Description: "Newest first unless `sort` says otherwise; sort by one of ⟦.SortListCode⟧. Paginate with `cursor`.",
+		Errors:      []int{http.StatusBadRequest, http.StatusUnprocessableEntity},
+	}), h.list)
+	huma.Register(api, signedIn(huma.Operation{
+		OperationID: "⟦.Route⟧-get", Method: http.MethodGet, Path: "/v1/⟦.Route⟧/{id}",
+		Summary: "Get ⟦.A⟧ ⟦.Human⟧", Errors: []int{http.StatusNotFound},
+	}), h.get)
+	huma.Register(api, signedIn(huma.Operation{
+		OperationID: "⟦.Route⟧-update", Method: http.MethodPatch, Path: "/v1/⟦.Route⟧/{id}",
+		Summary:     "Update ⟦.A⟧ ⟦.Human⟧",
+		Description: "Send the fields to change and the `version` you read.",
+		Errors:      []int{http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
+	}), h.update)
+	huma.Register(api, signedIn(huma.Operation{
+		OperationID: "⟦.Route⟧-delete", Method: http.MethodDelete, Path: "/v1/⟦.Route⟧/{id}",
+		Summary: "Delete ⟦.A⟧ ⟦.Human⟧", DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusNotFound},
+	}), h.delete)
+}
+
+func (h *handler) create(ctx context.Context, in *createInput) (*⟦.Var⟧Output, error) {
+	p, err := h.svc.Create(ctx, ⟦.Package⟧domain.⟦.Ident⟧Fields{
+⟦- range .Fields⟧
+		⟦.Ident⟧: ⟦if .IsEnum⟧⟦$.Package⟧domain.⟦.Ident⟧(in.Body.⟦.Ident⟧)⟦else⟧in.Body.⟦.Ident⟧⟦end⟧,
+⟦- end⟧
+	})
+	if err != nil {
+		return nil, fieldErrors(err, "body")
+	}
+	return &⟦.Var⟧Output{Body: ⟦.Var⟧Response(p)}, nil
+}
+
+func (h *handler) list(ctx context.Context, in *listInput) (*⟦.Var⟧PageOutput, error) {
+	res, err := h.svc.List(ctx, ⟦.Package⟧usecase.ListInput{
+		Page: in.Params,
+⟦- range .Enums⟧
+		⟦.Ident⟧: ⟦$.Package⟧domain.⟦.Ident⟧(in.⟦.Ident⟧),
+⟦- end⟧
+	})
+	if err != nil {
+		return nil, fieldErrors(err, "query")
+	}
+	out := &⟦.Var⟧PageOutput{Body: ⟦.Ident⟧Page{Items: make([]⟦.Ident⟧Response, len(res.Items)), NextCursor: res.NextCursor}}
+	for i, p := range res.Items {
+		out.Body.Items[i] = ⟦.Var⟧Response(p)
+	}
+	return out, nil
+}
+
+func (h *handler) get(ctx context.Context, in *idInput) (*⟦.Var⟧Output, error) {
+	p, err := h.svc.Get(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &⟦.Var⟧Output{Body: ⟦.Var⟧Response(p)}, nil
+}
+
+func (h *handler) update(ctx context.Context, in *updateInput) (*⟦.Var⟧Output, error) {
+	changes := ⟦.Package⟧domain.Changes{
+⟦- range .TextFields⟧
+		⟦.Ident⟧: in.Body.⟦.Ident⟧,
+⟦- end⟧
+	}
+⟦- range .Enums⟧
+	if in.Body.⟦.Ident⟧ != nil {
+		value := ⟦$.Package⟧domain.⟦.Ident⟧(*in.Body.⟦.Ident⟧)
+		changes.⟦.Ident⟧ = &value
+	}
+⟦- end⟧
+	p, err := h.svc.Update(ctx, in.ID, ⟦.Package⟧usecase.UpdateInput{Version: in.Body.Version, Changes: changes})
+	if err != nil {
+		return nil, fieldErrors(err, "body")
+	}
+	return &⟦.Var⟧Output{Body: ⟦.Var⟧Response(p)}, nil
+}
+
+func (h *handler) delete(ctx context.Context, in *idInput) (*struct{}, error) {
+	return nil, h.svc.Delete(ctx, in.ID)
+}
+
+// fieldErrors lists invalid fields, found in location ("body" or "query");
+// other errors are mapped in internal/app/module_⟦.Table⟧.go.
+func fieldErrors(err error, location string) error {
+	var invalid *⟦.Package⟧domain.ValidationError
+	if !errors.As(err, &invalid) {
+		return err
+	}
+	p := httpx.NewProblem(http.StatusUnprocessableEntity, "validation_failed", ⟦quote (print "the " .Human " is not valid")⟧)
+	for _, f := range invalid.Errors {
+		p.Errors = append(p.Errors, httpx.FieldError{Location: location + "." + f.Field, Message: f.Message})
+	}
+	return p
+}
+
+func ⟦.Var⟧Response(p ⟦.Package⟧domain.⟦.Ident⟧) ⟦.Ident⟧Response {
+	return ⟦.Ident⟧Response{
+		ID: p.ID,
+⟦- range .Fields⟧
+		⟦.Ident⟧: ⟦if .IsEnum⟧string(p.⟦.Ident⟧)⟦else⟧p.⟦.Ident⟧⟦end⟧,
+⟦- end⟧
+		Version:   p.Version,
+		CreatedAt: p.CreatedAt,
+		UpdatedAt: p.UpdatedAt,
+	}
+}

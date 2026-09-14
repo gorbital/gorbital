@@ -17,7 +17,7 @@ Once generated, a resource module belongs to the app and is never upgraded (ADR-
 | `--scope` | Ownership | Access | Template |
 |---|---|---|---|
 | `user` (default in single-tenant apps) | `owner_id NOT NULL` → `auth_users.id` | Only the owner; no permission from the catalog is needed | `resource/single`, this ADR |
-| `global` | none | Permissions from the catalog: `<module>.<resource>.read` / `.write`, deny by default | `resource/single` with ownership removed, permissions added |
+| `global` | none | Permissions from the catalog: `<module>.<resource>.read` / `.write`, deny by default | Later: `resource/single` with ownership removed, permissions added |
 | `org` | `org_id NOT NULL` | `orgs.RequireMember(permission)`, four isolation layers | `resource/org`, v0.4 (ADR-0023) |
 
 `auth_users.id` is a stable identity column (ADR-0015), so the foreign key doesn't break the rule that modules never import each other (ADR-0022 rule 4). The key is `ON DELETE CASCADE`: when `auth_cleanup` purges an account, its projects go with it. Until then, a soft-deleted owner can't sign in, so their projects can't be reached.
@@ -44,7 +44,7 @@ IDs are text with a prefix from the resource name (`prj_`), 128 random bits, the
 | `repository/` | `store.go` and one file per operation (`insert_project.go`, `select_project.go`, `select_projects.go`, `update_project.go`, `delete_project.go`), `scan.go`, tests against `pgtest` (ADR-0032) |
 | `delivery/` | Huma operations with input and output types (ADR-0027); nothing but mapping |
 | `module.go` | `New(pool, deps)`, `Register(api)`; a nil module registers operations for OpenAPI export, like `auth` |
-| App wiring | One wiring file, `internal/app/module_projects.go`, with the module's construction and error mappings (like `module_auth.go`), and one call line at the anchor in `internal/app/modules.go` (ADR-0018, ADR-0021) |
+| App wiring | One wiring file, `internal/app/module_projects.go`, that builds the module from the shared `services` (database pool, audit recorder, logger) and maps its errors, and one `registerProjects(api, mapper, svc),` line after `//aps:anchor modules` inside `errors.Join` in `internal/app/modules.go` (ADR-0018, ADR-0021). Pagination errors (`invalid_cursor`, `invalid_sort`, `invalid_limit`) are mapped once in `routes.go` for every module |
 
 ### Owner isolation
 
@@ -83,6 +83,31 @@ Error codes: `unauthenticated` (401), `validation_failed` (422 with `errors[]` o
 | Names (module, table, ID prefix, routes, errors, audit actions), columns, domain fields and validation, request/response fields, allowlisted sort fields (string and time fields), filters (enum fields), test values | Layer layout, ownership and isolation, pagination, versioned updates, hard delete, audit pattern, error mapping, test structure |
 
 A migration is created with the module (`db/migrations/<timestamp>_<resources>.sql`), not a separate `aps gen migration`.
+
+### Generator (implemented 2026-09-15)
+
+```text
+aps gen resource <Name> <field:type>... [--plural P] [--id-prefix p] [--scope user]
+                 [--dry-run] [--json] [--allow-dirty] [--yes] [--no-input] [--plain]
+```
+
+| Field | Rule |
+|---|---|
+| `name:string` | 1–100 characters, required, sortable; `name:string:unique` is unique per owner, ignoring case |
+| `notes:text` | Up to 2000 characters, optional |
+| `status:enum(a,b)` | 2–20 snake_case values, the first by default; lists filter by it |
+
+| Topic | Decision |
+|---|---|
+| Names | Field names are snake_case, up to 20 characters; names every resource has, query parameters and PostgreSQL reserved words are refused; generated Go names are checked for clashes. At least one string field; the first is the title the tests sort by. Up to 20 fields |
+| Derived names | `Project` → package, table and route `projects`, ID prefix `prj` (first letter and next consonants), audit actions `projects.project.*`; `--plural` for irregular plurals, `--id-prefix` to choose the prefix |
+| Migration version | The current UTC time, or one after the newest migration, so it always runs last |
+| Output | The 20 files above and one line in `modules.go`; one-shot, not recorded in `apistock.lock` (ADR-0021) |
+| Scope | Only `user` until organisations (v0.4) and the global template exist |
+| Golden test | `aps gen resource Project name:string:unique description:text 'status:enum(active,archived)'` reproduces `examples/full-single`'s projects module byte for byte; `-update` regenerates it from the templates for review |
+| Generality test | A resource with several unique and enum fields and one with neither are generated into a copy of `examples/full-single`, which is vetted and runs their tests on PostgreSQL |
+
+The example's tests use generic sample values (`Example name`, `Website`, `Docs`) so that the same test code works for any resource.
 
 ### Not in the template
 

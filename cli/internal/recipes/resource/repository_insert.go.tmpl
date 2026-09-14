@@ -1,0 +1,25 @@
+package repository
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5"
+
+	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+)
+
+const insert⟦.Ident⟧SQL = `
+	INSERT INTO ⟦.Table⟧ (id, owner_id, ⟦.Columns⟧, version, created_at, updated_at)
+	VALUES (⟦.InsertPlaceholders⟧)
+	RETURNING ` + ⟦.Var⟧Columns
+
+// Insert⟦.Ident⟧ creates ⟦.A⟧ ⟦.Human⟧⟦if .HasUniques⟧, or returns ⟦.TakenErrors⟧
+// when the owner already uses the value, ignoring case⟦end⟧.
+func (s *Store) Insert⟦.Ident⟧(ctx context.Context, p ⟦.Package⟧domain.⟦.Ident⟧) (⟦.Package⟧domain.⟦.Ident⟧, error) {
+	rows, err := s.db.Query(ctx, insert⟦.Ident⟧SQL,
+		p.ID, p.OwnerID, ⟦range .Fields⟧p.⟦.Ident⟧, ⟦end⟧p.Version, p.CreatedAt, p.UpdatedAt)
+	if err == nil {
+		p, err = pgx.CollectExactlyOneRow(rows, scan⟦.Ident⟧)
+	}
+	return p, constraintError(err)
+}

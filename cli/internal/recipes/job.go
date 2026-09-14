@@ -93,6 +93,9 @@ func RenderJob(d JobData) ([]JobFile, error) {
 // ErrAnchorMissing reports a file without the anchor to insert after.
 var ErrAnchorMissing = errors.New("anchor not found")
 
+// ErrLinePresent reports a line that is already in the file.
+var ErrLinePresent = errors.New("line already present")
+
 // InsertAfterAnchor returns src with line inserted after the line holding
 // anchor, indented like the anchor. It fails if the anchor is missing or the
 // line already exists, and validates the result with gofmt.
@@ -100,7 +103,7 @@ func InsertAfterAnchor(src []byte, anchor, line string) ([]byte, error) {
 	lines := strings.SplitAfter(string(src), "\n")
 	for _, l := range lines {
 		if strings.TrimSpace(l) == strings.TrimSpace(line) {
-			return nil, fmt.Errorf("%q is already present", strings.TrimSpace(line))
+			return nil, fmt.Errorf("%q is already present: %w", strings.TrimSpace(line), ErrLinePresent)
 		}
 	}
 	for i, l := range lines {

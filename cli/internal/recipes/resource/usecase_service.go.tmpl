@@ -1,5 +1,5 @@
-// Package usecase holds the projects module's application logic. Each
-// operation finds the signed-in user, who owns the projects it reads or
+// Package usecase holds the ⟦.PluralHuman⟧ module's application logic. Each
+// operation finds the signed-in user, who owns the ⟦.PluralHuman⟧ it reads or
 // changes, applies the domain rules, stores the result and records an audit
 // event (ADR-0039). Change it freely.
 package usecase
@@ -17,7 +17,7 @@ import (
 	"apistock.dev/audit"
 	"apistock.dev/page"
 
-	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
+	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
 )
 
 // Config holds the Service's dependencies.
@@ -33,7 +33,7 @@ type Config struct {
 	NewID func() string
 }
 
-// Service runs the projects use cases. It is safe for concurrent use.
+// Service runs the ⟦.PluralHuman⟧ use cases. It is safe for concurrent use.
 type Service struct {
 	store    Store
 	recorder audit.Recorder
@@ -45,7 +45,7 @@ type Service struct {
 // NewService returns a Service.
 func NewService(c Config) (*Service, error) {
 	if c.Store == nil || c.Recorder == nil {
-		return nil, errors.New("projects: invalid service: store and audit recorder are required")
+		return nil, errors.New("⟦.Package⟧: invalid service: store and audit recorder are required")
 	}
 	s := &Service{store: c.Store, recorder: c.Recorder, logger: c.Logger, now: c.Now, newID: c.NewID}
 	if s.logger == nil {
@@ -62,23 +62,23 @@ func NewService(c Config) (*Service, error) {
 
 var idEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
 
-// newID returns "prj_" and 128 random bits.
+// newID returns "⟦.IDPrefix⟧_" and 128 random bits.
 func newID() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b) // never fails (crypto/rand)
-	return "prj_" + idEncoding.EncodeToString(b)
+	return "⟦.IDPrefix⟧_" + idEncoding.EncodeToString(b)
 }
 
 // clock returns the time at PostgreSQL's microsecond precision, so a stored
 // time equals the one returned.
 func (s *Service) clock() time.Time { return s.now().UTC().Truncate(time.Microsecond) }
 
-// ownerID returns the signed-in user's ID. Only users own projects;
+// ownerID returns the signed-in user's ID. Only users own ⟦.PluralHuman⟧;
 // system and anonymous actors get ErrUnauthenticated.
 func ownerID(ctx context.Context) (string, error) {
 	a, ok := actor.From(ctx)
 	if !ok || a.Kind != actor.KindUser || a.ID == "" {
-		return "", projectsdomain.ErrUnauthenticated
+		return "", ⟦.Package⟧domain.ErrUnauthenticated
 	}
 	return a.ID, nil
 }
@@ -86,9 +86,9 @@ func ownerID(ctx context.Context) (string, error) {
 // audit records an event after the change it describes; a failed audit
 // write is logged, not returned. The recorder adds the actor and request.
 func (s *Service) audit(ctx context.Context, action, id string, metadata map[string]any) {
-	e := audit.Event{Action: action, ResourceType: "project", ResourceID: id, Outcome: audit.OutcomeSuccess, Metadata: metadata}
+	e := audit.Event{Action: action, ResourceType: ⟦quote .Snake⟧, ResourceID: id, Outcome: audit.OutcomeSuccess, Metadata: metadata}
 	if err := s.recorder.Record(context.WithoutCancel(ctx), e); err != nil {
-		s.logger.ErrorContext(ctx, "record projects audit event", "action", action, "err", err)
+		s.logger.ErrorContext(ctx, ⟦quote (print "record " .PluralHuman " audit event")⟧, "action", action, "err", err)
 	}
 }
 
@@ -96,8 +96,8 @@ func (s *Service) audit(ctx context.Context, action, id string, metadata map[str
 // such as driver errors, which aren't API (ADR-0018).
 func storeError(op string, err error) error {
 	known := []error{
-		projectsdomain.ErrInvalidProject, projectsdomain.ErrProjectNotFound,
-		projectsdomain.ErrProjectNameTaken, projectsdomain.ErrProjectVersionConflict,
+		⟦.Package⟧domain.ErrInvalid⟦.Ident⟧, ⟦.Package⟧domain.Err⟦.Ident⟧NotFound,
+		⟦range .Uniques⟧⟦$.Package⟧domain.Err⟦$.Ident⟧⟦.Ident⟧Taken, ⟦end⟧⟦.Package⟧domain.Err⟦.Ident⟧VersionConflict,
 		page.ErrInvalidSort,
 	}
 	for _, k := range known {
@@ -105,5 +105,5 @@ func storeError(op string, err error) error {
 			return err
 		}
 	}
-	return fmt.Errorf("projects: %s: %v", op, err) //nolint:errorlint // driver errors aren't API (ADR-0018)
+	return fmt.Errorf("⟦.Package⟧: %s: %v", op, err) //nolint:errorlint // driver errors aren't API (ADR-0018)
 }

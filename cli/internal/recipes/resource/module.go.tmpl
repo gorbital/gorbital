@@ -1,0 +1,43 @@
+// Package ⟦.Package⟧ holds ⟦.PluralHuman⟧ that belong to the signed-in user,
+// with all four layers and its own table (ADR-0039). aps gen resource creates
+// modules like this one; the code is yours to change.
+package ⟦.Package⟧
+
+import (
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	⟦.Package⟧delivery "⟦.Module⟧/internal/modules/⟦.Package⟧/delivery"
+	⟦.Package⟧repository "⟦.Module⟧/internal/modules/⟦.Package⟧/repository"
+	⟦.Package⟧usecase "⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+// Module is the ⟦.PluralHuman⟧ module.
+type Module struct {
+	svc *⟦.Package⟧usecase.Service
+}
+
+// New builds the module's layers on pool. cfg.Store is set to the module's
+// repository.
+func New(pool *pgxpool.Pool, cfg ⟦.Package⟧usecase.Config) (*Module, error) {
+	cfg.Store = ⟦.Package⟧repository.NewStore(pool)
+	svc, err := ⟦.Package⟧usecase.NewService(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Module{svc: svc}, nil
+}
+
+// Service returns the use cases, for other wiring (commands, jobs, tests).
+func (m *Module) Service() *⟦.Package⟧usecase.Service { return m.svc }
+
+// Register adds the module's HTTP operations to api. A nil module registers
+// the operations without their dependencies, for exporting the OpenAPI
+// document.
+func (m *Module) Register(api huma.API) {
+	var svc *⟦.Package⟧usecase.Service
+	if m != nil {
+		svc = m.svc
+	}
+	⟦.Package⟧delivery.Register(api, svc)
+}

@@ -53,7 +53,7 @@ type fixture struct {
 }
 
 // newFixture returns the use cases on a fresh database with the users
-// usr_ada and usr_bob. Project IDs are prj_1, prj_2 and so on.
+// usr_ada and usr_bob. IDs are prj_1, prj_2 and so on.
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
 	pool := pgtest.New(t, pgtest.WithMigrations(migrations.FS))
@@ -85,11 +85,17 @@ func as(userID string) context.Context {
 	return actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: userID})
 }
 
-func (f *fixture) create(t *testing.T, owner, name string) projectsdomain.Project {
+// validFields returns fields that pass every rule.
+func validFields() projectsdomain.ProjectFields {
+	return projectsdomain.ProjectFields{Name: "Example name", Description: "Example description", Status: projectsdomain.StatusActive}
+}
+
+// create adds a project with title as its name.
+func (f *fixture) create(t *testing.T, owner, title string) projectsdomain.Project {
 	t.Helper()
-	p, err := f.svc.Create(as(owner), projectsusecase.CreateInput{Name: name})
+	p, err := f.svc.Create(as(owner), projectsdomain.ProjectFields{Name: title, Description: "Example description", Status: projectsdomain.StatusActive})
 	if err != nil {
-		t.Fatalf("Create(%q) error = %v", name, err)
+		t.Fatalf("Create(%q) error = %v", title, err)
 	}
 	return p
 }
@@ -102,7 +108,7 @@ func TestRequiresSignedInUser(t *testing.T) {
 		"anonymous": actor.With(context.Background(), actor.Anonymous),
 		"system":    actor.With(context.Background(), actor.System("cli")),
 	} {
-		_, createErr := f.svc.Create(ctx, projectsusecase.CreateInput{Name: "Other"})
+		_, createErr := f.svc.Create(ctx, validFields())
 		_, getErr := f.svc.Get(ctx, p.ID)
 		_, listErr := f.svc.List(ctx, projectsusecase.ListInput{})
 		_, updateErr := f.svc.Update(ctx, p.ID, projectsusecase.UpdateInput{Version: 1})
@@ -117,8 +123,10 @@ func TestRequiresSignedInUser(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	f := newFixture(t)
-	p, err := f.svc.Create(as("usr_ada"), projectsusecase.CreateInput{Name: " Website ", Description: "New pages"})
-	if err != nil || p.ID != "prj_1" || p.OwnerID != "usr_ada" || p.Name != "Website" || p.Status != projectsdomain.StatusActive ||
+	fields := validFields()
+	fields.Name = " " + fields.Name + " "
+	p, err := f.svc.Create(as("usr_ada"), fields)
+	if err != nil || p.ID != "prj_1" || p.OwnerID != "usr_ada" || p.Name != strings.TrimSpace(fields.Name) ||
 		p.Version != 1 || !p.CreatedAt.Equal(f.now) {
 		t.Fatalf("Create() = %+v, %v", p, err)
 	}
@@ -126,12 +134,14 @@ func TestCreate(t *testing.T) {
 		t.Errorf("Get() = %+v, %v, want %+v", got, err, p)
 	}
 
-	_, err = f.svc.Create(as("usr_ada"), projectsusecase.CreateInput{Name: " ", Description: strings.Repeat("a", 2001), Status: "done"})
+	_, err = f.svc.Create(as("usr_ada"), projectsdomain.ProjectFields{Name: "\x00", Description: "\x00", Status: "?"})
 	var invalid *projectsdomain.ValidationError
 	if !errors.As(err, &invalid) || len(invalid.Errors) != 3 {
 		t.Errorf("Create(invalid) error = %v, want 3 invalid fields", err)
 	}
-	if _, err := f.svc.Create(as("usr_ada"), projectsusecase.CreateInput{Name: "website"}); !errors.Is(err, projectsdomain.ErrProjectNameTaken) {
+	taken := validFields()
+	taken.Name = strings.ToUpper(p.Name)
+	if _, err := f.svc.Create(as("usr_ada"), taken); !errors.Is(err, projectsdomain.ErrProjectNameTaken) {
 		t.Errorf("Create(taken name) error = %v, want ErrProjectNameTaken", err)
 	}
 	if want := []string{projectsusecase.ActionCreated + " prj_1"}; !slices.Equal(f.audit.actions(), want) {
@@ -145,12 +155,12 @@ func TestOwnersCantReachEachOthersProjects(t *testing.T) {
 	f := newFixture(t)
 	p := f.create(t, "usr_ada", "Website")
 	bob := as("usr_bob")
-	name := "Stolen"
+	title := "Stolen"
 
 	if _, err := f.svc.Get(bob, p.ID); !errors.Is(err, projectsdomain.ErrProjectNotFound) {
 		t.Errorf("Get(another owner's) error = %v, want ErrProjectNotFound", err)
 	}
-	if _, err := f.svc.Update(bob, p.ID, projectsusecase.UpdateInput{Version: p.Version, Changes: projectsdomain.Changes{Name: &name}}); !errors.Is(err, projectsdomain.ErrProjectNotFound) {
+	if _, err := f.svc.Update(bob, p.ID, projectsusecase.UpdateInput{Version: p.Version, Changes: projectsdomain.Changes{Name: &title}}); !errors.Is(err, projectsdomain.ErrProjectNotFound) {
 		t.Errorf("Update(another owner's) error = %v, want ErrProjectNotFound", err)
 	}
 	if err := f.svc.Delete(bob, p.ID); !errors.Is(err, projectsdomain.ErrProjectNotFound) {
@@ -170,16 +180,17 @@ func TestUpdate(t *testing.T) {
 	p := f.create(t, "usr_ada", "Website")
 	f.create(t, "usr_ada", "Docs")
 	f.now = f.now.Add(time.Hour)
-	name, archived := "Website v2", projectsdomain.StatusArchived
+	title := "Website v2"
+	choice := projectsdomain.StatusArchived
 
-	updated, err := f.svc.Update(ctx, p.ID, projectsusecase.UpdateInput{Version: 1, Changes: projectsdomain.Changes{Name: &name, Status: &archived}})
-	if err != nil || updated.Version != 2 || updated.Name != name || updated.Status != archived || !updated.UpdatedAt.Equal(f.now) {
+	updated, err := f.svc.Update(ctx, p.ID, projectsusecase.UpdateInput{Version: 1, Changes: projectsdomain.Changes{Name: &title, Status: &choice}})
+	if err != nil || updated.Version != 2 || updated.Name != title || updated.Status != choice || !updated.UpdatedAt.Equal(f.now) {
 		t.Fatalf("Update() = %+v, %v", updated, err)
 	}
-	if _, err := f.svc.Update(ctx, p.ID, projectsusecase.UpdateInput{Version: 1, Changes: projectsdomain.Changes{Name: &name}}); !errors.Is(err, projectsdomain.ErrProjectVersionConflict) {
+	if _, err := f.svc.Update(ctx, p.ID, projectsusecase.UpdateInput{Version: 1, Changes: projectsdomain.Changes{Name: &title}}); !errors.Is(err, projectsdomain.ErrProjectVersionConflict) {
 		t.Errorf("Update(stale version) error = %v, want ErrProjectVersionConflict", err)
 	}
-	same, err := f.svc.Update(ctx, p.ID, projectsusecase.UpdateInput{Version: 2, Changes: projectsdomain.Changes{Name: &name}})
+	same, err := f.svc.Update(ctx, p.ID, projectsusecase.UpdateInput{Version: 2, Changes: projectsdomain.Changes{Name: &title}})
 	if err != nil || same != updated {
 		t.Errorf("Update(no change) = %+v, %v, want the project unchanged", same, err)
 	}
@@ -226,18 +237,18 @@ func TestDelete(t *testing.T) {
 func TestListPages(t *testing.T) {
 	f := newFixture(t)
 	ctx := as("usr_ada")
-	for _, name := range []string{"beta", "Alpha", "gamma", "delta", "Epsilon"} {
-		f.create(t, "usr_ada", name)
+	for _, title := range []string{"beta", "Alpha", "gamma", "delta", "Epsilon"} {
+		f.create(t, "usr_ada", title)
 		f.now = f.now.Add(time.Minute)
 	}
 
-	pages := func(params page.Params, status projectsdomain.Status) []string {
+	titles := func(in projectsusecase.ListInput) []string {
 		t.Helper()
 		var got []string
 		for range 10 {
-			res, err := f.svc.List(ctx, projectsusecase.ListInput{Page: params, Status: status})
+			res, err := f.svc.List(ctx, in)
 			if err != nil {
-				t.Fatalf("List(%+v) error = %v", params, err)
+				t.Fatalf("List(%+v) error = %v", in, err)
 			}
 			for _, p := range res.Items {
 				got = append(got, p.Name)
@@ -245,26 +256,26 @@ func TestListPages(t *testing.T) {
 			if res.NextCursor == "" {
 				return got
 			}
-			params.Cursor = res.NextCursor
+			in.Page.Cursor = res.NextCursor
 		}
-		t.Fatalf("List(%+v) didn't end", params)
+		t.Fatalf("List(%+v) didn't end", in)
 		return nil
 	}
-	if got, want := pages(page.Params{Limit: 2}, ""), []string{"Epsilon", "delta", "gamma", "Alpha", "beta"}; !slices.Equal(got, want) {
+	if got, want := titles(projectsusecase.ListInput{Page: page.Params{Limit: 2}}), []string{"Epsilon", "delta", "gamma", "Alpha", "beta"}; !slices.Equal(got, want) {
 		t.Errorf("default sort = %v, want newest first %v", got, want)
 	}
-	if got, want := pages(page.Params{Limit: 2, Sort: "name"}, ""), []string{"Alpha", "beta", "delta", "Epsilon", "gamma"}; !slices.Equal(got, want) {
+	if got, want := titles(projectsusecase.ListInput{Page: page.Params{Limit: 2, Sort: "name"}}), []string{"Alpha", "beta", "delta", "Epsilon", "gamma"}; !slices.Equal(got, want) {
 		t.Errorf("sort=name = %v, want %v", got, want)
 	}
-	if got, want := pages(page.Params{Limit: 5, Sort: "-name"}, ""), []string{"gamma", "Epsilon", "delta", "beta", "Alpha"}; !slices.Equal(got, want) {
+	if got, want := titles(projectsusecase.ListInput{Page: page.Params{Limit: 5, Sort: "-name"}}), []string{"gamma", "Epsilon", "delta", "beta", "Alpha"}; !slices.Equal(got, want) {
 		t.Errorf("sort=-name, one full page = %v, want %v", got, want)
 	}
-	archived := projectsdomain.StatusArchived
-	if _, err := f.svc.Update(ctx, "prj_1", projectsusecase.UpdateInput{Version: 1, Changes: projectsdomain.Changes{Status: &archived}}); err != nil {
+	choice := projectsdomain.StatusArchived
+	if _, err := f.svc.Update(ctx, "prj_1", projectsusecase.UpdateInput{Version: 1, Changes: projectsdomain.Changes{Status: &choice}}); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := pages(page.Params{Sort: "-updated_at"}, archived), []string{"beta"}; !slices.Equal(got, want) {
-		t.Errorf("status=archived = %v, want %v", got, want)
+	if got, want := titles(projectsusecase.ListInput{Page: page.Params{Sort: "-updated_at"}, Status: choice}), []string{"beta"}; !slices.Equal(got, want) {
+		t.Errorf("status=%s = %v, want %v", choice, got, want)
 	}
 
 	first, err := f.svc.List(ctx, projectsusecase.ListInput{Page: page.Params{Limit: 2}})
@@ -285,7 +296,7 @@ func TestListPages(t *testing.T) {
 			t.Errorf("List(%+v) error = %v, want %v", tt.params, err, tt.want)
 		}
 	}
-	if _, err := f.svc.List(ctx, projectsusecase.ListInput{Status: "done"}); !errors.Is(err, projectsdomain.ErrInvalidProject) {
-		t.Errorf("List(status done) error = %v, want ErrInvalidProject", err)
+	if _, err := f.svc.List(ctx, projectsusecase.ListInput{Status: "?"}); !errors.Is(err, projectsdomain.ErrInvalidProject) {
+		t.Errorf("List(unknown status) error = %v, want ErrInvalidProject", err)
 	}
 }

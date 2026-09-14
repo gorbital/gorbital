@@ -1,0 +1,209 @@
+package usecase
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"apistock.dev/page"
+
+	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+)
+
+// Audit actions. They are public API (ADR-0015): add new ones, never rename.
+const (
+	ActionCreated = "⟦.Package⟧.⟦.Snake⟧.created"
+	ActionUpdated = "⟦.Package⟧.⟦.Snake⟧.updated"
+	ActionDeleted = "⟦.Package⟧.⟦.Snake⟧.deleted"
+)
+
+// listOptions are the page sizes and sorts List accepts.
+func listOptions() page.Options {
+	return page.Options{
+		SortFields:  []string{⟦range $i, $f := .SortFields⟧⟦if $i⟧, ⟦end⟧⟦quote $f⟧⟦end⟧},
+		DefaultSort: []page.SortField{{Field: "created_at", Desc: true}},
+	}
+}
+
+// Create adds ⟦.A⟧ ⟦.Human⟧ owned by the signed-in user.
+func (s *Service) Create(ctx context.Context, f ⟦.Package⟧domain.⟦.Ident⟧Fields) (⟦.Package⟧domain.⟦.Ident⟧, error) {
+	owner, err := ownerID(ctx)
+	if err != nil {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
+	}
+	p, err := ⟦.Package⟧domain.New⟦.Ident⟧(s.newID(), owner, f, s.clock())
+	if err != nil {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
+	}
+	created, err := s.store.Insert⟦.Ident⟧(ctx, p)
+	if err != nil {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, storeError("create", err)
+	}
+	s.audit(ctx, ActionCreated, created.ID, nil)
+	return created, nil
+}
+
+// Get returns one of the signed-in user's ⟦.PluralHuman⟧.
+func (s *Service) Get(ctx context.Context, id string) (⟦.Package⟧domain.⟦.Ident⟧, error) {
+	owner, err := ownerID(ctx)
+	if err != nil {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
+	}
+	p, err := s.store.Select⟦.Ident⟧(ctx, owner, id, false)
+	if err != nil {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, storeError("get", err)
+	}
+	return p, nil
+}
+
+// ListInput selects a page of the signed-in user's ⟦.PluralHuman⟧.
+type ListInput struct {
+	Page page.Params
+⟦- range .Enums⟧
+	// ⟦.Ident⟧ keeps ⟦$.PluralHuman⟧ with this ⟦.Human⟧; empty keeps all.
+	⟦.Ident⟧ ⟦$.Package⟧domain.⟦.Ident⟧
+⟦- end⟧
+}
+
+// cursor is the position a page ended at, with the sort it belongs to, so a
+// cursor can't be used with a different sort.
+type cursor struct {
+	Sort string    `json:"s"`
+	Time time.Time `json:"t,omitzero"`
+	Text string    `json:"x,omitempty"`
+	ID   string    `json:"i"`
+}
+
+// List returns a page of the signed-in user's ⟦.PluralHuman⟧, sorted by one
+// field (newest first by default).
+func (s *Service) List(ctx context.Context, in ListInput) (page.Result[⟦.Package⟧domain.⟦.Ident⟧], error) {
+	var none page.Result[⟦.Package⟧domain.⟦.Ident⟧]
+	owner, err := ownerID(ctx)
+	if err != nil {
+		return none, err
+	}
+	req, err := in.Page.Request(listOptions())
+	if err != nil {
+		return none, err
+	}
+	if len(req.Sort) != 1 {
+		return none, fmt.Errorf("%w: sort by one field", page.ErrInvalidSort)
+	}
+⟦- range .Enums⟧
+	if in.⟦.Ident⟧ != "" && !in.⟦.Ident⟧.Valid() {
+		return none, &⟦$.Package⟧domain.ValidationError{Errors: []⟦$.Package⟧domain.FieldError{{Field: ⟦quote .Name⟧, Message: ⟦quote .EnumMessage⟧}}}
+	}
+⟦- end⟧
+
+	q := ListQuery{
+		OwnerID: owner,
+⟦- range .Enums⟧
+		⟦.Ident⟧: in.⟦.Ident⟧,
+⟦- end⟧
+		Sort: req.Sort[0],
+		// One more than the limit shows whether there is a next page.
+		Limit: req.Limit + 1,
+	}
+	sort := sortName(q.Sort)
+	if req.Cursor != "" {
+		var c cursor
+		if err := page.DecodeCursor(req.Cursor, &c); err != nil {
+			return none, err
+		}
+		if c.Sort != sort || c.ID == "" {
+			return none, fmt.Errorf("%w: it belongs to a different sort", page.ErrInvalidCursor)
+		}
+		q.After = &Position{Time: c.Time, Text: c.Text, ID: c.ID}
+	}
+
+	items, err := s.store.Select⟦.Plural⟧(ctx, q)
+	if err != nil {
+		return none, storeError("list", err)
+	}
+	res := page.Result[⟦.Package⟧domain.⟦.Ident⟧]{Items: items}
+	if len(items) > req.Limit {
+		res.Items = items[:req.Limit]
+		last := res.Items[len(res.Items)-1]
+		c := cursor{Sort: sort, ID: last.ID}
+		switch q.Sort.Field {
+		case "created_at":
+			c.Time = last.CreatedAt
+		case "updated_at":
+			c.Time = last.UpdatedAt
+⟦- range .Strings⟧
+		case ⟦quote .Name⟧:
+			c.Text = last.⟦.Ident⟧
+⟦- end⟧
+		}
+		if res.NextCursor, err = page.EncodeCursor(c); err != nil {
+			return none, err
+		}
+	}
+	return res, nil
+}
+
+func sortName(f page.SortField) string {
+	if f.Desc {
+		return "-" + f.Field
+	}
+	return f.Field
+}
+
+// UpdateInput changes ⟦.A⟧ ⟦.Human⟧. Version is the version the caller read.
+type UpdateInput struct {
+	Version int64
+	Changes ⟦.Package⟧domain.Changes
+}
+
+// Update changes one of the signed-in user's ⟦.PluralHuman⟧. It returns
+// Err⟦.Ident⟧VersionConflict when in.Version is no longer current. An update
+// that changes nothing returns the ⟦.Human⟧ as it is.
+func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (⟦.Package⟧domain.⟦.Ident⟧, error) {
+	owner, err := ownerID(ctx)
+	if err != nil {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
+	}
+	var updated ⟦.Package⟧domain.⟦.Ident⟧
+	var changed []string
+	err = s.store.InTx(ctx, func(tx Store) error {
+		current, err := tx.Select⟦.Ident⟧(ctx, owner, id, true)
+		if err != nil {
+			return err
+		}
+		if current.Version != in.Version {
+			return ⟦.Package⟧domain.Err⟦.Ident⟧VersionConflict
+		}
+		next, fields, err := current.Apply(in.Changes, s.clock())
+		if err != nil {
+			return err
+		}
+		if len(fields) == 0 {
+			updated = current
+			return nil
+		}
+		changed = fields
+		updated, err = tx.Update⟦.Ident⟧(ctx, next)
+		return err
+	})
+	if err != nil {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, storeError("update", err)
+	}
+	if len(changed) > 0 {
+		// Field names only: values may be personal data.
+		s.audit(ctx, ActionUpdated, id, map[string]any{"fields": changed})
+	}
+	return updated, nil
+}
+
+// Delete removes one of the signed-in user's ⟦.PluralHuman⟧.
+func (s *Service) Delete(ctx context.Context, id string) error {
+	owner, err := ownerID(ctx)
+	if err != nil {
+		return err
+	}
+	if err := s.store.Delete⟦.Ident⟧(ctx, owner, id); err != nil {
+		return storeError("delete", err)
+	}
+	s.audit(ctx, ActionDeleted, id, nil)
+	return nil
+}

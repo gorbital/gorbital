@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// Errors returned by the projects use cases. Their HTTP codes are mapped in
-// internal/app/module_projects.go.
+// Errors returned by the projects use cases. Their HTTP codes are mapped
+// in internal/app/module_projects.go.
 var (
 	// ErrUnauthenticated reports an operation without a signed-in user.
 	ErrUnauthenticated = errors.New("authentication is required")
@@ -15,12 +15,12 @@ var (
 	// *ValidationError.
 	ErrInvalidProject = errors.New("invalid project")
 
-	// ErrProjectNotFound reports a project that doesn't exist or belongs to
-	// someone else. The two aren't distinguished, so IDs can't be probed.
+	// ErrProjectNotFound reports a project that doesn't exist or belongs
+	// to someone else. The two aren't distinguished, so IDs can't be probed.
 	ErrProjectNotFound = errors.New("project not found")
 
-	// ErrProjectNameTaken reports a name the owner already uses, ignoring
-	// case.
+	// ErrProjectNameTaken reports a name the owner already uses,
+	// ignoring case.
 	ErrProjectNameTaken = errors.New("project name is already taken")
 
 	// ErrProjectVersionConflict reports an update to a version that is no

@@ -1,0 +1,219 @@
+package repository_test⟦$t := .Title⟧⟦$e := .FirstEnum⟧⟦$u := .FirstUnique⟧
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apistock.dev/modules/postgres/pgtest"
+	"apistock.dev/page"
+
+	"⟦.Module⟧/db/migrations"
+	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+	⟦.Package⟧repository "⟦.Module⟧/internal/modules/⟦.Package⟧/repository"
+	⟦.Package⟧usecase "⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+var now = time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+
+// newStore returns a store on a fresh database with the users usr_ada and
+// usr_bob, and the database's pool.
+func newStore(t *testing.T) (*⟦.Package⟧repository.Store, *pgxpool.Pool) {
+	t.Helper()
+	pool := pgtest.New(t, pgtest.WithMigrations(migrations.FS))
+	for _, id := range []string{"usr_ada", "usr_bob"} {
+		_, err := pool.Exec(context.Background(),
+			`INSERT INTO auth_users (id, email, email_normalized, created_at, updated_at) VALUES ($1, $2, $2, $3, $3)`,
+			id, id+"@example.com", now)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	return ⟦.Package⟧repository.NewStore(pool), pool
+}
+
+// sample returns a valid ⟦.Human⟧ with title as its ⟦$t.Human⟧.
+func sample(id, ownerID, title string, at time.Time) ⟦.Package⟧domain.⟦.Ident⟧ {
+	return ⟦.Package⟧domain.⟦.Ident⟧{
+		ID: id, OwnerID: ownerID,
+		⟦.Ident⟧Fields: ⟦.Package⟧domain.⟦.Ident⟧Fields{⟦.SampleFields "title"⟧},
+		Version:  1, CreatedAt: at, UpdatedAt: at,
+	}
+}
+
+func Test⟦.Plural⟧(t *testing.T) {
+	store, _ := newStore(t)
+	ctx := context.Background()
+
+	created, err := store.Insert⟦.Ident⟧(ctx, sample("⟦.IDPrefix⟧_1", "usr_ada", "Website", now))
+	if err != nil || created.ID != "⟦.IDPrefix⟧_1" || created.Version != 1 || !created.CreatedAt.Equal(now) {
+		t.Fatalf("Insert⟦.Ident⟧() = %+v, %v", created, err)
+	}
+⟦- if .HasUniques⟧
+	taken := sample("⟦.IDPrefix⟧_2", "usr_ada", "Other", now)
+	taken.⟦$u.Ident⟧ = ⟦if eq $u.Name $t.Name⟧"WEBSITE"⟦else⟧⟦quote (upper (print "Website " $u.Human))⟧⟦end⟧
+	if _, err := store.Insert⟦.Ident⟧(ctx, taken); !errors.Is(err, ⟦.Package⟧domain.Err⟦.Ident⟧⟦$u.Ident⟧Taken) {
+		t.Errorf("Insert⟦.Ident⟧(same ⟦$u.Human⟧, other case) error = %v, want Err⟦.Ident⟧⟦$u.Ident⟧Taken", err)
+	}
+⟦- end⟧
+	if _, err := store.Insert⟦.Ident⟧(ctx, sample("⟦.IDPrefix⟧_3", "usr_bob", "Website", now)); err != nil {
+		t.Errorf("Insert⟦.Ident⟧(same fields, another owner) error = %v", err)
+	}
+	if _, err := store.Insert⟦.Ident⟧(ctx, sample("⟦.IDPrefix⟧_4", "usr_ada", "Docs", now)); err != nil {
+		t.Fatal(err)
+	}
+
+	if p, err := store.Select⟦.Ident⟧(ctx, "usr_ada", "⟦.IDPrefix⟧_1", false); err != nil || p != created {
+		t.Errorf("Select⟦.Ident⟧() = %+v, %v, want %+v", p, err, created)
+	}
+	if _, err := store.Select⟦.Ident⟧(ctx, "usr_bob", "⟦.IDPrefix⟧_1", false); !errors.Is(err, ⟦.Package⟧domain.Err⟦.Ident⟧NotFound) {
+		t.Errorf("Select⟦.Ident⟧(another owner's) error = %v, want Err⟦.Ident⟧NotFound", err)
+	}
+
+	next := created
+	next.⟦$t.Ident⟧, next.UpdatedAt = "Website v2", now.Add(time.Minute)
+⟦- if .HasEnums⟧
+	next.⟦$e.Ident⟧ = ⟦.Package⟧domain.⟦$e.Ident⟧⟦$e.LastValue.Ident⟧
+⟦- end⟧
+	updated, err := store.Update⟦.Ident⟧(ctx, next)
+	if err != nil || updated.Version != 2 || updated.⟦.Ident⟧Fields != next.⟦.Ident⟧Fields ||
+		!updated.UpdatedAt.Equal(next.UpdatedAt) || !updated.CreatedAt.Equal(now) {
+		t.Fatalf("Update⟦.Ident⟧() = %+v, %v", updated, err)
+	}
+	if _, err := store.Update⟦.Ident⟧(ctx, next); !errors.Is(err, ⟦.Package⟧domain.Err⟦.Ident⟧VersionConflict) {
+		t.Errorf("Update⟦.Ident⟧(stale version) error = %v, want Err⟦.Ident⟧VersionConflict", err)
+	}
+	stolen := updated
+	stolen.OwnerID = "usr_bob"
+	if _, err := store.Update⟦.Ident⟧(ctx, stolen); !errors.Is(err, ⟦.Package⟧domain.Err⟦.Ident⟧VersionConflict) {
+		t.Errorf("Update⟦.Ident⟧(another owner) error = %v, want Err⟦.Ident⟧VersionConflict", err)
+	}
+⟦- if .HasUniques⟧
+	docs, err := store.Select⟦.Ident⟧(ctx, "usr_ada", "⟦.IDPrefix⟧_4", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	docs.⟦$u.Ident⟧ = ⟦if eq $u.Name $t.Name⟧"website V2"⟦else⟧⟦quote (print "website " $u.Human)⟧⟦end⟧
+	if _, err := store.Update⟦.Ident⟧(ctx, docs); !errors.Is(err, ⟦.Package⟧domain.Err⟦.Ident⟧⟦$u.Ident⟧Taken) {
+		t.Errorf("Update⟦.Ident⟧(taken ⟦$u.Human⟧) error = %v, want Err⟦.Ident⟧⟦$u.Ident⟧Taken", err)
+	}
+⟦- end⟧
+
+	if err := store.Delete⟦.Ident⟧(ctx, "usr_bob", "⟦.IDPrefix⟧_1"); !errors.Is(err, ⟦.Package⟧domain.Err⟦.Ident⟧NotFound) {
+		t.Errorf("Delete⟦.Ident⟧(another owner's) error = %v, want Err⟦.Ident⟧NotFound", err)
+	}
+	if err := store.Delete⟦.Ident⟧(ctx, "usr_ada", "⟦.IDPrefix⟧_1"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Select⟦.Ident⟧(ctx, "usr_ada", "⟦.IDPrefix⟧_1", false); !errors.Is(err, ⟦.Package⟧domain.Err⟦.Ident⟧NotFound) {
+		t.Errorf("deleted ⟦.Human⟧ selected: %v", err)
+	}
+	if err := store.Delete⟦.Ident⟧(ctx, "usr_ada", "⟦.IDPrefix⟧_1"); !errors.Is(err, ⟦.Package⟧domain.Err⟦.Ident⟧NotFound) {
+		t.Errorf("Delete⟦.Ident⟧(deleted) error = %v, want Err⟦.Ident⟧NotFound", err)
+	}
+}
+
+func TestSelect⟦.Plural⟧Pages(t *testing.T) {
+	store, _ := newStore(t)
+	ctx := context.Background()
+	// A minute apart, except the last two, which share a time to check that
+	// the ID breaks ties.⟦if .HasEnums⟧ The last one has another ⟦$e.Human⟧.⟦end⟧
+	for i, title := range []string{"beta", "Alpha", "gamma", "delta", "Epsilon"} {
+		p := sample(fmt.Sprintf("⟦.IDPrefix⟧_%d", i), "usr_ada", title, now.Add(time.Duration(min(i, 3))*time.Minute))
+⟦- if .HasEnums⟧
+		if i == 4 {
+			p.⟦$e.Ident⟧ = ⟦.Package⟧domain.⟦$e.Ident⟧⟦$e.LastValue.Ident⟧
+		}
+⟦- end⟧
+		if _, err := store.Insert⟦.Ident⟧(ctx, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := store.Insert⟦.Ident⟧(ctx, sample("⟦.IDPrefix⟧_bob", "usr_bob", "zeta", now)); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		sort page.SortField
+⟦- if .HasEnums⟧
+		filter ⟦.Package⟧domain.⟦$e.Ident⟧
+⟦- end⟧
+		want []string
+	}{
+		{sort: page.SortField{Field: "created_at", Desc: true}, want: []string{"⟦.IDPrefix⟧_4", "⟦.IDPrefix⟧_3", "⟦.IDPrefix⟧_2", "⟦.IDPrefix⟧_1", "⟦.IDPrefix⟧_0"}},
+		{sort: page.SortField{Field: "created_at"}, want: []string{"⟦.IDPrefix⟧_0", "⟦.IDPrefix⟧_1", "⟦.IDPrefix⟧_2", "⟦.IDPrefix⟧_3", "⟦.IDPrefix⟧_4"}},
+		{sort: page.SortField{Field: ⟦quote $t.Name⟧}, want: []string{"⟦.IDPrefix⟧_1", "⟦.IDPrefix⟧_0", "⟦.IDPrefix⟧_3", "⟦.IDPrefix⟧_4", "⟦.IDPrefix⟧_2"}},
+		{sort: page.SortField{Field: ⟦quote $t.Name⟧, Desc: true}, want: []string{"⟦.IDPrefix⟧_2", "⟦.IDPrefix⟧_4", "⟦.IDPrefix⟧_3", "⟦.IDPrefix⟧_0", "⟦.IDPrefix⟧_1"}},
+⟦- if .HasEnums⟧
+		{sort: page.SortField{Field: "updated_at"}, filter: ⟦.Package⟧domain.⟦$e.Ident⟧⟦$e.FirstValue.Ident⟧, want: []string{"⟦.IDPrefix⟧_0", "⟦.IDPrefix⟧_1", "⟦.IDPrefix⟧_2", "⟦.IDPrefix⟧_3"}},
+		{sort: page.SortField{Field: "updated_at"}, filter: ⟦.Package⟧domain.⟦$e.Ident⟧⟦$e.LastValue.Ident⟧, want: []string{"⟦.IDPrefix⟧_4"}},
+⟦- else⟧
+		{sort: page.SortField{Field: "updated_at"}, want: []string{"⟦.IDPrefix⟧_0", "⟦.IDPrefix⟧_1", "⟦.IDPrefix⟧_2", "⟦.IDPrefix⟧_3", "⟦.IDPrefix⟧_4"}},
+⟦- end⟧
+	}
+	for _, tt := range tests {
+		var got []string
+		var after *⟦.Package⟧usecase.Position
+		for range 10 {
+			items, err := store.Select⟦.Plural⟧(ctx, ⟦.Package⟧usecase.ListQuery{OwnerID: "usr_ada", ⟦if .HasEnums⟧⟦$e.Ident⟧: tt.filter, ⟦end⟧Sort: tt.sort, After: after, Limit: 2})
+			if err != nil {
+				t.Fatalf("Select⟦.Plural⟧(%+v) error = %v", tt.sort, err)
+			}
+			for _, p := range items {
+				got = append(got, p.ID)
+			}
+			if len(items) < 2 {
+				break
+			}
+			last := items[len(items)-1]
+			after = &⟦.Package⟧usecase.Position{ID: last.ID, Text: last.⟦$t.Ident⟧, Time: last.CreatedAt}
+			if tt.sort.Field == "updated_at" {
+				after.Time = last.UpdatedAt
+			}
+		}
+		if !slices.Equal(got, tt.want) {
+			t.Errorf("Select⟦.Plural⟧(%+v) pages = %v, want %v", tt, got, tt.want)
+		}
+	}
+
+	if _, err := store.Select⟦.Plural⟧(ctx, ⟦.Package⟧usecase.ListQuery{OwnerID: "usr_ada", Sort: page.SortField{Field: "owner_id"}, Limit: 2}); !errors.Is(err, page.ErrInvalidSort) {
+		t.Errorf("Select⟦.Plural⟧(unknown sort) error = %v, want ErrInvalidSort", err)
+	}
+}
+
+func TestDeletingAccountDeletesIts⟦.Plural⟧(t *testing.T) {
+	store, pool := newStore(t)
+	ctx := context.Background()
+	if _, err := store.Insert⟦.Ident⟧(ctx, sample("⟦.IDPrefix⟧_1", "usr_ada", "Website", now)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM auth_users WHERE id = 'usr_ada'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Select⟦.Ident⟧(ctx, "usr_ada", "⟦.IDPrefix⟧_1", false); !errors.Is(err, ⟦.Package⟧domain.Err⟦.Ident⟧NotFound) {
+		t.Errorf("⟦.Human⟧ of a purged account selected: %v", err)
+	}
+}
+
+func TestInTxRollsBack(t *testing.T) {
+	store, _ := newStore(t)
+	ctx := context.Background()
+	errFail := errors.New("fail")
+	err := store.InTx(ctx, func(tx ⟦.Package⟧usecase.Store) error {
+		if _, err := tx.Insert⟦.Ident⟧(ctx, sample("⟦.IDPrefix⟧_1", "usr_ada", "Website", now)); err != nil {
+			return err
+		}
+		return errFail
+	})
+	if !errors.Is(err, errFail) {
+		t.Fatalf("InTx() error = %v", err)
+	}
+	if _, err := store.Select⟦.Ident⟧(ctx, "usr_ada", "⟦.IDPrefix⟧_1", false); !errors.Is(err, ⟦.Package⟧domain.Err⟦.Ident⟧NotFound) {
+		t.Errorf("rolled back insert is visible: %v", err)
+	}
+}

@@ -25,23 +25,29 @@ import (
 	"apistock.dev/cli/internal/recipes"
 )
 
-const genUsage = `Usage: aps gen job <Name> [flags]
+const genUsage = `Usage:
+  aps gen job <Name> [flags]
+  aps gen resource <Name> <field:type>... [flags]
 
-Generates a background job whose schedule, timeout and retries can be changed
-at runtime through /ops/jobs. Run it inside an app created with the Full preset.
-In a terminal, missing values are asked interactively; pass flags to skip them.
+job generates a background job whose schedule, timeout and retries can be
+changed at runtime through /ops/jobs. resource generates a module, table and
+API for records that belong to the signed-in user. Run them inside an app
+created with the Full preset. In a terminal, missing values are asked
+interactively; pass flags to skip them.
 `
 
 func runGen(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		fmt.Fprint(stderr, genUsage)
-		return usageError("missing generator: aps gen job <Name>")
+		return usageError("missing generator: aps gen job <Name> or aps gen resource <Name> <field:type>...")
 	}
 	switch args[0] {
 	case "job":
 		return runGenJob(ctx, args[1:], stdin, stdout, stderr)
+	case "resource":
+		return runGenResource(ctx, args[1:], stdin, stdout, stderr)
 	default:
-		return usageError(fmt.Sprintf("unknown generator %q (want job)", args[0]))
+		return usageError(fmt.Sprintf("unknown generator %q (want job or resource)", args[0]))
 	}
 }
 

@@ -95,4 +95,5 @@ Safety: runs only inside a Full preset app (the anchor must exist; otherwise it 
 - Follow-up questions are asked as separate short steps rather than hidden groups: `huh`'s accessible mode ignores group hide functions, so hiding would make `--plain` users answer questions that don't apply. The question flows are tested in accessible mode with scripted answers.
 - Exit code 130 on cancel; `aps new` prints which apistock checkout it detected when not prompting.
 - `aps add mail` (ADR-0037) follows these rules with one exception: secrets (the Resend API key, the SMTP password) have no flag. They are asked with hidden input only on a terminal, saved only to `.env`, and never printed. In plain mode `huh` reads them without echo, which needs a terminal, so scripted prompt tests use a normal input instead.
+- `aps gen resource` (ADR-0039) asks for the resource name and its fields (one line, in the same syntax as the positional arguments) with the validators the arguments use, then confirms a summary. Plural, ID prefix and scope are flags only. Flags may come before, between or after the positional arguments.
 - User documentation: [CLI guide](../guides/cli.md).

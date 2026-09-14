@@ -1,0 +1,34 @@
+package repository
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5"
+
+	"apistock.dev/modules/postgres"
+
+	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+)
+
+const (
+	select⟦.Ident⟧SQL = `SELECT ` + ⟦.Var⟧Columns + ` FROM ⟦.Table⟧ WHERE id = $1 AND owner_id = $2`
+	forUpdate        = ` FOR UPDATE`
+)
+
+// Select⟦.Ident⟧ returns one of ownerID's ⟦.PluralHuman⟧, or
+// Err⟦.Ident⟧NotFound. lock locks the row until the transaction ends.
+func (s *Store) Select⟦.Ident⟧(ctx context.Context, ownerID, id string, lock bool) (⟦.Package⟧domain.⟦.Ident⟧, error) {
+	sql := select⟦.Ident⟧SQL
+	if lock {
+		sql += forUpdate
+	}
+	rows, err := s.db.Query(ctx, sql, id, ownerID)
+	if err != nil {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
+	}
+	p, err := pgx.CollectExactlyOneRow(rows, scan⟦.Ident⟧)
+	if postgres.IsNoRows(err) {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, ⟦.Package⟧domain.Err⟦.Ident⟧NotFound
+	}
+	return p, err
+}

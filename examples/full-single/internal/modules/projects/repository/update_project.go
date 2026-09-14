@@ -17,12 +17,12 @@ const updateProjectSQL = `
 	RETURNING ` + projectColumns
 
 // UpdateProject saves p when the stored version is still p.Version and
-// returns it with the next version. It returns ErrProjectVersionConflict when
-// no row has that version (changed, deleted or not the owner's) and
+// returns it with the next version. It returns ErrProjectVersionConflict
+// when no row has that version (changed, deleted or not the owner's), and
 // ErrProjectNameTaken.
 func (s *Store) UpdateProject(ctx context.Context, p projectsdomain.Project) (projectsdomain.Project, error) {
 	rows, err := s.db.Query(ctx, updateProjectSQL,
-		p.ID, p.OwnerID, p.Name, p.Description, string(p.Status), p.UpdatedAt, p.Version)
+		p.ID, p.OwnerID, p.Name, p.Description, p.Status, p.UpdatedAt, p.Version)
 	if err != nil {
 		return projectsdomain.Project{}, constraintError(err)
 	}

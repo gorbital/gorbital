@@ -15,8 +15,8 @@ const (
 	forUpdate        = ` FOR UPDATE`
 )
 
-// SelectProject returns one of ownerID's projects, or ErrProjectNotFound.
-// lock locks the row until the transaction ends.
+// SelectProject returns one of ownerID's projects, or
+// ErrProjectNotFound. lock locks the row until the transaction ends.
 func (s *Store) SelectProject(ctx context.Context, ownerID, id string, lock bool) (projectsdomain.Project, error) {
 	sql := selectProjectSQL
 	if lock {

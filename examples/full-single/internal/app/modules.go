@@ -1,40 +1,41 @@
 package app
 
 import (
-	"github.com/danielgtaylor/huma/v2"
+	"errors"
+	"log/slog"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apistock.dev/audit"
 	"apistock.dev/config"
 	"apistock.dev/httpx"
 
 	authmodule "example.com/acme-api/internal/modules/auth"
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
-	projectsmodule "example.com/acme-api/internal/modules/projects"
 )
 
 // services are what business modules need from the composition root. When
-// exporting the OpenAPI document, only values the routes need are set.
+// exporting the OpenAPI document, only values the routes need are set and db
+// is nil.
 type services struct {
+	db          *pgxpool.Pool
+	recorder    audit.Recorder
+	logger      *slog.Logger
 	pingMessage config.Value[string]
 	ops         opsusecase.Deps
 	auth        *authmodule.Module
-	projects    *projectsmodule.Module
 }
 
 // registerModules wires every business module: its HTTP operations and its
-// error mappings. Each module has its own module_<name>.go file.
+// error mappings. Each module has its own module_<name>.go file, and
+// aps gen resource adds a line after the anchor.
 func registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {
-	//aps:anchor modules
-	if err := registerPing(api, mapper, svc.pingMessage); err != nil {
-		return err
-	}
-	if err := registerOps(api, mapper, svc.ops); err != nil {
-		return err
-	}
-	if err := registerAuth(api, mapper, svc.auth); err != nil {
-		return err
-	}
-	if err := registerProjects(api, mapper, svc.projects); err != nil {
-		return err
-	}
-	return nil
+	return errors.Join(
+		//aps:anchor modules
+		registerProjects(api, mapper, svc),
+		registerPing(api, mapper, svc.pingMessage),
+		registerOps(api, mapper, svc.ops),
+		registerAuth(api, mapper, svc.auth),
+	)
 }

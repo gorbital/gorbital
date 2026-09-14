@@ -61,7 +61,7 @@ Jobs run in the API process on PostgreSQL (River). A job carries the request ID,
 
 ## Business resources
 
-`internal/modules/projects` is the example to copy for your own resources, and the shape `aps gen resource` creates. All of it is your code: change any rule, query or response.
+`internal/modules/projects` is exactly what `aps gen resource Project name:string:unique description:text 'status:enum(active,archived)'` creates. Generate your own resources the same way, or copy it. All of it is your code: change any rule, query or response.
 
 - **Ownership:** every project has an `owner_id` (the signed-in user). Every repository method takes the owner ID, and someone else's project returns 404 `project_not_found`, so IDs can't be probed. Deleting an account deletes its projects.
 - **Lists:** `GET /v1/projects` uses keyset pagination through `apistock.dev/page`: `limit`, an opaque `cursor`, and `sort` by one allowlisted field, with one fixed query per sort in `repository/select_projects.go`.

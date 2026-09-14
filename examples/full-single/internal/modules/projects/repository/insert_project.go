@@ -13,11 +13,11 @@ const insertProjectSQL = `
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	RETURNING ` + projectColumns
 
-// InsertProject creates a project, or returns ErrProjectNameTaken when the
-// owner already has a project with that name, ignoring case.
+// InsertProject creates a project, or returns ErrProjectNameTaken
+// when the owner already uses the value, ignoring case.
 func (s *Store) InsertProject(ctx context.Context, p projectsdomain.Project) (projectsdomain.Project, error) {
 	rows, err := s.db.Query(ctx, insertProjectSQL,
-		p.ID, p.OwnerID, p.Name, p.Description, string(p.Status), p.Version, p.CreatedAt, p.UpdatedAt)
+		p.ID, p.OwnerID, p.Name, p.Description, p.Status, p.Version, p.CreatedAt, p.UpdatedAt)
 	if err == nil {
 		p, err = pgx.CollectExactlyOneRow(rows, scanProject)
 	}

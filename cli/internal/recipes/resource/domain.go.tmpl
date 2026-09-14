@@ -1,0 +1,141 @@
+// Package domain holds the ⟦.PluralHuman⟧ module's entities and rules.
+package domain
+
+import (
+	"fmt"
+	"strings"
+	"time"
+	"unicode/utf8"
+)
+
+// Field limits. The migration's CHECK constraints match them.
+const (
+⟦- range .TextFields⟧
+	Max⟦.Ident⟧Length = ⟦.MaxLength⟧
+⟦- end⟧
+)
+⟦range .Enums⟧
+// ⟦.Ident⟧ is one of the values ⟦$.A⟧ ⟦$.Human⟧'s ⟦.Human⟧ can have.
+type ⟦.Ident⟧ string
+
+// ⟦.Ident⟧ values.
+const (
+⟦- $enum := .⟧
+⟦- range .Values⟧
+	⟦$enum.Ident⟧⟦.Ident⟧ ⟦$enum.Ident⟧ = ⟦quote .Value⟧
+⟦- end⟧
+)
+
+// Valid reports whether v is a known ⟦.Human⟧.
+func (v ⟦.Ident⟧) Valid() bool {
+	switch v {
+	case ⟦.ValueIdents⟧:
+		return true
+	}
+	return false
+}
+⟦end⟧
+// ⟦.Ident⟧ belongs to one user, its owner, and only the owner can see or
+// change it.
+type ⟦.Ident⟧ struct {
+	ID      string
+	OwnerID string
+	⟦.Ident⟧Fields
+	// Version increases with every change. An update must name the version
+	// it read, so it can't overwrite a change it hasn't seen.
+	Version   int64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// ⟦.Ident⟧Fields are the fields users set.
+type ⟦.Ident⟧Fields struct {
+⟦- range .Fields⟧
+	⟦.Ident⟧ ⟦.GoType⟧
+⟦- end⟧
+}
+
+// New⟦.Ident⟧ returns a new ⟦.Human⟧ owned by ownerID, or a *ValidationError.
+// Text is trimmed⟦if .HasEnums⟧, and an empty choice takes its first value⟦end⟧.
+func New⟦.Ident⟧(id, ownerID string, f ⟦.Ident⟧Fields, now time.Time) (⟦.Ident⟧, error) {
+⟦- range .TextFields⟧
+	f.⟦.Ident⟧ = strings.TrimSpace(f.⟦.Ident⟧)
+⟦- end⟧
+⟦- range .Enums⟧
+	if f.⟦.Ident⟧ == "" {
+		f.⟦.Ident⟧ = ⟦.Ident⟧⟦.FirstValue.Ident⟧
+	}
+⟦- end⟧
+	p := ⟦.Ident⟧{ID: id, OwnerID: ownerID, ⟦.Ident⟧Fields: f, Version: 1, CreatedAt: now, UpdatedAt: now}
+	if err := p.validate(); err != nil {
+		return ⟦.Ident⟧{}, err
+	}
+	return p, nil
+}
+
+// Changes are the fields an update sets. Nil fields keep their value.
+type Changes struct {
+⟦- range .Fields⟧
+	⟦.Ident⟧ *⟦.GoType⟧
+⟦- end⟧
+}
+
+// Apply returns p with c applied and the names of the fields whose value
+// changed, or a *ValidationError. UpdatedAt becomes now only when a field
+// changed. The repository increments the version when it saves.
+func (p ⟦.Ident⟧) Apply(c Changes, now time.Time) (⟦.Ident⟧, []string, error) {
+	next := p
+	var changed []string
+⟦- range .Fields⟧
+⟦- if .IsEnum⟧
+	if c.⟦.Ident⟧ != nil && *c.⟦.Ident⟧ != p.⟦.Ident⟧ {
+		next.⟦.Ident⟧, changed = *c.⟦.Ident⟧, append(changed, ⟦quote .Name⟧)
+	}
+⟦- else⟧
+	if c.⟦.Ident⟧ != nil {
+		if value := strings.TrimSpace(*c.⟦.Ident⟧); value != p.⟦.Ident⟧ {
+			next.⟦.Ident⟧, changed = value, append(changed, ⟦quote .Name⟧)
+		}
+	}
+⟦- end⟧
+⟦- end⟧
+	if err := next.validate(); err != nil {
+		return p, nil, err
+	}
+	if len(changed) > 0 {
+		next.UpdatedAt = now
+	}
+	return next, changed, nil
+}
+
+func (p ⟦.Ident⟧) validate() error {
+	var errs []FieldError
+⟦- range .Fields⟧
+⟦- if .IsEnum⟧
+	if !p.⟦.Ident⟧.Valid() {
+		errs = append(errs, FieldError{Field: ⟦quote .Name⟧, Message: ⟦quote .EnumMessage⟧})
+	}
+⟦- else⟧
+	if msg := checkText(p.⟦.Ident⟧, ⟦.MinLength⟧, Max⟦.Ident⟧Length); msg != "" {
+		errs = append(errs, FieldError{Field: ⟦quote .Name⟧, Message: msg})
+	}
+⟦- end⟧
+⟦- end⟧
+	if len(errs) > 0 {
+		return &ValidationError{Errors: errs}
+	}
+	return nil
+}
+
+// checkText returns why s isn't a valid text of min to max characters, or "".
+func checkText(s string, minLen, maxLen int) string {
+	switch n := utf8.RuneCountInString(s); {
+	case !utf8.ValidString(s) || strings.ContainsRune(s, 0):
+		return "must be valid text"
+	case n < minLen:
+		return "is required"
+	case n > maxLen:
+		return fmt.Sprintf("must be at most %d characters", maxLen)
+	}
+	return ""
+}

@@ -25,20 +25,13 @@ func listOptions() page.Options {
 	}
 }
 
-// CreateInput is a new project. An empty status means active.
-type CreateInput struct {
-	Name        string
-	Description string
-	Status      projectsdomain.Status
-}
-
 // Create adds a project owned by the signed-in user.
-func (s *Service) Create(ctx context.Context, in CreateInput) (projectsdomain.Project, error) {
+func (s *Service) Create(ctx context.Context, f projectsdomain.ProjectFields) (projectsdomain.Project, error) {
 	owner, err := ownerID(ctx)
 	if err != nil {
 		return projectsdomain.Project{}, err
 	}
-	p, err := projectsdomain.NewProject(s.newID(), owner, in.Name, in.Description, in.Status, s.clock())
+	p, err := projectsdomain.NewProject(s.newID(), owner, f, s.clock())
 	if err != nil {
 		return projectsdomain.Project{}, err
 	}
@@ -66,7 +59,7 @@ func (s *Service) Get(ctx context.Context, id string) (projectsdomain.Project, e
 // ListInput selects a page of the signed-in user's projects.
 type ListInput struct {
 	Page page.Params
-	// Status keeps projects with this status; empty keeps every status.
+	// Status keeps projects with this status; empty keeps all.
 	Status projectsdomain.Status
 }
 
@@ -75,12 +68,12 @@ type ListInput struct {
 type cursor struct {
 	Sort string    `json:"s"`
 	Time time.Time `json:"t,omitzero"`
-	Name string    `json:"n,omitempty"`
+	Text string    `json:"x,omitempty"`
 	ID   string    `json:"i"`
 }
 
-// List returns a page of the signed-in user's projects, sorted by one field
-// (newest first by default).
+// List returns a page of the signed-in user's projects, sorted by one
+// field (newest first by default).
 func (s *Service) List(ctx context.Context, in ListInput) (page.Result[projectsdomain.Project], error) {
 	var none page.Result[projectsdomain.Project]
 	owner, err := ownerID(ctx)
@@ -98,8 +91,13 @@ func (s *Service) List(ctx context.Context, in ListInput) (page.Result[projectsd
 		return none, &projectsdomain.ValidationError{Errors: []projectsdomain.FieldError{{Field: "status", Message: "must be active or archived"}}}
 	}
 
-	// Ask for one more than the limit to learn whether there is a next page.
-	q := ListQuery{OwnerID: owner, Status: in.Status, Sort: req.Sort[0], Limit: req.Limit + 1}
+	q := ListQuery{
+		OwnerID: owner,
+		Status:  in.Status,
+		Sort:    req.Sort[0],
+		// One more than the limit shows whether there is a next page.
+		Limit: req.Limit + 1,
+	}
 	sort := sortName(q.Sort)
 	if req.Cursor != "" {
 		var c cursor
@@ -109,7 +107,7 @@ func (s *Service) List(ctx context.Context, in ListInput) (page.Result[projectsd
 		if c.Sort != sort || c.ID == "" {
 			return none, fmt.Errorf("%w: it belongs to a different sort", page.ErrInvalidCursor)
 		}
-		q.After = &Position{Time: c.Time, Name: c.Name, ID: c.ID}
+		q.After = &Position{Time: c.Time, Text: c.Text, ID: c.ID}
 	}
 
 	items, err := s.store.SelectProjects(ctx, q)
@@ -127,7 +125,7 @@ func (s *Service) List(ctx context.Context, in ListInput) (page.Result[projectsd
 		case "updated_at":
 			c.Time = last.UpdatedAt
 		case "name":
-			c.Name = last.Name
+			c.Text = last.Name
 		}
 		if res.NextCursor, err = page.EncodeCursor(c); err != nil {
 			return none, err
@@ -175,7 +173,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (projec
 			updated = current
 			return nil
 		}
-		updated, changed = next, fields
+		changed = fields
 		updated, err = tx.UpdateProject(ctx, next)
 		return err
 	})

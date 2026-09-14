@@ -1,6 +1,6 @@
 # CLI guide
 
-`aps` creates apistock apps, generates code in them and runs them locally. Decisions: [ADR-0014](../adr/0014-product-shape-and-presets.md) (presets and prompts), [ADR-0021](../adr/0021-generator-operation-model.md) (generator), [ADR-0035](../adr/0035-interactive-cli.md) (interactive prompts with flag parity), [ADR-0037](../adr/0037-email-setup-and-delivery.md) (`aps add mail`).
+`aps` creates apistock apps, generates code in them and runs them locally. Decisions: [ADR-0014](../adr/0014-product-shape-and-presets.md) (presets and prompts), [ADR-0021](../adr/0021-generator-operation-model.md) (generator), [ADR-0035](../adr/0035-interactive-cli.md) (interactive prompts with flag parity), [ADR-0037](../adr/0037-email-setup-and-delivery.md) (`aps add mail`), [ADR-0039](../adr/0039-resource-module-template.md) (`aps gen resource`).
 
 ## Installing
 
@@ -104,6 +104,56 @@ What it creates for `CleanupSessions`:
 | `internal/app/jobs.go` | One `defineCleanupSessionsJob(defs, deps)` line after `//aps:anchor jobs` |
 
 Safety checks: the app must have `internal/app/jobs.go` with the anchor; existing files are never overwritten; a job name can be registered once; the git repository must have no uncommitted changes (so the generated diff is easy to review) unless you pass `--allow-dirty`; generated Go is checked with gofmt.
+
+## `aps gen resource`
+
+Generates a module for records that belong to the signed-in user, in an app created with the Full preset: domain rules, use cases, a repository with hand-written SQL, `/v1/<names>` endpoints, tests and a migration. Everything it writes is your code to change ([ADR-0039](../adr/0039-resource-module-template.md)); `examples/full-single/internal/modules/projects` is exactly what it generates for the first example below.
+
+```bash
+aps gen resource                                                        # asks for everything
+aps gen resource Project name:string:unique description:text 'status:enum(active,archived)'
+aps gen resource Person name:string bio:text --plural People --dry-run
+aps gen resource Customer email:string:unique notes:text 'tier:enum(free,pro)' --json
+```
+
+Quote enum fields: shells treat parentheses specially.
+
+| Question | Flag | Default |
+|---|---|---|
+| Resource name | `<Name>` (positional, singular): `Project`, `OrderItem` or `order-item` | required |
+| Fields | positional, after the name, separated by spaces | required |
+| (flag only) Plural | `--plural People` | the name with -s, -es or -ies |
+| (flag only) ID prefix | `--id-prefix prj` (2 to 8 lowercase letters) | first letter and the next consonants: `prj`, `cst` |
+| (flag only) Who owns the records | `--scope user` | `user`; organisation-owned resources arrive with organisations in v0.4 |
+
+Flags may come before, between or after the name and fields. Other flags: `--dry-run`, `--json`, `--allow-dirty`, `--yes`, `--no-input`, `--plain`.
+
+| Field | Means |
+|---|---|
+| `name:string` | 1 to 100 characters, required, sortable in lists |
+| `name:string:unique` | The same, and unique among each user's records, ignoring case (409 `<resource>_<field>_taken`) |
+| `notes:text` | Up to 2000 characters, optional |
+| `status:enum(open,done)` | One of 2 to 20 snake_case values; the first is the default; lists can filter by it |
+
+Field names are snake_case (up to 20 characters). A resource needs at least one string field; the first one is its title. Names every resource already has (`id`, `owner_id`, `version`, `created_at`, `updated_at`, `limit`, `cursor`, `sort`, …) and PostgreSQL reserved words (`order`, `user`, …) are refused.
+
+What it creates for `Project`:
+
+| File | Contains |
+|---|---|
+| `internal/modules/projects/domain/` | `Project`, `ProjectFields`, `Changes`, validation and errors, with tests |
+| `internal/modules/projects/usecase/` | Create, get, list, update and delete for the signed-in owner, audit events, tests on PostgreSQL |
+| `internal/modules/projects/repository/` | One SQL file per operation and tests on PostgreSQL |
+| `internal/modules/projects/delivery/projects.go` | `POST`, `GET`, `PATCH` and `DELETE` under `/v1/projects` |
+| `internal/modules/projects/module.go` | Wires the layers |
+| `internal/app/module_projects.go` | Builds the module and maps its error codes |
+| `internal/app/projects_test.go` | An end-to-end HTTP test, including another user's requests getting 404 |
+| `db/migrations/<version>_projects.sql` | The table, a unique index per unique field and one index per sort |
+| `internal/app/modules.go` | One `registerProjects(api, mapper, svc),` line after `//aps:anchor modules` |
+
+Then run `go run ./cmd/migrate`, `go test ./...` and `go run ./cmd/api openapi > api/openapi.json`.
+
+Safety checks: the app must have `internal/app/modules.go` with the anchor inside `errors.Join`, the auth module and `db/migrations`; existing modules and files are never overwritten; a resource can be registered once; the migration always sorts after the existing ones; the git repository must be clean unless `--allow-dirty`; names and field types come from allowlists and generated Go names are checked for clashes, so no input reaches the code unchecked; generated Go is checked with gofmt.
 
 ## `aps add mail`
 

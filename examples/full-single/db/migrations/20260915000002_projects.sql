@@ -1,5 +1,5 @@
--- Projects (ADR-0039): the example business resource. Each project belongs to
--- one user. This is the shape of tables created by aps gen resource.
+-- Projects (ADR-0039): each project belongs to one user. Change this
+-- migration freely until it is released; afterwards, add a new one.
 
 -- +goose Up
 CREATE TABLE projects (
@@ -15,7 +15,7 @@ CREATE TABLE projects (
     updated_at  timestamptz NOT NULL
 );
 
--- Names are unique per owner, ignoring case.
+-- Name is unique per owner, ignoring case.
 CREATE UNIQUE INDEX projects_owner_name ON projects (owner_id, lower(name));
 
 -- One index per sort of GET /v1/projects.

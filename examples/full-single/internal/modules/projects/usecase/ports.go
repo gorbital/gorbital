@@ -15,7 +15,7 @@ import (
 // ListQuery selects one page of an owner's projects.
 type ListQuery struct {
 	OwnerID string
-	// Status keeps projects with this status; empty keeps every status.
+	// Status keeps projects with this status; empty keeps all.
 	Status projectsdomain.Status
 	// Sort is one of the sortable fields: created_at, updated_at or name.
 	Sort page.SortField
@@ -27,20 +27,20 @@ type ListQuery struct {
 // Position is where a page ended: the last project's sort value and ID.
 type Position struct {
 	Time time.Time // when sorting by created_at or updated_at
-	Name string    // when sorting by name
+	Text string    // when sorting by a text field
 	ID   string
 }
 
-// Store reads and writes projects. Every method is limited to one owner's
-// projects.
+// Store reads and writes projects. Every method is limited to one
+// owner's projects.
 type Store interface {
 	// InsertProject creates a project, or returns ErrProjectNameTaken.
 	InsertProject(ctx context.Context, p projectsdomain.Project) (projectsdomain.Project, error)
 	// SelectProject returns one of ownerID's projects, or
 	// ErrProjectNotFound. lock locks the row until the transaction ends.
 	SelectProject(ctx context.Context, ownerID, id string, lock bool) (projectsdomain.Project, error)
-	// SelectProjects returns up to q.Limit projects in q.Sort order, with
-	// the ID breaking ties.
+	// SelectProjects returns up to q.Limit projects in q.Sort order,
+	// with the ID breaking ties.
 	SelectProjects(ctx context.Context, q ListQuery) ([]projectsdomain.Project, error)
 	// UpdateProject saves p when the stored version is still p.Version and
 	// increments the version. It returns ErrProjectVersionConflict when the

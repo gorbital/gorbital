@@ -12,75 +12,90 @@ import (
 
 var now = time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
 
+// validFields returns fields that pass every rule.
+func validFields() projectsdomain.ProjectFields {
+	return projectsdomain.ProjectFields{Name: "Example name", Description: "Example description", Status: projectsdomain.StatusActive}
+}
+
 func TestNewProject(t *testing.T) {
-	p, err := projectsdomain.NewProject("prj_1", "usr_1", "  Website  ", " New pages ", "", now)
+	f := validFields()
+	f.Name = "  " + f.Name + "  "
+	f.Description = "  " + f.Description + "  "
+	f.Status = ""
+	p, err := projectsdomain.NewProject("prj_1", "usr_1", f, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Name != "Website" || p.Description != "New pages" || p.Status != projectsdomain.StatusActive || p.Version != 1 ||
+	if p.ProjectFields != validFields() || p.ID != "prj_1" || p.OwnerID != "usr_1" || p.Version != 1 ||
 		!p.CreatedAt.Equal(now) || !p.UpdatedAt.Equal(now) {
-		t.Errorf("NewProject() = %+v", p)
+		t.Errorf("NewProject() = %+v, want trimmed text and default choices", p)
 	}
 }
 
 func TestNewProjectValidates(t *testing.T) {
+	type fields = projectsdomain.ProjectFields
 	tests := []struct {
-		name, description string
-		status            projectsdomain.Status
-		wantFields        []string
+		name       string
+		edit       func(f *fields)
+		wantFields []string
 	}{
-		{name: "   ", wantFields: []string{"name"}},
-		{name: strings.Repeat("é", projectsdomain.MaxNameLength)},
-		{name: strings.Repeat("é", projectsdomain.MaxNameLength+1), wantFields: []string{"name"}},
-		{name: "ok\x00", wantFields: []string{"name"}},
-		{name: "ok", description: strings.Repeat("a", projectsdomain.MaxDescriptionLength+1), wantFields: []string{"description"}},
-		{name: "", description: string([]byte{0xff}), status: "done", wantFields: []string{"name", "description", "status"}},
+		{"blank name", func(f *fields) { f.Name = "   " }, []string{"name"}},
+		{"name at the limit", func(f *fields) { f.Name = strings.Repeat("é", projectsdomain.MaxNameLength) }, nil},
+		{"name too long", func(f *fields) { f.Name = strings.Repeat("é", projectsdomain.MaxNameLength+1) }, []string{"name"}},
+		{"name with a NUL character", func(f *fields) { f.Name = "ok\x00" }, []string{"name"}},
+		{"description at the limit", func(f *fields) { f.Description = strings.Repeat("é", projectsdomain.MaxDescriptionLength) }, nil},
+		{"description too long", func(f *fields) { f.Description = strings.Repeat("é", projectsdomain.MaxDescriptionLength+1) }, []string{"description"}},
+		{"description with a NUL character", func(f *fields) { f.Description = "ok\x00" }, []string{"description"}},
+		{"unknown status", func(f *fields) { f.Status = "?" }, []string{"status"}},
+		{"every field invalid", func(f *fields) { *f = fields{Name: "\x00", Description: "\x00", Status: "?"} }, []string{"name", "description", "status"}},
 	}
 	for _, tt := range tests {
-		_, err := projectsdomain.NewProject("prj_1", "usr_1", tt.name, tt.description, tt.status, now)
+		f := validFields()
+		tt.edit(&f)
+		_, err := projectsdomain.NewProject("prj_1", "usr_1", f, now)
 		if tt.wantFields == nil {
 			if err != nil {
-				t.Errorf("NewProject(%q) error = %v", tt.name, err)
+				t.Errorf("%s: NewProject() error = %v", tt.name, err)
 			}
 			continue
 		}
 		var invalid *projectsdomain.ValidationError
 		if !errors.As(err, &invalid) || !errors.Is(err, projectsdomain.ErrInvalidProject) {
-			t.Errorf("NewProject(%q, %q, %q) error = %v, want a ValidationError", tt.name, tt.description, tt.status, err)
+			t.Errorf("%s: NewProject() error = %v, want a ValidationError", tt.name, err)
 			continue
 		}
-		var fields []string
-		for _, f := range invalid.Errors {
-			fields = append(fields, f.Field)
+		var got []string
+		for _, fe := range invalid.Errors {
+			got = append(got, fe.Field)
 		}
-		if !slices.Equal(fields, tt.wantFields) {
-			t.Errorf("NewProject(%q, %q, %q) invalid fields = %v, want %v", tt.name, tt.description, tt.status, fields, tt.wantFields)
+		if !slices.Equal(got, tt.wantFields) {
+			t.Errorf("%s: invalid fields = %v, want %v", tt.name, got, tt.wantFields)
 		}
 	}
 }
 
 func TestApply(t *testing.T) {
-	p, err := projectsdomain.NewProject("prj_1", "usr_1", "Website", "", "", now)
+	p, err := projectsdomain.NewProject("prj_1", "usr_1", validFields(), now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	later := now.Add(time.Hour)
-	name, same, archived := " Website v2 ", "Website", projectsdomain.StatusArchived
+	title, same, blank := " "+p.Name+" v2 ", p.Name, ""
+	choice := projectsdomain.StatusArchived
 
-	next, changed, err := p.Apply(projectsdomain.Changes{Name: &name, Status: &archived}, later)
-	if err != nil || next.Name != "Website v2" || next.Status != archived || !next.UpdatedAt.Equal(later) ||
+	next, changed, err := p.Apply(projectsdomain.Changes{Name: &title, Status: &choice}, later)
+	if err != nil || next.Name != p.Name+" v2" || next.Status != choice || !next.UpdatedAt.Equal(later) ||
 		!slices.Equal(changed, []string{"name", "status"}) {
 		t.Errorf("Apply() = %+v, %v, %v", next, changed, err)
 	}
 
 	unchanged, changed, err := p.Apply(projectsdomain.Changes{Name: &same}, later)
-	if err != nil || len(changed) != 0 || !unchanged.UpdatedAt.Equal(now) {
+	if err != nil || len(changed) != 0 || unchanged != p {
 		t.Errorf("Apply(same name) = %+v, %v, %v; want no change", unchanged, changed, err)
 	}
 
-	blank, bad := "", projectsdomain.Status("done")
-	kept, _, err := p.Apply(projectsdomain.Changes{Name: &blank, Status: &bad}, later)
+	kept, _, err := p.Apply(projectsdomain.Changes{Name: &blank}, later)
 	if !errors.Is(err, projectsdomain.ErrInvalidProject) || kept != p {
-		t.Errorf("Apply(invalid) = %+v, %v; want the original and a validation error", kept, err)
+		t.Errorf("Apply(blank name) = %+v, %v; want the original and a validation error", kept, err)
 	}
 }

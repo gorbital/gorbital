@@ -1,0 +1,42 @@
+package app
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"apistock.dev/httpx"
+
+	⟦.Package⟧module "⟦.Module⟧/internal/modules/⟦.Package⟧"
+	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+	⟦.Package⟧usecase "⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+// register⟦.Plural⟧ builds and wires the ⟦.PluralHuman⟧ module. Error codes are
+// public API: add new ones, never change existing ones.
+func register⟦.Plural⟧(api huma.API, mapper *httpx.Mapper, svc services) error {
+	err := mapper.Add(
+		httpx.Mapping{Err: ⟦.Package⟧domain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+		httpx.Mapping{Err: ⟦.Package⟧domain.ErrInvalid⟦.Ident⟧, Status: http.StatusUnprocessableEntity, Code: "validation_failed", Detail: ⟦quote (print "the " .Human " is not valid")⟧},
+		httpx.Mapping{Err: ⟦.Package⟧domain.Err⟦.Ident⟧NotFound, Status: http.StatusNotFound, Code: "⟦.Snake⟧_not_found", Detail: ⟦quote (print "no " .Human " of yours has this ID")⟧},
+⟦- range .Uniques⟧
+		httpx.Mapping{Err: ⟦$.Package⟧domain.Err⟦$.Ident⟧⟦.Ident⟧Taken, Status: http.StatusConflict, Code: "⟦$.Snake⟧_⟦.Name⟧_taken", Detail: ⟦quote (print "you already have " $.A " " $.Human " with this " .Human)⟧},
+⟦- end⟧
+		httpx.Mapping{Err: ⟦.Package⟧domain.Err⟦.Ident⟧VersionConflict, Status: http.StatusConflict, Code: "⟦.Snake⟧_version_conflict", Detail: ⟦quote (print "the " .Human " changed since you read it; get it again and retry")⟧},
+	)
+	if err != nil {
+		return fmt.Errorf("⟦.PluralHuman⟧ module: %w", err)
+	}
+	// Without a database, when exporting the OpenAPI document, the operations
+	// are registered without their dependencies.
+	var m *⟦.Package⟧module.Module
+	if svc.db != nil {
+		m, err = ⟦.Package⟧module.New(svc.db, ⟦.Package⟧usecase.Config{Recorder: svc.recorder, Logger: svc.logger})
+		if err != nil {
+			return fmt.Errorf("⟦.PluralHuman⟧ module: %w", err)
+		}
+	}
+	m.Register(api)
+	return nil
+}

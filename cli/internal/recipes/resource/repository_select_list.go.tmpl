@@ -9,21 +9,23 @@ import (
 
 	"apistock.dev/page"
 
-	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
-	projectsusecase "example.com/acme-api/internal/modules/projects/usecase"
+	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+	⟦.Package⟧usecase "⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
 )
 
-// selectProjectsSQL holds one fixed query per sort, keyed "created_at",
+// select⟦.Plural⟧SQL holds one fixed query per sort, keyed "created_at",
 // "-created_at" and so on. Only the allowlisted sort expressions below become
 // SQL text; every value is a placeholder (ADR-0032). Pages use keyset
 // pagination: the next page starts after the last row's (sort value, id).
-var selectProjectsSQL = func() map[string]string {
+var select⟦.Plural⟧SQL = func() map[string]string {
 	sorts := []struct{ field, key, after string }{
 		{"created_at", `created_at`, `$3::timestamptz`},
 		{"updated_at", `updated_at`, `$3::timestamptz`},
 		// Text sorts ignore case and compare byte by byte, so the order
 		// doesn't depend on the database's locale.
-		{"name", `lower(name) COLLATE "C"`, `lower($3::text) COLLATE "C"`},
+⟦- range .Strings⟧
+		{⟦quote .Name⟧, `lower(⟦.Name⟧) COLLATE "C"`, `lower($3::text) COLLATE "C"`},
+⟦- end⟧
 	}
 	queries := make(map[string]string, 2*len(sorts))
 	for _, s := range sorts {
@@ -33,9 +35,11 @@ var selectProjectsSQL = func() map[string]string {
 				name, dir, cmp = "-"+s.field, "DESC", "<"
 			}
 			queries[name] = `
-	SELECT ` + projectColumns + ` FROM projects
+	SELECT ` + ⟦.Var⟧Columns + ` FROM ⟦.Table⟧
 	WHERE owner_id = $1
-	  AND ($6::text = '' OR status = $6)
+⟦- range $i, $f := .Enums⟧
+	  AND ($⟦$.EnumPlaceholder $i⟧::text = '' OR ⟦$f.Name⟧ = $⟦$.EnumPlaceholder $i⟧)
+⟦- end⟧
 	  AND (NOT $2::boolean OR (` + s.key + `, id) ` + cmp + ` (` + s.after + `, $4))
 	ORDER BY ` + s.key + ` ` + dir + `, id ` + dir + `
 	LIMIT $5`
@@ -44,14 +48,14 @@ var selectProjectsSQL = func() map[string]string {
 	return queries
 }()
 
-// SelectProjects returns up to q.Limit of an owner's projects in q.Sort
+// Select⟦.Plural⟧ returns up to q.Limit of an owner's ⟦.PluralHuman⟧ in q.Sort
 // order, starting after q.After.
-func (s *Store) SelectProjects(ctx context.Context, q projectsusecase.ListQuery) ([]projectsdomain.Project, error) {
+func (s *Store) Select⟦.Plural⟧(ctx context.Context, q ⟦.Package⟧usecase.ListQuery) ([]⟦.Package⟧domain.⟦.Ident⟧, error) {
 	name := q.Sort.Field
 	if q.Sort.Desc {
 		name = "-" + name
 	}
-	sql, ok := selectProjectsSQL[name]
+	sql, ok := select⟦.Plural⟧SQL[name]
 	if !ok {
 		return nil, fmt.Errorf("%w: %q is not sortable", page.ErrInvalidSort, q.Sort.Field)
 	}
@@ -71,9 +75,9 @@ func (s *Store) SelectProjects(ctx context.Context, q projectsusecase.ListQuery)
 	if q.After != nil {
 		afterID = q.After.ID
 	}
-	rows, err := s.db.Query(ctx, sql, q.OwnerID, q.After != nil, after, afterID, q.Limit, q.Status)
+	rows, err := s.db.Query(ctx, sql, q.OwnerID, q.After != nil, after, afterID, q.Limit⟦range .Enums⟧, q.⟦.Ident⟧⟦end⟧)
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, scanProject)
+	return pgx.CollectRows(rows, scan⟦.Ident⟧)
 }

@@ -37,25 +37,32 @@ func newStore(t *testing.T) (*projectsrepository.Store, *pgxpool.Pool) {
 	return projectsrepository.NewStore(pool), pool
 }
 
-func project(id, ownerID, name string, at time.Time) projectsdomain.Project {
-	return projectsdomain.Project{ID: id, OwnerID: ownerID, Name: name, Status: projectsdomain.StatusActive, Version: 1, CreatedAt: at, UpdatedAt: at}
+// sample returns a valid project with title as its name.
+func sample(id, ownerID, title string, at time.Time) projectsdomain.Project {
+	return projectsdomain.Project{
+		ID: id, OwnerID: ownerID,
+		ProjectFields: projectsdomain.ProjectFields{Name: title, Description: "Example description", Status: projectsdomain.StatusActive},
+		Version:       1, CreatedAt: at, UpdatedAt: at,
+	}
 }
 
 func TestProjects(t *testing.T) {
 	store, _ := newStore(t)
 	ctx := context.Background()
 
-	created, err := store.InsertProject(ctx, project("prj_1", "usr_ada", "Website", now))
+	created, err := store.InsertProject(ctx, sample("prj_1", "usr_ada", "Website", now))
 	if err != nil || created.ID != "prj_1" || created.Version != 1 || !created.CreatedAt.Equal(now) {
 		t.Fatalf("InsertProject() = %+v, %v", created, err)
 	}
-	if _, err := store.InsertProject(ctx, project("prj_2", "usr_ada", "WEBSITE", now)); !errors.Is(err, projectsdomain.ErrProjectNameTaken) {
+	taken := sample("prj_2", "usr_ada", "Other", now)
+	taken.Name = "WEBSITE"
+	if _, err := store.InsertProject(ctx, taken); !errors.Is(err, projectsdomain.ErrProjectNameTaken) {
 		t.Errorf("InsertProject(same name, other case) error = %v, want ErrProjectNameTaken", err)
 	}
-	if _, err := store.InsertProject(ctx, project("prj_3", "usr_bob", "Website", now)); err != nil {
-		t.Errorf("InsertProject(same name, other owner) error = %v", err)
+	if _, err := store.InsertProject(ctx, sample("prj_3", "usr_bob", "Website", now)); err != nil {
+		t.Errorf("InsertProject(same fields, another owner) error = %v", err)
 	}
-	if _, err := store.InsertProject(ctx, project("prj_4", "usr_ada", "Docs", now)); err != nil {
+	if _, err := store.InsertProject(ctx, sample("prj_4", "usr_ada", "Docs", now)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -67,9 +74,10 @@ func TestProjects(t *testing.T) {
 	}
 
 	next := created
-	next.Name, next.Status, next.UpdatedAt = "Website v2", projectsdomain.StatusArchived, now.Add(time.Minute)
+	next.Name, next.UpdatedAt = "Website v2", now.Add(time.Minute)
+	next.Status = projectsdomain.StatusArchived
 	updated, err := store.UpdateProject(ctx, next)
-	if err != nil || updated.Version != 2 || updated.Name != "Website v2" || updated.Status != projectsdomain.StatusArchived ||
+	if err != nil || updated.Version != 2 || updated.ProjectFields != next.ProjectFields ||
 		!updated.UpdatedAt.Equal(next.UpdatedAt) || !updated.CreatedAt.Equal(now) {
 		t.Fatalf("UpdateProject() = %+v, %v", updated, err)
 	}
@@ -107,11 +115,10 @@ func TestProjects(t *testing.T) {
 func TestSelectProjectsPages(t *testing.T) {
 	store, _ := newStore(t)
 	ctx := context.Background()
-	// Created a minute apart; prj_4 is archived. Two share a creation time to
-	// check that the ID breaks ties.
-	names := []string{"beta", "Alpha", "gamma", "delta", "Epsilon"}
-	for i, name := range names {
-		p := project(fmt.Sprintf("prj_%d", i), "usr_ada", name, now.Add(time.Duration(min(i, 3))*time.Minute))
+	// A minute apart, except the last two, which share a time to check that
+	// the ID breaks ties. The last one has another status.
+	for i, title := range []string{"beta", "Alpha", "gamma", "delta", "Epsilon"} {
+		p := sample(fmt.Sprintf("prj_%d", i), "usr_ada", title, now.Add(time.Duration(min(i, 3))*time.Minute))
 		if i == 4 {
 			p.Status = projectsdomain.StatusArchived
 		}
@@ -119,27 +126,27 @@ func TestSelectProjectsPages(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := store.InsertProject(ctx, project("prj_bob", "usr_bob", "zeta", now)); err != nil {
+	if _, err := store.InsertProject(ctx, sample("prj_bob", "usr_bob", "zeta", now)); err != nil {
 		t.Fatal(err)
 	}
 
 	tests := []struct {
 		sort   page.SortField
-		status projectsdomain.Status
+		filter projectsdomain.Status
 		want   []string
 	}{
-		{page.SortField{Field: "created_at", Desc: true}, "", []string{"prj_4", "prj_3", "prj_2", "prj_1", "prj_0"}},
-		{page.SortField{Field: "created_at"}, "", []string{"prj_0", "prj_1", "prj_2", "prj_3", "prj_4"}},
-		{page.SortField{Field: "name"}, "", []string{"prj_1", "prj_0", "prj_3", "prj_4", "prj_2"}},
-		{page.SortField{Field: "name", Desc: true}, "", []string{"prj_2", "prj_4", "prj_3", "prj_0", "prj_1"}},
-		{page.SortField{Field: "updated_at"}, projectsdomain.StatusActive, []string{"prj_0", "prj_1", "prj_2", "prj_3"}},
-		{page.SortField{Field: "updated_at"}, projectsdomain.StatusArchived, []string{"prj_4"}},
+		{sort: page.SortField{Field: "created_at", Desc: true}, want: []string{"prj_4", "prj_3", "prj_2", "prj_1", "prj_0"}},
+		{sort: page.SortField{Field: "created_at"}, want: []string{"prj_0", "prj_1", "prj_2", "prj_3", "prj_4"}},
+		{sort: page.SortField{Field: "name"}, want: []string{"prj_1", "prj_0", "prj_3", "prj_4", "prj_2"}},
+		{sort: page.SortField{Field: "name", Desc: true}, want: []string{"prj_2", "prj_4", "prj_3", "prj_0", "prj_1"}},
+		{sort: page.SortField{Field: "updated_at"}, filter: projectsdomain.StatusActive, want: []string{"prj_0", "prj_1", "prj_2", "prj_3"}},
+		{sort: page.SortField{Field: "updated_at"}, filter: projectsdomain.StatusArchived, want: []string{"prj_4"}},
 	}
 	for _, tt := range tests {
 		var got []string
 		var after *projectsusecase.Position
 		for range 10 {
-			items, err := store.SelectProjects(ctx, projectsusecase.ListQuery{OwnerID: "usr_ada", Status: tt.status, Sort: tt.sort, After: after, Limit: 2})
+			items, err := store.SelectProjects(ctx, projectsusecase.ListQuery{OwnerID: "usr_ada", Status: tt.filter, Sort: tt.sort, After: after, Limit: 2})
 			if err != nil {
 				t.Fatalf("SelectProjects(%+v) error = %v", tt.sort, err)
 			}
@@ -150,13 +157,13 @@ func TestSelectProjectsPages(t *testing.T) {
 				break
 			}
 			last := items[len(items)-1]
-			after = &projectsusecase.Position{ID: last.ID, Name: last.Name, Time: last.CreatedAt}
+			after = &projectsusecase.Position{ID: last.ID, Text: last.Name, Time: last.CreatedAt}
 			if tt.sort.Field == "updated_at" {
 				after.Time = last.UpdatedAt
 			}
 		}
 		if !slices.Equal(got, tt.want) {
-			t.Errorf("SelectProjects(sort %+v, status %q) pages = %v, want %v", tt.sort, tt.status, got, tt.want)
+			t.Errorf("SelectProjects(%+v) pages = %v, want %v", tt, got, tt.want)
 		}
 	}
 
@@ -168,7 +175,7 @@ func TestSelectProjectsPages(t *testing.T) {
 func TestDeletingAccountDeletesItsProjects(t *testing.T) {
 	store, pool := newStore(t)
 	ctx := context.Background()
-	if _, err := store.InsertProject(ctx, project("prj_1", "usr_ada", "Website", now)); err != nil {
+	if _, err := store.InsertProject(ctx, sample("prj_1", "usr_ada", "Website", now)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `DELETE FROM auth_users WHERE id = 'usr_ada'`); err != nil {
@@ -184,7 +191,7 @@ func TestInTxRollsBack(t *testing.T) {
 	ctx := context.Background()
 	errFail := errors.New("fail")
 	err := store.InTx(ctx, func(tx projectsusecase.Store) error {
-		if _, err := tx.InsertProject(ctx, project("prj_1", "usr_ada", "Website", now)); err != nil {
+		if _, err := tx.InsertProject(ctx, sample("prj_1", "usr_ada", "Website", now)); err != nil {
 			return err
 		}
 		return errFail

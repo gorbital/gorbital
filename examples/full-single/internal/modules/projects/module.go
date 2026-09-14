@@ -1,7 +1,6 @@
-// Package projects is the example business module: projects that belong to
-// the signed-in user, with all four layers and its own table (ADR-0039).
-// Copy it for your own resources, or create one like it with
-// aps gen resource.
+// Package projects holds projects that belong to the signed-in user,
+// with all four layers and its own table (ADR-0039). aps gen resource creates
+// modules like this one; the code is yours to change.
 package projects
 
 import (

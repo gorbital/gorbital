@@ -1,5 +1,5 @@
-// Package delivery is the projects module's HTTP adapter: Huma operations
-// and request and response types for /v1/projects.
+// Package delivery is the projects module's HTTP adapter: Huma
+// operations and request and response types for /v1/projects.
 package delivery
 
 import (
@@ -21,8 +21,8 @@ import (
 // ProjectResponse is a project.
 type ProjectResponse struct {
 	ID          string    `json:"id" example:"prj_mfrggzdfmztwq2lkmfrggzdfmy"`
-	Name        string    `json:"name" example:"Website redesign"`
-	Description string    `json:"description" example:"New landing page and pricing"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
 	Status      string    `json:"status" enum:"active,archived"`
 	Version     int64     `json:"version" example:"1" doc:"Increases with every change; send it back when updating"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -42,7 +42,7 @@ type projectPageOutput struct{ Body ProjectPage }
 type createInput struct {
 	Body struct {
 		_           struct{} `json:"-" additionalProperties:"true"`
-		Name        string   `json:"name" maxLength:"100" example:"Website redesign" doc:"Unique among your projects, ignoring case"`
+		Name        string   `json:"name" maxLength:"100" doc:"Unique among your projects, ignoring case"`
 		Description string   `json:"description,omitempty" maxLength:"2000"`
 		Status      string   `json:"status,omitempty" enum:"active,archived" default:"active"`
 	}
@@ -110,19 +110,24 @@ func Register(api huma.API, svc *projectsusecase.Service) {
 }
 
 func (h *handler) create(ctx context.Context, in *createInput) (*projectOutput, error) {
-	p, err := h.svc.Create(ctx, projectsusecase.CreateInput{
-		Name: in.Body.Name, Description: in.Body.Description, Status: projectsdomain.Status(in.Body.Status),
+	p, err := h.svc.Create(ctx, projectsdomain.ProjectFields{
+		Name:        in.Body.Name,
+		Description: in.Body.Description,
+		Status:      projectsdomain.Status(in.Body.Status),
 	})
 	if err != nil {
-		return nil, projectError(err, "body")
+		return nil, fieldErrors(err, "body")
 	}
 	return &projectOutput{Body: projectResponse(p)}, nil
 }
 
 func (h *handler) list(ctx context.Context, in *listInput) (*projectPageOutput, error) {
-	res, err := h.svc.List(ctx, projectsusecase.ListInput{Page: in.Params, Status: projectsdomain.Status(in.Status)})
+	res, err := h.svc.List(ctx, projectsusecase.ListInput{
+		Page:   in.Params,
+		Status: projectsdomain.Status(in.Status),
+	})
 	if err != nil {
-		return nil, projectError(err, "query")
+		return nil, fieldErrors(err, "query")
 	}
 	out := &projectPageOutput{Body: ProjectPage{Items: make([]ProjectResponse, len(res.Items)), NextCursor: res.NextCursor}}
 	for i, p := range res.Items {
@@ -140,14 +145,17 @@ func (h *handler) get(ctx context.Context, in *idInput) (*projectOutput, error) 
 }
 
 func (h *handler) update(ctx context.Context, in *updateInput) (*projectOutput, error) {
-	changes := projectsdomain.Changes{Name: in.Body.Name, Description: in.Body.Description}
+	changes := projectsdomain.Changes{
+		Name:        in.Body.Name,
+		Description: in.Body.Description,
+	}
 	if in.Body.Status != nil {
-		status := projectsdomain.Status(*in.Body.Status)
-		changes.Status = &status
+		value := projectsdomain.Status(*in.Body.Status)
+		changes.Status = &value
 	}
 	p, err := h.svc.Update(ctx, in.ID, projectsusecase.UpdateInput{Version: in.Body.Version, Changes: changes})
 	if err != nil {
-		return nil, projectError(err, "body")
+		return nil, fieldErrors(err, "body")
 	}
 	return &projectOutput{Body: projectResponse(p)}, nil
 }
@@ -156,9 +164,9 @@ func (h *handler) delete(ctx context.Context, in *idInput) (*struct{}, error) {
 	return nil, h.svc.Delete(ctx, in.ID)
 }
 
-// projectError lists invalid fields, found in location ("body" or "query");
+// fieldErrors lists invalid fields, found in location ("body" or "query");
 // other errors are mapped in internal/app/module_projects.go.
-func projectError(err error, location string) error {
+func fieldErrors(err error, location string) error {
 	var invalid *projectsdomain.ValidationError
 	if !errors.As(err, &invalid) {
 		return err
@@ -172,7 +180,12 @@ func projectError(err error, location string) error {
 
 func projectResponse(p projectsdomain.Project) ProjectResponse {
 	return ProjectResponse{
-		ID: p.ID, Name: p.Name, Description: p.Description, Status: string(p.Status),
-		Version: p.Version, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
+		ID:          p.ID,
+		Name:        p.Name,
+		Description: p.Description,
+		Status:      string(p.Status),
+		Version:     p.Version,
+		CreatedAt:   p.CreatedAt,
+		UpdatedAt:   p.UpdatedAt,
 	}
 }

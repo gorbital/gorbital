@@ -20,8 +20,10 @@ const usage = `aps creates and runs apistock applications.
 Usage:
   aps new [<name>] [flags]       create an application
   aps gen job [<Name>] [flags]   generate a background job (Full preset apps)
+  aps gen resource [<Name> <field:type>...] [flags]
+                                 generate a module, table and API for users' records (Full preset apps)
   aps add mail [flags]           set up email with Resend or SMTP (Full preset apps)
-  aps dev [flags]              run the application with live reload
+  aps dev [flags]                run the application with live reload
   aps version                    print version information
   aps help                       show this help
 

@@ -10,9 +10,7 @@ const projectColumns = `id, owner_id, name, description, status, version, create
 
 func scanProject(row pgx.CollectableRow) (projectsdomain.Project, error) {
 	var p projectsdomain.Project
-	var status string
-	err := row.Scan(&p.ID, &p.OwnerID, &p.Name, &p.Description, &status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
-	p.Status = projectsdomain.Status(status)
+	err := row.Scan(&p.ID, &p.OwnerID, &p.Name, &p.Description, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
 	p.CreatedAt, p.UpdatedAt = p.CreatedAt.UTC(), p.UpdatedAt.UTC()
 	return p, err
 }

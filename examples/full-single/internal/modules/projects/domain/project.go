@@ -1,6 +1,4 @@
-// Package domain holds the projects module's entities and rules. The
-// projects module is the example business resource and the template for
-// modules created with aps gen resource (ADR-0039).
+// Package domain holds the projects module's entities and rules.
 package domain
 
 import (
@@ -16,26 +14,30 @@ const (
 	MaxDescriptionLength = 2000
 )
 
-// Status is where a project is in its life.
+// Status is one of the values a project's status can have.
 type Status string
 
-// Statuses.
+// Status values.
 const (
 	StatusActive   Status = "active"
 	StatusArchived Status = "archived"
 )
 
-// Valid reports whether s is a known status.
-func (s Status) Valid() bool { return s == StatusActive || s == StatusArchived }
+// Valid reports whether v is a known status.
+func (v Status) Valid() bool {
+	switch v {
+	case StatusActive, StatusArchived:
+		return true
+	}
+	return false
+}
 
-// Project is something a user works on. It belongs to one user, its owner,
-// and only the owner can see or change it.
+// Project belongs to one user, its owner, and only the owner can see or
+// change it.
 type Project struct {
-	ID          string
-	OwnerID     string
-	Name        string
-	Description string
-	Status      Status
+	ID      string
+	OwnerID string
+	ProjectFields
 	// Version increases with every change. An update must name the version
 	// it read, so it can't overwrite a change it hasn't seen.
 	Version   int64
@@ -43,17 +45,22 @@ type Project struct {
 	UpdatedAt time.Time
 }
 
+// ProjectFields are the fields users set.
+type ProjectFields struct {
+	Name        string
+	Description string
+	Status      Status
+}
+
 // NewProject returns a new project owned by ownerID, or a *ValidationError.
-// Name and description are trimmed; an empty status means active.
-func NewProject(id, ownerID, name, description string, status Status, now time.Time) (Project, error) {
-	if status == "" {
-		status = StatusActive
+// Text is trimmed, and an empty choice takes its first value.
+func NewProject(id, ownerID string, f ProjectFields, now time.Time) (Project, error) {
+	f.Name = strings.TrimSpace(f.Name)
+	f.Description = strings.TrimSpace(f.Description)
+	if f.Status == "" {
+		f.Status = StatusActive
 	}
-	p := Project{
-		ID: id, OwnerID: ownerID,
-		Name: strings.TrimSpace(name), Description: strings.TrimSpace(description), Status: status,
-		Version: 1, CreatedAt: now, UpdatedAt: now,
-	}
+	p := Project{ID: id, OwnerID: ownerID, ProjectFields: f, Version: 1, CreatedAt: now, UpdatedAt: now}
 	if err := p.validate(); err != nil {
 		return Project{}, err
 	}
@@ -74,13 +81,13 @@ func (p Project) Apply(c Changes, now time.Time) (Project, []string, error) {
 	next := p
 	var changed []string
 	if c.Name != nil {
-		if v := strings.TrimSpace(*c.Name); v != p.Name {
-			next.Name, changed = v, append(changed, "name")
+		if value := strings.TrimSpace(*c.Name); value != p.Name {
+			next.Name, changed = value, append(changed, "name")
 		}
 	}
 	if c.Description != nil {
-		if v := strings.TrimSpace(*c.Description); v != p.Description {
-			next.Description, changed = v, append(changed, "description")
+		if value := strings.TrimSpace(*c.Description); value != p.Description {
+			next.Description, changed = value, append(changed, "description")
 		}
 	}
 	if c.Status != nil && *c.Status != p.Status {

@@ -32,8 +32,6 @@ import (
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
-	projectsmodule "example.com/acme-api/internal/modules/projects"
-	projectsusecase "example.com/acme-api/internal/modules/projects/usecase"
 )
 
 // ServiceName identifies the service in logs, traces and docs.
@@ -178,17 +176,14 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
-	// Projects: the example business module, owned by signed-in users
-	// (ADR-0039).
-	projects, err := projectsmodule.New(pool, projectsusecase.Config{Recorder: recorder, Logger: a.logger})
-	if err != nil {
-		return err
-	}
-
+	// Business modules such as projects build themselves from these in their
+	// module_<name>.go files.
 	return a.buildHTTP(services{
+		db:          pool,
+		recorder:    recorder,
+		logger:      a.logger,
 		pingMessage: appSettings.pingMessage,
 		auth:        a.auth,
-		projects:    projects,
 		ops: opsusecase.Deps{
 			Settings: a.settings,
 			Jobs:     a.jobsManager,
