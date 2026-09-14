@@ -78,7 +78,7 @@ jobs.Define(defs, jobs.Definition[cleanupsessions.Args]{
 |---|---|
 | Job definitions | `GET /ops/jobs/definitions` (effective config, defaults, `modified`, next run, last run state); `GET/PUT/DELETE /ops/jobs/definitions/{name}` (update with `version` and `reason`; delete resets to code defaults); `GET /ops/jobs/definitions/{name}/history`; `POST /ops/jobs/definitions/{name}/run` (run now) |
 | Scheduled jobs | `GET /ops/jobs/scheduled`: enabled definitions with a schedule and their next run times |
-| Runs | `GET /ops/jobs` (filter by definition, state, queue; cursor pagination); `GET /ops/jobs/{id}` (attempts, errors, timings; arguments omitted); `POST /ops/jobs/{id}/retry`; `POST /ops/jobs/{id}/cancel` |
+| Runs | `GET /ops/jobs/runs` (filter by definition, state, queue; cursor pagination); `GET /ops/jobs/runs/{id}` (attempts, errors, timings; arguments omitted); `POST /ops/jobs/runs/{id}/retry`; `POST /ops/jobs/runs/{id}/cancel`. Runs live under `/runs` because `/ops/jobs/{id}/retry` would conflict with `/ops/jobs/definitions/{name}` in Go's router |
 | Queues | `GET /ops/queues`; `POST /ops/queues/{name}/pause`; `POST /ops/queues/{name}/resume` |
 
 Permissions: `ops.jobs.read`, `ops.jobs.write` (config, pause/resume), `ops.jobs.run` (run now, retry, cancel). Every write is audited. Job arguments never appear in ops responses, because they can contain personal data.
@@ -154,4 +154,5 @@ River's tables have no `org_id` column; a job's org ID lives in its metadata. Th
 - Setting a field to its code default removes that override; a change that alters nothing creates no version, history row or audit event.
 - `NextRunAt` is computed from the schedule and is approximate: River's leader keeps the real timer in memory and restarts it on leader change.
 - Audit actions: `jobs.definition.changed`, `jobs.definition.run_requested`, `jobs.run.retried`, `jobs.run.cancelled`, `jobs.queue.paused`, `jobs.queue.resumed`.
-- `aps gen job` and the `/ops/jobs` HTTP endpoints are generated from `examples/full-single` (ADR-0021 golden-app rule), so they follow once that app wires postgres, settings and jobs.
+- The `/ops/jobs/*` and `/ops/queues` endpoints are implemented in `examples/full-single` (`internal/modules/ops`), protected by the interim ops token (ADR-0034). Error codes: `job_definition_not_found` (404), `job_definition_version_conflict` (409), `job_reason_required` (422), `invalid_job_config` (422), `job_definition_disabled` (409), `job_not_found` (404), `queue_not_active` (422), `invalid_cursor` (400), `invalid_job_state` (422).
+- `aps gen job` is implemented (ADR-0035): interactive prompts or flags, generating the `internal/jobs/<name>/` and `internal/app/job_<name>.go` layout; a golden test checks it reproduces `examples/full-single`'s heartbeat job exactly. See [the background jobs guide](../guides/background-jobs.md) and [the CLI guide](../guides/cli.md).

@@ -68,3 +68,16 @@ Owner: project maintainer. Each accepted risk is recorded here with a review dat
 | 10 Secrets committed | Done: `.env*` ignored in generated apps; gitleaks in CI |
 | 19 Sensitive data in logs | Done for v0.1 scope: `config.Secret` redaction, access logs without query strings, validation errors never echo values |
 | 21 Vulnerable dependencies | Done: govulncheck in CI for every module |
+
+## v0.2 status (in progress, 2026-09-14)
+
+| # | Status |
+|---|---|
+| 11 Localhost services | Done for PostgreSQL: `compose.yaml` binds to 127.0.0.1 in the repository and the Full preset |
+| 12 Account enumeration | Not started (arrives with `modules/auth`) |
+| 13 Session theft | Not started (arrives with `modules/auth`) |
+| 18 Privilege escalation to ops | **Partial:** `/ops/*` is protected by the interim `OPS_TOKEN` (ADR-0034) with permission checks in use cases; platform roles and 2FA replace it with `modules/auth` |
+| 19 Sensitive data in logs | Done for new modules: database URLs never appear in errors, query spans record SQL text but not arguments, validation errors never echo values, job arguments never appear in ops responses, ops token never printed |
+| 22 Open-core dependencies | River (MPL-2.0) and goose (MIT) used without Pro features; `robfig/cron/v3` (MIT) swap path is River's `PeriodicSchedule` |
+| 23 Runtime settings abuse | Done: no secret type, declared bounds, reasons, versions, history and audit events (`modules/settings`) |
+| 24 Job controls abuse | Done: permissions per operation, reasons to disable or reschedule, 1-minute minimum interval, bounded timeout and attempts, history and audit events, arguments hidden (`modules/jobs`) |

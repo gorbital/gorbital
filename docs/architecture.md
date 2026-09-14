@@ -132,7 +132,7 @@ apistock/
 │   └── releases/            release record at boot + query API
 ├── cli/                     module apistock.dev/cli → cmd/aps
 │   └── internal/recipes/    templates generated from examples/ (go generate), embedded in aps
-├── examples/                hand-written golden apps: minimal (v0.1), full-single, full-multi
+├── examples/                hand-written golden apps: minimal (v0.1), full-single (v0.2, in progress), full-multi
 ├── compose.yaml             PostgreSQL in Docker for module tests (host port 55432)
 ├── scripts/                 first-run measurement
 ├── spikes/                  throwaway experiments
@@ -219,7 +219,9 @@ Resend or SMTP behind `mail.Sender`. Development always delivers to Mailpit. Sen
 
 ### 7.4 Operations APIs ([ADR-0026](adr/0026-operations-apis.md))
 
-`/ops/*`, protected by platform roles and required 2FA. v1: audit logs, system health, release monitor, jobs overview, retention, maintenance mode, runtime settings (from v0.2, [ADR-0031](adr/0031-runtime-settings.md)). v1.1: feature flags, live observability, incidents, API keys.
+`/ops/*`, protected by platform roles and required 2FA. v1: audit logs, system health, release monitor, jobs, retention, maintenance mode, runtime settings. v1.1: feature flags, live observability, incidents, API keys.
+
+Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)). Until authentication ships they are protected by an interim `OPS_TOKEN` bearer token ([ADR-0034](adr/0034-interim-ops-token.md)); permission checks already run in the ops use cases.
 
 ### 7.5 API contract and docs ([ADR-0027](adr/0027-api-contract-and-docs.md))
 
@@ -231,7 +233,15 @@ Code-first with Huma v2, confined to `delivery/`: developers write Go input/outp
 
 ### 7.7 Configuration ([ADR-0020](adr/0020-constructors-and-configuration.md), [ADR-0031](adr/0031-runtime-settings.md))
 
-Two layers. **Environment** holds secrets, credentials and infrastructure (database URL, API keys, listen addresses) and changes with a redeploy. **Runtime settings** hold non-secret tunables (expiries, limits, sender names, frontend URLs, maintenance mode): declared in Go as typed handles with defaults and bounds, stored in PostgreSQL only when changed, edited through `PUT /ops/settings/{key}` with a reason and version, recorded in history and the audit log, and applied on every instance through `LISTEN/NOTIFY`. A value is never in both layers, and secrets are never settings.
+Two layers. **Environment** holds secrets, credentials and infrastructure (database URL, API keys, listen addresses) and changes with a redeploy. **Runtime settings** hold non-secret tunables (expiries, limits, sender names, frontend URLs, maintenance mode): declared in Go as typed handles with defaults and bounds, stored in PostgreSQL only when changed, edited through `PUT /ops/settings/{key}` with a reason and version, recorded in history and the audit log, and applied on every instance through `LISTEN/NOTIFY`. A value is never in both layers, and secrets are never settings. Guide: [runtime settings](guides/runtime-settings.md).
+
+### 7.8 Background jobs ([ADR-0033](adr/0033-background-jobs.md))
+
+Jobs run on PostgreSQL with River, in the API process or a separate worker. Each job is a **definition**, like a serverless function: developers write and deploy the code, and operators change its configuration at runtime (enabled, schedule, timeout, max attempts, queue, priority) through `/ops/jobs`, with versions, reasons, history and audit events. Schedules are 5-field cron in UTC or `@every` intervals, run once across instances by River's elected leader, and never more often than once a minute. Jobs carry the enqueuing request ID, trace and actor but never permissions, and run as the `jobs` system actor. Email is sent through `jobs.AsyncSender` with job-ID idempotency keys. River's tables are migrated by River's migrator from `cmd/migrate`. Guide: [background jobs](guides/background-jobs.md).
+
+### 7.9 Database ([ADR-0005](adr/0005-database-strategy.md), [ADR-0028](adr/0028-local-development-environment.md), [ADR-0032](adr/0032-repository-sql.md))
+
+PostgreSQL only, always from Docker in development, tests and CI. `modules/postgres` opens a traced pgx pool and provides `DBTX`, `InTx`, error classification, goose migrations and `pgtest` (a fresh database per test). Repositories use hand-written SQL with one file per operation. Guide: [database](guides/database.md).
 
 ---
 
@@ -248,7 +258,11 @@ Two layers. **Environment** holds secrets, credentials and infrastructure (datab
 | `aps upgrade [--major]` | Upgrade recipes and library on a branch |
 | `aps doctor` | Check configuration, versions and migrations |
 
-**Implemented in v0.1:** `aps new` (Minimal preset; `--module`, `--local`, `--json`, `--no-git`), `aps dev` (build, run, reload, `.env`, port check), `aps version`. Built with the standard library only.
+**Implemented in v0.1:** `aps new` (Minimal preset; `--module`, `--local`, `--json`, `--no-git`), `aps dev` (build, run, reload, `.env`, port check), `aps version`.
+
+**Implemented in v0.2 so far:** `aps gen job` (interactive or flags), interactive `aps new`. Guide: [CLI](guides/cli.md).
+
+**Interaction ([ADR-0035](adr/0035-interactive-cli.md)):** in a terminal, commands ask for missing values with arrow-key selects, checkboxes, validated inputs and a final summary; every prompt has a flag, flags skip their prompts, and `--yes`, `--json`, `--no-input` or `CI` never prompt. Prompts and flags share validators.
 
 - **Recipes** are declarative: `createFile`, `insertLine@anchor`, `addRequire`, `copyMigration`, `appendEnv`. API endpoints come from Go code (ADR-0027), so recipes never edit a spec file. No code runs at install time.
 - **One wiring file per feature** plus one call line at one anchor.
@@ -286,3 +300,6 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Minimal first run under 60 seconds~~ | Resolved: 12.0 s cold, 1.6 s warm in the spike; 25.0 s cold, 4.8 s warm with the real v0.1 CLI (`scripts/first-run.sh`) |
 | Scalar docs visual check in a real browser | Open: served, CSP-checked and asset-verified in tests, not yet viewed |
 | Publish the library at `apistock.dev` | Open: domain hardening, public repository, first tags (until then apps use `--local`) |
+| `/ops/*` protection before authentication | Interim `OPS_TOKEN` ([ADR-0034](adr/0034-interim-ops-token.md)); replaced by platform roles and 2FA when `modules/auth` ships |
+| `aps new --preset=full` | Open: `examples/full-single` is the golden app it will be generated from (`aps gen job` is done and golden-tested against it) |
+| Audit storage | Open: audit events are logged by `audit.LogRecorder` until `modules/auditpg` ships |

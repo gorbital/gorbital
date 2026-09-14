@@ -2,18 +2,33 @@
 
 **Production-ready Go APIs in minutes, as code you own.**
 
-> **Status: pre-alpha.** v0.1 (core library + Minimal preset) is implemented and tested but not released. The library isn't published at `apistock.dev` yet, so apps are created against a local checkout with `--local`. Full and Custom presets arrive in v0.2.
+> **Status: pre-alpha.** v0.1 (core library + Minimal preset) is implemented and tested but not released. v0.2 is in progress: PostgreSQL, runtime settings, background jobs and their admin APIs are implemented in the library and in the [Full preset example](examples/full-single); authentication, email and audit storage are next. The library isn't published at `apistock.dev` yet, so apps are created against a local checkout with `--local`.
 
 ## Try v0.1 from a checkout
 
 ```bash
 git clone git@github.com:apistockhq/apistock.git
-cd apistock/cli && go build -o ~/bin/aps ./cmd/aps && cd ../..
-aps new my-api --local ./apistock
+cd apistock/cli && go install ./cmd/aps && cd ../..   # installs aps into $(go env GOPATH)/bin
+aps new my-api --local ./apistock                     # or just `aps new` to be asked step by step
 cd my-api && aps dev        # set APP_ADDR in .env to use a port other than 8080
 ```
 
-Requires Go 1.26 or later.
+Requires Go 1.26 or later. If your shell says `command not found: aps`, add Go's bin directory to your `PATH` (`export PATH="$(go env GOPATH)/bin:$PATH"`) and open a new terminal. Every command can be answered interactively with arrow keys or driven entirely by flags; see the [CLI guide](docs/guides/cli.md).
+
+## Try the Full preset example (v0.2, in progress)
+
+Requires Docker. PostgreSQL always runs in a container.
+
+```bash
+cd apistock/examples/full-single
+cp .env.example .env                 # set OPS_TOKEN: openssl rand -hex 32
+docker compose up -d --wait
+set -a; . ./.env; set +a
+go run ./cmd/migrate
+go run ./cmd/api                     # docs at http://127.0.0.1:8080/docs
+```
+
+It shows runtime settings (`/ops/settings`) and Lambda-style background jobs (`/ops/jobs`) you configure without redeploying. See the [ops API reference](docs/guides/ops-api.md).
 
 ## What apistock is
 
@@ -43,9 +58,11 @@ aps dev                 # API at :8080, docs at /docs, local email inbox
 
 ## Documentation
 
+- [Documentation index](docs/README.md)
 - [Architecture](docs/architecture.md): the design overview
 - [Roadmap](docs/roadmap.md): milestones and what each one delivers
 - [Architecture decision records](docs/adr/README.md)
+- Guides: [CLI](docs/guides/cli.md), [local development](docs/guides/local-development.md), [database](docs/guides/database.md), [runtime settings](docs/guides/runtime-settings.md), [background jobs](docs/guides/background-jobs.md), [ops API reference](docs/guides/ops-api.md)
 - [Spikes](spikes/): experiments that informed decisions
 
 ## Roadmap (summary)
@@ -53,7 +70,7 @@ aps dev                 # API at :8080, docs at /docs, local email inbox
 | Release | Focus |
 |---|---|
 | v0.1 | Foundation: core library, Minimal preset, `aps new`, `aps dev`, API docs |
-| v0.2 | PostgreSQL, jobs, email, authentication, users and roles, audit, Full and Custom presets |
+| v0.2 (in progress) | PostgreSQL, runtime settings, Lambda-style jobs, email, authentication, users and roles, audit, Full and Custom presets |
 | v0.3 | Google and Apple sign-in, TOTP, passkeys |
 | v0.4 | Multi-tenant organisations |
 | v0.5 | Operations APIs, Postman, `aps upgrade` |

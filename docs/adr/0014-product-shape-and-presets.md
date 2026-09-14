@@ -1,6 +1,6 @@
 # ADR-0014: Product shape, presets and creation prompts
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0001
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0001 · **Amended by:** ADR-0035 (interactive prompts with flag parity)
 
 ## Context
 
@@ -28,7 +28,7 @@ Option 3.
 | **Full** | Everything: PostgreSQL, jobs, email, authentication (ADR-0024), users/roles, tenancy choice (ADR-0023), audit, operations APIs (ADR-0026), seed data, tests, CI option. |
 | **Custom** | A checklist of features. Dependencies are added automatically (for example, passkeys ⇒ auth ⇒ PostgreSQL, email, jobs). |
 
-Prompts (each with a flag for non-interactive use: `--preset`, `--tenancy`, `--mail`, `--github`, `--yes`):
+Prompts (each with a flag for non-interactive use: `--preset`, `--tenancy`, `--mail`, `--github`, `--yes`; interaction rules in ADR-0035):
 
 1. Preset.
 2. Tenancy, asked in business language (default single-tenant).

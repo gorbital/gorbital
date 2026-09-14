@@ -123,4 +123,4 @@ Per-org settings (column reserved), feature flags and percentage rollouts (v1.1)
 - Setting a value equal to the current one, or resetting a setting already at its default, changes nothing.
 - The listener uses a dedicated connection, reloads everything after each (re)connect, and reconnects with backoff up to 30 seconds.
 - Migrations ship embedded as `settings.Migrations`. Tests use `modules/postgres/pgtest` (a test-only dependency).
-- The `/ops/settings` HTTP endpoints arrive with the generated Full preset app (`examples/full-single`).
+- The `/ops/settings` HTTP endpoints are implemented in `examples/full-single` (`internal/modules/ops`), protected by the interim ops token (ADR-0034). Error codes: `setting_not_found` (404), `setting_version_conflict` (409), `setting_reason_required` (422), `invalid_setting_value` (422). See [the runtime settings guide](../guides/runtime-settings.md) and [the ops API reference](../guides/ops-api.md).
