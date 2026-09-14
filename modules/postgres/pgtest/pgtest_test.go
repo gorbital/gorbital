@@ -2,6 +2,7 @@ package pgtest_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -63,6 +64,26 @@ func TestNewWithMigrationsClonesFreshDatabases(t *testing.T) {
 		if _, err := pool.Exec(ctx, "INSERT INTO notes VALUES (1)"); err != nil {
 			t.Fatalf("database %d: insert into migrated table: %v", i, err)
 		}
+	}
+}
+
+func TestNewDatabaseReturnsAConnectableURL(t *testing.T) {
+	ctx := context.Background()
+	fsys := fstest.MapFS{
+		"00001_create_items.sql": {Data: []byte("-- +goose Up\nCREATE TABLE items (id int PRIMARY KEY);\n")},
+	}
+	dbURL := pgtest.NewDatabase(t, pgtest.WithMigrations(fsys))
+	conn, err := pgx.Connect(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("connect to NewDatabase URL: %v", err)
+	}
+	defer func() { _ = conn.Close(ctx) }()
+	var name string
+	if err := conn.QueryRow(ctx, "SELECT current_database()").Scan(&name); err != nil || !strings.HasPrefix(name, "pgtest_") {
+		t.Errorf("current_database() = %q, %v; want a pgtest database", name, err)
+	}
+	if _, err := conn.Exec(ctx, "INSERT INTO items VALUES (1)"); err != nil {
+		t.Errorf("migrated table missing: %v", err)
 	}
 }
 

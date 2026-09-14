@@ -26,6 +26,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -65,7 +66,7 @@ type options struct {
 	maxConns   int32
 }
 
-// An Option configures [New].
+// An Option configures [New] and [NewDatabase].
 type Option interface{ apply(*options) }
 
 type optionFunc func(*options)
@@ -77,7 +78,8 @@ func WithMigrations(fsys fs.FS) Option {
 	return optionFunc(func(o *options) { o.migrations = fsys })
 }
 
-// WithMaxConns sets the returned pool's size. Default: 4.
+// WithMaxConns sets the returned pool's size. Default: 4. [NewDatabase]
+// ignores it.
 func WithMaxConns(n int32) Option {
 	return optionFunc(func(o *options) { o.maxConns = n })
 }
@@ -86,11 +88,51 @@ func WithMaxConns(n int32) Option {
 // When the test ends, the pool is closed and the database dropped.
 func New(t testing.TB, opts ...Option) *pgxpool.Pool {
 	t.Helper()
+	o := newOptions(opts)
+	cfg, name := createDatabase(t, o)
+
+	dbCfg := cfg.Copy()
+	dbCfg.ConnConfig.Database = name
+	dbCfg.MaxConns = o.maxConns
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	pool, err := pgxpool.NewWithConfig(ctx, dbCfg)
+	if err != nil {
+		t.Fatalf("pgtest: open pool: %v", err)
+	}
+	// Cleanups run in reverse order: the pool closes before the drop.
+	t.Cleanup(pool.Close)
+	return pool
+}
+
+// NewDatabase creates a database for this test and returns its connection
+// URL, for tests that start a whole application from configuration. The
+// database is dropped when the test ends; close every connection first.
+// [EnvURL] must be in URL form (postgres://…).
+func NewDatabase(t testing.TB, opts ...Option) string {
+	t.Helper()
+	u, err := url.Parse(URL(t))
+	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") {
+		t.Fatalf("pgtest: NewDatabase needs %s as a postgres:// URL", EnvURL)
+	}
+	_, name := createDatabase(t, newOptions(opts))
+	u.Path = "/" + name
+	u.RawPath = ""
+	return u.String()
+}
+
+func newOptions(opts []Option) options {
 	o := options{maxConns: 4}
 	for _, opt := range opts {
 		opt.apply(&o)
 	}
+	return o
+}
 
+// createDatabase creates an empty or migrated database and registers its
+// drop. It returns the server's configuration and the database name.
+func createDatabase(t testing.TB, o options) (*pgxpool.Config, string) {
+	t.Helper()
 	cfg, err := pgxpool.ParseConfig(URL(t))
 	if err != nil {
 		t.Fatalf("pgtest: %s is not a valid PostgreSQL connection string", EnvURL)
@@ -116,18 +158,8 @@ func New(t testing.TB, opts ...Option) *pgxpool.Pool {
 	if _, err := admin.Exec(ctx, create); err != nil {
 		t.Fatalf("pgtest: create database: %v", err)
 	}
-	// Cleanups run in reverse order: the pool closes before the drop.
 	t.Cleanup(func() { dropDatabase(t, cfg, name) })
-
-	dbCfg := cfg.Copy()
-	dbCfg.ConnConfig.Database = name
-	dbCfg.MaxConns = o.maxConns
-	pool, err := pgxpool.NewWithConfig(ctx, dbCfg)
-	if err != nil {
-		t.Fatalf("pgtest: open pool: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
+	return cfg, name
 }
 
 // ensureTemplate returns a template database with fsys's migrations
