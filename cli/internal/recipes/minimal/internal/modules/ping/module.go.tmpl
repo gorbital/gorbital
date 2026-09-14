@@ -1,0 +1,25 @@
+// Package ping is an example module showing the layered structure: domain
+// rules, use cases, and an HTTP delivery adapter. Copy it to start a module.
+package ping
+
+import (
+	"github.com/danielgtaylor/huma/v2"
+
+	pingdelivery "⟦.Module⟧/internal/modules/ping/delivery"
+	pingusecase "⟦.Module⟧/internal/modules/ping/usecase"
+)
+
+// Module is the ping example module.
+type Module struct {
+	svc *pingusecase.Service
+}
+
+// New builds the module.
+func New() *Module {
+	return &Module{svc: pingusecase.NewService()}
+}
+
+// Register adds the module's HTTP operations to api.
+func (m *Module) Register(api huma.API) {
+	pingdelivery.Register(api, m.svc)
+}

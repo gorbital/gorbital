@@ -1,0 +1,18 @@
+module ⟦.Module⟧
+
+go 1.26.0
+
+require (
+	apistock.dev ⟦.LibraryVersion⟧
+	apistock.dev/modules/openapi ⟦.LibraryVersion⟧
+	apistock.dev/modules/telemetry ⟦.LibraryVersion⟧
+	github.com/danielgtaylor/huma/v2 v2.39.1
+)
+⟦- if .Local⟧
+
+replace (
+	apistock.dev => ⟦.Local⟧
+	apistock.dev/modules/openapi => ⟦.Local⟧/modules/openapi
+	apistock.dev/modules/telemetry => ⟦.Local⟧/modules/telemetry
+)
+⟦- end⟧

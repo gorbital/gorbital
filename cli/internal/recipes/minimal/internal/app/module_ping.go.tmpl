@@ -1,0 +1,26 @@
+package app
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"apistock.dev/httpx"
+
+	"⟦.Module⟧/internal/modules/ping"
+	pingdomain "⟦.Module⟧/internal/modules/ping/domain"
+)
+
+// registerPing wires the ping example module. Error codes are public API:
+// add new ones, never change existing ones.
+func registerPing(api huma.API, mapper *httpx.Mapper) error {
+	err := mapper.Add(
+		httpx.Mapping{Err: pingdomain.ErrMessageRequired, Status: http.StatusUnprocessableEntity, Code: "message_required"},
+	)
+	if err != nil {
+		return fmt.Errorf("ping module: %w", err)
+	}
+	ping.New().Register(api)
+	return nil
+}
