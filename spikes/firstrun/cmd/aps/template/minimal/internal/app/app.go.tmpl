@@ -1,0 +1,109 @@
+// Package app is the composition root: it builds the API, installs error
+// handling and docs, and wires modules. It is the only package that reads
+// environment variables.
+package app
+
+import (
+	"context"
+	"log/slog"
+	"net/http"
+	"os"
+	"runtime/debug"
+
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humago"
+
+	"{{.Module}}/internal/modules/ping"
+)
+
+// Config is the application configuration.
+type Config struct {
+	Addr string
+}
+
+// LoadConfig reads configuration from the environment.
+func LoadConfig() Config {
+	cfg := Config{Addr: "127.0.0.1:8080"}
+	if v := os.Getenv("APP_ADDR"); v != "" {
+		cfg.Addr = v
+	}
+	return cfg
+}
+
+// BuildInfo describes the running binary.
+type BuildInfo struct {
+	Version   string `json:"version" example:"v0.1.0"`
+	Commit    string `json:"commit,omitempty" example:"3f9a1c2"`
+	GoVersion string `json:"go_version" example:"go1.25.3"`
+}
+
+// VersionOutput is the /version response.
+type VersionOutput struct {
+	Body BuildInfo
+}
+
+// New returns the HTTP handler and the API (used for spec export).
+func New(logger *slog.Logger) (http.Handler, huma.API) {
+	installErrorHandling(logger)
+
+	mux := http.NewServeMux()
+	cfg := huma.DefaultConfig("{{.Name}}", buildInfo().Version)
+	cfg.DocsPath = ""
+	cfg.CreateHooks = nil
+	api := humago.New(mux, cfg)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "version",
+		Method:      http.MethodGet,
+		Path:        "/version",
+		Summary:     "Build information",
+		Tags:        []string{"System"},
+	}, func(context.Context, *struct{}) (*VersionOutput, error) {
+		return &VersionOutput{Body: buildInfo()}, nil
+	})
+
+	//aps:anchor modules
+	ping.New().Register(api)
+
+	mux.HandleFunc("GET /livez", healthy)
+	mux.HandleFunc("GET /readyz", healthy)
+	mux.HandleFunc("GET /docs", docs)
+	return mux, api
+}
+
+func buildInfo() BuildInfo {
+	b := BuildInfo{Version: "dev"}
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return b
+	}
+	b.GoVersion = info.GoVersion
+	if v := info.Main.Version; v != "" && v != "(devel)" {
+		b.Version = v
+	}
+	for _, s := range info.Settings {
+		if s.Key == "vcs.revision" {
+			b.Commit = s.Value
+		}
+	}
+	return b
+}
+
+func healthy(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
+}
+
+// docs serves Scalar. The spike loads it from a CDN; the real template embeds
+// the pinned asset so /docs works offline.
+func docs(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(`<!doctype html>
+<html>
+<head><title>{{.Name}} API</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body>
+<script id="api-reference" data-url="/openapi.json"></script>
+<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@1.44.20/dist/browser/standalone.js"></script>
+</body>
+</html>`))
+}

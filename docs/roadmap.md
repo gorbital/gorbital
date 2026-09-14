@@ -11,7 +11,7 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 | Architecture v2 and ADRs 0014–0030 | Done |
 | OpenAPI spike: code-first with Huma ([ADR-0027](adr/0027-api-contract-and-docs.md), [results](../spikes/openapi/README.md)) | Done |
 | Anchor-edit spike: text insertion wins ([ADR-0021](adr/0021-generator-operation-model.md), [results](../spikes/anchor/README.md)) | Done |
-| First-run spike: Minimal `aps new` → `/docs` under 60 seconds ([ADR-0028](adr/0028-local-development-environment.md)) | To do |
+| First-run spike: Minimal in 12.0 s cold, 1.6 s warm ([ADR-0028](adr/0028-local-development-environment.md), [results](../spikes/firstrun/README.md)) | Done |
 | Merge spike ([ADR-0016](adr/0016-scaffold-compatibility-and-upgrades.md)) | Done |
 
 ## v0.1: Foundation

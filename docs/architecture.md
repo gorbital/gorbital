@@ -269,4 +269,4 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~API contract: spec-first vs code-first~~ | Resolved: code-first with Huma ([spike](../spikes/openapi/README.md), ADR-0027) |
 | ~~Unknown request fields: strict vs tolerant~~ | Resolved: tolerant (ADR-0027) |
 | ~~Anchor edits: text insertion vs AST~~ | Resolved: parser-located text insertion ([spike](../spikes/anchor/README.md), ADR-0021) |
-| Minimal first run under 60 seconds | First-run spike |
+| ~~Minimal first run under 60 seconds~~ | Resolved: 12.0 s cold, 1.6 s warm ([spike](../spikes/firstrun/README.md)) |

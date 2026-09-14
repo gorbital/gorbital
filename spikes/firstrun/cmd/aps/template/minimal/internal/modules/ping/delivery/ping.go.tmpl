@@ -1,0 +1,57 @@
+// Package delivery is the HTTP adapter for the ping example.
+package delivery
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	pingusecase "{{.Module}}/internal/modules/ping/usecase"
+)
+
+// MessageBody carries a message.
+type MessageBody struct {
+	Message string `json:"message" doc:"Message text" example:"hello"`
+}
+
+// PingOutput is the ping response.
+type PingOutput struct {
+	Body MessageBody
+}
+
+// EchoInput is the echo request.
+type EchoInput struct {
+	Body struct {
+		_       struct{} `json:"-" additionalProperties:"true"` // tolerate unknown fields (ADR-0027)
+		Message string   `json:"message" minLength:"1" maxLength:"500" doc:"Message to echo" example:"hello"`
+	}
+}
+
+// Register adds the example operations to api.
+func Register(api huma.API, svc *pingusecase.Service) {
+	huma.Register(api, huma.Operation{
+		OperationID: "ping",
+		Method:      http.MethodGet,
+		Path:        "/v1/ping",
+		Summary:     "Ping the API",
+		Tags:        []string{"Example"},
+	}, func(ctx context.Context, _ *struct{}) (*PingOutput, error) {
+		return &PingOutput{Body: MessageBody{Message: svc.Ping(ctx)}}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "echo",
+		Method:      http.MethodPost,
+		Path:        "/v1/echo",
+		Summary:     "Echo a message",
+		Tags:        []string{"Example"},
+		Errors:      []int{http.StatusUnprocessableEntity},
+	}, func(ctx context.Context, in *EchoInput) (*PingOutput, error) {
+		m, err := svc.Echo(ctx, in.Body.Message)
+		if err != nil {
+			return nil, err
+		}
+		return &PingOutput{Body: MessageBody{Message: m}}, nil
+	})
+}

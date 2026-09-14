@@ -38,7 +38,11 @@ Developers must test the API immediately after `aps new`: interactive docs at `/
 
 ### Unknown request fields: tolerant
 
-Huma rejects unknown request-body fields by default. apistock apps **ignore unknown fields** (tolerant reader) so older server versions keep accepting requests from newer mobile and web clients. Validation still applies to every known field. The exact Huma configuration is implemented and tested in v0.1.
+Huma rejects unknown request-body fields by default. apistock apps **ignore unknown fields** (tolerant reader) so older server versions keep accepting requests from newer mobile and web clients. Validation still applies to every known field. Huma has no public global switch (its registry setting is unexported), so the generator adds `` _ struct{} `json:"-" additionalProperties:"true"` `` to every request body type, and a template test checks it. Verified in the [first-run spike](../../spikes/firstrun/README.md).
+
+### Docs asset size
+
+Embedding Scalar adds about 3.5 MB per binary. The template embeds a pre-compressed asset served with `Content-Encoding`, and `/docs` stays configurable (enabled, disabled, ops-only).
 
 ### Open for v0.4
 

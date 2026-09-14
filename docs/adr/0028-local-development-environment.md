@@ -53,4 +53,5 @@ Docker Compose gives production-like PostgreSQL with no manual setup; making Gra
 
 ## Consequences
 
-The first-run spike measures `aps new` → `/docs` time for Minimal (target under 60 seconds) and Full (target documented).
+- [First-run spike](../../spikes/firstrun/README.md): Minimal from clean caches in 12.0 s (build CLI, `aps new`, build, `/docs` ready), 1.6 s with warm caches. Target under 60 seconds met.
+- Full preset timing (including Docker image pulls) is measured in v0.2 and documented.

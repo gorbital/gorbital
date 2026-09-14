@@ -1,0 +1,66 @@
+package app
+
+import (
+	"errors"
+	"log/slog"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	pingdomain "{{.Module}}/internal/modules/ping/domain"
+)
+
+// Problem is the RFC 9457 problem+json body with a stable machine code.
+type Problem struct {
+	Title  string              `json:"title" example:"Unprocessable Entity"`
+	Status int                 `json:"status" example:"422"`
+	Code   string              `json:"code" example:"message_required"`
+	Detail string              `json:"detail,omitempty"`
+	Errors []*huma.ErrorDetail `json:"errors,omitempty"`
+}
+
+func (p *Problem) Error() string  { return p.Detail }
+func (p *Problem) GetStatus() int { return p.Status }
+
+// ContentType makes JSON problems use application/problem+json.
+func (p *Problem) ContentType(ct string) string {
+	if ct == "application/json" {
+		return "application/problem+json"
+	}
+	return ct
+}
+
+var errorTable = []struct {
+	target error
+	status int
+	code   string
+}{
+	{pingdomain.ErrMessageRequired, http.StatusUnprocessableEntity, "message_required"},
+}
+
+func installErrorHandling(logger *slog.Logger) {
+	huma.NewError = func(status int, msg string, errs ...error) huma.StatusError {
+		for _, err := range errs {
+			for _, m := range errorTable {
+				if errors.Is(err, m.target) {
+					return &Problem{Title: http.StatusText(m.status), Status: m.status, Code: m.code, Detail: m.target.Error()}
+				}
+			}
+		}
+		p := &Problem{Title: http.StatusText(status), Status: status, Code: "error", Detail: msg}
+		switch {
+		case status == http.StatusUnprocessableEntity:
+			p.Code = "validation_failed"
+		case status >= http.StatusInternalServerError:
+			p.Code, p.Detail = "internal_error", "an internal error occurred"
+			logger.Error("request failed", "err", errors.Join(errs...))
+		}
+		for _, err := range errs {
+			var d huma.ErrorDetailer
+			if errors.As(err, &d) {
+				p.Errors = append(p.Errors, d.ErrorDetail())
+			}
+		}
+		return p
+	}
+}

@@ -1,0 +1,19 @@
+// Package domain holds the ping example's business rules.
+package domain
+
+import (
+	"errors"
+	"strings"
+)
+
+// ErrMessageRequired is returned for blank messages.
+var ErrMessageRequired = errors.New("message is required")
+
+// Echo returns the trimmed message.
+func Echo(message string) (string, error) {
+	m := strings.TrimSpace(message)
+	if m == "" {
+		return "", ErrMessageRequired
+	}
+	return m, nil
+}
