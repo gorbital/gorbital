@@ -67,7 +67,7 @@ printf '%-32s %s\n' "GET /v1/nope"               "$(curl -s -w ' [%{http_code}]'
 printf '%-32s %s\n' "GET /openapi.json"          "$(code $B/openapi.json) ($(curl -s $B/openapi.json | wc -c | tr -d ' ') bytes)"
 printf '%-32s %s\n' "GET /docs"                  "$(code $B/docs)"
 printf '%-32s %s\n' "docs CSP"                   "$(curl -sI $B/docs | grep -i '^content-security-policy' | cut -c1-70)…"
-printf '%-32s %s\n' "docs script (gzip)"         "$(curl -s -o /dev/null -H 'Accept-Encoding: gzip' -w '%{http_code} %{size_download} bytes' $B/docs/scalar-1.44.20.js)"
+printf '%-32s %s\n' "docs search index"          "$(curl -s -o /dev/null -w '%{http_code} %{size_download} bytes' $B/docs/search.json)"
 printf '%-32s %s\n' "security headers"           "$(curl -sI $B/v1/ping | grep -ciE '^(x-content-type-options|x-frame-options|referrer-policy|x-request-id):') of 4"
 echo "== first server log lines"
 head -3 "$WORK/server.log"

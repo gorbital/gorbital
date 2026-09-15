@@ -164,8 +164,10 @@ func TestEndpoints(t *testing.T) {
 }
 
 func TestDocs(t *testing.T) {
-	if r := do(t, newApp(t, nil).Handler(), "GET", "/docs", ""); r.code != 200 || !strings.Contains(r.body, "api-reference") {
-		t.Errorf("GET /docs with docs enabled = %d, want the API reference page", r.code)
+	// The reference is rendered from the app's own OpenAPI document, so it
+	// lists the app's endpoints (ADR-0049).
+	if r := do(t, newApp(t, nil).Handler(), "GET", "/docs", ""); r.code != 200 || !strings.Contains(r.body, `href="/docs/system/get-version"`) {
+		t.Errorf("GET /docs with docs enabled = %d, want the API reference listing the app's endpoints", r.code)
 	}
 	if r := do(t, newApp(t, map[string]string{"APP_DOCS_ENABLED": "false"}).Handler(), "GET", "/docs", ""); r.code != 404 {
 		t.Errorf("GET /docs with docs disabled = %d, want 404", r.code)

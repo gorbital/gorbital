@@ -2,102 +2,107 @@ package openapi
 
 import (
 	"bytes"
-	"compress/gzip"
-	_ "embed"
-	"encoding/json"
-	"html/template"
-	"io"
+	"cmp"
+	"context"
+	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+
+	"apistock.dev/modules/openapi/reference"
 )
-
-// ScalarVersion is the embedded Scalar API Reference version.
-const ScalarVersion = "1.44.20"
-
-// maxScalarBytes bounds the decompressed docs script served without gzip.
-const maxScalarBytes = 16 << 20
-
-// The asset is the published standalone build, verified against its SRI hash
-// and gzip-compressed. See internal/scalar/README.txt.
-//
-//go:embed internal/scalar/standalone.js.gz
-var scalarGzip []byte
-
-// docsCSP allows only same-origin scripts, styles and API calls. Scalar needs
-// 'unsafe-eval' and inline styles.
-const docsCSP = "default-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
-	"img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; " +
-	"base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-
-var docsPage = template.Must(template.New("docs").Parse(`<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{.Title}}</title>
-</head>
-<body>
-<script id="api-reference" data-url="{{.SpecURL}}" data-configuration="{{.Config}}"></script>
-<script src="{{.ScriptURL}}"></script>
-</body>
-</html>
-`))
 
 // DocsOptions configure [MountDocs].
 type DocsOptions struct {
 	Path    string // default "/docs"
-	SpecURL string // default "/openapi.json"
+	SpecURL string // default "/openapi.json", served by the same mux
 	Title   string // default "API Reference"
 }
 
-// MountDocs serves an interactive API reference at opts.Path using the
-// embedded Scalar build, with no external requests. The script is served at
-// opts.Path + "/scalar-<version>.js" with long-lived caching.
+// MountDocs serves an API reference for the API on mux at opts.Path, in the
+// apistock design (ADR-0049): an overview, a page per operation with its
+// parameters, responses, request examples and "Try it", and search.
+//
+// The pages are rendered from the OpenAPI document that mux serves at
+// opts.SpecURL, read in-process on the first request, so every operation
+// registered before the server starts appears without further setup.
+// Styles, scripts and fonts are served by the app itself under
+// [reference.ContentSecurityPolicy]; the pages make no external requests.
 func MountDocs(mux *http.ServeMux, opts DocsOptions) {
-	if opts.Path == "" {
-		opts.Path = "/docs"
-	}
-	opts.Path = strings.TrimSuffix(opts.Path, "/")
-	if opts.SpecURL == "" {
-		opts.SpecURL = "/openapi.json"
-	}
-	if opts.Title == "" {
-		opts.Title = "API Reference"
-	}
-	scriptURL := opts.Path + "/scalar-" + ScalarVersion + ".js"
-	cfg, _ := json.Marshal(map[string]any{"withDefaultFonts": false})
+	opts.Path = "/" + strings.Trim(cmp.Or(opts.Path, "/docs"), "/")
+	opts.SpecURL = cmp.Or(opts.SpecURL, "/openapi.json")
+	opts.Title = cmp.Or(opts.Title, "API Reference")
+	d := &docs{mux: mux, opts: opts}
+	mux.Handle("GET "+opts.Path, d)
+	mux.Handle("GET "+opts.Path+"/", d)
+}
 
-	var page bytes.Buffer
-	_ = docsPage.Execute(&page, map[string]string{
-		"Title": opts.Title, "SpecURL": opts.SpecURL, "ScriptURL": scriptURL, "Config": string(cfg),
-	})
-	html := page.Bytes()
+type docs struct {
+	mux  *http.ServeMux
+	opts DocsOptions
 
-	mux.HandleFunc("GET "+opts.Path, func(w http.ResponseWriter, _ *http.Request) {
-		h := w.Header()
-		h.Set("Content-Type", "text/html; charset=utf-8")
-		h.Set("Content-Security-Policy", docsCSP)
-		h.Set("Cache-Control", "no-cache")
-		_, _ = w.Write(html)
-	})
+	mu      sync.Mutex
+	handler http.Handler
+}
 
-	mux.HandleFunc("GET "+scriptURL, func(w http.ResponseWriter, r *http.Request) {
-		h := w.Header()
-		h.Set("Content-Type", "text/javascript; charset=utf-8")
-		h.Set("Cache-Control", "public, max-age=31536000, immutable")
-		h.Set("Vary", "Accept-Encoding")
-		if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-			h.Set("Content-Encoding", "gzip")
-			_, _ = w.Write(scalarGzip)
-			return
-		}
-		zr, err := gzip.NewReader(bytes.NewReader(scalarGzip))
-		if err != nil {
-			http.Error(w, "docs asset unavailable", http.StatusInternalServerError)
-			return
-		}
-		defer zr.Close()
-		// The asset is embedded and hash-verified; the limit bounds work per request.
-		_, _ = io.CopyN(w, zr, maxScalarBytes)
+func (d *docs) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h, err := d.load(r.Context())
+	if err != nil {
+		w.Header().Set("Cache-Control", "no-store")
+		http.Error(w, "the API reference couldn't be built: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	h.ServeHTTP(w, r)
+}
+
+// load renders the reference on first use. A failure isn't kept, so the next
+// request tries again.
+func (d *docs) load(ctx context.Context) (http.Handler, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.handler != nil {
+		return d.handler, nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, d.opts.SpecURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	res := &bufferedResponse{header: http.Header{}, status: http.StatusOK}
+	d.mux.ServeHTTP(res, req)
+	if res.status != http.StatusOK {
+		return nil, fmt.Errorf("GET %s returned %d", d.opts.SpecURL, res.status)
+	}
+	ref, err := reference.Build(res.body.Bytes(), reference.Options{
+		Title: d.opts.Title, BasePath: d.opts.Path, SameOrigin: true, SpecURL: d.opts.SpecURL,
 	})
+	if err != nil {
+		return nil, err
+	}
+	h, err := ref.Handler()
+	if err != nil {
+		return nil, err
+	}
+	d.handler = h
+	return h, nil
+}
+
+// bufferedResponse records the OpenAPI document served in-process.
+type bufferedResponse struct {
+	header http.Header
+	status int
+	wrote  bool
+	body   bytes.Buffer
+}
+
+func (b *bufferedResponse) Header() http.Header { return b.header }
+
+func (b *bufferedResponse) WriteHeader(status int) {
+	if !b.wrote {
+		b.status, b.wrote = status, true
+	}
+}
+
+func (b *bufferedResponse) Write(p []byte) (int, error) {
+	b.wrote = true
+	return b.body.Write(p)
 }

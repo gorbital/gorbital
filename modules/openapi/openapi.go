@@ -1,6 +1,7 @@
 // Package openapi integrates Huma with apistock (ADR-0027): an API on the
 // standard http.ServeMux, problem+json errors produced by the application's
-// error mapper, embedded Scalar API reference docs, and OpenAPI export.
+// error mapper, an API reference at /docs in the apistock design (ADR-0049,
+// rendered by package reference), and OpenAPI export.
 //
 // Huma is used only in delivery layers and the composition root of
 // generated apps; domain, use case and repository code never imports it.

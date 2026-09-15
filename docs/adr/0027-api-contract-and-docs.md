@@ -1,6 +1,6 @@
 # ADR-0027: API contract and documentation
 
-**Status:** Accepted (2026-09-14) · decided by [spikes/openapi](../../spikes/openapi/README.md)
+**Status:** Accepted (2026-09-14), amended by [ADR-0049](0049-public-docs-and-website.md) · decided by [spikes/openapi](../../spikes/openapi/README.md)
 
 ## Context
 
@@ -27,7 +27,7 @@ Developers must test the API immediately after `aps new`: interactive docs at `/
 | Validation | From Go struct tags; 422 `validation_failed` with field locations |
 | Auth and tenancy | Per-operation Huma middlewares for session, org membership and permission; `security` documented |
 | Config | `CreateHooks = nil` (no `$schema` links in responses); built-in docs disabled |
-| Interactive docs | Own `/docs` handler serving an **embedded, pinned Scalar** asset (offline, no CDN), Mintlify-style layout with examples and try-it; configurable enabled / disabled / ops-only |
+| Interactive docs | Own `/docs` handler, offline with no CDN, Mintlify-style layout with examples and try-it; configurable enabled / disabled / ops-only. Originally an embedded, pinned Scalar asset; since ADR-0049, the apistock reference rendered by `modules/openapi/reference` |
 | Spec export | `my-api openapi` writes `api/openapi.json`; `aps dev` refreshes it; committed so API changes appear in pull requests |
 | Breaking changes | CI compares `api/openapi.json` with the base branch and fails on breaking changes |
 | Postman and AI | `api/postman_collection.json` and `api/llms.txt` generated from the exported spec (v0.5) |
@@ -42,7 +42,7 @@ Huma rejects unknown request-body fields by default. apistock apps **ignore unkn
 
 ### Docs asset size
 
-Embedding Scalar adds about 3.5 MB per binary. The template embeds a pre-compressed asset served with `Content-Encoding`, and `/docs` stays configurable (enabled, disabled, ops-only).
+Embedding Scalar added about 3.5 MB per binary, so the template embedded a pre-compressed asset served with `Content-Encoding`. Since ADR-0049 the reference is rendered by apistock itself: about 100 KB of fonts plus its own stylesheet and script, under a Content-Security-Policy without `'unsafe-eval'` or inline styles. `/docs` stays configurable (enabled, disabled, ops-only).
 
 ### Open for v0.4
 

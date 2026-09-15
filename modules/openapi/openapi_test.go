@@ -2,14 +2,13 @@ package openapi_test
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -17,6 +16,7 @@ import (
 
 	"apistock.dev/httpx"
 	"apistock.dev/modules/openapi"
+	"apistock.dev/modules/openapi/reference"
 )
 
 var errNameTaken = errors.New("project name is already taken")
@@ -47,10 +47,14 @@ func newApp(t *testing.T) (http.Handler, huma.API, *bytes.Buffer) {
 
 	mux := http.NewServeMux()
 	api := openapi.New(mux, "Test API", "0.1.0", openapi.WithBearerAuth("Session token"), openapi.WithDescription("Test"))
+	// Docs are mounted before the operation is registered: the reference
+	// reads the OpenAPI document when it is first requested.
+	openapi.MountDocs(mux, openapi.DocsOptions{Title: "Test API"})
 	huma.Register(api, huma.Operation{
 		OperationID:   "create-project",
 		Method:        http.MethodPost,
 		Path:          "/v1/projects",
+		Summary:       "Create a project",
 		Security:      openapi.Bearer,
 		DefaultStatus: http.StatusCreated,
 		Errors:        []int{http.StatusConflict},
@@ -65,7 +69,6 @@ func newApp(t *testing.T) (http.Handler, huma.API, *bytes.Buffer) {
 		out.Body.Name = in.Body.Name
 		return out, nil
 	})
-	openapi.MountDocs(mux, openapi.DocsOptions{Title: "Test API"})
 	return httpx.Chain(mux, httpx.RequestID()), api, logs
 }
 
@@ -146,36 +149,37 @@ func TestSpec(t *testing.T) {
 
 func TestDocs(t *testing.T) {
 	h, _, _ := newApp(t)
+	get := func(path string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+		return rec
+	}
 
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("GET", "/docs", nil))
+	rec := get("/docs")
 	page := rec.Body.String()
-	csp := rec.Header().Get("Content-Security-Policy")
-	scriptPath := "/docs/scalar-" + openapi.ScalarVersion + ".js"
-	if rec.Code != 200 || !strings.Contains(page, scriptPath) || !strings.Contains(page, `data-url="/openapi.json"`) {
-		t.Fatalf("GET /docs = %d, page missing script or spec URL:\n%s", rec.Code, page)
+	if rec.Code != http.StatusOK || !strings.Contains(page, "Test API") || !strings.Contains(page, `href="/docs/other/create-project"`) {
+		t.Fatalf("GET /docs = %d, want the overview listing the operation registered after MountDocs:\n%s", rec.Code, page)
 	}
-	if !strings.Contains(csp, "default-src 'none'") || strings.Contains(csp, "https://unpkg") || strings.Contains(page, "https://") {
-		t.Errorf("docs must not load external scripts; CSP %q", csp)
+	if csp := rec.Header().Get("Content-Security-Policy"); csp != reference.ContentSecurityPolicy || strings.Contains(page, "https://") {
+		t.Errorf("docs CSP %q; the page must load nothing from other origins", csp)
 	}
 
-	gz := httptest.NewRequest("GET", scriptPath, nil)
-	gz.Header.Set("Accept-Encoding", "gzip")
-	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, gz)
-	if rec.Header().Get("Content-Encoding") != "gzip" {
-		t.Fatalf("script with gzip accepted: Content-Encoding %q, want gzip", rec.Header().Get("Content-Encoding"))
+	rec = get("/docs/other/create-project")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Create a project") || !strings.Contains(rec.Body.String(), "/v1/projects") {
+		t.Errorf("GET /docs/other/create-project = %d", rec.Code)
 	}
-	zr, err := gzip.NewReader(rec.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	gzBytes, _ := io.ReadAll(zr)
 
-	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("GET", scriptPath, nil))
-	if rec.Header().Get("Content-Encoding") != "" || !bytes.Equal(rec.Body.Bytes(), gzBytes) || len(gzBytes) < 1_000_000 {
-		t.Errorf("script without gzip: encoding %q, %d bytes; want identity body equal to decompressed asset (%d bytes)",
-			rec.Header().Get("Content-Encoding"), rec.Body.Len(), len(gzBytes))
+	css := regexp.MustCompile(`href="(/docs/assets/reference\.[0-9a-f]+\.css)"`).FindStringSubmatch(page)
+	if css == nil {
+		t.Fatal("the docs page doesn't link its stylesheet")
+	}
+	if rec = get(css[1]); rec.Code != http.StatusOK || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/css") {
+		t.Errorf("GET %s = %d", css[1], rec.Code)
+	}
+	if rec = get("/docs/assets/fonts/spacegrotesk-v22-latin.woff2"); rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "font/woff2" {
+		t.Errorf("GET font = %d %s", rec.Code, rec.Header().Get("Content-Type"))
+	}
+	if rec = get("/docs/nope"); rec.Code != http.StatusNotFound {
+		t.Errorf("GET /docs/nope = %d, want 404", rec.Code)
 	}
 }
