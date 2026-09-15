@@ -23,14 +23,14 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0011](0011-github-integration.md) | GitHub integration | Accepted |
 | [0012](0012-versioning-and-upgrades.md) | Versioning and upgrades | Superseded by 0015, 0016 |
 | [0013](0013-multi-tenancy.md) | Multi-tenancy | Superseded by 0023 |
-| [0014](0014-product-shape-and-presets.md) | Product shape, presets and creation prompts | Accepted, amended by 0035 |
+| [0014](0014-product-shape-and-presets.md) | Product shape, presets and creation prompts | Accepted, amended by 0035, 0041, 0050 |
 | [0015](0015-public-api-and-stability-tiers.md) | Public API surface and stability tiers | Accepted |
-| [0016](0016-scaffold-compatibility-and-upgrades.md) | Scaffold compatibility and upgrade path | Accepted |
+| [0016](0016-scaffold-compatibility-and-upgrades.md) | Scaffold compatibility and upgrade path | Accepted, amended by 0050 |
 | [0017](0017-application-lifecycle.md) | Application lifecycle | Accepted |
 | [0018](0018-error-contract.md) | Error contract and problem+json | Accepted |
 | [0019](0019-module-dependency-rules.md) | Module dependency rules and core budget | Accepted, amended by 0033 |
 | [0020](0020-constructors-and-configuration.md) | Constructors and configuration | Accepted, amended by 0031 |
-| [0021](0021-generator-operation-model.md) | Generator operation model | Accepted |
+| [0021](0021-generator-operation-model.md) | Generator operation model | Accepted, amended by 0041, 0050 |
 | [0022](0022-generated-application-layout.md) | Generated application layout | Accepted, amended by 0032 |
 | [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033, 0048 |
 | [0024](0024-authentication-methods.md) | Authentication methods | Accepted, amended by 0038, 0043, 0044, 0046 |
@@ -50,12 +50,13 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0038](0038-authentication-v0-2.md) | Authentication in v0.2 | Accepted, amended by 0048 |
 | [0039](0039-resource-module-template.md) | Resource module template | Accepted, amended by 0048 |
 | [0040](0040-release-tracking.md) | Release tracking | Accepted |
-| [0041](0041-full-preset-generation.md) | Full preset generation | Accepted |
+| [0041](0041-full-preset-generation.md) | Full preset generation | Accepted, amended by 0050 |
 | [0042](0042-development-seed-data.md) | Development seed data | Accepted |
 | [0043](0043-two-factor-authentication.md) | Two-factor authentication | Accepted, amended by 0044, 0046 |
 | [0044](0044-passkeys.md) | Passkeys | Accepted |
 | [0045](0045-sign-in-provider-setup.md) | Sign-in provider setup | Accepted, amended by 0046 |
 | [0046](0046-google-and-apple-sign-in.md) | Google and Apple sign-in | Accepted |
 | [0047](0047-client-templates.md) | Client templates: docs site, dashboard and mobile apps from separate template repositories | Proposed |
-| [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Accepted |
+| [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Accepted, amended by 0050 |
 | [0049](0049-public-docs-and-website.md) | Public website: landing page, framework docs and API reference in the apistock look, built by a Go generator in `site/` | Accepted |
+| [0050](0050-upgrades-and-adding-features.md) | Upgrading apps and adding features to them (v0.5): lock v2, rebuilt merge base, `aps upgrade`, `aps add orgs` | Accepted |

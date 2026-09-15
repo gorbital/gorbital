@@ -1,6 +1,6 @@
 # ADR-0041: Full preset generation
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0014, ADR-0021, ADR-0028
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0014, ADR-0021, ADR-0028 · **Amended by:** ADR-0050 (`apistock.lock` v2 records the release, template inputs and file hashes)
 
 ## Context
 

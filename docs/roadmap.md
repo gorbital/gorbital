@@ -59,11 +59,13 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 ## v0.5: Operations and upgrades
 
+**Status: design accepted** ([ADR-0050](adr/0050-upgrades-and-adding-features.md), 2026-09-15; `v0.2.0`, `v0.3.0` and `v0.4.0` tagged at their milestone commits): `apistock.lock` v2 with recorded inputs and file hashes, the merge base rebuilt from the recorded release and checked against those hashes, `aps upgrade` on a branch, and `aps add orgs` as the same merge plus a data-converting migration. The proposal moves the Custom preset out of v0.5. The ops endpoints, maintenance mode, `aps doctor`, Postman collection and `llms.txt` follow in their own ADR.
+
 | | |
 |---|---|
-| **Delivers** | `/ops/*` (audit stats, system health, jobs overview, retention), maintenance mode, Postman collection, `llms.txt`, `aps upgrade` (3-way merge on a branch), `aps add orgs` (single → multi-tenant, moved from v0.4, [ADR-0048](adr/0048-organisations-v0-4.md)), `aps doctor`, Custom preset (moved from v0.2: it needs the Full golden app split into per-feature recipes with dependency resolution and tested combinations, which `aps add` and `aps upgrade` need too) |
-| **Not included** | Feature flags, live observability, incidents |
-| **Done when** | An app generated with v0.2 and edited by script upgrades to v0.5 in CI with no lost edits; ops endpoints require platform roles and 2FA |
+| **Delivers** | `/ops/*` (audit stats, system health, jobs overview, retention), maintenance mode, Postman collection, `llms.txt`, `aps upgrade` (3-way merge on a branch), `aps add orgs` (single → multi-tenant, moved from v0.4, [ADR-0048](adr/0048-organisations-v0-4.md)), `aps doctor`, `apistock.lock` v2 (release, template inputs and file hashes) |
+| **Not included** | Custom preset (moved out by [ADR-0050](adr/0050-upgrades-and-adding-features.md): each combination needs its own golden tree, and today's real choices are tenancy and the email provider), feature flags, live observability, incidents |
+| **Done when** | A Full app generated with `aps` at `v0.4.0` and edited by script (a changed line in a tracked file, a new resource, a new migration, `aps add mail smtp`) upgrades to v0.5 in CI with every edit kept, builds and passes its tests; the same app converted with `aps add orgs` has the schema of a new multi-tenant app and passes its suite; ops endpoints require platform roles and 2FA |
 
 ## v1.0: Stable
 

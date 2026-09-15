@@ -47,7 +47,7 @@ Three products, versioned together ([ADR-0014](adr/0014-product-shape-and-preset
 
 ```text
 $ aps new my-api
-? Preset           › ● Full  ○ Minimal  ○ Custom
+? Preset           › ● Full  ○ Minimal
 ? Will different companies or teams use your app, each with their own separate data?
                      ● No (single-tenant)  ○ Yes (multi-tenant)
 ? Email provider   › ● Resend  ○ SMTP
@@ -58,9 +58,9 @@ $ aps new my-api
 |---|---|
 | **Minimal** | HTTP server, config, logging, tracing, health, security defaults, OpenAPI + `/docs`, Dockerfile. No database; Docker not required. |
 | **Full** | Minimal + PostgreSQL, runtime settings, jobs, email, full authentication, users/roles/permissions, tenancy choice, audit logs, operations APIs, seed data, tests, CI option. |
-| **Custom** | A checklist of features; required dependencies are added automatically (for example passkeys ⇒ auth ⇒ PostgreSQL, email, jobs). |
+A Custom preset (a feature checklist) isn't planned for v0.5: every offered combination would need its own tested golden app ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
 
-Every prompt has a flag (`--preset`, `--tenancy`, `--mail`, `--github`, `--yes`) for CI and AI agents. `aps new` applies the base recipe plus the selected feature recipes with **the same engine as `aps add`** ([ADR-0021](adr/0021-generator-operation-model.md)).
+Every prompt has a flag (`--preset`, `--tenancy`, `--mail`, `--github`, `--yes`) for CI and AI agents. Each preset is a whole template tree generated from a golden app; `aps add` and `aps upgrade` move an app from one tree to another with the same 3-way merge ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
 
 ---
 
@@ -262,12 +262,12 @@ PostgreSQL only, always from Docker in development, tests and CI. `modules/postg
 | Command | Purpose |
 |---|---|
 | `aps new <name>` | Create an app (presets and prompts) |
-| `aps add <feature>` | Add a feature recipe |
+| `aps add <feature>` | Add a feature: `mail` switches the email provider; `orgs` (v0.5) turns a single-tenant app multi-tenant |
 | `aps gen resource <Name> <field:type>... [--scope=user]` | One-shot layered module owned by the signed-in user, with table, API and tests ([ADR-0039](adr/0039-resource-module-template.md)); `org` and `global` scopes later |
 | `aps gen job <Name> [--cron SPEC\|--every D]` | Job args, worker, test and definition; config editable in `/ops/jobs` ([ADR-0033](adr/0033-background-jobs.md)) |
 | `aps gen migration <name>` | Empty forward-only goose migration that runs after the existing ones |
 | `aps dev [--observability]` | Run locally with reload and Docker services |
-| `aps upgrade [--major]` | Upgrade recipes and library on a branch |
+| `aps upgrade [--from <version>] [--major]` | Merge template changes and upgrade the library on branch `aps-upgrade/<version>` (v0.5) |
 | `aps doctor` | Check configuration, versions and migrations |
 
 **Implemented in v0.1:** `aps new` (Minimal preset; `--module`, `--local`, `--json`, `--no-git`), `aps dev` (build, run, reload, `.env`, port check), `aps version`.
@@ -276,9 +276,9 @@ PostgreSQL only, always from Docker in development, tests and CI. `modules/postg
 
 **Interaction ([ADR-0035](adr/0035-interactive-cli.md)):** in a terminal, commands ask for missing values with arrow-key selects, checkboxes, validated inputs and a final summary; every prompt has a flag, flags skip their prompts, and `--yes`, `--json`, `--no-input` or `CI` never prompt. Prompts and flags share validators.
 
-- **Recipes** are declarative: `createFile`, `insertLine@anchor`, `addRequire`, `copyMigration`, `appendEnv`. API endpoints come from Go code (ADR-0027), so recipes never edit a spec file. No code runs at install time.
-- **One wiring file per feature** plus one call line at one anchor.
-- **Tracked vs one-shot:** recipe output is tracked in `apistock.lock` (operations and versions) for upgrades; `aps gen resource` output is one-shot.
+- **Recipes are whole preset trees** generated from the golden apps ([ADR-0041](adr/0041-full-preset-generation.md)). API endpoints come from Go code (ADR-0027), so recipes never edit a spec file. No code runs at install time.
+- **One wiring file per feature** stays a style goal: it keeps merges small.
+- **Tracked vs one-shot:** `apistock.lock` v2 records the `aps` release, the template inputs and a hash of every tracked file; `aps upgrade` rebuilds the old tree from that release, proves it against the hashes and merges 3-way ([ADR-0050](adr/0050-upgrades-and-adding-features.md)). `aps gen` output is one-shot.
 - **Safety:** names validated as Go identifiers, field types from an allowlist, writes confined with `os.Root`, diff preview with risky new imports highlighted, clean git tree required.
 
 ---
@@ -297,7 +297,7 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | v0.2 | PostgreSQL, runtime settings, jobs, email (Resend/SMTP), email/password auth, users and roles, audit, Full preset, single-tenant, `aps dev` with Docker, seed data |
 | v0.3 | Google, Apple, TOTP, passkeys |
 | v0.4 | Multi-tenant organisations, tenancy prompt |
-| v0.5 | Operations APIs, Postman, `llms.txt`, `aps upgrade`, Custom preset |
+| v0.5 | Operations APIs, Postman, `llms.txt`, `aps upgrade`, `aps add orgs`, `aps doctor` |
 | v1.0 | External security review, API freeze, documentation site |
 | v1.1 | Feature flags, live observability, API keys, GitHub login, row-level security option, local dev console |
 | v1.2 (proposed) | Client templates: docs site, dashboard and Expo app created by `aps new` from separate template repositories ([ADR-0047](adr/0047-client-templates.md)) |

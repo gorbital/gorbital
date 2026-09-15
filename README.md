@@ -45,7 +45,7 @@ apistock is a Go library plus a CLI (`aps`) that creates a complete, working API
 ```bash
 go install apistock.dev/cli/cmd/aps@latest
 
-aps new my-api          # choose Full, Minimal or Custom; tenancy; email provider
+aps new my-api          # choose Full or Minimal; tenancy
 cd my-api
 aps dev                 # API at :8080, docs at /docs, local email inbox
 ```
@@ -54,7 +54,6 @@ aps dev                 # API at :8080, docs at /docs, local email inbox
 |---|---|
 | **Minimal** | HTTP server, config, logging, tracing, health checks, security defaults, OpenAPI docs. No database. |
 | **Full** | Everything: PostgreSQL, jobs, email (Resend or SMTP), email/password + Google + Apple sign-in, 2FA, passkeys, users and roles, optional multi-tenant organisations, audit logs, operations APIs. |
-| **Custom** | Pick features from a list. |
 
 ## Documentation
 
@@ -70,10 +69,10 @@ aps dev                 # API at :8080, docs at /docs, local email inbox
 | Release | Focus |
 |---|---|
 | v0.1 | Foundation: core library, Minimal preset, `aps new`, `aps dev`, API docs |
-| v0.2 (in progress) | PostgreSQL, runtime settings, Lambda-style jobs, email, authentication, users and roles, audit, Full and Custom presets |
+| v0.2 | PostgreSQL, runtime settings, Lambda-style jobs, email, authentication, users and roles, audit, Full preset |
 | v0.3 | Google and Apple sign-in, TOTP, passkeys |
 | v0.4 | Multi-tenant organisations |
-| v0.5 | Operations APIs, Postman, `aps upgrade` |
+| v0.5 (next) | Operations APIs, Postman, `aps upgrade`, `aps add orgs` |
 | v1.0 | External security review, stable API |
 
 ## Contributing

@@ -1,6 +1,6 @@
 # ADR-0016: Scaffold compatibility and upgrade path
 
-**Status:** Accepted (2026-09-14) · **Supersedes (with ADR-0015):** ADR-0012
+**Status:** Accepted (2026-09-14) · **Supersedes (with ADR-0015):** ADR-0012 · **Amended by:** ADR-0050 (the merge base is rebuilt from the recorded release and inputs and checked against file hashes, not replayed operations)
 
 ## Context
 

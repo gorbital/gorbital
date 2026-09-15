@@ -1,6 +1,6 @@
 # ADR-0048: Organisations (v0.4)
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0023, ADR-0038
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0023, ADR-0038 · **Amended by:** ADR-0050 (`aps add orgs` merges `base-full` into `base-full-multi` and converts data with new migrations)
 
 The maintainer approved the five questions below as recommended (2026-09-15).
 

@@ -1,6 +1,6 @@
 # ADR-0021: Generator operation model
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0003 · **Supersedes (with ADR-0019):** ADR-0002
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0003 · **Supersedes (with ADR-0019):** ADR-0002 · **Amended by:** ADR-0041, ADR-0050 (the operation vocabulary and replayed operation log are replaced by whole preset trees, recorded inputs and file hashes; the safety rules stay)
 
 ## Context
 
