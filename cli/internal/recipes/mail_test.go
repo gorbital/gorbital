@@ -9,28 +9,32 @@ import (
 	"testing"
 )
 
-// TestMailMatchesGoldenApp checks that the Resend recipe reproduces
-// examples/full-single exactly (ADR-0021, ADR-0037).
+// TestMailMatchesGoldenApp checks that the Resend recipe reproduces the
+// golden Full apps exactly (ADR-0021, ADR-0037).
 func TestMailMatchesGoldenApp(t *testing.T) {
-	r, err := RenderMail(MailResend)
+	r, err := RenderMail(MailResend, "example.com/acme-api")
 	if err != nil {
 		t.Fatalf("RenderMail() error = %v", err)
 	}
-	golden := filepath.Join("..", "..", "..", "examples", "full-single")
-	infra, err := os.ReadFile(filepath.Join(golden, InfraMailPath))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(r.InfraMail) != string(infra) {
-		t.Errorf("resend %s differs from examples/full-single:\n--- recipe\n%s\n--- golden\n%s", InfraMailPath, r.InfraMail, infra)
-	}
-	example, err := os.ReadFile(filepath.Join(golden, ".env.example"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	block, err := Block(example, MailBlock)
-	if err != nil || string(block) != string(r.EnvBlock) {
-		t.Errorf("resend .env.example block differs from examples/full-single (%v):\n--- recipe\n%s\n--- golden\n%s", err, r.EnvBlock, block)
+	for _, app := range []string{"full-single", "full-multi"} {
+		golden := filepath.Join("..", "..", "..", "examples", app)
+		for path, content := range map[string][]byte{InfraMailPath: r.InfraMail, InfraMailTestPath: r.InfraMailTest} {
+			want, err := os.ReadFile(filepath.Join(golden, path))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(content) != string(want) {
+				t.Errorf("resend %s differs from examples/%s:\n--- recipe\n%s\n--- golden\n%s", path, app, content, want)
+			}
+		}
+		example, err := os.ReadFile(filepath.Join(golden, ".env.example"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		block, err := Block(example, MailBlock)
+		if err != nil || string(block) != string(r.EnvBlock) {
+			t.Errorf("resend .env.example block differs from examples/%s (%v):\n--- recipe\n%s\n--- golden\n%s", app, err, r.EnvBlock, block)
+		}
 	}
 	if !slices.Equal(r.EnvKeys, []string{"RESEND_API_KEY"}) || len(r.Modules) != 2 {
 		t.Errorf("EnvKeys, Modules = %v, %v", r.EnvKeys, r.Modules)
@@ -38,12 +42,15 @@ func TestMailMatchesGoldenApp(t *testing.T) {
 }
 
 func TestRenderMailSMTP(t *testing.T) {
-	r, err := RenderMail(MailSMTP)
+	r, err := RenderMail(MailSMTP, "example.com/shop-api")
 	if err != nil {
 		t.Fatalf("RenderMail() error = %v", err)
 	}
 	if !strings.Contains(string(r.InfraMail), `const mailProvider = "smtp"`) || r.Label != "SMTP" {
 		t.Errorf("smtp recipe = %s", r.InfraMail)
+	}
+	if test := string(r.InfraMailTest); !strings.Contains(test, `"example.com/shop-api/internal/app"`) || !strings.Contains(test, `mailProviderName    = "smtp"`) {
+		t.Errorf("smtp test recipe = %s", test)
 	}
 	if want := []string{"SMTP_HOST", "SMTP_PORT", "SMTP_TLS", "SMTP_USERNAME", "SMTP_PASSWORD"}; !slices.Equal(r.EnvKeys, want) {
 		t.Errorf("EnvKeys = %v, want %v", r.EnvKeys, want)
@@ -51,7 +58,7 @@ func TestRenderMailSMTP(t *testing.T) {
 	if !slices.Equal(r.Modules, []string{"apistock.dev/modules/mail/smtp"}) {
 		t.Errorf("Modules = %v", r.Modules)
 	}
-	if _, err := RenderMail("sendgrid"); err == nil {
+	if _, err := RenderMail("sendgrid", "example.com/shop-api"); err == nil {
 		t.Error("RenderMail(sendgrid) error = nil")
 	}
 }

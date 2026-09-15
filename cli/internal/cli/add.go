@@ -158,11 +158,15 @@ func runAddMail(ctx context.Context, args []string, stdin io.Reader, stdout, std
 		return err
 	}
 
-	recipe, err := recipes.RenderMail(in.provider)
+	goMod, err := readGoMod(ctx, app.dir)
 	if err != nil {
 		return err
 	}
-	plan, err := planMail(ctx, app.dir, example, recipe, in)
+	recipe, err := recipes.RenderMail(in.provider, goMod.Module.Path)
+	if err != nil {
+		return err
+	}
+	plan, err := planMail(app.dir, example, recipe, goMod, in)
 	if err != nil {
 		return err
 	}
@@ -434,19 +438,24 @@ func (p mailPlan) writesEnv() bool {
 	return slices.ContainsFunc(p.writes, func(w fileWrite) bool { return w.path == envPath })
 }
 
-func planMail(ctx context.Context, dir string, example []byte, r recipes.MailRecipe, in mailInput) (mailPlan, error) {
-	var plan mailPlan
+func planMail(dir string, example []byte, r recipes.MailRecipe, goMod goModInfo, in mailInput) (mailPlan, error) {
+	plan := mailPlan{goMod: goMod}
 	change := func(path string, old, updated []byte, perm fs.FileMode) {
 		if !bytes.Equal(old, updated) {
 			plan.writes = append(plan.writes, fileWrite{path: path, content: updated, perm: perm})
 		}
 	}
 
-	infra, _, err := readOptional(filepath.Join(dir, recipes.InfraMailPath))
-	if err != nil {
-		return mailPlan{}, err
+	for _, f := range []struct {
+		path    string
+		content []byte
+	}{{recipes.InfraMailPath, r.InfraMail}, {recipes.InfraMailTestPath, r.InfraMailTest}} {
+		old, _, err := readOptional(filepath.Join(dir, f.path))
+		if err != nil {
+			return mailPlan{}, err
+		}
+		change(f.path, old, f.content, 0o644)
 	}
-	change(recipes.InfraMailPath, infra, r.InfraMail, 0o644)
 
 	newExample, err := recipes.ReplaceBlock(example, recipes.MailBlock, r.EnvBlock)
 	if err != nil {
@@ -504,10 +513,6 @@ func planMail(ctx context.Context, dir string, example []byte, r recipes.MailRec
 		return mailPlan{}, err
 	}
 
-	plan.goMod, err = readGoMod(ctx, dir)
-	if err != nil {
-		return mailPlan{}, err
-	}
 	for _, module := range r.Modules {
 		if !slices.ContainsFunc(plan.goMod.Require, func(req goModRequire) bool { return req.Path == module }) {
 			plan.modules = append(plan.modules, module)
@@ -578,6 +583,7 @@ type goModRequire struct {
 type goModInfo struct {
 	// Go is the go directive's version, such as 1.26.0.
 	Go      string
+	Module  struct{ Path string }
 	Require []goModRequire
 	Replace []struct {
 		Old struct{ Path string }

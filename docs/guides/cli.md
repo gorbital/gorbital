@@ -274,6 +274,7 @@ What it changes:
 | File | Change |
 |---|---|
 | `internal/app/infra_mail.go` | Replaced with the provider's configuration and constructor |
+| `internal/app/infra_mail_test.go` | Replaced with the provider's tests and the fixtures the rest of the app's tests use, so `go test ./...` passes with either provider |
 | `.env.example` | The block between `# aps:begin mail` and `# aps:end mail` holds the provider's variables |
 | `.env` | Updated if it exists, or created from `.env.example` (mode 0600) when there are values to save; values already there are kept |
 | `apistock.yaml` | `mail: resend` or `mail: smtp` |

@@ -43,11 +43,16 @@ func (r Release) Tree(preset, tenancy, mail string, d Data) (map[string][]byte, 
 	if _, ok := tree[InfraMailPath]; !ok {
 		return nil, fmt.Errorf("recipes: the %s preset has no email provider to set to %s", preset, mail)
 	}
-	m, err := r.Mail(mail)
+	m, err := r.Mail(mail, d.Module)
 	if err != nil {
 		return nil, err
 	}
 	tree[InfraMailPath] = m.InfraMail
+	// Releases before the provider's tests moved into their own file have
+	// none; aps add mail writes it only where the tree has it.
+	if _, ok := tree[InfraMailTestPath]; ok {
+		tree[InfraMailTestPath] = m.InfraMailTest
+	}
 	if tree[envExamplePath], err = ReplaceBlock(tree[envExamplePath], MailBlock, m.EnvBlock); err != nil {
 		return nil, fmt.Errorf("recipes: %s: %w", envExamplePath, err)
 	}

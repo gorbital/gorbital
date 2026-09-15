@@ -3,6 +3,7 @@ package app_test
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -35,8 +36,8 @@ func TestEmailThroughOps(t *testing.T) {
 
 	status := do(t, h, "GET", "/ops/mail", "", bearer...)
 	details, _ := status.json["details"].(map[string]any)
-	if status.code != http.StatusOK || status.json["provider"] != "resend" || status.json["delivery"] != "mailpit" ||
-		status.json["from_email"] != "no-reply@example.com" || status.json["from_name"] != "⟦.Name⟧" || details["api_key"] != "missing" {
+	if status.code != http.StatusOK || status.json["provider"] != mailProviderName || status.json["delivery"] != "mailpit" ||
+		status.json["from_email"] != "no-reply@example.com" || status.json["from_name"] != "⟦.Name⟧" || !maps.Equal(details, mailProviderDetails) {
 		t.Fatalf("GET /ops/mail = %d %s", status.code, status.body)
 	}
 
@@ -120,11 +121,11 @@ func TestEmailConfiguration(t *testing.T) {
 	}{
 		{"development uses Mailpit without a key", map[string]string{}, ""},
 		{"development works without encryption keys", map[string]string{"AUTH_ENCRYPTION_KEYS": ""}, ""},
-		{"production needs encryption keys", map[string]string{"APP_ENV": "production", "RESEND_API_KEY": "re_123", "AUTH_ENCRYPTION_KEYS": ""}, "AUTH_ENCRYPTION_KEYS"},
-		{"production needs the Resend key", map[string]string{"APP_ENV": "production"}, "RESEND_API_KEY"},
-		{"production with the key", map[string]string{"APP_ENV": "production", "RESEND_API_KEY": "re_123"}, ""},
-		{"production never uses Mailpit", map[string]string{"APP_ENV": "production", "RESEND_API_KEY": "re_123", "MAIL_DELIVERY": "mailpit"}, "MAIL_DELIVERY"},
-		{"real email in development needs the key", map[string]string{"MAIL_DELIVERY": "provider"}, "RESEND_API_KEY"},
+		{"production needs encryption keys", withMailProvider(map[string]string{"APP_ENV": "production", "AUTH_ENCRYPTION_KEYS": ""}), "AUTH_ENCRYPTION_KEYS"},
+		{"production needs the provider's configuration", map[string]string{"APP_ENV": "production"}, mailProviderRequired},
+		{"production with the provider configured", withMailProvider(map[string]string{"APP_ENV": "production"}), ""},
+		{"production never uses Mailpit", withMailProvider(map[string]string{"APP_ENV": "production", "MAIL_DELIVERY": "mailpit"}), "MAIL_DELIVERY"},
+		{"real email in development needs the provider's configuration", map[string]string{"MAIL_DELIVERY": "provider"}, mailProviderRequired},
 		{"unknown delivery", map[string]string{"MAIL_DELIVERY": "carrier-pigeon"}, "MAIL_DELIVERY"},
 		{"bad Mailpit address", map[string]string{"MAILPIT_SMTP_ADDR": "mailpit"}, "MAILPIT_SMTP_ADDR"},
 	}
@@ -137,4 +138,12 @@ func TestEmailConfiguration(t *testing.T) {
 			t.Errorf("%s: LoadConfig() error = %v, want one mentioning %s", tt.name, err, tt.wantErr)
 		}
 	}
+}
+
+// withMailProvider returns env plus the variables that configure the email
+// provider (infra_mail_test.go).
+func withMailProvider(env map[string]string) map[string]string {
+	out := maps.Clone(mailProviderEnv)
+	maps.Copy(out, env)
+	return out
 }

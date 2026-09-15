@@ -1,0 +1,41 @@
+package app_test
+
+import (
+	"os"
+	"strings"
+	"testing"
+
+	"apistock.dev/config"
+
+	"⟦.Module⟧/internal/app"
+)
+
+// The email provider's side of the tests. `aps add mail` replaces this file
+// together with infra_mail.go (ADR-0037); the other tests use these values,
+// so they pass with any provider.
+var (
+	// mailProviderEnv configures the provider well enough to start in
+	// production.
+	mailProviderEnv = map[string]string{"RESEND_API_KEY": "re_123"}
+	// mailProviderRequired is the variable LoadConfig asks for when email
+	// goes through the provider and mailProviderEnv isn't set.
+	mailProviderRequired = "RESEND_API_KEY"
+	// mailProviderName and mailProviderDetails are what GET /ops/mail
+	// reports about the provider without mailProviderEnv.
+	mailProviderName    = "resend"
+	mailProviderDetails = map[string]any{"api_key": "missing"}
+)
+
+func TestMailProviderConfiguration(t *testing.T) {
+	load := func(env map[string]string) error {
+		env["AUTH_ENCRYPTION_KEYS"] = testEncryptionKeys
+		_, err := app.LoadConfig(config.Source{Getenv: func(k string) string { return env[k] }, ReadFile: os.ReadFile})
+		return err
+	}
+	if err := load(map[string]string{"MAIL_DELIVERY": "provider"}); err == nil || !strings.Contains(err.Error(), "https://resend.com/api-keys") {
+		t.Errorf("LoadConfig() without RESEND_API_KEY error = %v, want one saying where to create a key", err)
+	}
+	if err := load(map[string]string{"MAIL_DELIVERY": "provider", "RESEND_API_KEY": "re_123"}); err != nil {
+		t.Errorf("LoadConfig() with RESEND_API_KEY error = %v", err)
+	}
+}

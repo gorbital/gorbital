@@ -209,7 +209,7 @@ func TestLoadConfigReportsAllErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("LoadConfig(invalid values) error = nil, want error")
 	}
-	for _, key := range []string{"APP_ENV", "APP_ADDR", "APP_DOCS_ENABLED", "APP_MAX_BODY_BYTES", "APP_DB_MAX_CONNS", "APP_JOB_WORKERS", "RESEND_API_KEY", "AUTH_ENCRYPTION_KEYS"} {
+	for _, key := range []string{"APP_ENV", "APP_ADDR", "APP_DOCS_ENABLED", "APP_MAX_BODY_BYTES", "APP_DB_MAX_CONNS", "APP_JOB_WORKERS", mailProviderRequired, "AUTH_ENCRYPTION_KEYS"} {
 		if !strings.Contains(err.Error(), key) {
 			t.Errorf("LoadConfig() error does not mention %s:\n%v", key, err)
 		}

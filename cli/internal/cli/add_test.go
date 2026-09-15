@@ -27,7 +27,7 @@ func goldenApp(t *testing.T) string {
 func newMailApp(t *testing.T) string {
 	t.Helper()
 	golden, dir := goldenApp(t), t.TempDir()
-	for _, f := range []string{"go.mod", "apistock.yaml", ".env.example", "internal/app/mail.go", recipes.InfraMailPath} {
+	for _, f := range []string{"go.mod", "apistock.yaml", ".env.example", "internal/app/mail.go", recipes.InfraMailPath, recipes.InfraMailTestPath} {
 		writeFile(t, filepath.Join(dir, f), readFile(t, filepath.Join(golden, f)))
 	}
 	t.Chdir(dir)
@@ -54,16 +54,19 @@ func TestAddMailSMTPWithFlags(t *testing.T) {
 		!slices.Equal(res.EnvVariables, []string{"SMTP_HOST", "SMTP_PORT", "SMTP_TLS", "SMTP_USERNAME"}) {
 		t.Errorf("result = %+v", res)
 	}
-	if want := []string{recipes.InfraMailPath, ".env.example", ".env", "apistock.yaml"}; !slices.Equal(res.Files, want) {
+	if want := []string{recipes.InfraMailPath, recipes.InfraMailTestPath, ".env.example", ".env", "apistock.yaml"}; !slices.Equal(res.Files, want) {
 		t.Errorf("files = %v, want %v", res.Files, want)
 	}
 
-	smtp, err := recipes.RenderMail(recipes.MailSMTP)
+	smtp, err := recipes.RenderMail(recipes.MailSMTP, "example.com/acme-api")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, recipes.InfraMailPath); got != string(smtp.InfraMail) {
 		t.Errorf("infra_mail.go is not the SMTP recipe:\n%s", got)
+	}
+	if got := readFile(t, recipes.InfraMailTestPath); got != string(smtp.InfraMailTest) {
+		t.Errorf("infra_mail_test.go is not the SMTP recipe:\n%s", got)
 	}
 	if example := readFile(t, ".env.example"); !strings.Contains(example, "\nSMTP_HOST=\n") || strings.Contains(example, "RESEND_API_KEY") || !strings.Contains(example, "\nMAIL_DELIVERY=\n") {
 		t.Errorf(".env.example doesn't hold the SMTP block alone:\n%s", example)
@@ -145,15 +148,15 @@ func TestAddMailSwitchesBackToResend(t *testing.T) {
 	if strings.Count(env, "RESEND_API_KEY=") != 1 || !strings.Contains(env, "RESEND_API_KEY=re_saved_key\n# aps:end mail") || strings.Contains(env, "SMTP_HOST") {
 		t.Errorf(".env should keep the saved key once, inside the Resend block:\n%s", env)
 	}
-	resend, _ := recipes.RenderMail(recipes.MailResend)
-	if readFile(t, recipes.InfraMailPath) != string(resend.InfraMail) {
-		t.Error("infra_mail.go is not the Resend recipe")
+	resend, _ := recipes.RenderMail(recipes.MailResend, "example.com/acme-api")
+	if readFile(t, recipes.InfraMailPath) != string(resend.InfraMail) || readFile(t, recipes.InfraMailTestPath) != string(resend.InfraMailTest) {
+		t.Error("infra_mail.go and infra_mail_test.go are not the Resend recipe")
 	}
 }
 
 func TestAddMailAlreadyConfigured(t *testing.T) {
 	newMailApp(t)
-	files := []string{recipes.InfraMailPath, ".env.example", "apistock.yaml", "go.mod"}
+	files := []string{recipes.InfraMailPath, recipes.InfraMailTestPath, ".env.example", "apistock.yaml", "go.mod"}
 	snapshot := func() string {
 		var b strings.Builder
 		for _, f := range files {
@@ -321,7 +324,8 @@ func TestPromptMailSkipsQuestionsAnsweredByFlags(t *testing.T) {
 }
 
 // TestAddMailAppBuilds switches a copy of examples/full-single to SMTP and
-// back to Resend, building and vetting it each time. Set APS_E2E=1 to run it.
+// back to Resend, building, vetting and testing it each time; tests that need
+// PostgreSQL skip without it. Set APS_E2E=1 to run it.
 func TestAddMailAppBuilds(t *testing.T) {
 	if os.Getenv("APS_E2E") == "" {
 		t.Skip("set APS_E2E=1 to run the end-to-end test")
@@ -361,7 +365,7 @@ func TestAddMailAppBuilds(t *testing.T) {
 		if code, _, errOut := runAps(t, "add", "mail", "--provider", provider, "--allow-dirty"); code != 0 {
 			t.Fatalf("aps add mail --provider %s = %d: %s", provider, code, errOut)
 		}
-		for _, args := range [][]string{{"build", "./..."}, {"vet", "./..."}} {
+		for _, args := range [][]string{{"build", "./..."}, {"vet", "./..."}, {"test", "./internal/app/"}} {
 			cmd := exec.Command("go", args...)
 			if out, err := cmd.CombinedOutput(); err != nil {
 				t.Fatalf("go %s with %s failed: %v\n%s", strings.Join(args, " "), provider, err, out)

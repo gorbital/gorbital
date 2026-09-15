@@ -49,6 +49,7 @@ Create two Pages projects connected to this repository, one per site. Both use t
 | Setting | apistock.dev | docs.apistock.dev |
 |---|---|---|
 | Production branch | `main` | `main` |
+| Branch control (**Settings → Builds → Branch control**) | Automatic deployments on; **Preview deployments: None** | Automatic deployments on; **Preview deployments: None** |
 | Build command | `cd site && go run ./cmd/site build` | `cd site && go run ./cmd/site build` |
 | Build output directory | `site/dist/www` | `site/dist/docs` |
 | Environment variable | `GO_VERSION` = `1.26.0` | `GO_VERSION` = `1.26.0` |
@@ -71,4 +72,4 @@ examples/full-single/ARCHITECTURE.md
 
 `docs/*` covers the guides, decision records, roadmap and logo files; `modules/*/go.mod` keeps the landing page's module count current. A push that changes nothing on this list, such as a library or CLI change, doesn't start a build. When `content/docs.json` gains a page from another directory, add that path here too. Pages serves `404.html` for missing pages and applies `_headers` (security headers, a Content-Security-Policy, and a year of caching for hashed assets).
 
-Preview deployments link between the two sites through the production addresses. To build for other addresses, pass `-www-url` and `-docs-url`.
+Only `main` builds: with preview deployments set to None, pushes to other branches and pull requests don't start builds. If you turn previews on for a branch, preview deployments link between the two sites through the production addresses. To build for other addresses, pass `-www-url` and `-docs-url`.

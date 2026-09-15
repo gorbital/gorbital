@@ -63,9 +63,12 @@ func TestTreeWithSMTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	smtp, _ := recipes.RenderMail(recipes.MailSMTP)
+	smtp, _ := recipes.RenderMail(recipes.MailSMTP, shopData.Module)
 	if !bytes.Equal(tree[recipes.InfraMailPath], smtp.InfraMail) {
 		t.Errorf("%s is not the SMTP recipe", recipes.InfraMailPath)
+	}
+	if !bytes.Equal(tree[recipes.InfraMailTestPath], smtp.InfraMailTest) {
+		t.Errorf("%s is not the SMTP recipe", recipes.InfraMailTestPath)
 	}
 	if example := string(tree[".env.example"]); !strings.Contains(example, "\nSMTP_HOST=\n") || strings.Contains(example, "RESEND_API_KEY") {
 		t.Errorf(".env.example doesn't hold the SMTP block alone:\n%s", example)

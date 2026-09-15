@@ -36,7 +36,7 @@ aps add mail
 | Resend, no questions | `aps add mail --provider resend --yes` (add the key to `.env` yourself) |
 | SMTP with flags | `aps add mail --smtp-host smtp.postmarkapp.com --smtp-port 587 --smtp-username <token>` (asks for the password) |
 | See what would change | `aps add mail --provider smtp --dry-run` |
-| Switch provider | Run `aps add mail` again and pick the other one |
+| Switch provider | Run `aps add mail` again and pick the other one; it replaces `internal/app/infra_mail.go` and its tests, `infra_mail_test.go` |
 
 All flags are in the [CLI guide](cli.md#aps-add-mail).
 

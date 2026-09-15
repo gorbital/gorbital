@@ -56,6 +56,7 @@ Option 2, amending ADR-0025. apistock uses one endpoint; calling it directly add
 |---|---|---|
 | `internal/app/mail.go` | Delivery constants, `newMailSender` (Mailpit or provider), `mailInfo`, the default-sender warning | No |
 | `internal/app/infra_mail.go` | `mailProvider`, `mailConfig`, `loadMailConfig`, `newMailProvider`, `details()` (non-secret facts for ops) | Yes: written by `aps add mail` |
+| `internal/app/infra_mail_test.go` | The provider's test fixtures (`mailProviderEnv`, `mailProviderRequired`, `mailProviderName`, `mailProviderDetails`) and `TestMailProviderConfiguration` | Yes: written by `aps add mail` |
 | `.env.example` | The provider's variables between `# aps:begin mail` and `# aps:end mail` | Yes: the block is replaced |
 | `internal/app/settings.go` | The `mail.*` settings and `mailDefaults()` | No |
 | `apistock.yaml` | `mail: resend` or `mail: smtp` | Yes |
@@ -77,11 +78,12 @@ Other flags: `--dry-run`, `--json`, `--allow-dirty`, `--skip-tidy`, `--yes`, `--
 
 - **Flag parity exception (amends ADR-0035):** secrets are asked with hidden input and saved only to `.env`, or added to `.env` by hand. Scripts set them in the environment.
 - Before the questions, a note says what goes where: secrets in `.env`, which git ignores; sender name, address and reply-to later in `/ops/settings`, with no redeploy.
-- **What it changes:** `internal/app/infra_mail.go`, the `.env.example` block, `apistock.yaml`, `go.mod` (adds the provider module, with a `replace` to the local checkout when the app uses one) and `go mod tidy`. `.env` is updated when it exists, or created from `.env.example` with mode 0600 when there are values to save. Each variable keeps a value it already had anywhere in `.env`, and ends up defined once.
+- **What it changes:** `internal/app/infra_mail.go` and `internal/app/infra_mail_test.go`, the `.env.example` block, `apistock.yaml`, `go.mod` (adds the provider module, with a `replace` to the local checkout when the app uses one) and `go mod tidy`. `.env` is updated when it exists, or created from `.env.example` with mode 0600 when there are values to save. Each variable keeps a value it already had anywhere in `.env`, and ends up defined once.
 - **Safety:** runs only in Full preset apps (`internal/app/mail.go` and the `.env.example` block must exist); needs a clean git tree unless `--allow-dirty`; refuses to save secrets in `.env` when git doesn't ignore it; never prints secret values (the summary and `--json` list variable names only).
 - **Output:** a summary to confirm, then numbered next steps for the chosen provider: where to create a Resend key and verify the domain (or which SMTP variables remain), how to start the app, how to set the sender with `PUT /ops/settings/mail.*`, how to send a test email, and that development email is in Mailpit.
 - Running it again with the current provider changes nothing and prints the next steps.
-- **Tests:** the Resend recipe reproduces `examples/full-single` exactly (golden test); CI switches a copy of the example to SMTP and back, and builds and vets it each time.
+- **Tests:** the Resend recipe reproduces `examples/full-single` and `examples/full-multi` exactly (golden test); the end-to-end test switches a copy of the example to SMTP and back, and builds, vets and runs `go test ./internal/app/` each time.
+- **Provider-neutral app tests (2026-09-15):** an app's own tests passed only with Resend, so `aps add mail --provider smtp` left them failing. The provider's side of the tests now lives in `infra_mail_test.go`, which `aps add mail` replaces with `infra_mail.go`; every other test reads the provider's variables and `/ops/mail` details from its fixtures. The recipe fills in the app's module path from `go.mod`. Apps created before this change keep Resend-specific tests: after switching to SMTP, replace `RESEND_API_KEY`/`re_123` in their tests with the fixtures, as in `examples/full-single`.
 - `aps new --preset=full` will ask the same question when it ships.
 
 ### Ops APIs

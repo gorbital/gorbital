@@ -1,12 +1,15 @@
 package recipes
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"go/format"
 	"io/fs"
+	"path"
 	"regexp"
 	"strings"
+	"text/template"
 )
 
 // Email providers offered by aps add mail (ADR-0037).
@@ -19,6 +22,9 @@ const (
 const (
 	// InfraMailPath is the provider file aps add mail replaces.
 	InfraMailPath = "internal/app/infra_mail.go"
+	// InfraMailTestPath holds the provider's side of the app's tests, so the
+	// rest of them pass with any provider. aps add mail replaces it too.
+	InfraMailTestPath = "internal/app/infra_mail_test.go"
 	// MailBlock names the block of .env.example holding the provider's
 	// variables: from "# aps:begin mail" to "# aps:end mail".
 	MailBlock = "mail"
@@ -31,6 +37,8 @@ type MailRecipe struct {
 	Label string
 	// InfraMail is the content of internal/app/infra_mail.go.
 	InfraMail []byte
+	// InfraMailTest is the content of internal/app/infra_mail_test.go.
+	InfraMailTest []byte
 	// EnvBlock is the provider's block of .env.example, markers included.
 	EnvBlock []byte
 	// EnvKeys are the variables EnvBlock assigns, in order.
@@ -39,25 +47,28 @@ type MailRecipe struct {
 	Modules []string
 }
 
-// RenderMail returns this aps's recipe for provider. Go output is validated
-// with gofmt.
-func RenderMail(provider string) (MailRecipe, error) {
-	return Embedded().Mail(provider)
+// RenderMail returns this aps's recipe for provider in the app with Go
+// module path module. Go output is validated with gofmt.
+func RenderMail(provider, module string) (MailRecipe, error) {
+	return Embedded().Mail(provider, module)
 }
 
-// Mail returns the release's recipe for provider.
-func (r Release) Mail(provider string) (MailRecipe, error) {
+// Mail returns the release's recipe for provider in the app with Go module
+// path module.
+func (r Release) Mail(provider, module string) (MailRecipe, error) {
 	label, ok := map[string]string{MailResend: "Resend", MailSMTP: "SMTP"}[provider]
 	if !ok {
 		return MailRecipe{}, fmt.Errorf("recipes: unknown email provider %q (want resend or smtp)", provider)
 	}
-	src, err := fs.ReadFile(r.fsys, "mail/"+provider+".infra_mail.go.tmpl")
+	infra, err := r.renderMailGo(provider, InfraMailPath, module)
 	if err != nil {
 		return MailRecipe{}, err
 	}
-	infra, err := format.Source(src)
-	if err != nil {
-		return MailRecipe{}, fmt.Errorf("recipes: %s for %s is not valid Go: %w", InfraMailPath, provider, err)
+	// Releases before the provider's tests had their own file have no
+	// template for it, and their apps no such file.
+	infraTest, err := r.renderMailGo(provider, InfraMailTestPath, module)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return MailRecipe{}, err
 	}
 	block, err := fs.ReadFile(r.fsys, "mail/"+provider+".env.tmpl")
 	if err != nil {
@@ -74,7 +85,33 @@ func (r Release) Mail(provider string) (MailRecipe, error) {
 	if provider == MailResend {
 		modules = append(modules, "apistock.dev/modules/mail/resend")
 	}
-	return MailRecipe{Provider: provider, Label: label, InfraMail: infra, EnvBlock: block, EnvKeys: keys, Modules: modules}, nil
+	return MailRecipe{
+		Provider: provider, Label: label, InfraMail: infra, InfraMailTest: infraTest,
+		EnvBlock: block, EnvKeys: keys, Modules: modules,
+	}, nil
+}
+
+// renderMailGo renders the provider's template for the Go file at target,
+// filling in the app's module path.
+func (r Release) renderMailGo(provider, target, module string) ([]byte, error) {
+	name := provider + "." + path.Base(target) + ".tmpl"
+	src, err := fs.ReadFile(r.fsys, "mail/"+name)
+	if err != nil {
+		return nil, err
+	}
+	tmpl, err := template.New(name).Delims("⟦", "⟧").Option("missingkey=error").Parse(string(src))
+	if err != nil {
+		return nil, fmt.Errorf("recipes: parse %s: %w", name, err)
+	}
+	var out bytes.Buffer
+	if err := tmpl.Execute(&out, Data{Module: module}); err != nil {
+		return nil, fmt.Errorf("recipes: render %s: %w", name, err)
+	}
+	formatted, err := format.Source(out.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("recipes: %s for %s is not valid Go: %w", target, provider, err)
+	}
+	return formatted, nil
 }
 
 var envAssignment = regexp.MustCompile(`^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=`)

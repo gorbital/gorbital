@@ -27,6 +27,7 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   seed.go                development seed data (cmd/seed)
   mail.go                email delivery: Mailpit in development or the provider
   infra_mail.go          the email provider's configuration (replaced by `aps add mail`)
+  infra_mail_test.go     the email provider's tests and fixtures (replaced by `aps add mail`)
   modules.go             one line per business module (//aps:anchor modules)
   module_<name>.go       wires one module: its operations and error codes
 internal/jobs/<name>/    background job arguments and worker
@@ -79,7 +80,7 @@ Jobs run in the API process on PostgreSQL (River). A job carries the request ID,
 
 ## Email
 
-Modules send email through `mailer`, a `mail.Sender` built in `app.go`: it fills the sender from the `mail.*` runtime settings and queues the message; the mail worker delivers it with retries and idempotency. `mail.go` sends to Mailpit in development (`MAIL_DELIVERY`) or to the provider in `infra_mail.go`. The provider's secrets are environment variables in the `# aps:begin mail` block of `.env.example`. `aps add mail` replaces `infra_mail.go` and that block to switch between Resend and SMTP; don't edit them by hand.
+Modules send email through `mailer`, a `mail.Sender` built in `app.go`: it fills the sender from the `mail.*` runtime settings and queues the message; the mail worker delivers it with retries and idempotency. `mail.go` sends to Mailpit in development (`MAIL_DELIVERY`) or to the provider in `infra_mail.go`. The provider's secrets are environment variables in the `# aps:begin mail` block of `.env.example`. `aps add mail` replaces `infra_mail.go`, `infra_mail_test.go` and that block to switch between Resend and SMTP; don't edit them by hand.
 
 ## Audit log
 

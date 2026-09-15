@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -139,7 +140,7 @@ func TestSocialConfiguration(t *testing.T) {
 	load := func(env map[string]string) (app.Config, error) {
 		base := map[string]string{"AUTH_ENCRYPTION_KEYS": testEncryptionKeys}
 		if env["APP_ENV"] == "production" {
-			base["RESEND_API_KEY"] = "re_123"
+			maps.Copy(base, mailProviderEnv)
 		}
 		for k, v := range env {
 			base[k] = v
