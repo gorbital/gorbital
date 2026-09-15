@@ -129,11 +129,11 @@
 
 {{define "notfound"}}{{template "head" .Head}}
 <body class="force-dark">
-<main class="wrap nf" id="content">
+<main class="wrap not-found" id="content">
   <a class="dbrand" href="{{.WWWURL}}/">{{template "mark3"}}<span class="wordmark">apistock</span></a>
-  <p class="nf-code">404</p>
+  <p class="not-found-code">404</p>
   <h1>This page isn't here.</h1>
-  <p class="nf-lead">It may have moved when the docs were reorganised. Search the docs, or start from one of these.</p>
+  <p class="not-found-lead">It may have moved when the docs were reorganised. Search the docs, or start from one of these.</p>
   <div class="cta-row">
     <a class="btn btn-ink" href="{{.DocsURL}}/">Docs home <span class="arrow">&rarr;</span></a>
     <a class="btn btn-line" href="{{.DocsURL}}/quickstart/">Quickstart</a>

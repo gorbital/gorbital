@@ -197,10 +197,13 @@
 .lfoot .fine { color:var(--dim); margin-top:14px; max-width:34ch; }
 @media (max-width:760px) { .lfoot { grid-template-columns:repeat(2, minmax(0, 1fr)); } .lfoot > div:first-child { grid-column:1 / -1; } }
 
-/* ---------- 404 ---------- */
-.nf { min-height:80vh; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:22px; padding-block:64px; }
-.nf h1 { font:700 clamp(30px, 4vw, 44px)/1.05 var(--font-sans); letter-spacing:-.04em; }
-.nf-lead { color:var(--muted); max-width:52ch; }
+/* ---------- 404 ----------
+   Never name a layout class like a highlighter token (.nf, .p, .w…): code
+   blocks use those classes on every token. TestCSSDoesNotStyleTokenClasses
+   checks. */
+.not-found { min-height:80vh; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:22px; padding-block:64px; }
+.not-found h1 { font:700 clamp(30px, 4vw, 44px)/1.05 var(--font-sans); letter-spacing:-.04em; }
+.not-found-lead { color:var(--muted); max-width:52ch; }
 
 /* Package reference pages, generated from Go doc comments. */
 .prose .pkg-meta { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 20px; padding:14px 0; border-block:1px solid var(--hairline); font:400 13px/1.4 var(--font-mono); color:var(--muted); }
