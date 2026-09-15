@@ -1,0 +1,27 @@
+package usecase
+
+import (
+	"context"
+
+	"apistock.dev/modules/auditpg"
+	"apistock.dev/modules/jobs"
+
+	opsdomain "⟦.Module⟧/internal/modules/ops/domain"
+)
+
+// AuditStats counts audit events in a window, grouped (ADR-0051).
+func (s *Service) AuditStats(ctx context.Context, f auditpg.StatsFilter) (auditpg.Stats, error) {
+	if err := authorize(ctx, opsdomain.PermAuditRead); err != nil {
+		return auditpg.Stats{}, err
+	}
+	return s.audit.Stats(ctx, f)
+}
+
+// JobsOverview counts unfinished jobs per queue and lists failing job
+// definitions (ADR-0051).
+func (s *Service) JobsOverview(ctx context.Context) (jobs.Overview, error) {
+	if err := authorize(ctx, opsdomain.PermJobsRead); err != nil {
+		return jobs.Overview{}, err
+	}
+	return s.jobs.Overview(ctx)
+}

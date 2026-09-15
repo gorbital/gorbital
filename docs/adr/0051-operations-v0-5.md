@@ -151,8 +151,8 @@ Read-only; prints each check as `ok`, `warn` or `fail` with the fix; exit 1 on a
 | Step | State | Notes |
 |---|---|---|
 | 1. Permission table test, `GET /ops/system` | Done (2026-09-15) | `ops.system.read` for `platform_admin` and `ops_viewer`; `GET /ops/system` from `internal/app/system.go` (`releases.Tracker.InstanceID`, `health.Checker.Check`, `pgxpool.Stat`, `postgres.Migrations`, `runtime.ReadMemStats`), with 2-second bounds on its database calls and fixed error descriptions. The permission test runs at the use-case layer instead of over HTTP, where input validation answers 422 before any permission check: `TestEveryOperationAuthorizesFirst` calls every exported ops `Service` method by reflection without a session, without permissions and needing 2FA, on a service with no dependencies, so a method that skips `authorize` panics and fails; `TestOpsOperationsDeclareSecurity` checks that every `/ops` operation in the spec declares bearer security and 401 and 403 responses. `TestOpsSystem` checks the report and that it holds no connection string. Both golden apps |
-| 2. Audit stats, jobs overview | Next | |
-| 3. Retention | | |
+| 2. Audit stats, jobs overview | Done (2026-09-15) | `auditpg.Store.Stats`: the list's filter conditions (now shared through `Filter.conditions`), one `GROUP BY` with `sum(n) OVER ()` for the total before `LIMIT`, a 5-second context timeout; `group_by=day` returns every day instead of the top 50. `jobs.Manager.Overview`: one grouped count over `river_job` for available, scheduled, running and retryable jobs and those discarded in the last 24 hours, merged with active queues (paused flag), plus definitions whose last run is retryable or discarded; a 5-second timeout. `GET /ops/audit/stats` (`ops.audit.read`, 422 `invalid_audit_filter`) and `GET /ops/jobs/overview` (`ops.jobs.read`) in both golden apps. Tests: `TestStats`, `TestStatsCountsGroupsBeyondTheLimit`, `TestOverview` (scheduled and discarded jobs, pausing), `TestOpsAuditStatsAndJobsOverview` |
+| 3. Retention | Next | |
 | 4. Maintenance mode | | |
 | 5. API exports | | |
 | 6. `aps doctor` | | |

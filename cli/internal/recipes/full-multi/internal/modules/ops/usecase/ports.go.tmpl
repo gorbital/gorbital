@@ -37,6 +37,7 @@ type JobsManager interface {
 	Queues(ctx context.Context) ([]jobs.Queue, error)
 	PauseQueue(ctx context.Context, name string) error
 	ResumeQueue(ctx context.Context, name string) error
+	Overview(ctx context.Context) (jobs.Overview, error)
 }
 
 // AuditLog records and lists audit events. *auditpg.Store implements it.
@@ -44,6 +45,7 @@ type AuditLog interface {
 	audit.Recorder
 	List(ctx context.Context, f auditpg.Filter) (auditpg.Page, error)
 	Get(ctx context.Context, id int64) (auditpg.StoredEvent, error)
+	Stats(ctx context.Context, f auditpg.StatsFilter) (auditpg.Stats, error)
 }
 
 // ReleaseLog lists the releases and instances the release tracker records.

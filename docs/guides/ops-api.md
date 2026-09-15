@@ -128,6 +128,20 @@ A reason is required to disable a job or change an enabled job's schedule.
 
 Run fields: `id`, `kind`, `queue`, `state`, `attempt`, `max_attempts`, `priority`, `created_at`, `scheduled_at`, `attempted_at`, `finalized_at`, `errors[{at, attempt, message}]`, `request_id`, `actor_kind`, `actor_id`. Arguments are never returned.
 
+`GET /ops/jobs/overview` (`ops.jobs.read`, [ADR-0051](../adr/0051-operations-v0-5.md)) summarises job work across every instance:
+
+```json
+{
+  "queues": [
+    {"name": "default", "active": true, "paused": false,
+     "available": 0, "scheduled": 3, "running": 1, "retryable": 2, "discarded_last_day": 1}
+  ],
+  "failing": [{"name": "send_digest", "last_run": {"state": "retryable", "errors": [...]}, ...}]
+}
+```
+
+`queues` lists queues with active workers or unfinished jobs; `failing` lists job definitions, in the same shape as `GET /ops/jobs/definitions`, whose most recent run is retrying or was discarded.
+
 ## Queues
 
 | Method and path | Purpose | Success |
@@ -142,6 +156,14 @@ Run fields: `id`, `kind`, `queue`, `state`, `attempt`, `max_attempts`, `priority
 |---|---|---|
 | `GET /ops/audit?actor_kind=&actor_id=&action=&action_prefix=&resource_type=&resource_id=&org_id=&outcome=&request_id=&from=&to=&limit=&cursor=` | Events, newest first; filters combine; `from` (inclusive) and `to` (exclusive) are RFC 3339 times compared with `occurred_at` | 200 `{events: [...], next_cursor?}` |
 | `GET /ops/audit/{id}` | One event | 200 |
+| `GET /ops/audit/stats?group_by=&from=&to=&actor_kind=&actor_id=&action=&action_prefix=&resource_type=&org_id=&outcome=` | Counts in a window of at most 90 days (default the last 7), grouped by `action`, `outcome`, `actor_kind`, `resource_type` or `day` (UTC) | 200 `{from, to, group_by, total, groups: [{key, count}], other}` |
+
+Stats return the 50 largest groups, with the rest counted in `other`; `group_by=day` returns every day with events, in order. A wider window or an unknown grouping returns 422 `invalid_audit_filter`.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  'http://127.0.0.1:8080/ops/audit/stats?group_by=action&action_prefix=auth.&outcome=failure'
+```
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
@@ -173,7 +195,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 - `request_id` links an event to its access log line, trace and any jobs the request enqueued.
 - `ip` and `user_agent` appear on events recorded during a request, such as sign-ins.
 - Metadata values under sensitive keys such as `password` or `token` are stored as `"[REDACTED]"`; oversized metadata is replaced with `{"metadata_dropped": "too_large"}`.
-- Events can't be changed. Retention policies arrive in v0.5.
+- Events can't be changed. Retention, deleting events older than `audit.retention`, arrives with the rest of ADR-0051.
 
 ## Releases
 

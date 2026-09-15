@@ -99,10 +99,29 @@ const selectEventsSQL = `SELECT ` + eventColumns + ` FROM audit_events`
 // matching empty parameters inside the SQL, so PostgreSQL plans each query
 // with the matching index.
 func selectEvents(ctx context.Context, db postgres.DBTX, f Filter, before int64, limit int) ([]StoredEvent, error) {
-	var (
-		where []string
-		args  []any
-	)
+	where, args := f.conditions()
+	if before > 0 {
+		args = append(args, before)
+		where = append(where, fmt.Sprintf("id < $%d", len(args)))
+	}
+
+	sql := selectEventsSQL
+	if len(where) > 0 {
+		sql += " WHERE " + strings.Join(where, " AND ")
+	}
+	args = append(args, limit)
+	sql += fmt.Sprintf(" ORDER BY id DESC LIMIT $%d", len(args))
+
+	rows, err := db.Query(ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, scanEvent)
+}
+
+// conditions returns one SQL condition per set filter field, numbered from
+// $1, with their arguments. Limit and Cursor aren't conditions.
+func (f Filter) conditions() (where []string, args []any) {
 	add := func(condition string, arg any) {
 		args = append(args, arg)
 		where = append(where, fmt.Sprintf(condition, len(args)))
@@ -140,20 +159,5 @@ func selectEvents(ctx context.Context, db postgres.DBTX, f Filter, before int64,
 	if !f.To.IsZero() {
 		add("occurred_at < $%d", f.To)
 	}
-	if before > 0 {
-		add("id < $%d", before)
-	}
-
-	sql := selectEventsSQL
-	if len(where) > 0 {
-		sql += " WHERE " + strings.Join(where, " AND ")
-	}
-	args = append(args, limit)
-	sql += fmt.Sprintf(" ORDER BY id DESC LIMIT $%d", len(args))
-
-	rows, err := db.Query(ctx, sql, args...)
-	if err != nil {
-		return nil, err
-	}
-	return pgx.CollectRows(rows, scanEvent)
+	return where, args
 }
