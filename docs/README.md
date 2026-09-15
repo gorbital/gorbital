@@ -6,6 +6,8 @@
 | [Roadmap](roadmap.md) | Milestones, what each delivers, current status |
 | [Architecture decision records](adr/README.md) | Every decision with its context, options and trade-offs |
 | [Theme](brand/theme.md) | The visual system and voice for docs, landing page, README and CLI output: name, colour, type, layout, the mark, CLI output grammar |
+| [Logo files](brand/logo/README.txt) | The mark, lockups, avatars and favicon as SVG, PNG and JPG |
+| [Website](../site/README.md) | How `apistock.dev` and `docs.apistock.dev` are built from these files, running them locally, writing pages, publishing on Cloudflare Pages ([ADR-0049](adr/0049-public-docs-and-website.md)) |
 
 ## Guides
 

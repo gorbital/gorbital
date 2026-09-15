@@ -1,0 +1,192 @@
+{{define "landing"}}{{template "head" .Head}}
+<body class="force-dark landing">
+<a class="skip" href="#content">Skip to content</a>
+<header class="wrap">
+  <nav class="lnav" aria-label="Site">
+    <a class="brand" href="/">{{template "mark3"}}<span class="wordmark">apistock</span></a>
+    <ul>
+      <li><a href="{{.DocsURL}}/">Docs</a></li>
+      <li><a href="{{.DocsURL}}/api-reference/">API reference</a></li>
+      <li><a href="{{.DocsURL}}/cli/">CLI</a></li>
+      <li><a href="{{.DocsURL}}/decisions/">Decisions</a></li>
+      <li><a href="{{.DocsURL}}/roadmap/">Roadmap</a></li>
+    </ul>
+    <div class="end">
+      <a class="btn btn-line btn-sm hide-sm" href="{{.Site.GitHub}}">GitHub</a>
+      <a class="btn btn-ink btn-sm" href="{{.DocsURL}}/quickstart/">Quickstart</a>
+    </div>
+  </nav>
+</header>
+
+<main id="content">
+  <div class="hero wrap">
+    <div class="hero-copy">
+      <a class="chip" href="{{.DocsURL}}/guides/organisations/"><span class="sq"></span>{{.Site.Announcement}} <span class="arrow">&rarr;</span></a>
+      <h1 class="display">Prepared <span class="stock">stock</span><br>for Go APIs.</h1>
+      <p class="lead">The app a careful senior Go engineer would have set up. <span>Postgres, sign-in with 2FA and passkeys, organisations, jobs and ops endpoints, written into your repo. You own every file.</span></p>
+      <div class="install">
+        <code><b>$</b><span data-install>{{.Site.Install}}</span></code>
+        <button class="copy" type="button" data-copy-text="{{.Site.Install}}">Copy</button>
+      </div>
+      <div class="cta-row">
+        <a class="btn btn-ink" href="{{.DocsURL}}/quickstart/">Read the quickstart <span class="arrow">&rarr;</span></a>
+        <a class="btn btn-line" href="{{.DocsURL}}/api-reference/">See a generated API</a>
+      </div>
+    </div>
+
+    <figure class="term" aria-label="Terminal output of aps new">
+      <div class="term-bar"><span>~/code</span><span>aps</span></div>
+<pre><span class="t-p">$</span> aps new acme-api --preset full --tenancy multi
+creating acme-api in ./acme-api
+<span class="t-d">preset full · tenancy multi · library ../apistock</span>
+
+<span class="t-ok">✓</span> ran go mod tidy
+<span class="t-ok">✓</span> initialised git
+
+created acme-api
+
+  <span class="t-d">api docs</span>     http://localhost:8080/docs
+  <span class="t-d">emails</span>       http://127.0.0.1:8025
+
+  <span class="t-p">next:</span> cd acme-api
+        aps dev
+<span class="t-p">$</span> <span class="caret" aria-hidden="true"></span></pre>
+    </figure>
+  </div>
+
+  <div class="wrap">
+    <div class="proof">
+      <div><b>1</b><span>Database. Postgres</span></div>
+      <div><b>0</b><span>ORMs, DI containers</span></div>
+      <div><b>{{.Modules}}</b><span>Library modules</span></div>
+      <div><b>{{.Decisions}}</b><span>Decision records</span></div>
+    </div>
+  </div>
+
+  <section class="lsec" id="decisions">
+    <div class="wrap">
+      <div class="lsec-head">
+        <span class="label">01 / Decisions</span>
+        <h2>It makes the calls, and says what each one costs.</h2>
+        <p>You're not picking a router, a migration tool and an auth library on day one. Each choice below has a written record you can read before you commit.</p>
+      </div>
+      <div class="decisions">
+        <div class="decision decision-h"><span>Decided</span><span>Cost</span><span></span></div>
+        <div class="decision"><h3>Postgres only. No ORM.</h3><p>No MySQL, no SQLite. If that rules you out, it rules you out.</p><a href="{{adr "0005"}}">ADR-0005</a></div>
+        <div class="decision"><h3>One SQL file per query.</h3><p>More files than a query builder. Each one is a query you can read in review and explain in production.</p><a href="{{adr "0032"}}">ADR-0032</a></div>
+        <div class="decision"><h3>Auth is a library. The flows are yours.</h3><p>Security fixes reach you with <code>go get</code>. Sign-up, sign-in and 2FA flows live in your repo, so you maintain what you change.</p><a href="{{adr "0038"}}">ADR-0038</a></div>
+        <div class="decision"><h3>Tenancy is chosen at creation.</h3><p>Moving from single to multi-tenant with a command waits for <code>aps add orgs</code> in v0.5.</p><a href="{{adr "0048"}}">ADR-0048</a></div>
+        <div class="decision"><h3>Settings live in Postgres.</h3><p>Change them without a deploy through <code>/ops/settings</code>. Secrets stay in the environment, never in the table.</p><a href="{{adr "0031"}}">ADR-0031</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lsec">
+    <div class="wrap">
+      <div class="lsec-head">
+        <span class="label">02 / Workflow</span>
+        <h2>From an empty folder to a running API.</h2>
+        <p>Four commands. Each one ends by naming the next, and generators add one line at a named anchor instead of rewriting your files.</p>
+      </div>
+      <div class="steps4">
+        <div class="step4"><span class="n">01</span><code>aps new acme-api</code><h3>Cut the stock</h3><p>Pick a preset and tenancy. You get a repository, not a dependency to wrap.</p></div>
+        <div class="step4"><span class="n">02</span><code>aps dev</code><h3>Start it locally</h3><p>Postgres and Mailpit in Docker, migrations and seed data, the admin's password printed once.</p></div>
+        <div class="step4"><span class="n">03</span><code>aps gen resource Invoice</code><h3>Add what you sell</h3><p>Four layers, one SQL file per query, and tests proving another organisation gets a 404.</p></div>
+        <div class="step4"><span class="n">04</span><code>go build ./cmd/api</code><h3>Ship one binary</h3><p>Migrations run under an advisory lock. Release tracking shows which build every instance runs.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lsec" id="stock">
+    <div class="wrap">
+      <div class="lsec-head">
+        <span class="label">03 / What you get</span>
+        <h2>Your code on top. Seasoned libraries underneath.</h2>
+        <p>The generated app owns its flows, tables and SQL. The modules hold the parts that need security fixes and careful maintenance.</p>
+      </div>
+      <div class="stockgrid">
+<pre class="tree"><span class="t-m">acme-api/</span>
+├── cmd/api              <span class="t-d">main and commands</span>
+├── db/migrations        <span class="t-d">forward-only SQL</span>
+├── internal/app         <span class="t-d">wiring, permissions</span>
+├── internal/modules/
+│   ├── auth             <span class="t-d">yours: flows, SQL</span>
+│   ├── orgs             <span class="t-d">yours: members, invites</span>
+│   └── projects         <span class="t-d">yours: example resource</span>
+├── api/openapi.json     <span class="t-d">checked in, diffed</span>
+└── apistock.lock        <span class="t-d">recipe and version</span></pre>
+        <div>
+          <div class="modules-h"><span class="label label-dim">apistock.dev/modules</span><span class="badge badge-official">OFFICIAL</span></div>
+          <div class="modules">
+            <div class="mod"><code>auth</code><span>argon2id, sessions, TOTP, passkeys, Google and Apple</span></div>
+            <div class="mod"><code>orgs</code><span>Organisation IDs, the membership check, invitation email</span></div>
+            <div class="mod"><code>jobs</code><span>River workers with schedules you change at runtime</span></div>
+            <div class="mod"><code>settings</code><span>Typed runtime settings, live on every instance</span></div>
+            <div class="mod"><code>auditpg</code><span>Append-only audit log with redaction</span></div>
+            <div class="mod"><code>openapi</code><span>Huma, problem errors and the /docs reference</span></div>
+            <div class="mod"><code>postgres</code><span>Pool, transactions and goose migrations</span></div>
+            <div class="mod"><code>releases</code><span>Which build every instance is running</span></div>
+          </div>
+          <p class="note-line">Your app keeps working if apistock disappears.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lsec">
+    <div class="wrap">
+      <div class="lsec-head">
+        <span class="label">04 / Documentation</span>
+        <h2>Two kinds of docs, one system.</h2>
+        <p>The framework has its own site. Every app you generate serves its own API reference, in its own name.</p>
+      </div>
+      <div class="twodocs">
+        <a class="docpanel" href="{{.DocsURL}}/">
+          <div class="mini mini-docs" aria-hidden="true">
+            <div><span class="bar ink w60"></span><span class="bar w80"></span><span class="bar w70"></span><span class="bar ink w55"></span><span class="bar w75"></span><span class="bar w65"></span></div>
+            <div><span class="bar h"></span><span class="bar w90"></span><span class="bar w85"></span><span class="bar code"></span><span class="bar w85"></span></div>
+            <div><span class="bar ink w70"></span><span class="bar w60"></span><span class="bar w80"></span></div>
+          </div>
+          <div class="docpanel-copy"><code>docs.apistock.dev</code><h3>Framework docs <span class="arrow">&rarr;</span></h3><p>Guides, the CLI and every decision record, with search and a Markdown copy of each page.</p></div>
+        </a>
+        <a class="docpanel" href="{{.DocsURL}}/api-reference/">
+          <div class="mini mini-api" aria-hidden="true">
+            <div><span class="mtag">GET</span><span class="mtag">POST</span><span class="mtag">POST</span><span class="mtag">PATCH</span><span class="mtag">DEL</span></div>
+            <div><span class="bar h"></span><span class="bar w90"></span><span class="bar ink w40"></span><span class="bar w85"></span><span class="bar ink w35"></span><span class="bar w80"></span></div>
+            <div><span class="bar code tall"></span><span class="bar code"></span></div>
+          </div>
+          <div class="docpanel-copy"><code>your-app.com/docs</code><h3>API reference <span class="arrow">&rarr;</span></h3><p>Rendered from the checked-in openapi.json, with requests in curl, Go and TypeScript.</p></div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="closing">
+      {{template "mark4"}}
+      <div>
+        <h2>Start from stock, not from scratch.</h2>
+        <p>One command gives you the parts a production Go API needs. What you build on it is yours.</p>
+        <div class="cta-row">
+          <a class="btn btn-ink" href="{{.DocsURL}}/quickstart/">Read the quickstart <span class="arrow">&rarr;</span></a>
+          <a class="btn btn-line" href="{{.DocsURL}}/decisions/">Read the decisions</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="wrap">
+  <div class="lfoot">
+    <div>
+      <a class="brand" href="/">{{template "mark3"}}<span class="wordmark">apistock</span></a>
+      <p class="fine">Prepared stock for Go APIs. Spoken "A-P-I stock". Binary: aps. {{.Site.Version}}, pre-release.</p>
+    </div>
+    <div><h4>Docs</h4><ul><li><a href="{{.DocsURL}}/quickstart/">Quickstart</a></li><li><a href="{{.DocsURL}}/">Guides</a></li><li><a href="{{.DocsURL}}/api-reference/">API reference</a></li><li><a href="{{.DocsURL}}/cli/">CLI</a></li></ul></div>
+    <div><h4>Project</h4><ul><li><a href="{{.DocsURL}}/decisions/">Decision records</a></li><li><a href="{{.DocsURL}}/roadmap/">Roadmap</a></li><li><a href="{{.Site.GitHub}}">GitHub</a></li></ul></div>
+    <div><h4>Trust</h4><ul><li><a href="{{.Site.GitHub}}/blob/main/SECURITY.md">Security policy</a></li><li><a href="{{adr "0029"}}">Threat model</a></li><li><a href="{{adr "0015"}}">Stability tiers</a></li><li><a href="{{.DocsURL}}/llms.txt">llms.txt</a></li></ul></div>
+  </div>
+</footer>
+</body>
+</html>
+{{end}}

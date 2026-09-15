@@ -1,0 +1,61 @@
+{
+  "tabs": [
+    {
+      "name": "Guides",
+      "groups": [
+        {
+          "name": "Start",
+          "pages": [
+            {"title": "Introduction", "slug": "", "source": "site/content/introduction.md"},
+            {"title": "Quickstart", "slug": "quickstart", "source": "site/content/quickstart.md"},
+            {"title": "Architecture", "slug": "architecture", "source": "docs/architecture.md"},
+            {"title": "Project layout", "slug": "project-layout", "source": "examples/full-single/ARCHITECTURE.md"}
+          ]
+        },
+        {
+          "name": "Build",
+          "pages": [
+            {"title": "Organisations", "slug": "guides/organisations", "source": "site/content/organisations.md"},
+            {"title": "Database", "slug": "guides/database", "source": "docs/guides/database.md"},
+            {"title": "Runtime settings", "slug": "guides/runtime-settings", "source": "docs/guides/runtime-settings.md"},
+            {"title": "Background jobs", "slug": "guides/background-jobs", "source": "docs/guides/background-jobs.md"},
+            {"title": "Email", "slug": "guides/email", "source": "docs/guides/email.md"}
+          ]
+        },
+        {
+          "name": "Secure",
+          "pages": [
+            {"title": "Authentication", "slug": "guides/authentication", "source": "docs/guides/authentication.md"},
+            {"title": "Sign-in providers", "slug": "guides/auth-providers", "source": "docs/guides/auth-providers.md"}
+          ]
+        },
+        {
+          "name": "Operate",
+          "pages": [
+            {"title": "Ops API", "slug": "guides/ops-api", "source": "docs/guides/ops-api.md"}
+          ]
+        },
+        {
+          "name": "Contribute",
+          "pages": [
+            {"title": "Local development", "slug": "guides/local-development", "source": "docs/guides/local-development.md"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CLI",
+      "groups": [
+        {"name": "Reference", "pages": [{"title": "CLI reference", "slug": "cli", "source": "docs/guides/cli.md"}]}
+      ]
+    },
+    {"name": "API reference", "slug": "api-reference", "generate": "openapi", "source": "examples/full-multi/api/openapi.json"},
+    {"name": "Decisions", "slug": "decisions", "generate": "decisions", "source": "docs/adr"},
+    {
+      "name": "Roadmap",
+      "groups": [
+        {"name": "Roadmap", "pages": [{"title": "Roadmap", "slug": "roadmap", "source": "docs/roadmap.md"}]}
+      ]
+    }
+  ]
+}

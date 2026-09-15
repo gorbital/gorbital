@@ -69,7 +69,7 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 | | |
 |---|---|
-| **Delivers** | External security review with findings fixed, API freeze and stability tiers in force, `apistock.dev` docs site (Mintlify), domain hardening complete (including rate limits shared across instances, replacing today's per-instance limiters), governance and contribution guide |
+| **Delivers** | External security review with findings fixed, API freeze and stability tiers in force, documentation content ready for the public site (the site itself ships in v1.3, [ADR-0049](adr/0049-public-docs-and-website.md)), domain hardening complete (including rate limits shared across instances, replacing today's per-instance limiters), governance and contribution guide |
 | **Done when** | Security review signed off; `gorelease` baseline recorded; scaffold compatibility promise ([ADR-0016](adr/0016-scaffold-compatibility-and-upgrades.md)) active |
 
 ## v1.1
@@ -85,6 +85,16 @@ Feature flags, per-org settings, live observability, incident reports, API keys 
 | **Delivers** | `aps new` asks for a docs site, a dashboard and mobile apps (`--docs`, `--dashboard`, `--mobile none\|expo\|native`) and creates each from its own template repository, with the app name, bundle ID, API URL and sign-in methods filled in. Templates are pinned, hashed and signed archives listed in each `aps` release, cached locally, with `--templates <path>` for local checkouts. Each template declares what it accepts in `apistock-template.json` and calls the API through clients generated from `api/openapi.json`. Order: fetch and fill-in mechanism with `template-docs`, then `template-dashboard`, then `template-expo` (iOS and Android) |
 | **Not included** | Native iOS and Android templates (only when builders ask for them), hybrid apps, upgrading client code with `aps upgrade` (client output is one-shot) |
 | **Done when** | CI creates an app with every template against `examples/full-single` and builds each part; a tampered archive or unlisted version is refused; sign-in, 2FA and passkeys work from the dashboard and the Expo app; threat model rows for templates added |
+
+## v1.3: Public website
+
+**Status: in progress, built ahead of order** ([ADR-0049](adr/0049-public-docs-and-website.md), accepted 2026-09-15). Done: `site/`, a Go generator for `apistock.dev` (landing page) and `docs.apistock.dev` (guides, CLI, decision records and roadmap rendered from `docs/`, and an API reference with request and response examples and "Try it" rendered from `examples/full-multi/api/openapi.json`), with search, light and dark themes, Markdown copies, `llms.txt`, Cloudflare Pages `_headers`, and a test that fails on any broken link; the logo kit in `docs/brand/logo`. Generated apps' `/docs` in the same design: `modules/openapi/reference` renders every app's own endpoints from its OpenAPI document with examples, "Try it" and search under a strict Content-Security-Policy with embedded fonts, replacing the embedded Scalar; the site's API reference uses the same renderer. Still to do: publishing on Cloudflare Pages, versioned docs, and compiling the site's code snippets.
+
+| | |
+|---|---|
+| **Delivers** | `apistock.dev` landing page; `docs.apistock.dev` framework documentation (guides, modules, CLI, decision records, changelog) with search, a version per minor release, copy as Markdown and `llms.txt`; a public API reference at `docs.apistock.dev/api-reference` rendered from `examples/full-multi/api/openapi.json`; all three in the apistock look ([theme](brand/theme.md)) with Mintlify's page structure; generated apps' `/docs` restyled with the same system in the app's own name and accent. Built by a small Go generator in `site/` and published on Cloudflare Pages |
+| **Not included** | Hosting docs for developers' own apps, a blog, community module index pages (Later), translations |
+| **Done when** | CI builds the site and fails on broken links, WCAG 2.2 AA failures in both themes and code snippets that no longer compile or match the golden apps; the public API reference and a new app's `/docs` render the same `openapi.json` with the same theme; the landing page and a docs page reach Largest Contentful Paint within 2.5 s on a mid-range phone over 4G |
 
 ## Later
 

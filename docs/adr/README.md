@@ -58,3 +58,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0046](0046-google-and-apple-sign-in.md) | Google and Apple sign-in | Accepted |
 | [0047](0047-client-templates.md) | Client templates: docs site, dashboard and mobile apps from separate template repositories | Proposed |
 | [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Accepted |
+| [0049](0049-public-docs-and-website.md) | Public website: landing page, framework docs and API reference in the apistock look, built by a Go generator in `site/` | Accepted |
