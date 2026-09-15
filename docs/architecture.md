@@ -286,10 +286,10 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | Release | Delivers |
 |---|---|
 | v0.1 ✅ implemented, unreleased | Core library, Minimal preset, `aps new` and `aps dev`, OpenAPI + Scalar docs, CI, signed release workflow |
-| v0.2 | PostgreSQL, runtime settings, jobs, email (Resend/SMTP), email/password auth, users and roles, audit, Full and Custom presets, single-tenant |
+| v0.2 | PostgreSQL, runtime settings, jobs, email (Resend/SMTP), email/password auth, users and roles, audit, Full preset, single-tenant, `aps dev` with Docker, seed data |
 | v0.3 | Google, Apple, TOTP, passkeys |
-| v0.4 | Multi-tenant organisations |
-| v0.5 | Operations APIs, Postman, `llms.txt`, `aps upgrade` |
+| v0.4 | Multi-tenant organisations, tenancy prompt |
+| v0.5 | Operations APIs, Postman, `llms.txt`, `aps upgrade`, Custom preset |
 | v1.0 | External security review, API freeze, documentation site |
 
 ---
