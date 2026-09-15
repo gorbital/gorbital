@@ -102,6 +102,30 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/audit.retention \
   -d '{"value":"17520h","version":0,"reason":"two-year compliance requirement"}'
 ```
 
+## Maintenance mode
+
+Turn it on with the `maintenance.enabled` setting (a reason is required); every instance applies it within a second ([ADR-0051](../adr/0051-operations-v0-5.md)). While it's on, requests answer 503 with problem code `maintenance`, `detail` set to `maintenance.message` (a generic message when empty) and a `Retry-After` header from `maintenance.retry_after` (5 minutes by default).
+
+Still served, so load balancers keep instances in rotation and staff can turn it off: `/livez`, `/readyz`, `/version`, `/openapi.json`, `/docs`, `/.well-known/*`, `/ops/*` and `/v1/auth/*`. Sign-in works for everyone, but every product route after it answers 503.
+
+```bash
+curl -X PUT http://127.0.0.1:8080/ops/settings/maintenance.message \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"value":"Upgrading the database until 10:00 UTC","version":0}'
+curl -X PUT http://127.0.0.1:8080/ops/settings/maintenance.enabled \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"value":true,"version":0,"reason":"database upgrade"}'
+```
+
+When nobody can reach `/ops`, run it where the app's environment is set:
+
+```bash
+go run ./cmd/api maintenance on --message "Back at 10:00 UTC"
+go run ./cmd/api maintenance off
+```
+
+The command writes the same settings as `system:cli`, recorded in their history and the audit log.
+
 ## Job definitions
 
 | Method and path | Purpose | Success |
@@ -315,6 +339,7 @@ Values of secrets are never returned; the same report is printed at start in dev
 | `audit_event_not_found` | 404 | Unknown audit event ID (or removed by retention) |
 | `invalid_audit_filter` | 422 | Unknown `outcome`, malformed `action_prefix`, or `from` not before `to` |
 | `invalid_recipient` | 422 | The test email recipient isn't an email address |
+| `maintenance` | 503 | Maintenance mode is on; `detail` is `maintenance.message` and `Retry-After` is set. Any route but health checks, docs, sign-in and `/ops` |
 
 Error codes are public API: new ones are added, existing ones never change.
 

@@ -137,6 +137,7 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 | Restore a deleted organisation | `POST /v1/orgs/{orgId}/restore` as an owner, before `orgs.deleted_org_retention` ends |
 | Turn off an account's two-factor authentication (lost authenticator app and recovery codes) | `go run ./cmd/api reset-mfa <email>` |
 | Replace the 2FA encryption key | Put the new key first in `AUTH_ENCRYPTION_KEYS` on every instance, run `go run ./cmd/api rotate-auth-keys`, then remove the old key |
+| Turn maintenance mode on or off when `/ops` can't be reached | `go run ./cmd/api maintenance on --message "Back soon"`, then `go run ./cmd/api maintenance off` |
 | Run tests with email delivery checks | also set `APISTOCK_TEST_MAILPIT_SMTP=127.0.0.1:1025 APISTOCK_TEST_MAILPIT_URL=http://127.0.0.1:8025` |
 | Build a container | `docker build -t acme-api .` |
 

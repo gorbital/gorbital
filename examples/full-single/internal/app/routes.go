@@ -125,6 +125,7 @@ func (a *App) buildHTTP(svc services) error {
 		cors,
 		exceptCrossSitePosts(crossOrigin), // protects cookie-authenticated requests from other sites
 		httpx.BodyLimit(a.cfg.MaxBodyBytes),
+		a.maintenance(), // 503 outside health checks, docs, sign-in and /ops while maintenance.enabled is on
 	}
 	if svc.auth != nil {
 		middlewares = append(middlewares,

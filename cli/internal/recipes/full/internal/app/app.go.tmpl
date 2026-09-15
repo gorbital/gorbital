@@ -56,6 +56,7 @@ type App struct {
 	api         huma.API
 	handler     http.Handler
 	started     time.Time
+	appSettings appSettings
 }
 
 // New builds the application. Components are constructed in dependency
@@ -125,6 +126,7 @@ func (a *App) build(ctx context.Context) error {
 
 	reg := settings.NewRegistry()
 	appSettings := declareSettings(reg)
+	a.appSettings = appSettings
 	a.settings, err = settings.NewStore(ctx, pool, reg, recorder, settings.WithLogger(a.logger))
 	if err != nil {
 		return err

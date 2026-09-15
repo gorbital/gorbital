@@ -10,10 +10,13 @@
 //	api reset-mfa <email>            turn off an account's two-factor authentication
 //	api rotate-auth-keys             re-encrypt 2FA secrets with the first AUTH_ENCRYPTION_KEYS key
 //	api auth-providers               show which sign-in methods are configured
+//	api maintenance on|off [--message <text>]
+//	                                 turn maintenance mode on or off when /ops can't be reached
 package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 
@@ -60,6 +63,13 @@ func run(ctx context.Context, args []string) error {
 			// LoadConfig has already refused an invalid or partial configuration.
 			app.WriteSignInMethods(os.Stdout, cfg)
 			return nil
+		case "maintenance":
+			flags := flag.NewFlagSet("maintenance", flag.ContinueOnError)
+			message := flags.String("message", "", "what clients see while it is on")
+			if len(args) < 2 || (args[1] != "on" && args[1] != "off") || flags.Parse(args[2:]) != nil || flags.NArg() > 0 {
+				return fmt.Errorf("usage: api maintenance on|off [--message <text>]")
+			}
+			return app.SetMaintenance(ctx, cfg, args[1] == "on", *message, os.Stdout)
 		default:
 			return fmt.Errorf("unknown command %q", args[0])
 		}

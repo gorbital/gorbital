@@ -39,6 +39,10 @@ type appSettings struct {
 	historyRetention          *settings.Setting[time.Duration]
 	releasesInstanceRetention *settings.Setting[time.Duration]
 
+	maintenanceEnabled    *settings.Setting[bool]
+	maintenanceMessage    *settings.Setting[string]
+	maintenanceRetryAfter *settings.Setting[time.Duration]
+
 	orgsInvitationURL       *settings.Setting[string]
 	orgsInvitationTTL       *settings.Setting[time.Duration]
 	orgsDeletedOrgRetention *settings.Setting[time.Duration]
@@ -136,6 +140,24 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.Describe("How long instances are listed in /ops/releases after they were last seen. Applied when an instance starts."),
 			settings.Group("retention"),
 			settings.Range(24*time.Hour, 3*365*24*time.Hour),
+		),
+
+		// Maintenance mode (ADR-0051): 503 everywhere but health checks,
+		// docs, sign-in and /ops. Break glass: go run ./cmd/api maintenance off.
+		maintenanceEnabled: settings.Bool(reg, "maintenance.enabled", false,
+			settings.Describe("Answer 503 to every request except health checks, docs, sign-in and /ops."),
+			settings.Group("maintenance"),
+			settings.ReasonRequired(),
+		),
+		maintenanceMessage: settings.String(reg, "maintenance.message", "",
+			settings.Describe("What clients see while maintenance mode is on. Empty: a generic message."),
+			settings.Group("maintenance"),
+			settings.MaxLen(500),
+		),
+		maintenanceRetryAfter: settings.Duration(reg, "maintenance.retry_after", 5*time.Minute,
+			settings.Describe("The Retry-After clients get while maintenance mode is on."),
+			settings.Group("maintenance"),
+			settings.Range(time.Minute, 24*time.Hour),
 		),
 
 		orgsInvitationURL: settings.String(reg, "orgs.invitation_url", defaultInvitationURL,
