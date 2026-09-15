@@ -25,6 +25,8 @@ var (
 	segmentPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._~-]*$`)
 )
 
+// maxNameLength keeps app names valid as PostgreSQL role and database names
+// in the Full preset's compose.yaml.
 const maxNameLength = 63
 
 type newResult struct {
@@ -39,7 +41,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	flags := flag.NewFlagSet("aps new", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	module := flags.String("module", "", "Go module path (default: the app name)")
-	preset := flags.String("preset", "minimal", "preset: minimal (full and custom arrive in v0.2)")
+	preset := flags.String("preset", "minimal", "preset: minimal (HTTP API, no database) or full (PostgreSQL, authentication, jobs, email, audit, ops APIs)")
 	local := flags.String("local", "", "path to an apistock checkout, used through replace directives (default: the checkout you are in, if any)")
 	noGit := flags.Bool("no-git", false, "don't initialise a git repository")
 	skipTidy := flags.Bool("skip-tidy", false, "don't run go mod tidy")
@@ -67,6 +69,10 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	}
 	set := map[string]bool{}
 	flags.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	// Reject a bad --preset before asking anything else.
+	if _, err := lookupPreset(*preset); err != nil {
+		return err
+	}
 
 	// Until the library is published, apps need a checkout; use the one the
 	// command runs in when none is given.
@@ -79,7 +85,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 
 	ask := shouldPrompt(p, *asJSON, stdin, stdout)
 	if ask {
-		if err := promptNew(&name, module, local, noGit, set, p, stdin, stderr); err != nil {
+		if err := promptNew(&name, module, preset, local, noGit, set, p, stdin, stderr); err != nil {
 			return err
 		}
 	}
@@ -93,12 +99,9 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	if err := validateModule(*module); err != nil {
 		return err
 	}
-	switch *preset {
-	case "minimal":
-	case "full", "custom":
-		return usageError(fmt.Sprintf("preset %q arrives in v0.2; use --preset minimal", *preset))
-	default:
-		return usageError(fmt.Sprintf("unknown preset %q (want minimal)", *preset))
+	chosen, err := lookupPreset(*preset)
+	if err != nil {
+		return err
 	}
 	localPath, err := resolveLocal(*local)
 	if err != nil {
@@ -112,7 +115,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	}
 
 	if ask {
-		ok, err := confirm("Create this app?", newSummary(name, *module, *preset, localPath, !*noGit), p, stdin, stderr)
+		ok, err := confirm("Create this app?", newSummary(name, *module, chosen.Name, localPath, !*noGit), p, stdin, stderr)
 		if err != nil {
 			return err
 		}
@@ -127,7 +130,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 		return err
 	}
 
-	files, err := create(name, recipes.Data{Name: name, Module: *module, LibraryVersion: recipes.LibraryVersion, Local: localPath})
+	files, err := create(name, chosen, recipes.Data{Name: name, Module: *module, LibraryVersion: recipes.LibraryVersion, Local: localPath})
 	if err != nil {
 		return errors.Join(err, os.RemoveAll(name)) // we created the directory; remove the partial app
 	}
@@ -146,19 +149,50 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 		}
 	}
 
-	res := newResult{Name: name, Module: *module, Dir: name, Preset: *preset, Files: len(files)}
+	res := newResult{Name: name, Module: *module, Dir: name, Preset: chosen.Name, Files: len(files)}
 	if *asJSON {
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(res)
 	}
-	fmt.Fprintf(stdout, "✓ Created %s (%s preset, %d files)\n\n  cd %s\n  aps dev\n\n  API docs: http://127.0.0.1:8080/docs\n",
-		name, *preset, len(files), name)
+	fmt.Fprintf(stdout, "✓ Created %s (%s preset, %d files)\n\n%s", name, chosen.Name, len(files), nextSteps(name, chosen.Name))
 	return nil
 }
 
+// lookupPreset returns the preset aps new --preset name selects, or a usage
+// error naming the presets that exist.
+func lookupPreset(name string) (recipes.Preset, error) {
+	if p, ok := recipes.LookupPreset(name); ok {
+		return p, nil
+	}
+	if name == "custom" {
+		return recipes.Preset{}, usageError("preset custom isn't available yet; use --preset minimal or --preset full")
+	}
+	return recipes.Preset{}, usageError(fmt.Sprintf("unknown preset %q (want %s)", name, strings.Join(recipes.PresetNames(), " or ")))
+}
+
+// nextSteps tells how to run a new app of the preset in dir.
+func nextSteps(dir, preset string) string {
+	if preset != "full" {
+		return fmt.Sprintf("  cd %s\n  aps dev\n\n  API docs: http://127.0.0.1:8080/docs\n", dir)
+	}
+	return fmt.Sprintf(`  cd %s
+  cp .env.example .env
+  docker compose up -d --wait    # PostgreSQL and Mailpit
+  go run ./cmd/migrate
+  go run ./cmd/api               # or: aps dev
+
+  API docs:     http://127.0.0.1:8080/docs
+  Email inbox:  http://127.0.0.1:8025 (Mailpit catches every email in development)
+  First admin:  README.md, "Sign up and become an admin"
+
+  Port 5432 already in use? Set POSTGRES_PORT in .env, and the same port in DATABASE_URL.
+  Email goes through Resend outside development; run aps add mail to use SMTP instead.
+`, dir)
+}
+
 // promptNew asks for every value not given by a flag.
-func promptNew(name, module, local *string, noGit *bool, set map[string]bool, p promptFlags, stdin io.Reader, stderr io.Writer) error {
+func promptNew(name, module, preset, local *string, noGit *bool, set map[string]bool, p promptFlags, stdin io.Reader, stderr io.Writer) error {
 	var fields []huh.Field
 	if *name == "" {
 		fields = append(fields, huh.NewInput().Title("App name").
@@ -177,8 +211,10 @@ func promptNew(name, module, local *string, noGit *bool, set map[string]bool, p 
 			}))
 	}
 	if !set["preset"] {
-		fields = append(fields, huh.NewNote().Title("Preset: Minimal").
-			Description("HTTP API with configuration, telemetry, health checks, security headers and interactive docs.\nFull (PostgreSQL, runtime settings, jobs, authentication) and Custom arrive in v0.2."))
+		fields = append(fields, huh.NewSelect[string]().Title("Preset").Options(
+			huh.NewOption("Minimal: HTTP API with configuration, telemetry, health checks and docs; no database", "minimal"),
+			huh.NewOption("Full: PostgreSQL, authentication, jobs, email, audit and ops APIs; needs Docker", "full"),
+		).Value(preset))
 	}
 	if !set["local"] {
 		fields = append(fields, huh.NewInput().Title("apistock checkout").
@@ -241,18 +277,20 @@ func findCheckout() string {
 	}
 }
 
-func create(dir string, d recipes.Data) ([]recipes.File, error) {
+// create renders the preset into dir and records its files in
+// apistock.lock.
+func create(dir string, preset recipes.Preset, d recipes.Data) ([]recipes.File, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
 	}
 	defer root.Close()
 
-	files, err := recipes.RenderMinimal(root, d)
+	files, err := preset.Render(root, d)
 	if err != nil {
 		return nil, err
 	}
-	if err := writeLock(root, recipes.MinimalName, recipes.LibraryVersion, files); err != nil {
+	if err := writeLock(root, preset.Recipe, recipes.LibraryVersion, files); err != nil {
 		return nil, err
 	}
 	return files, nil

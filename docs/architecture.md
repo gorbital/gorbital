@@ -264,7 +264,7 @@ PostgreSQL only, always from Docker in development, tests and CI. `modules/postg
 
 **Implemented in v0.1:** `aps new` (Minimal preset; `--module`, `--local`, `--json`, `--no-git`), `aps dev` (build, run, reload, `.env`, port check), `aps version`.
 
-**Implemented in v0.2 so far:** `aps gen job` (interactive or flags), `aps gen resource` (string, text and enum fields; golden-tested against `examples/full-single`'s projects module), interactive `aps new`, `aps add mail`. Guide: [CLI](guides/cli.md).
+**Implemented in v0.2 so far:** `aps gen job` (interactive or flags), `aps gen resource` (string, text and enum fields; golden-tested against `examples/full-single`'s projects module), interactive `aps new`, `aps new --preset=full` (generated from `examples/full-single`, [ADR-0041](adr/0041-full-preset-generation.md)), `aps add mail`. Guide: [CLI](guides/cli.md).
 
 **Interaction ([ADR-0035](adr/0035-interactive-cli.md)):** in a terminal, commands ask for missing values with arrow-key selects, checkboxes, validated inputs and a final summary; every prompt has a flag, flags skip their prompts, and `--yes`, `--json`, `--no-input` or `CI` never prompt. Prompts and flags share validators.
 
@@ -306,7 +306,7 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | Publish the library at `apistock.dev` | Open: domain hardening, public repository, first tags (until then apps use `--local`) |
 | ~~`/ops/*` protection before authentication~~ | Resolved: sessions and platform roles replaced the interim `OPS_TOKEN` ([ADR-0038](adr/0038-authentication-v0-2.md)); required 2FA for ops roles is v0.3 |
 | ~~Example business module with its own repository~~ | Resolved: `examples/full-single/internal/modules/projects` owns the `projects` table with all four layers, user ownership and cross-owner tests ([ADR-0039](adr/0039-resource-module-template.md)); `aps gen resource` reproduces it exactly |
-| `aps new --preset=full` | Open: `examples/full-single` is the golden app it will be generated from (`aps gen job` is done and golden-tested against it) |
+| ~~`aps new --preset=full`~~ | Resolved: templates generated from `examples/full-single`, reproduced byte for byte, with `go.mod` derived from the golden `go.mod` ([ADR-0041](adr/0041-full-preset-generation.md)) |
 | ~~Audit storage~~ | Resolved: `modules/auditpg` stores events in an append-only `audit_events` table, listed by `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)) |
 | ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `aps add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |
 | Email templates and preview route | Open: owned templates in `internal/emails` with a development preview (ADR-0025) arrive with authentication's emails |

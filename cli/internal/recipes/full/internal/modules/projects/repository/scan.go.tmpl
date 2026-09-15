@@ -1,0 +1,16 @@
+package repository
+
+import (
+	"github.com/jackc/pgx/v5"
+
+	projectsdomain "⟦.Module⟧/internal/modules/projects/domain"
+)
+
+const projectColumns = `id, owner_id, name, description, status, version, created_at, updated_at`
+
+func scanProject(row pgx.CollectableRow) (projectsdomain.Project, error) {
+	var p projectsdomain.Project
+	err := row.Scan(&p.ID, &p.OwnerID, &p.Name, &p.Description, &p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
+	p.CreatedAt, p.UpdatedAt = p.CreatedAt.UTC(), p.UpdatedAt.UTC()
+	return p, err
+}

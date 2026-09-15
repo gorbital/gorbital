@@ -53,7 +53,7 @@ func TestNewValidation(t *testing.T) {
 		{"template injection", []string{"new", "x{{.Module}}"}, 2, "invalid app name"},
 		{"double hyphen", []string{"new", "my--api"}, 2, "invalid app name"},
 		{"bad module", []string{"new", "api", "--module", "example.com/../x"}, 2, "invalid module path"},
-		{"future preset", []string{"new", "api", "--preset", "full"}, 2, "arrives in v0.2"},
+		{"custom preset", []string{"new", "api", "--preset", "custom"}, 2, "isn't available yet"},
 		{"unknown preset", []string{"new", "api", "--preset", "huge"}, 2, "unknown preset"},
 		{"bad local", []string{"new", "api", "--local", "."}, 2, "not an apistock checkout"},
 		{"existing directory", []string{"new", "taken", "--skip-tidy", "--no-git"}, 1, "already exists"},
@@ -73,38 +73,77 @@ func TestNewValidation(t *testing.T) {
 }
 
 func TestNewCreatesApp(t *testing.T) {
+	for _, tt := range []struct {
+		preset   string
+		recipe   string
+		minFiles int
+		// contains maps a created file to text it must contain.
+		contains map[string]string
+	}{
+		{"minimal", "base-minimal", 15, map[string]string{
+			"go.mod":        "module example.com/shop-api\n",
+			"apistock.yaml": "preset: minimal",
+		}},
+		{"full", "base-full", 100, map[string]string{
+			"go.mod":                              "module example.com/shop-api\n",
+			"apistock.yaml":                       "preset: full",
+			"compose.yaml":                        "POSTGRES_DB: shop-api",
+			".env.example":                        "DATABASE_URL=postgres://shop-api:shop-api@127.0.0.1:5432/shop-api",
+			"internal/app/app.go":                 `const ServiceName = "shop-api"`,
+			"internal/modules/projects/module.go": "package projects",
+			"db/migrations/migrations.go":         "package migrations",
+		}},
+	} {
+		t.Run(tt.preset, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			code, out, errOut := runAps(t, "new", "shop-api", "--module", "example.com/shop-api", "--preset", tt.preset, "--skip-tidy", "--no-git", "--json")
+			if code != 0 {
+				t.Fatalf("aps new --preset %s = %d, stderr %q", tt.preset, code, errOut)
+			}
+			var res newResult
+			if err := json.Unmarshal([]byte(out), &res); err != nil || res.Name != "shop-api" || res.Preset != tt.preset || res.Files < tt.minFiles {
+				t.Errorf("aps new --json = %q (%v), want the %s preset with at least %d files", out, err, tt.preset, tt.minFiles)
+			}
+			for path, want := range tt.contains {
+				if got, _ := os.ReadFile(filepath.Join("shop-api", filepath.FromSlash(path))); !strings.Contains(string(got), want) {
+					t.Errorf("%s lacks %q:\n%s", path, want, got)
+				}
+			}
+
+			var lock lockFile
+			lockBytes, _ := os.ReadFile(filepath.Join("shop-api", "apistock.lock"))
+			if err := json.Unmarshal(lockBytes, &lock); err != nil || lock.APIVersion != LockAPIVersion || len(lock.Recipes) != 1 ||
+				lock.Recipes[0].Name != tt.recipe || len(lock.Recipes[0].Operations) != res.Files {
+				t.Errorf("apistock.lock = %s (%v), want recipe %s with %d createFile operations", lockBytes, err, tt.recipe, res.Files)
+			}
+
+			_ = filepath.WalkDir("shop-api", func(p string, d fs.DirEntry, err error) error {
+				if err != nil || d.IsDir() {
+					return err
+				}
+				b, _ := os.ReadFile(p)
+				for _, leak := range []string{"acme-api", "⟦", "../../"} {
+					if bytes.Contains(b, []byte(leak)) {
+						t.Errorf("%s contains %q from the golden app or its templates", p, leak)
+					}
+				}
+				return nil
+			})
+		})
+	}
+}
+
+func TestNewFullPrintsNextSteps(t *testing.T) {
 	t.Chdir(t.TempDir())
-	code, out, errOut := runAps(t, "new", "shop-api", "--module", "example.com/shop-api", "--skip-tidy", "--no-git", "--json")
+	code, out, errOut := runAps(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git")
 	if code != 0 {
-		t.Fatalf("aps new = %d, stderr %q", code, errOut)
+		t.Fatalf("aps new --preset full = %d, stderr %q", code, errOut)
 	}
-
-	var res newResult
-	if err := json.Unmarshal([]byte(out), &res); err != nil || res.Name != "shop-api" || res.Files < 15 {
-		t.Errorf("aps new --json = %q (%v), want result with files", out, err)
-	}
-
-	goMod, _ := os.ReadFile(filepath.Join("shop-api", "go.mod"))
-	if !strings.HasPrefix(string(goMod), "module example.com/shop-api\n") {
-		t.Errorf("go.mod = %q, want module example.com/shop-api", goMod)
-	}
-
-	var lock lockFile
-	lockBytes, _ := os.ReadFile(filepath.Join("shop-api", "apistock.lock"))
-	if err := json.Unmarshal(lockBytes, &lock); err != nil || lock.APIVersion != LockAPIVersion || len(lock.Recipes) != 1 || len(lock.Recipes[0].Operations) != res.Files {
-		t.Errorf("apistock.lock = %s (%v), want %d createFile operations", lockBytes, err, res.Files)
-	}
-
-	_ = filepath.WalkDir("shop-api", func(p string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return err
+	for _, want := range []string{"full preset", "docker compose up -d --wait", "go run ./cmd/migrate", "http://127.0.0.1:8025", "POSTGRES_PORT", "aps add mail"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("aps new --preset full output lacks %q:\n%s", want, out)
 		}
-		b, _ := os.ReadFile(p)
-		if bytes.Contains(b, []byte("acme-api")) || bytes.Contains(b, []byte("⟦")) {
-			t.Errorf("%s still contains placeholder or template syntax", p)
-		}
-		return nil
-	})
+	}
 }
 
 func TestParseDotEnv(t *testing.T) {
@@ -160,8 +199,10 @@ func TestSnapshotDetectsChanges(t *testing.T) {
 	}
 }
 
-// TestNewAppBuildsAndPassesItsTests creates an app against this checkout,
-// then builds it and runs its own test suite. Set APS_E2E=1 to run it.
+// TestNewAppBuildsAndPassesItsTests creates an app of each preset against
+// this checkout, then vets it and runs its own test suite. A Full app's
+// database tests run when APISTOCK_TEST_DATABASE_URL is set; afterwards the
+// generators users run next must leave it building. Set APS_E2E=1 to run it.
 func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 	if os.Getenv("APS_E2E") == "" {
 		t.Skip("set APS_E2E=1 to run the end-to-end test")
@@ -170,16 +211,38 @@ func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Chdir(t.TempDir())
+	for _, preset := range []string{"minimal", "full"} {
+		t.Run(preset, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			name := "e2e-" + preset
+			if code, _, errOut := runAps(t, "new", name, "--preset", preset, "--local", repo, "--no-git"); code != 0 {
+				t.Fatalf("aps new --preset %s --local = %d: %s", preset, code, errOut)
+			}
+			goIn(t, name, "vet", "./...")
+			goIn(t, name, "test", "./...")
+			if preset != "full" {
+				return
+			}
 
-	if code, _, errOut := runAps(t, "new", "e2e-api", "--local", repo, "--no-git"); code != 0 {
-		t.Fatalf("aps new --local = %d: %s", code, errOut)
+			t.Chdir(name)
+			for _, args := range [][]string{
+				{"gen", "resource", "Customer", "email:string:unique", "notes:text", "tier:enum(free,pro)", "--yes"},
+				{"gen", "job", "SendDigest", "--every", "1h", "--yes"},
+			} {
+				if code, _, errOut := runAps(t, args...); code != 0 {
+					t.Fatalf("aps %s in a new Full app = %d: %s", strings.Join(args, " "), code, errOut)
+				}
+			}
+			goIn(t, ".", "vet", "./...")
+		})
 	}
-	for _, args := range [][]string{{"vet", "./..."}, {"test", "./..."}} {
-		cmd := exec.Command("go", args...)
-		cmd.Dir = "e2e-api"
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("go %s in generated app failed: %v\n%s", strings.Join(args, " "), err, out)
-		}
+}
+
+func goIn(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("go", args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go %s in %s failed: %v\n%s", strings.Join(args, " "), dir, err, out)
 	}
 }

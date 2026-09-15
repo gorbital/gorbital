@@ -1,0 +1,26 @@
+package app
+
+import (
+	"time"
+
+	"apistock.dev/modules/jobs"
+
+	"⟦.Module⟧/internal/jobs/heartbeat"
+)
+
+// defineHeartbeatJob declares the heartbeat job with its code defaults.
+// Operators can override them in /ops/jobs/definitions/heartbeat.
+func defineHeartbeatJob(defs *jobs.Definitions, deps jobDeps) {
+	jobs.Define(defs, jobs.Definition[heartbeat.Args]{
+		Name:        heartbeat.Name,
+		Description: "Logs a heartbeat. An example job: change its schedule in /ops/jobs.",
+		Worker:      heartbeat.NewWorker(deps.logger),
+		NewArgs:     func() heartbeat.Args { return heartbeat.Args{} },
+		Enabled:     true,
+		Schedule:    "@every 1h",
+		Timeout:     time.Minute,
+		MaxAttempts: 3,
+		Queue:       "default",
+		Priority:    1,
+	})
+}

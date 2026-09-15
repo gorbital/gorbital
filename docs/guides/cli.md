@@ -59,13 +59,28 @@ aps new my-api --module github.com/you/my-api --local ~/code/apistock --yes
 |---|---|---|
 | App name | `<name>` (positional) | required |
 | Go module path | `--module` | the app name |
-| Preset | `--preset` | `minimal` (Full and Custom arrive in v0.2) |
+| Preset (Minimal or Full) | `--preset minimal\|full` | `minimal` (Custom arrives later) |
 | apistock checkout | `--local <path>` | the checkout you run `aps` inside, if any |
 | Initialise git | `--no-git` | yes |
 
 Other flags: `--skip-tidy` (don't run `go mod tidy`), `--json`, `--yes`, `--no-input`, `--plain`.
 
-The Full preset can't be created with `aps new` yet; see [examples/full-single](../../examples/full-single) to try it.
+| Preset | What you get | Needs |
+|---|---|---|
+| **Minimal** | HTTP API with configuration, telemetry, health checks, security headers and interactive docs | Go |
+| **Full** | Everything in Minimal, plus PostgreSQL, runtime settings, background jobs, email (Resend, or SMTP with `aps add mail`), authentication and platform roles, audit log, release tracking, `/ops/*` APIs, and example code: the `ping` endpoint, the `heartbeat` job and the `projects` resource | Go and Docker |
+
+A Full app is exactly [examples/full-single](../../examples/full-single) with your name and module path ([ADR-0041](../adr/0041-full-preset-generation.md)): its database, Compose project and service name are your app's name. It's single-tenant; organisations arrive in v0.4. After creating one:
+
+```bash
+cd my-api
+cp .env.example .env
+docker compose up -d --wait    # PostgreSQL and Mailpit
+go run ./cmd/migrate
+go run ./cmd/api               # or: aps dev
+```
+
+If port 5432 is taken, set `POSTGRES_PORT` in `.env` and the same port in `DATABASE_URL`. The app's README explains how to create the first admin and how to remove the examples.
 
 ## `aps gen job`
 

@@ -11,16 +11,16 @@ services:
   postgres:
     image: postgres:18
     environment:
-      POSTGRES_USER: acme
-      POSTGRES_PASSWORD: acme
-      POSTGRES_DB: acme
+      POSTGRES_USER: acme-api
+      POSTGRES_PASSWORD: acme-api
+      POSTGRES_DB: acme-api
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       # PostgreSQL 18+ images keep versioned data under /var/lib/postgresql.
       - postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U acme -d acme"]
+      test: ["CMD-SHELL", "pg_isready -U acme-api -d acme-api"]
       interval: 2s
       timeout: 3s
       retries: 30

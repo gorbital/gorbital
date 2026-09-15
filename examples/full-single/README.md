@@ -2,8 +2,6 @@
 
 A Go API created with [apistock](https://apistock.dev) (Full preset, single-tenant).
 
-> This app is the golden copy of what `aps new --preset=full` will generate.
-
 ## Run
 
 ```bash
@@ -39,7 +37,7 @@ TOKEN=$(curl -s -X POST http://127.0.0.1:8080/v1/auth/login -H 'Content-Type: ap
 curl http://127.0.0.1:8080/ops/settings -H "Authorization: Bearer $TOKEN"
 ```
 
-Browsers sign in without `"transport"` and get an HttpOnly session cookie instead. See the [authentication guide](../../docs/guides/authentication.md).
+Browsers sign in without `"transport"` and get an HttpOnly session cookie instead. See the apistock authentication guide for sign-in flows, roles and limits.
 
 ## Configuration
 
@@ -58,7 +56,7 @@ This app sends email with **Resend**. In development every email goes to Mailpit
 2. Set the sender: `PUT /ops/settings/mail.from_email` and `PUT /ops/settings/mail.from_name`.
 3. Check it: `POST /ops/mail/test` with `{"to":"you@example.com"}`.
 
-Prefer SMTP (Amazon SES, Postmark, Mailgun, your own server)? Run `aps add mail` and choose it. See the [email guide](../../docs/guides/email.md).
+Prefer SMTP (Amazon SES, Postmark, Mailgun, your own server)? Run `aps add mail` and choose it. See the apistock email guide for providers and delivery.
 
 ```bash
 curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
@@ -70,7 +68,7 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 
 | Task | Command |
 |---|---|
-| Run tests (needs `docker compose up -d --wait`) | `APISTOCK_TEST_DATABASE_URL=postgres://acme:acme@127.0.0.1:5432/acme?sslmode=disable go test ./...` |
+| Run tests (needs `docker compose up -d --wait`) | `APISTOCK_TEST_DATABASE_URL=postgres://acme-api:acme-api@127.0.0.1:5432/acme-api?sslmode=disable go test ./...` |
 | Export the OpenAPI document | `go run ./cmd/api openapi > api/openapi.json` |
 | Add a background job | `aps gen job <Name>` (asks the rest), or with flags: `aps gen job CleanupSessions --schedule "0 3 * * *" --yes` |
 | Change a job's schedule, timeout or retries | `PUT /ops/jobs/definitions/{name}` (no redeploy) |
@@ -78,6 +76,18 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 | Switch email provider (Resend or SMTP) | `aps add mail` |
 | Run tests with email delivery checks | also set `APISTOCK_TEST_MAILPIT_SMTP=127.0.0.1:1025 APISTOCK_TEST_MAILPIT_URL=http://127.0.0.1:8025` |
 | Build a container | `docker build -t acme-api .` |
+
+## Examples to keep or remove
+
+The app starts with three examples that show the patterns the rest of the code follows. Keep them as references, or remove them:
+
+| Example | To remove |
+|---|---|
+| `projects` resource (`/v1/projects`) | Delete `internal/modules/projects/`, `internal/app/module_projects.go` and `internal/app/projects_test.go`, and its line in `internal/app/modules.go`. If its migration already ran, add a migration that drops the `projects` table |
+| `heartbeat` job | Delete `internal/jobs/heartbeat/` and `internal/app/job_heartbeat.go`, and its line in `internal/app/jobs.go` |
+| `ping` endpoint (`/v1/ping`) | Delete `internal/modules/ping/` and `internal/app/module_ping.go`, its line and the `pingMessage` field in `internal/app/modules.go`, and the `example.ping_message` setting in `internal/app/settings.go`; the tests that call `/v1/ping` or change that setting use it too |
+
+Then run `go run ./cmd/api openapi > api/openapi.json` and `go test ./...`.
 
 ## Project layout
 

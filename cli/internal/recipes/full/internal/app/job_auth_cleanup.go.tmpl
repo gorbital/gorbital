@@ -1,0 +1,26 @@
+package app
+
+import (
+	"time"
+
+	"apistock.dev/modules/jobs"
+
+	"⟦.Module⟧/internal/jobs/authcleanup"
+)
+
+// defineAuthCleanupJob declares the auth_cleanup job with its code defaults.
+// Operators can override them in /ops/jobs/definitions/auth_cleanup.
+func defineAuthCleanupJob(defs *jobs.Definitions, deps jobDeps) {
+	jobs.Define(defs, jobs.Definition[authcleanup.Args]{
+		Name:        authcleanup.Name,
+		Description: "Removes ended sessions, old email codes and accounts deleted longer ago than auth.deleted_account_retention.",
+		Worker:      authcleanup.NewWorker(deps.authCleanup, deps.logger),
+		NewArgs:     func() authcleanup.Args { return authcleanup.Args{} },
+		Enabled:     true,
+		Schedule:    "30 3 * * *",
+		Timeout:     5 * time.Minute,
+		MaxAttempts: 3,
+		Queue:       "default",
+		Priority:    2,
+	})
+}

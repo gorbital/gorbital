@@ -1,6 +1,6 @@
 # ADR-0014: Product shape, presets and creation prompts
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0001 · **Amended by:** ADR-0035 (interactive prompts with flag parity)
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0001 · **Amended by:** ADR-0035 (interactive prompts with flag parity), ADR-0041 (Full preset generated from `examples/full-single`)
 
 ## Context
 

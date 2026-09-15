@@ -96,6 +96,35 @@ jobs:
   generated:
     name: templates, end-to-end, vulnerabilities
     runs-on: ubuntu-latest
+    # A new Full app's database and email tests run against these (ADR-0041).
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: apistock
+          POSTGRES_PASSWORD: apistock
+          POSTGRES_DB: apistock
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U apistock -d apistock"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+      mailpit:
+        image: axllent/mailpit:v1.27
+        ports:
+          - 1025:1025
+          - 8025:8025
+        options: >-
+          --health-cmd "/mailpit readyz"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      APISTOCK_TEST_DATABASE_URL: postgres://apistock:apistock@localhost:5432/apistock?sslmode=disable
+      APISTOCK_TEST_MAILPIT_SMTP: localhost:1025
+      APISTOCK_TEST_MAILPIT_URL: http://localhost:8025
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -104,11 +133,12 @@ jobs:
         with:
           go-version: "1.26.x"
           cache-dependency-path: "**/go.sum"
-      - name: recipe templates match examples/minimal
+      - name: recipe templates match the golden apps
         working-directory: cli
         run: |
           go generate ./internal/recipes/
-          git diff --exit-code -- internal/recipes/minimal
+          git diff --exit-code -- internal/recipes/minimal internal/recipes/full
+          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full)"
       - name: api/openapi.json matches examples/minimal code
         working-directory: examples/minimal
         run: |
@@ -119,7 +149,7 @@ jobs:
         run: |
           go run ./cmd/api openapi > api/openapi.json
           git diff --exit-code -- api/openapi.json
-      - name: generated app passes its tests; aps add mail switches providers and the app still builds
+      - name: new Minimal and Full apps pass their tests and accept the generators; aps add mail switches providers and the app still builds
         working-directory: cli
         env:
           APS_E2E: "1"

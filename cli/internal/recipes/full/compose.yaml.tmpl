@@ -1,0 +1,41 @@
+# Local services for development and tests (ADR-0028).
+#
+#   docker compose up -d --wait
+#   go run ./cmd/migrate && go run ./cmd/api
+#
+# PostgreSQL on 127.0.0.1:5432; Mailpit's inbox on http://127.0.0.1:8025.
+# Ports bind to 127.0.0.1 only. `docker compose down -v` resets the data.
+name: ⟦.Name⟧
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ⟦.Name⟧
+      POSTGRES_PASSWORD: ⟦.Name⟧
+      POSTGRES_DB: ⟦.Name⟧
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # PostgreSQL 18+ images keep versioned data under /var/lib/postgresql.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ⟦.Name⟧ -d ⟦.Name⟧"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Every email sent in development lands here: open http://127.0.0.1:8025.
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILPIT_WEB_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  postgres-data:

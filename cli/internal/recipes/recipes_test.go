@@ -3,6 +3,7 @@ package recipes_test
 import (
 	"bytes"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,74 +13,143 @@ import (
 	"apistock.dev/cli/internal/recipes/generate"
 )
 
-const exampleDir = "../../../examples/minimal"
+// goldenApps are the hand-written apps each preset is generated from.
+var goldenApps = []struct{ preset, dir string }{
+	{"minimal", "../../../examples/minimal"},
+	{"full", "../../../examples/full-single"},
+}
 
-func renderInto(t *testing.T, d recipes.Data) (string, []recipes.File) {
+func renderInto(t *testing.T, preset string, d recipes.Data) (string, []recipes.File) {
 	t.Helper()
+	p, ok := recipes.LookupPreset(preset)
+	if !ok {
+		t.Fatalf("LookupPreset(%q) found nothing", preset)
+	}
 	dir := t.TempDir()
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer root.Close()
-	files, err := recipes.RenderMinimal(root, d)
+	files, err := p.Render(root, d)
 	if err != nil {
-		t.Fatalf("RenderMinimal() error = %v", err)
+		t.Fatalf("Render(%s) error = %v", preset, err)
 	}
 	return dir, files
 }
 
-// TestGoldenMinimal: rendering with the placeholder name reproduces the
-// hand-written golden app exactly.
-func TestGoldenMinimal(t *testing.T) {
-	dir, files := renderInto(t, recipes.Data{
-		Name:           generate.PlaceholderName,
-		Module:         generate.PlaceholderModule,
-		LibraryVersion: recipes.LibraryVersion,
-	})
-
-	rendered := map[string]bool{}
-	for _, f := range files {
-		rendered[f.Path] = true
-	}
-
-	err := filepath.WalkDir(exampleDir, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(exampleDir, p)
-		rel = filepath.ToSlash(rel)
-		if d.IsDir() {
-			if generate.SkippedDirs[d.Name()] {
-				return filepath.SkipDir
+// TestGoldenApps: rendering each preset with the placeholder name reproduces
+// its hand-written golden app exactly, file for file.
+func TestGoldenApps(t *testing.T) {
+	for _, golden := range goldenApps {
+		t.Run(golden.preset, func(t *testing.T) {
+			dir, files := renderInto(t, golden.preset, recipes.Data{
+				Name:           generate.PlaceholderName,
+				Module:         generate.PlaceholderModule,
+				LibraryVersion: recipes.LibraryVersion,
+			})
+			rendered := map[string]bool{}
+			for _, f := range files {
+				rendered[f.Path] = true
 			}
-			return nil
-		}
-		if generate.Skipped(rel) {
-			return nil
-		}
-		want, _ := os.ReadFile(p)
-		got, readErr := os.ReadFile(filepath.Join(dir, rel))
-		switch {
-		case readErr != nil:
-			t.Errorf("golden file %s was not rendered: %v", rel, readErr)
-		case !bytes.Equal(got, want):
-			t.Errorf("rendered %s differs from examples/minimal/%s", rel, rel)
-		}
-		delete(rendered, rel)
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	delete(rendered, "go.mod")
-	for extra := range rendered {
-		t.Errorf("rendered %s, which is not in examples/minimal", extra)
+			err := filepath.WalkDir(golden.dir, func(p string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				rel, _ := filepath.Rel(golden.dir, p)
+				rel = filepath.ToSlash(rel)
+				if d.IsDir() {
+					if generate.SkippedDirs[d.Name()] {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+				if generate.Skipped(rel) {
+					return nil
+				}
+				want, _ := os.ReadFile(p)
+				got, readErr := os.ReadFile(filepath.Join(dir, rel))
+				switch {
+				case readErr != nil:
+					t.Errorf("golden file %s was not rendered: %v", rel, readErr)
+				case !bytes.Equal(got, want):
+					t.Errorf("rendered %s differs from %s/%s", rel, golden.dir, rel)
+				}
+				delete(rendered, rel)
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			delete(rendered, "go.mod")
+			for extra := range rendered {
+				t.Errorf("rendered %s, which is not in %s", extra, golden.dir)
+			}
+		})
 	}
 }
 
+// TestGoModMatchesGolden: with the golden app's own module path, library
+// version and relative checkout, the rendered go.mod requires and replaces
+// exactly what the golden go.mod does.
+func TestGoModMatchesGolden(t *testing.T) {
+	for _, golden := range goldenApps {
+		t.Run(golden.preset, func(t *testing.T) {
+			dir, _ := renderInto(t, golden.preset, recipes.Data{
+				Name: generate.PlaceholderName, Module: generate.PlaceholderModule, LibraryVersion: "v0.0.0", Local: "../..",
+			})
+			gotRequires, gotReplaces := parseGoMod(t, filepath.Join(dir, "go.mod"))
+			wantRequires, wantReplaces := parseGoMod(t, filepath.Join(golden.dir, "go.mod"))
+			if !maps.Equal(gotRequires, wantRequires) {
+				t.Errorf("rendered requirements = %v, want %v", gotRequires, wantRequires)
+			}
+			if !maps.Equal(gotReplaces, wantReplaces) {
+				t.Errorf("rendered replacements = %v, want %v", gotReplaces, wantReplaces)
+			}
+		})
+	}
+}
+
+// parseGoMod returns a go.mod's requirements (path → version and any
+// comment) and replacements (path → target).
+func parseGoMod(t *testing.T, path string) (requires, replaces map[string]string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requires, replaces = map[string]string{}, map[string]string{}
+	add := func(directive, entry string) {
+		switch directive {
+		case "require":
+			module, version, _ := strings.Cut(entry, " ")
+			requires[module] = version
+		case "replace":
+			module, target, _ := strings.Cut(entry, " => ")
+			replaces[module] = target
+		}
+	}
+	block := ""
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case line == "" || strings.HasPrefix(line, "//"):
+		case line == "require (" || line == "replace (":
+			block = strings.TrimSuffix(line, " (")
+		case line == ")":
+			block = ""
+		case block != "":
+			add(block, line)
+		case strings.HasPrefix(line, "require "), strings.HasPrefix(line, "replace "):
+			directive, entry, _ := strings.Cut(line, " ")
+			add(directive, entry)
+		}
+	}
+	return requires, replaces
+}
+
 func TestRenderGoMod(t *testing.T) {
-	dir, _ := renderInto(t, recipes.Data{Name: "shop-api", Module: "github.com/acme/shop-api", LibraryVersion: "v0.1.0"})
+	dir, _ := renderInto(t, "minimal", recipes.Data{Name: "shop-api", Module: "github.com/acme/shop-api", LibraryVersion: "v0.1.0"})
 	goMod, _ := os.ReadFile(filepath.Join(dir, "go.mod"))
 	if !strings.HasPrefix(string(goMod), "module github.com/acme/shop-api\n") || !strings.Contains(string(goMod), "apistock.dev v0.1.0") || strings.Contains(string(goMod), "replace") {
 		t.Errorf("go.mod without Local:\n%s", goMod)
@@ -89,22 +159,53 @@ func TestRenderGoMod(t *testing.T) {
 		t.Errorf("cmd/api/main.go not rendered for the new module:\n%s", main)
 	}
 
-	dir, _ = renderInto(t, recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/src/apistock"})
+	dir, _ = renderInto(t, "full", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/src/apistock"})
 	goMod, _ = os.ReadFile(filepath.Join(dir, "go.mod"))
-	if !strings.Contains(string(goMod), "apistock.dev/modules/openapi => /src/apistock/modules/openapi") {
-		t.Errorf("go.mod with Local lacks replace directives:\n%s", goMod)
+	for _, want := range []string{
+		"apistock.dev/modules/releases v0.1.0",
+		"github.com/riverqueue/river ",
+		"apistock.dev => /src/apistock\n",
+		"apistock.dev/modules/auth => /src/apistock/modules/auth\n",
+	} {
+		if !strings.Contains(string(goMod), want) {
+			t.Errorf("full go.mod with Local lacks %q:\n%s", want, goMod)
+		}
+	}
+
+	dir, _ = renderInto(t, "minimal", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/Users/me/My Code/apistock"})
+	goMod, _ = os.ReadFile(filepath.Join(dir, "go.mod"))
+	if !strings.Contains(string(goMod), `apistock.dev/modules/openapi => "/Users/me/My Code/apistock/modules/openapi"`) {
+		t.Errorf("go.mod with a Local path containing a space doesn't quote it:\n%s", goMod)
 	}
 }
 
-// TestTemplatesUpToDate fails when examples/minimal changed but
+func TestPresets(t *testing.T) {
+	if got := strings.Join(recipes.PresetNames(), ","); got != "minimal,full" {
+		t.Errorf("PresetNames() = %s", got)
+	}
+	for name, recipe := range map[string]string{"minimal": recipes.MinimalName, "full": recipes.FullName} {
+		if p, ok := recipes.LookupPreset(name); !ok || p.Recipe != recipe {
+			t.Errorf("LookupPreset(%q) = %+v, %v", name, p, ok)
+		}
+	}
+	if _, ok := recipes.LookupPreset("custom"); ok {
+		t.Error("LookupPreset(custom) found a preset")
+	}
+}
+
+// TestTemplatesUpToDate fails when a golden app changed but
 // `go generate ./...` wasn't run.
 func TestTemplatesUpToDate(t *testing.T) {
-	fresh := t.TempDir()
-	if err := generate.Run(exampleDir, fresh); err != nil {
-		t.Fatalf("generate.Run() error = %v", err)
+	for _, golden := range goldenApps {
+		t.Run(golden.preset, func(t *testing.T) {
+			fresh := filepath.Join(t.TempDir(), golden.preset)
+			if err := generate.Run(golden.dir, fresh); err != nil {
+				t.Fatalf("generate.Run() error = %v", err)
+			}
+			compareTrees(t, fresh, golden.preset)
+			compareTrees(t, golden.preset, fresh)
+		})
 	}
-	compareTrees(t, fresh, "minimal")
-	compareTrees(t, "minimal", fresh)
 }
 
 func compareTrees(t *testing.T, a, b string) {

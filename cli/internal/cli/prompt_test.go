@@ -124,18 +124,20 @@ func TestPromptNewAsksForMissingValues(t *testing.T) {
 	stdin := answers(
 		"shop-api",                 // app name
 		"github.com/acme/shop-api", // module path
+		"2",                        // preset: full
 		checkout,                   // apistock checkout
 		"n",                        // git init: no
 	)
 
 	var name, module, local string
+	preset := "minimal"
 	noGit := false
 	var out bytes.Buffer
-	err := promptNew(&name, &module, &local, &noGit, map[string]bool{}, promptFlags{plain: true}, stdin, &out)
+	err := promptNew(&name, &module, &preset, &local, &noGit, map[string]bool{}, promptFlags{plain: true}, stdin, &out)
 	if err != nil {
 		t.Fatalf("promptNew() error = %v\noutput:\n%s", err, out.String())
 	}
-	if name != "shop-api" || module != "github.com/acme/shop-api" || local != checkout || !noGit {
-		t.Errorf("answers = name %q, module %q, local %q, noGit %v\noutput:\n%s", name, module, local, noGit, out.String())
+	if name != "shop-api" || module != "github.com/acme/shop-api" || preset != "full" || local != checkout || !noGit {
+		t.Errorf("answers = name %q, module %q, preset %q, local %q, noGit %v\noutput:\n%s", name, module, preset, local, noGit, out.String())
 	}
 }
