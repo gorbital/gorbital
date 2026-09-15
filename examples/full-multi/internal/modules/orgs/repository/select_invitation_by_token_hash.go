@@ -1,0 +1,27 @@
+package repository
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5"
+
+	"apistock.dev/modules/postgres"
+
+	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
+)
+
+const selectInvitationByTokenHashSQL = `SELECT ` + invitationColumns + ` FROM org_invitations WHERE token_hash = $1 FOR UPDATE`
+
+// SelectInvitationByTokenHash returns an invitation by its token hash, or
+// ErrInvitationNotFound, and locks it.
+func (s *Store) SelectInvitationByTokenHash(ctx context.Context, tokenHash []byte) (orgsdomain.Invitation, error) {
+	rows, err := s.db.Query(ctx, selectInvitationByTokenHashSQL, tokenHash)
+	if err != nil {
+		return orgsdomain.Invitation{}, err
+	}
+	inv, err := pgx.CollectExactlyOneRow(rows, scanInvitation)
+	if postgres.IsNoRows(err) {
+		return orgsdomain.Invitation{}, orgsdomain.ErrInvitationNotFound
+	}
+	return inv, err
+}

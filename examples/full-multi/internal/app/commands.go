@@ -1,0 +1,70 @@
+package app
+
+import (
+	"context"
+	"errors"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apistock.dev/audit"
+	"apistock.dev/config"
+	"apistock.dev/modules/auditpg"
+	orgslib "apistock.dev/modules/orgs"
+	"apistock.dev/modules/postgres"
+
+	authmodule "example.com/acme-api/internal/modules/auth"
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
+	orgsmodule "example.com/acme-api/internal/modules/orgs"
+	orgsusecase "example.com/acme-api/internal/modules/orgs/usecase"
+)
+
+// commandDeps are what commands outside the server need: the database, the
+// audit log and the auth and orgs use cases, without HTTP or workers.
+type commandDeps struct {
+	pool     *pgxpool.Pool
+	recorder audit.Recorder
+	auth     *authusecase.Service
+	orgs     *orgsusecase.Service
+}
+
+// openCommandDeps connects to the database as "<ServiceName>-<name>". Close
+// deps.pool when done.
+func openCommandDeps(ctx context.Context, cfg Config, name string) (commandDeps, error) {
+	if cfg.DatabaseURL.IsZero() {
+		return commandDeps{}, errors.New("DATABASE_URL is required")
+	}
+	pool, err := postgres.Open(ctx, cfg.DatabaseURL, postgres.WithApplicationName(ServiceName+"-"+name))
+	if err != nil {
+		return commandDeps{}, err
+	}
+	recorder, err := auditpg.NewStore(pool)
+	if err != nil {
+		pool.Close()
+		return commandDeps{}, err
+	}
+	orgs, err := orgsmodule.New(pool, orgsusecase.Config{
+		Catalog: declareOrgPermissions(), Recorder: recorder, Emails: noInvitations{},
+		InvitationURL: config.Static(defaultInvitationURL),
+	})
+	if err != nil {
+		pool.Close()
+		return commandDeps{}, err
+	}
+	// Accounts created by commands get a personal workspace too.
+	m, err := authmodule.New(pool, authusecase.Config{
+		Catalog: declarePermissions(), Recorder: recorder, Emails: noEmails{}, Keyring: cfg.keyring(), Issuer: ServiceName,
+		Hooks: orgsHooks{orgs: orgs.Service},
+	})
+	if err != nil {
+		pool.Close()
+		return commandDeps{}, err
+	}
+	return commandDeps{pool: pool, recorder: recorder, auth: m.Service(), orgs: orgs.Service()}, nil
+}
+
+// noInvitations refuses to send invitations: commands don't invite anyone.
+type noInvitations struct{}
+
+func (noInvitations) SendInvitation(context.Context, string, orgslib.Invitation) error {
+	return errors.New("commands don't send invitations")
+}

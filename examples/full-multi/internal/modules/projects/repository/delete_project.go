@@ -1,0 +1,24 @@
+package repository
+
+import (
+	"context"
+
+	orgslib "apistock.dev/modules/orgs"
+
+	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
+)
+
+const deleteProjectSQL = `DELETE FROM projects WHERE id = $1 AND org_id = $2`
+
+// DeleteProject removes one of orgID's projects, or returns
+// ErrProjectNotFound.
+func (s *Store) DeleteProject(ctx context.Context, orgID orgslib.ID, id string) error {
+	tag, err := s.db.Exec(ctx, deleteProjectSQL, id, orgID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return projectsdomain.ErrProjectNotFound
+	}
+	return nil
+}

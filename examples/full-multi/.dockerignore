@@ -1,0 +1,6 @@
+.git
+.aps
+.env
+.env.*
+!.env.example
+bin

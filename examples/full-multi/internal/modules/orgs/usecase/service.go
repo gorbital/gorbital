@@ -1,0 +1,183 @@
+// Package usecase holds the orgs module's application logic: organisations,
+// members, invitations, personal workspaces, deletion and purging
+// (ADR-0048). Every operation on an organisation starts with
+// orgs.RequireMember, which checks membership and the role's permission.
+// Change it freely.
+package usecase
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"apistock.dev/actor"
+	"apistock.dev/audit"
+	"apistock.dev/config"
+	authlib "apistock.dev/modules/auth"
+	orgslib "apistock.dev/modules/orgs"
+
+	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
+)
+
+// Permissions the orgs module checks. The org catalog in
+// internal/app/permissions.go grants them to roles. They are public API.
+const (
+	PermOrgRead       = "orgs.org.read"
+	PermOrgUpdate     = "orgs.org.update"
+	PermOrgDelete     = "orgs.org.delete"
+	PermMembersRead   = "orgs.members.read"
+	PermMembersManage = "orgs.members.manage"
+)
+
+// Audit actions. They are public API (ADR-0015): add new ones, never rename.
+const (
+	ActionOrgCreated         = "orgs.org.created"
+	ActionOrgRenamed         = "orgs.org.renamed"
+	ActionOrgDeleted         = "orgs.org.deleted"
+	ActionOrgRestored        = "orgs.org.restored"
+	ActionOrgPurged          = "orgs.org.purged"
+	ActionMemberAdded        = "orgs.member.added"
+	ActionMemberRoleChanged  = "orgs.member.role_changed"
+	ActionMemberRemoved      = "orgs.member.removed"
+	ActionMemberLeft         = "orgs.member.left"
+	ActionInvitationCreated  = "orgs.invitation.created"
+	ActionInvitationResent   = "orgs.invitation.resent"
+	ActionInvitationRevoked  = "orgs.invitation.revoked"
+	ActionInvitationAccepted = "orgs.invitation.accepted"
+)
+
+// Limits.
+const (
+	// InvitationsPerHour bounds invitations an organisation sends, resends
+	// included.
+	InvitationsPerHour = 20
+	// DefaultInvitationTTL and DefaultDeletedOrgRetention are the defaults of
+	// their runtime settings.
+	DefaultInvitationTTL       = 7 * 24 * time.Hour
+	DefaultDeletedOrgRetention = 30 * 24 * time.Hour
+	// purgeBatch bounds organisations purged per run.
+	purgeBatch = 100
+)
+
+// Config holds the Service's dependencies and tunables.
+type Config struct {
+	// Required.
+	Store    Store
+	Catalog  *authlib.Catalog // the org catalog, not the platform one
+	Recorder audit.Recorder
+	Emails   orgslib.Emails
+	// InvitationURL is the frontend page invitation links open, such as
+	// https://app.example.com/invitations. The token goes in the fragment.
+	InvitationURL config.Value[string]
+
+	// Optional.
+	Logger *slog.Logger
+	// InvitationTTL and DeletedOrgRetention are usually runtime settings.
+	InvitationTTL       config.Value[time.Duration]
+	DeletedOrgRetention config.Value[time.Duration]
+	// Now is the clock, for tests.
+	Now func() time.Time
+}
+
+// Service runs the orgs use cases. It is safe for concurrent use.
+type Service struct {
+	store         Store
+	catalog       *authlib.Catalog
+	recorder      audit.Recorder
+	emails        orgslib.Emails
+	invitationURL config.Value[string]
+	invitationTTL config.Value[time.Duration]
+	retention     config.Value[time.Duration]
+	logger        *slog.Logger
+	now           func() time.Time
+}
+
+// NewService returns a Service. It freezes the catalog.
+func NewService(c Config) (*Service, error) {
+	if c.Store == nil || c.Catalog == nil || c.Recorder == nil || c.Emails == nil || c.InvitationURL == nil {
+		return nil, errors.New("orgs: invalid service: store, catalog, audit recorder, emails and invitation URL are required")
+	}
+	for _, role := range []string{orgslib.RoleOwner, orgslib.RoleAdmin, orgslib.RoleMember} {
+		if !c.Catalog.HasRole(role) {
+			return nil, fmt.Errorf("orgs: invalid service: the org catalog must declare the %s role", role)
+		}
+	}
+	s := &Service{
+		store: c.Store, catalog: c.Catalog, recorder: c.Recorder, emails: c.Emails,
+		invitationURL: c.InvitationURL, invitationTTL: c.InvitationTTL, retention: c.DeletedOrgRetention,
+		logger: c.Logger, now: c.Now,
+	}
+	if s.invitationTTL == nil {
+		s.invitationTTL = config.Static(DefaultInvitationTTL)
+	}
+	if s.retention == nil {
+		s.retention = config.Static(DefaultDeletedOrgRetention)
+	}
+	if s.logger == nil {
+		s.logger = slog.New(slog.DiscardHandler)
+	}
+	if s.now == nil {
+		s.now = time.Now
+	}
+	c.Catalog.Freeze()
+	return s, nil
+}
+
+// Catalog returns the org catalog.
+func (s *Service) Catalog() *authlib.Catalog { return s.catalog }
+
+// Memberships returns what other org-scoped modules pass to
+// orgs.RequireMember.
+func (s *Service) Memberships() orgslib.Memberships { return s.store }
+
+// clock returns the time at PostgreSQL's microsecond precision.
+func (s *Service) clock() time.Time { return s.now().UTC().Truncate(time.Microsecond) }
+
+// userID returns the signed-in user's ID, or ErrUnauthenticated.
+func userID(ctx context.Context) (string, error) {
+	a, ok := actor.From(ctx)
+	if !ok || a.Kind != actor.KindUser || a.ID == "" {
+		return "", orgsdomain.ErrUnauthenticated
+	}
+	return a.ID, nil
+}
+
+// by names the actor in ctx for added_by and invited_by columns.
+func by(ctx context.Context) string {
+	a := actor.FromOrAnonymous(ctx)
+	return string(a.Kind) + ":" + a.ID
+}
+
+// audit records an event after the change it describes; a failed write is
+// logged, not returned. Inside RequireMember's context the recorder adds the
+// organisation; orgID is set for events outside one.
+func (s *Service) audit(ctx context.Context, action string, orgID orgslib.ID, resourceType, resourceID string, metadata map[string]any) {
+	e := audit.Event{
+		Action: action, OrgID: string(orgID), ResourceType: resourceType, ResourceID: resourceID,
+		Outcome: audit.OutcomeSuccess, Metadata: metadata,
+	}
+	if err := s.recorder.Record(context.WithoutCancel(ctx), e); err != nil {
+		s.logger.ErrorContext(ctx, "record orgs audit event", "action", action, "err", err)
+	}
+}
+
+// storeError returns known errors as they are and hides the rest, such as
+// driver errors, which aren't API (ADR-0018).
+func storeError(op string, err error) error {
+	known := []error{
+		orgslib.ErrOrgNotFound, actor.ErrUnauthenticated, actor.ErrForbidden, actor.ErrStepUpRequired,
+		orgsdomain.ErrUnauthenticated, orgsdomain.ErrInvalidName, orgsdomain.ErrOrgVersionConflict,
+		orgsdomain.ErrPersonalWorkspace, orgsdomain.ErrMemberNotFound, orgsdomain.ErrUnknownRole,
+		orgsdomain.ErrRoleNotAllowed, orgsdomain.ErrLastOwner, orgsdomain.ErrSoleOwner,
+		orgsdomain.ErrAlreadyMember, orgsdomain.ErrAlreadyInvited, orgsdomain.ErrInvitationNotFound, orgsdomain.ErrInvitationEmail,
+		orgsdomain.ErrTooManyInvitations,
+	}
+	for _, k := range known {
+		if errors.Is(err, k) {
+			return err
+		}
+	}
+	return fmt.Errorf("orgs: %s: %v", op, err) //nolint:errorlint // driver errors aren't API (ADR-0018)
+}

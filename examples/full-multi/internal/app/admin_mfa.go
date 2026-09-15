@@ -1,0 +1,70 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+
+	"apistock.dev/actor"
+
+	authdomain "example.com/acme-api/internal/modules/auth/domain"
+)
+
+// ResetMFA turns off two-factor authentication for the account registered
+// with email, for a user who lost their authenticator app and recovery
+// codes, and ends its sessions. It is recorded in the audit log as the "cli"
+// system actor.
+//
+//	go run ./cmd/api reset-mfa you@example.com
+func ResetMFA(ctx context.Context, cfg Config, email string, w io.Writer) error {
+	deps, err := openCommandDeps(ctx, cfg, "cli")
+	if err != nil {
+		return err
+	}
+	defer deps.pool.Close()
+
+	ctx = actor.With(ctx, actor.System("cli"))
+	user, err := deps.auth.UserByEmail(ctx, email)
+	if errors.Is(err, authdomain.ErrUserNotFound) {
+		return fmt.Errorf("no account uses %s", email)
+	}
+	if err != nil {
+		return err
+	}
+	switch err := deps.auth.ResetMFA(ctx, user.ID); {
+	case errors.Is(err, authdomain.ErrMFANotEnabled):
+		return fmt.Errorf("%s doesn't have two-factor authentication on", email)
+	case err != nil:
+		return err
+	}
+	fmt.Fprintf(w, "✓ Two-factor authentication is off for %s, and its sessions ended.\n", email)
+	if deps.auth.Catalog().RequiresMFA(user.Roles...) {
+		fmt.Fprintln(w, "  Its roles require two-factor authentication: it has to turn it on again before using them.")
+	}
+	return nil
+}
+
+// RotateAuthKeys re-encrypts every authenticator app secret with the first
+// key of AUTH_ENCRYPTION_KEYS. Deploy every instance with the new key first
+// and the old keys after it, run this, then remove the old keys.
+//
+//	go run ./cmd/api rotate-auth-keys
+func RotateAuthKeys(ctx context.Context, cfg Config, w io.Writer) error {
+	deps, err := openCommandDeps(ctx, cfg, "cli")
+	if err != nil {
+		return err
+	}
+	defer deps.pool.Close()
+
+	n, err := deps.auth.RotateEncryptionKeys(actor.With(ctx, actor.System("cli")))
+	if errors.Is(err, authdomain.ErrMFAUnavailable) {
+		return errors.New("AUTH_ENCRYPTION_KEYS is empty: set the new key first, followed by the old keys")
+	}
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "✓ %d secrets re-encrypted with key %q. Remove the old keys from AUTH_ENCRYPTION_KEYS once every instance runs with this list.\n",
+		n, cfg.keyring().CurrentKeyID())
+	return nil
+}

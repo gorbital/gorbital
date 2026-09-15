@@ -1,0 +1,209 @@
+package usecase
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	orgslib "apistock.dev/modules/orgs"
+	"apistock.dev/page"
+
+	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
+)
+
+// Permissions the projects module checks. The org catalog in
+// internal/app/permissions.go grants them to roles. They are public API.
+const (
+	PermRead  = "projects.project.read"
+	PermWrite = "projects.project.write"
+)
+
+// Audit actions. They are public API (ADR-0015): add new ones, never rename.
+const (
+	ActionCreated = "projects.project.created"
+	ActionUpdated = "projects.project.updated"
+	ActionDeleted = "projects.project.deleted"
+)
+
+// listOptions are the page sizes and sorts List accepts.
+func listOptions() page.Options {
+	return page.Options{
+		SortFields:  []string{"created_at", "updated_at", "name"},
+		DefaultSort: []page.SortField{{Field: "created_at", Desc: true}},
+	}
+}
+
+// Create adds a project to an organisation.
+func (s *Service) Create(ctx context.Context, orgID orgslib.ID, f projectsdomain.ProjectFields) (projectsdomain.Project, error) {
+	ctx, me, err := s.member(ctx, orgID, PermWrite)
+	if err != nil {
+		return projectsdomain.Project{}, storeError("create", err)
+	}
+	p, err := projectsdomain.NewProject(s.newID(), string(orgID), me.UserID, f, s.clock())
+	if err != nil {
+		return projectsdomain.Project{}, err
+	}
+	created, err := s.store.InsertProject(ctx, p)
+	if err != nil {
+		return projectsdomain.Project{}, storeError("create", err)
+	}
+	s.audit(ctx, ActionCreated, created.ID, nil)
+	return created, nil
+}
+
+// Get returns one of an organisation's projects.
+func (s *Service) Get(ctx context.Context, orgID orgslib.ID, id string) (projectsdomain.Project, error) {
+	ctx, _, err := s.member(ctx, orgID, PermRead)
+	if err != nil {
+		return projectsdomain.Project{}, storeError("get", err)
+	}
+	p, err := s.store.SelectProject(ctx, orgID, id, false)
+	if err != nil {
+		return projectsdomain.Project{}, storeError("get", err)
+	}
+	return p, nil
+}
+
+// ListInput selects a page of an organisation's projects.
+type ListInput struct {
+	Page page.Params
+	// Status keeps projects with this status; empty keeps all.
+	Status projectsdomain.Status
+}
+
+// cursor is the position a page ended at, with the sort it belongs to, so a
+// cursor can't be used with a different sort.
+type cursor struct {
+	Sort string    `json:"s"`
+	Time time.Time `json:"t,omitzero"`
+	Text string    `json:"x,omitempty"`
+	ID   string    `json:"i"`
+}
+
+// List returns a page of an organisation's projects, sorted by one field
+// (newest first by default).
+func (s *Service) List(ctx context.Context, orgID orgslib.ID, in ListInput) (page.Result[projectsdomain.Project], error) {
+	var none page.Result[projectsdomain.Project]
+	ctx, _, err := s.member(ctx, orgID, PermRead)
+	if err != nil {
+		return none, storeError("list", err)
+	}
+	req, err := in.Page.Request(listOptions())
+	if err != nil {
+		return none, err
+	}
+	if len(req.Sort) != 1 {
+		return none, fmt.Errorf("%w: sort by one field", page.ErrInvalidSort)
+	}
+	if in.Status != "" && !in.Status.Valid() {
+		return none, &projectsdomain.ValidationError{Errors: []projectsdomain.FieldError{{Field: "status", Message: "must be active or archived"}}}
+	}
+
+	q := ListQuery{
+		OrgID:  orgID,
+		Status: in.Status,
+		Sort:   req.Sort[0],
+		// One more than the limit shows whether there is a next page.
+		Limit: req.Limit + 1,
+	}
+	sort := sortName(q.Sort)
+	if req.Cursor != "" {
+		var c cursor
+		if err := page.DecodeCursor(req.Cursor, &c); err != nil {
+			return none, err
+		}
+		if c.Sort != sort || c.ID == "" {
+			return none, fmt.Errorf("%w: it belongs to a different sort", page.ErrInvalidCursor)
+		}
+		q.After = &Position{Time: c.Time, Text: c.Text, ID: c.ID}
+	}
+
+	items, err := s.store.SelectProjects(ctx, q)
+	if err != nil {
+		return none, storeError("list", err)
+	}
+	res := page.Result[projectsdomain.Project]{Items: items}
+	if len(items) > req.Limit {
+		res.Items = items[:req.Limit]
+		last := res.Items[len(res.Items)-1]
+		c := cursor{Sort: sort, ID: last.ID}
+		switch q.Sort.Field {
+		case "created_at":
+			c.Time = last.CreatedAt
+		case "updated_at":
+			c.Time = last.UpdatedAt
+		case "name":
+			c.Text = last.Name
+		}
+		if res.NextCursor, err = page.EncodeCursor(c); err != nil {
+			return none, err
+		}
+	}
+	return res, nil
+}
+
+func sortName(f page.SortField) string {
+	if f.Desc {
+		return "-" + f.Field
+	}
+	return f.Field
+}
+
+// UpdateInput changes a project. Version is the version the caller read.
+type UpdateInput struct {
+	Version int64
+	Changes projectsdomain.Changes
+}
+
+// Update changes one of an organisation's projects. It returns
+// ErrProjectVersionConflict when in.Version is no longer current. An update
+// that changes nothing returns the project as it is.
+func (s *Service) Update(ctx context.Context, orgID orgslib.ID, id string, in UpdateInput) (projectsdomain.Project, error) {
+	ctx, _, err := s.member(ctx, orgID, PermWrite)
+	if err != nil {
+		return projectsdomain.Project{}, storeError("update", err)
+	}
+	var updated projectsdomain.Project
+	var changed []string
+	err = s.store.InTx(ctx, func(tx Store) error {
+		current, err := tx.SelectProject(ctx, orgID, id, true)
+		if err != nil {
+			return err
+		}
+		if current.Version != in.Version {
+			return projectsdomain.ErrProjectVersionConflict
+		}
+		next, fields, err := current.Apply(in.Changes, s.clock())
+		if err != nil {
+			return err
+		}
+		if len(fields) == 0 {
+			updated = current
+			return nil
+		}
+		changed = fields
+		updated, err = tx.UpdateProject(ctx, next)
+		return err
+	})
+	if err != nil {
+		return projectsdomain.Project{}, storeError("update", err)
+	}
+	if len(changed) > 0 {
+		// Field names only: values may be personal data.
+		s.audit(ctx, ActionUpdated, id, map[string]any{"fields": changed})
+	}
+	return updated, nil
+}
+
+// Delete removes one of an organisation's projects.
+func (s *Service) Delete(ctx context.Context, orgID orgslib.ID, id string) error {
+	ctx, _, err := s.member(ctx, orgID, PermWrite)
+	if err != nil {
+		return storeError("delete", err)
+	}
+	if err := s.store.DeleteProject(ctx, orgID, id); err != nil {
+		return storeError("delete", err)
+	}
+	s.audit(ctx, ActionDeleted, id, nil)
+	return nil
+}

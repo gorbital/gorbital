@@ -52,7 +52,7 @@ jobs:
       fail-fast: false
       matrix:
         go: ["1.26.x", "1.27.x"]
-        module: [".", modules/auditpg, modules/auth, modules/jobs, modules/mail/resend, modules/mail/smtp, modules/openapi, modules/orgs, modules/postgres, modules/releases, modules/settings, modules/telemetry, cli, examples/minimal, examples/full-single]
+        module: [".", modules/auditpg, modules/auth, modules/jobs, modules/mail/resend, modules/mail/smtp, modules/openapi, modules/orgs, modules/postgres, modules/releases, modules/settings, modules/telemetry, cli, examples/minimal, examples/full-single, examples/full-multi]
     defaults:
       run:
         working-directory: ${{ matrix.module }}
@@ -79,7 +79,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [".", modules/auditpg, modules/auth, modules/jobs, modules/mail/resend, modules/mail/smtp, modules/openapi, modules/orgs, modules/postgres, modules/releases, modules/settings, modules/telemetry, cli, examples/minimal, examples/full-single]
+        module: [".", modules/auditpg, modules/auth, modules/jobs, modules/mail/resend, modules/mail/smtp, modules/openapi, modules/orgs, modules/postgres, modules/releases, modules/settings, modules/telemetry, cli, examples/minimal, examples/full-single, examples/full-multi]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -149,6 +149,11 @@ jobs:
         run: |
           go run ./cmd/api openapi > api/openapi.json
           git diff --exit-code -- api/openapi.json
+      - name: api/openapi.json matches examples/full-multi code
+        working-directory: examples/full-multi
+        run: |
+          go run ./cmd/api openapi > api/openapi.json
+          git diff --exit-code -- api/openapi.json
       - name: new Minimal and Full apps pass their tests and accept the generators; aps add mail switches providers and the app still builds
         working-directory: cli
         env:
@@ -157,7 +162,7 @@ jobs:
       - name: govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
-          for m in . modules/auditpg modules/auth modules/jobs modules/mail/resend modules/mail/smtp modules/openapi modules/orgs modules/postgres modules/releases modules/settings modules/telemetry cli examples/minimal examples/full-single; do
+          for m in . modules/auditpg modules/auth modules/jobs modules/mail/resend modules/mail/smtp modules/openapi modules/orgs modules/postgres modules/releases modules/settings modules/telemetry cli examples/minimal examples/full-single examples/full-multi; do
             echo "== $m"
             (cd "$m" && govulncheck ./...)
           done

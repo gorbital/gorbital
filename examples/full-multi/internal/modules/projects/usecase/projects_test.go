@@ -1,0 +1,363 @@
+package usecase_test
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"apistock.dev/actor"
+	"apistock.dev/audit"
+	authlib "apistock.dev/modules/auth"
+	orgslib "apistock.dev/modules/orgs"
+	"apistock.dev/modules/postgres/pgtest"
+	"apistock.dev/page"
+
+	"example.com/acme-api/db/migrations"
+	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
+	projectsrepository "example.com/acme-api/internal/modules/projects/repository"
+	projectsusecase "example.com/acme-api/internal/modules/projects/usecase"
+)
+
+// These tests run the use cases on the real repository and Docker
+// PostgreSQL, with fake memberships, audit recorder, clock and IDs.
+
+type fakeRecorder struct {
+	mu     sync.Mutex
+	events []audit.Event
+}
+
+func (f *fakeRecorder) Record(ctx context.Context, e audit.Event) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.events = append(f.events, audit.FromContext(ctx, e))
+	return nil
+}
+
+func (f *fakeRecorder) actions() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []string
+	for _, e := range f.events {
+		out = append(out, e.Action+" "+e.ResourceID)
+	}
+	return out
+}
+
+// memberships maps "org/user" to a role.
+type memberships map[string]string
+
+func (m memberships) MemberRole(_ context.Context, orgID orgslib.ID, userID string) (string, error) {
+	if role, ok := m[string(orgID)+"/"+userID]; ok {
+		return role, nil
+	}
+	return "", orgslib.ErrNotMember
+}
+
+type fixture struct {
+	svc   *projectsusecase.Service
+	audit *fakeRecorder
+	now   time.Time
+	// orgA has ada (owner), carol (member) and dan (viewer, who can only
+	// read); orgB has bob (owner).
+	orgA, orgB orgslib.ID
+}
+
+// newFixture returns the use cases on a fresh database. IDs are prj_1,
+// prj_2 and so on.
+func newFixture(t *testing.T) *fixture {
+	t.Helper()
+	pool := pgtest.New(t, pgtest.WithMigrations(migrations.FS))
+	f := &fixture{audit: &fakeRecorder{}, now: time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC), orgA: orgslib.NewID(), orgB: orgslib.NewID()}
+	ctx := context.Background()
+	for _, id := range []string{"usr_ada", "usr_bob", "usr_carol", "usr_dan"} {
+		_, err := pool.Exec(ctx,
+			`INSERT INTO auth_users (id, email, email_normalized, created_at, updated_at) VALUES ($1, $2, $2, $3, $3)`,
+			id, id+"@example.com", f.now)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, id := range []orgslib.ID{f.orgA, f.orgB} {
+		if _, err := pool.Exec(ctx, `INSERT INTO orgs (id, name, created_by, created_at, updated_at) VALUES ($1, $1, 'usr_ada', $2, $2)`, id, f.now); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	catalog := authlib.NewCatalog()
+	catalog.Permission(projectsusecase.PermRead, "See projects")
+	catalog.Permission(projectsusecase.PermWrite, "Change projects")
+	catalog.Role("owner", "Everything", projectsusecase.PermRead, projectsusecase.PermWrite)
+	catalog.Role("member", "Works on projects", projectsusecase.PermRead, projectsusecase.PermWrite)
+	catalog.Role("viewer", "Reads projects", projectsusecase.PermRead)
+	ids := 0
+	svc, err := projectsusecase.NewService(projectsusecase.Config{
+		Store:    projectsrepository.NewStore(pool),
+		Recorder: f.audit,
+		Catalog:  catalog,
+		Memberships: memberships{
+			string(f.orgA) + "/usr_ada": "owner", string(f.orgA) + "/usr_carol": "member", string(f.orgA) + "/usr_dan": "viewer",
+			string(f.orgB) + "/usr_bob": "owner",
+		},
+		Now:   func() time.Time { return f.now },
+		NewID: func() string { ids++; return fmt.Sprintf("prj_%d", ids) },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.svc = svc
+	return f
+}
+
+// as returns a request context signed in as userID.
+func as(userID string) context.Context {
+	return actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: userID})
+}
+
+// validFields returns fields that pass every rule.
+func validFields() projectsdomain.ProjectFields {
+	return projectsdomain.ProjectFields{Name: "Example name", Description: "Example description", Status: projectsdomain.StatusActive}
+}
+
+// create adds a project to orgA with title as its name.
+func (f *fixture) create(t *testing.T, userID, title string) projectsdomain.Project {
+	t.Helper()
+	p, err := f.svc.Create(as(userID), f.orgA, projectsdomain.ProjectFields{Name: title, Description: "Example description", Status: projectsdomain.StatusActive})
+	if err != nil {
+		t.Fatalf("Create(%q) error = %v", title, err)
+	}
+	return p
+}
+
+// calls runs every operation on p's organisation as ctx and returns the
+// errors by operation.
+func (f *fixture) calls(ctx context.Context, orgID orgslib.ID, p projectsdomain.Project) map[string]error {
+	_, createErr := f.svc.Create(ctx, orgID, validFields())
+	_, getErr := f.svc.Get(ctx, orgID, p.ID)
+	_, listErr := f.svc.List(ctx, orgID, projectsusecase.ListInput{})
+	_, updateErr := f.svc.Update(ctx, orgID, p.ID, projectsusecase.UpdateInput{Version: 1})
+	deleteErr := f.svc.Delete(ctx, orgID, p.ID)
+	return map[string]error{"Create": createErr, "Get": getErr, "List": listErr, "Update": updateErr, "Delete": deleteErr}
+}
+
+func TestRequiresMembership(t *testing.T) {
+	f := newFixture(t)
+	p := f.create(t, "usr_ada", "Website")
+	for name, ctx := range map[string]context.Context{
+		"no actor":  context.Background(),
+		"anonymous": actor.With(context.Background(), actor.Anonymous),
+		"system":    actor.With(context.Background(), actor.System("cli")),
+	} {
+		for op, err := range f.calls(ctx, f.orgA, p) {
+			if !errors.Is(err, actor.ErrUnauthenticated) {
+				t.Errorf("%s with %s error = %v, want actor.ErrUnauthenticated", op, name, err)
+			}
+		}
+	}
+	// Outside the organisation, it doesn't exist; a malformed ID neither.
+	for _, orgID := range []orgslib.ID{f.orgA, "org_nope"} {
+		for op, err := range f.calls(as("usr_bob"), orgID, p) {
+			if !errors.Is(err, orgslib.ErrOrgNotFound) {
+				t.Errorf("%s by a non-member in %s error = %v, want ErrOrgNotFound", op, orgID, err)
+			}
+		}
+	}
+	// A role that only reads can't change anything.
+	viewer := f.calls(as("usr_dan"), f.orgA, p)
+	for _, op := range []string{"Create", "Update", "Delete"} {
+		if !errors.Is(viewer[op], actor.ErrForbidden) {
+			t.Errorf("%s by a viewer error = %v, want actor.ErrForbidden", op, viewer[op])
+		}
+	}
+	if viewer["Get"] != nil || viewer["List"] != nil {
+		t.Errorf("Get and List by a viewer errors = %v, %v, want none", viewer["Get"], viewer["List"])
+	}
+}
+
+func TestCreate(t *testing.T) {
+	f := newFixture(t)
+	fields := validFields()
+	fields.Name = " " + fields.Name + " "
+	p, err := f.svc.Create(as("usr_carol"), f.orgA, fields)
+	if err != nil || p.ID != "prj_1" || p.OrgID != string(f.orgA) || p.CreatedBy != "usr_carol" || p.Name != strings.TrimSpace(fields.Name) ||
+		p.Version != 1 || !p.CreatedAt.Equal(f.now) {
+		t.Fatalf("Create() = %+v, %v", p, err)
+	}
+	if got, err := f.svc.Get(as("usr_ada"), f.orgA, p.ID); err != nil || got != p {
+		t.Errorf("Get() by another member = %+v, %v, want %+v", got, err, p)
+	}
+
+	_, err = f.svc.Create(as("usr_ada"), f.orgA, projectsdomain.ProjectFields{Name: "\x00", Description: "\x00", Status: "?"})
+	var invalid *projectsdomain.ValidationError
+	if !errors.As(err, &invalid) || len(invalid.Errors) != 3 {
+		t.Errorf("Create(invalid) error = %v, want 3 invalid fields", err)
+	}
+	taken := validFields()
+	taken.Name = strings.ToUpper(p.Name)
+	if _, err := f.svc.Create(as("usr_ada"), f.orgA, taken); !errors.Is(err, projectsdomain.ErrProjectNameTaken) {
+		t.Errorf("Create(taken name) error = %v, want ErrProjectNameTaken", err)
+	}
+	if want := []string{projectsusecase.ActionCreated + " prj_1"}; !slices.Equal(f.audit.actions(), want) {
+		t.Errorf("audit = %v, want %v", f.audit.actions(), want)
+	}
+	if e := f.audit.events[0]; e.OrgID != string(f.orgA) || e.ActorID != "usr_carol" {
+		t.Errorf("audit event org and actor = %q, %q, want %s and usr_carol", e.OrgID, e.ActorID, f.orgA)
+	}
+}
+
+// TestOrganisationsCantReachEachOthersProjects is the cross-organisation
+// isolation test every org-scoped resource gets (ADR-0048).
+func TestOrganisationsCantReachEachOthersProjects(t *testing.T) {
+	f := newFixture(t)
+	p := f.create(t, "usr_ada", "Website")
+	bob := as("usr_bob")
+	title := "Stolen"
+
+	// Bob names the project from his own organisation: it isn't there.
+	if _, err := f.svc.Get(bob, f.orgB, p.ID); !errors.Is(err, projectsdomain.ErrProjectNotFound) {
+		t.Errorf("Get(another organisation's) error = %v, want ErrProjectNotFound", err)
+	}
+	if _, err := f.svc.Update(bob, f.orgB, p.ID, projectsusecase.UpdateInput{Version: p.Version, Changes: projectsdomain.Changes{Name: &title}}); !errors.Is(err, projectsdomain.ErrProjectNotFound) {
+		t.Errorf("Update(another organisation's) error = %v, want ErrProjectNotFound", err)
+	}
+	if err := f.svc.Delete(bob, f.orgB, p.ID); !errors.Is(err, projectsdomain.ErrProjectNotFound) {
+		t.Errorf("Delete(another organisation's) error = %v, want ErrProjectNotFound", err)
+	}
+	if res, err := f.svc.List(bob, f.orgB, projectsusecase.ListInput{}); err != nil || len(res.Items) != 0 {
+		t.Errorf("List() in another organisation = %+v, %v, want none", res, err)
+	}
+	if got, err := f.svc.Get(as("usr_ada"), f.orgA, p.ID); err != nil || got != p {
+		t.Errorf("project changed from another organisation: %+v, %v", got, err)
+	}
+}
+
+func TestUpdate(t *testing.T) {
+	f := newFixture(t)
+	ctx := as("usr_ada")
+	p := f.create(t, "usr_ada", "Website")
+	f.create(t, "usr_ada", "Docs")
+	f.now = f.now.Add(time.Hour)
+	title := "Website v2"
+	choice := projectsdomain.StatusArchived
+
+	updated, err := f.svc.Update(ctx, f.orgA, p.ID, projectsusecase.UpdateInput{Version: 1, Changes: projectsdomain.Changes{Name: &title, Status: &choice}})
+	if err != nil || updated.Version != 2 || updated.Name != title || updated.Status != choice || !updated.UpdatedAt.Equal(f.now) {
+		t.Fatalf("Update() = %+v, %v", updated, err)
+	}
+	if _, err := f.svc.Update(ctx, f.orgA, p.ID, projectsusecase.UpdateInput{Version: 1, Changes: projectsdomain.Changes{Name: &title}}); !errors.Is(err, projectsdomain.ErrProjectVersionConflict) {
+		t.Errorf("Update(stale version) error = %v, want ErrProjectVersionConflict", err)
+	}
+	same, err := f.svc.Update(ctx, f.orgA, p.ID, projectsusecase.UpdateInput{Version: 2, Changes: projectsdomain.Changes{Name: &title}})
+	if err != nil || same != updated {
+		t.Errorf("Update(no change) = %+v, %v, want the project unchanged", same, err)
+	}
+	blank := " "
+	if _, err := f.svc.Update(ctx, f.orgA, p.ID, projectsusecase.UpdateInput{Version: 2, Changes: projectsdomain.Changes{Name: &blank}}); !errors.Is(err, projectsdomain.ErrInvalidProject) {
+		t.Errorf("Update(blank name) error = %v, want ErrInvalidProject", err)
+	}
+	taken := "docs"
+	if _, err := f.svc.Update(ctx, f.orgA, p.ID, projectsusecase.UpdateInput{Version: 2, Changes: projectsdomain.Changes{Name: &taken}}); !errors.Is(err, projectsdomain.ErrProjectNameTaken) {
+		t.Errorf("Update(taken name) error = %v, want ErrProjectNameTaken", err)
+	}
+	if _, err := f.svc.Update(ctx, f.orgA, "prj_missing", projectsusecase.UpdateInput{Version: 1}); !errors.Is(err, projectsdomain.ErrProjectNotFound) {
+		t.Errorf("Update(missing) error = %v, want ErrProjectNotFound", err)
+	}
+
+	// Only the real change is audited, with field names and no values.
+	want := []string{projectsusecase.ActionCreated + " prj_1", projectsusecase.ActionCreated + " prj_2", projectsusecase.ActionUpdated + " prj_1"}
+	if !slices.Equal(f.audit.actions(), want) {
+		t.Fatalf("audit = %v, want %v", f.audit.actions(), want)
+	}
+	if fields := f.audit.events[2].Metadata["fields"]; !slices.Equal(fields.([]string), []string{"name", "status"}) {
+		t.Errorf("update event fields = %v", fields)
+	}
+}
+
+func TestDelete(t *testing.T) {
+	f := newFixture(t)
+	ctx := as("usr_ada")
+	p := f.create(t, "usr_ada", "Website")
+	if err := f.svc.Delete(ctx, f.orgA, p.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.Get(ctx, f.orgA, p.ID); !errors.Is(err, projectsdomain.ErrProjectNotFound) {
+		t.Errorf("Get(deleted) error = %v, want ErrProjectNotFound", err)
+	}
+	if err := f.svc.Delete(ctx, f.orgA, p.ID); !errors.Is(err, projectsdomain.ErrProjectNotFound) {
+		t.Errorf("Delete(deleted) error = %v, want ErrProjectNotFound", err)
+	}
+	if want := []string{projectsusecase.ActionCreated + " prj_1", projectsusecase.ActionDeleted + " prj_1"}; !slices.Equal(f.audit.actions(), want) {
+		t.Errorf("audit = %v, want %v", f.audit.actions(), want)
+	}
+}
+
+func TestListPages(t *testing.T) {
+	f := newFixture(t)
+	ctx := as("usr_ada")
+	for _, title := range []string{"beta", "Alpha", "gamma", "delta", "Epsilon"} {
+		f.create(t, "usr_ada", title)
+		f.now = f.now.Add(time.Minute)
+	}
+
+	titles := func(in projectsusecase.ListInput) []string {
+		t.Helper()
+		var got []string
+		for range 10 {
+			res, err := f.svc.List(ctx, f.orgA, in)
+			if err != nil {
+				t.Fatalf("List(%+v) error = %v", in, err)
+			}
+			for _, p := range res.Items {
+				got = append(got, p.Name)
+			}
+			if res.NextCursor == "" {
+				return got
+			}
+			in.Page.Cursor = res.NextCursor
+		}
+		t.Fatalf("List(%+v) didn't end", in)
+		return nil
+	}
+	if got, want := titles(projectsusecase.ListInput{Page: page.Params{Limit: 2}}), []string{"Epsilon", "delta", "gamma", "Alpha", "beta"}; !slices.Equal(got, want) {
+		t.Errorf("default sort = %v, want newest first %v", got, want)
+	}
+	if got, want := titles(projectsusecase.ListInput{Page: page.Params{Limit: 2, Sort: "name"}}), []string{"Alpha", "beta", "delta", "Epsilon", "gamma"}; !slices.Equal(got, want) {
+		t.Errorf("sort=name = %v, want %v", got, want)
+	}
+	if got, want := titles(projectsusecase.ListInput{Page: page.Params{Limit: 5, Sort: "-name"}}), []string{"gamma", "Epsilon", "delta", "beta", "Alpha"}; !slices.Equal(got, want) {
+		t.Errorf("sort=-name, one full page = %v, want %v", got, want)
+	}
+	choice := projectsdomain.StatusArchived
+	if _, err := f.svc.Update(ctx, f.orgA, "prj_1", projectsusecase.UpdateInput{Version: 1, Changes: projectsdomain.Changes{Status: &choice}}); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := titles(projectsusecase.ListInput{Page: page.Params{Sort: "-updated_at"}, Status: choice}), []string{"beta"}; !slices.Equal(got, want) {
+		t.Errorf("status=%s = %v, want %v", choice, got, want)
+	}
+
+	first, err := f.svc.List(ctx, f.orgA, projectsusecase.ListInput{Page: page.Params{Limit: 2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		params page.Params
+		want   error
+	}{
+		{page.Params{Cursor: first.NextCursor, Sort: "name"}, page.ErrInvalidCursor},
+		{page.Params{Cursor: "not a cursor"}, page.ErrInvalidCursor},
+		{page.Params{Sort: "org_id"}, page.ErrInvalidSort},
+		{page.Params{Sort: "name,created_at"}, page.ErrInvalidSort},
+		{page.Params{Limit: 101}, page.ErrInvalidLimit},
+	} {
+		if _, err := f.svc.List(ctx, f.orgA, projectsusecase.ListInput{Page: tt.params}); !errors.Is(err, tt.want) {
+			t.Errorf("List(%+v) error = %v, want %v", tt.params, err, tt.want)
+		}
+	}
+	if _, err := f.svc.List(ctx, f.orgA, projectsusecase.ListInput{Status: "?"}); !errors.Is(err, projectsdomain.ErrInvalidProject) {
+		t.Errorf("List(unknown status) error = %v, want ErrInvalidProject", err)
+	}
+}

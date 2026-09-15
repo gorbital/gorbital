@@ -1,0 +1,27 @@
+package usecase_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"apistock.dev/config"
+
+	pingdomain "example.com/acme-api/internal/modules/ping/domain"
+	pingusecase "example.com/acme-api/internal/modules/ping/usecase"
+)
+
+func TestService(t *testing.T) {
+	ctx := context.Background()
+	svc := pingusecase.NewService(config.Static("pong"))
+
+	if got := svc.Ping(ctx); got != "pong" {
+		t.Errorf("Ping() = %q, want pong", got)
+	}
+	if m, err := svc.Echo(ctx, " hi "); err != nil || m.Text() != "hi" {
+		t.Errorf("Echo(%q) = %q, %v; want hi, nil", " hi ", m.Text(), err)
+	}
+	if _, err := svc.Echo(ctx, " "); !errors.Is(err, pingdomain.ErrMessageRequired) {
+		t.Errorf("Echo(blank) error = %v, want ErrMessageRequired", err)
+	}
+}

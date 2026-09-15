@@ -1,0 +1,26 @@
+package app
+
+import (
+	"time"
+
+	"apistock.dev/modules/jobs"
+
+	"example.com/acme-api/internal/jobs/orgspurge"
+)
+
+// defineOrgsPurgeJob declares the orgs_purge job with its code defaults.
+// Operators can override them in /ops/jobs/definitions/orgs_purge.
+func defineOrgsPurgeJob(defs *jobs.Definitions, deps jobDeps) {
+	jobs.Define(defs, jobs.Definition[orgspurge.Args]{
+		Name:        orgspurge.Name,
+		Description: "Removes organisations deleted longer ago than orgs.deleted_org_retention, with their members, invitations and data.",
+		Worker:      orgspurge.NewWorker(deps.orgsPurge, deps.logger),
+		NewArgs:     func() orgspurge.Args { return orgspurge.Args{} },
+		Enabled:     true,
+		Schedule:    "45 3 * * *",
+		Timeout:     10 * time.Minute,
+		MaxAttempts: 3,
+		Queue:       "default",
+		Priority:    2,
+	})
+}

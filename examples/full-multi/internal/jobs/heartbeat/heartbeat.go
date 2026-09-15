@@ -1,0 +1,41 @@
+// Package heartbeat runs the heartbeat background job. Its configuration
+// (enabled, schedule, timeout, retries) can be changed at runtime through
+// /ops/jobs/definitions/heartbeat.
+package heartbeat
+
+import (
+	"context"
+	"log/slog"
+
+	"github.com/riverqueue/river"
+)
+
+// Name identifies the job. It is public API: renaming it orphans its
+// configuration overrides and history.
+const Name = "heartbeat"
+
+// Args are the job's arguments, stored as JSON with each job. Keep personal
+// data out of them.
+type Args struct{}
+
+// Kind returns [Name].
+func (Args) Kind() string { return Name }
+
+// Worker runs heartbeat jobs.
+type Worker struct {
+	river.WorkerDefaults[Args]
+	logger *slog.Logger
+}
+
+// NewWorker returns a Worker. Add the stores and clients the job needs as
+// parameters and pass them from internal/app/job_heartbeat.go.
+func NewWorker(logger *slog.Logger) *Worker {
+	return &Worker{logger: logger}
+}
+
+// Work runs one job. Return an error to retry it, and respect ctx so
+// shutdown and the timeout can stop the job.
+func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
+	w.logger.InfoContext(ctx, "job ran", "job", Name, "job_id", job.ID, "attempt", job.Attempt)
+	return nil
+}

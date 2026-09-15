@@ -1,0 +1,48 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"net/http"
+
+	"apistock.dev/httpx"
+
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
+	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
+	orgsusecase "example.com/acme-api/internal/modules/orgs/usecase"
+)
+
+// orgsHooks connects account creation and deletion to organisations
+// (ADR-0048): a new account gets a personal workspace, an account can't be
+// deleted while it is the only owner of an organisation with other members,
+// and a deleted account leaves its organisations.
+type orgsHooks struct {
+	orgs func() *orgsusecase.Service
+}
+
+var _ authusecase.AccountHooks = orgsHooks{}
+
+func (h orgsHooks) AccountCreated(ctx context.Context, userID string) error {
+	_, err := h.orgs().EnsurePersonalWorkspace(ctx, userID)
+	return err
+}
+
+// CheckAccountDeletion answers 409 sole_owner and lists the organisations to
+// hand over or delete first.
+func (h orgsHooks) CheckAccountDeletion(ctx context.Context, userID string) error {
+	err := h.orgs().CheckAccountDeletion(ctx, userID)
+	var sole *orgsdomain.SoleOwnerError
+	if !errors.As(err, &sole) {
+		return err
+	}
+	p := httpx.NewProblem(http.StatusConflict, "sole_owner",
+		"you are the only owner of organisations with other members; make another member an owner, or delete them, first")
+	for _, o := range sole.Orgs {
+		p.Errors = append(p.Errors, httpx.FieldError{Location: "orgs", Message: o.OrgID})
+	}
+	return p
+}
+
+func (h orgsHooks) AccountDeleted(ctx context.Context, userID string) error {
+	return h.orgs().RemoveAccount(ctx, userID)
+}
