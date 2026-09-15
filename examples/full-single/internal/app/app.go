@@ -169,6 +169,7 @@ func (a *App) build(ctx context.Context) error {
 		Emails:                  authlib.NewMailEmails(mailer, ServiceName),
 		Keyring:                 a.cfg.keyring(),
 		Issuer:                  ServiceName,
+		Passkeys:                a.cfg.WebAuthn.passkeys(),
 		Logger:                  a.logger,
 		SessionIdleTTL:          appSettings.authSessionIdleTTL,
 		SessionAbsoluteTTL:      appSettings.authSessionAbsoluteTTL,
@@ -206,6 +207,8 @@ func (a *App) build(ctx context.Context) error {
 			Releases: releaseLog,
 			Mailer:   mailer,
 			Mail:     mailInfo(a.cfg, appSettings),
+			// What /ops/auth/providers reports (ADR-0045).
+			SignInMethods: a.cfg.signInMethods,
 		},
 	})
 }
@@ -224,6 +227,7 @@ func (a *App) Run(ctx context.Context) error {
 		opts = append(opts, lifecycle.WithDrainDelay(0)) // no load balancer to drain locally
 	}
 
+	a.reportSignInMethods(ctx)
 	a.logger.InfoContext(ctx, "starting", "addr", "http://"+a.cfg.Addr, "docs_enabled", a.cfg.DocsEnabled, "mail_delivery", a.cfg.MailDelivery)
 	return lifecycle.Run(ctx, append([]lifecycle.Runner{server}, a.Workers()...), opts...)
 }

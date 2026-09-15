@@ -16,6 +16,7 @@ import (
 	"apistock.dev/audit"
 	"apistock.dev/config"
 	authlib "apistock.dev/modules/auth"
+	"apistock.dev/modules/auth/passkey"
 	"apistock.dev/ratelimit"
 
 	authdomain "⟦.Module⟧/internal/modules/auth/domain"
@@ -33,8 +34,11 @@ type Config struct {
 	Logger          *slog.Logger
 	PasswordChecker authlib.PasswordChecker
 	// Keyring encrypts authenticator app secrets (AUTH_ENCRYPTION_KEYS).
-	// Without it, two-factor authentication is unavailable.
+	// Without it, authenticator apps are unavailable.
 	Keyring *authlib.Keyring
+	// Passkeys runs passkey ceremonies (WEBAUTHN_RP_ID). Without it,
+	// passkeys are unavailable.
+	Passkeys *passkey.Service
 	// Issuer names the app in authenticator apps. Default: "app".
 	Issuer string
 	// Durations, usually runtime settings. Each is clamped to the auth
@@ -60,6 +64,7 @@ type Service struct {
 	logger   *slog.Logger
 	checker  authlib.PasswordChecker
 	keyring  *authlib.Keyring
+	passkeys *passkey.Service
 	issuer   string
 	now      func() time.Time
 	hasher   *authlib.Hasher
@@ -85,6 +90,7 @@ func NewService(c Config) (*Service, error) {
 		logger:           orDefault(c.Logger, slog.New(slog.DiscardHandler)),
 		checker:          c.PasswordChecker,
 		keyring:          c.Keyring,
+		passkeys:         c.Passkeys,
 		issuer:           orDefault(c.Issuer, "app"),
 		now:              c.Now,
 		sessionIdle:      orDefault(c.SessionIdleTTL, config.Static(authlib.DefaultSessionIdleTTL)),

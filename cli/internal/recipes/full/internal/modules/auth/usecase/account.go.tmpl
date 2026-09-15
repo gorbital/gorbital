@@ -183,6 +183,11 @@ func (s *Service) Cleanup(ctx context.Context) (authdomain.CleanupResult, error)
 	if res.Challenges, err = s.store.DeleteOldMFAChallenges(ctx, now.Add(-authlib.CodeRetention)); err != nil {
 		return res, dbError("clean up sign-in challenges", err)
 	}
+	ceremonies, err := s.store.DeleteOldWebAuthnCeremonies(ctx, now.Add(-authlib.CodeRetention))
+	if err != nil {
+		return res, dbError("clean up passkey ceremonies", err)
+	}
+	res.Challenges += ceremonies
 	retention := authlib.DeletedRetentionLimits.Clamp(s.retention.Get(ctx))
 	if res.Users, err = s.store.DeleteDeletedUsers(ctx, now.Add(-retention)); err != nil {
 		return res, dbError("purge deleted accounts", err)

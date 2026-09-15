@@ -21,6 +21,8 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   admin_mfa.go           reset-mfa and rotate-auth-keys commands (cmd/api)
   commands.go            database, audit and auth wiring shared by commands
   keys.go                AUTH_ENCRYPTION_KEYS: the keyring for two-factor authentication secrets
+  passkeys.go            WEBAUTHN_*: the passkey relying party and the /.well-known files for apps
+  providers.go           sign-in method status: printed at start, auth-providers, /ops/auth/providers
   seed.go                development seed data (cmd/seed)
   mail.go                email delivery: Mailpit in development or the provider
   infra_mail.go          the email provider's configuration (replaced by `aps add mail`)

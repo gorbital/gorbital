@@ -6,11 +6,11 @@ import (
 	authdomain "⟦.Module⟧/internal/modules/auth/domain"
 )
 
-const userColumns = `id, email, email_normalized, COALESCE(password_hash, ''), email_verified_at, created_at`
+const userColumns = `id, email, email_normalized, COALESCE(password_hash, ''), email_verified_at, created_at, webauthn_user_handle`
 
 func scanUser(row pgx.CollectableRow) (authdomain.User, error) {
 	var u authdomain.User
-	err := row.Scan(&u.ID, &u.Email, &u.NormalizedEmail, &u.PasswordHash, &u.EmailVerifiedAt, &u.CreatedAt)
+	err := row.Scan(&u.ID, &u.Email, &u.NormalizedEmail, &u.PasswordHash, &u.EmailVerifiedAt, &u.CreatedAt, &u.WebAuthnUserHandle)
 	u.CreatedAt = u.CreatedAt.UTC()
 	return u, err
 }

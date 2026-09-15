@@ -9,6 +9,7 @@
 //	api revoke-role <email> <role>   take a platform role away
 //	api reset-mfa <email>            turn off an account's two-factor authentication
 //	api rotate-auth-keys             re-encrypt 2FA secrets with the first AUTH_ENCRYPTION_KEYS key
+//	api auth-providers               show which sign-in methods are configured
 package main
 
 import (
@@ -55,6 +56,10 @@ func run(ctx context.Context, args []string) error {
 			return app.ResetMFA(ctx, cfg, args[1], os.Stdout)
 		case "rotate-auth-keys":
 			return app.RotateAuthKeys(ctx, cfg, os.Stdout)
+		case "auth-providers":
+			// LoadConfig has already refused an invalid or partial configuration.
+			app.WriteSignInMethods(os.Stdout, cfg)
+			return nil
 		default:
 			return fmt.Errorf("unknown command %q", args[0])
 		}

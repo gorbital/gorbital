@@ -31,6 +31,11 @@ func registerAuth(api huma.API, mapper *httpx.Mapper, m *authmodule.Module) erro
 		httpx.Mapping{Err: authdomain.ErrMFANotEnabled, Status: http.StatusConflict, Code: "mfa_not_enabled", Detail: "two-factor authentication isn't on, or its setup wasn't started"},
 		httpx.Mapping{Err: authdomain.ErrMFARequiredByRole, Status: http.StatusConflict, Code: "mfa_required_by_role", Detail: "a role of this account requires two-factor authentication"},
 		httpx.Mapping{Err: authdomain.ErrMFAUnavailable, Status: http.StatusServiceUnavailable, Code: "mfa_unavailable", Detail: "two-factor authentication isn't configured on this server"},
+		httpx.Mapping{Err: authdomain.ErrInvalidPasskey, Status: http.StatusUnauthorized, Code: "invalid_passkey", Detail: "the passkey couldn't be verified, or the ceremony was used or expired"},
+		httpx.Mapping{Err: authdomain.ErrPasskeyNotFound, Status: http.StatusNotFound, Code: "passkey_not_found", Detail: "no passkey of yours has this ID"},
+		httpx.Mapping{Err: authdomain.ErrPasskeyLimitReached, Status: http.StatusConflict, Code: "passkey_limit_reached", Detail: "an account can have at most 10 passkeys"},
+		httpx.Mapping{Err: authdomain.ErrInvalidPasskeyName, Status: http.StatusUnprocessableEntity, Code: "invalid_passkey_name", Detail: "a passkey name must be 1 to 100 characters"},
+		httpx.Mapping{Err: authdomain.ErrPasskeysUnavailable, Status: http.StatusServiceUnavailable, Code: "passkeys_unavailable", Detail: "passkeys aren't configured on this server (WEBAUTHN_RP_ID)"},
 	)
 	if err != nil {
 		return fmt.Errorf("auth module: %w", err)

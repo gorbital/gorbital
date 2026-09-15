@@ -96,3 +96,7 @@ func (noEmails) SendTwoFactorEnabled(context.Context, string) error  { return ni
 func (noEmails) SendTwoFactorDisabled(context.Context, string) error { return nil }
 
 func (noEmails) SendRecoveryCodeUsed(context.Context, string, int) error { return nil }
+func (noEmails) SendPasskeyAdded(context.Context, string, string) error  { return nil }
+func (noEmails) SendPasskeyRemoved(context.Context, string, string) error {
+	return nil
+}

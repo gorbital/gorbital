@@ -139,7 +139,7 @@ func TestNewFullPrintsNextSteps(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("aps new --preset full = %d, stderr %q", code, errOut)
 	}
-	for _, want := range []string{"full preset", "aps dev", "docker compose up -d --wait", "go run ./cmd/migrate", "go run ./cmd/seed", "http://127.0.0.1:8025", "admin@example.com", "POSTGRES_PORT", "aps add mail"} {
+	for _, want := range []string{"full preset", "aps dev", "docker compose up -d --wait", "go run ./cmd/migrate", "go run ./cmd/seed", "http://127.0.0.1:8025", "admin@example.com", "AUTH_PROVIDERS.md", "POSTGRES_PORT", "aps add mail"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("aps new --preset full output lacks %q:\n%s", want, out)
 		}

@@ -129,6 +129,17 @@
         ],
         "type": "object"
       },
+      "BeginPasskeyRegistrationInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "password": {
+            "description": "Required unless this session was verified with a second factor",
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "ChangePasswordInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -334,6 +345,33 @@
         },
         "required": [
           "message"
+        ],
+        "type": "object"
+      },
+      "FinishPasskeyRegistrationInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "ceremony_token": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "credential": {
+            "additionalProperties": {},
+            "description": "The PublicKeyCredential from navigator.credentials.create(), as JSON (PublicKeyCredential.toJSON())",
+            "type": "object"
+          },
+          "name": {
+            "description": "A label to recognise it by; default Passkey",
+            "examples": [
+              "MacBook"
+            ],
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "ceremony_token",
+          "credential"
         ],
         "type": "object"
       },
@@ -846,6 +884,10 @@
             "maxLength": 16,
             "type": "string"
           },
+          "passkey": {
+            "$ref": "#/components/schemas/PasskeyStruct",
+            "description": "A passkey's response, instead of code"
+          },
           "recovery_code": {
             "description": "A recovery code, instead of code",
             "examples": [
@@ -1051,6 +1093,167 @@
         ],
         "type": "object"
       },
+      "PasskeyCeremonyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "ceremony_token": {
+            "description": "Send it back with the passkey's response. It is shown once and expires after 5 minutes.",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "options": {
+            "description": "Pass to navigator.credentials.create() or navigator.credentials.get() (PublicKeyCredential.parseCreationOptionsFromJSON or parseRequestOptionsFromJSON reads them)"
+          }
+        },
+        "required": [
+          "ceremony_token",
+          "options",
+          "expires_at"
+        ],
+        "type": "object"
+      },
+      "PasskeyCreatedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "passkey": {
+            "$ref": "#/components/schemas/PasskeyResponse"
+          },
+          "recovery_codes": {
+            "description": "When this passkey is the account's first second factor: 10 single-use codes, shown once",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "passkey"
+        ],
+        "type": "object"
+      },
+      "PasskeyList": {
+        "additionalProperties": false,
+        "properties": {
+          "passkeys": {
+            "items": {
+              "$ref": "#/components/schemas/PasskeyResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "passkeys"
+        ],
+        "type": "object"
+      },
+      "PasskeyLoginInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "ceremony_token": {
+            "description": "From POST /v1/auth/passkeys/login/options",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "credential": {
+            "additionalProperties": {},
+            "description": "The PublicKeyCredential from navigator.credentials.get(), as JSON",
+            "type": "object"
+          },
+          "transport": {
+            "default": "cookie",
+            "description": "cookie (browsers): an HttpOnly session cookie; bearer (native apps): the token in the response",
+            "enum": [
+              "cookie",
+              "bearer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "ceremony_token",
+          "credential"
+        ],
+        "type": "object"
+      },
+      "PasskeyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "backed_up": {
+            "description": "Synced to the user's other devices by their passkey provider",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "pky_nbswy3dpeb3w64tmmq"
+            ],
+            "type": "string"
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "examples": [
+              "MacBook"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "backed_up"
+        ],
+        "type": "object"
+      },
+      "PasskeySecondFactorInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "challenge_token": {
+            "description": "From the 202 response of POST /v1/auth/login",
+            "maxLength": 256,
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_token"
+        ],
+        "type": "object"
+      },
+      "PasskeyStruct": {
+        "additionalProperties": false,
+        "properties": {
+          "ceremony_token": {
+            "description": "From POST /v1/auth/login/mfa/passkey",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "credential": {
+            "additionalProperties": {},
+            "description": "The PublicKeyCredential from navigator.credentials.get(), as JSON",
+            "type": "object"
+          }
+        },
+        "required": [
+          "ceremony_token",
+          "credential"
+        ],
+        "type": "object"
+      },
       "PasswordInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -1252,7 +1455,7 @@
         "additionalProperties": false,
         "properties": {
           "recovery_codes": {
-            "description": "Single-use codes for signing in without the authenticator app. They are shown once; keep them somewhere safe.",
+            "description": "Single-use codes for signing in without the authenticator app or passkeys. They are shown once; keep them somewhere safe.",
             "items": {
               "type": "string"
             },
@@ -1355,6 +1558,33 @@
           "running",
           "starts",
           "modified"
+        ],
+        "type": "object"
+      },
+      "RemovePasskeyInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "password": {
+            "description": "Required unless this session was verified with a second factor",
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "RenamePasskeyInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "examples": [
+              "Work laptop"
+            ],
+            "maxLength": 100,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
         ],
         "type": "object"
       },
@@ -1680,9 +1910,75 @@
         ],
         "type": "object"
       },
+      "SignInMethodList": {
+        "additionalProperties": false,
+        "properties": {
+          "methods": {
+            "items": {
+              "$ref": "#/components/schemas/SignInMethodResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "methods"
+        ],
+        "type": "object"
+      },
+      "SignInMethodResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "description": "How an enabled method is configured, such as its relying party ID; never secrets",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "guide": {
+            "description": "The AUTH_PROVIDERS.md section that explains the method",
+            "type": "string"
+          },
+          "key": {
+            "examples": [
+              "passkeys"
+            ],
+            "type": "string"
+          },
+          "missing": {
+            "description": "Environment variables that turn a disabled method on",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "name": {
+            "examples": [
+              "Passkeys in browsers"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "enabled"
+        ],
+        "type": "object"
+      },
       "TOTPEnrollmentResponse": {
         "additionalProperties": false,
         "properties": {
+          "qr_code": {
+            "description": "The URI as a PNG QR code data URL, ready for an \u003cimg\u003e tag. It is shown once.",
+            "type": "string"
+          },
           "secret": {
             "description": "Type it into an authenticator app. It is shown once.",
             "examples": [
@@ -1691,13 +1987,14 @@
             "type": "string"
           },
           "uri": {
-            "description": "otpauth:// URI to show as a QR code. It is shown once.",
+            "description": "otpauth:// URI for authenticator apps. It is shown once.",
             "type": "string"
           }
         },
         "required": [
           "secret",
-          "uri"
+          "uri",
+          "qr_code"
         ],
         "type": "object"
       },
@@ -1758,9 +2055,6 @@
             "type": "string"
           }
         },
-        "required": [
-          "code"
-        ],
         "type": "object"
       },
       "UpdateDefinitionInputBody": {
@@ -2227,6 +2521,63 @@
         "summary": "Get an audit event",
         "tags": [
           "Ops: audit"
+        ]
+      }
+    },
+    "/ops/auth/providers": {
+      "get": {
+        "description": "Whether each sign-in method is configured and, for the others, the environment variables to set (never their values). Setup steps: AUTH_PROVIDERS.md.",
+        "operationId": "ops-list-sign-in-methods",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInMethodList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List sign-in methods and what they need",
+        "tags": [
+          "Ops: auth"
         ]
       }
     },
@@ -4490,7 +4841,7 @@
     },
     "/v1/auth/login/mfa": {
       "post": {
-        "description": "After a 202 from `POST /v1/auth/login`: send the challenge token with a code from the authenticator app or a recovery code. Each sign-in allows 5 attempts within 5 minutes; each code works once.",
+        "description": "After a 202 from `POST /v1/auth/login`: send the challenge token with a code from the authenticator app, a recovery code, or a passkey's response (start it with `POST /v1/auth/login/mfa/passkey`). Each sign-in allows 5 attempts within 5 minutes; each code works once.",
         "operationId": "auth-login-mfa",
         "requestBody": {
           "content": {
@@ -4572,6 +4923,78 @@
           }
         },
         "summary": "Finish signing in with a second factor",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/login/mfa/passkey": {
+      "post": {
+        "description": "After a 202 from `POST /v1/auth/login` listing `passkey`: returns options limited to the account's passkeys. Send the response to `POST /v1/auth/login/mfa`.",
+        "operationId": "auth-login-mfa-passkey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeySecondFactorInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyCeremonyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Start a passkey second factor",
         "tags": [
           "Auth"
         ]
@@ -4799,7 +5222,7 @@
     },
     "/v1/auth/mfa/recovery-codes": {
       "post": {
-        "description": "Send a code from the authenticator app. Returns 10 new codes, shown once; the old codes stop working.",
+        "description": "Send a code from the authenticator app; accounts with only passkeys call it from a session verified with a passkey. Returns 10 new codes, shown once; the old codes stop working.",
         "operationId": "auth-regenerate-recovery-codes",
         "requestBody": {
           "content": {
@@ -4896,7 +5319,7 @@
     },
     "/v1/auth/mfa/totp": {
       "delete": {
-        "description": "Requires the password and a code or recovery code; signs out other devices. Not allowed while a role of the account requires two-factor authentication.",
+        "description": "Requires the password and a code or recovery code; signs out other devices. Not allowed while a role requires two-factor authentication and no passkey is left.",
         "operationId": "auth-disable-totp",
         "requestBody": {
           "content": {
@@ -4978,13 +5401,13 @@
             "bearer": []
           }
         ],
-        "summary": "Turn off two-factor authentication",
+        "summary": "Turn off the authenticator app",
         "tags": [
           "Auth"
         ]
       },
       "post": {
-        "description": "Requires the password. Returns a secret and an otpauth:// URI, shown once. Two-factor authentication turns on when a code is confirmed with `POST /v1/auth/mfa/totp/confirm`.",
+        "description": "Requires the password. Returns a secret, an otpauth:// URI and a QR code image, shown once. It turns on when a code is confirmed with `POST /v1/auth/mfa/totp/confirm`.",
         "operationId": "auth-start-totp",
         "requestBody": {
           "content": {
@@ -5170,7 +5593,520 @@
             "bearer": []
           }
         ],
-        "summary": "Turn on two-factor authentication",
+        "summary": "Turn on the authenticator app",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/passkeys": {
+      "get": {
+        "operationId": "auth-list-passkeys",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List passkeys",
+        "tags": [
+          "Auth"
+        ]
+      },
+      "post": {
+        "description": "Send the browser's response to the registration options. Verifies this session with a second factor; the account's first second factor also returns recovery codes.",
+        "operationId": "auth-create-passkey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinishPasskeyRegistrationInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyCreatedResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a passkey",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/passkeys/login": {
+      "post": {
+        "description": "Send the passkey's response. Starts a session verified with a second factor, like `POST /v1/auth/login/mfa`.",
+        "operationId": "auth-passkey-login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasskeyLoginInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Sign in with a passkey",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/passkeys/login/options": {
+      "post": {
+        "description": "Returns the options for `navigator.credentials.get()`. No email or password: the chosen passkey names the account.",
+        "operationId": "auth-passkey-login-options",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyCeremonyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Start signing in with a passkey",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/passkeys/registration": {
+      "post": {
+        "description": "Returns the options for `navigator.credentials.create()`. Send the password unless this session was verified with a second factor.",
+        "operationId": "auth-begin-passkey-registration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeginPasskeyRegistrationInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyCeremonyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Start adding a passkey",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/passkeys/{id}": {
+      "delete": {
+        "description": "Send the password unless this session was verified with a second factor. Not allowed for the last second factor while a role requires two-factor authentication.",
+        "operationId": "auth-remove-passkey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "examples": [
+                "pky_nbswy3dpeb3w64tmmq"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemovePasskeyInputBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a passkey",
+        "tags": [
+          "Auth"
+        ]
+      },
+      "patch": {
+        "operationId": "auth-rename-passkey",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "examples": [
+                "pky_nbswy3dpeb3w64tmmq"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenamePasskeyInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Rename a passkey",
         "tags": [
           "Auth"
         ]

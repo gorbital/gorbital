@@ -208,6 +208,12 @@ Email + password with email verification codes; server-side sessions (no JWT ses
 
 Implemented in v0.2 ([ADR-0038](adr/0038-authentication-v0-2.md), [authentication guide](guides/authentication.md)): the generated app owns `internal/modules/auth` with all four layers (use cases for every flow, a repository with one SQL file per operation, `/v1/auth` endpoints); `modules/auth` provides the building blocks (argon2id, tokens and codes stored as hashes, the session middleware and cookies, the permission catalog, plain emails). Browsers get an HttpOnly `__Host-session` cookie; native clients ask for a bearer token. Durations are runtime settings clamped to hard limits. Roles are read on every request, and the first administrator is granted with `go run ./cmd/api grant-role <email> platform_admin`.
 
+Implemented in v0.3:
+
+- **Two-factor authentication** ([ADR-0043](adr/0043-two-factor-authentication.md)): authenticator apps (TOTP, with the `otpauth://` URI and a scannable QR image), 10 recovery codes, a 202 login challenge completed at `/v1/auth/login/mfa`, secrets encrypted with `AUTH_ENCRYPTION_KEYS`, and required 2FA for `platform_admin` and `ops_viewer`.
+- **Passkeys** ([ADR-0044](adr/0044-passkeys.md)): passwordless sign-in and a second factor through `apistock.dev/modules/auth/passkey` (go-webauthn), up to 10 per account, single-use ceremonies stored server-side, relying party from `WEBAUTHN_*`, and the generated `/.well-known/apple-app-site-association` and `assetlinks.json` for native apps.
+- **Sign-in provider setup** ([ADR-0045](adr/0045-sign-in-provider-setup.md)): what each method needs from the developer, in `.env.example`, `AUTH_PROVIDERS.md`, a status block at start, `go run ./cmd/api auth-providers` and `GET /ops/auth/providers`. Google and Apple sign-in are next, with the variable names fixed there.
+
 ### 7.2 Tenancy ([ADR-0023](adr/0023-tenancy.md))
 
 - **Single-tenant** (default) or **multi-tenant**, chosen at creation and stored in `apistock.yaml`.
@@ -225,7 +231,7 @@ Implemented in v0.2 ([ADR-0037](adr/0037-email-setup-and-delivery.md), [email gu
 
 `/ops/*`, protected by platform roles and required 2FA. v1: audit logs, system health, release monitor, jobs, retention, maintenance mode, runtime settings. v1.1: feature flags, live observability, incidents, API keys.
 
-Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)), `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)), `/ops/mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)). They require a signed-in user whose platform roles grant the operation's permission ([ADR-0038](adr/0038-authentication-v0-2.md)); required 2FA for ops roles arrives in v0.3.
+Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)), `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)), `/ops/mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)). They require a signed-in user whose platform roles grant the operation's permission ([ADR-0038](adr/0038-authentication-v0-2.md)); required 2FA for ops roles arrived in v0.3 ([ADR-0043](adr/0043-two-factor-authentication.md)), with `/ops/auth/providers` ([ADR-0045](adr/0045-sign-in-provider-setup.md)).
 
 ### 7.5 API contract and docs ([ADR-0027](adr/0027-api-contract-and-docs.md))
 

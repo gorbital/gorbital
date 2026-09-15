@@ -111,6 +111,35 @@ Authenticator app secrets are stored encrypted (AES-256-GCM) with `AUTH_ENCRYPTI
 
 To replace a key: put the new key first and keep the old one (`k2:…,k1:…`) on every instance, run `go run ./cmd/api rotate-auth-keys` to re-encrypt every secret, then remove the old key. Losing every key turns off everyone's second factor until operators reset it, so back keys up like database credentials.
 
+## Passkeys
+
+Passkeys sign people in with Face ID, Touch ID, Windows Hello, an Android phone or a security key ([ADR-0044](../adr/0044-passkeys.md)): with no password at all, or as the second factor after one. A passkey sign-in counts as two-factor authentication, so ops roles work with passkeys alone. What to configure, and for native apps where to find each value: [sign-in provider setup](auth-providers.md).
+
+```text
+Add:        POST /v1/auth/passkeys/registration → navigator.credentials.create(options) → POST /v1/auth/passkeys
+Sign in:    POST /v1/auth/passkeys/login/options → navigator.credentials.get(options) → POST /v1/auth/passkeys/login
+2nd factor: POST /v1/auth/login (202, methods include passkey) → POST /v1/auth/login/mfa/passkey → get() → POST /v1/auth/login/mfa {"passkey": …}
+```
+
+| Endpoint | Needs a session | Purpose | Success |
+|---|---|---|---|
+| `POST /v1/auth/passkeys/registration` | ✓ | `{password}` unless the session used a second factor; returns `ceremony_token` and `options` | 200 |
+| `POST /v1/auth/passkeys` | ✓ | `{ceremony_token, name?, credential}`; recovery codes when it's the first second factor | 201 `{passkey, recovery_codes?}` |
+| `GET /v1/auth/passkeys` | ✓ | The user's passkeys | 200 |
+| `PATCH /v1/auth/passkeys/{id}` | ✓ | `{name}` | 204 |
+| `DELETE /v1/auth/passkeys/{id}` | ✓ | `{password}` unless the session used a second factor | 204 |
+| `POST /v1/auth/passkeys/login/options` | | Start a passwordless sign-in | 200 |
+| `POST /v1/auth/passkeys/login` | | `{ceremony_token, credential, transport?}` | 200 `{user, session, token?}` |
+| `POST /v1/auth/login/mfa/passkey` | | `{challenge_token}`; options limited to the account's passkeys | 200 |
+
+- `credential` is the browser's `PublicKeyCredential` as JSON (`credential.toJSON()`); `options` go to `PublicKeyCredential.parseCreationOptionsFromJSON` or `parseRequestOptionsFromJSON`, or a WebAuthn helper library.
+- Each ceremony works once and lasts 5 minutes. Up to 10 passkeys per account.
+- The device must verify the user (biometrics or PIN). A passkey whose signature counter goes backwards is refused and recorded as `auth.passkey.clone_warning`.
+- The last second factor can't be removed while a role requires one; `reset-mfa` removes passkeys too.
+- In development, open the app at `http://localhost:8080`: browsers don't allow passkeys on `127.0.0.1`.
+
+Errors: `invalid_passkey` (401), `passkey_not_found` (404), `passkey_limit_reached` (409), `invalid_passkey_name` (422), `passkeys_unavailable` (503, `WEBAUTHN_RP_ID` not set).
+
 ## Browsers and native apps
 
 | Client | Login body | Result | Later requests |

@@ -114,6 +114,37 @@ type MFAStore interface {
 	MarkSessionMFAVerified(ctx context.Context, sessionID string, now time.Time) error
 }
 
+// PasskeyStore reads and writes passkeys, their users' handles and started
+// ceremonies (ADR-0044).
+type PasskeyStore interface {
+	// SetWebAuthnUserHandle sets a user's handle unless one is set, and
+	// returns the stored handle, or ErrUserNotFound.
+	SetWebAuthnUserHandle(ctx context.Context, userID string, handle []byte) ([]byte, error)
+	// SelectUserByWebAuthnHandle returns the account a passkey names, or
+	// ErrUserNotFound.
+	SelectUserByWebAuthnHandle(ctx context.Context, handle []byte) (authdomain.User, error)
+	InsertPasskey(ctx context.Context, p authdomain.Passkey) error
+	// SelectPasskeys returns a user's passkeys, oldest first.
+	SelectPasskeys(ctx context.Context, userID string) ([]authdomain.Passkey, error)
+	SelectPasskeyByCredentialID(ctx context.Context, credentialID []byte) (authdomain.Passkey, bool, error)
+	CountPasskeys(ctx context.Context, userID string) (int, error)
+	// UpdatePasskeyUse stores a passkey's record, counter and backup state
+	// after a sign-in.
+	UpdatePasskeyUse(ctx context.Context, id string, record []byte, signCount int64, backupState bool, now time.Time) error
+	// RenamePasskey and DeletePasskey report whether the user's passkey
+	// exists.
+	RenamePasskey(ctx context.Context, id, userID, name string) (bool, error)
+	DeletePasskey(ctx context.Context, id, userID string) (bool, error)
+	// DeletePasskeys removes every passkey of a user and returns how many.
+	DeletePasskeys(ctx context.Context, userID string) (int64, error)
+	InsertWebAuthnCeremony(ctx context.Context, c authdomain.WebAuthnCeremony) error
+	// SelectWebAuthnCeremonyByTokenHash locks the ceremony with a token's
+	// hash.
+	SelectWebAuthnCeremonyByTokenHash(ctx context.Context, tokenHash []byte) (authdomain.WebAuthnCeremony, bool, error)
+	ConsumeWebAuthnCeremony(ctx context.Context, id string, now time.Time) error
+	DeleteOldWebAuthnCeremonies(ctx context.Context, before time.Time) (int64, error)
+}
+
 // Store is every storage operation the use cases need, plus transactions.
 type Store interface {
 	UserStore
@@ -121,6 +152,7 @@ type Store interface {
 	CodeStore
 	RoleStore
 	MFAStore
+	PasskeyStore
 	// InTx runs fn in one transaction: it commits when fn returns nil and
 	// rolls back otherwise.
 	InTx(ctx context.Context, fn func(tx Store) error) error

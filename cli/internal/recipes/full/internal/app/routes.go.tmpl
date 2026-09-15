@@ -73,6 +73,7 @@ func (a *App) buildHTTP(svc services) error {
 	if a.cfg.DocsEnabled {
 		openapi.MountDocs(mux, openapi.DocsOptions{Title: ServiceName + " API"})
 	}
+	a.mountWellKnown(mux)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, "not_found", "no route matches "+r.Method+" "+r.URL.Path))
 	})

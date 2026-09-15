@@ -31,6 +31,10 @@ type Emails interface {
 	// SendRecoveryCodeUsed tells to that a recovery code was used to sign in
 	// and how many are left.
 	SendRecoveryCodeUsed(ctx context.Context, to string, remaining int) error
+	// SendPasskeyAdded tells to that a passkey named name was added.
+	SendPasskeyAdded(ctx context.Context, to, name string) error
+	// SendPasskeyRemoved tells to that a passkey named name was removed.
+	SendPasskeyRemoved(ctx context.Context, to, name string) error
 }
 
 type mailEmails struct {

@@ -78,6 +78,14 @@ func (f *fakeEmails) SendRecoveryCodeUsed(_ context.Context, to string, remainin
 	return f.add(sentEmail{kind: "recovery_used", to: to, remaining: remaining})
 }
 
+func (f *fakeEmails) SendPasskeyAdded(_ context.Context, to, name string) error {
+	return f.add(sentEmail{kind: "passkey_added", to: to, code: name})
+}
+
+func (f *fakeEmails) SendPasskeyRemoved(_ context.Context, to, name string) error {
+	return f.add(sentEmail{kind: "passkey_removed", to: to, code: name})
+}
+
 func (f *fakeEmails) last(t *testing.T, kind string) sentEmail {
 	t.Helper()
 	f.mu.Lock()

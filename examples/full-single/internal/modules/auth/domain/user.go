@@ -12,6 +12,9 @@ type User struct {
 	PasswordHash    string
 	EmailVerifiedAt *time.Time
 	CreatedAt       time.Time
+	// WebAuthnUserHandle identifies the account in its passkeys; nil until
+	// the first passkey is registered.
+	WebAuthnUserHandle []byte
 	// Roles are the user's platform roles, when loaded.
 	Roles []string
 }

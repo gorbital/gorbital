@@ -88,9 +88,16 @@ func (s *Service) ResetMFA(ctx context.Context, userID string) error {
 			return err
 		}
 		deleted, err := tx.DeleteTOTP(ctx, u.ID)
-		if err != nil || !deleted {
-			state = authdomain.ErrMFANotEnabled
+		if err != nil {
 			return err
+		}
+		passkeys, err := tx.DeletePasskeys(ctx, u.ID)
+		if err != nil {
+			return err
+		}
+		if !deleted && passkeys == 0 {
+			state = authdomain.ErrMFANotEnabled
+			return nil
 		}
 		email = u.Email
 		if err := tx.DeleteRecoveryCodes(ctx, u.ID); err != nil {

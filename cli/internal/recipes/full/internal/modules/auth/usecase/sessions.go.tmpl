@@ -78,13 +78,13 @@ func (s *Service) Me(ctx context.Context) (MeView, error) {
 			if err != nil {
 				return MeView{}, err
 			}
-			totp, found, err := s.store.SelectTOTP(ctx, u.ID, false)
+			mfaEnabled, err := s.hasSecondFactor(ctx, s.store, u.ID)
 			if err != nil {
 				return MeView{}, dbError("get the signed-in user", err)
 			}
 			return MeView{
 				User: u, Session: view.Session, Permissions: p.Permissions, StepUp: p.StepUp,
-				MFAEnabled: found && totp.Confirmed(), MFARequired: s.catalog.RequiresMFA(u.Roles...),
+				MFAEnabled: mfaEnabled, MFARequired: s.catalog.RequiresMFA(u.Roles...),
 			}, nil
 		}
 	}

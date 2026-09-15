@@ -1,6 +1,6 @@
 # ADR-0043: Two-factor authentication
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0024, ADR-0038, ADR-0042
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0024, ADR-0038, ADR-0042 · **Amended by:** ADR-0044 (a passkey also turns two-factor authentication on)
 
 ## Context
 
@@ -137,6 +137,7 @@ Seed also enrolls the administrator: it creates and confirms a TOTP secret and r
 - `LoadConfig` validates `AUTH_ENCRYPTION_KEYS` everywhere and requires it in production. Tests share one generated key per process, so two app instances on one database decrypt each other's secrets.
 - `aps dev` fills an empty `AUTH_ENCRYPTION_KEYS` in `.env` with `dev:<random key>`, only for apps whose `.env.example` declares it and when the environment doesn't set it, and keeps `.env` at mode 0600.
 - The migration is `20260915000004_auth_mfa.sql`.
+- Amended 2026-09-15 (with ADR-0044): the setup response also returns `qr_code`, a PNG data URL of the `otpauth://` URI, so the API is usable with an authenticator app before any frontend exists. `modules/auth` gains `TOTPQRCode` on `rsc.io/qr` (no dependencies of its own); the "no QR images" line above is replaced.
 
 | Check | Result |
 |---|---|

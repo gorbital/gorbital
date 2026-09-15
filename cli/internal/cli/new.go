@@ -179,9 +179,10 @@ func nextSteps(dir, preset string) string {
 	return fmt.Sprintf(`  cd %s
   aps dev      # PostgreSQL and Mailpit in Docker, migrations, seed data, live reload
 
-  API docs:       http://127.0.0.1:8080/docs
+  API docs:       http://localhost:8080/docs (localhost, not 127.0.0.1, for passkeys)
   Email inbox:    http://127.0.0.1:8025 (Mailpit catches every email in development)
-  Administrator:  admin@example.com; aps dev prints its password once, on the first run
+  Administrator:  admin@example.com; aps dev prints its password, 2FA key and recovery codes once
+  Sign-in:        AUTH_PROVIDERS.md lists what to set for passkeys in apps, Google and Apple
 
   Without the apistock CLI: cp .env.example .env, docker compose up -d --wait,
   then go run ./cmd/migrate, go run ./cmd/seed and go run ./cmd/api.

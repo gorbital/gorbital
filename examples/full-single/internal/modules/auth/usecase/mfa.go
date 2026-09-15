@@ -18,6 +18,8 @@ type TOTPEnrollment struct {
 	Secret string
 	// URI is the otpauth:// URI to show as a QR code.
 	URI string
+	// QRCode is a PNG image of URI as a data URL.
+	QRCode string
 }
 
 // StartTOTPEnrollment creates a new authenticator app secret for the
@@ -65,20 +67,28 @@ func (s *Service) StartTOTPEnrollment(ctx context.Context, password string) (TOT
 	case state != nil:
 		return TOTPEnrollment{}, state
 	}
+	uri := authlib.TOTPURI(s.issuer, email, secret)
+	qr, err := authlib.TOTPQRCode(uri)
+	if err != nil {
+		return TOTPEnrollment{}, err
+	}
 	s.audit(ctx, userEvent("auth.mfa.totp_enrollment_started", p.UserID, authlib.ClientInfoFromContext(ctx)))
-	return TOTPEnrollment{Secret: secret, URI: authlib.TOTPURI(s.issuer, email, secret)}, nil
+	return TOTPEnrollment{Secret: secret, URI: uri, QRCode: qr}, nil
 }
 
-// ConfirmTOTP turns two-factor authentication on with a code from the
-// authenticator app set up by StartTOTPEnrollment. It marks the current
-// session verified with a second factor, ends the user's other sessions, and
-// returns 10 recovery codes to show once. It returns ErrInvalidMFA,
+// ConfirmTOTP turns the authenticator app on with a code from the app set up
+// by StartTOTPEnrollment. It marks the current session verified with a second
+// factor, ends the user's other sessions, and returns 10 recovery codes to
+// show once (replacing earlier ones). It returns ErrInvalidMFA,
 // ErrMFANotEnabled (setup wasn't started), ErrMFAAlreadyEnabled,
 // ErrMFAUnavailable or a *RateLimitError.
 func (s *Service) ConfirmTOTP(ctx context.Context, code string) ([]string, error) {
 	p, err := s.mfaPrincipal(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if s.keyring == nil {
+		return nil, authdomain.ErrMFAUnavailable
 	}
 	codes := authlib.NewRecoveryCodes()
 	var (
@@ -137,11 +147,11 @@ func (s *Service) ConfirmTOTP(ctx context.Context, code string) ([]string, error
 	return codes, nil
 }
 
-// DisableTOTP turns two-factor authentication off after checking the
-// password and a second factor, deletes the recovery codes and ends the
-// user's other sessions. It returns ErrInvalidCredentials, ErrInvalidMFA,
-// ErrMFANotEnabled, ErrMFARequiredByRole, ErrMFAUnavailable or a
-// *RateLimitError.
+// DisableTOTP turns the authenticator app off after checking the password and
+// a second factor, and ends the user's other sessions. Without passkeys left,
+// it also deletes the recovery codes, and it refuses while a role requires
+// two-factor authentication. It returns ErrInvalidCredentials, ErrInvalidMFA,
+// ErrMFANotEnabled, ErrMFARequiredByRole or a *RateLimitError.
 func (s *Service) DisableTOTP(ctx context.Context, password string, factor authdomain.SecondFactor) error {
 	p, err := s.mfaPrincipal(ctx)
 	if err != nil {
@@ -164,7 +174,11 @@ func (s *Service) DisableTOTP(ctx context.Context, password string, factor authd
 		if err != nil {
 			return err
 		}
-		if s.catalog.RequiresMFA(roles...) {
+		passkeys, err := tx.CountPasskeys(ctx, u.ID)
+		if err != nil {
+			return err
+		}
+		if passkeys == 0 && s.catalog.RequiresMFA(roles...) {
 			state = authdomain.ErrMFARequiredByRole
 			return nil
 		}
@@ -180,8 +194,10 @@ func (s *Service) DisableTOTP(ctx context.Context, password string, factor authd
 		if _, err := tx.DeleteTOTP(ctx, u.ID); err != nil {
 			return err
 		}
-		if err := tx.DeleteRecoveryCodes(ctx, u.ID); err != nil {
-			return err
+		if passkeys == 0 {
+			if err := tx.DeleteRecoveryCodes(ctx, u.ID); err != nil {
+				return err
+			}
 		}
 		_, err = tx.RevokeUserSessions(ctx, u.ID, p.SessionID, now, "mfa_disabled")
 		return err
@@ -199,10 +215,10 @@ func (s *Service) DisableTOTP(ctx context.Context, password string, factor authd
 	return nil
 }
 
-// RegenerateRecoveryCodes replaces the signed-in user's recovery codes after
-// checking a code from the authenticator app, and returns the new codes to
-// show once. It returns ErrInvalidMFA, ErrMFANotEnabled, ErrMFAUnavailable
-// or a *RateLimitError.
+// RegenerateRecoveryCodes replaces the signed-in user's recovery codes and
+// returns the new codes to show once. With an authenticator app it needs a
+// code from the app; with only passkeys, a session verified with one. It
+// returns ErrInvalidMFA, ErrMFANotEnabled or a *RateLimitError.
 func (s *Service) RegenerateRecoveryCodes(ctx context.Context, code string) ([]string, error) {
 	p, err := s.mfaPrincipal(ctx)
 	if err != nil {
@@ -211,14 +227,28 @@ func (s *Service) RegenerateRecoveryCodes(ctx context.Context, code string) ([]s
 	codes := authlib.NewRecoveryCodes()
 	var state error
 	err = s.store.InTx(ctx, func(tx Store) error {
-		if totp, found, err := tx.SelectTOTP(ctx, p.UserID, true); err != nil || !found || !totp.Confirmed() {
-			state = authdomain.ErrMFANotEnabled
+		totp, found, err := tx.SelectTOTP(ctx, p.UserID, true)
+		if err != nil {
 			return err
 		}
-		// Only a code from the authenticator app: a recovery code can't
-		// replace the recovery codes.
-		if state, err = s.requireSecondFactor(ctx, tx, p.UserID, authdomain.SecondFactor{Code: code}); err != nil || state != nil {
-			return err
+		if found && totp.Confirmed() {
+			// Only a code from the authenticator app: a recovery code can't
+			// replace the recovery codes.
+			if state, err = s.requireSecondFactor(ctx, tx, p.UserID, authdomain.SecondFactor{Code: code}); err != nil || state != nil {
+				return err
+			}
+		} else {
+			n, err := tx.CountPasskeys(ctx, p.UserID)
+			switch {
+			case err != nil:
+				return err
+			case n == 0:
+				state = authdomain.ErrMFANotEnabled
+				return nil
+			case !p.MFAVerified:
+				state = authdomain.ErrInvalidMFA
+				return nil
+			}
 		}
 		return s.replaceRecoveryCodes(ctx, tx, p.UserID, codes, s.now())
 	})
@@ -233,15 +263,11 @@ func (s *Service) RegenerateRecoveryCodes(ctx context.Context, code string) ([]s
 }
 
 // mfaPrincipal returns the signed-in principal for a two-factor change,
-// checking that encryption keys are configured and the user isn't guessing
-// codes too fast.
+// checking the user isn't guessing codes too fast.
 func (s *Service) mfaPrincipal(ctx context.Context) (authlib.Principal, error) {
 	p, err := requirePrincipal(ctx)
 	if err != nil {
 		return authlib.Principal{}, err
-	}
-	if s.keyring == nil {
-		return authlib.Principal{}, authdomain.ErrMFAUnavailable
 	}
 	if ok, retry := s.limiter.Allow("mfa:" + p.UserID); !ok {
 		return authlib.Principal{}, &authdomain.RateLimitError{RetryAfter: retry}
@@ -258,37 +284,54 @@ func (s *Service) passwordMatches(u authdomain.User, password string) bool {
 	return ok
 }
 
-// requireSecondFactor checks factor when the user has two-factor
-// authentication on, returning ErrInvalidMFA or ErrMFAUnavailable as state
-// when it fails and nil when it passes or isn't needed.
+// hasSecondFactor reports whether the user has two-factor authentication on:
+// a confirmed authenticator app or at least one passkey (ADR-0044).
+func (s *Service) hasSecondFactor(ctx context.Context, store Store, userID string) (bool, error) {
+	totp, found, err := store.SelectTOTP(ctx, userID, false)
+	if err != nil {
+		return false, err
+	}
+	if found && totp.Confirmed() {
+		return true, nil
+	}
+	n, err := store.CountPasskeys(ctx, userID)
+	return n > 0, err
+}
+
+// requireSecondFactor checks a code or recovery code when the user has
+// two-factor authentication on, returning ErrInvalidMFA as state when it
+// fails and nil when it passes or isn't needed. Passkeys answer only sign-in
+// challenges.
 func (s *Service) requireSecondFactor(ctx context.Context, tx Store, userID string, factor authdomain.SecondFactor) (state, err error) {
-	totp, found, err := tx.SelectTOTP(ctx, userID, false)
-	if err != nil || !found || !totp.Confirmed() {
+	has, err := s.hasSecondFactor(ctx, tx, userID)
+	if err != nil || !has {
 		return nil, err
 	}
-	if s.keyring == nil {
-		return authdomain.ErrMFAUnavailable, nil
-	}
-	_, _, valid, err := s.checkSecondFactor(ctx, tx, userID, factor)
+	_, _, valid, err := s.checkSecondFactor(ctx, tx, userID, "", factor)
 	if err != nil || valid {
 		return nil, err
 	}
 	return authdomain.ErrInvalidMFA, nil
 }
 
-// checkSecondFactor checks a code from the user's authenticator app, or else
-// a recovery code, and uses it up: a code's time step can't be used again,
-// and a recovery code is marked used. It returns the method, the recovery
-// codes left after using one, and whether the factor was valid.
-func (s *Service) checkSecondFactor(ctx context.Context, tx Store, userID string, factor authdomain.SecondFactor) (method string, remaining int, valid bool, err error) {
-	totp, found, err := tx.SelectTOTP(ctx, userID, true)
-	if err != nil || !found || !totp.Confirmed() {
-		return "", 0, false, err
-	}
-	if strings.TrimSpace(factor.Code) != "" {
+// checkSecondFactor checks a passkey's response (for the sign-in challenge
+// challengeID), a code from the user's authenticator app, or a recovery code,
+// and uses it up: a code's time step can't be used again, a recovery code is
+// marked used, and a passkey ceremony can't be finished twice. It returns the
+// method, the recovery codes left after using one, and whether the factor was
+// valid.
+func (s *Service) checkSecondFactor(ctx context.Context, tx Store, userID, challengeID string, factor authdomain.SecondFactor) (method string, remaining int, valid bool, err error) {
+	switch {
+	case factor.Passkey != nil:
+		return s.checkPasskeyFactor(ctx, tx, userID, challengeID, *factor.Passkey)
+	case strings.TrimSpace(factor.Code) != "":
+		totp, found, err := tx.SelectTOTP(ctx, userID, true)
+		if err != nil || !found || !totp.Confirmed() || s.keyring == nil {
+			return authdomain.MFAMethodTOTP, 0, false, err
+		}
 		secret, err := s.decryptTOTP(totp)
 		if err != nil {
-			return "", 0, false, err
+			return authdomain.MFAMethodTOTP, 0, false, err
 		}
 		step, match := authlib.VerifyTOTP(secret, factor.Code, s.now())
 		if !match {

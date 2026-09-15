@@ -26,21 +26,28 @@ type Deps struct {
 	// Mailer queues email; it fills the sender from runtime settings.
 	Mailer mail.Sender
 	Mail   MailInfo
+	// SignInMethods reports which sign-in methods are configured
+	// (ADR-0045).
+	SignInMethods func() []opsdomain.SignInMethod
 }
 
 // Service runs the operations use cases.
 type Service struct {
-	settings SettingsStore
-	jobs     JobsManager
-	audit    AuditLog
-	releases ReleaseLog
-	mailer   mail.Sender
-	mail     MailInfo
+	settings      SettingsStore
+	jobs          JobsManager
+	audit         AuditLog
+	releases      ReleaseLog
+	mailer        mail.Sender
+	mail          MailInfo
+	signInMethods func() []opsdomain.SignInMethod
 }
 
 // NewService returns a Service.
 func NewService(d Deps) *Service {
-	return &Service{settings: d.Settings, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail}
+	return &Service{
+		settings: d.Settings, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail,
+		signInMethods: d.SignInMethods,
+	}
 }
 
 // authorize checks the actor's permission. A permission of a role that

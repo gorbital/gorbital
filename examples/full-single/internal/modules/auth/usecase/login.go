@@ -28,7 +28,9 @@ type LoginResult struct {
 type MFAChallengeResult struct {
 	// Token identifies the sign-in in LoginMFA. It is shown once; only its
 	// hash is stored.
-	Token     string
+	Token string
+	// Methods are the second factors this server accepts for the account:
+	// totp, passkey, recovery_code.
 	Methods   []string
 	ExpiresAt time.Time
 }
@@ -38,7 +40,8 @@ type MFAChallengeResult struct {
 // correct password for an unverified address returns ErrEmailNotVerified.
 // Too many attempts for one address return a *RateLimitError. For an account
 // with two-factor authentication, it returns a challenge instead of a session
-// (ADR-0043), or ErrMFAUnavailable on a server without encryption keys.
+// (ADR-0043, ADR-0044), or ErrMFAUnavailable when this server can't check any
+// of the account's factors.
 func (s *Service) Login(ctx context.Context, email, password string) (LoginResult, error) {
 	client := authlib.ClientInfoFromContext(ctx)
 	_, normalized, err := authlib.NormalizeEmail(email)
@@ -74,12 +77,15 @@ func (s *Service) Login(ctx context.Context, email, password string) (LoginResul
 		return LoginResult{}, authdomain.ErrEmailNotVerified
 	}
 
-	totp, found, err := s.store.SelectTOTP(ctx, u.ID, false)
-	if err != nil {
+	methods, err := s.secondFactorMethods(ctx, u.ID)
+	switch {
+	case errors.Is(err, authdomain.ErrMFAUnavailable):
+		s.logger.ErrorContext(ctx, "sign-in needs a second factor this server can't check: set AUTH_ENCRYPTION_KEYS or WEBAUTHN_RP_ID", "user_id", u.ID)
+		return LoginResult{}, err
+	case err != nil:
 		return LoginResult{}, dbError("login", err)
-	}
-	if found && totp.Confirmed() {
-		return s.startChallenge(ctx, u, password, rehash, client)
+	case len(methods) > 0:
+		return s.startChallenge(ctx, u, password, rehash, client, methods)
 	}
 
 	var res LoginResult
@@ -98,13 +104,39 @@ func (s *Service) Login(ctx context.Context, email, password string) (LoginResul
 	return res, nil
 }
 
+// secondFactorMethods returns the second factors a sign-in to the account
+// accepts on this server, or none when two-factor authentication is off. It
+// returns ErrMFAUnavailable when it's on but this server can check neither
+// the authenticator app (no encryption keys) nor passkeys (no relying party).
+func (s *Service) secondFactorMethods(ctx context.Context, userID string) ([]string, error) {
+	totp, found, err := s.store.SelectTOTP(ctx, userID, false)
+	if err != nil {
+		return nil, err
+	}
+	passkeys, err := s.store.CountPasskeys(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	hasTOTP := found && totp.Confirmed()
+	if !hasTOTP && passkeys == 0 {
+		return nil, nil
+	}
+	var methods []string
+	if hasTOTP && s.keyring != nil {
+		methods = append(methods, authdomain.MFAMethodTOTP)
+	}
+	if passkeys > 0 && s.passkeys != nil {
+		methods = append(methods, authdomain.MFAMethodPasskey)
+	}
+	if len(methods) == 0 {
+		return nil, authdomain.ErrMFAUnavailable
+	}
+	return append(methods, authdomain.MFAMethodRecoveryCode), nil
+}
+
 // startChallenge stores a sign-in challenge for a user whose password
 // matched, to finish with LoginMFA.
-func (s *Service) startChallenge(ctx context.Context, u authdomain.User, password string, rehash bool, client authlib.ClientInfo) (LoginResult, error) {
-	if s.keyring == nil {
-		s.logger.ErrorContext(ctx, "sign-in needs a second factor, but AUTH_ENCRYPTION_KEYS isn't set", "user_id", u.ID)
-		return LoginResult{}, authdomain.ErrMFAUnavailable
-	}
+func (s *Service) startChallenge(ctx context.Context, u authdomain.User, password string, rehash bool, client authlib.ClientInfo, methods []string) (LoginResult, error) {
 	now := s.now()
 	token, tokenHash := authlib.NewToken()
 	c := authdomain.MFAChallenge{
@@ -120,9 +152,7 @@ func (s *Service) startChallenge(ctx context.Context, u authdomain.User, passwor
 	if err != nil {
 		return LoginResult{}, dbError("login", err)
 	}
-	return LoginResult{User: u, Challenge: &MFAChallengeResult{
-		Token: token, Methods: []string{authdomain.MFAMethodTOTP, authdomain.MFAMethodRecoveryCode}, ExpiresAt: c.ExpiresAt,
-	}}, nil
+	return LoginResult{User: u, Challenge: &MFAChallengeResult{Token: token, Methods: methods, ExpiresAt: c.ExpiresAt}}, nil
 }
 
 // rehash replaces a password hash made with older parameters. When hashing
@@ -162,8 +192,8 @@ func (s *Service) startSession(ctx context.Context, tx Store, u authdomain.User,
 	return LoginResult{Token: token, Session: session, User: u}, nil
 }
 
-// loginSucceeded records a new session; method names its second factor, if
-// any.
+// loginSucceeded records a new session; method names its second factor, or
+// passkey for a passwordless sign-in.
 func (s *Service) loginSucceeded(ctx context.Context, res LoginResult, method string) {
 	e := userEvent("auth.login.succeeded", res.User.ID, authlib.ClientInfoFromContext(ctx))
 	e.ActorKind, e.ActorID = actor.KindUser, res.User.ID

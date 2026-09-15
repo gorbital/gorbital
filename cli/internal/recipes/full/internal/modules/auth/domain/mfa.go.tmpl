@@ -69,14 +69,15 @@ func (c MFAChallenge) UsableAt(now time.Time) bool {
 	return c.ConsumedAt == nil && now.Before(c.ExpiresAt) && c.Attempts < c.MaxAttempts
 }
 
-// SecondFactor is what a user enters as a second factor: a code from their
-// authenticator app, or else a recovery code.
+// SecondFactor is what a user gives as a second factor: a code from their
+// authenticator app, a recovery code, or a passkey's response.
 type SecondFactor struct {
 	Code         string
 	RecoveryCode string
+	Passkey      *PasskeyAssertion
 }
 
 // Empty reports whether no second factor was given.
 func (f SecondFactor) Empty() bool {
-	return strings.TrimSpace(f.Code) == "" && strings.TrimSpace(f.RecoveryCode) == ""
+	return strings.TrimSpace(f.Code) == "" && strings.TrimSpace(f.RecoveryCode) == "" && f.Passkey == nil
 }

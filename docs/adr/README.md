@@ -53,3 +53,5 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0041](0041-full-preset-generation.md) | Full preset generation | Accepted |
 | [0042](0042-development-seed-data.md) | Development seed data | Accepted |
 | [0043](0043-two-factor-authentication.md) | Two-factor authentication | Accepted |
+| [0044](0044-passkeys.md) | Passkeys | Accepted |
+| [0045](0045-sign-in-provider-setup.md) | Sign-in provider setup | Accepted |

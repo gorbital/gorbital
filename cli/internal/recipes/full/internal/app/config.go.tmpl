@@ -28,8 +28,10 @@ type Config struct {
 	// AuthEncryptionKeys encrypt authenticator app secrets
 	// (AUTH_ENCRYPTION_KEYS, ADR-0043).
 	AuthEncryptionKeys config.Secret
-	DBMaxConns         int32 // APP_DB_MAX_CONNS
-	JobWorkers         int   // APP_JOB_WORKERS
+	// WebAuthn is the passkey relying party (WEBAUTHN_*, passkeys.go).
+	WebAuthn   webAuthnConfig
+	DBMaxConns int32 // APP_DB_MAX_CONNS
+	JobWorkers int   // APP_JOB_WORKERS
 
 	MailDelivery string     // MAIL_DELIVERY: mailpit or provider (mail.go)
 	MailpitAddr  string     // MAILPIT_SMTP_ADDR
@@ -119,6 +121,10 @@ func LoadConfig(src config.Source) (Config, error) {
 	if _, err := loadKeyring(cfg.AuthEncryptionKeys, cfg.Production()); err != nil {
 		errs = append(errs, err)
 	}
+
+	var passkeyErrs []error
+	cfg.WebAuthn, passkeyErrs = loadWebAuthnConfig(get, cfg.Production())
+	errs = append(errs, passkeyErrs...)
 
 	if v := get("APP_DB_MAX_CONNS"); v != "" {
 		n, err := strconv.ParseInt(v, 10, 32)

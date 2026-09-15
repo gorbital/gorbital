@@ -8,7 +8,7 @@ A Go API created with [apistock](https://apistock.dev) (Full preset, single-tena
 aps dev      # PostgreSQL and Mailpit in Docker, migrations, seed data, live reload
 ```
 
-The first run prints the password of the seeded administrator, `admin@example.com`, once. Without the apistock CLI:
+The first run prints the password of the seeded administrator, `admin@example.com`, once. Sign-in methods (email and password, authenticator apps, passkeys, and later Google and Apple) and what to set for each are in [AUTH_PROVIDERS.md](AUTH_PROVIDERS.md); the app lists what's on when it starts. For passkeys, open the app at http://localhost:8080. Without the apistock CLI:
 
 ```bash
 cp .env.example .env

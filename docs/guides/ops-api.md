@@ -35,6 +35,7 @@ Changes are attributed to the signed-in user in history, job metadata and audit 
 | `ops.releases.read` | List releases and the instances running them |
 | `ops.mail.read` | See how the app sends email |
 | `ops.mail.test` | Send a test email |
+| `ops.auth.read` | See which sign-in methods are configured |
 
 Missing permission: 403 `forbidden`.
 
@@ -218,6 +219,16 @@ Builds without version control information or a link-time version show `"version
 ```
 
 Resend details are `{"api_key": "configured"}` or `"missing"`. Change the sender with `PUT /ops/settings/mail.from_email` (and `mail.from_name`, `mail.reply_to`). The test email's delivery appears in `GET /ops/jobs/runs?kind=apistock.mail.send`. Setup: [email guide](email.md).
+
+## Sign-in methods
+
+Which sign-in methods this deployment has configured, and what turns the others on ([ADR-0045](../adr/0045-sign-in-provider-setup.md), [sign-in provider setup](auth-providers.md)). Permission `ops.auth.read` (`ops_viewer`, `platform_admin`).
+
+| Endpoint | Purpose | Success |
+|---|---|---|
+| `GET /ops/auth/providers` | Each method: `key` (`email_password`, `authenticator_app`, `passkeys`, `passkeys_ios`, `passkeys_android`), `name`, `enabled`, `detail` for enabled methods (relying party ID and origins, app IDs, Android packages), `missing` environment variables and the `guide` section for the others | 200 `{methods: [...]}` |
+
+Values of secrets are never returned; the same report is printed at start in development and by `go run ./cmd/api auth-providers`.
 
 ## Error codes
 

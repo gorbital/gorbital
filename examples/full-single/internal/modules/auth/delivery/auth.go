@@ -252,6 +252,7 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 	}), h.deleteAccount)
 
 	registerMFA(api, h, public, signedIn)
+	registerPasskeys(api, h, public, signedIn)
 }
 
 func (h *handler) register(ctx context.Context, in *registerInput) (*acceptedOutput, error) {

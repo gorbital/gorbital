@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"apistock.dev/actor"
@@ -13,17 +14,20 @@ import (
 )
 
 // LoginMFA finishes a sign-in that Login answered with a challenge, using a
-// code from the authenticator app or an unused recovery code, and starts a
-// session verified with a second factor. An unknown, expired, used or
-// exhausted challenge and a wrong factor all return ErrInvalidMFA. Each
-// challenge allows 5 attempts in 5 minutes, and the attempts count toward
-// the address's login limit (*RateLimitError).
+// code from the authenticator app, an unused recovery code, or a passkey's
+// response to BeginPasskeySecondFactor, and starts a session verified with a
+// second factor. An unknown, expired, used or exhausted challenge and a wrong
+// factor all return ErrInvalidMFA. Each challenge allows 5 attempts in 5
+// minutes, and the attempts count toward the address's login limit
+// (*RateLimitError).
 func (s *Service) LoginMFA(ctx context.Context, challengeToken string, factor authdomain.SecondFactor) (LoginResult, error) {
 	client := authlib.ClientInfoFromContext(ctx)
-	if challengeToken == "" || len(challengeToken) > 256 || factor.Empty() {
+	switch {
+	case challengeToken == "" || len(challengeToken) > 256 || factor.Empty():
 		return LoginResult{}, authdomain.ErrInvalidMFA
-	}
-	if s.keyring == nil {
+	case factor.Passkey != nil && s.passkeys == nil:
+		return LoginResult{}, authdomain.ErrPasskeysUnavailable
+	case factor.Passkey == nil && strings.TrimSpace(factor.Code) != "" && s.keyring == nil:
 		return LoginResult{}, authdomain.ErrMFAUnavailable
 	}
 	var (
@@ -50,7 +54,7 @@ func (s *Service) LoginMFA(ctx context.Context, challengeToken string, factor au
 			limited, retry = true, wait
 			return nil
 		}
-		if method, remaining, valid, err = s.checkSecondFactor(ctx, tx, u.ID, factor); err != nil {
+		if method, remaining, valid, err = s.checkSecondFactor(ctx, tx, u.ID, c.ID, factor); err != nil {
 			return err
 		}
 		if !valid {
