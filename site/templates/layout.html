@@ -68,7 +68,7 @@
     {{- end}}
     {{- range .Sidebar}}
     <div class="nav-group" data-nav-group>{{if ne .Name $.TabName}}<span class="label">{{.Name}}</span>{{end}}<ul>
-      {{- range .Items}}<li><a href="{{.URL}}"{{if .Active}} aria-current="page"{{end}}>{{if .Method}}<span class="m {{methodClass .Method}}">{{methodLabel .Method}}</span>{{end}}<span class="nav-label">{{.Label}}</span></a></li>{{end}}
+      {{- range .Items}}<li><a href="{{.URL}}"{{if .Active}} aria-current="page"{{end}}>{{if .Method}}<span class="method {{methodClass .Method}}">{{methodLabel .Method}}</span>{{end}}<span class="nav-label">{{.Label}}</span></a></li>{{end}}
     </ul></div>
     {{- end}}
   </aside>

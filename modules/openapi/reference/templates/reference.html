@@ -93,7 +93,7 @@
   <h2 id="endpoints">Endpoints<a class="anchor" href="#endpoints" aria-label="Link to this section">#</a></h2>
   {{range .Groups}}
   <h3>{{.Name}}</h3>
-  <div class="endpoints">{{range .Items}}<a class="ep" href="{{.URL}}"><span class="m {{methodClass .Method}}">{{methodLabel .Method}}</span><code>{{.Path}}</code><span class="ep-sum">{{.Summary}}</span></a>{{end}}</div>
+  <div class="endpoints">{{range .Items}}<a class="ep" href="{{.URL}}"><span class="method {{methodClass .Method}}">{{methodLabel .Method}}</span><code>{{.Path}}</code><span class="ep-sum">{{.Summary}}</span></a>{{end}}</div>
   {{end}}
 </div>
 {{end}}
@@ -138,7 +138,7 @@
     <input class="filter" id="nav-filter" type="search" placeholder="Filter endpoints" autocomplete="off" data-nav-filter>
     {{- range .Groups}}
     <div class="nav-group" data-nav-group><span class="label">{{.Name}}</span><ul>
-      {{- range .Items}}<li><a href="{{.URL}}"{{if .Active}} aria-current="page"{{end}}>{{if .Method}}<span class="m {{methodClass .Method}}">{{methodLabel .Method}}</span>{{end}}<span class="nav-label">{{.Label}}</span></a></li>{{end}}
+      {{- range .Items}}<li><a href="{{.URL}}"{{if .Active}} aria-current="page"{{end}}>{{if .Method}}<span class="method {{methodClass .Method}}">{{methodLabel .Method}}</span>{{end}}<span class="nav-label">{{.Label}}</span></a></li>{{end}}
     </ul></div>
     {{- end}}
   </aside>

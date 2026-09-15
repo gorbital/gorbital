@@ -109,10 +109,10 @@ p { margin:0; text-wrap:pretty; }
 .nav-label { min-width:0; }
 .filter { width:calc(100% - 12px); margin:0 0 22px 12px; height:34px; padding-inline:10px; border:1px solid var(--border); background:var(--surface); font:400 12px/1 var(--font-mono); color:var(--ink); border-radius:0; }
 .filter::placeholder { color:var(--dim); }
-.m { flex:none; width:38px; font:500 10px/1.4 var(--font-mono); letter-spacing:.04em; color:var(--dim); }
-.m.post, .m.put { color:var(--ink); }
-.m.patch { color:var(--muted); }
-.m.delete { color:var(--danger); }
+.method { flex:none; width:38px; font:500 10px/1.4 var(--font-mono); letter-spacing:.04em; color:var(--dim); }
+.method.post, .method.put { color:var(--ink); }
+.method.patch { color:var(--muted); }
+.method.delete { color:var(--danger); }
 
 /* Page layouts */
 .dlayout { max-width:1440px; margin-inline:auto; padding-inline:clamp(16px, 2vw, 24px); display:grid; grid-template-columns:250px minmax(0, 1fr) 220px; }
@@ -160,7 +160,6 @@ p { margin:0; text-wrap:pretty; }
 .code .nt, .code .na { color:var(--c-key); }
 .code .nv, .code .vc, .code .vg, .code .vi { color:var(--c-mid); }
 .code .err { color:var(--c-ink); }
-.code .m { width:auto; font:inherit; letter-spacing:normal; }
 
 /* API reference */
 .alayout { max-width:1560px; margin-inline:auto; padding-inline:clamp(16px, 2vw, 24px); display:grid; grid-template-columns:260px minmax(0, 1fr) minmax(360px, 460px); }
