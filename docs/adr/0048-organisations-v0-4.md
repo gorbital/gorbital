@@ -1,6 +1,8 @@
 # ADR-0048: Organisations (v0.4)
 
-**Status:** Proposed (2026-09-15) · **Would amend:** ADR-0023, ADR-0038
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0023, ADR-0038
+
+The maintainer approved the five questions below as recommended (2026-09-15).
 
 ## Context
 
@@ -34,7 +36,8 @@ Open questions before code: where org roles are stored, how a request becomes an
 
 ### 3. Requests
 
-- Org routes are `/v1/orgs/{orgId}/...`. `RequireMember(permission)` loads the caller's membership in one query, like roles on every request, so removal applies immediately.
+- Org routes are `/v1/orgs/{orgId}/...`. `RequireMember` loads the caller's membership in one query, like roles on every request, so removal applies immediately.
+- `RequireMember` is a function every organisation use case calls first, `orgs.RequireMember(ctx, memberships, catalog, orgID, permission)`, not `net/http` middleware: the `{orgId}` path value is only known after routing, and a check in the use case also protects jobs and commands that call it. The generated denial tests (section 8) verify every operation makes the call.
 - Not a member, or the org is deleted: **404 `org_not_found`**, the same as an org that doesn't exist, so IDs can't be probed. A member without the permission: **403 `forbidden`**.
 - The middleware sets the actor's `OrgID` and replaces `Permissions` with the member's org-role permissions for that request. `/ops/*` never passes through it, so platform and org permissions never mix.
 - Platform staff have **no implicit access** to organisations' data. Support access (time-limited, audited, visible to the org) is a later feature.

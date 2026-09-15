@@ -48,11 +48,11 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 ## v0.4: Organisations
 
-**Status: next.** Design proposed in [ADR-0048](adr/0048-organisations-v0-4.md), awaiting approval before code. It proposes moving `aps add orgs` to v0.5 (it needs the per-feature recipes and 3-way merges that `aps add` and `aps upgrade` bring) and adds a drift check between `full-single` and `full-multi`.
+**Status: in progress.** Design accepted in [ADR-0048](adr/0048-organisations-v0-4.md) (2026-09-15). `aps add orgs` moved to v0.5: it needs the per-feature recipes and 3-way merges that `aps add` and `aps upgrade` bring. A drift check keeps `full-single` and `full-multi` identical outside the files organisations change.
 
 | | |
 |---|---|
-| **Delivers** | `modules/orgs` (personal workspaces, memberships, invitations, org roles, ownership transfer, soft delete), multi-tenant generation, the tenancy prompt and `--tenancy` flag in `aps new` (moved from v0.2: before organisations its only answer is single-tenant), `resource/org` template, `aps add orgs` single → multi path, `examples/full-multi` |
+| **Delivers** | `modules/orgs` (personal workspaces, memberships, invitations, org roles, ownership transfer, soft delete), multi-tenant generation, the tenancy prompt and `--tenancy` flag in `aps new` (moved from v0.2: before organisations its only answer is single-tenant), `resource/org` template (`aps gen resource --scope org`), `examples/full-multi` with a drift check against `full-single` |
 | **Not included** | Row-level security, subdomain tenants, per-org billing |
 | **Done when** | Generated cross-org denial tests pass for every org-scoped resource; four isolation layers verified |
 
@@ -60,7 +60,7 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 | | |
 |---|---|
-| **Delivers** | `/ops/*` (audit stats, system health, jobs overview, retention), maintenance mode, Postman collection, `llms.txt`, `aps upgrade` (3-way merge on a branch), `aps doctor`, Custom preset (moved from v0.2: it needs the Full golden app split into per-feature recipes with dependency resolution and tested combinations, which `aps add` and `aps upgrade` need too) |
+| **Delivers** | `/ops/*` (audit stats, system health, jobs overview, retention), maintenance mode, Postman collection, `llms.txt`, `aps upgrade` (3-way merge on a branch), `aps add orgs` (single → multi-tenant, moved from v0.4, [ADR-0048](adr/0048-organisations-v0-4.md)), `aps doctor`, Custom preset (moved from v0.2: it needs the Full golden app split into per-feature recipes with dependency resolution and tested combinations, which `aps add` and `aps upgrade` need too) |
 | **Not included** | Feature flags, live observability, incidents |
 | **Done when** | An app generated with v0.2 and edited by script upgrades to v0.5 in CI with no lost edits; ops endpoints require platform roles and 2FA |
 

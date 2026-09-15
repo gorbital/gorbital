@@ -129,7 +129,7 @@ apistock/
 │   ├── mail/resend/ · mail/smtp/   Resend HTTP API and standard-library SMTP senders   (v0.2)
 │   ├── auditpg/             append-only audit store with redaction, filtered query API   (v0.2)
 │   ├── auth/                building blocks: argon2id, tokens, codes, session middleware, permission catalog (v0.2); oidc, totp, passkey (v0.3)
-│   ├── orgs/                organisations, memberships, invitations, org roles
+│   ├── orgs/                building blocks: organisation IDs, RequireMember, invitation emails   (v0.4)
 │   └── releases/            instance build record at start, heartbeats, release queries   (v0.2)
 ├── cli/                     module apistock.dev/cli → cmd/aps
 │   └── internal/recipes/    templates generated from examples/ (go generate), embedded in aps

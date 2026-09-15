@@ -1,6 +1,6 @@
 # ADR-0023: Tenancy
 
-**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0013 · **Amended by:** ADR-0033
+**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0013 · **Amended by:** ADR-0033, ADR-0048 (org roles in `org_members`, 404 for non-members, invitation and personal workspace rules, `aps add orgs` moved to v0.5)
 
 ## Context
 
