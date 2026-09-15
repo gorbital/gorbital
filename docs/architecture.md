@@ -26,7 +26,7 @@ Three products, versioned together ([ADR-0014](adr/0014-product-shape-and-preset
 
 **Core rule: thin glue, thick library.** Apps get working features out of the box, but the logic lives in the library, so security fixes reach every app with `go get`. Generated code is readable glue the developer owns.
 
-**Non-goals:** a hosted platform, a dashboard required to run apps, a mobile app, microservices tooling, a custom ORM, router or DI container, databases other than PostgreSQL.
+**Non-goals:** a hosted platform, a dashboard required to run apps, a mobile app built into apistock itself (dashboard and mobile clients are optional templates, proposed for v1.2 in [ADR-0047](adr/0047-client-templates.md)), microservices tooling, a custom ORM, router or DI container, databases other than PostgreSQL.
 
 ---
 
@@ -81,9 +81,10 @@ DEVELOPER MACHINE / CI (never in production)        PRODUCTION (any host)
 | Core library, official modules, CLI, recipes | v1 | This repository |
 | Community modules | After 1.0 | Same contracts, authors' own repositories |
 | Local dev console (custom UI) | v1.1 | v1 uses Mailpit and Grafana containers ([ADR-0028](adr/0028-local-development-environment.md)) |
-| Admin web UI | Not in v1 | v1 ships `/ops/*` APIs only ([ADR-0026](adr/0026-operations-apis.md)) |
+| Admin web UI | Not in v1 | v1 ships `/ops/*` APIs only ([ADR-0026](adr/0026-operations-apis.md)); a dashboard client template is proposed for v1.2 |
 | Hosted control plane | Not planned | Separate product if ever built; standard protocols only |
-| Mobile app | No | |
+| Client templates: docs site, dashboard, Expo | v1.2, proposed | Separate template repositories, pinned and verified archives filled in by `aps new` ([ADR-0047](adr/0047-client-templates.md)) |
+| Native iOS and Android templates | Later | Only when builders ask; Expo covers both first |
 | GitHub integration | v1 | Delegates to `git` and `gh`; plain workflow files ([ADR-0011](adr/0011-github-integration.md)) |
 
 ---
@@ -298,6 +299,8 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | v0.4 | Multi-tenant organisations, tenancy prompt |
 | v0.5 | Operations APIs, Postman, `llms.txt`, `aps upgrade`, Custom preset |
 | v1.0 | External security review, API freeze, documentation site |
+| v1.1 | Feature flags, live observability, API keys, GitHub login, row-level security option, local dev console |
+| v1.2 (proposed) | Client templates: docs site, dashboard and Expo app created by `aps new` from separate template repositories ([ADR-0047](adr/0047-client-templates.md)) |
 
 ---
 
@@ -318,3 +321,4 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `aps add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |
 | Email templates and preview route | Open: owned templates in `internal/emails` with a development preview (ADR-0025) arrive with authentication's emails |
 | Client IP and user agent in audit events | Open: no core middleware carries them in the context yet; `modules/auth` sets them on its events |
+| Client templates | Open: [ADR-0047](adr/0047-client-templates.md) proposed; to decide the dashboard and docs stacks, where archives are hosted, and the bundle ID prompt before accepting |

@@ -56,3 +56,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0044](0044-passkeys.md) | Passkeys | Accepted |
 | [0045](0045-sign-in-provider-setup.md) | Sign-in provider setup | Accepted, amended by 0046 |
 | [0046](0046-google-and-apple-sign-in.md) | Google and Apple sign-in | Accepted |
+| [0047](0047-client-templates.md) | Client templates: docs site, dashboard and mobile apps from separate template repositories | Proposed |
