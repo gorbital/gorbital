@@ -1,0 +1,5 @@
+# Findings reviewed and confirmed not to be secrets. One gitleaks fingerprint
+# per line: commit:file:rule:line.
+
+# Placeholder Resend API key in a test that talks to a fake server.
+736e91b16329d5f10de88ea00d9f476c38ce3bb0:modules/mail/resend/resend_test.go:generic-api-key:20

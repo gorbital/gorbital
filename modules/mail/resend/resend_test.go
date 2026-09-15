@@ -17,7 +17,7 @@ import (
 	"apistock.dev/modules/mail/resend"
 )
 
-const apiKey = "re_test_0123456789"
+const apiKey = "re_test_0123456789" // gitleaks:allow (placeholder for the fake server)
 
 type request struct {
 	method, path, auth, idempotency, contentType string
