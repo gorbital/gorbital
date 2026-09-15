@@ -1,8 +1,8 @@
 # Sign-in provider setup
 
-What a developer provides so each sign-in method works with their own accounts, where to find every value and where to paste it. Decisions: [ADR-0045](../adr/0045-sign-in-provider-setup.md), [ADR-0043](../adr/0043-two-factor-authentication.md) (authenticator apps), [ADR-0044](../adr/0044-passkeys.md) (passkeys).
+What a developer provides so each sign-in method works with their own accounts, where to find every value and where to paste it. Decisions: [ADR-0045](../adr/0045-sign-in-provider-setup.md), [ADR-0043](../adr/0043-two-factor-authentication.md) (authenticator apps), [ADR-0044](../adr/0044-passkeys.md) (passkeys), [ADR-0046](../adr/0046-google-and-apple-sign-in.md) (Google and Apple, proposed).
 
-Every Full app ships this guide as `AUTH_PROVIDERS.md` next to `AGENTS.md`, and a commented block per method in `.env.example`.
+**The step-by-step guide** lives in every Full app as [`AUTH_PROVIDERS.md`](../../examples/full-single/AUTH_PROVIDERS.md), next to `AGENTS.md`: creating an authenticator encryption key, choosing a passkey relying party, finding Apple Team and Bundle IDs and Android signing fingerprints, creating Google Cloud OAuth clients, creating Apple App IDs, Services IDs and `.p8` keys, relaying email through Apple, email provider keys, common errors, and a production checklist. `.env.example` has a commented block per method.
 
 ## How the app tells you what's missing
 
@@ -32,11 +32,12 @@ Sign-in methods
 | Passkeys | `WEBAUTHN_ORIGINS` | No | Browser origins of your frontend, such as `https://app.example.com`; https in production |
 | Passkeys in iOS apps | `WEBAUTHN_APPLE_APP_IDS` | No | `TEAMID.bundle.id`: Apple Developer → Membership details → Team ID, plus the app's bundle ID |
 | Passkeys in Android apps | `WEBAUTHN_ANDROID_APPS` | No | `package.name=SHA256:FINGERPRINT`: `applicationId`, and Play Console → App integrity → App signing key certificate → SHA-256 (or `keytool` for debug keys) |
-| Google sign-in (later) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (secret), `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_ANDROID_CLIENT_ID` | Secret: yes | Google Cloud Console → APIs & Services → Credentials → OAuth client IDs; redirect URI `https://<API>/v1/auth/google/callback` |
-| Apple sign-in (later) | `APPLE_TEAM_ID`, `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_FILE` (secret), `APPLE_BUNDLE_IDS` | Key: yes | Apple Developer → Identifiers (Services ID) and Keys (Sign in with Apple, `.p8`); return URL `https://<API>/v1/auth/apple/callback` |
+| Google sign-in (next) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (secret), `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_ANDROID_CLIENT_ID` | Secret: yes | Google Cloud Console → Google Auth Platform → Clients; redirect URI `https://<API>/v1/auth/google/callback` |
+| Apple sign-in (next) | `APPLE_TEAM_ID`, `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_FILE` (secret), `APPLE_BUNDLE_IDS` | Key: yes | Apple Developer → Identifiers (App ID, Services ID) and Keys (Sign in with Apple, `.p8`); return URL `https://<API>/v1/auth/apple/callback` |
+| Email | `RESEND_API_KEY` or `SMTP_*` | **Yes** | Resend → API Keys, or your SMTP provider; `aps add mail` |
 
 Files the backend serves for native apps, generated from the variables (nothing to upload): `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json`. They must be reachable on `WEBAUTHN_RP_ID`'s domain; when a separate web frontend serves that domain, it proxies the two paths to the API.
 
 ## Later stages
 
-The generated `AUTH_PROVIDERS.md` ends with checklists for when the web frontend, iOS app and Android app are built: which endpoints to call, the Associated Domains entitlement, Credential Manager, and where to store tokens. The backend already provides everything those clients need.
+The generated `AUTH_PROVIDERS.md` ends with checklists for when the web frontend, iOS app and Android app are built: which endpoints to call, the Associated Domains entitlement, Credential Manager, Sign in with Apple and Google SDK setup, and where to store tokens. The backend already provides everything those clients need.
