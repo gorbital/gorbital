@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/huh"
@@ -31,11 +32,12 @@ var (
 const maxNameLength = 63
 
 type newResult struct {
-	Name   string `json:"name"`
-	Module string `json:"module"`
-	Dir    string `json:"dir"`
-	Preset string `json:"preset"`
-	Files  int    `json:"files"`
+	Name    string `json:"name"`
+	Module  string `json:"module"`
+	Dir     string `json:"dir"`
+	Preset  string `json:"preset"`
+	Tenancy string `json:"tenancy"`
+	Files   int    `json:"files"`
 }
 
 func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
@@ -43,6 +45,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	flags.SetOutput(stderr)
 	module := flags.String("module", "", "Go module path (default: the app name)")
 	preset := flags.String("preset", "minimal", "preset: minimal (HTTP API, no database) or full (PostgreSQL, authentication, jobs, email, audit, ops APIs)")
+	tenancy := flags.String("tenancy", recipes.TenancySingle, "who owns the data (Full preset): single (users) or multi (organisations with members, roles and invitations)")
 	local := flags.String("local", "", "path to an apistock checkout, used through replace directives (default: the checkout you are in, if any)")
 	noGit := flags.Bool("no-git", false, "don't initialise a git repository")
 	skipTidy := flags.Bool("skip-tidy", false, "don't run go mod tidy")
@@ -70,8 +73,8 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	}
 	set := map[string]bool{}
 	flags.Visit(func(f *flag.Flag) { set[f.Name] = true })
-	// Reject a bad --preset before asking anything else.
-	if _, err := lookupPreset(*preset); err != nil {
+	// Reject a bad --preset or --tenancy before asking anything else.
+	if _, err := lookupPreset(*preset, *tenancy); err != nil {
 		return err
 	}
 
@@ -86,7 +89,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 
 	ask := shouldPrompt(p, *asJSON, stdin, stdout)
 	if ask {
-		if err := promptNew(&name, module, preset, local, noGit, set, p, stdin, stderr); err != nil {
+		if err := promptNew(&name, module, preset, tenancy, local, noGit, set, p, stdin, stderr); err != nil {
 			return err
 		}
 	}
@@ -100,7 +103,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	if err := validateModule(*module); err != nil {
 		return err
 	}
-	chosen, err := lookupPreset(*preset)
+	chosen, err := lookupPreset(*preset, *tenancy)
 	if err != nil {
 		return err
 	}
@@ -133,7 +136,11 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	}
 	s := newStyles(stdout)
 	step := func(done string) { fmt.Fprintf(log, "%s %s\n", s.muted.Render("✓"), done) }
-	fmt.Fprintf(log, "creating %s in ./%s\n%s\n\n", name, name, s.dim.Render("preset "+chosen.Name+" · "+libraryLine(localPath, detected)))
+	about := "preset " + chosen.Name
+	if recipes.SupportsTenancy(chosen.Name) {
+		about += " · tenancy " + chosen.Tenancy
+	}
+	fmt.Fprintf(log, "creating %s in ./%s\n%s\n\n", name, name, s.dim.Render(about+" · "+libraryLine(localPath, detected)))
 
 	if err := os.Mkdir(name, 0o755); err != nil {
 		return err
@@ -164,46 +171,60 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 		}
 	}
 
-	res := newResult{Name: name, Module: *module, Dir: name, Preset: chosen.Name, Files: len(files)}
+	res := newResult{Name: name, Module: *module, Dir: name, Preset: chosen.Name, Tenancy: chosen.Tenancy, Files: len(files)}
 	if *asJSON {
 		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(res)
 	}
-	fmt.Fprintf(stdout, "\n%s\n\n%s", s.strong.Render("created "+name), nextSteps(s, name, chosen.Name))
+	fmt.Fprintf(stdout, "\n%s\n\n%s", s.strong.Render("created "+name), nextSteps(s, name, chosen))
 	return nil
 }
 
-// lookupPreset returns the preset aps new --preset name selects, or a usage
-// error naming the presets that exist.
-func lookupPreset(name string) (recipes.Preset, error) {
-	if p, ok := recipes.LookupPreset(name); ok {
-		return p, nil
-	}
-	if name == "custom" {
+// lookupPreset returns the preset aps new --preset name --tenancy tenancy
+// selects, or a usage error naming what exists.
+func lookupPreset(name, tenancy string) (recipes.Preset, error) {
+	switch {
+	case name == "custom":
 		return recipes.Preset{}, usageError("preset custom isn't available yet; use --preset minimal or --preset full")
+	case !slices.Contains(recipes.PresetNames(), name):
+		return recipes.Preset{}, usageError(fmt.Sprintf("unknown preset %q (want %s)", name, strings.Join(recipes.PresetNames(), " or ")))
+	case tenancy != recipes.TenancySingle && tenancy != recipes.TenancyMulti:
+		return recipes.Preset{}, usageError(fmt.Sprintf("unknown tenancy %q (want single or multi)", tenancy))
 	}
-	return recipes.Preset{}, usageError(fmt.Sprintf("unknown preset %q (want %s)", name, strings.Join(recipes.PresetNames(), " or ")))
+	p, ok := recipes.LookupPreset(name, tenancy)
+	if !ok {
+		return recipes.Preset{}, usageError(fmt.Sprintf("--tenancy %s needs the Full preset: organisations need its database and authentication (use --preset full)", tenancy))
+	}
+	return p, nil
 }
 
 // nextSteps lists where things are in a new app of the preset in dir, and
 // ends with the commands to run next.
-func nextSteps(s styles, dir, preset string) string {
+func nextSteps(s styles, dir string, preset recipes.Preset) string {
 	rows := [][2]string{
 		{"api docs", "http://127.0.0.1:8080/docs"},
 		{"traces", "aps dev --observability (needs Docker)"},
 	}
-	if preset == "full" {
+	if preset.Name == "full" {
 		rows = [][2]string{
 			{"api docs", "http://localhost:8080/docs (localhost, not 127.0.0.1, for passkeys)"},
 			{"emails", "http://127.0.0.1:8025 (Mailpit catches every email in development)"},
 			{"admin", "admin@example.com; aps dev prints its password, 2FA key and recovery codes once"},
 			{"sign-in", "AUTH_PROVIDERS.md lists what to set for passkeys, Google and Apple"},
+		}
+		if preset.Tenancy == recipes.TenancyMulti {
+			rows = append(rows,
+				[2]string{"orgs", "every account gets a personal workspace; data lives under /v1/orgs/{orgId}"},
+				[2]string{"invitations", "set orgs.invitation_url to your frontend's page before inviting people"},
+			)
+		}
+		rows = append(rows, [][2]string{
 			{"email", "Resend outside development; aps add mail switches to SMTP"},
 			{"port 5432", "taken? set POSTGRES_PORT in .env and the same port in DATABASE_URL"},
 			{"without aps", "cp .env.example .env, docker compose up -d --wait,"},
 			{"", "go run ./cmd/migrate, go run ./cmd/seed, go run ./cmd/api"},
-		}
+		}...)
 	}
 	var b strings.Builder
 	for _, row := range rows {
@@ -215,7 +236,7 @@ func nextSteps(s styles, dir, preset string) string {
 
 // promptNew asks, one question at a time, for every value not given by a
 // flag. Values given by flag are shown as answered lines first.
-func promptNew(name, module, preset, local *string, noGit *bool, set map[string]bool, p promptFlags, stdin io.Reader, stderr io.Writer) error {
+func promptNew(name, module, preset, tenancy, local *string, noGit *bool, set map[string]bool, p promptFlags, stdin io.Reader, stderr io.Writer) error {
 	a := newAsker(p, stdin, stderr)
 
 	if *name == "" {
@@ -255,6 +276,22 @@ func promptNew(name, module, preset, local *string, noGit *bool, set map[string]
 		}
 	} else {
 		a.answered("preset", *preset)
+	}
+
+	// Only presets with a multi-tenant variant ask who owns the data (ADR-0023).
+	switch {
+	case !recipes.SupportsTenancy(*preset):
+		*tenancy = recipes.TenancySingle
+	case !set["tenancy"]:
+		sel := huh.NewSelect[string]().Title(a.choiceTitle("tenancy")).Options(
+			huh.NewOption("single  one user base: records belong to users", recipes.TenancySingle),
+			huh.NewOption("multi   companies or teams: organisations with members, roles and invitations", recipes.TenancyMulti),
+		).Value(tenancy)
+		if err := a.ask(sel, "tenancy", func() string { return *tenancy }); err != nil {
+			return err
+		}
+	default:
+		a.answered("tenancy", *tenancy)
 	}
 
 	if !set["local"] {

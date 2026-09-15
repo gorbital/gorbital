@@ -1,0 +1,144 @@
+package delivery
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"apistock.dev/actor"
+	"apistock.dev/audit"
+	"apistock.dev/httpx"
+	"apistock.dev/modules/auditpg"
+	"apistock.dev/modules/openapi"
+
+	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
+)
+
+// AuditEventResponse is a recorded audit event.
+type AuditEventResponse struct {
+	ID           int64          `json:"id"`
+	OccurredAt   time.Time      `json:"occurred_at"`
+	RecordedAt   time.Time      `json:"recorded_at"`
+	ActorKind    string         `json:"actor_kind" example:"user"`
+	ActorID      string         `json:"actor_id,omitempty" example:"usr_mfrggzdfmztwq2lk"`
+	ActorLabel   string         `json:"actor_label,omitempty"`
+	Action       string         `json:"action" example:"settings.value.changed"`
+	ResourceType string         `json:"resource_type,omitempty" example:"setting"`
+	ResourceID   string         `json:"resource_id,omitempty" example:"example.ping_message"`
+	Outcome      string         `json:"outcome" enum:"success,failure,denied"`
+	OrgID        string         `json:"org_id,omitempty"`
+	RequestID    string         `json:"request_id,omitempty"`
+	TraceID      string         `json:"trace_id,omitempty"`
+	IP           string         `json:"ip,omitempty"`
+	UserAgent    string         `json:"user_agent,omitempty"`
+	Metadata     map[string]any `json:"metadata" doc:"Action-specific detail; sensitive keys are redacted"`
+}
+
+// AuditEventPage is a page of audit events, newest first.
+type AuditEventPage struct {
+	Events     []AuditEventResponse `json:"events"`
+	NextCursor string               `json:"next_cursor,omitempty"`
+}
+
+type auditEventOutput struct{ Body AuditEventResponse }
+
+type auditEventPageOutput struct{ Body AuditEventPage }
+
+type listAuditInput struct {
+	ActorKind    string    `query:"actor_kind" maxLength:"32" doc:"user, service, system or anonymous"`
+	ActorID      string    `query:"actor_id" maxLength:"200"`
+	Action       string    `query:"action" maxLength:"200" doc:"Exact action" example:"settings.value.changed"`
+	ActionPrefix string    `query:"action_prefix" maxLength:"200" doc:"Actions starting with this" example:"jobs."`
+	ResourceType string    `query:"resource_type" maxLength:"100"`
+	ResourceID   string    `query:"resource_id" maxLength:"200"`
+	OrgID        string    `query:"org_id" maxLength:"200"`
+	Outcome      string    `query:"outcome" maxLength:"16" doc:"success, failure or denied"`
+	RequestID    string    `query:"request_id" maxLength:"128"`
+	From         time.Time `query:"from" doc:"Only events that occurred at or after this time (RFC 3339)"`
+	To           time.Time `query:"to" doc:"Only events that occurred before this time (RFC 3339)"`
+	Limit        int       `query:"limit" minimum:"1" maximum:"100" default:"50"`
+	Cursor       string    `query:"cursor" maxLength:"30" doc:"next_cursor from the previous page"`
+}
+
+type auditIDInput struct {
+	ID int64 `path:"id" minimum:"1"`
+}
+
+type auditHandler struct {
+	svc *opsusecase.Service
+}
+
+// RegisterAudit adds the audit log operations to api.
+func RegisterAudit(api huma.API, svc *opsusecase.Service) {
+	h := &auditHandler{svc: svc}
+	tags := []string{"Ops: audit"}
+
+	huma.Register(api, huma.Operation{
+		OperationID: "ops-list-audit-events", Method: http.MethodGet, Path: "/ops/audit",
+		Summary:     "List audit events, newest first",
+		Description: "Who did what to which resource, and whether it worked. Filters combine; paginate with `cursor`.",
+		Tags:        tags, Security: openapi.Bearer,
+		Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity},
+	}, h.list)
+	huma.Register(api, huma.Operation{
+		OperationID: "ops-get-audit-event", Method: http.MethodGet, Path: "/ops/audit/{id}",
+		Summary: "Get an audit event", Tags: tags, Security: openapi.Bearer,
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
+	}, h.get)
+}
+
+func (h *auditHandler) list(ctx context.Context, in *listAuditInput) (*auditEventPageOutput, error) {
+	page, err := h.svc.ListAuditEvents(ctx, auditpg.Filter{
+		ActorKind:    actor.Kind(in.ActorKind),
+		ActorID:      in.ActorID,
+		Action:       in.Action,
+		ActionPrefix: in.ActionPrefix,
+		ResourceType: in.ResourceType,
+		ResourceID:   in.ResourceID,
+		OrgID:        in.OrgID,
+		Outcome:      audit.Outcome(in.Outcome),
+		RequestID:    in.RequestID,
+		From:         in.From,
+		To:           in.To,
+		Limit:        in.Limit,
+		Cursor:       in.Cursor,
+	})
+	if errors.Is(err, auditpg.ErrInvalidCursor) {
+		// invalid_cursor is already mapped to the jobs error; one code, one
+		// mapping.
+		return nil, httpx.NewProblem(http.StatusBadRequest, "invalid_cursor", "the cursor is not valid")
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := &auditEventPageOutput{Body: AuditEventPage{Events: make([]AuditEventResponse, len(page.Events)), NextCursor: page.NextCursor}}
+	for i, e := range page.Events {
+		out.Body.Events[i] = auditEventResponse(e)
+	}
+	return out, nil
+}
+
+func (h *auditHandler) get(ctx context.Context, in *auditIDInput) (*auditEventOutput, error) {
+	e, err := h.svc.GetAuditEvent(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &auditEventOutput{Body: auditEventResponse(e)}, nil
+}
+
+func auditEventResponse(e auditpg.StoredEvent) AuditEventResponse {
+	metadata := e.Metadata
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	return AuditEventResponse{
+		ID: e.ID, OccurredAt: e.OccurredAt, RecordedAt: e.RecordedAt,
+		ActorKind: string(e.ActorKind), ActorID: e.ActorID, ActorLabel: e.ActorLabel,
+		Action: e.Action, ResourceType: e.ResourceType, ResourceID: e.ResourceID, Outcome: string(e.Outcome),
+		OrgID: e.OrgID, RequestID: e.RequestID, TraceID: e.TraceID, IP: e.IP, UserAgent: e.UserAgent,
+		Metadata: metadata,
+	}
+}

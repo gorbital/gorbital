@@ -137,8 +137,8 @@ jobs:
         working-directory: cli
         run: |
           go generate ./internal/recipes/
-          git diff --exit-code -- internal/recipes/minimal internal/recipes/full
-          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full)"
+          git diff --exit-code -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi
+          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi)"
       - name: api/openapi.json matches examples/minimal code
         working-directory: examples/minimal
         run: |

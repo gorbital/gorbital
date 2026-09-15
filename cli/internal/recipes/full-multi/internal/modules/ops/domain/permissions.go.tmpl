@@ -1,0 +1,32 @@
+// Package domain holds the operations module's permissions and errors. It
+// imports only the standard library.
+package domain
+
+import "errors"
+
+// Permissions for operations APIs. Permission names are public API.
+const (
+	PermSettingsRead  = "ops.settings.read"
+	PermSettingsWrite = "ops.settings.write"
+	PermJobsRead      = "ops.jobs.read"
+	PermJobsWrite     = "ops.jobs.write"
+	PermJobsRun       = "ops.jobs.run"
+	PermAuditRead     = "ops.audit.read"
+	PermReleasesRead  = "ops.releases.read"
+	PermMailRead      = "ops.mail.read"
+	PermMailTest      = "ops.mail.test"
+	PermAuthRead      = "ops.auth.read"
+)
+
+// AllPermissions returns every operations permission.
+func AllPermissions() []string {
+	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead, PermReleasesRead, PermMailRead, PermMailTest, PermAuthRead}
+}
+
+// Errors returned by operations use cases.
+var (
+	ErrUnauthenticated  = errors.New("authentication is required")
+	ErrForbidden        = errors.New("missing permission")
+	ErrMFARequired      = errors.New("the permission needs a session signed in with two-factor authentication")
+	ErrInvalidRecipient = errors.New("recipient is not an email address")
+)

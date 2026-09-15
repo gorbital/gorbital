@@ -131,3 +131,14 @@ Each has a recommendation in the sections above; approving this ADR approves the
 - Threat model (ADR-0029): add rows for cross-org access, invitation takeover and org enumeration.
 - Roadmap v0.4 loses `aps add orgs` (moved to v0.5) and gains the drift check.
 - Public API (ADR-0015): org permission and role names, error codes (`org_not_found`, `last_owner`, `sole_owner`, `already_member`), audit actions and `orgs.ID`.
+
+## Implementation notes (2026-09-15)
+
+- **Library** (`modules/orgs`): `ID`, `NewID`, `ParseID`, `RoleOwner`/`RoleAdmin`/`RoleMember`, `Memberships`, `RequireMember`, `ErrOrgNotFound`, `ErrNotMember`, `Emails` with `NewMailEmails` (subject lines can't be broken by organisation names).
+- **Account hooks:** the auth use cases gained `AccountHooks` (`AccountCreated`, `CheckAccountDeletion`, `AccountDeleted`) in both golden apps; `full-single` leaves them unset. The deletion check runs before the password and second factor, so a refusal doesn't use up a one-time code. `internal/app/orgs_hooks.go` turns `*SoleOwnerError` into 409 `sole_owner` with the organisation IDs in `errors`.
+- **Domain layers stay standard library only:** organisation IDs are `string` in `domain/` and `orgs.ID` in the use case, repository and delivery layers; the role ranking (`canAssign`) lives in the use cases.
+- **Tables:** `org_invitations.sent_at` records the last send, so resends count toward the 20-per-hour limit; the window excludes sends exactly an hour old. Invitation links put the token in the URL fragment (`#token=`), so it doesn't reach frontend server logs.
+- **Additional error codes:** `invalid_org_name`, `org_version_conflict`, `personal_workspace`, `member_not_found`, `unknown_role`, `role_not_allowed`, `already_invited`, `invitation_not_found`, `invitation_for_another_email`, `too_many_invitations`, and `forbidden` / `mfa_required` for org roles.
+- **Runtime settings:** `orgs.invitation_url`, `orgs.invitation_ttl` (1 to 30 days), `orgs.deleted_org_retention` (1 to 365 days).
+- **Golden app:** `examples/full-multi` moves the projects migration after the orgs one (`20260916000002_projects.sql`). `internal/archtest/examples_test.go` lists the files allowed to differ from `full-single` and fails when any other file differs, or when a listed file no longer does.
+- **CLI:** `aps new --tenancy single|multi` (asked after the preset when it is Full), recipe `base-full-multi` generated from `examples/full-multi` and checked byte for byte like the other presets.

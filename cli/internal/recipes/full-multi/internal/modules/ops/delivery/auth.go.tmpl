@@ -1,0 +1,50 @@
+package delivery
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"apistock.dev/modules/openapi"
+
+	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
+)
+
+// SignInMethodResponse is a sign-in method's configuration status.
+type SignInMethodResponse struct {
+	Key     string   `json:"key" example:"passkeys"`
+	Name    string   `json:"name" example:"Passkeys in browsers"`
+	Enabled bool     `json:"enabled"`
+	Detail  string   `json:"detail,omitempty" doc:"How an enabled method is configured, such as its relying party ID; never secrets"`
+	Missing []string `json:"missing,omitempty" doc:"Environment variables that turn a disabled method on"`
+	Guide   string   `json:"guide,omitempty" doc:"The AUTH_PROVIDERS.md section that explains the method"`
+}
+
+// SignInMethodList is every sign-in method.
+type SignInMethodList struct {
+	Methods []SignInMethodResponse `json:"methods"`
+}
+
+type signInMethodsOutput struct{ Body SignInMethodList }
+
+// RegisterAuth adds the sign-in method status operation (ADR-0045).
+func RegisterAuth(api huma.API, svc *opsusecase.Service) {
+	huma.Register(api, huma.Operation{
+		OperationID: "ops-list-sign-in-methods", Method: http.MethodGet, Path: "/ops/auth/providers",
+		Summary:     "List sign-in methods and what they need",
+		Description: "Whether each sign-in method is configured and, for the others, the environment variables to set (never their values). Setup steps: AUTH_PROVIDERS.md.",
+		Tags:        []string{"Ops: auth"}, Security: openapi.Bearer,
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden},
+	}, func(ctx context.Context, _ *struct{}) (*signInMethodsOutput, error) {
+		methods, err := svc.ListSignInMethods(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out := &signInMethodsOutput{Body: SignInMethodList{Methods: make([]SignInMethodResponse, len(methods))}}
+		for i, m := range methods {
+			out.Body.Methods[i] = SignInMethodResponse{Key: m.Key, Name: m.Name, Enabled: m.Enabled, Detail: m.Detail, Missing: m.Missing, Guide: m.Guide}
+		}
+		return out, nil
+	})
+}

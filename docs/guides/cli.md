@@ -61,6 +61,7 @@ aps new my-api --module github.com/you/my-api --local ~/code/apistock --yes
 | App name | `<name>` (positional) | required |
 | Go module path | `--module` | the app name |
 | Preset (Minimal or Full) | `--preset minimal\|full` | `minimal` (Custom arrives later) |
+| Tenancy (Full only): records belong to users, or to organisations | `--tenancy single\|multi` | `single` |
 | apistock checkout | `--local <path>` | the checkout you run `aps` inside, if any |
 | Initialise git | `--no-git` | yes |
 
@@ -72,6 +73,7 @@ Questions come one at a time. Each answered question folds into one line, and va
 ✓ app name … shop-api
 ✓ Go module path … github.com/acme/shop-api
 ✓ preset … full
+✓ tenancy … multi
 ✓ apistock checkout … /Users/you/code/apistock
 ✓ initialise a git repository? … yes
 ? create shop-api in ./shop-api? … yes  no
@@ -102,7 +104,7 @@ created shop-api
 | **Minimal** | HTTP API with configuration, telemetry, health checks, security headers and interactive docs | Go |
 | **Full** | Everything in Minimal, plus PostgreSQL, runtime settings, background jobs, email (Resend, or SMTP with `aps add mail`), authentication and platform roles, audit log, release tracking, `/ops/*` APIs, and example code: the `ping` endpoint, the `heartbeat` job and the `projects` resource | Go and Docker |
 
-A Full app is exactly [examples/full-single](../../examples/full-single) with your name and module path ([ADR-0041](../adr/0041-full-preset-generation.md)): its database, Compose project and service name are your app's name. It's single-tenant; organisations arrive in v0.4. After creating one:
+A Full app is exactly [examples/full-single](../../examples/full-single) with your name and module path ([ADR-0041](../adr/0041-full-preset-generation.md)): its database, Compose project and service name are your app's name. With `--tenancy multi` it is exactly [examples/full-multi](../../examples/full-multi) instead: data belongs to organisations, with members, one role each, invitations, personal workspaces and org-scoped projects under `/v1/orgs/{orgId}/…` ([ADR-0048](../adr/0048-organisations-v0-4.md)). Tenancy is chosen at creation; turning a single-tenant app into a multi-tenant one (`aps add orgs`) arrives in v0.5. After creating one:
 
 ```bash
 cd my-api

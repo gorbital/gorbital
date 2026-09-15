@@ -48,7 +48,7 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 ## v0.4: Organisations
 
-**Status: in progress.** Design accepted in [ADR-0048](adr/0048-organisations-v0-4.md) (2026-09-15). `aps add orgs` moved to v0.5: it needs the per-feature recipes and 3-way merges that `aps add` and `aps upgrade` bring. A drift check keeps `full-single` and `full-multi` identical outside the files organisations change.
+**Status: in progress.** Design accepted in [ADR-0048](adr/0048-organisations-v0-4.md) (2026-09-15). Done: `modules/orgs` (organisation IDs, `RequireMember`, invitation emails); account hooks in the auth module; `examples/full-multi` with the app-owned orgs module (organisations, one role per member, invitations for the invited verified address only, personal workspaces, soft delete, restore and the `orgs_purge` job), org-scoped projects with cross-organisation denial tests, and a drift check against `full-single`; `aps new --tenancy multi`. Next: `aps gen resource --scope org`, then threat model rows for organisations. `aps add orgs` moved to v0.5: it needs the per-feature recipes and 3-way merges that `aps add` and `aps upgrade` bring. A drift check keeps `full-single` and `full-multi` identical outside the files organisations change.
 
 | | |
 |---|---|

@@ -1,8 +1,9 @@
 // Package recipes renders the project templates used by aps new.
 //
 // Each preset's templates are generated from a hand-written golden app by
-// `go generate`: minimal/ from examples/minimal and full/ from
-// examples/full-single (ADR-0041). Never edit them by hand.
+// `go generate`: minimal/ from examples/minimal, full/ from
+// examples/full-single and full-multi/ from examples/full-multi (ADR-0041,
+// ADR-0048). Never edit them by hand.
 package recipes
 
 //go:generate go run ./gen
@@ -17,6 +18,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,44 +31,69 @@ var minimalFS embed.FS
 //go:embed all:full
 var fullFS embed.FS
 
+//go:embed all:full-multi
+var fullMultiFS embed.FS
+
 // Recipe identities recorded in apistock.lock.
 const (
-	MinimalName = "base-minimal"
-	FullName    = "base-full"
+	MinimalName   = "base-minimal"
+	FullName      = "base-full"
+	FullMultiName = "base-full-multi"
 	// LibraryVersion is the apistock library version generated apps require.
 	LibraryVersion = "v0.1.0"
+)
+
+// Tenancy values of aps new --tenancy (ADR-0023).
+const (
+	TenancySingle = "single"
+	TenancyMulti  = "multi"
 )
 
 // A Preset is an app aps new can create.
 type Preset struct {
 	// Name is the value of aps new --preset.
 	Name string
+	// Tenancy is the value of aps new --tenancy: single, or multi for
+	// organisations.
+	Tenancy string
 	// Recipe is the recipe name recorded in apistock.lock.
 	Recipe string
+	dir    string
 	fsys   embed.FS
 }
 
 var presets = []Preset{
-	{Name: "minimal", Recipe: MinimalName, fsys: minimalFS},
-	{Name: "full", Recipe: FullName, fsys: fullFS},
+	{Name: "minimal", Tenancy: TenancySingle, Recipe: MinimalName, dir: "minimal", fsys: minimalFS},
+	{Name: "full", Tenancy: TenancySingle, Recipe: FullName, dir: "full", fsys: fullFS},
+	{Name: "full", Tenancy: TenancyMulti, Recipe: FullMultiName, dir: "full-multi", fsys: fullMultiFS},
 }
 
-// LookupPreset returns the preset aps new --preset name selects.
-func LookupPreset(name string) (Preset, bool) {
+// LookupPreset returns the preset aps new --preset name --tenancy tenancy
+// selects.
+func LookupPreset(name, tenancy string) (Preset, bool) {
 	for _, p := range presets {
-		if p.Name == name {
+		if p.Name == name && p.Tenancy == tenancy {
 			return p, true
 		}
 	}
 	return Preset{}, false
 }
 
+// SupportsTenancy reports whether the preset name has a multi-tenant
+// variant, so aps new asks about tenancy.
+func SupportsTenancy(name string) bool {
+	_, ok := LookupPreset(name, TenancyMulti)
+	return ok
+}
+
 // PresetNames lists the presets aps new accepts, in the order it offers
 // them.
 func PresetNames() []string {
-	names := make([]string, len(presets))
-	for i, p := range presets {
-		names[i] = p.Name
+	var names []string
+	for _, p := range presets {
+		if !slices.Contains(names, p.Name) {
+			names = append(names, p.Name)
+		}
 	}
 	return names
 }
@@ -74,7 +101,7 @@ func PresetNames() []string {
 // Render writes the preset into root and returns the files written, sorted
 // by path. Go files are validated with gofmt before writing.
 func (p Preset) Render(root *os.Root, d Data) ([]File, error) {
-	return render(p.fsys, p.Name, root, d)
+	return render(p.fsys, p.dir, root, d)
 }
 
 // Data fills the templates.

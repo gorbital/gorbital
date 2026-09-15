@@ -55,6 +55,8 @@ func TestNewValidation(t *testing.T) {
 		{"bad module", []string{"new", "api", "--module", "example.com/../x"}, 2, "invalid module path"},
 		{"custom preset", []string{"new", "api", "--preset", "custom"}, 2, "isn't available yet"},
 		{"unknown preset", []string{"new", "api", "--preset", "huge"}, 2, "unknown preset"},
+		{"unknown tenancy", []string{"new", "api", "--preset", "full", "--tenancy", "many"}, 2, "unknown tenancy"},
+		{"multi-tenant minimal", []string{"new", "api", "--tenancy", "multi"}, 2, "needs the Full preset"},
 		{"bad local", []string{"new", "api", "--local", "."}, 2, "not an apistock checkout"},
 		{"existing directory", []string{"new", "taken", "--skip-tidy", "--no-git"}, 1, "already exists"},
 	}
@@ -75,16 +77,23 @@ func TestNewValidation(t *testing.T) {
 func TestNewCreatesApp(t *testing.T) {
 	for _, tt := range []struct {
 		preset   string
+		tenancy  string
 		recipe   string
 		minFiles int
 		// contains maps a created file to text it must contain.
 		contains map[string]string
 	}{
-		{"minimal", "base-minimal", 15, map[string]string{
+		{"minimal", "single", "base-minimal", 15, map[string]string{
 			"go.mod":        "module example.com/shop-api\n",
 			"apistock.yaml": "preset: minimal",
 		}},
-		{"full", "base-full", 100, map[string]string{
+		{"full", "multi", "base-full-multi", 150, map[string]string{
+			"apistock.yaml":                             "tenancy: multi",
+			"internal/app/app.go":                       `const ServiceName = "shop-api"`,
+			"internal/modules/orgs/module.go":           "package orgs",
+			"db/migrations/20260916000002_projects.sql": "org_id      text        NOT NULL REFERENCES orgs (id)",
+		}},
+		{"full", "single", "base-full", 100, map[string]string{
 			"go.mod":                              "module example.com/shop-api\n",
 			"apistock.yaml":                       "preset: full",
 			"compose.yaml":                        "POSTGRES_DB: shop-api",
@@ -94,15 +103,15 @@ func TestNewCreatesApp(t *testing.T) {
 			"db/migrations/migrations.go":         "package migrations",
 		}},
 	} {
-		t.Run(tt.preset, func(t *testing.T) {
+		t.Run(tt.recipe, func(t *testing.T) {
 			t.Chdir(t.TempDir())
-			code, out, errOut := runAps(t, "new", "shop-api", "--module", "example.com/shop-api", "--preset", tt.preset, "--skip-tidy", "--no-git", "--json")
+			code, out, errOut := runAps(t, "new", "shop-api", "--module", "example.com/shop-api", "--preset", tt.preset, "--tenancy", tt.tenancy, "--skip-tidy", "--no-git", "--json")
 			if code != 0 {
-				t.Fatalf("aps new --preset %s = %d, stderr %q", tt.preset, code, errOut)
+				t.Fatalf("aps new --preset %s --tenancy %s = %d, stderr %q", tt.preset, tt.tenancy, code, errOut)
 			}
 			var res newResult
-			if err := json.Unmarshal([]byte(out), &res); err != nil || res.Name != "shop-api" || res.Preset != tt.preset || res.Files < tt.minFiles {
-				t.Errorf("aps new --json = %q (%v), want the %s preset with at least %d files", out, err, tt.preset, tt.minFiles)
+			if err := json.Unmarshal([]byte(out), &res); err != nil || res.Name != "shop-api" || res.Preset != tt.preset || res.Tenancy != tt.tenancy || res.Files < tt.minFiles {
+				t.Errorf("aps new --json = %q (%v), want the %s preset, %s tenancy, with at least %d files", out, err, tt.preset, tt.tenancy, tt.minFiles)
 			}
 			for path, want := range tt.contains {
 				if got, _ := os.ReadFile(filepath.Join("shop-api", filepath.FromSlash(path))); !strings.Contains(string(got), want) {
@@ -140,7 +149,7 @@ func TestNewFullPrintsNextSteps(t *testing.T) {
 		t.Fatalf("aps new --preset full = %d, stderr %q", code, errOut)
 	}
 	for _, want := range []string{
-		"creating shop-api in ./shop-api\n", "preset full · library", "✓ wrote ", "\ncreated shop-api\n",
+		"creating shop-api in ./shop-api\n", "preset full · tenancy single · library", "✓ wrote ", "\ncreated shop-api\n",
 		"docker compose up -d --wait", "go run ./cmd/migrate", "go run ./cmd/seed", "http://127.0.0.1:8025", "admin@example.com",
 		"AUTH_PROVIDERS.md", "POSTGRES_PORT", "aps add mail", "next: cd shop-api\n        aps dev\n",
 	} {
@@ -149,9 +158,19 @@ func TestNewFullPrintsNextSteps(t *testing.T) {
 		}
 	}
 	// --skip-tidy and --no-git skip their steps; output that isn't a terminal has no colour.
-	for _, unwanted := range []string{"go mod tidy", "initialised git", "\x1b["} {
+	for _, unwanted := range []string{"go mod tidy", "initialised git", "\x1b[", "orgs.invitation_url"} {
 		if strings.Contains(out, unwanted) {
 			t.Errorf("aps new --skip-tidy --no-git output has %q:\n%s", unwanted, out)
+		}
+	}
+
+	code, out, errOut = runAps(t, "new", "team-api", "--preset", "full", "--tenancy", "multi", "--skip-tidy", "--no-git")
+	if code != 0 {
+		t.Fatalf("aps new --preset full --tenancy multi = %d, stderr %q", code, errOut)
+	}
+	for _, want := range []string{"preset full · tenancy multi · library", "personal workspace", "orgs.invitation_url", "next: cd team-api"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("aps new --tenancy multi output lacks %q:\n%s", want, out)
 		}
 	}
 }
@@ -239,35 +258,39 @@ func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, preset := range []string{"minimal", "full"} {
-		t.Run(preset, func(t *testing.T) {
+	for _, app := range []struct{ preset, tenancy string }{{"minimal", "single"}, {"full", "single"}, {"full", "multi"}} {
+		t.Run(app.preset+"-"+app.tenancy, func(t *testing.T) {
 			t.Chdir(t.TempDir())
-			name := "e2e-" + preset
-			if code, _, errOut := runAps(t, "new", name, "--preset", preset, "--local", repo, "--no-git"); code != 0 {
-				t.Fatalf("aps new --preset %s --local = %d: %s", preset, code, errOut)
+			name := "e2e-" + app.preset + "-" + app.tenancy
+			if code, _, errOut := runAps(t, "new", name, "--preset", app.preset, "--tenancy", app.tenancy, "--local", repo, "--no-git"); code != 0 {
+				t.Fatalf("aps new --preset %s --tenancy %s --local = %d: %s", app.preset, app.tenancy, code, errOut)
 			}
 			goIn(t, name, "vet", "./...")
 			goIn(t, name, "test", "./...")
-			if preset != "full" {
+			if app.preset != "full" {
 				return
 			}
-
 			t.Chdir(name)
-			for _, args := range [][]string{
-				{"gen", "resource", "Customer", "email:string:unique", "notes:text", "tier:enum(free,pro)", "--yes"},
+			generators := [][]string{
 				{"gen", "job", "SendDigest", "--every", "1h", "--yes"},
-				{"gen", "migration", "add_customer_phone", "--yes"},
-			} {
+				{"gen", "migration", "add_phone", "--yes"},
+			}
+			table := "projects"
+			if app.tenancy == "single" {
+				generators = append([][]string{{"gen", "resource", "Customer", "email:string:unique", "notes:text", "tier:enum(free,pro)", "--yes"}}, generators...)
+				table = "customers"
+			}
+			for _, args := range generators {
 				if code, _, errOut := runAps(t, args...); code != 0 {
 					t.Fatalf("aps %s in a new Full app = %d: %s", strings.Join(args, " "), code, errOut)
 				}
 			}
-			// The migration runs after the resource's, so it can change its table.
-			added, _ := filepath.Glob(filepath.Join("db", "migrations", "*_add_customer_phone.sql"))
+			// The migration runs after the table's, so it can change it.
+			added, _ := filepath.Glob(filepath.Join("db", "migrations", "*_add_phone.sql"))
 			if len(added) != 1 {
-				t.Fatalf("aps gen migration wrote %v, want one add_customer_phone migration", added)
+				t.Fatalf("aps gen migration wrote %v, want one add_phone migration", added)
 			}
-			sql := readFile(t, added[0]) + "ALTER TABLE customers ADD COLUMN phone text NOT NULL DEFAULT '';\n"
+			sql := readFile(t, added[0]) + "ALTER TABLE " + table + " ADD COLUMN phone text NOT NULL DEFAULT '';\n"
 			if err := os.WriteFile(added[0], []byte(sql), 0o644); err != nil {
 				t.Fatal(err)
 			}

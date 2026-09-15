@@ -13,6 +13,7 @@ import (
 var goldenApps = []struct{ src, dst string }{
 	{"../../../examples/minimal", "minimal"},
 	{"../../../examples/full-single", "full"},
+	{"../../../examples/full-multi", "full-multi"},
 }
 
 func main() {

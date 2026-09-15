@@ -1,0 +1,44 @@
+// Package orgs holds organisations: members with one role each,
+// invitations, personal workspaces, deletion and purging, with all four
+// layers and its own tables (ADR-0048). The code is yours to change.
+package orgs
+
+import (
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	orgsdelivery "⟦.Module⟧/internal/modules/orgs/delivery"
+	orgsrepository "⟦.Module⟧/internal/modules/orgs/repository"
+	orgsusecase "⟦.Module⟧/internal/modules/orgs/usecase"
+)
+
+// Module is the orgs module.
+type Module struct {
+	svc *orgsusecase.Service
+}
+
+// New builds the module's layers on pool. cfg.Store is set to the module's
+// repository.
+func New(pool *pgxpool.Pool, cfg orgsusecase.Config) (*Module, error) {
+	cfg.Store = orgsrepository.NewStore(pool)
+	svc, err := orgsusecase.NewService(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &Module{svc: svc}, nil
+}
+
+// Service returns the use cases, for other wiring (hooks, jobs, commands,
+// other org-scoped modules and tests).
+func (m *Module) Service() *orgsusecase.Service { return m.svc }
+
+// Register adds the module's HTTP operations to api. A nil module registers
+// the operations without their dependencies, for exporting the OpenAPI
+// document.
+func (m *Module) Register(api huma.API) {
+	var svc *orgsusecase.Service
+	if m != nil {
+		svc = m.svc
+	}
+	orgsdelivery.Register(api, svc)
+}

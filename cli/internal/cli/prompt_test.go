@@ -125,20 +125,21 @@ func TestPromptNewAsksForMissingValues(t *testing.T) {
 		"shop-api",                 // app name
 		"github.com/acme/shop-api", // module path
 		"2",                        // preset: full
+		"2",                        // tenancy: multi
 		checkout,                   // apistock checkout
 		"n",                        // git init: no
 	)
 
 	var name, module, local string
-	preset := "minimal"
+	preset, tenancy := "minimal", "single"
 	noGit := false
 	var out bytes.Buffer
-	err := promptNew(&name, &module, &preset, &local, &noGit, map[string]bool{}, promptFlags{plain: true}, stdin, &out)
+	err := promptNew(&name, &module, &preset, &tenancy, &local, &noGit, map[string]bool{}, promptFlags{plain: true}, stdin, &out)
 	if err != nil {
 		t.Fatalf("promptNew() error = %v\noutput:\n%s", err, out.String())
 	}
-	if name != "shop-api" || module != "github.com/acme/shop-api" || preset != "full" || local != checkout || !noGit {
-		t.Errorf("answers = name %q, module %q, preset %q, local %q, noGit %v\noutput:\n%s", name, module, preset, local, noGit, out.String())
+	if name != "shop-api" || module != "github.com/acme/shop-api" || preset != "full" || tenancy != "multi" || local != checkout || !noGit {
+		t.Errorf("answers = name %q, module %q, preset %q, tenancy %q, local %q, noGit %v\noutput:\n%s", name, module, preset, tenancy, local, noGit, out.String())
 	}
 	// Plain mode prints each answer itself: no folded lines, no colour.
 	if s := out.String(); strings.Contains(s, "✓") || strings.Contains(s, "\x1b[") {

@@ -1,0 +1,116 @@
+// Package usecase holds the projects module's application logic. Each
+// operation checks that the signed-in user belongs to the project's
+// organisation with a role granting the permission (orgs.RequireMember),
+// applies the domain rules, stores the result and records an audit event
+// (ADR-0039, ADR-0048). Change it freely.
+package usecase
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/base32"
+	"errors"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"apistock.dev/actor"
+	"apistock.dev/audit"
+	authlib "apistock.dev/modules/auth"
+	orgslib "apistock.dev/modules/orgs"
+	"apistock.dev/page"
+
+	projectsdomain "⟦.Module⟧/internal/modules/projects/domain"
+)
+
+// Config holds the Service's dependencies.
+type Config struct {
+	// Required.
+	Store    Store
+	Recorder audit.Recorder
+	// Catalog is the org catalog and Memberships reads members, both from
+	// the orgs module.
+	Catalog     *authlib.Catalog
+	Memberships orgslib.Memberships
+
+	// Optional.
+	Logger *slog.Logger
+	// Now is the clock and NewID makes IDs, for tests.
+	Now   func() time.Time
+	NewID func() string
+}
+
+// Service runs the projects use cases. It is safe for concurrent use.
+type Service struct {
+	store    Store
+	recorder audit.Recorder
+	catalog  *authlib.Catalog
+	members  orgslib.Memberships
+	logger   *slog.Logger
+	now      func() time.Time
+	newID    func() string
+}
+
+// NewService returns a Service.
+func NewService(c Config) (*Service, error) {
+	if c.Store == nil || c.Recorder == nil || c.Catalog == nil || c.Memberships == nil {
+		return nil, errors.New("projects: invalid service: store, audit recorder, org catalog and memberships are required")
+	}
+	s := &Service{store: c.Store, recorder: c.Recorder, catalog: c.Catalog, members: c.Memberships, logger: c.Logger, now: c.Now, newID: c.NewID}
+	if s.logger == nil {
+		s.logger = slog.New(slog.DiscardHandler)
+	}
+	if s.now == nil {
+		s.now = time.Now
+	}
+	if s.newID == nil {
+		s.newID = newID
+	}
+	return s, nil
+}
+
+var idEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
+
+// newID returns "prj_" and 128 random bits.
+func newID() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b) // never fails (crypto/rand)
+	return "prj_" + idEncoding.EncodeToString(b)
+}
+
+// clock returns the time at PostgreSQL's microsecond precision, so a stored
+// time equals the one returned.
+func (s *Service) clock() time.Time { return s.now().UTC().Truncate(time.Microsecond) }
+
+// member checks that the signed-in user belongs to orgID with a role
+// granting permission, and returns the context acting in the organisation.
+func (s *Service) member(ctx context.Context, orgID orgslib.ID, permission string) (context.Context, orgslib.Member, error) {
+	return orgslib.RequireMember(ctx, s.members, s.catalog, orgID, permission)
+}
+
+// audit records an event after the change it describes; a failed audit
+// write is logged, not returned. The recorder adds the actor, organisation
+// and request.
+func (s *Service) audit(ctx context.Context, action, id string, metadata map[string]any) {
+	e := audit.Event{Action: action, ResourceType: "project", ResourceID: id, Outcome: audit.OutcomeSuccess, Metadata: metadata}
+	if err := s.recorder.Record(context.WithoutCancel(ctx), e); err != nil {
+		s.logger.ErrorContext(ctx, "record projects audit event", "action", action, "err", err)
+	}
+}
+
+// storeError returns the module's own errors as they are and hides the rest,
+// such as driver errors, which aren't API (ADR-0018).
+func storeError(op string, err error) error {
+	known := []error{
+		projectsdomain.ErrInvalidProject, projectsdomain.ErrProjectNotFound,
+		projectsdomain.ErrProjectNameTaken, projectsdomain.ErrProjectVersionConflict,
+		orgslib.ErrOrgNotFound, actor.ErrUnauthenticated, actor.ErrForbidden, actor.ErrStepUpRequired,
+		page.ErrInvalidSort,
+	}
+	for _, k := range known {
+		if errors.Is(err, k) {
+			return err
+		}
+	}
+	return fmt.Errorf("projects: %s: %v", op, err) //nolint:errorlint // driver errors aren't API (ADR-0018)
+}

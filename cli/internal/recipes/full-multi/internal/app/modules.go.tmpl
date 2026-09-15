@@ -1,0 +1,45 @@
+package app
+
+import (
+	"errors"
+	"log/slog"
+
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apistock.dev/audit"
+	"apistock.dev/config"
+	"apistock.dev/httpx"
+
+	authmodule "⟦.Module⟧/internal/modules/auth"
+	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
+	orgsmodule "⟦.Module⟧/internal/modules/orgs"
+)
+
+// services are what business modules need from the composition root. When
+// exporting the OpenAPI document, only values the routes need are set and db
+// is nil.
+type services struct {
+	db          *pgxpool.Pool
+	recorder    audit.Recorder
+	logger      *slog.Logger
+	pingMessage config.Value[string]
+	ops         opsusecase.Deps
+	auth        *authmodule.Module
+	// orgs gives org-scoped modules the org catalog and memberships.
+	orgs *orgsmodule.Module
+}
+
+// registerModules wires every business module: its HTTP operations and its
+// error mappings. Each module has its own module_<name>.go file, and
+// aps gen resource adds a line after the anchor.
+func registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {
+	return errors.Join(
+		//aps:anchor modules
+		registerProjects(api, mapper, svc),
+		registerPing(api, mapper, svc.pingMessage),
+		registerOps(api, mapper, svc.ops),
+		registerAuth(api, mapper, svc.auth),
+		registerOrgs(api, mapper, svc.orgs),
+	)
+}

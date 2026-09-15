@@ -13,17 +13,19 @@ import (
 	"apistock.dev/cli/internal/recipes/generate"
 )
 
-// goldenApps are the hand-written apps each preset is generated from.
-var goldenApps = []struct{ preset, dir string }{
-	{"minimal", "../../../examples/minimal"},
-	{"full", "../../../examples/full-single"},
+// goldenApps are the hand-written apps each preset is generated from, by
+// template directory.
+var goldenApps = []struct{ templates, preset, tenancy, dir string }{
+	{"minimal", "minimal", "single", "../../../examples/minimal"},
+	{"full", "full", "single", "../../../examples/full-single"},
+	{"full-multi", "full", "multi", "../../../examples/full-multi"},
 }
 
-func renderInto(t *testing.T, preset string, d recipes.Data) (string, []recipes.File) {
+func renderInto(t *testing.T, preset, tenancy string, d recipes.Data) (string, []recipes.File) {
 	t.Helper()
-	p, ok := recipes.LookupPreset(preset)
+	p, ok := recipes.LookupPreset(preset, tenancy)
 	if !ok {
-		t.Fatalf("LookupPreset(%q) found nothing", preset)
+		t.Fatalf("LookupPreset(%q, %q) found nothing", preset, tenancy)
 	}
 	dir := t.TempDir()
 	root, err := os.OpenRoot(dir)
@@ -42,8 +44,8 @@ func renderInto(t *testing.T, preset string, d recipes.Data) (string, []recipes.
 // its hand-written golden app exactly, file for file.
 func TestGoldenApps(t *testing.T) {
 	for _, golden := range goldenApps {
-		t.Run(golden.preset, func(t *testing.T) {
-			dir, files := renderInto(t, golden.preset, recipes.Data{
+		t.Run(golden.templates, func(t *testing.T) {
+			dir, files := renderInto(t, golden.preset, golden.tenancy, recipes.Data{
 				Name:           generate.PlaceholderName,
 				Module:         generate.PlaceholderModule,
 				LibraryVersion: recipes.LibraryVersion,
@@ -94,8 +96,8 @@ func TestGoldenApps(t *testing.T) {
 // exactly what the golden go.mod does.
 func TestGoModMatchesGolden(t *testing.T) {
 	for _, golden := range goldenApps {
-		t.Run(golden.preset, func(t *testing.T) {
-			dir, _ := renderInto(t, golden.preset, recipes.Data{
+		t.Run(golden.templates, func(t *testing.T) {
+			dir, _ := renderInto(t, golden.preset, golden.tenancy, recipes.Data{
 				Name: generate.PlaceholderName, Module: generate.PlaceholderModule, LibraryVersion: "v0.0.0", Local: "../..",
 			})
 			gotRequires, gotReplaces := parseGoMod(t, filepath.Join(dir, "go.mod"))
@@ -149,7 +151,7 @@ func parseGoMod(t *testing.T, path string) (requires, replaces map[string]string
 }
 
 func TestRenderGoMod(t *testing.T) {
-	dir, _ := renderInto(t, "minimal", recipes.Data{Name: "shop-api", Module: "github.com/acme/shop-api", LibraryVersion: "v0.1.0"})
+	dir, _ := renderInto(t, "minimal", "single", recipes.Data{Name: "shop-api", Module: "github.com/acme/shop-api", LibraryVersion: "v0.1.0"})
 	goMod, _ := os.ReadFile(filepath.Join(dir, "go.mod"))
 	if !strings.HasPrefix(string(goMod), "module github.com/acme/shop-api\n") || !strings.Contains(string(goMod), "apistock.dev v0.1.0") || strings.Contains(string(goMod), "replace") {
 		t.Errorf("go.mod without Local:\n%s", goMod)
@@ -159,7 +161,7 @@ func TestRenderGoMod(t *testing.T) {
 		t.Errorf("cmd/api/main.go not rendered for the new module:\n%s", main)
 	}
 
-	dir, _ = renderInto(t, "full", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/src/apistock"})
+	dir, _ = renderInto(t, "full", "single", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/src/apistock"})
 	goMod, _ = os.ReadFile(filepath.Join(dir, "go.mod"))
 	for _, want := range []string{
 		"apistock.dev/modules/releases v0.1.0",
@@ -172,7 +174,7 @@ func TestRenderGoMod(t *testing.T) {
 		}
 	}
 
-	dir, _ = renderInto(t, "minimal", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/Users/me/My Code/apistock"})
+	dir, _ = renderInto(t, "minimal", "single", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/Users/me/My Code/apistock"})
 	goMod, _ = os.ReadFile(filepath.Join(dir, "go.mod"))
 	if !strings.Contains(string(goMod), `apistock.dev/modules/openapi => "/Users/me/My Code/apistock/modules/openapi"`) {
 		t.Errorf("go.mod with a Local path containing a space doesn't quote it:\n%s", goMod)
@@ -183,13 +185,22 @@ func TestPresets(t *testing.T) {
 	if got := strings.Join(recipes.PresetNames(), ","); got != "minimal,full" {
 		t.Errorf("PresetNames() = %s", got)
 	}
-	for name, recipe := range map[string]string{"minimal": recipes.MinimalName, "full": recipes.FullName} {
-		if p, ok := recipes.LookupPreset(name); !ok || p.Recipe != recipe {
-			t.Errorf("LookupPreset(%q) = %+v, %v", name, p, ok)
+	for _, tt := range []struct{ name, tenancy, recipe string }{
+		{"minimal", "single", recipes.MinimalName},
+		{"full", "single", recipes.FullName},
+		{"full", "multi", recipes.FullMultiName},
+	} {
+		if p, ok := recipes.LookupPreset(tt.name, tt.tenancy); !ok || p.Recipe != tt.recipe || p.Tenancy != tt.tenancy {
+			t.Errorf("LookupPreset(%q, %q) = %+v, %v", tt.name, tt.tenancy, p, ok)
 		}
 	}
-	if _, ok := recipes.LookupPreset("custom"); ok {
-		t.Error("LookupPreset(custom) found a preset")
+	for _, tt := range []struct{ name, tenancy string }{{"custom", "single"}, {"minimal", "multi"}, {"full", "several"}} {
+		if _, ok := recipes.LookupPreset(tt.name, tt.tenancy); ok {
+			t.Errorf("LookupPreset(%q, %q) found a preset", tt.name, tt.tenancy)
+		}
+	}
+	if !recipes.SupportsTenancy("full") || recipes.SupportsTenancy("minimal") {
+		t.Error("SupportsTenancy() is wrong: only the Full preset has a multi-tenant variant")
 	}
 }
 
@@ -197,13 +208,13 @@ func TestPresets(t *testing.T) {
 // `go generate ./...` wasn't run.
 func TestTemplatesUpToDate(t *testing.T) {
 	for _, golden := range goldenApps {
-		t.Run(golden.preset, func(t *testing.T) {
-			fresh := filepath.Join(t.TempDir(), golden.preset)
+		t.Run(golden.templates, func(t *testing.T) {
+			fresh := filepath.Join(t.TempDir(), golden.templates)
 			if err := generate.Run(golden.dir, fresh); err != nil {
 				t.Fatalf("generate.Run() error = %v", err)
 			}
-			compareTrees(t, fresh, golden.preset)
-			compareTrees(t, golden.preset, fresh)
+			compareTrees(t, fresh, golden.templates)
+			compareTrees(t, golden.templates, fresh)
 		})
 	}
 }

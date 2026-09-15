@@ -1,0 +1,29 @@
+// Package usecase holds the ping module's application logic.
+package usecase
+
+import (
+	"context"
+
+	"apistock.dev/config"
+
+	pingdomain "⟦.Module⟧/internal/modules/ping/domain"
+)
+
+// Service runs the ping use cases.
+type Service struct {
+	message config.Value[string]
+}
+
+// NewService returns a Service replying with message, read on every call so
+// runtime setting changes apply immediately.
+func NewService(message config.Value[string]) *Service {
+	return &Service{message: message}
+}
+
+// Ping reports that the API is reachable.
+func (s *Service) Ping(ctx context.Context) string { return s.message.Get(ctx) }
+
+// Echo validates text and returns it as a message.
+func (s *Service) Echo(_ context.Context, text string) (pingdomain.Message, error) {
+	return pingdomain.NewMessage(text)
+}
