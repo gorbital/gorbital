@@ -3,7 +3,9 @@ package usecase
 import (
 	"context"
 	"time"
-
+⟦if .Org⟧
+	orgslib "apistock.dev/modules/orgs"
+⟦- end⟧
 	"apistock.dev/page"
 
 	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
@@ -12,9 +14,9 @@ import (
 // The use cases own these ports; internal/modules/⟦.Package⟧/repository
 // implements them with SQL.
 
-// ListQuery selects one page of an owner's ⟦.PluralHuman⟧.
+// ListQuery selects one page of ⟦if .Org⟧an organisation's⟦else⟧an owner's⟦end⟧ ⟦.PluralHuman⟧.
 type ListQuery struct {
-	OwnerID string
+	⟦if .Org⟧OrgID orgslib.ID⟦else⟧OwnerID string⟦end⟧
 ⟦- range .Enums⟧
 	// ⟦.Ident⟧ keeps ⟦$.PluralHuman⟧ with this ⟦.Human⟧; empty keeps all.
 	⟦.Ident⟧ ⟦$.Package⟧domain.⟦.Ident⟧
@@ -34,13 +36,13 @@ type Position struct {
 }
 
 // Store reads and writes ⟦.PluralHuman⟧. Every method is limited to one
-// owner's ⟦.PluralHuman⟧.
+// ⟦if .Org⟧organisation's⟦else⟧owner's⟦end⟧ ⟦.PluralHuman⟧.
 type Store interface {
 	// Insert⟦.Ident⟧ creates ⟦.A⟧ ⟦.Human⟧⟦if .HasUniques⟧, or returns ⟦.TakenErrors⟧⟦end⟧.
 	Insert⟦.Ident⟧(ctx context.Context, p ⟦.Package⟧domain.⟦.Ident⟧) (⟦.Package⟧domain.⟦.Ident⟧, error)
-	// Select⟦.Ident⟧ returns one of ownerID's ⟦.PluralHuman⟧, or
+	// Select⟦.Ident⟧ returns one of ⟦if .Org⟧orgID's⟦else⟧ownerID's⟦end⟧ ⟦.PluralHuman⟧, or
 	// Err⟦.Ident⟧NotFound. lock locks the row until the transaction ends.
-	Select⟦.Ident⟧(ctx context.Context, ownerID, id string, lock bool) (⟦.Package⟧domain.⟦.Ident⟧, error)
+	Select⟦.Ident⟧(ctx context.Context, ⟦if .Org⟧orgID orgslib.ID, id string⟦else⟧ownerID, id string⟦end⟧, lock bool) (⟦.Package⟧domain.⟦.Ident⟧, error)
 	// Select⟦.Plural⟧ returns up to q.Limit ⟦.PluralHuman⟧ in q.Sort order,
 	// with the ID breaking ties.
 	Select⟦.Plural⟧(ctx context.Context, q ListQuery) ([]⟦.Package⟧domain.⟦.Ident⟧, error)
@@ -48,9 +50,9 @@ type Store interface {
 	// increments the version. It returns Err⟦.Ident⟧VersionConflict when the
 	// version changed or the ⟦.Human⟧ is gone⟦if .HasUniques⟧, and ⟦.TakenErrors⟧⟦end⟧.
 	Update⟦.Ident⟧(ctx context.Context, p ⟦.Package⟧domain.⟦.Ident⟧) (⟦.Package⟧domain.⟦.Ident⟧, error)
-	// Delete⟦.Ident⟧ removes one of ownerID's ⟦.PluralHuman⟧, or returns
+	// Delete⟦.Ident⟧ removes one of ⟦if .Org⟧orgID's⟦else⟧ownerID's⟦end⟧ ⟦.PluralHuman⟧, or returns
 	// Err⟦.Ident⟧NotFound.
-	Delete⟦.Ident⟧(ctx context.Context, ownerID, id string) error
+	Delete⟦.Ident⟧(ctx context.Context, ⟦if .Org⟧orgID orgslib.ID, id string⟦else⟧ownerID, id string⟦end⟧) error
 	// InTx runs fn in one transaction: it commits when fn returns nil and
 	// rolls back otherwise.
 	InTx(ctx context.Context, fn func(tx Store) error) error

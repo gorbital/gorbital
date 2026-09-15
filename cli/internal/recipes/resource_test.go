@@ -10,17 +10,27 @@ import (
 	"testing"
 )
 
-var updateGolden = flag.Bool("update", false, "rewrite examples/full-single's projects module from the resource templates")
+var updateGolden = flag.Bool("update", false, "rewrite the golden apps' projects modules from the resource templates")
 
-const goldenFullSingle = "../../../examples/full-single"
+const (
+	goldenFullSingle = "../../../examples/full-single"
+	goldenFullMulti  = "../../../examples/full-multi"
+)
 
-func projectsData(t *testing.T) ResourceData {
+// goldenResources are the golden apps whose projects module aps gen resource
+// reproduces, with the scope and migration version that produce it.
+var goldenResources = []struct{ dir, scope, migration string }{
+	{goldenFullSingle, ScopeUser, "20260915000002"},
+	{goldenFullMulti, ScopeOrg, "20260916000002"},
+}
+
+func projectsData(t *testing.T, scope, migration string) ResourceData {
 	t.Helper()
 	fields, err := ParseFields([]string{"name:string:unique", "description:text", "status:enum(active,archived)"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, err := NewResourceData("example.com/acme-api", "Project", fields, ResourceOptions{Migration: "20260915000002"})
+	d, err := NewResourceData("example.com/acme-api", "Project", fields, ResourceOptions{Migration: migration, Scope: scope})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,62 +41,90 @@ func projectsData(t *testing.T) ResourceData {
 //
 //	aps gen resource Project name:string:unique description:text 'status:enum(active,archived)'
 //
-// reproduces examples/full-single's projects module exactly (ADR-0039). After
-// changing the templates, run go test -run TestResourceMatchesGoldenApp
-// -update and review the diff of examples/full-single.
+// reproduces examples/full-single's projects module exactly (ADR-0039), and
+// with --scope org examples/full-multi's (ADR-0048). After changing the
+// templates, run go test -run TestResourceMatchesGoldenApp -update and
+// review the diff of both golden apps.
 func TestResourceMatchesGoldenApp(t *testing.T) {
-	d := projectsData(t)
-	files, err := RenderResource(d)
-	if err != nil {
-		t.Fatalf("RenderResource() error = %v", err)
-	}
-	for _, f := range files {
-		target := filepath.Join(goldenFullSingle, f.Path)
-		if *updateGolden {
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				t.Fatal(err)
+	for _, golden := range goldenResources {
+		t.Run(golden.scope, func(t *testing.T) {
+			d := projectsData(t, golden.scope, golden.migration)
+			files, err := RenderResource(d)
+			if err != nil {
+				t.Fatalf("RenderResource() error = %v", err)
 			}
-			if err := os.WriteFile(target, f.Content, 0o644); err != nil {
-				t.Fatal(err)
+			for _, f := range files {
+				target := filepath.Join(golden.dir, f.Path)
+				if *updateGolden {
+					if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(target, f.Content, 0o644); err != nil {
+						t.Fatal(err)
+					}
+					continue
+				}
+				want, err := os.ReadFile(target)
+				if err != nil {
+					t.Errorf("read golden %s: %v", f.Path, err)
+					continue
+				}
+				if string(f.Content) != string(want) {
+					t.Errorf("generated %s differs from %s (run with -update and review the diff)", f.Path, golden.dir)
+				}
 			}
-			continue
-		}
-		want, err := os.ReadFile(target)
-		if err != nil {
-			t.Errorf("read golden %s: %v", f.Path, err)
-			continue
-		}
-		if string(f.Content) != string(want) {
-			t.Errorf("generated %s differs from examples/full-single (run with -update and review the diff)", f.Path)
-		}
-	}
 
-	// The module's line in modules.go is the one aps gen resource adds.
-	modulesGo := filepath.Join(goldenFullSingle, "internal", "app", "modules.go")
-	modules, err := os.ReadFile(modulesGo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	without := strings.Replace(string(modules), "\t\t"+d.ModulesLine()+"\n", "", 1)
-	if without == string(modules) {
-		t.Fatalf("modules.go has no %q line", d.ModulesLine())
-	}
-	if got, err := InsertAfterAnchor([]byte(without), ModulesAnchor, d.ModulesLine()); err != nil || string(got) != string(modules) {
-		t.Errorf("inserting %q into modules.go = %v; want the golden modules.go:\n%s", d.ModulesLine(), err, got)
+			// The module's line in modules.go is the one aps gen resource adds.
+			modulesGo := filepath.Join(golden.dir, "internal", "app", "modules.go")
+			modules, err := os.ReadFile(modulesGo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			without := strings.Replace(string(modules), "\t\t"+d.ModulesLine()+"\n", "", 1)
+			if without == string(modules) {
+				t.Fatalf("modules.go has no %q line", d.ModulesLine())
+			}
+			if got, err := InsertAfterAnchor([]byte(without), ModulesAnchor, d.ModulesLine()); err != nil || string(got) != string(modules) {
+				t.Errorf("inserting %q into modules.go = %v; want the golden modules.go:\n%s", d.ModulesLine(), err, got)
+			}
+			if !d.Org {
+				return
+			}
+
+			// So is the line in permissions.go that gives org roles its permissions.
+			permissionsGo := filepath.Join(golden.dir, "internal", "app", "permissions.go")
+			permissions, err := os.ReadFile(permissionsGo)
+			if err != nil {
+				t.Fatal(err)
+			}
+			without = strings.Replace(string(permissions), "\t\t"+d.PermissionsLine()+"\n", "", 1)
+			if without == string(permissions) {
+				t.Fatalf("permissions.go has no %q line", d.PermissionsLine())
+			}
+			if got, err := InsertAfterAnchor([]byte(without), OrgPermissionsAnchor, d.PermissionsLine()); err != nil || string(got) != string(permissions) {
+				t.Errorf("inserting %q into permissions.go = %v; want the golden permissions.go:\n%s", d.PermissionsLine(), err, got)
+			}
+		})
 	}
 }
 
 // TestGeneratedResourcesPass generates two more resources into a copy of
-// examples/full-single, one with several unique and enum fields and one
-// with neither, then vets the app and runs their tests.
+// each golden app, one with several unique and enum fields and one with
+// neither, in the golden app's scope, then vets the app and runs their tests.
 func TestGeneratedResourcesPass(t *testing.T) {
 	if testing.Short() {
-		t.Skip("builds and tests a copy of examples/full-single")
+		t.Skip("builds and tests copies of the golden apps")
 	}
 	if _, err := exec.LookPath("go"); err != nil {
 		t.Skip("go is not installed")
 	}
-	golden, err := filepath.Abs(goldenFullSingle)
+	for _, g := range goldenResources {
+		t.Run(g.scope, func(t *testing.T) { generatedResourcesPass(t, g.dir, g.scope) })
+	}
+}
+
+func generatedResourcesPass(t *testing.T, goldenDir, scope string) {
+	golden, err := filepath.Abs(goldenDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,6 +147,11 @@ func TestGeneratedResourcesPass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	permissionsGo := filepath.Join(dir, "internal", "app", "permissions.go")
+	permissions, err := os.ReadFile(permissionsGo)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, r := range []struct {
 		name      string
 		fields    []string
@@ -122,7 +165,7 @@ func TestGeneratedResourcesPass(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		d, err := NewResourceData("example.com/acme-api", r.name, fields, ResourceOptions{Migration: r.migration})
+		d, err := NewResourceData("example.com/acme-api", r.name, fields, ResourceOptions{Migration: r.migration, Scope: scope})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,8 +185,16 @@ func TestGeneratedResourcesPass(t *testing.T) {
 		if modules, err = InsertAfterAnchor(modules, ModulesAnchor, d.ModulesLine()); err != nil {
 			t.Fatal(err)
 		}
+		if d.Org {
+			if permissions, err = InsertAfterAnchor(permissions, OrgPermissionsAnchor, d.PermissionsLine()); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 	if err := os.WriteFile(modulesGo, modules, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(permissionsGo, permissions, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -270,13 +321,17 @@ func TestResourceValidation(t *testing.T) {
 		{"Project", []string{"title:string", "state:enum(a_b,ab)"}, ResourceOptions{}, ""},
 		{"Project", []string{"max:enum(name_length,other)", "name:string"}, ResourceOptions{}, "declared twice"},
 		{"Project", []string{"title:string", "project_fields:string"}, ResourceOptions{}, "clashes"},
+		{"Project", []string{"title:string", "org_id:string"}, ResourceOptions{}, "reserved"},
+		{"Project", []string{"title:string", "created_by:string"}, ResourceOptions{}, "reserved"},
+		{"Project", []string{"title:string"}, ResourceOptions{Scope: "global"}, "scope must be user or org"},
+		{"Project", []string{"title:string"}, ResourceOptions{Scope: ScopeOrg}, ""},
 	} {
 		fields := title
 		if tt.fields != nil || tt.wantErr == "at least one field" {
 			fields, err = ParseFields(tt.fields)
 		}
 		if err == nil {
-			_, err = NewResourceData("example.com/x", tt.name, fields, ResourceOptions{Plural: tt.opts.Plural, IDPrefix: tt.opts.IDPrefix, Migration: "20260915000000"})
+			_, err = NewResourceData("example.com/x", tt.name, fields, ResourceOptions{Plural: tt.opts.Plural, IDPrefix: tt.opts.IDPrefix, Scope: tt.opts.Scope, Migration: "20260915000000"})
 		}
 		switch {
 		case tt.wantErr == "" && err != nil:

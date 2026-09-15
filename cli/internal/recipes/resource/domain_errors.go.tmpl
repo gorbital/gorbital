@@ -6,20 +6,24 @@ import (
 )
 
 // Errors returned by the ⟦.PluralHuman⟧ use cases. Their HTTP codes are mapped
-// in internal/app/module_⟦.Table⟧.go.
-var (
+// in internal/app/module_⟦.Table⟧.go.⟦if .Org⟧ An organisation the caller doesn't
+// belong to is orgs.ErrOrgNotFound, and a role without the permission is
+// actor.ErrForbidden.⟦end⟧
+var (⟦if not .Org⟧
 	// ErrUnauthenticated reports an operation without a signed-in user.
 	ErrUnauthenticated = errors.New("authentication is required")
-
+⟦end⟧
 	// ErrInvalid⟦.Ident⟧ reports invalid fields. The error is a
 	// *ValidationError.
 	ErrInvalid⟦.Ident⟧ = errors.New(⟦quote (print "invalid " .Human)⟧)
 
-	// Err⟦.Ident⟧NotFound reports ⟦.A⟧ ⟦.Human⟧ that doesn't exist or belongs
-	// to someone else. The two aren't distinguished, so IDs can't be probed.
+	// Err⟦.Ident⟧NotFound reports ⟦.A⟧ ⟦.Human⟧ that doesn't exist ⟦if .Org⟧in the
+	// organisation. ⟦.PluralTitle⟧ of other organisations aren't distinguished, so
+	// IDs can't be probed.⟦else⟧or belongs
+	// to someone else. The two aren't distinguished, so IDs can't be probed.⟦end⟧
 	Err⟦.Ident⟧NotFound = errors.New(⟦quote (print .Human " not found")⟧)
 ⟦range .Uniques⟧
-	// Err⟦$.Ident⟧⟦.Ident⟧Taken reports ⟦.A⟧ ⟦.Human⟧ the owner already uses,
+	// Err⟦$.Ident⟧⟦.Ident⟧Taken reports ⟦.A⟧ ⟦.Human⟧ the ⟦if $.Org⟧organisation⟦else⟧owner⟦end⟧ already uses,
 	// ignoring case.
 	Err⟦$.Ident⟧⟦.Ident⟧Taken = errors.New(⟦quote (print $.Human " " .Human " is already taken")⟧)
 ⟦end⟧

@@ -2,16 +2,18 @@ package repository
 
 import (
 	"context"
-
+⟦if .Org⟧
+	orgslib "apistock.dev/modules/orgs"
+⟦end⟧
 	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
 )
 
-const delete⟦.Ident⟧SQL = `DELETE FROM ⟦.Table⟧ WHERE id = $1 AND owner_id = $2`
+const delete⟦.Ident⟧SQL = `DELETE FROM ⟦.Table⟧ WHERE id = $1 AND ⟦if .Org⟧org_id⟦else⟧owner_id⟦end⟧ = $2`
 
-// Delete⟦.Ident⟧ removes one of ownerID's ⟦.PluralHuman⟧, or returns
+// Delete⟦.Ident⟧ removes one of ⟦if .Org⟧orgID's⟦else⟧ownerID's⟦end⟧ ⟦.PluralHuman⟧, or returns
 // Err⟦.Ident⟧NotFound.
-func (s *Store) Delete⟦.Ident⟧(ctx context.Context, ownerID, id string) error {
-	tag, err := s.db.Exec(ctx, delete⟦.Ident⟧SQL, id, ownerID)
+func (s *Store) Delete⟦.Ident⟧(ctx context.Context, ⟦if .Org⟧orgID orgslib.ID, id string⟦else⟧ownerID, id string⟦end⟧) error {
+	tag, err := s.db.Exec(ctx, delete⟦.Ident⟧SQL, id, ⟦if .Org⟧orgID⟦else⟧ownerID⟦end⟧)
 	if err != nil {
 		return err
 	}

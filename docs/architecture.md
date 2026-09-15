@@ -133,7 +133,7 @@ apistock/
 │   └── releases/            instance build record at start, heartbeats, release queries   (v0.2)
 ├── cli/                     module apistock.dev/cli → cmd/aps
 │   └── internal/recipes/    templates generated from examples/ (go generate), embedded in aps
-├── examples/                hand-written golden apps: minimal (v0.1), full-single (v0.2, in progress), full-multi
+├── examples/                hand-written golden apps: minimal (v0.1), full-single (v0.2), full-multi (v0.4, organisations)
 ├── compose.yaml             PostgreSQL in Docker for module tests (host port 55432)
 ├── scripts/                 first-run measurement
 ├── spikes/                  throwaway experiments

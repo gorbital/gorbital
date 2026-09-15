@@ -1,3 +1,38 @@
+⟦if .Org -⟧
+-- ⟦.PluralTitle⟧ (ADR-0039, ADR-0048): each ⟦.Human⟧ belongs to one organisation,
+-- and its members reach it through their role. Change this migration freely
+-- until it is released; afterwards, add a new one.
+
+-- +goose Up
+CREATE TABLE ⟦.Table⟧ (
+    ⟦.Pad "id"⟧ text        PRIMARY KEY,
+    -- Purging an organisation deletes its ⟦.PluralHuman⟧.
+    ⟦.Pad "org_id"⟧ text        NOT NULL REFERENCES orgs (id) ON DELETE CASCADE,
+    -- The member who created it, for display and audit. Access comes only
+    -- from membership. Not a foreign key: ⟦.PluralHuman⟧ outlive their creator.
+    ⟦.Pad "created_by"⟧ text        NOT NULL,
+⟦- range .Fields⟧
+    ⟦$.Pad .Name⟧ text        ⟦.Constraint⟧,
+⟦- end⟧
+    -- Increases with every update; an update must send the version it read.
+    ⟦.Pad "version"⟧ bigint      NOT NULL DEFAULT 1,
+    ⟦.Pad "created_at"⟧ timestamptz NOT NULL,
+    ⟦.Pad "updated_at"⟧ timestamptz NOT NULL,
+    -- Other org-scoped tables reference (org_id, id), so a row can only point
+    -- at ⟦.A⟧ ⟦.Human⟧ in its own organisation.
+    UNIQUE (org_id, id)
+);
+⟦range .Uniques⟧
+-- ⟦.HumanTitle⟧ is unique per organisation, ignoring case.
+CREATE UNIQUE INDEX ⟦$.Table⟧_org_⟦.Name⟧ ON ⟦$.Table⟧ (org_id, lower(⟦.Name⟧));
+⟦end⟧
+-- One index per sort of GET /v1/orgs/{orgId}/⟦.Route⟧.
+CREATE INDEX ⟦.Table⟧_org_created ON ⟦.Table⟧ (org_id, created_at, id);
+CREATE INDEX ⟦.Table⟧_org_updated ON ⟦.Table⟧ (org_id, updated_at, id);
+⟦- range .Strings⟧
+CREATE INDEX ⟦$.Table⟧_org_⟦.Name⟧_sort ON ⟦$.Table⟧ (org_id, (lower(⟦.Name⟧) COLLATE "C"), id);
+⟦- end⟧
+⟦else -⟧
 -- ⟦.PluralTitle⟧ (ADR-0039): each ⟦.Human⟧ belongs to one user. Change this
 -- migration freely until it is released; afterwards, add a new one.
 
@@ -24,3 +59,4 @@ CREATE INDEX ⟦.Table⟧_owner_updated ON ⟦.Table⟧ (owner_id, updated_at, i
 ⟦- range .Strings⟧
 CREATE INDEX ⟦$.Table⟧_owner_⟦.Name⟧_sort ON ⟦$.Table⟧ (owner_id, (lower(⟦.Name⟧) COLLATE "C"), id);
 ⟦- end⟧
+⟦end -⟧

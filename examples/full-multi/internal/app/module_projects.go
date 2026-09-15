@@ -13,6 +13,12 @@ import (
 	projectsusecase "example.com/acme-api/internal/modules/projects/usecase"
 )
 
+// projectsPermissions are the projects module's permissions.
+// declareOrgPermissions in permissions.go gives them to the organisation roles.
+var projectsPermissions = resourcePermissions{
+	read: projectsusecase.PermRead, write: projectsusecase.PermWrite, name: "projects",
+}
+
 // registerProjects builds and wires the projects module. Error codes are
 // public API: add new ones, never change existing ones. Organisation and
 // permission errors are mapped in module_orgs.go.

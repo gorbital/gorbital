@@ -47,7 +47,7 @@ func constraintError(err error) error {
 	if constraint, ok := postgres.UniqueViolation(err); ok {
 		switch constraint {
 ⟦- range .Uniques⟧
-		case "⟦$.Table⟧_owner_⟦.Name⟧":
+		case "⟦$.Table⟧_⟦if $.Org⟧org⟦else⟧owner⟦end⟧_⟦.Name⟧":
 			return ⟦$.Package⟧domain.Err⟦$.Ident⟧⟦.Ident⟧Taken
 ⟦- end⟧
 		}

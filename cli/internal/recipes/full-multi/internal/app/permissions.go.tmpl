@@ -6,7 +6,6 @@ import (
 
 	opsdomain "⟦.Module⟧/internal/modules/ops/domain"
 	orgsusecase "⟦.Module⟧/internal/modules/orgs/usecase"
-	projectsusecase "⟦.Module⟧/internal/modules/projects/usecase"
 )
 
 // Platform roles (ADR-0038). Access is denied by default: a signed-in user
@@ -45,10 +44,27 @@ func declarePermissions() *authlib.Catalog {
 	return c
 }
 
+// resourcePermissions are an org-scoped resource's permissions, declared in
+// its module_<name>.go file.
+type resourcePermissions struct {
+	read, write string
+	name        string // in words, such as "projects"
+}
+
+// orgResourcePermissions lists the org-scoped resources' permissions.
+// aps gen resource --scope org adds a line at the anchor.
+func orgResourcePermissions() []resourcePermissions {
+	return []resourcePermissions{
+		//aps:anchor org-permissions
+		projectsPermissions,
+	}
+}
+
 // declareOrgPermissions declares the permissions organisation members hold
 // through their role in each organisation (ADR-0048). They never grant
 // /ops access, and platform roles never grant them. Every member has exactly
-// one role; add roles here for your product, such as a read-only "viewer".
+// one role, and every role works with the org-scoped resources; add roles
+// here for your product, such as a read-only "viewer".
 func declareOrgPermissions() *authlib.Catalog {
 	c := authlib.NewCatalog()
 	c.Permission(orgsusecase.PermOrgRead, "See the organisation")
@@ -56,10 +72,13 @@ func declareOrgPermissions() *authlib.Catalog {
 	c.Permission(orgsusecase.PermOrgDelete, "Delete and restore the organisation")
 	c.Permission(orgsusecase.PermMembersRead, "See the members")
 	c.Permission(orgsusecase.PermMembersManage, "Invite people, change roles and remove members, up to your own role")
-	c.Permission(projectsusecase.PermRead, "See projects")
-	c.Permission(projectsusecase.PermWrite, "Create, change and delete projects")
 
-	member := []string{orgsusecase.PermOrgRead, orgsusecase.PermMembersRead, projectsusecase.PermRead, projectsusecase.PermWrite}
+	member := []string{orgsusecase.PermOrgRead, orgsusecase.PermMembersRead}
+	for _, r := range orgResourcePermissions() {
+		c.Permission(r.read, "See "+r.name)
+		c.Permission(r.write, "Create, change and delete "+r.name)
+		member = append(member, r.read, r.write)
+	}
 	admin := append([]string{orgsusecase.PermOrgUpdate, orgsusecase.PermMembersManage}, member...)
 	c.Role(orgslib.RoleOwner, "Everything, including deleting the organisation and managing owners", append([]string{orgsusecase.PermOrgDelete}, admin...)...)
 	c.Role(orgslib.RoleAdmin, "Manages the organisation and its members, except owners", admin...)

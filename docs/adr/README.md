@@ -32,7 +32,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0020](0020-constructors-and-configuration.md) | Constructors and configuration | Accepted, amended by 0031 |
 | [0021](0021-generator-operation-model.md) | Generator operation model | Accepted |
 | [0022](0022-generated-application-layout.md) | Generated application layout | Accepted, amended by 0032 |
-| [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033 |
+| [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033, 0048 |
 | [0024](0024-authentication-methods.md) | Authentication methods | Accepted, amended by 0038, 0043, 0044, 0046 |
 | [0025](0025-email-providers.md) | Email providers | Accepted, amended by 0033, 0037 |
 | [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038 |
@@ -47,8 +47,8 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0035](0035-interactive-cli.md) | Interactive CLI with flag parity | Accepted, amended by 0037 |
 | [0036](0036-audit-storage.md) | Audit storage | Accepted |
 | [0037](0037-email-setup-and-delivery.md) | Email setup and delivery | Accepted |
-| [0038](0038-authentication-v0-2.md) | Authentication in v0.2 | Accepted |
-| [0039](0039-resource-module-template.md) | Resource module template | Accepted |
+| [0038](0038-authentication-v0-2.md) | Authentication in v0.2 | Accepted, amended by 0048 |
+| [0039](0039-resource-module-template.md) | Resource module template | Accepted, amended by 0048 |
 | [0040](0040-release-tracking.md) | Release tracking | Accepted |
 | [0041](0041-full-preset-generation.md) | Full preset generation | Accepted |
 | [0042](0042-development-seed-data.md) | Development seed data | Accepted |
@@ -57,4 +57,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0045](0045-sign-in-provider-setup.md) | Sign-in provider setup | Accepted, amended by 0046 |
 | [0046](0046-google-and-apple-sign-in.md) | Google and Apple sign-in | Accepted |
 | [0047](0047-client-templates.md) | Client templates: docs site, dashboard and mobile apps from separate template repositories | Proposed |
-| [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Proposed |
+| [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Accepted |

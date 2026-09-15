@@ -271,15 +271,13 @@ func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 				return
 			}
 			t.Chdir(name)
+			// In a multi-tenant app the resource belongs to organisations (--scope org by default).
 			generators := [][]string{
+				{"gen", "resource", "Customer", "email:string:unique", "notes:text", "tier:enum(free,pro)", "--yes"},
 				{"gen", "job", "SendDigest", "--every", "1h", "--yes"},
 				{"gen", "migration", "add_phone", "--yes"},
 			}
-			table := "projects"
-			if app.tenancy == "single" {
-				generators = append([][]string{{"gen", "resource", "Customer", "email:string:unique", "notes:text", "tier:enum(free,pro)", "--yes"}}, generators...)
-				table = "customers"
-			}
+			table := "customers"
 			for _, args := range generators {
 				if code, _, errOut := runAps(t, args...); code != 0 {
 					t.Fatalf("aps %s in a new Full app = %d: %s", strings.Join(args, " "), code, errOut)

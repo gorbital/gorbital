@@ -10,7 +10,155 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+⟦if .Org⟧
+// Test⟦.Plural⟧EndToEnd drives the ⟦.PluralHuman⟧ API over HTTP: create,
+// validation, organisation isolation, pagination, versioned updates, delete
+// and the audit trail.
+func Test⟦.Plural⟧EndToEnd(t *testing.T) {
+	a, dbURL := newAppWithURL(t, nil)
+	h := a.Handler()
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	ada, adaID := signIn(t, a, "ada@example.com", "")
+	bob, _ := signIn(t, a, "bob@example.com", "")
+	adaOrg, bobOrg := personalWorkspace(t, h, ada), personalWorkspace(t, h, bob)
+	collection := "/v1/orgs/" + adaOrg + "/⟦.Route⟧"
 
+	if r := do(t, h, "POST", collection, `{⟦.JSONFields "Website"⟧}`); r.code != http.StatusUnauthorized || r.json["code"] != "unauthenticated" {
+		t.Errorf("create without signing in = %d %s", r.code, r.body)
+	}
+
+	created := do(t, h, "POST", collection, `{⟦.JSONFields " Website "⟧}`, ada...)
+	if created.code != http.StatusCreated || created.json[⟦quote $t.Name⟧] != "Website"⟦if .HasEnums⟧ || created.json[⟦quote $e.Name⟧] != ⟦quote $e.FirstValue.Value⟧⟦end⟧ ||
+		created.json["version"] != float64(1) || created.json["created_by"] != adaID {
+		t.Fatalf("create = %d %s", created.code, created.body)
+	}
+	id, _ := created.json["id"].(string)
+	if !strings.HasPrefix(id, "⟦.IDPrefix⟧_") {
+		t.Errorf("id = %q, want prefix ⟦.IDPrefix⟧_", id)
+	}
+	item := collection + "/" + id
+⟦if .HasUniques⟧
+	if r := do(t, h, "POST", collection, `{⟦.JSONDuplicate⟧}`, ada...); r.code != http.StatusConflict || r.json["code"] != "⟦.Snake⟧_⟦$u.Name⟧_taken" {
+		t.Errorf("create with a taken ⟦$u.Human⟧ = %d %s", r.code, r.body)
+	}
+⟦- end⟧
+	invalid := do(t, h, "POST", collection, `{⟦.JSONFields "   "⟧}`, ada...)
+	fieldErrors, _ := invalid.json["errors"].([]any)
+	if invalid.code != http.StatusUnprocessableEntity || invalid.json["code"] != "validation_failed" || len(fieldErrors) != 1 ||
+		fieldErrors[0].(map[string]any)["location"] != "body.⟦$t.Name⟧" {
+		t.Errorf("create with a blank ⟦$t.Human⟧ = %d %s", invalid.code, invalid.body)
+	}
+
+	// Another organisation doesn't exist for someone who isn't a member...
+	for _, r := range []response{
+		do(t, h, "GET", item, "", bob...),
+		do(t, h, "GET", collection, "", bob...),
+		do(t, h, "POST", collection, `{⟦.JSONFields "Mine now"⟧}`, bob...),
+		do(t, h, "PATCH", item, `{"version":1,⟦quote $t.Name⟧:"Mine now"}`, bob...),
+		do(t, h, "DELETE", item, "", bob...),
+	} {
+		if r.code != http.StatusNotFound || r.json["code"] != "org_not_found" {
+			t.Errorf("non-member's request = %d %s, want 404 org_not_found", r.code, r.body)
+		}
+	}
+	// ...and its ⟦.PluralHuman⟧ aren't in theirs.
+	bobItem := "/v1/orgs/" + bobOrg + "/⟦.Route⟧/" + id
+	for _, r := range []response{
+		do(t, h, "GET", bobItem, "", bob...),
+		do(t, h, "PATCH", bobItem, `{"version":1,⟦quote $t.Name⟧:"Mine now"}`, bob...),
+		do(t, h, "DELETE", bobItem, "", bob...),
+	} {
+		if r.code != http.StatusNotFound || r.json["code"] != "⟦.Snake⟧_not_found" {
+			t.Errorf("request for another organisation's ⟦.Human⟧ = %d %s, want 404 ⟦.Snake⟧_not_found", r.code, r.body)
+		}
+	}
+
+	if r := do(t, h, "POST", collection, `{⟦.JSONFields "Docs"⟧⟦.JSONChoice⟧}`, ada...); r.code != http.StatusCreated {
+		t.Fatalf("create Docs = %d %s", r.code, r.body)
+	}
+	var titles []string
+	cursor := ""
+	for range 3 {
+		r := do(t, h, "GET", collection+"?limit=1&sort=⟦$t.Name⟧&cursor="+url.QueryEscape(cursor), "", ada...)
+		if r.code != http.StatusOK {
+			t.Fatalf("list = %d %s", r.code, r.body)
+		}
+		for _, entry := range r.json["items"].([]any) {
+			titles = append(titles, entry.(map[string]any)[⟦quote $t.Name⟧].(string))
+		}
+		if cursor, _ = r.json["next_cursor"].(string); cursor == "" {
+			break
+		}
+	}
+	if want := []string{"Docs", "Website"}; !slices.Equal(titles, want) {
+		t.Errorf("pages sorted by ⟦$t.Name⟧ = %v, want %v", titles, want)
+	}
+	first := do(t, h, "GET", collection+"?limit=1", "", ada...)
+	for query, want := range map[string]string{
+		"sort=⟦$t.Name⟧&cursor=" + url.QueryEscape(first.json["next_cursor"].(string)): "invalid_cursor",
+		"sort=org_id": "invalid_sort",
+	} {
+		if r := do(t, h, "GET", collection+"?"+query, "", ada...); r.code != http.StatusBadRequest || r.json["code"] != want {
+			t.Errorf("list ?%s = %d %s, want 400 %s", query, r.code, r.body, want)
+		}
+	}
+⟦- if .HasEnums⟧
+	if r := do(t, h, "GET", collection+"?⟦$e.Name⟧=⟦$e.LastValue.Value⟧", "", ada...); r.code != http.StatusOK || len(r.json["items"].([]any)) != 1 {
+		t.Errorf("list with ⟦$e.Name⟧=⟦$e.LastValue.Value⟧ = %d %s, want Docs only", r.code, r.body)
+	}
+⟦- end⟧
+
+	if r := do(t, h, "PATCH", item, `{⟦quote $t.Name⟧:"No version"}`, ada...); r.code != http.StatusUnprocessableEntity {
+		t.Errorf("update without a version = %d %s, want 422", r.code, r.body)
+	}
+	if r := do(t, h, "PATCH", item, `{"version":2,⟦quote $t.Name⟧:"Too new"}`, ada...); r.code != http.StatusConflict || r.json["code"] != "⟦.Snake⟧_version_conflict" {
+		t.Errorf("update with a stale version = %d %s", r.code, r.body)
+	}
+⟦- if .HasEnums⟧
+	updated := do(t, h, "PATCH", item, `{"version":1,⟦quote $e.Name⟧:⟦quote $e.LastValue.Value⟧}`, ada...)
+	if updated.code != http.StatusOK || updated.json[⟦quote $e.Name⟧] != ⟦quote $e.LastValue.Value⟧ || updated.json[⟦quote $t.Name⟧] != "Website" ||
+		updated.json["version"] != float64(2) {
+⟦- else⟧
+	updated := do(t, h, "PATCH", item, `{"version":1,⟦quote $t.Name⟧:"Renamed"}`, ada...)
+	if updated.code != http.StatusOK || updated.json[⟦quote $t.Name⟧] != "Renamed" || updated.json["version"] != float64(2) {
+⟦- end⟧
+		t.Errorf("update = %d %s", updated.code, updated.body)
+	}
+
+	if r := do(t, h, "DELETE", item, "", ada...); r.code != http.StatusNoContent {
+		t.Fatalf("delete = %d %s", r.code, r.body)
+	}
+	if r := do(t, h, "GET", item, "", ada...); r.code != http.StatusNotFound {
+		t.Errorf("get after delete = %d %s", r.code, r.body)
+	}
+
+	rows, err := pool.Query(context.Background(), `SELECT action, actor_id, org_id FROM audit_events WHERE resource_type = '⟦.Snake⟧' AND resource_id = $1 ORDER BY id`, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var trail []string
+	for rows.Next() {
+		var action, actorID, orgID string
+		if err := rows.Scan(&action, &actorID, &orgID); err != nil {
+			t.Fatal(err)
+		}
+		trail = append(trail, action+" by "+strings.ReplaceAll(actorID, adaID, "ada")+" in "+strings.ReplaceAll(orgID, adaOrg, "ada's workspace"))
+	}
+	want := []string{
+		"⟦.Package⟧.⟦.Snake⟧.created by ada in ada's workspace",
+		"⟦.Package⟧.⟦.Snake⟧.updated by ada in ada's workspace",
+		"⟦.Package⟧.⟦.Snake⟧.deleted by ada in ada's workspace",
+	}
+	if !slices.Equal(trail, want) {
+		t.Errorf("audit trail = %v, want %v", trail, want)
+	}
+}
+⟦- else⟧
 // Test⟦.Plural⟧EndToEnd drives the ⟦.PluralHuman⟧ API over HTTP: create,
 // validation, owner isolation, pagination, versioned updates, delete and the
 // audit trail.
@@ -143,3 +291,4 @@ func Test⟦.Plural⟧EndToEnd(t *testing.T) {
 		t.Errorf("audit trail = %v, want %v", trail, want)
 	}
 }
+⟦- end⟧

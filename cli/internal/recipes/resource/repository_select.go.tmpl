@@ -4,25 +4,27 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5"
-
+⟦if .Org⟧
+	orgslib "apistock.dev/modules/orgs"
+⟦- end⟧
 	"apistock.dev/modules/postgres"
 
 	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
 )
 
 const (
-	select⟦.Ident⟧SQL = `SELECT ` + ⟦.Var⟧Columns + ` FROM ⟦.Table⟧ WHERE id = $1 AND owner_id = $2`
+	select⟦.Ident⟧SQL = `SELECT ` + ⟦.Var⟧Columns + ` FROM ⟦.Table⟧ WHERE id = $1 AND ⟦if .Org⟧org_id⟦else⟧owner_id⟦end⟧ = $2`
 	forUpdate        = ` FOR UPDATE`
 )
 
-// Select⟦.Ident⟧ returns one of ownerID's ⟦.PluralHuman⟧, or
+// Select⟦.Ident⟧ returns one of ⟦if .Org⟧orgID's⟦else⟧ownerID's⟦end⟧ ⟦.PluralHuman⟧, or
 // Err⟦.Ident⟧NotFound. lock locks the row until the transaction ends.
-func (s *Store) Select⟦.Ident⟧(ctx context.Context, ownerID, id string, lock bool) (⟦.Package⟧domain.⟦.Ident⟧, error) {
+func (s *Store) Select⟦.Ident⟧(ctx context.Context, ⟦if .Org⟧orgID orgslib.ID, id string⟦else⟧ownerID, id string⟦end⟧, lock bool) (⟦.Package⟧domain.⟦.Ident⟧, error) {
 	sql := select⟦.Ident⟧SQL
 	if lock {
 		sql += forUpdate
 	}
-	rows, err := s.db.Query(ctx, sql, id, ownerID)
+	rows, err := s.db.Query(ctx, sql, id, ⟦if .Org⟧orgID⟦else⟧ownerID⟦end⟧)
 	if err != nil {
 		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
 	}

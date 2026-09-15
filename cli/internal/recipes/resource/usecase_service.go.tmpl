@@ -1,7 +1,14 @@
 // Package usecase holds the ⟦.PluralHuman⟧ module's application logic. Each
+⟦- if .Org⟧
+// operation checks that the signed-in user belongs to the ⟦.Human⟧'s
+// organisation with a role granting the permission (orgs.RequireMember),
+// applies the domain rules, stores the result and records an audit event
+// (ADR-0039, ADR-0048). Change it freely.
+⟦- else⟧
 // operation finds the signed-in user, who owns the ⟦.PluralHuman⟧ it reads or
 // changes, applies the domain rules, stores the result and records an audit
 // event (ADR-0039). Change it freely.
+⟦- end⟧
 package usecase
 
 import (
@@ -15,6 +22,10 @@ import (
 
 	"apistock.dev/actor"
 	"apistock.dev/audit"
+⟦- if .Org⟧
+	authlib "apistock.dev/modules/auth"
+	orgslib "apistock.dev/modules/orgs"
+⟦- end⟧
 	"apistock.dev/page"
 
 	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
@@ -25,6 +36,12 @@ type Config struct {
 	// Required.
 	Store    Store
 	Recorder audit.Recorder
+⟦- if .Org⟧
+	// Catalog is the org catalog and Memberships reads members, both from
+	// the orgs module.
+	Catalog     *authlib.Catalog
+	Memberships orgslib.Memberships
+⟦- end⟧
 
 	// Optional.
 	Logger *slog.Logger
@@ -37,6 +54,10 @@ type Config struct {
 type Service struct {
 	store    Store
 	recorder audit.Recorder
+⟦- if .Org⟧
+	catalog  *authlib.Catalog
+	members  orgslib.Memberships
+⟦- end⟧
 	logger   *slog.Logger
 	now      func() time.Time
 	newID    func() string
@@ -44,10 +65,17 @@ type Service struct {
 
 // NewService returns a Service.
 func NewService(c Config) (*Service, error) {
+⟦- if .Org⟧
+	if c.Store == nil || c.Recorder == nil || c.Catalog == nil || c.Memberships == nil {
+		return nil, errors.New("⟦.Package⟧: invalid service: store, audit recorder, org catalog and memberships are required")
+	}
+	s := &Service{store: c.Store, recorder: c.Recorder, catalog: c.Catalog, members: c.Memberships, logger: c.Logger, now: c.Now, newID: c.NewID}
+⟦- else⟧
 	if c.Store == nil || c.Recorder == nil {
 		return nil, errors.New("⟦.Package⟧: invalid service: store and audit recorder are required")
 	}
 	s := &Service{store: c.Store, recorder: c.Recorder, logger: c.Logger, now: c.Now, newID: c.NewID}
+⟦- end⟧
 	if s.logger == nil {
 		s.logger = slog.New(slog.DiscardHandler)
 	}
@@ -73,6 +101,13 @@ func newID() string {
 // time equals the one returned.
 func (s *Service) clock() time.Time { return s.now().UTC().Truncate(time.Microsecond) }
 
+⟦if .Org -⟧
+// member checks that the signed-in user belongs to orgID with a role
+// granting permission, and returns the context acting in the organisation.
+func (s *Service) member(ctx context.Context, orgID orgslib.ID, permission string) (context.Context, orgslib.Member, error) {
+	return orgslib.RequireMember(ctx, s.members, s.catalog, orgID, permission)
+}
+⟦- else -⟧
 // ownerID returns the signed-in user's ID. Only users own ⟦.PluralHuman⟧;
 // system and anonymous actors get ErrUnauthenticated.
 func ownerID(ctx context.Context) (string, error) {
@@ -82,9 +117,15 @@ func ownerID(ctx context.Context) (string, error) {
 	}
 	return a.ID, nil
 }
+⟦- end⟧
 
 // audit records an event after the change it describes; a failed audit
+⟦- if .Org⟧
+// write is logged, not returned. The recorder adds the actor, organisation
+// and request.
+⟦- else⟧
 // write is logged, not returned. The recorder adds the actor and request.
+⟦- end⟧
 func (s *Service) audit(ctx context.Context, action, id string, metadata map[string]any) {
 	e := audit.Event{Action: action, ResourceType: ⟦quote .Snake⟧, ResourceID: id, Outcome: audit.OutcomeSuccess, Metadata: metadata}
 	if err := s.recorder.Record(context.WithoutCancel(ctx), e); err != nil {
@@ -98,6 +139,9 @@ func storeError(op string, err error) error {
 	known := []error{
 		⟦.Package⟧domain.ErrInvalid⟦.Ident⟧, ⟦.Package⟧domain.Err⟦.Ident⟧NotFound,
 		⟦range .Uniques⟧⟦$.Package⟧domain.Err⟦$.Ident⟧⟦.Ident⟧Taken, ⟦end⟧⟦.Package⟧domain.Err⟦.Ident⟧VersionConflict,
+⟦- if .Org⟧
+		orgslib.ErrOrgNotFound, actor.ErrUnauthenticated, actor.ErrForbidden, actor.ErrStepUpRequired,
+⟦- end⟧
 		page.ErrInvalidSort,
 	}
 	for _, k := range known {

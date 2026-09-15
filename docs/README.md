@@ -26,5 +26,6 @@
 |---|---|
 | [examples/minimal](../examples/minimal) | Minimal preset: HTTP, config, telemetry, health, docs; no database |
 | [examples/full-single](../examples/full-single) | Full preset (in progress): PostgreSQL, runtime settings, jobs, audit log, email, authentication and roles, and the ops APIs |
+| [examples/full-multi](../examples/full-multi) | Full preset with `--tenancy multi`: everything in full-single plus organisations, members with roles, invitations, personal workspaces and org-scoped projects (ADR-0048) |
 
 Library packages also document their API in Go doc comments (`go doc apistock.dev/modules/jobs`).

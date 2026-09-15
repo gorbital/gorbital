@@ -12,7 +12,45 @@ import (
 	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
 	⟦.Package⟧usecase "⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
 )
+⟦if .Org⟧
+// ⟦.Package⟧Permissions are the ⟦.PluralHuman⟧ module's permissions.
+// declareOrgPermissions in permissions.go gives them to the organisation roles.
+var ⟦.Package⟧Permissions = resourcePermissions{
+	read: ⟦.Package⟧usecase.PermRead, write: ⟦.Package⟧usecase.PermWrite, name: ⟦quote .PluralHuman⟧,
+}
 
+// register⟦.Plural⟧ builds and wires the ⟦.PluralHuman⟧ module. Error codes are
+// public API: add new ones, never change existing ones. Organisation and
+// permission errors are mapped in module_orgs.go.
+func register⟦.Plural⟧(api huma.API, mapper *httpx.Mapper, svc services) error {
+	err := mapper.Add(
+		httpx.Mapping{Err: ⟦.Package⟧domain.ErrInvalid⟦.Ident⟧, Status: http.StatusUnprocessableEntity, Code: "validation_failed", Detail: ⟦quote (print "the " .Human " is not valid")⟧},
+		httpx.Mapping{Err: ⟦.Package⟧domain.Err⟦.Ident⟧NotFound, Status: http.StatusNotFound, Code: "⟦.Snake⟧_not_found", Detail: ⟦quote (print "the organisation has no " .Human " with this ID")⟧},
+⟦- range .Uniques⟧
+		httpx.Mapping{Err: ⟦$.Package⟧domain.Err⟦$.Ident⟧⟦.Ident⟧Taken, Status: http.StatusConflict, Code: "⟦$.Snake⟧_⟦.Name⟧_taken", Detail: ⟦quote (print "the organisation already has " $.A " " $.Human " with this " .Human)⟧},
+⟦- end⟧
+		httpx.Mapping{Err: ⟦.Package⟧domain.Err⟦.Ident⟧VersionConflict, Status: http.StatusConflict, Code: "⟦.Snake⟧_version_conflict", Detail: ⟦quote (print "the " .Human " changed since you read it; get it again and retry")⟧},
+	)
+	if err != nil {
+		return fmt.Errorf("⟦.PluralHuman⟧ module: %w", err)
+	}
+	// Without a database, when exporting the OpenAPI document, the operations
+	// are registered without their dependencies.
+	var m *⟦.Package⟧module.Module
+	if svc.db != nil {
+		orgs := svc.orgs.Service()
+		m, err = ⟦.Package⟧module.New(svc.db, ⟦.Package⟧usecase.Config{
+			Recorder: svc.recorder, Logger: svc.logger,
+			Catalog: orgs.Catalog(), Memberships: orgs.Memberships(),
+		})
+		if err != nil {
+			return fmt.Errorf("⟦.PluralHuman⟧ module: %w", err)
+		}
+	}
+	m.Register(api)
+	return nil
+}
+⟦- else⟧
 // register⟦.Plural⟧ builds and wires the ⟦.PluralHuman⟧ module. Error codes are
 // public API: add new ones, never change existing ones.
 func register⟦.Plural⟧(api huma.API, mapper *httpx.Mapper, svc services) error {
@@ -40,3 +78,4 @@ func register⟦.Plural⟧(api huma.API, mapper *httpx.Mapper, svc services) err
 	m.Register(api)
 	return nil
 }
+⟦- end⟧

@@ -1,5 +1,5 @@
 // Package delivery is the ⟦.PluralHuman⟧ module's HTTP adapter: Huma
-// operations and request and response types for /v1/⟦.Route⟧.
+// operations and request and response types for /v1/⟦if .Org⟧orgs/{orgId}/⟦end⟧⟦.Route⟧.
 package delivery
 
 import (
@@ -12,6 +12,9 @@ import (
 
 	"apistock.dev/httpx"
 	"apistock.dev/modules/openapi"
+⟦- if .Org⟧
+	orgslib "apistock.dev/modules/orgs"
+⟦- end⟧
 	"apistock.dev/page"
 
 	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
@@ -23,6 +26,9 @@ type ⟦.Ident⟧Response struct {
 	ID string `json:"id" example:"⟦.IDPrefix⟧_mfrggzdfmztwq2lkmfrggzdfmy"`
 ⟦- range .Fields⟧
 	⟦.Ident⟧ string `json:"⟦.Name⟧"⟦if .IsEnum⟧ enum:"⟦.EnumTag⟧"⟦end⟧`
+⟦- end⟧
+⟦- if .Org⟧
+	CreatedBy string `json:"created_by" example:"usr_mfrggzdfmztwq2lkmfrggzdfmy" doc:"The member who created it"`
 ⟦- end⟧
 	Version   int64     `json:"version" example:"1" doc:"Increases with every change; send it back when updating"`
 	CreatedAt time.Time `json:"created_at"`
@@ -40,13 +46,16 @@ type ⟦.Var⟧Output struct{ Body ⟦.Ident⟧Response }
 type ⟦.Var⟧PageOutput struct{ Body ⟦.Ident⟧Page }
 
 type createInput struct {
+⟦- if .Org⟧
+	OrgID string `path:"orgId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy"`
+⟦- end⟧
 	Body struct {
 		_ struct{} `json:"-" additionalProperties:"true"`
 ⟦- range .Fields⟧
 ⟦- if .IsEnum⟧
 		⟦.Ident⟧ string `json:"⟦.Name⟧,omitempty" enum:"⟦.EnumTag⟧" default:"⟦.FirstValue.Value⟧"`
 ⟦- else if eq .Kind "string"⟧
-		⟦.Ident⟧ string `json:"⟦.Name⟧" maxLength:"⟦.MaxLength⟧"⟦if .Unique⟧ doc:"Unique among your ⟦$.PluralHuman⟧, ignoring case"⟦end⟧`
+		⟦.Ident⟧ string `json:"⟦.Name⟧" maxLength:"⟦.MaxLength⟧"⟦if .Unique⟧ doc:"⟦if $.Org⟧Unique in the organisation, ignoring case⟦else⟧Unique among your ⟦$.PluralHuman⟧, ignoring case⟦end⟧"⟦end⟧`
 ⟦- else⟧
 		⟦.Ident⟧ string `json:"⟦.Name⟧,omitempty" maxLength:"⟦.MaxLength⟧"`
 ⟦- end⟧
@@ -55,6 +64,9 @@ type createInput struct {
 }
 
 type listInput struct {
+⟦- if .Org⟧
+	OrgID string `path:"orgId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy"`
+⟦- end⟧
 	page.Params
 ⟦- range .Enums⟧
 	⟦.Ident⟧ string `query:"⟦.Name⟧" enum:"⟦.EnumTag⟧" doc:"Only ⟦$.PluralHuman⟧ with this ⟦.Human⟧"`
@@ -62,10 +74,16 @@ type listInput struct {
 }
 
 type idInput struct {
+⟦- if .Org⟧
+	OrgID string `path:"orgId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy"`
+⟦- end⟧
 	ID string `path:"id" maxLength:"64" example:"⟦.IDPrefix⟧_mfrggzdfmztwq2lkmfrggzdfmy"`
 }
 
 type updateInput struct {
+⟦- if .Org⟧
+	OrgID string `path:"orgId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy"`
+⟦- end⟧
 	ID   string `path:"id" maxLength:"64" example:"⟦.IDPrefix⟧_mfrggzdfmztwq2lkmfrggzdfmy"`
 	Body struct {
 		_       struct{} `json:"-" additionalProperties:"true"`
@@ -79,7 +97,44 @@ type updateInput struct {
 type handler struct {
 	svc *⟦.Package⟧usecase.Service
 }
+⟦if .Org⟧
+// Register adds the ⟦.PluralHuman⟧ operations to api. Every operation needs a
+// signed-in member of the organisation; anyone else gets 404 org_not_found.
+func Register(api huma.API, svc *⟦.Package⟧usecase.Service) {
+	h := &handler{svc: svc}
+	inOrg := func(op huma.Operation) huma.Operation {
+		op.Tags, op.Security = []string{⟦quote .PluralTitle⟧}, openapi.Bearer
+		op.Errors = append([]int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound}, op.Errors...)
+		return op
+	}
 
+	huma.Register(api, inOrg(huma.Operation{
+		OperationID: "⟦.Route⟧-create", Method: http.MethodPost, Path: "/v1/orgs/{orgId}/⟦.Route⟧",
+		Summary: "Create ⟦.A⟧ ⟦.Human⟧", DefaultStatus: http.StatusCreated,
+		Errors: []int{⟦if .HasUniques⟧http.StatusConflict, ⟦end⟧http.StatusUnprocessableEntity},
+	}), h.create)
+	huma.Register(api, inOrg(huma.Operation{
+		OperationID: "⟦.Route⟧-list", Method: http.MethodGet, Path: "/v1/orgs/{orgId}/⟦.Route⟧",
+		Summary:     "List the organisation's ⟦.PluralHuman⟧",
+		Description: "Newest first unless `sort` says otherwise; sort by one of ⟦.SortListCode⟧. Paginate with `cursor`.",
+		Errors:      []int{http.StatusBadRequest, http.StatusUnprocessableEntity},
+	}), h.list)
+	huma.Register(api, inOrg(huma.Operation{
+		OperationID: "⟦.Route⟧-get", Method: http.MethodGet, Path: "/v1/orgs/{orgId}/⟦.Route⟧/{id}",
+		Summary: "Get ⟦.A⟧ ⟦.Human⟧",
+	}), h.get)
+	huma.Register(api, inOrg(huma.Operation{
+		OperationID: "⟦.Route⟧-update", Method: http.MethodPatch, Path: "/v1/orgs/{orgId}/⟦.Route⟧/{id}",
+		Summary:     "Update ⟦.A⟧ ⟦.Human⟧",
+		Description: "Send the fields to change and the `version` you read.",
+		Errors:      []int{http.StatusConflict, http.StatusUnprocessableEntity},
+	}), h.update)
+	huma.Register(api, inOrg(huma.Operation{
+		OperationID: "⟦.Route⟧-delete", Method: http.MethodDelete, Path: "/v1/orgs/{orgId}/⟦.Route⟧/{id}",
+		Summary: "Delete ⟦.A⟧ ⟦.Human⟧", DefaultStatus: http.StatusNoContent,
+	}), h.delete)
+}
+⟦- else⟧
 // Register adds the ⟦.PluralHuman⟧ operations to api. Every operation needs a
 // signed-in user and reaches only that user's ⟦.PluralHuman⟧.
 func Register(api huma.API, svc *⟦.Package⟧usecase.Service) {
@@ -116,9 +171,10 @@ func Register(api huma.API, svc *⟦.Package⟧usecase.Service) {
 		Summary: "Delete ⟦.A⟧ ⟦.Human⟧", DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusNotFound},
 	}), h.delete)
 }
+⟦- end⟧
 
 func (h *handler) create(ctx context.Context, in *createInput) (*⟦.Var⟧Output, error) {
-	p, err := h.svc.Create(ctx, ⟦.Package⟧domain.⟦.Ident⟧Fields{
+	p, err := h.svc.Create(ctx, ⟦if .Org⟧orgslib.ID(in.OrgID), ⟦end⟧⟦.Package⟧domain.⟦.Ident⟧Fields{
 ⟦- range .Fields⟧
 		⟦.Ident⟧: ⟦if .IsEnum⟧⟦$.Package⟧domain.⟦.Ident⟧(in.Body.⟦.Ident⟧)⟦else⟧in.Body.⟦.Ident⟧⟦end⟧,
 ⟦- end⟧
@@ -130,7 +186,7 @@ func (h *handler) create(ctx context.Context, in *createInput) (*⟦.Var⟧Outpu
 }
 
 func (h *handler) list(ctx context.Context, in *listInput) (*⟦.Var⟧PageOutput, error) {
-	res, err := h.svc.List(ctx, ⟦.Package⟧usecase.ListInput{
+	res, err := h.svc.List(ctx, ⟦if .Org⟧orgslib.ID(in.OrgID), ⟦end⟧⟦.Package⟧usecase.ListInput{
 		Page: in.Params,
 ⟦- range .Enums⟧
 		⟦.Ident⟧: ⟦$.Package⟧domain.⟦.Ident⟧(in.⟦.Ident⟧),
@@ -147,7 +203,7 @@ func (h *handler) list(ctx context.Context, in *listInput) (*⟦.Var⟧PageOutpu
 }
 
 func (h *handler) get(ctx context.Context, in *idInput) (*⟦.Var⟧Output, error) {
-	p, err := h.svc.Get(ctx, in.ID)
+	p, err := h.svc.Get(ctx, ⟦if .Org⟧orgslib.ID(in.OrgID), ⟦end⟧in.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +222,7 @@ func (h *handler) update(ctx context.Context, in *updateInput) (*⟦.Var⟧Outpu
 		changes.⟦.Ident⟧ = &value
 	}
 ⟦- end⟧
-	p, err := h.svc.Update(ctx, in.ID, ⟦.Package⟧usecase.UpdateInput{Version: in.Body.Version, Changes: changes})
+	p, err := h.svc.Update(ctx, ⟦if .Org⟧orgslib.ID(in.OrgID), ⟦end⟧in.ID, ⟦.Package⟧usecase.UpdateInput{Version: in.Body.Version, Changes: changes})
 	if err != nil {
 		return nil, fieldErrors(err, "body")
 	}
@@ -174,7 +230,7 @@ func (h *handler) update(ctx context.Context, in *updateInput) (*⟦.Var⟧Outpu
 }
 
 func (h *handler) delete(ctx context.Context, in *idInput) (*struct{}, error) {
-	return nil, h.svc.Delete(ctx, in.ID)
+	return nil, h.svc.Delete(ctx, ⟦if .Org⟧orgslib.ID(in.OrgID), ⟦end⟧in.ID)
 }
 
 // fieldErrors lists invalid fields, found in location ("body" or "query");
@@ -196,6 +252,9 @@ func ⟦.Var⟧Response(p ⟦.Package⟧domain.⟦.Ident⟧) ⟦.Ident⟧Respons
 		ID: p.ID,
 ⟦- range .Fields⟧
 		⟦.Ident⟧: ⟦if .IsEnum⟧string(p.⟦.Ident⟧)⟦else⟧p.⟦.Ident⟧⟦end⟧,
+⟦- end⟧
+⟦- if .Org⟧
+		CreatedBy: p.CreatedBy,
 ⟦- end⟧
 		Version:   p.Version,
 		CreatedAt: p.CreatedAt,

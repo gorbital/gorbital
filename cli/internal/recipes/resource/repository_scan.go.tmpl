@@ -6,11 +6,11 @@ import (
 	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
 )
 
-const ⟦.Var⟧Columns = `id, owner_id, ⟦.Columns⟧, version, created_at, updated_at`
+const ⟦.Var⟧Columns = `id, ⟦if .Org⟧org_id, created_by⟦else⟧owner_id⟦end⟧, ⟦.Columns⟧, version, created_at, updated_at`
 
 func scan⟦.Ident⟧(row pgx.CollectableRow) (⟦.Package⟧domain.⟦.Ident⟧, error) {
 	var p ⟦.Package⟧domain.⟦.Ident⟧
-	err := row.Scan(&p.ID, &p.OwnerID, ⟦range .Fields⟧&p.⟦.Ident⟧, ⟦end⟧&p.Version, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.ID, ⟦if .Org⟧&p.OrgID, &p.CreatedBy⟦else⟧&p.OwnerID⟦end⟧, ⟦range .Fields⟧&p.⟦.Ident⟧, ⟦end⟧&p.Version, &p.CreatedAt, &p.UpdatedAt)
 	p.CreatedAt, p.UpdatedAt = p.CreatedAt.UTC(), p.UpdatedAt.UTC()
 	return p, err
 }

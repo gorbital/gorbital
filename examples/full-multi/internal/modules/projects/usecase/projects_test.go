@@ -67,8 +67,8 @@ type fixture struct {
 	orgA, orgB orgslib.ID
 }
 
-// newFixture returns the use cases on a fresh database. IDs are prj_1,
-// prj_2 and so on.
+// newFixture returns the use cases on a fresh database. IDs are
+// prj_1, prj_2 and so on.
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
 	pool := pgtest.New(t, pgtest.WithMigrations(migrations.FS))

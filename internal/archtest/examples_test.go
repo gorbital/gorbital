@@ -35,6 +35,7 @@ var multiTenantChanges = []string{
 	"internal/app/settings.go",
 	"internal/app/seed.go",
 	"internal/app/seed_test.go",
+	"internal/app/app_test.go", // personalWorkspace, shared by org-scoped resource tests
 
 	// Projects belong to an organisation instead of a user.
 	"db/migrations/20260915000002_projects.sql",

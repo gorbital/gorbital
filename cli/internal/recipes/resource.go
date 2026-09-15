@@ -48,7 +48,7 @@ var (
 // reservedFieldNames clash with the columns, struct fields, query parameters
 // or index names every resource has.
 var reservedFieldNames = map[string]bool{
-	"id": true, "owner_id": true, "version": true, "created_at": true, "updated_at": true,
+	"id": true, "owner_id": true, "org_id": true, "created_by": true, "version": true, "created_at": true, "updated_at": true,
 	"created": true, "updated": true, "limit": true, "cursor": true, "sort": true,
 	"after": true, "page": true, "params": true, "apply": true,
 }
@@ -283,7 +283,16 @@ type ResourceOptions struct {
 	// Migration is the migration's version: a UTC timestamp such as
 	// 20260915093000.
 	Migration string
+	// Scope is who the records belong to: ScopeUser (the default) or
+	// ScopeOrg, for multi-tenant apps (ADR-0048).
+	Scope string
 }
+
+// Resource scopes of aps gen resource --scope.
+const (
+	ScopeUser = "user"
+	ScopeOrg  = "org"
+)
 
 // ResourceData fills the resource templates (ADR-0039).
 type ResourceData struct {
@@ -299,7 +308,10 @@ type ResourceData struct {
 	Route       string // projects, as in /v1/projects
 	IDPrefix    string // prj
 	Migration   string // 20260915000002
-	Fields      []Field
+	// Org reports records that belong to an organisation (--scope org)
+	// instead of a user.
+	Org    bool
+	Fields []Field
 }
 
 // NewResourceData validates a resource and derives every name.
@@ -328,7 +340,11 @@ func NewResourceData(module, name string, fields []Field, o ResourceOptions) (Re
 		Route:       strings.Join(plural, "-"),
 		IDPrefix:    o.IDPrefix,
 		Migration:   o.Migration,
+		Org:         o.Scope == ScopeOrg,
 		Fields:      fields,
+	}
+	if o.Scope != "" && o.Scope != ScopeUser && o.Scope != ScopeOrg {
+		return ResourceData{}, fmt.Errorf("scope must be %s or %s, got %q", ScopeUser, ScopeOrg, o.Scope)
 	}
 	d.Var = strings.ToLower(d.Ident[:1]) + d.Ident[1:]
 	if d.IDPrefix == "" {
@@ -369,7 +385,7 @@ func (d ResourceData) checkIdentifiers() error {
 		return errors.New("add at least one string field, such as name:string")
 	}
 	members := map[string]bool{
-		"ID": true, "OwnerID": true, "Version": true, "CreatedAt": true, "UpdatedAt": true, "Apply": true,
+		"ID": true, "OwnerID": true, "OrgID": true, "CreatedBy": true, "Version": true, "CreatedAt": true, "UpdatedAt": true, "Apply": true,
 		d.Ident + "Fields": true, "Params": true, "Limit": true, "Cursor": true, "Sort": true, "After": true, "Page": true,
 	}
 	declared := map[string]bool{}
@@ -518,9 +534,14 @@ func placeholders(from, to int) string {
 	return strings.Join(out, ", ")
 }
 
-// InsertPlaceholders are the insert's placeholders: id, owner, the fields,
-// version and the two times.
-func (d ResourceData) InsertPlaceholders() string { return placeholders(1, 5+len(d.Fields)) }
+// InsertPlaceholders are the insert's placeholders: id, the owner (or the
+// organisation and creator), the fields, version and the two times.
+func (d ResourceData) InsertPlaceholders() string {
+	if d.Org {
+		return placeholders(1, 6+len(d.Fields))
+	}
+	return placeholders(1, 5+len(d.Fields))
+}
 
 // UpdateSet assigns each field from placeholders $3 onwards.
 func (d ResourceData) UpdateSet() string {
@@ -671,6 +692,15 @@ func (d ResourceData) JSONChoice() string {
 func (d ResourceData) ModulesLine() string {
 	return "register" + d.Plural + "(api, mapper, svc),"
 }
+
+// OrgPermissionsAnchor is the anchor in internal/app/permissions.go that
+// aps gen resource --scope org adds a line after, so the organisation roles
+// get the new resource's permissions.
+const OrgPermissionsAnchor = "//aps:anchor org-permissions"
+
+// PermissionsLine is the line aps gen resource --scope org adds after
+// OrgPermissionsAnchor: the permissions its app wiring file declares.
+func (d ResourceData) PermissionsLine() string { return d.Package + "Permissions," }
 
 // RenderResource renders a resource's module, app wiring, tests and
 // migration (ADR-0039). Go output is formatted with gofmt.

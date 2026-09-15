@@ -1,6 +1,6 @@
 # ADR-0039: Resource module template
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0022, ADR-0023
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0022, ADR-0023 · **Amended by:** ADR-0048 (org-scoped resources: `--scope org`, the default in multi-tenant apps)
 
 ## Context
 

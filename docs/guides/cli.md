@@ -156,7 +156,7 @@ Safety checks: the app must have `internal/app/jobs.go` with the anchor; existin
 
 ## `aps gen resource`
 
-Generates a module for records that belong to the signed-in user, in an app created with the Full preset: domain rules, use cases, a repository with hand-written SQL, `/v1/<names>` endpoints, tests and a migration. Everything it writes is your code to change ([ADR-0039](../adr/0039-resource-module-template.md)); `examples/full-single/internal/modules/projects` is exactly what it generates for the first example below.
+Generates a module for records that belong to the signed-in user, in an app created with the Full preset: domain rules, use cases, a repository with hand-written SQL, `/v1/<names>` endpoints, tests and a migration. In a multi-tenant app (`aps new --tenancy multi`) records belong to an organisation instead: endpoints under `/v1/orgs/{orgId}/<names>`, every use case checks membership and a `<module>.<resource>.read` or `.write` permission with `orgs.RequireMember`, and the tests include non-members, roles without the permission and cross-organisation requests ([ADR-0048](../adr/0048-organisations-v0-4.md)). Everything it writes is your code to change ([ADR-0039](../adr/0039-resource-module-template.md)); `examples/full-single/internal/modules/projects` is exactly what it generates for the first example below, and `examples/full-multi/internal/modules/projects` what it generates there.
 
 ```bash
 aps gen resource                                                        # asks for everything
@@ -173,7 +173,7 @@ Quote enum fields: shells treat parentheses specially.
 | Fields | positional, after the name, separated by spaces | required |
 | (flag only) Plural | `--plural People` | the name with -s, -es or -ies |
 | (flag only) ID prefix | `--id-prefix prj` (2 to 8 lowercase letters) | first letter and the next consonants: `prj`, `cst` |
-| (flag only) Who owns the records | `--scope user` | `user`; organisation-owned resources arrive with organisations in v0.4 |
+| (flag only) Who the records belong to | `--scope user\|org` | `org` in multi-tenant apps (`tenancy: multi` in `apistock.yaml`), `user` otherwise; `org` needs the orgs module |
 
 Flags may come before, between or after the name and fields. Other flags: `--dry-run`, `--json`, `--allow-dirty`, `--yes`, `--no-input`, `--plain`.
 
@@ -184,7 +184,9 @@ Flags may come before, between or after the name and fields. Other flags: `--dry
 | `notes:text` | Up to 2000 characters, optional |
 | `status:enum(open,done)` | One of 2 to 20 snake_case values; the first is the default; lists can filter by it |
 
-Field names are snake_case (up to 20 characters). A resource needs at least one string field; the first one is its title. Names every resource already has (`id`, `owner_id`, `version`, `created_at`, `updated_at`, `limit`, `cursor`, `sort`, …) and PostgreSQL reserved words (`order`, `user`, …) are refused.
+Field names are snake_case (up to 20 characters). A resource needs at least one string field; the first one is its title. Names every resource already has (`id`, `owner_id`, `org_id`, `created_by`, `version`, `created_at`, `updated_at`, `limit`, `cursor`, `sort`, …) and PostgreSQL reserved words (`order`, `user`, …) are refused.
+
+An org-scoped resource declares its `<module>.<resource>.read` and `.write` permissions in its `internal/app/module_<names>.go`, and the generator adds one line after `//aps:anchor org-permissions` in `internal/app/permissions.go`, so every organisation role gets them. Change which roles hold them in `declareOrgPermissions`.
 
 What it creates for `Project`:
 
@@ -199,6 +201,7 @@ What it creates for `Project`:
 | `internal/app/projects_test.go` | An end-to-end HTTP test, including another user's requests getting 404 |
 | `db/migrations/<version>_projects.sql` | The table, a unique index per unique field and one index per sort |
 | `internal/app/modules.go` | One `registerProjects(api, mapper, svc),` line after `//aps:anchor modules` |
+| `internal/app/permissions.go` (`--scope org` only) | One `projectsPermissions,` line after `//aps:anchor org-permissions` |
 
 Then run `go run ./cmd/migrate`, `go test ./...` and `go run ./cmd/api openapi > api/openapi.json`.
 

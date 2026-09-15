@@ -11,18 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// personalWorkspace returns the ID of the signed-in user's personal
-// workspace, created with their account.
-func personalWorkspace(t *testing.T, h http.Handler, headers []string) string {
-	t.Helper()
-	r := do(t, h, "GET", "/v1/orgs", "", headers...)
-	items, _ := r.json["items"].([]any)
-	if r.code != http.StatusOK || len(items) == 0 || items[0].(map[string]any)["personal"] != true {
-		t.Fatalf("GET /v1/orgs = %d %s, want the personal workspace first", r.code, r.body)
-	}
-	return items[0].(map[string]any)["id"].(string)
-}
-
 // TestProjectsEndToEnd drives the projects API over HTTP: create,
 // validation, organisation isolation, pagination, versioned updates, delete
 // and the audit trail.
@@ -68,7 +56,7 @@ func TestProjectsEndToEnd(t *testing.T) {
 	for _, r := range []response{
 		do(t, h, "GET", item, "", bob...),
 		do(t, h, "GET", collection, "", bob...),
-		do(t, h, "POST", collection, `{"name":"Mine now"}`, bob...),
+		do(t, h, "POST", collection, `{"name":"Mine now","description":"Example description"}`, bob...),
 		do(t, h, "PATCH", item, `{"version":1,"name":"Mine now"}`, bob...),
 		do(t, h, "DELETE", item, "", bob...),
 	} {

@@ -35,11 +35,22 @@ func (v ⟦.Ident⟧) Valid() bool {
 	return false
 }
 ⟦end⟧
+⟦if .Org -⟧
+// ⟦.Ident⟧ belongs to one organisation. Its members reach it through their
+// role; nobody else can see or change it.
+type ⟦.Ident⟧ struct {
+	ID string
+	// OrgID is the organisation's ID (orgs.ID in the other layers).
+	OrgID string
+	// CreatedBy is the member who created it, for display and audit.
+	CreatedBy string
+⟦- else -⟧
 // ⟦.Ident⟧ belongs to one user, its owner, and only the owner can see or
 // change it.
 type ⟦.Ident⟧ struct {
 	ID      string
 	OwnerID string
+⟦- end⟧
 	⟦.Ident⟧Fields
 	// Version increases with every change. An update must name the version
 	// it read, so it can't overwrite a change it hasn't seen.
@@ -55,9 +66,16 @@ type ⟦.Ident⟧Fields struct {
 ⟦- end⟧
 }
 
+⟦if .Org -⟧
+// New⟦.Ident⟧ returns a new ⟦.Human⟧ in orgID created by createdBy, or a
+// *ValidationError. Text is trimmed⟦if .HasEnums⟧, and an empty choice takes its first
+// value⟦end⟧.
+func New⟦.Ident⟧(id, orgID, createdBy string, f ⟦.Ident⟧Fields, now time.Time) (⟦.Ident⟧, error) {
+⟦- else -⟧
 // New⟦.Ident⟧ returns a new ⟦.Human⟧ owned by ownerID, or a *ValidationError.
 // Text is trimmed⟦if .HasEnums⟧, and an empty choice takes its first value⟦end⟧.
 func New⟦.Ident⟧(id, ownerID string, f ⟦.Ident⟧Fields, now time.Time) (⟦.Ident⟧, error) {
+⟦- end⟧
 ⟦- range .TextFields⟧
 	f.⟦.Ident⟧ = strings.TrimSpace(f.⟦.Ident⟧)
 ⟦- end⟧
@@ -66,7 +84,7 @@ func New⟦.Ident⟧(id, ownerID string, f ⟦.Ident⟧Fields, now time.Time) (�
 		f.⟦.Ident⟧ = ⟦.Ident⟧⟦.FirstValue.Ident⟧
 	}
 ⟦- end⟧
-	p := ⟦.Ident⟧{ID: id, OwnerID: ownerID, ⟦.Ident⟧Fields: f, Version: 1, CreatedAt: now, UpdatedAt: now}
+	p := ⟦.Ident⟧{ID: id, ⟦if .Org⟧OrgID: orgID, CreatedBy: createdBy⟦else⟧OwnerID: ownerID⟦end⟧, ⟦.Ident⟧Fields: f, Version: 1, CreatedAt: now, UpdatedAt: now}
 	if err := p.validate(); err != nil {
 		return ⟦.Ident⟧{}, err
 	}

@@ -98,6 +98,18 @@ func do(t *testing.T, h http.Handler, method, path, body string, headers ...stri
 	return r
 }
 
+// personalWorkspace returns the ID of the signed-in user's personal
+// workspace, created with their account.
+func personalWorkspace(t *testing.T, h http.Handler, headers []string) string {
+	t.Helper()
+	r := do(t, h, "GET", "/v1/orgs", "", headers...)
+	items, _ := r.json["items"].([]any)
+	if r.code != http.StatusOK || len(items) == 0 || items[0].(map[string]any)["personal"] != true {
+		t.Fatalf("GET /v1/orgs = %d %s, want the personal workspace first", r.code, r.body)
+	}
+	return items[0].(map[string]any)["id"].(string)
+}
+
 func TestEndpoints(t *testing.T) {
 	h := newApp(t, nil).Handler()
 

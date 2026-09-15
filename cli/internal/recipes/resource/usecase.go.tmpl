@@ -4,12 +4,21 @@ import (
 	"context"
 	"fmt"
 	"time"
-
+⟦if .Org⟧
+	orgslib "apistock.dev/modules/orgs"
+⟦- end⟧
 	"apistock.dev/page"
 
 	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
 )
-
+⟦if .Org⟧
+// Permissions the ⟦.PluralHuman⟧ module checks. The org catalog in
+// internal/app/permissions.go grants them to roles. They are public API.
+const (
+	PermRead  = "⟦.Package⟧.⟦.Snake⟧.read"
+	PermWrite = "⟦.Package⟧.⟦.Snake⟧.write"
+)
+⟦end⟧
 // Audit actions. They are public API (ADR-0015): add new ones, never rename.
 const (
 	ActionCreated = "⟦.Package⟧.⟦.Snake⟧.created"
@@ -24,7 +33,15 @@ func listOptions() page.Options {
 		DefaultSort: []page.SortField{{Field: "created_at", Desc: true}},
 	}
 }
-
+⟦if .Org⟧
+// Create adds ⟦.A⟧ ⟦.Human⟧ to an organisation.
+func (s *Service) Create(ctx context.Context, orgID orgslib.ID, f ⟦.Package⟧domain.⟦.Ident⟧Fields) (⟦.Package⟧domain.⟦.Ident⟧, error) {
+	ctx, me, err := s.member(ctx, orgID, PermWrite)
+	if err != nil {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, storeError("create", err)
+	}
+	p, err := ⟦.Package⟧domain.New⟦.Ident⟧(s.newID(), string(orgID), me.UserID, f, s.clock())
+⟦- else⟧
 // Create adds ⟦.A⟧ ⟦.Human⟧ owned by the signed-in user.
 func (s *Service) Create(ctx context.Context, f ⟦.Package⟧domain.⟦.Ident⟧Fields) (⟦.Package⟧domain.⟦.Ident⟧, error) {
 	owner, err := ownerID(ctx)
@@ -32,6 +49,7 @@ func (s *Service) Create(ctx context.Context, f ⟦.Package⟧domain.⟦.Ident�
 		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
 	}
 	p, err := ⟦.Package⟧domain.New⟦.Ident⟧(s.newID(), owner, f, s.clock())
+⟦- end⟧
 	if err != nil {
 		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
 	}
@@ -42,7 +60,15 @@ func (s *Service) Create(ctx context.Context, f ⟦.Package⟧domain.⟦.Ident�
 	s.audit(ctx, ActionCreated, created.ID, nil)
 	return created, nil
 }
-
+⟦if .Org⟧
+// Get returns one of an organisation's ⟦.PluralHuman⟧.
+func (s *Service) Get(ctx context.Context, orgID orgslib.ID, id string) (⟦.Package⟧domain.⟦.Ident⟧, error) {
+	ctx, _, err := s.member(ctx, orgID, PermRead)
+	if err != nil {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, storeError("get", err)
+	}
+	p, err := s.store.Select⟦.Ident⟧(ctx, orgID, id, false)
+⟦- else⟧
 // Get returns one of the signed-in user's ⟦.PluralHuman⟧.
 func (s *Service) Get(ctx context.Context, id string) (⟦.Package⟧domain.⟦.Ident⟧, error) {
 	owner, err := ownerID(ctx)
@@ -50,13 +76,14 @@ func (s *Service) Get(ctx context.Context, id string) (⟦.Package⟧domain.⟦.
 		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
 	}
 	p, err := s.store.Select⟦.Ident⟧(ctx, owner, id, false)
+⟦- end⟧
 	if err != nil {
 		return ⟦.Package⟧domain.⟦.Ident⟧{}, storeError("get", err)
 	}
 	return p, nil
 }
 
-// ListInput selects a page of the signed-in user's ⟦.PluralHuman⟧.
+// ListInput selects a page of ⟦if .Org⟧an organisation's⟦else⟧the signed-in user's⟦end⟧ ⟦.PluralHuman⟧.
 type ListInput struct {
 	Page page.Params
 ⟦- range .Enums⟧
@@ -73,7 +100,16 @@ type cursor struct {
 	Text string    `json:"x,omitempty"`
 	ID   string    `json:"i"`
 }
-
+⟦if .Org⟧
+// List returns a page of an organisation's ⟦.PluralHuman⟧, sorted by one field
+// (newest first by default).
+func (s *Service) List(ctx context.Context, orgID orgslib.ID, in ListInput) (page.Result[⟦.Package⟧domain.⟦.Ident⟧], error) {
+	var none page.Result[⟦.Package⟧domain.⟦.Ident⟧]
+	ctx, _, err := s.member(ctx, orgID, PermRead)
+	if err != nil {
+		return none, storeError("list", err)
+	}
+⟦- else⟧
 // List returns a page of the signed-in user's ⟦.PluralHuman⟧, sorted by one
 // field (newest first by default).
 func (s *Service) List(ctx context.Context, in ListInput) (page.Result[⟦.Package⟧domain.⟦.Ident⟧], error) {
@@ -82,6 +118,7 @@ func (s *Service) List(ctx context.Context, in ListInput) (page.Result[⟦.Packa
 	if err != nil {
 		return none, err
 	}
+⟦- end⟧
 	req, err := in.Page.Request(listOptions())
 	if err != nil {
 		return none, err
@@ -96,7 +133,7 @@ func (s *Service) List(ctx context.Context, in ListInput) (page.Result[⟦.Packa
 ⟦- end⟧
 
 	q := ListQuery{
-		OwnerID: owner,
+		⟦if .Org⟧OrgID: orgID⟦else⟧OwnerID: owner⟦end⟧,
 ⟦- range .Enums⟧
 		⟦.Ident⟧: in.⟦.Ident⟧,
 ⟦- end⟧
@@ -154,7 +191,16 @@ type UpdateInput struct {
 	Version int64
 	Changes ⟦.Package⟧domain.Changes
 }
-
+⟦if .Org⟧
+// Update changes one of an organisation's ⟦.PluralHuman⟧. It returns
+// Err⟦.Ident⟧VersionConflict when in.Version is no longer current. An update
+// that changes nothing returns the ⟦.Human⟧ as it is.
+func (s *Service) Update(ctx context.Context, orgID orgslib.ID, id string, in UpdateInput) (⟦.Package⟧domain.⟦.Ident⟧, error) {
+	ctx, _, err := s.member(ctx, orgID, PermWrite)
+	if err != nil {
+		return ⟦.Package⟧domain.⟦.Ident⟧{}, storeError("update", err)
+	}
+⟦- else⟧
 // Update changes one of the signed-in user's ⟦.PluralHuman⟧. It returns
 // Err⟦.Ident⟧VersionConflict when in.Version is no longer current. An update
 // that changes nothing returns the ⟦.Human⟧ as it is.
@@ -163,10 +209,11 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (⟦.Pa
 	if err != nil {
 		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
 	}
+⟦- end⟧
 	var updated ⟦.Package⟧domain.⟦.Ident⟧
 	var changed []string
 	err = s.store.InTx(ctx, func(tx Store) error {
-		current, err := tx.Select⟦.Ident⟧(ctx, owner, id, true)
+		current, err := tx.Select⟦.Ident⟧(ctx, ⟦if .Org⟧orgID⟦else⟧owner⟦end⟧, id, true)
 		if err != nil {
 			return err
 		}
@@ -194,7 +241,15 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (⟦.Pa
 	}
 	return updated, nil
 }
-
+⟦if .Org⟧
+// Delete removes one of an organisation's ⟦.PluralHuman⟧.
+func (s *Service) Delete(ctx context.Context, orgID orgslib.ID, id string) error {
+	ctx, _, err := s.member(ctx, orgID, PermWrite)
+	if err != nil {
+		return storeError("delete", err)
+	}
+	if err := s.store.Delete⟦.Ident⟧(ctx, orgID, id); err != nil {
+⟦- else⟧
 // Delete removes one of the signed-in user's ⟦.PluralHuman⟧.
 func (s *Service) Delete(ctx context.Context, id string) error {
 	owner, err := ownerID(ctx)
@@ -202,6 +257,7 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if err := s.store.Delete⟦.Ident⟧(ctx, owner, id); err != nil {
+⟦- end⟧
 		return storeError("delete", err)
 	}
 	s.audit(ctx, ActionDeleted, id, nil)

@@ -20,10 +20,11 @@ import (
 
 const genResourceUsage = `Usage: aps gen resource <Name> <field:type>... [flags]
 
-Generates a module for records that belong to the signed-in user: domain
-rules, use cases, a repository with hand-written SQL, HTTP endpoints under
-/v1/<names>, tests and a migration (ADR-0039). The code is yours to change.
-Run it inside an app created with the Full preset.
+Generates a module for records that belong to the signed-in user, or in a
+multi-tenant app to an organisation: domain rules, use cases, a repository
+with hand-written SQL, HTTP endpoints under /v1/<names> (or
+/v1/orgs/{orgId}/<names>), tests and a migration (ADR-0039, ADR-0048). The
+code is yours to change. Run it inside an app created with the Full preset.
 
 Field types:
   name:string                1 to 100 characters, required and sortable;
@@ -40,8 +41,32 @@ type genResourceResult struct {
 	Module string   `json:"module"`
 	Route  string   `json:"route"`
 	Table  string   `json:"table"`
+	Scope  string   `json:"scope"`
 	Files  []string `json:"files"`
 	DryRun bool     `json:"dry_run"`
+}
+
+// resourceRoute is the collection path of a generated resource.
+func resourceRoute(d recipes.ResourceData) string {
+	if d.Org {
+		return "/v1/orgs/{orgId}/" + d.Route
+	}
+	return "/v1/" + d.Route
+}
+
+// appTenancy returns the tenancy recorded in the app's apistock.yaml, or
+// single when it records none.
+func appTenancy(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, "apistock.yaml"))
+	if err != nil {
+		return recipes.TenancySingle
+	}
+	for line := range strings.Lines(string(data)) {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "tenancy:"); ok && strings.TrimSpace(v) == recipes.TenancyMulti {
+			return recipes.TenancyMulti
+		}
+	}
+	return recipes.TenancySingle
 }
 
 func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
@@ -49,7 +74,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	flags.SetOutput(stderr)
 	plural := flags.String("plural", "", "plural name when adding -s or -es is wrong, such as People")
 	idPrefix := flags.String("id-prefix", "", "2 to 8 lowercase letters that start every ID (default: derived from the name, such as prj)")
-	scope := flags.String("scope", "user", "who owns the records: user (organisation and global scopes come later)")
+	scope := flags.String("scope", "", "who the records belong to: user or org (default: org in multi-tenant apps, user otherwise)")
 	dryRun := flags.Bool("dry-run", false, "show what would be generated without writing")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	allowDirty := flags.Bool("allow-dirty", false, "allow uncommitted changes in the git repository")
@@ -66,8 +91,8 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	if err != nil {
 		return err
 	}
-	if *scope != "user" {
-		return usageError(fmt.Sprintf("--scope %s isn't available yet: resources are owned by the signed-in user (--scope user)", *scope))
+	if *scope != "" && *scope != recipes.ScopeUser && *scope != recipes.ScopeOrg {
+		return usageError(fmt.Sprintf("unknown --scope %q (want user or org)", *scope))
 	}
 	var name string
 	var specs []string
@@ -88,6 +113,17 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	}
 	if info, err := os.Stat(filepath.Join(app.dir, "internal", "modules", "auth")); err != nil || !info.IsDir() {
 		return fmt.Errorf("%s has no internal/modules/auth: resources belong to signed-in users, so aps gen resource needs the Full preset's auth module", app.dir)
+	}
+	// Records belong to organisations in multi-tenant apps unless --scope says otherwise.
+	_, orgsErr := os.Stat(filepath.Join(app.dir, "internal", "modules", "orgs"))
+	if *scope == "" {
+		*scope = recipes.ScopeUser
+		if appTenancy(app.dir) == recipes.TenancyMulti {
+			*scope = recipes.ScopeOrg
+		}
+	}
+	if *scope == recipes.ScopeOrg && orgsErr != nil {
+		return fmt.Errorf("%s has no internal/modules/orgs: --scope org needs organisations; create the app with aps new --tenancy multi (aps add orgs arrives in v0.5)", app.dir)
 	}
 
 	ask := shouldPrompt(p, *asJSON, stdin, stdout)
@@ -110,7 +146,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	if err != nil {
 		return err
 	}
-	data, err := recipes.NewResourceData(app.module, name, fields, recipes.ResourceOptions{Plural: *plural, IDPrefix: *idPrefix, Migration: version})
+	data, err := recipes.NewResourceData(app.module, name, fields, recipes.ResourceOptions{Plural: *plural, IDPrefix: *idPrefix, Migration: version, Scope: *scope})
 	if err != nil {
 		return usageError(err.Error())
 	}
@@ -130,6 +166,25 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 			modulesGo, data.PluralHuman, recipes.ModulesAnchor, err)
 	}
 
+	// Org-scoped resources also give their permissions to the organisation roles.
+	permissionsGo := filepath.Join("internal", "app", "permissions.go")
+	var permissions []byte
+	if data.Org {
+		src, err := os.ReadFile(filepath.Join(app.dir, permissionsGo))
+		if err != nil {
+			return err
+		}
+		permissions, err = recipes.InsertAfterAnchor(src, recipes.OrgPermissionsAnchor, data.PermissionsLine())
+		switch {
+		case errors.Is(err, recipes.ErrAnchorMissing):
+			return fmt.Errorf("%s has no %q line; add it as the first line inside orgResourcePermissions, as in examples/full-multi, then run aps gen resource again", permissionsGo, recipes.OrgPermissionsAnchor)
+		case errors.Is(err, recipes.ErrLinePresent):
+			return fmt.Errorf("%s: the %s permissions are already declared", permissionsGo, data.PluralHuman)
+		case err != nil:
+			return fmt.Errorf("%s: can't declare the %s permissions after %q: %w", permissionsGo, data.PluralHuman, recipes.OrgPermissionsAnchor, err)
+		}
+	}
+
 	root, err := os.OpenRoot(app.dir)
 	if err != nil {
 		return err
@@ -139,7 +194,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	if _, err := root.Stat(filepath.FromSlash(moduleDir)); err == nil {
 		return fmt.Errorf("%s already exists; choose another name or --plural", moduleDir)
 	}
-	result := genResourceResult{Name: data.Ident, Module: data.Package, Route: "/v1/" + data.Route, Table: data.Table, DryRun: *dryRun}
+	result := genResourceResult{Name: data.Ident, Module: data.Package, Route: resourceRoute(data), Table: data.Table, Scope: *scope, DryRun: *dryRun}
 	for _, f := range files {
 		if _, err := root.Stat(filepath.FromSlash(f.Path)); err == nil {
 			return fmt.Errorf("%s already exists; choose another name or --plural", f.Path)
@@ -147,6 +202,9 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 		result.Files = append(result.Files, f.Path)
 	}
 	result.Files = append(result.Files, filepath.ToSlash(modulesGo))
+	if data.Org {
+		result.Files = append(result.Files, filepath.ToSlash(permissionsGo))
+	}
 
 	summary := resourceSummary(data, result.Files)
 	if !*dryRun && ask {
@@ -177,6 +235,11 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 		if err := root.WriteFile(modulesGo, updated, 0o644); err != nil {
 			return err
 		}
+		if data.Org {
+			if err := root.WriteFile(permissionsGo, permissions, 0o644); err != nil {
+				return err
+			}
+		}
 	}
 
 	if *asJSON {
@@ -188,9 +251,12 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	}
 	fmt.Fprintf(stdout, "✓ %s resource %s\n\n%s\n", verb, data.Ident, summary)
 	if !*dryRun {
-		fmt.Fprintf(stdout, "\nNext:\n  1. go run ./cmd/migrate\n  2. go test ./...\n  3. go run ./cmd/api openapi > api/openapi.json\n  4. go run ./cmd/api, sign in, then POST /v1/%s\n\n"+
+		fmt.Fprintf(stdout, "\nNext:\n  1. go run ./cmd/migrate\n  2. go test ./...\n  3. go run ./cmd/api openapi > api/openapi.json\n  4. go run ./cmd/api, sign in, then POST %s\n\n"+
 			"The code is yours: change the rules in internal/modules/%s/domain and the SQL in internal/modules/%s/repository.\n",
-			data.Route, data.Package, data.Package)
+			resourceRoute(data), data.Package, data.Package)
+		if data.Org {
+			fmt.Fprintf(stdout, "Every organisation role gets %s.%s.read and .write; change that in declareOrgPermissions in internal/app/permissions.go.\n", data.Package, data.Snake)
+		}
 	}
 	return nil
 }
@@ -264,7 +330,11 @@ func nextMigrationVersion(dir string, now time.Time) (string, error) {
 func resourceSummary(d recipes.ResourceData, files []string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "  Resource:  %s (table %s, IDs like %s_…)\n", d.Ident, d.Table, d.IDPrefix)
-	fmt.Fprintf(&b, "  API:       /v1/%s, for the signed-in user's %s\n", d.Route, d.PluralHuman)
+	if d.Org {
+		fmt.Fprintf(&b, "  API:       %s, for an organisation's %s\n", resourceRoute(d), d.PluralHuman)
+	} else {
+		fmt.Fprintf(&b, "  API:       %s, for the signed-in user's %s\n", resourceRoute(d), d.PluralHuman)
+	}
 	b.WriteString("  Fields:\n")
 	for _, f := range d.Fields {
 		var kind string
