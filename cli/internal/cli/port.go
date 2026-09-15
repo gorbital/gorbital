@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 )
 
 // defaultAppAddr matches the generated app's default APP_ADDR.
@@ -12,13 +11,7 @@ const defaultAppAddr = "127.0.0.1:8080"
 
 // appAddr returns the last APP_ADDR in env, or the app's default.
 func appAddr(env []string) string {
-	addr := defaultAppAddr
-	for _, kv := range env {
-		if v, ok := strings.CutPrefix(kv, "APP_ADDR="); ok && v != "" {
-			addr = v
-		}
-	}
-	return addr
+	return envValue(env, "APP_ADDR", defaultAppAddr)
 }
 
 // checkPortFree reports a clear error when another process already listens

@@ -1,0 +1,85 @@
+package app_test
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"testing"
+
+	"apistock.dev/modules/postgres/pgtest"
+
+	"⟦.Module⟧/internal/app"
+)
+
+func TestSeed(t *testing.T) {
+	ctx := context.Background()
+	cfg := testConfig(t, map[string]string{"DATABASE_URL": pgtest.NewDatabase(t)})
+	if err := app.Migrate(ctx, cfg, io.Discard); err != nil {
+		t.Fatalf("Migrate() error = %v", err)
+	}
+
+	var out bytes.Buffer
+	if err := app.Seed(ctx, cfg, app.DefaultSeedEmail, &out); err != nil {
+		t.Fatalf("Seed() error = %v", err)
+	}
+	var password string
+	for line := range strings.Lines(out.String()) {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "Password:"); ok {
+			password = strings.TrimSpace(v)
+		}
+	}
+	if len(password) < 20 || !strings.Contains(out.String(), "admin@example.com (platform_admin)") {
+		t.Fatalf("Seed() output = %q, want the administrator and a strong password", out.String())
+	}
+
+	a, err := app.New(ctx, cfg)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	t.Cleanup(func() { _ = a.Close(ctx) })
+	h := a.Handler()
+
+	login := do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":%q,"password":%q,"transport":"bearer"}`, app.DefaultSeedEmail, password))
+	token, _ := login.json["token"].(string)
+	if login.code != http.StatusOK || token == "" {
+		t.Fatalf("login with the printed password = %d %s", login.code, login.body)
+	}
+	bearer := []string{"Authorization", "Bearer " + token}
+	if r := do(t, h, "GET", "/ops/settings", "", bearer...); r.code != http.StatusOK {
+		t.Errorf("GET /ops/settings as the seeded administrator = %d %s, want 200", r.code, r.body)
+	}
+	projects := do(t, h, "GET", "/v1/projects?limit=50", "", bearer...)
+	for _, name := range []string{"Website redesign", "Mobile app", "Legacy import"} {
+		if strings.Count(projects.body, fmt.Sprintf("%q", name)) != 1 {
+			t.Errorf("GET /v1/projects = %s, want the example project %q once", projects.body, name)
+		}
+	}
+
+	// Running it again changes nothing and prints no password.
+	out.Reset()
+	if err := app.Seed(ctx, cfg, app.DefaultSeedEmail, &out); err != nil {
+		t.Fatalf("Seed() again error = %v", err)
+	}
+	if !strings.Contains(out.String(), "left unchanged") || strings.Contains(out.String(), "Password:") {
+		t.Errorf("Seed() again output = %q", out.String())
+	}
+	again := do(t, h, "GET", "/v1/projects?limit=50", "", bearer...)
+	if strings.Count(again.body, `"Legacy import"`) != 1 {
+		t.Errorf("GET /v1/projects after seeding twice = %s, want each example once", again.body)
+	}
+	if r := do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":%q,"password":%q,"transport":"bearer"}`, app.DefaultSeedEmail, password)); r.code != http.StatusOK {
+		t.Errorf("login after seeding twice = %d %s, want the password unchanged", r.code, r.body)
+	}
+}
+
+func TestSeedRefusesProduction(t *testing.T) {
+	cfg := testConfig(t, map[string]string{"DATABASE_URL": "postgres://unused@127.0.0.1:1/unused"})
+	cfg.Env = "production"
+	err := app.Seed(context.Background(), cfg, app.DefaultSeedEmail, io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "production") {
+		t.Errorf("Seed() in production = %v, want a refusal", err)
+	}
+}

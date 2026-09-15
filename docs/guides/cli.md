@@ -237,12 +237,26 @@ Safety checks: the app must have `internal/app/mail.go` and the `.env.example` b
 
 ## `aps dev`
 
-Builds and runs the app in the current directory, rebuilding on changes and loading `.env`.
+Builds and runs the app in the current directory, rebuilding when files change and loading `.env` (variables already set in the environment win).
+
+In an app with a database (Full preset), before the first start it:
+
+1. Creates `.env` from `.env.example` (mode 0600) when there is none.
+2. Checks Docker, and that the services' host ports are free: `POSTGRES_PORT`, `MAILPIT_SMTP_PORT` and `MAILPIT_WEB_PORT` (ports held by the app's own running services are fine). A taken port names the `.env` line that moves it.
+3. Starts PostgreSQL and Mailpit from the app's `compose.yaml` with `docker compose up -d --wait`.
+4. Applies migrations (`go run ./cmd/migrate`) and runs seed data (`go run ./cmd/seed`). The first run prints the administrator's password once ([ADR-0042](../adr/0042-development-seed-data.md)); later runs change nothing.
+5. Prints the API, docs and email inbox addresses, then starts the app.
+
+While it runs, a changed or new migration is applied before the restart; if it fails, the previous version keeps running. Services keep running after `aps dev` stops, so the next start is fast: `docker compose down` stops them, and `docker compose down -v` also deletes the database.
 
 | Flag | Default |
 |---|---|
+| `--observability` | off. Also starts Grafana (`grafana/otel-lgtm`, the `observability` profile in `compose.yaml`) on `GRAFANA_PORT` (3000) and sets `OTEL_EXPORTER_OTLP_ENDPOINT` for the app, so its traces, metrics and logs appear there. Works in Minimal apps too |
+| `--no-services` | start services. Skips Docker and uses `DATABASE_URL` and `MAILPIT_SMTP_ADDR` from `.env` as they are; migrations and seed data still run |
 | `--no-reload` | reload on change |
 | `--interval` | 500ms between change checks |
+
+Without Docker, a Full app stops with a message: install and start Docker, or point `DATABASE_URL` at an existing PostgreSQL and use `--no-services`. Without the CLI, the same steps are `cp .env.example .env`, `docker compose up -d --wait`, `go run ./cmd/migrate`, `go run ./cmd/seed` and `go run ./cmd/api`.
 
 ## Exit codes
 

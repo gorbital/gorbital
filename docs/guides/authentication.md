@@ -50,7 +50,9 @@ Change a rule, such as allowing only your company's email domain, in the use cas
 
 ## Your first administrator
 
-`/ops/*` needs a platform role. Register and verify your account as above, then grant yourself `platform_admin` from the app's directory:
+`/ops/*` needs a platform role. In development, seed data already created one: the first `aps dev` (or `go run ./cmd/seed`) creates `admin@example.com` with `platform_admin` and prints its random password once, without saving it ([ADR-0042](../adr/0042-development-seed-data.md)). Sign in with it, or reset it through `POST /v1/auth/password/forgot` and Mailpit.
+
+To give your own account a role, in development or production, register and verify it as above, then grant the role from the app's directory:
 
 ```bash
 go run ./cmd/api roles                                        # list roles and their permissions

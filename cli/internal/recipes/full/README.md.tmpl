@@ -5,10 +5,17 @@ A Go API created with [apistock](https://apistock.dev) (Full preset, single-tena
 ## Run
 
 ```bash
+aps dev      # PostgreSQL and Mailpit in Docker, migrations, seed data, live reload
+```
+
+The first run prints the password of the seeded administrator, `admin@example.com`, once. Without the apistock CLI:
+
+```bash
 cp .env.example .env
 docker compose up -d --wait     # PostgreSQL and Mailpit
 go run ./cmd/migrate            # database migrations
-go run ./cmd/api                # or: aps dev
+go run ./cmd/seed               # administrator and example projects (development only)
+go run ./cmd/api
 ```
 
 | URL | What |
@@ -21,9 +28,20 @@ go run ./cmd/api                # or: aps dev
 | http://127.0.0.1:8080/ops/audit | Audit log: who changed what, filterable (platform role) |
 | http://127.0.0.1:8080/ops/mail | Email provider and sender; `POST /ops/mail/test` sends a test email (platform role) |
 | http://127.0.0.1:8025 | Mailpit: every email sent in development |
+| http://127.0.0.1:3000 | Grafana: traces, metrics and logs, with `aps dev --observability` |
 | http://127.0.0.1:8080/livez · /readyz | Health checks |
 
-## Sign up and become an admin
+## Sign in as the administrator
+
+Seed data creates `admin@example.com` with the `platform_admin` role. Its password is printed once, by the first `aps dev` (or `go run ./cmd/seed`), and isn't saved anywhere; if you lose it, call `POST /v1/auth/password/forgot` and reset it with the code from Mailpit.
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:8080/v1/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"admin@example.com","password":"<the printed password>","transport":"bearer"}' | jq -r .token)
+curl http://127.0.0.1:8080/ops/settings -H "Authorization: Bearer $TOKEN"
+```
+
+To make your own account an administrator:
 
 ```bash
 curl -X POST http://127.0.0.1:8080/v1/auth/register -H 'Content-Type: application/json' \
@@ -79,11 +97,12 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 
 ## Examples to keep or remove
 
-The app starts with three examples that show the patterns the rest of the code follows. Keep them as references, or remove them:
+The app starts with four examples that show the patterns the rest of the code follows. Keep them as references, or remove them:
 
 | Example | To remove |
 |---|---|
-| `projects` resource (`/v1/projects`) | Delete `internal/modules/projects/`, `internal/app/module_projects.go` and `internal/app/projects_test.go`, and its line in `internal/app/modules.go`. If its migration already ran, add a migration that drops the `projects` table |
+| Seed data (`go run ./cmd/seed`) | Delete `cmd/seed/`, `internal/app/seed.go` and `internal/app/seed_test.go`; `aps dev` skips seed data when `cmd/seed` is missing |
+| `projects` resource (`/v1/projects`) | Delete `internal/modules/projects/`, `internal/app/module_projects.go` and `internal/app/projects_test.go`, its line in `internal/app/modules.go`, and the example projects in `internal/app/seed.go`. If its migration already ran, add a migration that drops the `projects` table |
 | `heartbeat` job | Delete `internal/jobs/heartbeat/` and `internal/app/job_heartbeat.go`, and its line in `internal/app/jobs.go` |
 | `ping` endpoint (`/v1/ping`) | Delete `internal/modules/ping/` and `internal/app/module_ping.go`, its line and the `pingMessage` field in `internal/app/modules.go`, and the `example.ping_message` setting in `internal/app/settings.go`; the tests that call `/v1/ping` or change that setting use it too |
 

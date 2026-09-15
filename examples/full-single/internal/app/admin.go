@@ -9,12 +9,8 @@ import (
 	"time"
 
 	"apistock.dev/actor"
-	"apistock.dev/modules/auditpg"
-	"apistock.dev/modules/postgres"
 
-	authmodule "example.com/acme-api/internal/modules/auth"
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
-	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 )
 
 // GrantRole gives the account registered with email a platform role, for
@@ -39,23 +35,12 @@ func WriteRoles(w io.Writer) {
 }
 
 func changeRole(ctx context.Context, cfg Config, email, role string, grant bool, w io.Writer) error {
-	if cfg.DatabaseURL.IsZero() {
-		return errors.New("DATABASE_URL is required")
-	}
-	pool, err := postgres.Open(ctx, cfg.DatabaseURL, postgres.WithApplicationName(ServiceName+"-cli"))
+	deps, err := openCommandDeps(ctx, cfg, "cli")
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
-	recorder, err := auditpg.NewStore(pool)
-	if err != nil {
-		return err
-	}
-	m, err := authmodule.New(pool, authusecase.Config{Catalog: declarePermissions(), Recorder: recorder, Emails: noEmails{}})
-	if err != nil {
-		return err
-	}
-	svc := m.Service()
+	defer deps.pool.Close()
+	svc := deps.auth
 
 	ctx = actor.With(ctx, actor.System("cli"))
 	user, err := svc.UserByEmail(ctx, email)

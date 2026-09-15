@@ -51,3 +51,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0039](0039-resource-module-template.md) | Resource module template | Accepted |
 | [0040](0040-release-tracking.md) | Release tracking | Accepted |
 | [0041](0041-full-preset-generation.md) | Full preset generation | Accepted |
+| [0042](0042-development-seed-data.md) | Development seed data | Accepted |

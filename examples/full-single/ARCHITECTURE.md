@@ -7,6 +7,7 @@ This app follows the apistock layered module structure. The rules below are chec
 ```text
 cmd/api/                 entry point: config → app → run ("api openapi" exports the spec)
 cmd/migrate/             applies db/migrations, then the job queue's migrations
+cmd/seed/                development seed data: an administrator and example projects
 db/migrations/           one ordered goose history, including apistock module tables
 internal/app/            composition root: builds, wires, runs and shuts down the app
   config.go              boot configuration: secrets and infrastructure from environment variables
@@ -17,6 +18,8 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   routes.go              API, health, docs and the middleware chain
   permissions.go         permissions and platform roles (platform_admin, ops_viewer)
   admin.go               grant-role, revoke-role and roles commands (cmd/api)
+  commands.go            database, audit and auth wiring shared by commands
+  seed.go                development seed data (cmd/seed)
   mail.go                email delivery: Mailpit in development or the provider
   infra_mail.go          the email provider's configuration (replaced by `aps add mail`)
   modules.go             one line per business module (//aps:anchor modules)

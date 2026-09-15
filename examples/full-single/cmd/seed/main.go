@@ -1,0 +1,39 @@
+// The seed command fills a development database with a platform
+// administrator and example projects (ADR-0042). It prints the
+// administrator's random password once, refuses to run when APP_ENV is
+// production, and changes nothing when the administrator already exists.
+// Run it after cmd/migrate; aps dev runs both.
+//
+// Usage:
+//
+//	seed [-email admin@example.com]
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+
+	"apistock.dev/config"
+
+	"example.com/acme-api/internal/app"
+)
+
+func main() {
+	if err := run(context.Background(), os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, "seed:", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, args []string) error {
+	flags := flag.NewFlagSet("seed", flag.ExitOnError)
+	email := flags.String("email", app.DefaultSeedEmail, "email address of the administrator to create")
+	_ = flags.Parse(args) // exits on error
+	cfg, err := app.LoadConfig(config.OS)
+	if err != nil {
+		return err
+	}
+	return app.Seed(ctx, cfg, *email, os.Stdout)
+}

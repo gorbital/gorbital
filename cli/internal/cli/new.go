@@ -174,18 +174,17 @@ func lookupPreset(name string) (recipes.Preset, error) {
 // nextSteps tells how to run a new app of the preset in dir.
 func nextSteps(dir, preset string) string {
 	if preset != "full" {
-		return fmt.Sprintf("  cd %s\n  aps dev\n\n  API docs: http://127.0.0.1:8080/docs\n", dir)
+		return fmt.Sprintf("  cd %s\n  aps dev\n\n  API docs: http://127.0.0.1:8080/docs\n  Traces and logs: aps dev --observability (needs Docker)\n", dir)
 	}
 	return fmt.Sprintf(`  cd %s
-  cp .env.example .env
-  docker compose up -d --wait    # PostgreSQL and Mailpit
-  go run ./cmd/migrate
-  go run ./cmd/api               # or: aps dev
+  aps dev      # PostgreSQL and Mailpit in Docker, migrations, seed data, live reload
 
-  API docs:     http://127.0.0.1:8080/docs
-  Email inbox:  http://127.0.0.1:8025 (Mailpit catches every email in development)
-  First admin:  README.md, "Sign up and become an admin"
+  API docs:       http://127.0.0.1:8080/docs
+  Email inbox:    http://127.0.0.1:8025 (Mailpit catches every email in development)
+  Administrator:  admin@example.com; aps dev prints its password once, on the first run
 
+  Without the apistock CLI: cp .env.example .env, docker compose up -d --wait,
+  then go run ./cmd/migrate, go run ./cmd/seed and go run ./cmd/api.
   Port 5432 already in use? Set POSTGRES_PORT in .env, and the same port in DATABASE_URL.
   Email goes through Resend outside development; run aps add mail to use SMTP instead.
 `, dir)

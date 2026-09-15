@@ -69,11 +69,11 @@ Owner: project maintainer. Each accepted risk is recorded here with a review dat
 | 19 Sensitive data in logs | Done for v0.1 scope: `config.Secret` redaction, access logs without query strings, validation errors never echo values |
 | 21 Vulnerable dependencies | Done: govulncheck in CI for every module |
 
-## v0.2 status (in progress, 2026-09-14)
+## v0.2 status (2026-09-15)
 
 | # | Status |
 |---|---|
-| 11 Localhost services | Done for PostgreSQL and Mailpit: `compose.yaml` binds both to 127.0.0.1 in the repository and the Full preset |
+| 11 Localhost services | Done for PostgreSQL, Mailpit and Grafana: `compose.yaml` binds them to 127.0.0.1 in the repository and both presets |
 | 12 Account enumeration | Done (ADR-0038): identical responses for register, resend and forgot-password; `invalid_credentials` for unknown addresses and wrong passwords after the same hashing work; 10 login attempts per address per 15 minutes; 5 attempts per code; 60 auth requests per IP per minute; breached-password hook (`PasswordChecker`) |
 | 13 Session theft | Done (ADR-0038): 256-bit tokens stored as SHA-256; `__Host-` Secure HttpOnly SameSite=Lax cookies with cross-origin protection; idle (14 d) and absolute (90 d) expiry clamped to hard limits; revocation, logout-all, sessions ended on password change, reset and deletion |
 | 18 Privilege escalation to ops | **Partial:** `/ops/*` requires a session whose platform roles grant each operation's permission (deny by default, roles read on every request, grants audited); `OPS_TOKEN` removed (ADR-0038). Required 2FA for ops roles and the optional internal port remain |
@@ -81,3 +81,10 @@ Owner: project maintainer. Each accepted risk is recorded here with a review dat
 | 22 Open-core dependencies | River (MPL-2.0) and goose (MIT) used without Pro features; `robfig/cron/v3` (MIT) swap path is River's `PeriodicSchedule` |
 | 23 Runtime settings abuse | Done: no secret type, declared bounds, reasons, versions, history and audit events (`modules/settings`) |
 | 24 Job controls abuse | Done: permissions per operation, reasons to disable or reschedule, 1-minute minimum interval, bounded timeout and attempts, history and audit events, arguments hidden (`modules/jobs`) |
+
+Reviewed against the code for v0.2's definition of done (rows 12, 13, 19, 23 and 24), 2026-09-15: each mitigation above is in place and tested. Notes from the review:
+
+- Row 12: the breached-password hook is `authusecase.Config.PasswordChecker`. No checker is configured by default; an app chooses one (a local list, or a k-anonymity API) in `internal/app/module_auth.go`.
+- Row 19: the auth use cases' log line for an email that couldn't be queued named its attribute `email`, which reads like an address; the value was always the email's kind (`verification_code`), never the address. It is now `email_kind`.
+- Row 19: seed data (ADR-0042) prints the administrator's random password once to the developer's terminal, never to logs, files or the audit log, and refuses to run in production.
+- Row 24: disabling requires a reason, a disabled job can't be run now (409) and leaves the schedule, and each change is in the job's history and audit log (`TestJobsThroughOps`).

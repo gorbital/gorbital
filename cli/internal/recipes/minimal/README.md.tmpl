@@ -6,6 +6,7 @@ A Go API created with [apistock](https://apistock.dev) (Minimal preset).
 
 ```bash
 aps dev
+aps dev --observability      # also Grafana on http://127.0.0.1:3000 for traces, metrics and logs (needs Docker)
 ```
 
 Without the apistock CLI:

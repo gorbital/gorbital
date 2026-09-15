@@ -264,7 +264,7 @@ PostgreSQL only, always from Docker in development, tests and CI. `modules/postg
 
 **Implemented in v0.1:** `aps new` (Minimal preset; `--module`, `--local`, `--json`, `--no-git`), `aps dev` (build, run, reload, `.env`, port check), `aps version`.
 
-**Implemented in v0.2 so far:** `aps gen job` (interactive or flags), `aps gen resource` (string, text and enum fields; golden-tested against `examples/full-single`'s projects module), `aps gen migration`, interactive `aps new`, `aps new --preset=full` (generated from `examples/full-single`, [ADR-0041](adr/0041-full-preset-generation.md)), `aps add mail`. Guide: [CLI](guides/cli.md).
+**Implemented in v0.2 so far:** `aps gen job` (interactive or flags), `aps gen resource` (string, text and enum fields; golden-tested against `examples/full-single`'s projects module), `aps gen migration`, `aps dev` with Docker services, migrations, seed data and `--observability` ([ADR-0042](adr/0042-development-seed-data.md)), interactive `aps new`, `aps new --preset=full` (generated from `examples/full-single`, [ADR-0041](adr/0041-full-preset-generation.md)), `aps add mail`. Guide: [CLI](guides/cli.md).
 
 **Interaction ([ADR-0035](adr/0035-interactive-cli.md)):** in a terminal, commands ask for missing values with arrow-key selects, checkboxes, validated inputs and a final summary; every prompt has a flag, flags skip their prompts, and `--yes`, `--json`, `--no-input` or `CI` never prompt. Prompts and flags share validators.
 

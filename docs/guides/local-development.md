@@ -61,6 +61,7 @@ export APISTOCK_TEST_MAILPIT_URL=http://127.0.0.1:58025
 - Without `APISTOCK_TEST_DATABASE_URL`, database tests are **skipped** with instructions.
 - With `APISTOCK_REQUIRE_DB=1` (as in CI), a missing database **fails** the tests instead.
 - Without the Mailpit variables, `modules/mail/smtp`'s Mailpit test is skipped and the example checks that email is queued but not delivered; `APISTOCK_REQUIRE_MAILPIT=1` (as in CI) makes the missing Mailpit a failure.
+- `APS_E2E_DOCKER=1` in `cli` runs `aps dev` in a new Full app against real Docker on free ports, signs in as the seeded administrator and checks that a registration email reaches Mailpit; its containers and volume are removed afterwards.
 - `APS_E2E=1` in `cli` runs the end-to-end tests: a generated Minimal app passes its tests, and a copy of `examples/full-single` builds after `aps add mail` switches it to SMTP and back.
 - Every test gets its own database, cloned from a migrated template, and dropped afterwards; tests are isolated and can run in parallel across packages.
 
@@ -85,9 +86,15 @@ go run ./cmd/api openapi > api/openapi.json
 
 ```bash
 cd examples/full-single
+aps dev      # .env, its own PostgreSQL on 127.0.0.1:5432 and Mailpit on http://127.0.0.1:8025, migrations, seed data
+```
+
+The first run prints the seeded administrator's password (`admin@example.com`) once. Without the CLI:
+
+```bash
 cp .env.example .env
-docker compose up -d --wait          # its own PostgreSQL on 127.0.0.1:5432 and Mailpit on http://127.0.0.1:8025
-go run ./cmd/migrate
+docker compose up -d --wait
+go run ./cmd/migrate && go run ./cmd/seed
 go run ./cmd/api
 ```
 

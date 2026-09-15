@@ -1,0 +1,46 @@
+package app
+
+import (
+	"context"
+	"errors"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"apistock.dev/audit"
+	"apistock.dev/modules/auditpg"
+	"apistock.dev/modules/postgres"
+
+	authmodule "⟦.Module⟧/internal/modules/auth"
+	authusecase "⟦.Module⟧/internal/modules/auth/usecase"
+)
+
+// commandDeps are what commands outside the server need: the database, the
+// audit log and the auth use cases, without HTTP or workers.
+type commandDeps struct {
+	pool     *pgxpool.Pool
+	recorder audit.Recorder
+	auth     *authusecase.Service
+}
+
+// openCommandDeps connects to the database as "<ServiceName>-<name>". Close
+// deps.pool when done.
+func openCommandDeps(ctx context.Context, cfg Config, name string) (commandDeps, error) {
+	if cfg.DatabaseURL.IsZero() {
+		return commandDeps{}, errors.New("DATABASE_URL is required")
+	}
+	pool, err := postgres.Open(ctx, cfg.DatabaseURL, postgres.WithApplicationName(ServiceName+"-"+name))
+	if err != nil {
+		return commandDeps{}, err
+	}
+	recorder, err := auditpg.NewStore(pool)
+	if err != nil {
+		pool.Close()
+		return commandDeps{}, err
+	}
+	m, err := authmodule.New(pool, authusecase.Config{Catalog: declarePermissions(), Recorder: recorder, Emails: noEmails{}})
+	if err != nil {
+		pool.Close()
+		return commandDeps{}, err
+	}
+	return commandDeps{pool: pool, recorder: recorder, auth: m.Service()}, nil
+}

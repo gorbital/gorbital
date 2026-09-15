@@ -1,6 +1,6 @@
 # ADR-0028: Local development environment
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0007, ADR-0010
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0007, ADR-0010 · **Amended by:** ADR-0042 (seed password printed once, never stored)
 
 ## Context
 
@@ -37,7 +37,7 @@ On start, `aps dev` prints:
 | Ports | Checked before start; conflicts reported with the process name where available |
 | Email | Always delivered to Mailpit in development (ADR-0025) |
 | Telemetry | The app always emits OpenTelemetry; exporting to Grafana only with `--observability` |
-| Default admin | Created by seed on first run; credentials printed once and stored in `.env` |
+| Default admin | Created by seed on first run; the random password is printed once and never stored ([ADR-0042](0042-development-seed-data.md)) |
 | Services | Defined in the app's owned `compose.yaml`; `aps dev` never uses hidden containers |
 | Without the CLI | `docker compose up -d` plus `go run ./cmd/api` must work |
 | Custom dev console | v1.1; may replace Grafana for local viewing |
@@ -84,3 +84,15 @@ Development, tests and CI all get PostgreSQL from a Docker container. apistock n
 - Before starting, `aps dev` checks that `APP_ADDR` (default `127.0.0.1:8080`) is free and, if not, stops with a message suggesting another `APP_ADDR`.
 - Reload polls watched files (Go sources, module files, `.env`, `.html`, `.json`, `.sql`) every 500 ms. A failed build keeps the previous version running. The app runs in its own process group so Ctrl+C stops it exactly once.
 - Measured with the real CLI (`scripts/first-run.sh`): 25.0 s from clean caches (196 MB of modules, mostly OpenTelemetry exporter dependencies), 4.8 s warm. Target met.
+
+## v0.2 implementation notes (2026-09-15)
+
+- `aps dev` reads `features` in `apistock.yaml`. Apps with `postgres` take the Docker path; Minimal apps still build and run without Docker unless `--observability` is given.
+- Before the first start: `.env` is created from `.env.example` (mode 0600) when missing; `docker compose version` and `docker compose ps --services --status running` check Docker; the host ports of services that aren't already running are checked (`POSTGRES_PORT`, `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT`, and with `--observability` `GRAFANA_PORT` and `OTLP_HTTP_PORT`), a taken port naming the `.env` line that moves it; `docker compose up -d --wait`; `go run ./cmd/migrate`; `go run ./cmd/seed` when the app has it ([ADR-0042](0042-development-seed-data.md)); then the banner.
+- `--no-services` skips Docker and uses the addresses in `.env`; migrations and seed still run. Without Docker, the error offers that path.
+- While running, a changed or new `.sql` file under `db/migrations` runs migrations after a successful build and before the restart; a failed migration keeps the previous version running.
+- Services are left running when `aps dev` stops, so restarts are fast; `docker compose down` stops them.
+- `--observability`: Grafana is the `grafana/otel-lgtm:0.33.0` service behind the `observability` Compose profile in each preset's owned `compose.yaml` (the Minimal preset gains a `compose.yaml` holding only it), bound to 127.0.0.1. `aps dev` sets `OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:<OTLP_HTTP_PORT>` for the app process only, over any `.env` value.
+- The banner's "Google login: not configured" line arrives with social login (v0.3).
+- Tests: the order of commands, `.env` creation, port conflicts, missing Docker and `--no-services` run with fake commands; `APS_E2E_DOCKER=1` runs `aps dev` in a new Full app against real Docker, signs in as the seeded administrator and finds a registration email in Mailpit.
+- Measured with that test (2026-09-15, Docker Desktop on macOS, images and Go caches warm): the API answers `/readyz` 9.6 s after `aps dev` starts, including Compose health waits, migrations and seed data. Runs that pull images depend on the network and aren't measured.

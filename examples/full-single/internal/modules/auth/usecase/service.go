@@ -144,11 +144,12 @@ func userEvent(action, userID string, client authlib.ClientInfo) audit.Event {
 	return audit.Event{Action: action, ResourceType: resourceType, ResourceID: userID, IP: client.IP, UserAgent: client.UserAgent}
 }
 
-// sent logs an email that couldn't be queued. The operation has already
-// succeeded; the user can ask for the email again.
-func (s *Service) sent(ctx context.Context, email string, err error) {
+// sent logs an email of kind (such as verification_code) that couldn't be
+// queued; the address is never logged. The operation has already succeeded;
+// the user can ask for the email again.
+func (s *Service) sent(ctx context.Context, kind string, err error) {
 	if err != nil {
-		s.logger.ErrorContext(ctx, "send auth email", "email", email, "err", err)
+		s.logger.ErrorContext(ctx, "send auth email", "email_kind", kind, "err", err)
 	}
 }
 

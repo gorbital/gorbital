@@ -1,9 +1,11 @@
 # Local services for development and tests (ADR-0028).
 #
+#   aps dev                       # or, without the apistock CLI:
 #   docker compose up -d --wait
-#   go run ./cmd/migrate && go run ./cmd/api
+#   go run ./cmd/migrate && go run ./cmd/seed && go run ./cmd/api
 #
-# PostgreSQL on 127.0.0.1:5432; Mailpit's inbox on http://127.0.0.1:8025.
+# PostgreSQL on 127.0.0.1:5432; Mailpit's inbox on http://127.0.0.1:8025;
+# Grafana, only with `aps dev --observability`, on http://127.0.0.1:3000.
 # Ports bind to 127.0.0.1 only. `docker compose down -v` resets the data.
 name: ⟦.Name⟧
 
@@ -36,6 +38,16 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  # Traces, metrics and logs, only with the observability profile:
+  # `aps dev --observability`, or `docker compose --profile observability up -d`
+  # with OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 for the app.
+  grafana:
+    image: grafana/otel-lgtm:0.33.0
+    profiles: [observability]
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+      - "127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318"
 
 volumes:
   postgres-data:

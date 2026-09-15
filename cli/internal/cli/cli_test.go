@@ -139,7 +139,7 @@ func TestNewFullPrintsNextSteps(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("aps new --preset full = %d, stderr %q", code, errOut)
 	}
-	for _, want := range []string{"full preset", "docker compose up -d --wait", "go run ./cmd/migrate", "http://127.0.0.1:8025", "POSTGRES_PORT", "aps add mail"} {
+	for _, want := range []string{"full preset", "aps dev", "docker compose up -d --wait", "go run ./cmd/migrate", "go run ./cmd/seed", "http://127.0.0.1:8025", "admin@example.com", "POSTGRES_PORT", "aps add mail"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("aps new --preset full output lacks %q:\n%s", want, out)
 		}
@@ -183,18 +183,18 @@ func TestSnapshotDetectsChanges(t *testing.T) {
 		}
 	}
 	write("main.go", "package main")
-	before, _ := snapshot(dir)
+	before, _ := snapshot(dir, watched)
 
 	write(".aps/api", "binary")
 	write("notes.txt", "ignored")
-	if after, _ := snapshot(dir); after != before {
+	if after, _ := snapshot(dir, watched); after != before {
 		t.Error("snapshot changed after writing ignored files")
 	}
 
 	later := time.Now().Add(time.Second)
 	write("main.go", "package main // edited")
 	_ = os.Chtimes(filepath.Join(dir, "main.go"), later, later)
-	if after, _ := snapshot(dir); after == before {
+	if after, _ := snapshot(dir, watched); after == before {
 		t.Error("snapshot unchanged after editing main.go")
 	}
 }

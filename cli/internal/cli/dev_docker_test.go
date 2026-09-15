@@ -1,0 +1,166 @@
+package cli
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+// lockedBuffer is a bytes.Buffer safe for a writer and a reader at once.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// TestDevWithDocker creates a Full app and runs aps dev in it with real
+// Docker: services start, migrations and seed data run, the API serves its
+// docs, the seeded administrator signs in, and a registration's email code
+// reaches Mailpit. It pulls images the first time. Set APS_E2E_DOCKER=1 to
+// run it.
+func TestDevWithDocker(t *testing.T) {
+	if os.Getenv("APS_E2E_DOCKER") == "" {
+		t.Skip("set APS_E2E_DOCKER=1 to run aps dev against Docker")
+	}
+	repo, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(t.TempDir())
+	const name = "e2e-dev"
+	if code, _, errOut := runAps(t, "new", name, "--preset", "full", "--local", repo, "--no-git"); code != 0 {
+		t.Fatalf("aps new --preset full = %d: %s", code, errOut)
+	}
+	dir, _ := filepath.Abs(name)
+	t.Chdir(dir)
+
+	// Free host ports, so the test runs next to other databases and apps.
+	ports := newDevPorts(t)
+	env := ports.env() + fmt.Sprintf("DATABASE_URL=postgres://%[1]s:%[1]s@127.0.0.1:%[2]s/%[1]s?sslmode=disable\nMAILPIT_SMTP_ADDR=127.0.0.1:%[3]s\n",
+		name, ports.postgres, ports.smtp)
+	writeFile(t, ".env", readFile(t, ".env.example")+env)
+	t.Cleanup(func() {
+		down := exec.Command("docker", "compose", "down", "-v")
+		down.Dir = dir
+		if out, err := down.CombinedOutput(); err != nil {
+			t.Logf("docker compose down -v: %v\n%s", err, out)
+		}
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	var stderr lockedBuffer
+	done := make(chan int, 1)
+	start := time.Now()
+	go func() { done <- Main(ctx, []string{"dev", "--no-reload"}, strings.NewReader(""), io.Discard, &stderr) }()
+	t.Cleanup(func() {
+		cancel()
+		<-done
+	})
+
+	api := "http://127.0.0.1:" + ports.app
+	deadline := time.Now().Add(8 * time.Minute)
+	for {
+		if r, err := http.Get(api + "/readyz"); err == nil {
+			_ = r.Body.Close()
+			if r.StatusCode == http.StatusOK {
+				break
+			}
+		}
+		select {
+		case code := <-done:
+			t.Fatalf("aps dev exited with %d before the API was ready:\n%s", code, stderr.String())
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("API not ready after 8 minutes:\n%s", stderr.String())
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	t.Logf("aps dev: API ready %s after start", time.Since(start).Round(100*time.Millisecond))
+
+	out := stderr.String()
+	for _, want := range []string{"docker compose up -d --wait", "go run ./cmd/migrate", "Seed data created", "✓ Emails     http://127.0.0.1:" + ports.web} {
+		if !strings.Contains(out, want) {
+			t.Errorf("aps dev output lacks %q:\n%s", want, out)
+		}
+	}
+	if r, err := http.Get(api + "/docs"); err != nil || r.StatusCode != http.StatusOK {
+		t.Errorf("GET /docs = %v, %v", r, err)
+	} else {
+		_ = r.Body.Close()
+	}
+
+	var password string
+	for line := range strings.Lines(out) {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "Password:"); ok {
+			password = strings.TrimSpace(v)
+		}
+	}
+	login := postJSON(t, api+"/v1/auth/login", fmt.Sprintf(`{"email":"admin@example.com","password":%q,"transport":"bearer"}`, password))
+	token, _ := login["token"].(string)
+	if token == "" {
+		t.Fatalf("login as the seeded administrator = %v", login)
+	}
+	req, _ := http.NewRequest(http.MethodGet, api+"/ops/settings", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	if r, err := http.DefaultClient.Do(req); err != nil || r.StatusCode != http.StatusOK {
+		t.Errorf("GET /ops/settings as the administrator = %v, %v", r, err)
+	} else {
+		_ = r.Body.Close()
+	}
+
+	postJSON(t, api+"/v1/auth/register", `{"email":"new-user@example.com","password":"a long enough password"}`)
+	inbox := "http://127.0.0.1:" + ports.web + "/api/v1/search?query=to:new-user@example.com"
+	for deadline := time.Now().Add(time.Minute); ; {
+		if r, err := http.Get(inbox); err == nil {
+			var res struct {
+				MessagesCount int `json:"messages_count"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&res)
+			_ = r.Body.Close()
+			if res.MessagesCount > 0 {
+				break
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("no email for new-user@example.com in Mailpit after a minute:\n%s", stderr.String())
+		}
+		time.Sleep(time.Second)
+	}
+}
+
+func postJSON(t *testing.T, url, body string) map[string]any {
+	t.Helper()
+	r, err := http.Post(url, "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST %s: %v", url, err)
+	}
+	defer r.Body.Close()
+	var v map[string]any
+	_ = json.NewDecoder(r.Body).Decode(&v)
+	if r.StatusCode >= 300 {
+		t.Fatalf("POST %s = %d %v", url, r.StatusCode, v)
+	}
+	return v
+}

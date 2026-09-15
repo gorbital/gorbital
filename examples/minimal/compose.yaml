@@ -1,0 +1,17 @@
+# Optional local services (ADR-0028). The API needs none of them.
+#
+#   aps dev --observability       # or, without the apistock CLI:
+#   docker compose --profile observability up -d
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 go run ./cmd/api
+#
+# Grafana shows the app's traces, metrics and logs on http://127.0.0.1:3000.
+# Ports bind to 127.0.0.1 only.
+name: acme-api
+
+services:
+  grafana:
+    image: grafana/otel-lgtm:0.33.0
+    profiles: [observability]
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+      - "127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318"

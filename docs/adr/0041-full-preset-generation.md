@@ -54,8 +54,8 @@ Option 1.
 | Recipe in `apistock.lock` | `base-full` for Full, `base-minimal` for Minimal, with every created file's hash |
 | Content | Exactly the golden app for the name and module: example ping endpoint, heartbeat job and projects resource included, so the output is the reviewed, tested app. The README says how to remove the examples |
 | Tenancy and email | Single-tenant; Resend by default. `aps add mail` switches to SMTP afterwards. Tenancy and mail prompts arrive with organisations (v0.4) and the Custom preset |
-| Next steps printed | `cp .env.example .env`, `docker compose up -d --wait`, `go run ./cmd/migrate`, `go run ./cmd/api`; the Mailpit inbox; `POSTGRES_PORT` and `DATABASE_URL` when port 5432 is taken |
-| `aps dev` with Docker | Unchanged here: starting Compose, migrating and waiting for health stay a separate v0.2 item (ADR-0028) |
+| Next steps printed | `aps dev` (since 2026-09-15; before that, the commands below), with `cp .env.example .env`, `docker compose up -d --wait`, `go run ./cmd/migrate`, `go run ./cmd/seed` and `go run ./cmd/api` as the path without the CLI; the Mailpit inbox; the seeded administrator; `POSTGRES_PORT` and `DATABASE_URL` when port 5432 is taken |
+| `aps dev` with Docker | A separate v0.2 item, done 2026-09-15: see ADR-0028's v0.2 implementation notes |
 
 ### Verification
 
