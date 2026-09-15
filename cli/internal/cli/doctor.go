@@ -17,10 +17,10 @@ import (
 	"strings"
 	"time"
 
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes"
 )
 
-// Check statuses of aps doctor.
+// Check statuses of orb doctor.
 const (
 	doctorOK   = "ok"
 	doctorWarn = "warn"
@@ -46,11 +46,11 @@ type doctorResult struct {
 // errDoctorFailed reports checks that failed; the report lists them.
 var errDoctorFailed = errors.New("some checks failed; see the fixes above")
 
-// doctorCommandTimeout bounds each program aps doctor runs, including a cold
+// doctorCommandTimeout bounds each program orb doctor runs, including a cold
 // go run.
 const doctorCommandTimeout = 3 * time.Minute
 
-// doctorCommand runs a program in dir for aps doctor. Tests replace it.
+// doctorCommand runs a program in dir for orb doctor. Tests replace it.
 var doctorCommand = func(ctx context.Context, dir string, env []string, name string, args ...string) (stdout, stderr string, err error) {
 	ctx, cancel := context.WithTimeout(ctx, doctorCommandTimeout)
 	defer cancel()
@@ -61,16 +61,16 @@ var doctorCommand = func(ctx context.Context, dir string, env []string, name str
 	return out.String(), errOut.String(), err
 }
 
-const doctorUsage = `Usage: aps doctor [flags]
+const doctorUsage = `Usage: orb doctor [flags]
 
 Checks the app in the current directory and prints what to fix: the Go
-toolchain, git and Docker; apistock.lock and the library version; the lines
+toolchain, git and Docker; gorbital.lock and the library version; the lines
 generators insert at; .env; whether api/ matches the code; and the
 database's migrations. It changes nothing (ADR-0051).
 `
 
 func runDoctor(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	flags := flag.NewFlagSet("aps doctor", flag.ContinueOnError)
+	flags := flag.NewFlagSet("orb doctor", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	fast := flags.Bool("fast", false, "skip the checks that build the app: api/ files and database")
@@ -155,25 +155,25 @@ func (d *doctor) toolchain(ctx context.Context) {
 	}
 
 	if _, err := exec.LookPath("git"); err != nil {
-		d.add(doctorWarn, "git", "git isn't installed", "install git: aps upgrade, aps add and the generators work on a clean git tree")
+		d.add(doctorWarn, "git", "git isn't installed", "install git: orb upgrade, orb add and the generators work on a clean git tree")
 	} else {
 		d.add(doctorOK, "git", "installed", "")
 	}
 }
 
-// project checks apistock.yaml, apistock.lock and the library in go.mod.
+// project checks gorbital.yaml, gorbital.lock and the library in go.mod.
 func (d *doctor) project(ctx context.Context) {
 	inputs, err := readManifest(d.dir)
 	if err != nil {
-		d.add(doctorFail, "apistock.yaml", firstLine(err.Error()), "apps created with aps new have one; aps commands need it")
+		d.add(doctorFail, "gorbital.yaml", firstLine(err.Error()), "apps created with orb new have one; orb commands need it")
 		return
 	}
 	d.res.Preset, d.res.Tenancy = inputs.Preset, inputs.Tenancy
-	d.add(doctorOK, "apistock.yaml", fmt.Sprintf("%s preset, %s tenancy", inputs.Preset, inputs.Tenancy), "")
+	d.add(doctorOK, "gorbital.yaml", fmt.Sprintf("%s preset, %s tenancy", inputs.Preset, inputs.Tenancy), "")
 
 	if inputs.Preset == "full" {
 		if _, _, err := doctorCommand(ctx, d.dir, nil, "docker", "info", "--format", "{{.ServerVersion}}"); err != nil {
-			d.add(doctorWarn, "docker", "Docker isn't running or isn't installed", "start Docker Desktop (or Docker Engine with Compose v2): aps dev runs PostgreSQL and Mailpit in it")
+			d.add(doctorWarn, "docker", "Docker isn't running or isn't installed", "start Docker Desktop (or Docker Engine with Compose v2): orb dev runs PostgreSQL and Mailpit in it")
 		} else {
 			d.add(doctorOK, "docker", "running", "")
 		}
@@ -182,11 +182,11 @@ func (d *doctor) project(ctx context.Context) {
 	lock, err := readLock(d.dir)
 	switch {
 	case errors.Is(err, errNoLock):
-		d.add(doctorWarn, "apistock.lock", "missing, so aps upgrade can't rebuild what apistock wrote", "restore it from git history")
+		d.add(doctorWarn, "gorbital.lock", "missing, so orb upgrade can't rebuild what gorbital wrote", "restore it from git history")
 	case err != nil:
-		d.add(doctorFail, "apistock.lock", firstLine(err.Error()), "restore it from git history, or use the aps that wrote it")
+		d.add(doctorFail, "gorbital.lock", firstLine(err.Error()), "restore it from git history, or use the orb that wrote it")
 	case lock.APIVersion == lockAPIVersionV1:
-		d.add(doctorWarn, "apistock.lock", "written before v0.5, without the release that created the app", "aps upgrade --from <that release>, such as --from v0.4.0")
+		d.add(doctorWarn, "gorbital.lock", "written before v0.5, without the release that created the app", "orb upgrade --from <that release>, such as --from v0.4.0")
 	default:
 		edited := 0
 		for _, f := range lock.Files {
@@ -194,11 +194,11 @@ func (d *doctor) project(ctx context.Context) {
 				edited++
 			}
 		}
-		detail := fmt.Sprintf("from aps %s; %d of %d files apistock wrote are edited or removed", cmpOr(lock.Aps.Version, "(unknown)"), edited, len(lock.Files))
-		if lock.Aps.Version != Version {
-			d.add(doctorWarn, "apistock.lock", detail+"; this is aps "+Version, "aps upgrade merges this release's templates on a branch")
+		detail := fmt.Sprintf("from orb %s; %d of %d files gorbital wrote are edited or removed", cmpOr(lock.Orb.Version, "(unknown)"), edited, len(lock.Files))
+		if lock.Orb.Version != Version {
+			d.add(doctorWarn, "gorbital.lock", detail+"; this is orb "+Version, "orb upgrade merges this release's templates on a branch")
 		} else {
-			d.add(doctorOK, "apistock.lock", detail, "")
+			d.add(doctorOK, "gorbital.lock", detail, "")
 		}
 	}
 
@@ -206,7 +206,7 @@ func (d *doctor) project(ctx context.Context) {
 	if err != nil {
 		return // reported by the go check
 	}
-	version, local := info.apistock()
+	version, local := info.gorbital()
 	switch {
 	case local != "":
 		dir := local
@@ -214,25 +214,25 @@ func (d *doctor) project(ctx context.Context) {
 			dir = filepath.Join(d.dir, dir)
 		}
 		if _, err := resolveLocal(dir); err != nil {
-			d.add(doctorFail, "library", fmt.Sprintf("go.mod replaces apistock.dev with %s, which isn't an apistock checkout", local), "point the replace directives in go.mod at your apistock checkout")
+			d.add(doctorFail, "library", fmt.Sprintf("go.mod replaces gorbital.dev with %s, which isn't an gorbital checkout", local), "point the replace directives in go.mod at your gorbital checkout")
 		} else {
 			d.add(doctorOK, "library", "from the checkout at "+local, "")
 		}
-	case !slices.ContainsFunc(info.Require, func(r goModRequire) bool { return r.Path == "apistock.dev" }):
-		d.add(doctorWarn, "library", "go.mod doesn't require apistock.dev", "run go mod tidy")
+	case !slices.ContainsFunc(info.Require, func(r goModRequire) bool { return r.Path == "gorbital.dev" }):
+		d.add(doctorWarn, "library", "go.mod doesn't require gorbital.dev", "run go mod tidy")
 	default:
-		d.add(doctorOK, "library", "apistock.dev "+version, "")
+		d.add(doctorOK, "library", "gorbital.dev "+version, "")
 	}
 }
 
 // generatorAnchors checks the lines generators insert after.
 func (d *doctor) generatorAnchors() {
 	anchors := []struct{ file, anchor, generator string }{
-		{"internal/app/modules.go", recipes.ModulesAnchor, "aps gen resource"},
-		{"internal/app/jobs.go", recipes.JobAnchor, "aps gen job"},
+		{"internal/app/modules.go", recipes.ModulesAnchor, "orb gen resource"},
+		{"internal/app/jobs.go", recipes.JobAnchor, "orb gen job"},
 	}
 	if d.res.Tenancy == recipes.TenancyMulti {
-		anchors = append(anchors, struct{ file, anchor, generator string }{"internal/app/permissions.go", recipes.OrgPermissionsAnchor, "aps gen resource --scope org"})
+		anchors = append(anchors, struct{ file, anchor, generator string }{"internal/app/permissions.go", recipes.OrgPermissionsAnchor, "orb gen resource --scope org"})
 	}
 	missing := 0
 	for _, a := range anchors {
@@ -248,7 +248,7 @@ func (d *doctor) generatorAnchors() {
 	}
 	if err != nil {
 		missing++
-		d.add(doctorFail, "anchor", ".env.example has no # aps:begin mail … # aps:end mail block", "put the block back: aps add mail replaces the provider's variables inside it")
+		d.add(doctorFail, "anchor", ".env.example has no # orb:begin mail … # orb:end mail block", "put the block back: orb add mail replaces the provider's variables inside it")
 	}
 	if missing == 0 {
 		d.add(doctorOK, "anchors", "every line generators insert at is in place", "")
@@ -263,7 +263,7 @@ var secretKeyWords = []string{"KEY", "SECRET", "PASSWORD", "TOKEN", "DATABASE_UR
 func (d *doctor) environment(ctx context.Context) {
 	env, err := readDotEnvFile(d.path(envPath))
 	if errors.Is(err, os.ErrNotExist) {
-		d.add(doctorWarn, ".env", "missing", "aps dev creates it from .env.example, or run: cp .env.example .env")
+		d.add(doctorWarn, ".env", "missing", "orb dev creates it from .env.example, or run: cp .env.example .env")
 		return
 	} else if err != nil {
 		d.add(doctorFail, ".env", firstLine(err.Error()), "fix the line in .env")
@@ -313,14 +313,14 @@ func (d *doctor) apiFiles(ctx context.Context, env []string) {
 	if _, err := os.Stat(d.path("cmd/api")); err != nil {
 		return
 	}
-	tmp, err := os.MkdirTemp("", "aps-doctor-")
+	tmp, err := os.MkdirTemp("", "orb-doctor-")
 	if err != nil {
 		d.add(doctorWarn, "api files", err.Error(), "")
 		return
 	}
 	defer os.RemoveAll(tmp)
 	if _, errOut, err := doctorCommand(ctx, d.dir, env, "go", "run", "./cmd/api", "openapi", "--dir", tmp); err != nil {
-		d.add(doctorWarn, "api files", "couldn't export them: "+firstLine(cmpOr(errOut, err.Error())), "check that the app builds (go build ./...); apps from before v0.5 get --dir with aps upgrade")
+		d.add(doctorWarn, "api files", "couldn't export them: "+firstLine(cmpOr(errOut, err.Error())), "check that the app builds (go build ./...); apps from before v0.5 get --dir with orb upgrade")
 		return
 	}
 	var stale []string
@@ -339,7 +339,7 @@ func (d *doctor) apiFiles(ctx context.Context, env []string) {
 }
 
 // database checks the configuration and migrations through the app's
-// migrate command, so aps needs no database driver.
+// migrate command, so orb needs no database driver.
 func (d *doctor) database(ctx context.Context, env []string) {
 	if _, err := os.Stat(d.path("cmd/migrate")); err != nil {
 		return
@@ -353,18 +353,18 @@ func (d *doctor) database(ctx context.Context, env []string) {
 		Pending       int    `json:"pending"`
 	}
 	if jsonErr := json.Unmarshal([]byte(out), &s); err != nil || jsonErr != nil {
-		d.add(doctorWarn, "database", "couldn't read the migration status: "+firstLine(cmp.Or(errOut, errString(err), errString(jsonErr))), "check that the app builds; apps from before v0.5 get migrate --status with aps upgrade")
+		d.add(doctorWarn, "database", "couldn't read the migration status: "+firstLine(cmp.Or(errOut, errString(err), errString(jsonErr))), "check that the app builds; apps from before v0.5 get migrate --status with orb upgrade")
 		return
 	}
 	switch {
 	case s.ConfigError != "":
 		d.add(doctorFail, "configuration", firstLine(s.ConfigError), "set the variables in .env or the environment; .env.example documents each")
 	case s.DatabaseError != "":
-		d.add(doctorWarn, "database", "unreachable: "+firstLine(s.DatabaseError), "start it with aps dev (or docker compose up -d --wait) and check DATABASE_URL")
+		d.add(doctorWarn, "database", "unreachable: "+firstLine(s.DatabaseError), "start it with orb dev (or docker compose up -d --wait) and check DATABASE_URL")
 	case s.Current > s.Latest:
 		d.add(doctorFail, "database", fmt.Sprintf("at migration %d, but the newest file in db/migrations is %d", s.Current, s.Latest), "restore the missing migration files: the database ran migrations this code doesn't have")
 	case s.Pending > 0:
-		d.add(doctorWarn, "database", strconv.Itoa(s.Pending)+" migrations pending", "go run ./cmd/migrate (aps dev runs them)")
+		d.add(doctorWarn, "database", strconv.Itoa(s.Pending)+" migrations pending", "go run ./cmd/migrate (orb dev runs them)")
 	default:
 		d.add(doctorOK, "database", fmt.Sprintf("at migration %d, none pending", s.Current), "")
 	}
@@ -376,7 +376,7 @@ func (d *doctor) report(w io.Writer) {
 	if d.res.Preset != "" {
 		about += fmt.Sprintf(" (%s, %s tenancy)", d.res.Preset, d.res.Tenancy)
 	}
-	fmt.Fprintf(w, "%s\n\n", s.strong.Render("aps doctor · "+about))
+	fmt.Fprintf(w, "%s\n\n", s.strong.Render("orb doctor · "+about))
 	for _, c := range d.res.Checks {
 		var status string
 		switch c.Status {

@@ -8,7 +8,7 @@
 
 **Decision:** (b). Runtime = core + modules only. Tooling (CLI, generator, dev console) never runs in production. Control plane and mobile are separate products that consume standard protocols.
 
-**Why:** Keeps "delete apistock and keep shipping" true; lets each part succeed or fail independently.
+**Why:** Keeps "delete gorbital and keep shipping" true; lets each part succeed or fail independently.
 
 **Tradeoffs:** Less "magical" integration between dashboard and app; some duplication (console vs control plane UI).
 

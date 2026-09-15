@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 )
 
 // Static values satisfy config.Value.

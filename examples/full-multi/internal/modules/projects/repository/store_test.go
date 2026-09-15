@@ -10,9 +10,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	orgslib "apistock.dev/modules/orgs"
-	"apistock.dev/modules/postgres/pgtest"
-	"apistock.dev/page"
+	orgslib "gorbital.dev/modules/orgs"
+	"gorbital.dev/modules/postgres/pgtest"
+	"gorbital.dev/page"
 
 	"example.com/acme-api/db/migrations"
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"

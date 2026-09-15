@@ -9,17 +9,17 @@ import (
 
 func TestGoModTemplate(t *testing.T) {
 	golden := "module example.com/acme-api\n\ngo 1.26.0\n\n" +
-		"require (\n\tapistock.dev v0.0.0\n\tapistock.dev/modules/postgres v0.0.0 // indirect\n\tgithub.com/jackc/pgx/v5 v5.11.0\n)\n\n" +
-		"require apistock.dev/modules/jobs v0.0.0\n\n" +
-		"// Local development: point at this checkout.\nreplace (\n\tapistock.dev => ../..\n\tapistock.dev/modules/postgres => ../../modules/postgres\n)\n\n" +
-		"replace apistock.dev/modules/jobs => ../../modules/jobs\n"
+		"require (\n\tgorbital.dev v0.0.0\n\tgorbital.dev/modules/postgres v0.0.0 // indirect\n\tgithub.com/jackc/pgx/v5 v5.11.0\n)\n\n" +
+		"require gorbital.dev/modules/jobs v0.0.0\n\n" +
+		"// Local development: point at this checkout.\nreplace (\n\tgorbital.dev => ../..\n\tgorbital.dev/modules/postgres => ../../modules/postgres\n)\n\n" +
+		"replace gorbital.dev/modules/jobs => ../../modules/jobs\n"
 	want := "module ⟦.Module⟧\n\ngo 1.26.0\n\n" +
-		"require (\n\tapistock.dev ⟦.LibraryVersion⟧\n\tapistock.dev/modules/postgres ⟦.LibraryVersion⟧ // indirect\n\tgithub.com/jackc/pgx/v5 v5.11.0\n)\n\n" +
-		"require apistock.dev/modules/jobs ⟦.LibraryVersion⟧\n" +
+		"require (\n\tgorbital.dev ⟦.LibraryVersion⟧\n\tgorbital.dev/modules/postgres ⟦.LibraryVersion⟧ // indirect\n\tgithub.com/jackc/pgx/v5 v5.11.0\n)\n\n" +
+		"require gorbital.dev/modules/jobs ⟦.LibraryVersion⟧\n" +
 		"⟦- if .Local⟧\n\nreplace (\n" +
-		"\tapistock.dev => ⟦.LocalDir \"\"⟧\n" +
-		"\tapistock.dev/modules/postgres => ⟦.LocalDir \"/modules/postgres\"⟧\n" +
-		"\tapistock.dev/modules/jobs => ⟦.LocalDir \"/modules/jobs\"⟧\n" +
+		"\tgorbital.dev => ⟦.LocalDir \"\"⟧\n" +
+		"\tgorbital.dev/modules/postgres => ⟦.LocalDir \"/modules/postgres\"⟧\n" +
+		"\tgorbital.dev/modules/jobs => ⟦.LocalDir \"/modules/jobs\"⟧\n" +
 		")\n⟦- end⟧\n"
 	got, err := GoModTemplate([]byte(golden))
 	if err != nil {
@@ -31,11 +31,11 @@ func TestGoModTemplate(t *testing.T) {
 }
 
 func TestGoModTemplateRejects(t *testing.T) {
-	base := "module example.com/acme-api\n\ngo 1.26.0\n\nrequire apistock.dev v0.0.0\n"
+	base := "module example.com/acme-api\n\ngo 1.26.0\n\nrequire gorbital.dev v0.0.0\n"
 	for name, tt := range map[string]struct{ goMod, wantErr string }{
 		"other module":          {strings.Replace(base, "example.com/acme-api", "example.com/other", 1), "the module must be"},
-		"no module":             {"go 1.26.0\n\nrequire apistock.dev v0.0.0\n", "no module line"},
-		"no library":            {"module example.com/acme-api\n\nrequire github.com/x/y v1.0.0\n", "no apistock.dev requirement"},
+		"no module":             {"go 1.26.0\n\nrequire gorbital.dev v0.0.0\n", "no module line"},
+		"no library":            {"module example.com/acme-api\n\nrequire github.com/x/y v1.0.0\n", "no gorbital.dev requirement"},
 		"unsupported directive": {base + "exclude github.com/x/y v1.0.0\n", "unsupported directive"},
 		"tool directive":        {base + "tool golang.org/x/tools/cmd/stringer\n", "unsupported directive"},
 		"unterminated block":    {base + "require (\n\tgithub.com/x/y v1.0.0\n", "unterminated block"},
@@ -49,7 +49,7 @@ func TestGoModTemplateRejects(t *testing.T) {
 
 func TestRunRejectsLeaks(t *testing.T) {
 	for name, tt := range map[string]struct{ file, content, wantErr string }{
-		"repository link":    {"README.md", "See [the guide](../../docs/guides/auth.md).\n", "path into the apistock repository"},
+		"repository link":    {"README.md", "See [the guide](../../docs/guides/auth.md).\n", "path into the gorbital repository"},
 		"template delimiter": {"internal/app/app.go", "package app // ⟦\n", "template delimiters"},
 	} {
 		src := t.TempDir()
@@ -62,7 +62,7 @@ func TestRunRejectsLeaks(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		write("go.mod", "module example.com/acme-api\n\ngo 1.26.0\n\nrequire apistock.dev v0.0.0\n\nreplace apistock.dev => ../..\n")
+		write("go.mod", "module example.com/acme-api\n\ngo 1.26.0\n\nrequire gorbital.dev v0.0.0\n\nreplace gorbital.dev => ../..\n")
 		write(tt.file, tt.content)
 		dst := filepath.Join(t.TempDir(), "out")
 		if err := Run(src, dst); err == nil || !strings.Contains(err.Error(), tt.wantErr) {

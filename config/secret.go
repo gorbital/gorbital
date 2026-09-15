@@ -1,5 +1,5 @@
 // Package config provides configuration helpers for the composition root of
-// an apistock app: a [Secret] type that never leaks into logs or output, and
+// an gorbital app: a [Secret] type that never leaks into logs or output, and
 // environment lookup with *_FILE support for mounted secrets.
 //
 // Library modules never read the environment; only the application's

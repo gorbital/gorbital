@@ -12,7 +12,7 @@ ADR-0024 chose embedded authentication with server-side sessions, argon2id passw
 
 A generated app owns its authentication like any other module, with all four layers, the way a hand-built API keeps `internal/modules/auth`. The library holds only building blocks, the role an app's own `internal/platform` would play.
 
-| | Library: `apistock.dev/modules/auth` (updated with `go get`) | App: `internal/modules/auth` (generated, owned, editable) |
+| | Library: `gorbital.dev/modules/auth` (updated with `go get`) | App: `internal/modules/auth` (generated, owned, editable) |
 |---|---|---|
 | Passwords | `Hasher` (argon2id, rehash detection, `VerifyDummy`), `ValidatePassword`, `PasswordChecker` | Calls them in register, login, reset and change |
 | Tokens and codes | `NewToken`, `HashToken`, `NewCode`, `HashCode`, `CodeMatches`, `NewID`, `NormalizeEmail`, `ClientInfo` | Stores only hashes |
@@ -25,7 +25,7 @@ A generated app owns its authentication like any other module, with all four lay
 | HTTP | none | `delivery/`: the `/v1/auth` operations |
 | Tests | Helper tests without a database | Use cases on the real repository and Docker PostgreSQL, repository tests, an end-to-end HTTP test |
 
-This amends ADR-0024 ("logic lives in `apistock.dev/modules/auth`"): the logic lives in the app, where developers read and change it. A fix to a flow reaches existing apps through `aps upgrade` (ADR-0016); fixes to hashing, tokens, codes and cookies still arrive with `go get`.
+This amends ADR-0024 ("logic lives in `gorbital.dev/modules/auth`"): the logic lives in the app, where developers read and change it. A fix to a flow reaches existing apps through `orb upgrade` (ADR-0016); fixes to hashing, tokens, codes and cookies still arrive with `go get`.
 
 Tables: `auth_users`, `auth_sessions`, `auth_codes`, `auth_user_roles`; text IDs with prefixes (`usr_`, `ses_`, `cod_`) and 128 random bits; nullable `org_id` on sessions and role assignments for organisations (ADR-0023).
 

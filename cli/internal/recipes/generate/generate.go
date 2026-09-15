@@ -27,19 +27,19 @@ const (
 	PlaceholderName   = "acme-api"
 )
 
-// libraryModule is the apistock library's module path; its modules are
-// apistock.dev/modules/...
-const libraryModule = "apistock.dev"
+// libraryModule is the gorbital library's module path; its modules are
+// gorbital.dev/modules/...
+const libraryModule = "gorbital.dev"
 
 // repositoryPath starts a path from a golden app into the rest of the
-// apistock repository, which generated apps don't have.
+// gorbital repository, which generated apps don't have.
 const repositoryPath = "../../"
 
 // Skipped files are produced when an app is created, not copied.
 var skipped = map[string]bool{"go.mod": true, "go.sum": true}
 
 // SkippedDirs are build output and version control directories.
-var SkippedDirs = map[string]bool{".aps": true, "bin": true, ".git": true}
+var SkippedDirs = map[string]bool{".orb": true, "bin": true, ".git": true}
 
 // Skipped reports whether the golden app file at rel (slash-separated) is
 // not turned into a template.
@@ -110,7 +110,7 @@ func writeTemplates(src, dst string, goModTemplate []byte) error {
 		case strings.Contains(text, LeftDelim) || strings.Contains(text, RightDelim):
 			return fmt.Errorf("generate: %s contains the template delimiters %s %s", rel, LeftDelim, RightDelim)
 		case strings.Contains(text, repositoryPath):
-			return fmt.Errorf("generate: %s refers to %q, a path into the apistock repository that generated apps don't have", rel, repositoryPath)
+			return fmt.Errorf("generate: %s refers to %q, a path into the gorbital repository that generated apps don't have", rel, repositoryPath)
 		}
 		text = strings.ReplaceAll(text, PlaceholderModule, LeftDelim+".Module"+RightDelim)
 		text = strings.ReplaceAll(text, PlaceholderName, LeftDelim+".Name"+RightDelim)
@@ -123,10 +123,10 @@ func writeTemplates(src, dst string, goModTemplate []byte) error {
 }
 
 // GoModTemplate turns a golden app's go.mod into the go.mod template. The
-// module line takes the app's module path; apistock.dev requirements take
+// module line takes the app's module path; gorbital.dev requirements take
 // the CLI's library version; the golden replace directives, with the comments
 // and blank lines just before them, are dropped; and with a local checkout,
-// every apistock.dev requirement is replaced by its directory in it.
+// every gorbital.dev requirement is replaced by its directory in it.
 //
 // Other directives (exclude, retract, tool, godebug) are rejected, so a new
 // kind of directive in a golden go.mod is handled on purpose rather than
@@ -208,7 +208,7 @@ func GoModTemplate(goMod []byte) ([]byte, error) {
 	case inRequire || inReplace:
 		return nil, errors.New("unterminated block")
 	case len(libraries) == 0:
-		return nil, errors.New("no apistock.dev requirement")
+		return nil, errors.New("no gorbital.dev requirement")
 	}
 
 	out.WriteString(LeftDelim + "- if .Local" + RightDelim + "\n\nreplace (\n")

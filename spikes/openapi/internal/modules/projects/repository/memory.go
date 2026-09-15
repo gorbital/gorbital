@@ -7,8 +7,8 @@ import (
 	"sort"
 	"sync"
 
-	projectdomain "apistock.dev/spikes/openapi/internal/modules/projects/domain"
-	projectusecase "apistock.dev/spikes/openapi/internal/modules/projects/usecase"
+	projectdomain "gorbital.dev/spikes/openapi/internal/modules/projects/domain"
+	projectusecase "gorbital.dev/spikes/openapi/internal/modules/projects/usecase"
 )
 
 var _ projectusecase.ProjectRepository = (*Memory)(nil)

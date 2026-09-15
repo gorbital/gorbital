@@ -60,5 +60,5 @@ Not supported: YAML/TOML per-environment overlays, and secrets or infrastructure
 
 ## Consequences
 
-- `aps doctor` runs the app's config validation without starting it.
+- `orb doctor` runs the app's config validation without starting it.
 - `.env.example` is generated from the app's config structs and kept in sync by recipes.

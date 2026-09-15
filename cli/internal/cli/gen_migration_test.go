@@ -23,14 +23,14 @@ func newMigrationApp(t *testing.T) string {
 
 func TestGenMigration(t *testing.T) {
 	newMigrationApp(t)
-	code, out, errOut := runAps(t, "gen", "migration", "AddCustomerPhone", "--json")
+	code, out, errOut := runOrb(t, "gen", "migration", "AddCustomerPhone", "--json")
 	if code != 0 {
-		t.Fatalf("aps gen migration = %d, stderr %q", code, errOut)
+		t.Fatalf("orb gen migration = %d, stderr %q", code, errOut)
 	}
 	var res genMigrationResult
 	if err := json.Unmarshal([]byte(out), &res); err != nil || res.Name != "add_customer_phone" || res.DryRun ||
 		res.Version <= "20260915000001" || res.File != "db/migrations/"+res.Version+"_add_customer_phone.sql" {
-		t.Fatalf("aps gen migration --json = %q (%v)", out, err)
+		t.Fatalf("orb gen migration --json = %q (%v)", out, err)
 	}
 	want := "-- Add customer phone.\n--\n" +
 		"-- Change this migration freely until it is released; afterwards, add a new\n" +
@@ -47,9 +47,9 @@ func TestGenMigration(t *testing.T) {
 	}
 
 	// The same name again is a new migration that runs after the first.
-	code, out, errOut = runAps(t, "gen", "migration", "add-customer-phone")
+	code, out, errOut = runOrb(t, "gen", "migration", "add-customer-phone")
 	if code != 0 || !strings.Contains(out, "✓ Created migration db/migrations/") || !strings.Contains(out, "go run ./cmd/migrate") {
-		t.Fatalf("aps gen migration again = %d %q %q", code, out, errOut)
+		t.Fatalf("orb gen migration again = %d %q %q", code, out, errOut)
 	}
 	entries, _ := os.ReadDir(filepath.Join("db", "migrations"))
 	var names []string
@@ -63,9 +63,9 @@ func TestGenMigration(t *testing.T) {
 
 func TestGenMigrationDryRunWritesNothing(t *testing.T) {
 	dir := newMigrationApp(t)
-	code, out, errOut := runAps(t, "gen", "migration", "--dry-run", "create_invoices")
+	code, out, errOut := runOrb(t, "gen", "migration", "--dry-run", "create_invoices")
 	if code != 0 || !strings.Contains(out, "Would create (dry run) migration db/migrations/") || strings.Contains(out, "Next:") {
-		t.Fatalf("aps gen migration --dry-run = %d %q %q", code, out, errOut)
+		t.Fatalf("orb gen migration --dry-run = %d %q %q", code, out, errOut)
 	}
 	if entries, _ := os.ReadDir(filepath.Join(dir, "db", "migrations")); len(entries) != 2 {
 		t.Errorf("dry run wrote a migration: %v", entries)
@@ -90,9 +90,9 @@ func TestGenMigrationValidation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			code, _, errOut := runAps(t, tt.args...)
+			code, _, errOut := runOrb(t, tt.args...)
 			if code != tt.wantCode || !strings.Contains(errOut, tt.wantErr) {
-				t.Errorf("aps %s = %d %q, want %d containing %q", strings.Join(tt.args, " "), code, errOut, tt.wantCode, tt.wantErr)
+				t.Errorf("orb %s = %d %q, want %d containing %q", strings.Join(tt.args, " "), code, errOut, tt.wantCode, tt.wantErr)
 			}
 		})
 	}
@@ -105,8 +105,8 @@ func TestGenMigrationOutsideFullPresetApp(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/minimal\n")
 	t.Chdir(dir)
-	if code, _, errOut := runAps(t, "gen", "migration", "add_phone"); code != 1 || !strings.Contains(errOut, "db/migrations") || !strings.Contains(errOut, "Full preset") {
-		t.Errorf("aps gen migration in a Minimal app = %d %q, want Full preset guidance", code, errOut)
+	if code, _, errOut := runOrb(t, "gen", "migration", "add_phone"); code != 1 || !strings.Contains(errOut, "db/migrations") || !strings.Contains(errOut, "Full preset") {
+		t.Errorf("orb gen migration in a Minimal app = %d %q, want Full preset guidance", code, errOut)
 	}
 }
 

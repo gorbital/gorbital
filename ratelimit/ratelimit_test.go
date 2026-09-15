@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/ratelimit"
+	"gorbital.dev/ratelimit"
 )
 
 type clock struct {

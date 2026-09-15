@@ -13,8 +13,8 @@ import (
 
 	"github.com/riverqueue/river"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
 )
 
 // Name identifies the job. It is public API: renaming it orphans its

@@ -13,7 +13,7 @@ Your app sends email for sign-up codes, password reset codes and security alerts
 Mailpit is a small program that pretends to be an email server. Your app hands it emails exactly as it would hand them to a real provider, and Mailpit keeps them in an inbox you open in your browser, instead of delivering them.
 
 - **Why you need it:** to sign up on your own app you need the 6-digit code from the verification email. Mailpit shows it to you without a real email account, and you can't email a real person by mistake.
-- **Where it comes from:** `aps dev` starts it in Docker from your app's `compose.yaml`, next to PostgreSQL (image `axllent/mailpit`).
+- **Where it comes from:** `orb dev` starts it in Docker from your app's `compose.yaml`, next to PostgreSQL (image `axllent/mailpit`).
 - **Where to see it:** http://127.0.0.1:8025. The app sends to it on port 1025.
 - **If you removed it:** in development, emails would fail to send and stay queued for retries; nobody could finish sign-up locally.
 - **In production:** never. The app refuses to start with `MAIL_DELIVERY=mailpit` when `APP_ENV=production`.
@@ -59,17 +59,17 @@ Mailpit is a small program that pretends to be an email server. Your app hands i
 
 </div>
 
-New Full apps already use Resend. If you switched to SMTP earlier, switch back with `aps add mail --provider resend`.
+New Full apps already use Resend. If you switched to SMTP earlier, switch back with `orb add mail --provider resend`.
 
 ## Option 2: SMTP
 
 SMTP is the standard way to send email, supported by every provider: Amazon SES, Postmark, Mailgun, Google Workspace or your own mail server. Switch your app to it once:
 
 ```bash
-aps add mail --provider smtp
+orb add mail --provider smtp
 ```
 
-`aps` asks for each value, hides the password as you type it, and saves secrets only in `.env`. Run it inside your app, with no uncommitted changes. It changes `internal/app/infra_mail.go`, the email block of `.env.example`, `apistock.yaml` and `go.mod`; commit the result.
+`orb` asks for each value, hides the password as you type it, and saves secrets only in `.env`. Run it inside your app, with no uncommitted changes. It changes `internal/app/infra_mail.go`, the email block of `.env.example`, `gorbital.yaml` and `go.mod`; commit the result.
 
 | Variable | Required? | Secret? | Example | What it is |
 |---|---|---|---|---|
@@ -137,7 +137,7 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/mail.from_email \
 3. If it doesn't arrive, look at the delivery job:
 
    ```bash
-   curl "http://127.0.0.1:8080/ops/jobs/runs?kind=apistock.mail.send" -H "Authorization: Bearer $TOKEN"
+   curl "http://127.0.0.1:8080/ops/jobs/runs?kind=gorbital.mail.send" -H "Authorization: Bearer $TOKEN"
    ```
 
 ## If something goes wrong

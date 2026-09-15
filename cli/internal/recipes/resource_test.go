@@ -17,7 +17,7 @@ const (
 	goldenFullMulti  = "../../../examples/full-multi"
 )
 
-// goldenResources are the golden apps whose projects module aps gen resource
+// goldenResources are the golden apps whose projects module orb gen resource
 // reproduces, with the scope and migration version that produce it.
 var goldenResources = []struct{ dir, scope, migration string }{
 	{goldenFullSingle, ScopeUser, "20260915000002"},
@@ -39,7 +39,7 @@ func projectsData(t *testing.T, scope, migration string) ResourceData {
 
 // TestResourceMatchesGoldenApp checks that
 //
-//	aps gen resource Project name:string:unique description:text 'status:enum(active,archived)'
+//	orb gen resource Project name:string:unique description:text 'status:enum(active,archived)'
 //
 // reproduces examples/full-single's projects module exactly (ADR-0039), and
 // with --scope org examples/full-multi's (ADR-0048). After changing the
@@ -74,7 +74,7 @@ func TestResourceMatchesGoldenApp(t *testing.T) {
 				}
 			}
 
-			// The module's line in modules.go is the one aps gen resource adds.
+			// The module's line in modules.go is the one orb gen resource adds.
 			modulesGo := filepath.Join(golden.dir, "internal", "app", "modules.go")
 			modules, err := os.ReadFile(modulesGo)
 			if err != nil {
@@ -221,8 +221,8 @@ func generatedResourcesPass(t *testing.T, goldenDir, scope string) {
 	if err := spec.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if os.Getenv("APISTOCK_TEST_DATABASE_URL") == "" {
-		t.Skip("vetted the generated resources; set APISTOCK_TEST_DATABASE_URL to run their tests")
+	if os.Getenv("GORBITAL_TEST_DATABASE_URL") == "" {
+		t.Skip("vetted the generated resources; set GORBITAL_TEST_DATABASE_URL to run their tests")
 	}
 	run(nil, "go", "test", "-count=1", "./internal/modules/customers/...", "./internal/modules/notes/...", "./internal/app/...")
 }
@@ -235,7 +235,7 @@ func copyTree(src, dst string) error {
 		rel, _ := filepath.Rel(src, path)
 		target := filepath.Join(dst, rel)
 		if d.IsDir() {
-			if d.Name() == ".git" || d.Name() == "bin" || d.Name() == ".aps" {
+			if d.Name() == ".git" || d.Name() == "bin" || d.Name() == ".orb" {
 				return filepath.SkipDir
 			}
 			return os.MkdirAll(target, 0o755)

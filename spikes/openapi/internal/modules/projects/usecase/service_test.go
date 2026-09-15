@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	projectdomain "apistock.dev/spikes/openapi/internal/modules/projects/domain"
-	projectrepository "apistock.dev/spikes/openapi/internal/modules/projects/repository"
-	projectusecase "apistock.dev/spikes/openapi/internal/modules/projects/usecase"
+	projectdomain "gorbital.dev/spikes/openapi/internal/modules/projects/domain"
+	projectrepository "gorbital.dev/spikes/openapi/internal/modules/projects/repository"
+	projectusecase "gorbital.dev/spikes/openapi/internal/modules/projects/usecase"
 )
 
 func newService() *projectusecase.Service {

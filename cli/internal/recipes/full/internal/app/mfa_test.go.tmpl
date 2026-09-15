@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/actor"
-	authlib "apistock.dev/modules/auth"
+	"gorbital.dev/actor"
+	authlib "gorbital.dev/modules/auth"
 )
 
 // testEncryptionKeys is AUTH_ENCRYPTION_KEYS for every test app in this

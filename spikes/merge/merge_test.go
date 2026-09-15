@@ -14,8 +14,8 @@ import (
     "context"
     "net/http"
 
-    "apistock.dev/httpx"
-    "apistock.dev/obs"
+    "gorbital.dev/httpx"
+    "gorbital.dev/obs"
 )
 
 func New(ctx context.Context, cfg Config) (*App, error) {
@@ -24,10 +24,10 @@ func New(ctx context.Context, cfg Config) (*App, error) {
         return nil, err
     }
 
-    //aps:anchor modules
+    //orb:anchor modules
 
     mux := http.NewServeMux()
-    //aps:anchor routes
+    //orb:anchor routes
 
     srv := httpx.NewServer(cfg.HTTP, mux, tel)
     return &App{parts: []any{tel, srv}}, nil
@@ -41,8 +41,8 @@ import (
     "context"
     "net/http"
 
-    "apistock.dev/httpx"
-    "apistock.dev/obs"
+    "gorbital.dev/httpx"
+    "gorbital.dev/obs"
 )
 
 func New(ctx context.Context, cfg Config) (*App, error) {
@@ -51,10 +51,10 @@ func New(ctx context.Context, cfg Config) (*App, error) {
         return nil, err
     }
 
-    //aps:anchor modules
+    //orb:anchor modules
 
     mux := http.NewServeMux()
-    //aps:anchor routes
+    //orb:anchor routes
 
     handler := httpx.SecureHeaders(mux)
     srv := httpx.NewServer(cfg.HTTP, handler, tel)
@@ -125,7 +125,7 @@ func TestUpgrade(t *testing.T) {
 			mustContain: []string{"httpx.WithGzip()", templateNew},
 		},
 		{
-			name: "module added by aps add survives when base and theirs replay the insert",
+			name: "module added by orb add survives when base and theirs replay the insert",
 			build: func(t *testing.T) (string, string, string) {
 				base := insert(t, appV1, "modules", moduleLine)
 				theirs := insert(t, appV2, "modules", moduleLine)
@@ -136,7 +136,7 @@ func TestUpgrade(t *testing.T) {
 			mustContain: []string{moduleLine, userRoute, templateNew},
 		},
 		{
-			name: "module added by aps add with a naive base (no replay)",
+			name: "module added by orb add with a naive base (no replay)",
 			build: func(t *testing.T) (string, string, string) {
 				ours := insert(t, insert(t, appV1, "modules", moduleLine), "routes", userRoute)
 				return appV1, ours, appV2
@@ -176,7 +176,7 @@ func TestUpgrade(t *testing.T) {
 			}
 
 			if res.Outcome == Conflict {
-				if !strings.Contains(got, "<<<<<<< yours") || !strings.Contains(got, ">>>>>>> apistock upgrade") {
+				if !strings.Contains(got, "<<<<<<< yours") || !strings.Contains(got, ">>>>>>> gorbital upgrade") {
 					t.Errorf("conflict without labelled markers:\n%s", got)
 				}
 				t.Logf("conflict content:\n%s", got)

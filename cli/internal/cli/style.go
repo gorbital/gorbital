@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// The apistock palette (docs/brand/theme.md). Lime marks one thing per
+// The gorbital palette (docs/brand/theme.md). Lime marks one thing per
 // screen: the open question, or the command to run next.
 const (
 	colorAccent = lipgloss.Color("#d8ff3e")

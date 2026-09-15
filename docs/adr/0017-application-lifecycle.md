@@ -27,7 +27,7 @@ Option 3.
 | Telemetry | Constructed first, flushed last. |
 | Migrations | Never run implicitly at startup. Separate `migrate` command; optional startup flag, off by default in production. |
 
-Core package `apistock.dev/app` provides `Runner`, the cleanup stack and the run helper (stdlib + `x/sync/errgroup` only).
+Core package `gorbital.dev/app` provides `Runner`, the cleanup stack and the run helper (stdlib + `x/sync/errgroup` only).
 
 ## Why
 

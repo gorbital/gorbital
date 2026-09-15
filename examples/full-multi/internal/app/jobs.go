@@ -3,8 +3,8 @@ package app
 import (
 	"log/slog"
 
-	"apistock.dev/audit"
-	"apistock.dev/modules/jobs"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/jobs"
 
 	"example.com/acme-api/internal/jobs/authcleanup"
 	"example.com/acme-api/internal/jobs/authrevoke"
@@ -28,9 +28,9 @@ type jobDeps struct {
 
 // defineJobs declares every background job. Each job's schedule, timeout and
 // retries can be changed at runtime through /ops/jobs (ADR-0033).
-// `aps gen job` adds a line at the anchor.
+// `orb gen job` adds a line at the anchor.
 func defineJobs(defs *jobs.Definitions, deps jobDeps) {
-	//aps:anchor jobs
+	//orb:anchor jobs
 	defineHeartbeatJob(defs, deps)
 	defineAuthCleanupJob(defs, deps)
 	defineAuthRevokeTokensJob(defs, deps)

@@ -1,4 +1,4 @@
-module apistock.dev/cli
+module gorbital.dev/cli
 
 go 1.26.0
 

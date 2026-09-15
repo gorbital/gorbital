@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/audit"
-	"apistock.dev/modules/settings"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/settings"
 )
 
 func ExampleDuration() {

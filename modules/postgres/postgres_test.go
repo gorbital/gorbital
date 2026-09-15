@@ -16,9 +16,9 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	"apistock.dev/config"
-	"apistock.dev/modules/postgres"
-	"apistock.dev/modules/postgres/pgtest"
+	"gorbital.dev/config"
+	"gorbital.dev/modules/postgres"
+	"gorbital.dev/modules/postgres/pgtest"
 )
 
 func TestOpenRejectsInvalidInput(t *testing.T) {

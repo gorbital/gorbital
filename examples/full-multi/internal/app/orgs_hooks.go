@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"apistock.dev/httpx"
+	"gorbital.dev/httpx"
 
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"

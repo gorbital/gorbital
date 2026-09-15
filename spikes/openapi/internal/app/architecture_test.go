@@ -18,7 +18,7 @@ func TestLayerImports(t *testing.T) {
 		t.Fatal(err)
 	}
 	forbidden := map[string][]string{
-		"domain":     {"github.com/", "net/http", "encoding/json", "apistock.dev/"},
+		"domain":     {"github.com/", "net/http", "encoding/json", "gorbital.dev/"},
 		"usecase":    {"github.com/danielgtaylor/huma", "net/http"},
 		"repository": {"github.com/danielgtaylor/huma", "net/http"},
 	}

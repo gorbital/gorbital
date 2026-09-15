@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"apistock.dev/config"
-	authlib "apistock.dev/modules/auth"
+	"gorbital.dev/config"
+	authlib "gorbital.dev/modules/auth"
 )
 
 // loadKeyring parses AUTH_ENCRYPTION_KEYS, which encrypts authenticator app

@@ -8,13 +8,13 @@ import (
 	"io"
 	"time"
 
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/modules/postgres"
 
 	"example.com/acme-api/db/migrations"
 )
 
 // MigrationStatus is what go run ./cmd/migrate --status reports, for people
-// and for aps doctor (ADR-0051).
+// and for orb doctor (ADR-0051).
 type MigrationStatus struct {
 	// ConfigError is why the configuration didn't load; the database isn't
 	// checked then.

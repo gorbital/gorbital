@@ -1,16 +1,16 @@
 version: 2
-project_name: aps
+project_name: orb
 
 builds:
-  - id: aps
-    main: ./cmd/aps
-    binary: aps
+  - id: orb
+    main: ./cmd/orb
+    binary: orb
     env: [CGO_ENABLED=0]
     goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
     flags: [-trimpath]
     ldflags:
-      - -s -w -X apistock.dev/cli/internal/cli.Version=v{{ .Version }}
+      - -s -w -X gorbital.dev/cli/internal/cli.Version=v{{ .Version }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
@@ -18,7 +18,7 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
-    name_template: "aps_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "orb_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: checksums.txt

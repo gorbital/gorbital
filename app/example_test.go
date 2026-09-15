@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"apistock.dev/app"
+	"gorbital.dev/app"
 )
 
 func ExampleRun() {

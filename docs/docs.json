@@ -1,11 +1,11 @@
 {
-  "name": "apistock",
+  "name": "gorbital",
   "version": "v0.5",
   "announcement": "pre-release · v0.5: upgrades and ops are in",
-  "github": "https://github.com/apistockhq/apistock",
-  "www": "https://apistock.dev",
-  "url": "https://docs.apistock.dev",
-  "install": "git clone https://github.com/apistockhq/apistock.git && cd apistock/cli && go install ./cmd/aps",
+  "github": "https://github.com/gorbital/gorbital",
+  "www": "https://gorbital.dev",
+  "url": "https://docs.gorbital.dev",
+  "install": "git clone https://github.com/gorbital/gorbital.git && cd gorbital/cli && go install ./cmd/orb",
   "tabs": [
     {
       "name": "Guides",
@@ -16,7 +16,7 @@
             { "title": "Introduction", "slug": "", "source": "docs/start/introduction.md" },
             { "title": "What you need", "slug": "prerequisites", "source": "docs/start/prerequisites.md" },
             { "title": "Quickstart", "slug": "quickstart", "source": "docs/start/quickstart.md" },
-            { "title": "How apistock works", "slug": "concepts", "source": "docs/start/concepts.md" }
+            { "title": "How gorbital works", "slug": "concepts", "source": "docs/start/concepts.md" }
           ]
         },
         {

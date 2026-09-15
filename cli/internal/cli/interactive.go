@@ -39,7 +39,7 @@ func plainPrompts(p promptFlags) bool {
 	return p.plain || os.Getenv("ACCESSIBLE") != ""
 }
 
-// runForm shows form on stderr in the apistock theme, or line by line in
+// runForm shows form on stderr in the gorbital theme, or line by line in
 // plain mode.
 func runForm(form *huh.Form, p promptFlags, stdin io.Reader, stderr io.Writer) error {
 	err := form.WithTheme(theme()).WithAccessible(plainPrompts(p)).WithInput(stdin).WithOutput(stderr).Run()

@@ -9,7 +9,7 @@ import (
 	"testing/synctest"
 	"time"
 
-	"apistock.dev/app"
+	"gorbital.dev/app"
 )
 
 type recorder struct {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/modules/openapi"
-	orgslib "apistock.dev/modules/orgs"
+	"gorbital.dev/modules/openapi"
+	orgslib "gorbital.dev/modules/orgs"
 
 	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
 	orgsusecase "example.com/acme-api/internal/modules/orgs/usecase"

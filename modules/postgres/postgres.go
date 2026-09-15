@@ -1,4 +1,4 @@
-// Package postgres connects apistock apps to PostgreSQL: a pgx connection
+// Package postgres connects gorbital apps to PostgreSQL: a pgx connection
 // pool with OpenTelemetry tracing, transactions, error classification for
 // repositories, a readiness check and goose migrations (ADR-0005, ADR-0032).
 //
@@ -25,7 +25,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 )
 
 // DefaultConnectTimeout bounds each connection attempt and the initial ping.

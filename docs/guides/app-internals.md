@@ -118,13 +118,13 @@ Applies cross-origin protection to every request except `POST /v1/auth/apple/cal
 
 ### `registerModules(api, mapper, svc) error`
 
-Calls each module's `register<Name>` and joins their errors. `aps gen resource` inserts a line after `//aps:anchor modules`. Each `module_<name>.go` builds the module from `services`, registers its operations and its error mappings: error codes there are public API.
+Calls each module's `register<Name>` and joins their errors. `orb gen resource` inserts a line after `//orb:anchor modules`. Each `module_<name>.go` builds the module from `services`, registers its operations and its error mappings: error codes there are public API.
 
 ## `jobs.go`, `job_<name>.go`
 
 ### `defineJobs(defs, deps jobDeps)`
 
-Declares every job with its code defaults; `aps gen job` adds a line after `//aps:anchor jobs`. Operators override enabled, schedule, timeout, attempts, queue and priority at runtime in `/ops/jobs`, stored in `jobs_definitions` ([ADR-0033](../adr/0033-background-jobs.md)).
+Declares every job with its code defaults; `orb gen job` adds a line after `//orb:anchor jobs`. Operators override enabled, schedule, timeout, attempts, queue and priority at runtime in `/ops/jobs`, stored in `jobs_definitions` ([ADR-0033](../adr/0033-background-jobs.md)).
 
 | Job | Defined in | Does |
 |---|---|---|
@@ -132,7 +132,7 @@ Declares every job with its code defaults; `aps gen job` adds a line after `//ap
 | `auth_cleanup` | `job_auth_cleanup.go` | Daily at 03:30 UTC: deletes expired sessions, codes and second-factor challenges, and purges accounts deleted longer ago than `auth.deleted_account_retention` (audit action `auth.accounts.purged`). Returns the counts as `authdomain.CleanupResult` |
 | `auth_revoke_tokens` | `job_auth_revoke_tokens.go` | Every minute: revokes up to 20 Apple refresh tokens queued in `auth_token_revocations` by unlinking or account deletion; failures back off from 1 minute to 6 hours and are abandoned after 10 attempts (audit action `auth.identity.revocation_abandoned`). Returns the counts as `authdomain.RevocationResult` |
 | `ratelimit_cleanup` | `job_ratelimit_cleanup.go` | Hourly: deletes shared rate limit buckets whose keys are back to a full budget (`ratelimitpg.Store.DeleteExpired`, in batches of 10 000) |
-| `apistock.mail.send` | `jobs.AddMailWorker` in `app.go` | Delivers queued email; 8 attempts; `mail.ErrRejected` cancels |
+| `gorbital.mail.send` | `jobs.AddMailWorker` in `app.go` | Delivers queued email; 8 attempts; `mail.ErrRejected` cancels |
 
 `jobDeps` holds what workers may use. Add a store or client there when a job needs one.
 
@@ -162,7 +162,7 @@ Multi-tenant apps add `orgs.invitation_url`, `orgs.invitation_ttl` and `orgs.del
 
 ### `declarePermissions() *authlib.Catalog`
 
-The permission catalog: every permission modules check, and the platform roles that grant them. `platform_admin` grants every `ops.*` permission; `ops_viewer` the read ones; both require two-factor authentication (`RequireMFA`). `api roles` prints it. Roles are stored per user in `auth_user_roles` and read on every request. Multi-tenant apps also declare organisation permissions after `//aps:anchor org-permissions`.
+The permission catalog: every permission modules check, and the platform roles that grant them. `platform_admin` grants every `ops.*` permission; `ops_viewer` the read ones; both require two-factor authentication (`RequireMFA`). `api roles` prints it. Roles are stored per user in `auth_user_roles` and read on every request. Multi-tenant apps also declare organisation permissions after `//orb:anchor org-permissions`.
 
 ## `keys.go`
 
@@ -194,7 +194,7 @@ Builds the `social.Provider`s, or `nil` for a provider that's off. `ep` override
 
 ### `newMailSender(cfg) (mail.Sender, error)`
 
-Returns an SMTP sender to Mailpit (`MAILPIT_SMTP_ADDR`, no auth, no TLS) when delivery is `mailpit`, and the provider's sender from `infra_mail.go` otherwise. `aps add mail` replaces `infra_mail.go` (and its `loadMailConfig` and `newProviderSender`) to switch between Resend and SMTP.
+Returns an SMTP sender to Mailpit (`MAILPIT_SMTP_ADDR`, no auth, no TLS) when delivery is `mailpit`, and the provider's sender from `infra_mail.go` otherwise. `orb add mail` replaces `infra_mail.go` (and its `loadMailConfig` and `newProviderSender`) to switch between Resend and SMTP.
 
 ### `mailInfo(cfg, settings) opsusecase.MailInfo`
 

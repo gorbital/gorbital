@@ -13,9 +13,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/requestid"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/requestid"
 )
 
 // DefaultResyncInterval is how often a running [Manager] reloads every
@@ -23,7 +23,7 @@ import (
 const DefaultResyncInterval = 5 * time.Minute
 
 // notifyChannel carries the name of each changed job definition.
-const notifyChannel = "apistock_jobs"
+const notifyChannel = "gorbital_jobs"
 
 // Manager is the admin-panel backend for jobs (ADR-0033): it stores
 // operator overrides of job definitions, keeps every instance's definitions

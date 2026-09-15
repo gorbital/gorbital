@@ -8,7 +8,7 @@ For step-by-step instructions for the values you provide, see the beginner guide
 
 | Secret | Created by | Where it lives | Exposed if leaked? |
 |---|---|---|---|
-| [`AUTH_ENCRYPTION_KEYS`](#auth-encryption-keys) | You (`openssl`); `aps dev` in development | Environment | TOTP secrets, if the database leaks too |
+| [`AUTH_ENCRYPTION_KEYS`](#auth-encryption-keys) | You (`openssl`); `orb dev` in development | Environment | TOTP secrets, if the database leaks too |
 | [`DATABASE_URL` credentials](#database-url) | Your database provider; `compose.yaml` locally | Environment | Everything |
 | [`GOOGLE_CLIENT_SECRET`](#google-client-secret) | Google Cloud Console | Environment | Impersonating your app at Google's token endpoint |
 | [Apple `.p8` key](#apple-private-key) | Apple Developer | File or environment | Impersonating your app at Apple, revoking users' Apple tokens |
@@ -34,7 +34,7 @@ For step-by-step instructions for the values you provide, see the beginner guide
 | **What** | One or more AES-256-GCM keys, as `id:base64` entries separated by commas: `k2:…,k1:…` |
 | **Why** | TOTP secrets must be readable by the server to check codes, so they can't be hashed. Encrypting them means a database dump alone doesn't let anyone generate users' second-factor codes |
 | **Format** | Each id is unique; each key decodes to exactly 32 bytes (`key "k1" must be 32 bytes in base64` otherwise). Parsed by `authlib.ParseKeyring` |
-| **Generate** | `echo "k1:$(openssl rand -base64 32)"`; in PowerShell 7: `"k1:" + [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`. `aps dev` writes one to `.env` when empty (`cli/internal/cli/dev_keys.go`) |
+| **Generate** | `echo "k1:$(openssl rand -base64 32)"`; in PowerShell 7: `"k1:" + [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`. `orb dev` writes one to `.env` when empty (`cli/internal/cli/dev_keys.go`) |
 | **Env** | `AUTH_ENCRYPTION_KEYS` or `AUTH_ENCRYPTION_KEYS_FILE`. Required in production and by `cmd/seed`. Empty in development: 503 `mfa_unavailable` |
 | **Public-safe?** | No |
 | **How it's used** | The first key encrypts; the key id is stored in a column next to each ciphertext, and any listed key decrypts. Encrypts TOTP secrets (`auth_totp`, with the user ID as AES-GCM additional data, so a ciphertext copied to another user's row doesn't decrypt) and Apple refresh tokens (`auth_identities`, and `auth_token_revocations` while they wait to be revoked, bound to provider and subject), which are needed to revoke Apple's tokens when an account is deleted |
@@ -143,7 +143,7 @@ Public identifiers such as `usr_…`, `ses_…`, `prj_…` are a type prefix and
 - Use your platform's secret store, and prefer mounted files (`NAME_FILE`) over variables: files don't show in process listings, crash dumps of the environment or deploy logs.
 - Give each environment its own values. Never copy `.env` to a server.
 - Restrict who can read production secrets, and log access where the platform allows.
-- `.env` is in `.gitignore`, and the repository's CI runs gitleaks. `aps add mail` refuses to save a secret to `.env` unless git ignores it.
+- `.env` is in `.gitignore`, and the repository's CI runs gitleaks. `orb add mail` refuses to save a secret to `.env` unless git ignores it.
 
 ## If a secret leaks
 

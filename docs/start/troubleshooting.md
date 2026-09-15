@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Find what you see in the left column. Each entry says what it means, how to confirm it, and how to fix it. The messages are quoted exactly as apistock prints them, so you can search this page for the words in your terminal.
+Find what you see in the left column. Each entry says what it means, how to confirm it, and how to fix it. The messages are quoted exactly as gorbital prints them, so you can search this page for the words in your terminal.
 
 ## First, three checks
 
@@ -12,21 +12,21 @@ curl http://127.0.0.1:8080/readyz     # is the API up, and can it reach the data
 go run ./cmd/api auth-providers       # which sign-in methods are on (with the environment loaded)
 ```
 
-Every error the API returns carries a `request_id`, such as `req_339a889c4f6816eb`. The same ID is on the matching log line in the terminal running `aps dev`: search for it to see what happened.
+Every error the API returns carries a `request_id`, such as `req_339a889c4f6816eb`. The same ID is on the matching log line in the terminal running `orb dev`: search for it to see what happened.
 
 ## Installing and creating an app
 
-### `command not found: aps`
+### `command not found: orb`
 
-**Means:** `go install` put `aps` in Go's `bin` folder, which your shell doesn't search.
+**Means:** `go install` put `orb` in Go's `bin` folder, which your shell doesn't search.
 
-**Check:** `ls "$(go env GOPATH)/bin/aps"` shows the file.
+**Check:** `ls "$(go env GOPATH)/bin/orb"` shows the file.
 
 **Fix:** add `export PATH="$(go env GOPATH)/bin:$PATH"` to `~/.zshrc` (macOS) or `~/.bashrc` (Linux), then open a new terminal.
 
-### `aps: the git repository has uncommitted changes; commit or stash them first, or pass --allow-dirty`
+### `orb: the git repository has uncommitted changes; commit or stash them first, or pass --allow-dirty`
 
-**Means:** `aps gen` and `aps add` only change an app whose changes are all committed, so what they write shows up as its own diff. A new app has no commits at all: `aps new` creates the repository but doesn't commit.
+**Means:** `orb gen` and `orb add` only change an app whose changes are all committed, so what they write shows up as its own diff. A new app has no commits at all: `orb new` creates the repository but doesn't commit.
 
 **Check:** `git status --short` lists files.
 
@@ -34,25 +34,25 @@ Every error the API returns carries a `request_id`, such as `req_339a889c4f6816e
 
 ### `go: go.mod requires go >= 1.26.0`
 
-**Means:** your Go is older than apistock needs.
+**Means:** your Go is older than gorbital needs.
 
 **Fix:** install the latest Go from [go.dev/dl](https://go.dev/dl/) and check with `go version`. See [What you need](prerequisites.md#go).
 
-## Starting with `aps dev`
+## Starting with `orb dev`
 
 ### `Docker isn't installed`, or `Docker isn't running, or compose.yaml is invalid (docker compose ps failed)`
 
-**Means:** a Full app runs PostgreSQL and Mailpit in Docker, and `aps dev` couldn't reach Docker.
+**Means:** a Full app runs PostgreSQL and Mailpit in Docker, and `orb dev` couldn't reach Docker.
 
 **Check:** `docker version` shows both **Client** and **Server**. If Server is missing, Docker isn't running.
 
-**Fix:** start Docker Desktop (macOS) or `sudo systemctl start docker` (Linux), wait until it's ready, and run `aps dev` again. If you already run PostgreSQL elsewhere, set `DATABASE_URL` to it in `.env` and run `aps dev --no-services`.
+**Fix:** start Docker Desktop (macOS) or `sudo systemctl start docker` (Linux), wait until it's ready, and run `orb dev` again. If you already run PostgreSQL elsewhere, set `DATABASE_URL` to it in `.env` and run `orb dev --no-services`.
 
 ### `port 5432 for postgres is already in use by another program`
 
 **Means:** another program, often another project's database, uses the port.
 
-**Fix:** add the line `aps dev` suggests to `.env`. For PostgreSQL, also change the port inside `DATABASE_URL`:
+**Fix:** add the line `orb dev` suggests to `.env`. For PostgreSQL, also change the port inside `DATABASE_URL`:
 
 ```bash
 POSTGRES_PORT=5433
@@ -61,7 +61,7 @@ DATABASE_URL=postgres://acme-api:acme-api@127.0.0.1:5433/acme-api?sslmode=disabl
 
 ### `Bind for 0.0.0.0:5432 failed: port is already allocated`
 
-**Means:** the same as above. Some programs, such as a PostgreSQL container from another Docker project, aren't detected by `aps dev`'s own check, so Docker reports it when starting the container.
+**Means:** the same as above. Some programs, such as a PostgreSQL container from another Docker project, aren't detected by `orb dev`'s own check, so Docker reports it when starting the container.
 
 **Check:** `lsof -nP -iTCP:5432 -sTCP:LISTEN`, or `docker ps --format '{{.Names}} {{.Ports}}' | grep 5432`.
 
@@ -81,11 +81,11 @@ DATABASE_URL=postgres://acme-api:acme-api@127.0.0.1:5433/acme-api?sslmode=disabl
 
 **Check:** the lines above it show PostgreSQL's message, such as `syntax error at or near …`, with the file.
 
-**Fix:** correct the SQL in `db/migrations/`. While `aps dev` is running, the previous version of the app keeps serving until the migration succeeds. If you edited a migration that already ran on your computer, reset the local database with `docker compose down -v`: a migration runs only once per database.
+**Fix:** correct the SQL in `db/migrations/`. While `orb dev` is running, the previous version of the app keeps serving until the migration succeeds. If you edited a migration that already ran on your computer, reset the local database with `docker compose down -v`: a migration runs only once per database.
 
 ### `seed: AUTH_ENCRYPTION_KEYS is required`
 
-**Means:** seed data creates an administrator with two-factor authentication, whose secret must be encrypted, and no key is set. `aps dev` fills the key in `.env`; this happens when running `go run ./cmd/seed` yourself.
+**Means:** seed data creates an administrator with two-factor authentication, whose secret must be encrypted, and no key is set. `orb dev` fills the key in `.env`; this happens when running `go run ./cmd/seed` yourself.
 
 **Fix:** generate one into `.env` and load it:
 
@@ -102,13 +102,13 @@ set -a; . ./.env; set +a
 
 - Password: `POST /v1/auth/password/forgot` with `{"email": "admin@example.com"}`, read the code in Mailpit, then `POST /v1/auth/password/reset`.
 - Authenticator app: sign in with a recovery code as `"recovery_code"`, or run `go run ./cmd/api reset-mfa admin@example.com` with the environment loaded.
-- Start fresh: `docker compose down -v`, then `aps dev`. This deletes every row in your local database.
+- Start fresh: `docker compose down -v`, then `orb dev`. This deletes every row in your local database.
 
 ## Running commands yourself
 
 ### `DATABASE_URL is required` (or `migrate: DATABASE_URL is required`)
 
-**Means:** you ran `go run ./cmd/api`, `./cmd/migrate` or `./cmd/seed` directly. The app reads environment variables, not the `.env` file: `aps dev` loads `.env` for you, and plain `go run` doesn't.
+**Means:** you ran `go run ./cmd/api`, `./cmd/migrate` or `./cmd/seed` directly. The app reads environment variables, not the `.env` file: `orb dev` loads `.env` for you, and plain `go run` doesn't.
 
 **Fix:** load `.env` into the terminal first, and again after each change to it or in each new terminal:
 
@@ -131,13 +131,13 @@ go run ./cmd/migrate
 
 **Check:** the user, password and database in `DATABASE_URL` match `POSTGRES_USER`, `POSTGRES_PASSWORD` and `POSTGRES_DB` in `compose.yaml`, and `POSTGRES_PORT` is your app's.
 
-**Fix:** correct `DATABASE_URL`. If the volume has old credentials, reset it: `docker compose down -v`, then `aps dev` (this deletes local data).
+**Fix:** correct `DATABASE_URL`. If the volume has old credentials, reset it: `docker compose down -v`, then `orb dev` (this deletes local data).
 
 ### `settings: load: ERROR: relation "settings_values" does not exist (SQLSTATE 42P01)`
 
 **Means:** the database has no tables yet. The app never creates or updates tables when it starts, so a new or reset database must be migrated first. The table named may differ.
 
-**Fix:** `go run ./cmd/migrate` with the environment loaded (`aps dev` does it for you), then start the app. In production, run migrations before each new version starts.
+**Fix:** `go run ./cmd/migrate` with the environment loaded (`orb dev` does it for you), then start the app. In production, run migrations before each new version starts.
 
 ## Configuration errors at start
 
@@ -193,7 +193,7 @@ Check `code` in your code: it never changes. `detail` is for people, and can.
 
 **Check:** `docker compose ps` shows `mailpit` healthy; `curl http://127.0.0.1:8080/ops/mail` (as administrator) shows `"delivery": "mailpit"`; `MAILPIT_SMTP_ADDR` uses the same port as `MAILPIT_SMTP_PORT`.
 
-**Look at the delivery:** emails are sent by a background job. `GET /ops/jobs/runs?kind=apistock.mail.send` shows each attempt and its error.
+**Look at the delivery:** emails are sent by a background job. `GET /ops/jobs/runs?kind=gorbital.mail.send` shows each attempt and its error.
 
 **Fix:** start Mailpit (`docker compose up -d --wait`), or correct the port. More email problems: [Email sending](../sign-in/email.md#if-something-goes-wrong).
 
@@ -212,16 +212,16 @@ Check `code` in your code: it never changes. `detail` is for people, and can.
 
 ### Database tests are skipped
 
-**Means:** tests that need PostgreSQL skip, with instructions, unless `APISTOCK_TEST_DATABASE_URL` is set. A green run can hide skipped tests.
+**Means:** tests that need PostgreSQL skip, with instructions, unless `GORBITAL_TEST_DATABASE_URL` is set. A green run can hide skipped tests.
 
 **Fix:** with PostgreSQL running, point the tests at it. They create and drop their own databases, so your development data is safe:
 
 ```bash
-export APISTOCK_TEST_DATABASE_URL='postgres://acme-api:acme-api@127.0.0.1:5432/acme-api?sslmode=disable'
-export APISTOCK_REQUIRE_DB=1     # fail instead of skip if the database is missing
+export GORBITAL_TEST_DATABASE_URL='postgres://acme-api:acme-api@127.0.0.1:5432/acme-api?sslmode=disable'
+export GORBITAL_REQUIRE_DB=1     # fail instead of skip if the database is missing
 go test ./...
 ```
 
 ## Still stuck
 
-Collect the command you ran, the full output, `go version`, `docker compose version`, and the `request_id` of a failing request, then open an issue on [GitHub](https://github.com/apistockhq/apistock/issues). Remove secrets first: passwords, keys and tokens.
+Collect the command you ran, the full output, `go version`, `docker compose version`, and the `request_id` of a failing request, then open an issue on [GitHub](https://github.com/gorbital/gorbital/issues). Remove secrets first: passwords, keys and tokens.

@@ -4,7 +4,7 @@
 
 ## Context
 
-apistock must let a developer run one command and get a working, production-grade API they own, similar in spirit to `create-next-app`, but with far more built in (authentication, database, jobs, audit, operations APIs). At the same time, security fixes must reach existing apps, and not every project wants every feature.
+gorbital must let a developer run one command and get a working, production-grade API they own, similar in spirit to `create-next-app`, but with far more built in (authentication, database, jobs, audit, operations APIs). At the same time, security fixes must reach existing apps, and not every project wants every feature.
 
 ## Options
 
@@ -16,11 +16,11 @@ apistock must let a developer run one command and get a working, production-grad
 
 Option 3.
 
-- **Library** `apistock.dev/...`: all reusable and security-sensitive logic.
-- **CLI** `aps`: `new`, `add`, `gen`, `dev`, `upgrade`, `doctor`.
+- **Library** `gorbital.dev/...`: all reusable and security-sensitive logic.
+- **CLI** `orb`: `new`, `add`, `gen`, `dev`, `upgrade`, `doctor`.
 - **Recipes:** declarative, versioned with the library they call.
 
-`aps new <name>` offers three presets:
+`orb new <name>` offers three presets:
 
 | Preset | Contents |
 |---|---|
@@ -35,7 +35,7 @@ Prompts (each with a flag for non-interactive use: `--preset`, `--tenancy`, `--m
 3. Email provider: Resend or SMTP.
 4. GitHub repository and CI.
 
-`aps new` applies `base-minimal` plus the selected feature recipes using the same engine as `aps add` (ADR-0021). The selection is stored in `apistock.yaml`.
+`orb new` applies `base-minimal` plus the selected feature recipes using the same engine as `orb add` (ADR-0021). The selection is stored in `gorbital.yaml`.
 
 ## Why
 

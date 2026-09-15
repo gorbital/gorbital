@@ -6,8 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
 )
 
 // StoredEvent is a recorded audit event.

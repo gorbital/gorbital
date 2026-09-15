@@ -6,8 +6,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	projectdelivery "apistock.dev/spikes/openapi/internal/modules/projects/delivery"
-	projectusecase "apistock.dev/spikes/openapi/internal/modules/projects/usecase"
+	projectdelivery "gorbital.dev/spikes/openapi/internal/modules/projects/delivery"
+	projectusecase "gorbital.dev/spikes/openapi/internal/modules/projects/usecase"
 )
 
 // Module is the projects bounded context.

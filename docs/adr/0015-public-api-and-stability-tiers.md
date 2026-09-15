@@ -20,18 +20,18 @@ Option 3.
 
 | Surface | Tier | Rule |
 |---|---|---|
-| Exported identifiers in `apistock.dev/<pkg>` and `apistock.dev/modules/*` | **Stable** (from 1.0) | Go 1-style compatibility: no breaking change within a major version |
-| `apistock.dev/x/...` (separate Go module) | **Experimental** | Always v0; may break in any release; graduates by moving to a stable package |
+| Exported identifiers in `gorbital.dev/<pkg>` and `gorbital.dev/modules/*` | **Stable** (from 1.0) | Go 1-style compatibility: no breaking change within a major version |
+| `gorbital.dev/x/...` (separate Go module) | **Experimental** | Always v0; may break in any release; graduates by moving to a stable package |
 | `internal/` packages | **Internal** | No promise |
 | Error codes in problem+json responses (for example `invalid_credentials`) | **Stable** | Additive only |
 | Audit action names (for example `auth.session.revoked`) | **Stable** | Additive only |
 | Runtime setting keys declared by recipes (for example `auth.verification_code_ttl`, ADR-0031) | **Stable** | Additive only; a removed key's stored rows are ignored, never reused |
-| Job definition names (for example `heartbeat`, ADR-0033) and the mail job kind `apistock.mail.send` | **Stable** | Additive only; renaming orphans overrides, history and queued jobs |
+| Job definition names (for example `heartbeat`, ADR-0033) and the mail job kind `gorbital.mail.send` | **Stable** | Additive only; renaming orphans overrides, history and queued jobs |
 | Permission and platform role names (for example `ops.jobs.run`, `platform_admin`) | **Stable** | Additive only |
 | `/ops/*` endpoint paths and response fields | **Stable** from 1.0 | Additive only; checked with the OpenAPI breaking-change test |
 | Identity columns of module tables that apps may reference (for example `auth_users.id`) | **Stable** | All other module columns are internal; apps use the Go API |
-| `aps` commands, flags, exit codes, `--json` output (with `schemaVersion`) | **Stable** from CLI 1.0 | Additive only |
-| `apistock-module.yaml`, `apistock.yaml`, `apistock.lock`, `//aps:anchor` syntax, `# aps:begin <name>` / `# aps:end <name>` blocks in `.env.example` (ADR-0037) | **Versioned** (`apiVersion`) | CLI reads the current and previous version |
+| `orb` commands, flags, exit codes, `--json` output (with `schemaVersion`) | **Stable** from CLI 1.0 | Additive only |
+| `gorbital-module.yaml`, `gorbital.yaml`, `gorbital.lock`, `//orb:anchor` syntax, `# orb:begin <name>` / `# orb:end <name>` blocks in `.env.example` (ADR-0037) | **Versioned** (`apiVersion`) | CLI reads the current and previous version |
 | Error message text, log messages and keys, email template HTML | **Not API** | May change in any release |
 
 ### Versioning

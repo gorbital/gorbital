@@ -1,29 +1,29 @@
-# apistock — theme reference
+# gorbital — theme reference
 
 Paste this into Claude Code as project context. Everything below is the
-canonical visual system for apistock: docs, landing page, README, CLI output.
+canonical visual system for gorbital: docs, landing page, README, CLI output.
 
 ---
 
 ## 1. Identity
 
-Name:      apistock — ALWAYS lowercase, one word.
-           Never APIStock, ApiStock, api-stock, APIstock.
+Name:      gorbital — ALWAYS lowercase, one word.
+           Never Gorbital, GORBITAL, Go-rbital or GOrbital.
            Lowercase even at the start of a sentence (rewrite the sentence
            instead of capitalising).
-Spoken:    "A-P-I stock"
-Binary:    `aps`
-Module:    github.com/apistock/apistock
+Spoken:    "gor-bit-al", like orbital with a g
+Binary:    `orb`
+Module:    gorbital.dev (import path); github.com/gorbital/gorbital
 
-Tagline:       The app a careful senior Go engineer would have set up.
-Short form:    Prepared stock for Go APIs.
+Tagline:       Go APIs, ready for orbit.
+Short form:    Production Go APIs, from your repo.
 Internal only: "Thin glue, thick library." (explains architecture to
                engineers; never put it on a landing page)
 
-Meaning: "stock" is the prepared material a maker starts from — milled
-square, seasoned, ready to cut. Not a finished thing, not a blind kit of
-parts. Material of known quality that you take to your own bench.
-
+Meaning: gorbital is Go in orbit: an API that is launched complete, holds
+its course, and stays in your hands. The mark is a ring cut by the
+import-path slash, tilted 34°; the wordmark is Space Grotesk Bold,
+lowercase, -4% tracking. Brand assets: docs/brand/logo.
 ---
 
 ## 2. Color
@@ -34,17 +34,17 @@ Dark theme is primary. Light theme is for README, docs and print only.
 
 | Token    | Hex       | Use                                                  |
 |----------|-----------|------------------------------------------------------|
-| ground   | `#0c0c0a` | Page background. Warm black, not blue.               |
-| surface  | `#131310` | Cards, panels. One step up from ground, never two.   |
-| code-bg  | `#0a0a08` | Terminal blocks and code blocks. One step DOWN.      |
-| accent   | `#d8ff3e` | The board being taken. One use per screen.           |
-| ink      | `#f0efe9` | Headlines and primary body. 17:1 on ground.          |
-| muted    | `#a5a59a` | Secondary prose. The floor for body text.            |
-| dim      | `#8a8a80` | Labels, captions, inline comments in code.           |
-| hairline | `#22221e` | 1px dividers. The ONLY divider. No shadows anywhere. |
-| border   | `#2a2a24` | Card and panel borders.                              |
-| border-2 | `#3a3a34` | Secondary buttons, chips.                            |
-| danger   | `#ff8f6b` | Errors, conflicts, DON'T callouts. Never pure red.   |
+| ground   | `#0B0C0A` | Page background. Warm black, not blue.               |
+| surface  | `#16180F` | Cards, panels. One step up from ground, never two.   |
+| code-bg  | `#090A08` | Terminal blocks and code blocks. One step DOWN.      |
+| accent   | `#C6F24A` | The board being taken. One use per screen.           |
+| ink      | `#F2F1EC` | Headlines and primary body. 17:1 on ground.          |
+| muted    | `#A8AB9F` | Secondary prose. The floor for body text.            |
+| dim      | `#8E9285` | Labels, captions, inline comments in code.           |
+| hairline | `#22251C` | 1px dividers. The ONLY divider. No shadows anywhere. |
+| border   | `#2B2F23` | Card and panel borders.                              |
+| border-2 | `#3B4031` | Secondary buttons, chips.                            |
+| danger   | `#FF5C2B` | Errors, conflicts, DON'T callouts. Never pure red.   |
 
 ### Light (README, docs, print)
 
@@ -61,7 +61,7 @@ Dark theme is primary. Light theme is for README, docs and print only.
 - On light surfaces lime fails contrast outright. Never use it for text there.
 - On dark it may be used for small mono labels, prompts, `$` signs, JSON keys
   and the mark — never for paragraphs.
-- Text on a lime fill is always `#0c0c0a`.
+- Text on a lime fill is always `#0B0C0A`.
 - ONE accent moment per view. If two things are lime, neither is important.
 - Never tint the wordmark accent.
 - Max 1–2 background colors per page.
@@ -103,12 +103,12 @@ Use `text-wrap: pretty` on prose.
 ## 4. Layout
 
 - Max content width 1080px (1240px for wide reference tables).
-- Sections separated by `1px solid #22221e` + 48–72px padding.
+- Sections separated by `1px solid #22251C` + 48–72px padding.
 - Rounded corners, from one scale: 8px small controls and inputs, 12px
   cards, panels and code blocks, 16–24px dialogs and hero panels, fully round
   (999px) buttons, tabs, pills and search fields. The logo mark stays square.
 - Depth comes from the 1px border and the surface step. Shadows only on
-  floating layers (dialogs, menus); a soft lime glow (`rgba(216,255,62,.14)`)
+  floating layers (dialogs, menus); a soft lime glow (`rgba(198,242,74,.14)`)
   marks focus and the active "Try it" form.
 - Section labels: `12px mono, 0.12em tracking, accent color`, numbered
   `01 /`, `02 /` …
@@ -131,17 +131,17 @@ Gap:            2/3 unit
 Top bar offset: +2.6 units, RIGHT
 Corners:        square, 0 radius
 Clear space:    1 bar height on all sides
-Bar colors:     accent, ink, #6b6b63, #3a3a34 (top to bottom)
+Bar colors:     accent, ink, #6b6b63, #3B4031 (top to bottom)
 ```
 
 HTML version (scale the px values together):
 
 ```html
 <div style="display:flex;flex-direction:column;gap:7px">
-  <div style="width:96px;height:21px;background:#d8ff3e;margin-left:18px"></div>
-  <div style="width:96px;height:21px;background:#f0efe9"></div>
+  <div style="width:96px;height:21px;background:#C6F24A;margin-left:18px"></div>
+  <div style="width:96px;height:21px;background:#F2F1EC"></div>
   <div style="width:96px;height:21px;background:#6b6b63"></div>
-  <div style="width:96px;height:21px;background:#3a3a34"></div>
+  <div style="width:96px;height:21px;background:#3B4031"></div>
 </div>
 ```
 
@@ -149,7 +149,7 @@ Reductions: 3 bars at 16–31px. Filled square tile for avatars/favicons.
 `≡≡` as the ASCII stand-in in CLI headers.
 
 On light grounds drop the accent entirely — the stack descends in value
-instead: `#14140f`, `#57564f`, `#8a8a80`, `#c9c6bc`.
+instead: `#14140f`, `#57564f`, `#8E9285`, `#c9c6bc`.
 
 NEVER: round the corners; add perspective, bevel or wood texture; make more
 than one bar accent; offset the top bar left or align it flush; set the
@@ -178,7 +178,7 @@ anywhere — not docs, not commits, not CLI output.
 
 Write this / not this:
 
-- "Your app keeps working if apistock disappears."
+- "Your app keeps working if gorbital disappears."
   NOT "A powerful, future-proof foundation for modern Go apps."
 - "Auth is a library, so security fixes reach you with go get."
   NOT "Enterprise-grade authentication out of the box!"
@@ -195,10 +195,10 @@ of this and maybe one page of the website.
 Commands — eight ordinary verbs, no subcommand tree deeper than two:
 
 ```
-aps new <name>            aps upgrade [module]
-aps add <module>          aps dev
-aps remove <module>       aps doctor
-aps gen resource <Name>   aps search <term>
+orb new <name>            orb upgrade [module]
+orb add <module>          orb dev
+orb remove <module>       orb doctor
+orb gen resource <Name>   orb search <term>
 ```
 
 `new` not init. `add` not install. `doctor` not validate.
@@ -235,9 +235,9 @@ Trust is typographic, never colorful. Traffic-light colors are wrong here:
 unverified is not an error.
 
 ```
-OFFICIAL   accent fill  #d8ff3e, text #0c0c0a   — only official gets the fill
-VERIFIED   1px border #f0efe9, text #f0efe9
-LISTED     1px border #4a4a42, text #a5a59a
+OFFICIAL   accent fill  #C6F24A, text #0B0C0A   — only official gets the fill
+VERIFIED   1px border #F2F1EC, text #F2F1EC
+LISTED     1px border #4a4a42, text #A8AB9F
 ```
 
 11px mono, 0.08em tracking, 3px 7px padding, square.
@@ -248,17 +248,17 @@ LISTED     1px border #4a4a42, text #a5a59a
 
 ```css
 :root {
-  --ground:   #0c0c0a;
-  --surface:  #131310;
-  --code-bg:  #0a0a08;
-  --accent:   #d8ff3e;
-  --ink:      #f0efe9;
-  --muted:    #a5a59a;
-  --dim:      #8a8a80;
-  --hairline: #22221e;
-  --border:   #2a2a24;
-  --border-2: #3a3a34;
-  --danger:   #ff8f6b;
+  --ground:   #0B0C0A;
+  --surface:  #16180F;
+  --code-bg:  #090A08;
+  --accent:   #C6F24A;
+  --ink:      #F2F1EC;
+  --muted:    #A8AB9F;
+  --dim:      #8E9285;
+  --hairline: #22251C;
+  --border:   #2B2F23;
+  --border-2: #3B4031;
+  --danger:   #FF5C2B;
 
   --paper:      #fbfaf6;
   --ink-dark:   #14140f;
@@ -280,8 +280,8 @@ LISTED     1px border #4a4a42, text #a5a59a
 
 Four lookups, none of which I can do for you:
 
-1. `apistock.dev` domain
-2. the `apistock` GitHub org
+1. `gorbital.dev` domain
+2. the `gorbital` GitHub org
 3. pkg.go.dev, for a module-path collision
 4. a trademark search in your jurisdiction — "stock" has financial-sector
    marks around it, so check the class you'd file in

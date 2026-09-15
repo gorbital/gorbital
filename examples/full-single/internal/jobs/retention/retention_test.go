@@ -10,8 +10,8 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
 
 	"example.com/acme-api/internal/jobs/retention"
 )

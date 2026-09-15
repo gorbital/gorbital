@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	orgslib "apistock.dev/modules/orgs"
+	orgslib "gorbital.dev/modules/orgs"
 )
 
 const countInvitationsSinceSQL = `SELECT count(*) FROM org_invitations WHERE org_id = $1 AND sent_at > $2`

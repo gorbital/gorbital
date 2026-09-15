@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"apistock.dev/spikes/openapi/internal/app"
+	"gorbital.dev/spikes/openapi/internal/app"
 )
 
 func main() {

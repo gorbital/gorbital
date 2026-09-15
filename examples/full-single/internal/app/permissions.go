@@ -1,7 +1,7 @@
 package app
 
 import (
-	authlib "apistock.dev/modules/auth"
+	authlib "gorbital.dev/modules/auth"
 
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
 )

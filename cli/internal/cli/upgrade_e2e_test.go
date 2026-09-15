@@ -11,15 +11,15 @@ import (
 )
 
 // TestUpgradeFromV040 is ADR-0050's definition of done: a Full app created
-// by aps at v0.4.0 and edited with the commands developers run (a generated
-// resource, a generated migration, aps add mail smtp, an edit to a tracked
-// file) upgrades with this aps: every edit is kept, the lock becomes v2,
+// by orb at v0.4.0 and edited with the commands developers run (a generated
+// resource, a generated migration, orb add mail smtp, an edit to a tracked
+// file) upgrades with this orb: every edit is kept, the lock becomes v2,
 // the app builds, api/openapi.json is regenerated, the upgrade is committed
-// on its branch, and no test that passed before fails after. Set APS_E2E=1
+// on its branch, and no test that passed before fails after. Set ORB_E2E=1
 // to run it; it needs the v0.4.0 tag and the Go module cache or network.
 func TestUpgradeFromV040(t *testing.T) {
-	if os.Getenv("APS_E2E") == "" {
-		t.Skip("set APS_E2E=1 to run the end-to-end test")
+	if os.Getenv("ORB_E2E") == "" {
+		t.Skip("set ORB_E2E=1 to run the end-to-end test")
 	}
 	repo, err := filepath.Abs(repoRoot(t))
 	if err != nil {
@@ -29,7 +29,7 @@ func TestUpgradeFromV040(t *testing.T) {
 		t.Skip("tag v0.4.0 isn't in this checkout (git fetch --tags)")
 	}
 
-	// Build aps as released at v0.4.0.
+	// Build orb as released at v0.4.0.
 	work := t.TempDir()
 	old := filepath.Join(work, "v0.4.0")
 	if out, err := exec.Command("git", "-C", repo, "worktree", "add", "--detach", "--quiet", old, "v0.4.0").CombinedOutput(); err != nil {
@@ -40,17 +40,17 @@ func TestUpgradeFromV040(t *testing.T) {
 			t.Logf("git worktree remove: %v\n%s", err, out)
 		}
 	})
-	oldAps := filepath.Join(work, "aps-v0.4.0")
-	build := exec.Command("go", "build", "-o", oldAps, "./cmd/aps")
+	oldOrb := filepath.Join(work, "orb-v0.4.0")
+	build := exec.Command("go", "build", "-o", oldOrb, "./cmd/orb")
 	build.Dir = filepath.Join(old, "cli")
 	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build aps v0.4.0: %v\n%s", err, out)
+		t.Fatalf("build orb v0.4.0: %v\n%s", err, out)
 	}
 	runOld := func(args ...string) {
 		t.Helper()
-		cmd := exec.Command(oldAps, args...)
+		cmd := exec.Command(oldOrb, args...)
 		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("aps v0.4.0 %s: %v\n%s", strings.Join(args, " "), err, out)
+			t.Fatalf("orb v0.4.0 %s: %v\n%s", strings.Join(args, " "), err, out)
 		}
 	}
 
@@ -70,14 +70,14 @@ func TestUpgradeFromV040(t *testing.T) {
 	commitAll(t, "Edit routes")
 	before := failingTests(t)
 
-	if code, out, errOut := runAps(t, "upgrade", "--from", "v0.4.0"); code != 0 {
-		t.Fatalf("aps upgrade --from v0.4.0 = %d\n%s\n%s", code, out, errOut)
+	if code, out, errOut := runOrb(t, "upgrade", "--from", "v0.4.0"); code != 0 {
+		t.Fatalf("orb upgrade --from v0.4.0 = %d\n%s\n%s", code, out, errOut)
 	}
 
 	if got := git(t, "branch", "--show-current"); got != upgradeBranchPrefix+Version {
 		t.Errorf("branch = %s", got)
 	}
-	if got := git(t, "log", "-1", "--format=%s"); got != "Upgrade apistock to "+Version || git(t, "status", "--porcelain") != "" {
+	if got := git(t, "log", "-1", "--format=%s"); got != "Upgrade gorbital to "+Version || git(t, "status", "--porcelain") != "" {
 		t.Errorf("last commit = %q with a dirty tree; want the upgrade committed", got)
 	}
 	// The routes.go template changed since v0.4.0 (maintenance mode), so the

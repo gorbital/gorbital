@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func runAps(t *testing.T, args ...string) (int, string, string) {
+func runOrb(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
 	// A non-terminal stdin: commands never prompt in tests.
@@ -22,17 +22,17 @@ func runAps(t *testing.T, args ...string) (int, string, string) {
 }
 
 func TestMainCommands(t *testing.T) {
-	if code, _, _ := runAps(t); code != 2 {
-		t.Errorf("aps (no args) exit = %d, want 2", code)
+	if code, _, _ := runOrb(t); code != 2 {
+		t.Errorf("orb (no args) exit = %d, want 2", code)
 	}
-	if code, out, _ := runAps(t, "version"); code != 0 || !strings.HasPrefix(out, "aps ") {
-		t.Errorf("aps version = %d %q, want 0 and version line", code, out)
+	if code, out, _ := runOrb(t, "version"); code != 0 || !strings.HasPrefix(out, "orb ") {
+		t.Errorf("orb version = %d %q, want 0 and version line", code, out)
 	}
-	if code, out, _ := runAps(t, "help"); code != 0 || !strings.Contains(out, "aps new") {
-		t.Errorf("aps help = %d %q, want usage", code, out)
+	if code, out, _ := runOrb(t, "help"); code != 0 || !strings.Contains(out, "orb new") {
+		t.Errorf("orb help = %d %q, want usage", code, out)
 	}
-	if code, _, errOut := runAps(t, "deploy"); code != 2 || !strings.Contains(errOut, "unknown command") {
-		t.Errorf("aps deploy = %d %q, want 2 unknown command", code, errOut)
+	if code, _, errOut := runOrb(t, "deploy"); code != 2 || !strings.Contains(errOut, "unknown command") {
+		t.Errorf("orb deploy = %d %q, want 2 unknown command", code, errOut)
 	}
 }
 
@@ -57,14 +57,14 @@ func TestNewValidation(t *testing.T) {
 		{"unknown preset", []string{"new", "api", "--preset", "huge"}, 2, "unknown preset"},
 		{"unknown tenancy", []string{"new", "api", "--preset", "full", "--tenancy", "many"}, 2, "unknown tenancy"},
 		{"multi-tenant minimal", []string{"new", "api", "--tenancy", "multi"}, 2, "needs the Full preset"},
-		{"bad local", []string{"new", "api", "--local", "."}, 2, "not an apistock checkout"},
+		{"bad local", []string{"new", "api", "--local", "."}, 2, "not an gorbital checkout"},
 		{"existing directory", []string{"new", "taken", "--skip-tidy", "--no-git"}, 1, "already exists"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			code, _, errOut := runAps(t, tt.args...)
+			code, _, errOut := runOrb(t, tt.args...)
 			if code != tt.wantCode || !strings.Contains(errOut, tt.wantErr) {
-				t.Errorf("aps %s = %d %q, want %d containing %q", strings.Join(tt.args, " "), code, errOut, tt.wantCode, tt.wantErr)
+				t.Errorf("orb %s = %d %q, want %d containing %q", strings.Join(tt.args, " "), code, errOut, tt.wantCode, tt.wantErr)
 			}
 		})
 	}
@@ -85,17 +85,17 @@ func TestNewCreatesApp(t *testing.T) {
 	}{
 		{"minimal", "single", "base-minimal", 15, map[string]string{
 			"go.mod":        "module example.com/shop-api\n",
-			"apistock.yaml": "preset: minimal",
+			"gorbital.yaml": "preset: minimal",
 		}},
 		{"full", "multi", "base-full-multi", 150, map[string]string{
-			"apistock.yaml":                             "tenancy: multi",
+			"gorbital.yaml":                             "tenancy: multi",
 			"internal/app/app.go":                       `const ServiceName = "shop-api"`,
 			"internal/modules/orgs/module.go":           "package orgs",
 			"db/migrations/20260916000002_projects.sql": "org_id      text        NOT NULL REFERENCES orgs (id)",
 		}},
 		{"full", "single", "base-full", 100, map[string]string{
 			"go.mod":                              "module example.com/shop-api\n",
-			"apistock.yaml":                       "preset: full",
+			"gorbital.yaml":                       "preset: full",
 			"compose.yaml":                        "POSTGRES_DB: shop-api",
 			".env.example":                        "DATABASE_URL=postgres://shop-api:shop-api@127.0.0.1:5432/shop-api",
 			"internal/app/app.go":                 `const ServiceName = "shop-api"`,
@@ -105,13 +105,13 @@ func TestNewCreatesApp(t *testing.T) {
 	} {
 		t.Run(tt.recipe, func(t *testing.T) {
 			t.Chdir(t.TempDir())
-			code, out, errOut := runAps(t, "new", "shop-api", "--module", "example.com/shop-api", "--preset", tt.preset, "--tenancy", tt.tenancy, "--skip-tidy", "--no-git", "--json")
+			code, out, errOut := runOrb(t, "new", "shop-api", "--module", "example.com/shop-api", "--preset", tt.preset, "--tenancy", tt.tenancy, "--skip-tidy", "--no-git", "--json")
 			if code != 0 {
-				t.Fatalf("aps new --preset %s --tenancy %s = %d, stderr %q", tt.preset, tt.tenancy, code, errOut)
+				t.Fatalf("orb new --preset %s --tenancy %s = %d, stderr %q", tt.preset, tt.tenancy, code, errOut)
 			}
 			var res newResult
 			if err := json.Unmarshal([]byte(out), &res); err != nil || res.Name != "shop-api" || res.Preset != tt.preset || res.Tenancy != tt.tenancy || res.Files < tt.minFiles {
-				t.Errorf("aps new --json = %q (%v), want the %s preset, %s tenancy, with at least %d files", out, err, tt.preset, tt.tenancy, tt.minFiles)
+				t.Errorf("orb new --json = %q (%v), want the %s preset, %s tenancy, with at least %d files", out, err, tt.preset, tt.tenancy, tt.minFiles)
 			}
 			for path, want := range tt.contains {
 				if got, _ := os.ReadFile(filepath.Join("shop-api", filepath.FromSlash(path))); !strings.Contains(string(got), want) {
@@ -125,13 +125,13 @@ func TestNewCreatesApp(t *testing.T) {
 			}
 			lock, err := readLock("shop-api")
 			// Every rendered file is tracked except go.mod.
-			if err != nil || lock.APIVersion != LockAPIVersion || lock.Aps.Version != Version || lock.Inputs != wantInputs ||
+			if err != nil || lock.APIVersion != LockAPIVersion || lock.Orb.Version != Version || lock.Inputs != wantInputs ||
 				len(lock.Files) != res.Files-1 || lock.tracks("go.mod") {
-				t.Errorf("apistock.lock = %+v (%v), want %s with inputs %+v and %d files", lock, err, LockAPIVersion, wantInputs, res.Files-1)
+				t.Errorf("gorbital.lock = %+v (%v), want %s with inputs %+v and %d files", lock, err, LockAPIVersion, wantInputs, res.Files-1)
 			}
 			for _, f := range lock.Files {
 				if got, _ := os.ReadFile(filepath.Join("shop-api", filepath.FromSlash(f.Path))); sha256Hex(got) != f.SHA256 {
-					t.Errorf("apistock.lock hash of %s doesn't match the file", f.Path)
+					t.Errorf("gorbital.lock hash of %s doesn't match the file", f.Path)
 				}
 			}
 			assertLockRebuilds(t, "shop-api")
@@ -154,50 +154,50 @@ func TestNewCreatesApp(t *testing.T) {
 
 func TestNewFullPrintsNextSteps(t *testing.T) {
 	t.Chdir(t.TempDir())
-	code, out, errOut := runAps(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git")
+	code, out, errOut := runOrb(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git")
 	if code != 0 {
-		t.Fatalf("aps new --preset full = %d, stderr %q", code, errOut)
+		t.Fatalf("orb new --preset full = %d, stderr %q", code, errOut)
 	}
 	for _, want := range []string{
 		"creating shop-api in ./shop-api\n", "preset full · tenancy single · library", "✓ wrote ", "\ncreated shop-api\n",
 		"docker compose up -d --wait", "go run ./cmd/migrate", "go run ./cmd/seed", "http://127.0.0.1:8025", "admin@example.com",
-		"AUTH_PROVIDERS.md", "POSTGRES_PORT", "aps add mail", "next: cd shop-api\n        aps dev\n",
+		"AUTH_PROVIDERS.md", "POSTGRES_PORT", "orb add mail", "next: cd shop-api\n        orb dev\n",
 	} {
 		if !strings.Contains(out, want) {
-			t.Errorf("aps new --preset full output lacks %q:\n%s", want, out)
+			t.Errorf("orb new --preset full output lacks %q:\n%s", want, out)
 		}
 	}
 	// --skip-tidy and --no-git skip their steps; output that isn't a terminal has no colour.
 	for _, unwanted := range []string{"go mod tidy", "initialised git", "\x1b[", "orgs.invitation_url"} {
 		if strings.Contains(out, unwanted) {
-			t.Errorf("aps new --skip-tidy --no-git output has %q:\n%s", unwanted, out)
+			t.Errorf("orb new --skip-tidy --no-git output has %q:\n%s", unwanted, out)
 		}
 	}
 
-	code, out, errOut = runAps(t, "new", "team-api", "--preset", "full", "--tenancy", "multi", "--skip-tidy", "--no-git")
+	code, out, errOut = runOrb(t, "new", "team-api", "--preset", "full", "--tenancy", "multi", "--skip-tidy", "--no-git")
 	if code != 0 {
-		t.Fatalf("aps new --preset full --tenancy multi = %d, stderr %q", code, errOut)
+		t.Fatalf("orb new --preset full --tenancy multi = %d, stderr %q", code, errOut)
 	}
 	for _, want := range []string{"preset full · tenancy multi · library", "personal workspace", "orgs.invitation_url", "next: cd team-api"} {
 		if !strings.Contains(out, want) {
-			t.Errorf("aps new --tenancy multi output lacks %q:\n%s", want, out)
+			t.Errorf("orb new --tenancy multi output lacks %q:\n%s", want, out)
 		}
 	}
 }
 
 func TestNewMinimalLog(t *testing.T) {
 	t.Chdir(t.TempDir())
-	code, out, errOut := runAps(t, "new", "shop-api", "--skip-tidy", "--no-git")
+	code, out, errOut := runOrb(t, "new", "shop-api", "--skip-tidy", "--no-git")
 	if code != 0 {
-		t.Fatalf("aps new = %d, stderr %q", code, errOut)
+		t.Fatalf("orb new = %d, stderr %q", code, errOut)
 	}
 	for _, want := range []string{"creating shop-api in ./shop-api\n", "preset minimal · library", "✓ wrote ", "api docs     http://127.0.0.1:8080/docs", "next: cd shop-api"} {
 		if !strings.Contains(out, want) {
-			t.Errorf("aps new output lacks %q:\n%s", want, out)
+			t.Errorf("orb new output lacks %q:\n%s", want, out)
 		}
 	}
-	if code, out, _ := runAps(t, "new", "other-api", "--skip-tidy", "--no-git", "--json"); code != 0 || strings.Contains(out, "creating") {
-		t.Errorf("aps new --json = %d, printed the log:\n%s", code, out)
+	if code, out, _ := runOrb(t, "new", "other-api", "--skip-tidy", "--no-git", "--json"); code != 0 || strings.Contains(out, "creating") {
+		t.Errorf("orb new --json = %d, printed the log:\n%s", code, out)
 	}
 }
 
@@ -240,7 +240,7 @@ func TestSnapshotDetectsChanges(t *testing.T) {
 	write("main.go", "package main")
 	before, _ := snapshot(dir, watched)
 
-	write(".aps/api", "binary")
+	write(".orb/api", "binary")
 	write("notes.txt", "ignored")
 	if after, _ := snapshot(dir, watched); after != before {
 		t.Error("snapshot changed after writing ignored files")
@@ -256,13 +256,13 @@ func TestSnapshotDetectsChanges(t *testing.T) {
 
 // TestNewAppBuildsAndPassesItsTests creates an app of each preset against
 // this checkout, then vets it and runs its own test suite. A Full app's
-// database tests run when APISTOCK_TEST_DATABASE_URL is set; afterwards the
+// database tests run when GORBITAL_TEST_DATABASE_URL is set; afterwards the
 // generators users run next must leave it building and passing its tests,
 // including a generated migration that changes a generated resource's table.
-// Set APS_E2E=1 to run it.
+// Set ORB_E2E=1 to run it.
 func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
-	if os.Getenv("APS_E2E") == "" {
-		t.Skip("set APS_E2E=1 to run the end-to-end test")
+	if os.Getenv("ORB_E2E") == "" {
+		t.Skip("set ORB_E2E=1 to run the end-to-end test")
 	}
 	repo, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	if err != nil {
@@ -272,8 +272,8 @@ func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 		t.Run(app.preset+"-"+app.tenancy, func(t *testing.T) {
 			t.Chdir(t.TempDir())
 			name := "e2e-" + app.preset + "-" + app.tenancy
-			if code, _, errOut := runAps(t, "new", name, "--preset", app.preset, "--tenancy", app.tenancy, "--local", repo, "--no-git"); code != 0 {
-				t.Fatalf("aps new --preset %s --tenancy %s --local = %d: %s", app.preset, app.tenancy, code, errOut)
+			if code, _, errOut := runOrb(t, "new", name, "--preset", app.preset, "--tenancy", app.tenancy, "--local", repo, "--no-git"); code != 0 {
+				t.Fatalf("orb new --preset %s --tenancy %s --local = %d: %s", app.preset, app.tenancy, code, errOut)
 			}
 			goIn(t, name, "vet", "./...")
 			goIn(t, name, "test", "./...")
@@ -289,20 +289,20 @@ func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 			}
 			table := "customers"
 			for _, args := range generators {
-				if code, _, errOut := runAps(t, args...); code != 0 {
-					t.Fatalf("aps %s in a new Full app = %d: %s", strings.Join(args, " "), code, errOut)
+				if code, _, errOut := runOrb(t, args...); code != 0 {
+					t.Fatalf("orb %s in a new Full app = %d: %s", strings.Join(args, " "), code, errOut)
 				}
 			}
 			// The migration runs after the table's, so it can change it.
 			added, _ := filepath.Glob(filepath.Join("db", "migrations", "*_add_phone.sql"))
 			if len(added) != 1 {
-				t.Fatalf("aps gen migration wrote %v, want one add_phone migration", added)
+				t.Fatalf("orb gen migration wrote %v, want one add_phone migration", added)
 			}
 			sql := readFile(t, added[0]) + "ALTER TABLE " + table + " ADD COLUMN phone text NOT NULL DEFAULT '';\n"
 			if err := os.WriteFile(added[0], []byte(sql), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			// As aps gen resource's next steps say: the new endpoints change the spec.
+			// As orb gen resource's next steps say: the new endpoints change the spec.
 			if out, err := exec.Command("go", "run", "./cmd/api", "openapi", "--dir", "api").CombinedOutput(); err != nil {
 				t.Fatalf("go run ./cmd/api openapi --dir api: %v\n%s", err, out)
 			}

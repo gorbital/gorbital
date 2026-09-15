@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"apistock.dev/page"
+	"gorbital.dev/page"
 )
 
 // Release is one build: every instance start with the same version and

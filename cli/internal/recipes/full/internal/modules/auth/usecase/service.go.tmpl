@@ -1,7 +1,7 @@
 // Package usecase holds the auth module's application logic: registration,
 // email verification, sign-in, sessions, password reset and change, account
 // deletion and platform roles. Security-sensitive steps (hashing, tokens,
-// codes) use the apistock auth module; everything else is here to read and
+// codes) use the gorbital auth module; everything else is here to read and
 // change.
 package usecase
 
@@ -13,13 +13,13 @@ import (
 	"strings"
 	"time"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/config"
-	authlib "apistock.dev/modules/auth"
-	"apistock.dev/modules/auth/passkey"
-	"apistock.dev/modules/auth/social"
-	"apistock.dev/ratelimit"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/config"
+	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/auth/passkey"
+	"gorbital.dev/modules/auth/social"
+	"gorbital.dev/ratelimit"
 
 	authdomain "⟦.Module⟧/internal/modules/auth/domain"
 )

@@ -18,8 +18,8 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
-	"apistock.dev/actor"
-	"apistock.dev/requestid"
+	"gorbital.dev/actor"
+	"gorbital.dev/requestid"
 )
 
 // Outcome is the result of an audited action.

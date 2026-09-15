@@ -1,10 +1,10 @@
 # ADR-0035: Interactive CLI with flag parity
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0014, ADR-0021 · **Amended by:** ADR-0037 (`aps add mail`; secrets are asked with hidden input and never flags)
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0014, ADR-0021 · **Amended by:** ADR-0037 (`orb add mail`; secrets are asked with hidden input and never flags)
 
 ## Context
 
-`aps` is the first thing developers touch. v0.1 asks nothing: every choice is a flag, and the CLI uses only the standard library. Developers expect guided creation: arrow keys to pick options, checkboxes for features, validated text inputs, and a summary before anything is written. The same commands must also run unattended in CI, scripts and AI agents, where prompts would hang (ADR-0014 already requires a flag for every prompt).
+`orb` is the first thing developers touch. v0.1 asks nothing: every choice is a flag, and the CLI uses only the standard library. Developers expect guided creation: arrow keys to pick options, checkboxes for features, validated text inputs, and a summary before anything is written. The same commands must also run unattended in CI, scripts and AI agents, where prompts would hang (ADR-0014 already requires a flag for every prompt).
 
 ## Options
 
@@ -30,17 +30,17 @@ Option 3.
 | Accessibility | `--plain` or `ACCESSIBLE=1` switches to line-by-line prompts that work with screen readers; `NO_COLOR` disables colour |
 | Output | Progress and results go to stderr/stdout as today; `--json` prints only the machine-readable result |
 
-### `aps new`
+### `orb new`
 
 | Prompt | Flag | Default |
 |---|---|---|
 | App name | positional `<name>` | none (required) |
 | Go module path | `--module` | the app name |
 | Preset (select) | `--preset` | `minimal`; `full` and `custom` appear once their recipes exist |
-| apistock checkout (until the library is published) | `--local` | the nearest directory at or above the current one whose `go.mod` is `module apistock.dev` |
+| gorbital checkout (until the library is published) | `--local` | the nearest directory at or above the current one whose `go.mod` is `module gorbital.dev` |
 | Initialise git (confirm) | `--no-git` | yes |
 
-### `aps gen job`
+### `orb gen job`
 
 Generates a Lambda-style job (ADR-0033) into a Full preset app, one-shot (ADR-0021).
 
@@ -64,9 +64,9 @@ Other flags: `--dry-run` (print the files and the anchor line, write nothing), `
 | `internal/jobs/<name>/<name>.go` | `Name`, `Args`, `Worker` with a `Work` method to fill in |
 | `internal/jobs/<name>/<name>_test.go` | A worker test |
 | `internal/app/job_<name>.go` | `jobs.Define` with the chosen defaults |
-| `internal/app/jobs.go` | One `define<Name>Job(defs, deps)` line after `//aps:anchor jobs` |
+| `internal/app/jobs.go` | One `define<Name>Job(defs, deps)` line after `//orb:anchor jobs` |
 
-Safety: runs only inside a Full preset app (the anchor must exist; otherwise it prints the line to add and stops), refuses existing files, validates the rendered Go with `go/format`, writes through `os.Root`. Golden test: `aps gen job Heartbeat` with the heartbeat job's defaults reproduces `examples/full-single`'s heartbeat files exactly.
+Safety: runs only inside a Full preset app (the anchor must exist; otherwise it prints the line to add and stops), refuses existing files, validates the rendered Go with `go/format`, writes through `os.Root`. Golden test: `orb gen job Heartbeat` with the heartbeat job's defaults reproduces `examples/full-single`'s heartbeat files exactly.
 
 ## Why
 
@@ -87,22 +87,22 @@ Safety: runs only inside a Full preset app (the anchor must exist; otherwise it 
 
 ## v0.2 implementation notes (2026-09-14)
 
-- `aps new` and `aps gen job` implement the tables above with `huh` v1.0.0; prompts draw on stderr and read stdin; `cli.Main` takes stdin so tests run the flag path with a non-terminal reader.
-- `aps gen job` also accepts `--on-demand`, and asks for queue and priority only through flags (they rarely change at creation and remain editable in `/ops/jobs`).
+- `orb new` and `orb gen job` implement the tables above with `huh` v1.0.0; prompts draw on stderr and read stdin; `cli.Main` takes stdin so tests run the flag path with a non-terminal reader.
+- `orb gen job` also accepts `--on-demand`, and asks for queue and priority only through flags (they rarely change at creation and remain editable in `/ops/jobs`).
 - Job names accept `CleanupSessions`, `cleanup-sessions` or `cleanup_sessions`; names that would be Go keywords as packages (for example `Default`) are rejected.
 - Schedule validation in the CLI checks the cron shape, descriptors and the 1-minute `@every` minimum; `modules/jobs` validates fully at startup.
-- New `aps gen job` lines are inserted directly after the anchor, so the newest job is listed first.
+- New `orb gen job` lines are inserted directly after the anchor, so the newest job is listed first.
 - Follow-up questions are asked as separate short steps rather than hidden groups: `huh`'s accessible mode ignores group hide functions, so hiding would make `--plain` users answer questions that don't apply. The question flows are tested in accessible mode with scripted answers.
-- Exit code 130 on cancel; `aps new` prints which apistock checkout it detected when not prompting.
-- `aps add mail` (ADR-0037) follows these rules with one exception: secrets (the Resend API key, the SMTP password) have no flag. They are asked with hidden input only on a terminal, saved only to `.env`, and never printed. In plain mode `huh` reads them without echo, which needs a terminal, so scripted prompt tests use a normal input instead.
-- `aps gen resource` (ADR-0039) asks for the resource name and its fields (one line, in the same syntax as the positional arguments) with the validators the arguments use, then confirms a summary. Plural, ID prefix and scope are flags only. Flags may come before, between or after the positional arguments.
-- `aps gen migration` asks only for the name, with the validator the argument uses, and writes without a confirmation step: it creates one empty file, named in the output and undone by deleting it. Names accept `add_customer_phone`, `AddCustomerPhone` or `add-customer-phone`, split into words like job names.
+- Exit code 130 on cancel; `orb new` prints which gorbital checkout it detected when not prompting.
+- `orb add mail` (ADR-0037) follows these rules with one exception: secrets (the Resend API key, the SMTP password) have no flag. They are asked with hidden input only on a terminal, saved only to `.env`, and never printed. In plain mode `huh` reads them without echo, which needs a terminal, so scripted prompt tests use a normal input instead.
+- `orb gen resource` (ADR-0039) asks for the resource name and its fields (one line, in the same syntax as the positional arguments) with the validators the arguments use, then confirms a summary. Plural, ID prefix and scope are flags only. Flags may come before, between or after the positional arguments.
+- `orb gen migration` asks only for the name, with the validator the argument uses, and writes without a confirmation step: it creates one empty file, named in the output and undone by deleting it. Names accept `add_customer_phone`, `AddCustomerPhone` or `add-customer-phone`, split into words like job names.
 - User documentation: [CLI guide](../guides/cli.md).
 
 ## v0.3 implementation notes (2026-09-15)
 
-- Every prompt uses one `huh` theme in the apistock palette ([theme](../brand/theme.md)): no borders, dim hints, lime only on the open question's `?` and the option cursor, danger colour for validation errors. Colour follows the output: none when it isn't a terminal or `NO_COLOR` is set.
-- `aps new` asks one question at a time, in the style of `create-next-app`: the open question is `? label … answer` on one line (options listed below it for the preset), and each answered question folds into `✓ label … answer`. Values given by flag are printed as answered lines too.
-- Because every answer is already on screen, `aps new` ends with a one-line `create <name> in ./<name>?` confirm (default yes) instead of a summary note. The rule "a summary of what will be created and a confirm" holds; the folded lines are the summary. `aps gen job`, `aps gen resource` and `aps add mail` keep their summary notes.
-- Folding needs one form per question, so Shift+Tab no longer goes back to an earlier `aps new` question; Ctrl+C and running again is the way back. In plain mode nothing is folded, since each answer is already printed.
-- `aps new` output is a log on stdout: `creating <name> in ./<name>`, the preset and library, one `✓` line per finished step (`wrote N files`, `ran go mod tidy`, `initialised git`), `created <name>`, where things are, and `next:` with the commands to run. `go mod tidy` output is shown only when it fails. `--json` prints only the result. This replaces the stderr line naming a detected checkout: the log's library line says it was found and how to change it.
+- Every prompt uses one `huh` theme in the gorbital palette ([theme](../brand/theme.md)): no borders, dim hints, lime only on the open question's `?` and the option cursor, danger colour for validation errors. Colour follows the output: none when it isn't a terminal or `NO_COLOR` is set.
+- `orb new` asks one question at a time, in the style of `create-next-app`: the open question is `? label … answer` on one line (options listed below it for the preset), and each answered question folds into `✓ label … answer`. Values given by flag are printed as answered lines too.
+- Because every answer is already on screen, `orb new` ends with a one-line `create <name> in ./<name>?` confirm (default yes) instead of a summary note. The rule "a summary of what will be created and a confirm" holds; the folded lines are the summary. `orb gen job`, `orb gen resource` and `orb add mail` keep their summary notes.
+- Folding needs one form per question, so Shift+Tab no longer goes back to an earlier `orb new` question; Ctrl+C and running again is the way back. In plain mode nothing is folded, since each answer is already printed.
+- `orb new` output is a log on stdout: `creating <name> in ./<name>`, the preset and library, one `✓` line per finished step (`wrote N files`, `ran go mod tidy`, `initialised git`), `created <name>`, where things are, and `next:` with the commands to run. `go mod tidy` output is shown only when it fails. `--json` prints only the result. This replaces the stderr line naming a detected checkout: the log's library line says it was found and how to change it.

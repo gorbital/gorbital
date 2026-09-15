@@ -6,8 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/buildinfo"
-	"apistock.dev/modules/releases"
+	"gorbital.dev/buildinfo"
+	"gorbital.dev/modules/releases"
 )
 
 func TestTrackerInstanceID(t *testing.T) {

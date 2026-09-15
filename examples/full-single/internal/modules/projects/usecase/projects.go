@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"apistock.dev/page"
+	"gorbital.dev/page"
 
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
 )

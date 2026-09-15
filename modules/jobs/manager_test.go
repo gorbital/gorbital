@@ -13,7 +13,7 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 
-	"apistock.dev/modules/jobs"
+	"gorbital.dev/modules/jobs"
 )
 
 type managerSetup struct {
@@ -307,7 +307,7 @@ func TestManagersConvergeAcrossInstances(t *testing.T) {
 
 	waitFor(t, "instance B to listen", func() bool {
 		var n int
-		_ = pool.QueryRow(ctx, "SELECT count(*) FROM pg_stat_activity WHERE query = 'LISTEN apistock_jobs'").Scan(&n)
+		_ = pool.QueryRow(ctx, "SELECT count(*) FROM pg_stat_activity WHERE query = 'LISTEN gorbital_jobs'").Scan(&n)
 		return n > 0
 	})
 	if _, err := a.manager.Update(ctx, "cleanup_sessions", jobs.ConfigPatch{Enabled: ptr(false)}, jobs.Change{Reason: "maintenance"}); err != nil {

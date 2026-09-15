@@ -48,7 +48,7 @@ modules never import other modules
 | 5 | Transactions via a `TxManager` port; use cases never import pgx | Database leaking into business logic |
 | 6 | Generated code uses clear import aliases (`projectdomain`, `projectusecase`) | Ambiguous `domain`/`usecase` imports |
 | 7 | Business rules in domain constructors and methods; use cases coordinate permissions, transactions and audit | Anemic pass-through layers |
-| 8 | No `platform/` folder; cross-cutting concerns come from the apistock library | Copied infrastructure drifting per app |
+| 8 | No `platform/` folder; cross-cutting concerns come from the gorbital library | Copied infrastructure drifting per app |
 | 9 | Only `internal/app` reads environment variables | Hidden configuration |
 | 10 | Tests per layer: domain (unit), usecase (fake ports), repository (real PostgreSQL), delivery (`httptest` against the OpenAPI contract) | Slow, fragile test suites |
 
@@ -58,7 +58,7 @@ modules never import other modules
 - `api/openapi.json` exported from code (ADR-0027), plus generated `postman_collection.json` and `llms.txt`.
 - `db/migrations` (single ordered history); SQL lives next to the repository method that runs it (ADR-0032).
 - `test/e2e`, `test/testutil`; `docs/` with an ADR folder for the app's own decisions.
-- `compose.yaml`, `Dockerfile`, `.env.example`, `apistock.yaml`, `apistock.lock`, `ARCHITECTURE.md`, `AGENTS.md`.
+- `compose.yaml`, `Dockerfile`, `.env.example`, `gorbital.yaml`, `gorbital.lock`, `ARCHITECTURE.md`, `AGENTS.md`.
 
 ## Why
 

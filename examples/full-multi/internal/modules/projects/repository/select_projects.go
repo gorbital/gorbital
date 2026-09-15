@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"apistock.dev/page"
+	"gorbital.dev/page"
 
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
 	projectsusecase "example.com/acme-api/internal/modules/projects/usecase"

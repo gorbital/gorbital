@@ -1,22 +1,22 @@
 # ADR-0048: Organisations (v0.4)
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0023, ADR-0038 · **Amended by:** ADR-0050 (`aps add orgs` merges `base-full` into `base-full-multi` and converts data with new migrations)
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0023, ADR-0038 · **Amended by:** ADR-0050 (`orb add orgs` merges `base-full` into `base-full-multi` and converts data with new migrations)
 
 The maintainer approved the five questions below as recommended (2026-09-15).
 
 ## Context
 
-ADR-0023 chose shared-schema multi-tenancy as a creation-time choice: `org_id NOT NULL` on tenant rows, explicit `/v1/orgs/{orgId}/...` routes, personal workspaces at signup, platform roles separate from org roles (`owner`, `admin`, `member`), at least one owner, email invitations (hashed, single-use, 7 days, revocable), soft delete then purge, and isolation at four layers (HTTP, code, database, tests). It also planned `examples/full-multi` and `aps add orgs` for moving a single-tenant app to multi-tenant.
+ADR-0023 chose shared-schema multi-tenancy as a creation-time choice: `org_id NOT NULL` on tenant rows, explicit `/v1/orgs/{orgId}/...` routes, personal workspaces at signup, platform roles separate from org roles (`owner`, `admin`, `member`), at least one owner, email invitations (hashed, single-use, 7 days, revocable), soft delete then purge, and isolation at four layers (HTTP, code, database, tests). It also planned `examples/full-multi` and `orb add orgs` for moving a single-tenant app to multi-tenant.
 
 v0.2 and v0.3 prepared for this: `actor.Actor` has `OrgID`; `settings_values`, `jobs_definitions`, `audit_events`, `auth_sessions` and `auth_user_roles` have a nullable `org_id`. Authentication settled the patterns organisations should follow (ADR-0038): the generated app owns flows, tables and SQL; the library holds building blocks; permissions are read on every request.
 
-Open questions before code: where org roles are stored, how a request becomes an org actor, what platform staff may see, how invitations are accepted safely, what personal workspaces allow, how account deletion interacts with ownership, how the two golden apps stay in step, and whether `aps add orgs` can ship before the recipe engine it depends on.
+Open questions before code: where org roles are stored, how a request becomes an org actor, what platform staff may see, how invitations are accepted safely, what personal workspaces allow, how account deletion interacts with ownership, how the two golden apps stay in step, and whether `orb add orgs` can ship before the recipe engine it depends on.
 
 ## Decision
 
 ### 1. Library and app
 
-| Library: `apistock.dev/modules/orgs` | Generated app: `internal/modules/orgs` |
+| Library: `gorbital.dev/modules/orgs` | Generated app: `internal/modules/orgs` |
 |---|---|
 | `orgs.ID` (a distinct string type, prefix `org_`) so a user ID can't be passed where an org ID is expected | Domain rules: names, roles, last owner, personal workspace limits |
 | `RequireMember(permission)` HTTP middleware over a `Memberships` interface the app implements | Use cases: create, rename, list, members, invitations, transfer, leave, delete, restore, purge |
@@ -92,12 +92,12 @@ Rows keep `created_by` (the user) for display and audit; access comes only from 
 
 - **`examples/full-multi`** is a golden app: `full-single` plus the orgs module, personal workspaces, and `projects` scoped to organisations.
 - **Drift check:** a test lists the files allowed to differ between `full-single` and `full-multi`; every other file must be identical, so the two apps can't drift apart.
-- **`aps new`** gains the tenancy question from ADR-0023 (default single-tenant) and `--tenancy single|multi`; multi-tenant apps are generated from `full-multi` byte for byte, as ADR-0041 does for `full-single`. The recipe (`full-single` or `full-multi`) in `apistock.lock` records the choice.
-- **`aps gen resource`** gains `--scope user|org`, defaulting to the app's tenancy; `--scope org` reproduces `full-multi`'s projects module exactly.
+- **`orb new`** gains the tenancy question from ADR-0023 (default single-tenant) and `--tenancy single|multi`; multi-tenant apps are generated from `full-multi` byte for byte, as ADR-0041 does for `full-single`. The recipe (`full-single` or `full-multi`) in `gorbital.lock` records the choice.
+- **`orb gen resource`** gains `--scope user|org`, defaulting to the app's tenancy; `--scope org` reproduces `full-multi`'s projects module exactly.
 
-### 10. `aps add orgs` moves to v0.5
+### 10. `orb add orgs` moves to v0.5
 
-Changing a live single-tenant app to multi-tenant edits owned files (routes, account creation, every resource) and needs data migrations. ADR-0021 requires that to happen through recorded operations with 3-way merges, which arrive with the per-feature recipe split and `aps upgrade` in v0.5. Shipping it in v0.4 would mean a one-off patcher that ignores developers' edits. v0.4 ships both modes at creation; `aps add orgs` ships with `aps add` and `aps upgrade` in v0.5.
+Changing a live single-tenant app to multi-tenant edits owned files (routes, account creation, every resource) and needs data migrations. ADR-0021 requires that to happen through recorded operations with 3-way merges, which arrive with the per-feature recipe split and `orb upgrade` in v0.5. Shipping it in v0.4 would mean a one-off patcher that ignores developers' edits. v0.4 ships both modes at creation; `orb add orgs` ships with `orb add` and `orb upgrade` in v0.5.
 
 ### Questions for the maintainer
 
@@ -107,7 +107,7 @@ Each has a recommendation in the sections above; approving this ADR approves the
 2. No platform staff access to orgs' data in v0.4 (section 3)?
 3. Personal workspaces don't accept invitations (section 5)?
 4. Accepting an invitation requires the invited, verified email (section 6)?
-5. Move `aps add orgs` to v0.5 (section 10)?
+5. Move `orb add orgs` to v0.5 (section 10)?
 
 ## Why
 
@@ -126,10 +126,10 @@ Each has a recommendation in the sections above; approving this ADR approves the
 
 ## Consequences
 
-- ADR-0023: role storage, 404 for non-members, invitation acceptance rules, personal workspace limits and the move of `aps add orgs` to v0.5 are recorded here.
+- ADR-0023: role storage, 404 for non-members, invitation acceptance rules, personal workspace limits and the move of `orb add orgs` to v0.5 are recorded here.
 - ADR-0038: account creation creates a personal workspace in multi-tenant apps; account deletion checks ownership.
 - Threat model (ADR-0029): add rows for cross-org access, invitation takeover and org enumeration.
-- Roadmap v0.4 loses `aps add orgs` (moved to v0.5) and gains the drift check.
+- Roadmap v0.4 loses `orb add orgs` (moved to v0.5) and gains the drift check.
 - Public API (ADR-0015): org permission and role names, error codes (`org_not_found`, `last_owner`, `sole_owner`, `already_member`), audit actions and `orgs.ID`.
 
 ## Implementation notes (2026-09-15)
@@ -141,7 +141,7 @@ Each has a recommendation in the sections above; approving this ADR approves the
 - **Additional error codes:** `invalid_org_name`, `org_version_conflict`, `personal_workspace`, `member_not_found`, `unknown_role`, `role_not_allowed`, `already_invited`, `invitation_not_found`, `invitation_for_another_email`, `too_many_invitations`, and `forbidden` / `mfa_required` for org roles.
 - **Runtime settings:** `orgs.invitation_url`, `orgs.invitation_ttl` (1 to 30 days), `orgs.deleted_org_retention` (1 to 365 days).
 - **Golden app:** `examples/full-multi` moves the projects migration after the orgs one (`20260916000002_projects.sql`). `internal/archtest/examples_test.go` lists the files allowed to differ from `full-single` and fails when any other file differs, or when a listed file no longer does.
-- **CLI:** `aps new --tenancy single|multi` (asked after the preset when it is Full), recipe `base-full-multi` generated from `examples/full-multi` and checked byte for byte like the other presets.
-- **`aps gen resource --scope org`:** one set of resource templates with an org branch, so a fix reaches both scopes; the default scope follows `tenancy` in `apistock.yaml`. It reproduces `examples/full-multi`'s projects module byte for byte, and CI generates two more org-scoped resources into a copy of `full-multi` and runs their tests. Org-scoped resources declare `<module>.<resource>.read` and `.write` as a `resourcePermissions` value in their `module_<names>.go`, and the generator adds one line at `//aps:anchor org-permissions` in `permissions.go` (ADR-0021: a new file plus one line at one anchor), so every organisation role gets them without editing the role declarations. `personalWorkspace`, used by org-scoped end-to-end tests, lives in `internal/app/app_test.go` so each generated resource can use it.
+- **CLI:** `orb new --tenancy single|multi` (asked after the preset when it is Full), recipe `base-full-multi` generated from `examples/full-multi` and checked byte for byte like the other presets.
+- **`orb gen resource --scope org`:** one set of resource templates with an org branch, so a fix reaches both scopes; the default scope follows `tenancy` in `gorbital.yaml`. It reproduces `examples/full-multi`'s projects module byte for byte, and CI generates two more org-scoped resources into a copy of `full-multi` and runs their tests. Org-scoped resources declare `<module>.<resource>.read` and `.write` as a `resourcePermissions` value in their `module_<names>.go`, and the generator adds one line at `//orb:anchor org-permissions` in `permissions.go` (ADR-0021: a new file plus one line at one anchor), so every organisation role gets them without editing the role declarations. `personalWorkspace`, used by org-scoped end-to-end tests, lives in `internal/app/app_test.go` so each generated resource can use it.
 - **Threat model:** rows 25 (invitation takeover) and 26 (organisation enumeration) added; row 17 done for generated multi-tenant apps.
 - **Review (2026-09-15):** the purge deletes an organisation only while `deleted_at` is set and `purge_after` has passed, and records `orgs.org.purged` only for rows it removed, so one restored and deleted again between listing and deleting stays until its new purge time. `RequireMember` checks `ErrNotMember` with `errors.Is`, so an app's `Memberships` may wrap it. Checked and kept: concurrent role changes, removals and leaves lock the organisation row, so the last owner can't be removed by two requests at once; accepting, resending and revoking lock the invitation row; account deletion is a soft delete, so memberships are still there when the hook runs.

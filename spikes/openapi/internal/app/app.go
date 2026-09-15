@@ -15,8 +15,8 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
-	"apistock.dev/spikes/openapi/internal/modules/projects"
-	projectrepository "apistock.dev/spikes/openapi/internal/modules/projects/repository"
+	"gorbital.dev/spikes/openapi/internal/modules/projects"
+	projectrepository "gorbital.dev/spikes/openapi/internal/modules/projects/repository"
 )
 
 // New returns the HTTP handler and the Huma API (for spec export).

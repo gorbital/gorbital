@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const testModulesGo = "package app\n\nimport \"errors\"\n\nfunc registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {\n\treturn errors.Join(\n\t\t//aps:anchor modules\n\t\tregisterPing(api, mapper, svc.pingMessage),\n\t)\n}\n"
+const testModulesGo = "package app\n\nimport \"errors\"\n\nfunc registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {\n\treturn errors.Join(\n\t\t//orb:anchor modules\n\t\tregisterPing(api, mapper, svc.pingMessage),\n\t)\n}\n"
 
 // newResourceApp creates a minimal stand-in for a Full preset app with the
 // auth module and makes it the working directory.
@@ -26,14 +26,14 @@ func newResourceApp(t *testing.T) string {
 
 func TestGenResourceWithFields(t *testing.T) {
 	newResourceApp(t)
-	code, out, errOut := runAps(t, "gen", "resource", "Project", "name:string:unique", "description:text", "status:enum(active,archived)", "--json")
+	code, out, errOut := runOrb(t, "gen", "resource", "Project", "name:string:unique", "description:text", "status:enum(active,archived)", "--json")
 	if code != 0 {
-		t.Fatalf("aps gen resource = %d, stderr %q", code, errOut)
+		t.Fatalf("orb gen resource = %d, stderr %q", code, errOut)
 	}
 	var res genResourceResult
 	if err := json.Unmarshal([]byte(out), &res); err != nil || res.Module != "projects" || res.Route != "/v1/projects" || res.Table != "projects" ||
 		len(res.Files) != 21 || res.DryRun {
-		t.Fatalf("aps gen resource --json = %q (%v)", out, err)
+		t.Fatalf("orb gen resource --json = %q (%v)", out, err)
 	}
 	for _, f := range res.Files {
 		if _, err := os.Stat(filepath.FromSlash(f)); err != nil {
@@ -50,24 +50,24 @@ func TestGenResourceWithFields(t *testing.T) {
 		"internal/modules/projects/domain/project.go": "type ProjectFields struct",
 		"internal/modules/projects/domain/errors.go":  "ErrProjectNameTaken",
 		"internal/app/module_projects.go":             `"example.com/shop/internal/modules/projects"`,
-		"internal/app/modules.go":                     "//aps:anchor modules\n\t\tregisterProjects(api, mapper, svc),\n\t\tregisterPing(",
+		"internal/app/modules.go":                     "//orb:anchor modules\n\t\tregisterProjects(api, mapper, svc),\n\t\tregisterPing(",
 	} {
 		if got := readFile(t, filepath.FromSlash(path)); !strings.Contains(got, want) {
 			t.Errorf("%s lacks %q:\n%s", path, want, got)
 		}
 	}
 
-	if code, _, errOut := runAps(t, "gen", "resource", "Project", "name:string"); code != 1 || !strings.Contains(errOut, "already registered") {
+	if code, _, errOut := runOrb(t, "gen", "resource", "Project", "name:string"); code != 1 || !strings.Contains(errOut, "already registered") {
 		t.Errorf("generating the same resource twice = %d %q, want already registered", code, errOut)
 	}
 }
 
 func TestGenResourceFlagsAnywhereAndDryRun(t *testing.T) {
 	dir := newResourceApp(t)
-	code, out, errOut := runAps(t, "gen", "resource", "--dry-run", "Person", "name:string", "--plural", "People", "--id-prefix", "per", "bio:text")
+	code, out, errOut := runOrb(t, "gen", "resource", "--dry-run", "Person", "name:string", "--plural", "People", "--id-prefix", "per", "bio:text")
 	if code != 0 || !strings.Contains(out, "Would create (dry run)") || !strings.Contains(out, "internal/modules/people/module.go") ||
 		!strings.Contains(out, "IDs like per_") || !strings.Contains(out, "bio") {
-		t.Fatalf("aps gen resource --dry-run = %d %q %q", code, out, errOut)
+		t.Fatalf("orb gen resource --dry-run = %d %q %q", code, out, errOut)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "internal", "modules", "people")); !os.IsNotExist(err) {
 		t.Error("dry run wrote the module")
@@ -99,9 +99,9 @@ func TestGenResourceValidation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			code, _, errOut := runAps(t, tt.args...)
+			code, _, errOut := runOrb(t, tt.args...)
 			if code != tt.wantCode || !strings.Contains(errOut, tt.wantErr) {
-				t.Errorf("aps %s = %d %q, want %d containing %q", strings.Join(tt.args, " "), code, errOut, tt.wantCode, tt.wantErr)
+				t.Errorf("orb %s = %d %q, want %d containing %q", strings.Join(tt.args, " "), code, errOut, tt.wantCode, tt.wantErr)
 			}
 		})
 	}
@@ -115,36 +115,36 @@ func TestGenResourceOutsideFullPresetApp(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/minimal\n")
 	t.Chdir(dir)
 	args := []string{"gen", "resource", "Project", "name:string"}
-	if code, _, errOut := runAps(t, args...); code != 1 || !strings.Contains(errOut, "Full preset") {
-		t.Errorf("aps gen resource in a Minimal app = %d %q, want Full preset guidance", code, errOut)
+	if code, _, errOut := runOrb(t, args...); code != 1 || !strings.Contains(errOut, "Full preset") {
+		t.Errorf("orb gen resource in a Minimal app = %d %q, want Full preset guidance", code, errOut)
 	}
 
 	writeFile(t, filepath.Join(dir, "internal", "app", "modules.go"), testModulesGo)
-	if code, _, errOut := runAps(t, args...); code != 1 || !strings.Contains(errOut, "internal/modules/auth") {
-		t.Errorf("aps gen resource without the auth module = %d %q", code, errOut)
+	if code, _, errOut := runOrb(t, args...); code != 1 || !strings.Contains(errOut, "internal/modules/auth") {
+		t.Errorf("orb gen resource without the auth module = %d %q", code, errOut)
 	}
 
 	writeFile(t, filepath.Join(dir, "internal", "modules", "auth", "module.go"), "package auth\n")
-	if code, _, errOut := runAps(t, args...); code != 1 || !strings.Contains(errOut, "db/migrations") {
-		t.Errorf("aps gen resource without db/migrations = %d %q", code, errOut)
+	if code, _, errOut := runOrb(t, args...); code != 1 || !strings.Contains(errOut, "db/migrations") {
+		t.Errorf("orb gen resource without db/migrations = %d %q", code, errOut)
 	}
 
 	writeFile(t, filepath.Join(dir, "db", "migrations", "20260915000001_auth.sql"), "")
 	writeFile(t, filepath.Join(dir, "internal", "app", "modules.go"), "package app\n\nfunc registerModules() error { return nil }\n")
-	if code, _, errOut := runAps(t, args...); code != 1 || !strings.Contains(errOut, "//aps:anchor modules") {
-		t.Errorf("aps gen resource without the anchor = %d %q, want the line to add", code, errOut)
+	if code, _, errOut := runOrb(t, args...); code != 1 || !strings.Contains(errOut, "//orb:anchor modules") {
+		t.Errorf("orb gen resource without the anchor = %d %q, want the line to add", code, errOut)
 	}
 
-	oldStyle := "package app\n\nfunc registerModules() error {\n\t//aps:anchor modules\n\tif err := registerPing(); err != nil {\n\t\treturn err\n\t}\n\treturn nil\n}\n"
+	oldStyle := "package app\n\nfunc registerModules() error {\n\t//orb:anchor modules\n\tif err := registerPing(); err != nil {\n\t\treturn err\n\t}\n\treturn nil\n}\n"
 	writeFile(t, filepath.Join(dir, "internal", "app", "modules.go"), oldStyle)
-	if code, _, errOut := runAps(t, args...); code != 1 || !strings.Contains(errOut, "errors.Join") {
-		t.Errorf("aps gen resource with statement-style modules.go = %d %q, want errors.Join guidance", code, errOut)
+	if code, _, errOut := runOrb(t, args...); code != 1 || !strings.Contains(errOut, "errors.Join") {
+		t.Errorf("orb gen resource with statement-style modules.go = %d %q, want errors.Join guidance", code, errOut)
 	}
 
 	writeFile(t, filepath.Join(dir, "internal", "app", "modules.go"), testModulesGo)
 	writeFile(t, filepath.Join(dir, "internal", "modules", "projects", "keep.go"), "package projects\n")
-	if code, _, errOut := runAps(t, args...); code != 1 || !strings.Contains(errOut, "internal/modules/projects already exists") {
-		t.Errorf("aps gen resource over an existing module = %d %q", code, errOut)
+	if code, _, errOut := runOrb(t, args...); code != 1 || !strings.Contains(errOut, "internal/modules/projects already exists") {
+		t.Errorf("orb gen resource over an existing module = %d %q", code, errOut)
 	}
 }
 

@@ -3,17 +3,17 @@ module ⟦.Module⟧
 go 1.26.0
 
 require (
-	apistock.dev ⟦.LibraryVersion⟧
-	apistock.dev/modules/auditpg ⟦.LibraryVersion⟧
-	apistock.dev/modules/auth ⟦.LibraryVersion⟧
-	apistock.dev/modules/jobs ⟦.LibraryVersion⟧
-	apistock.dev/modules/mail/resend ⟦.LibraryVersion⟧
-	apistock.dev/modules/mail/smtp ⟦.LibraryVersion⟧
-	apistock.dev/modules/openapi ⟦.LibraryVersion⟧
-	apistock.dev/modules/postgres ⟦.LibraryVersion⟧
-	apistock.dev/modules/ratelimitpg ⟦.LibraryVersion⟧
-	apistock.dev/modules/settings ⟦.LibraryVersion⟧
-	apistock.dev/modules/telemetry ⟦.LibraryVersion⟧
+	gorbital.dev ⟦.LibraryVersion⟧
+	gorbital.dev/modules/auditpg ⟦.LibraryVersion⟧
+	gorbital.dev/modules/auth ⟦.LibraryVersion⟧
+	gorbital.dev/modules/jobs ⟦.LibraryVersion⟧
+	gorbital.dev/modules/mail/resend ⟦.LibraryVersion⟧
+	gorbital.dev/modules/mail/smtp ⟦.LibraryVersion⟧
+	gorbital.dev/modules/openapi ⟦.LibraryVersion⟧
+	gorbital.dev/modules/postgres ⟦.LibraryVersion⟧
+	gorbital.dev/modules/ratelimitpg ⟦.LibraryVersion⟧
+	gorbital.dev/modules/settings ⟦.LibraryVersion⟧
+	gorbital.dev/modules/telemetry ⟦.LibraryVersion⟧
 	github.com/danielgtaylor/huma/v2 v2.39.1
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/riverqueue/river v0.47.0
@@ -37,7 +37,7 @@ require (
 )
 
 require (
-	apistock.dev/modules/releases ⟦.LibraryVersion⟧
+	gorbital.dev/modules/releases ⟦.LibraryVersion⟧
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
@@ -85,17 +85,17 @@ require (
 ⟦- if .Local⟧
 
 replace (
-	apistock.dev => ⟦.LocalDir ""⟧
-	apistock.dev/modules/auditpg => ⟦.LocalDir "/modules/auditpg"⟧
-	apistock.dev/modules/auth => ⟦.LocalDir "/modules/auth"⟧
-	apistock.dev/modules/jobs => ⟦.LocalDir "/modules/jobs"⟧
-	apistock.dev/modules/mail/resend => ⟦.LocalDir "/modules/mail/resend"⟧
-	apistock.dev/modules/mail/smtp => ⟦.LocalDir "/modules/mail/smtp"⟧
-	apistock.dev/modules/openapi => ⟦.LocalDir "/modules/openapi"⟧
-	apistock.dev/modules/postgres => ⟦.LocalDir "/modules/postgres"⟧
-	apistock.dev/modules/ratelimitpg => ⟦.LocalDir "/modules/ratelimitpg"⟧
-	apistock.dev/modules/settings => ⟦.LocalDir "/modules/settings"⟧
-	apistock.dev/modules/telemetry => ⟦.LocalDir "/modules/telemetry"⟧
-	apistock.dev/modules/releases => ⟦.LocalDir "/modules/releases"⟧
+	gorbital.dev => ⟦.LocalDir ""⟧
+	gorbital.dev/modules/auditpg => ⟦.LocalDir "/modules/auditpg"⟧
+	gorbital.dev/modules/auth => ⟦.LocalDir "/modules/auth"⟧
+	gorbital.dev/modules/jobs => ⟦.LocalDir "/modules/jobs"⟧
+	gorbital.dev/modules/mail/resend => ⟦.LocalDir "/modules/mail/resend"⟧
+	gorbital.dev/modules/mail/smtp => ⟦.LocalDir "/modules/mail/smtp"⟧
+	gorbital.dev/modules/openapi => ⟦.LocalDir "/modules/openapi"⟧
+	gorbital.dev/modules/postgres => ⟦.LocalDir "/modules/postgres"⟧
+	gorbital.dev/modules/ratelimitpg => ⟦.LocalDir "/modules/ratelimitpg"⟧
+	gorbital.dev/modules/settings => ⟦.LocalDir "/modules/settings"⟧
+	gorbital.dev/modules/telemetry => ⟦.LocalDir "/modules/telemetry"⟧
+	gorbital.dev/modules/releases => ⟦.LocalDir "/modules/releases"⟧
 )
 ⟦- end⟧

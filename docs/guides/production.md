@@ -1,6 +1,6 @@
 # Running in production
 
-How to build, configure, migrate, run and operate a Full app on servers. apistock doesn't host anything: the app is one container image and PostgreSQL, deployable on any platform that runs containers. Beginners: start with the [go-live checklist](../sign-in/go-live.md).
+How to build, configure, migrate, run and operate a Full app on servers. gorbital doesn't host anything: the app is one container image and PostgreSQL, deployable on any platform that runs containers. Beginners: start with the [go-live checklist](../sign-in/go-live.md).
 
 ## What runs
 
@@ -37,7 +37,7 @@ docker build --build-arg VERSION=$(git describe --tags --always) -t acme-api:$(g
 
 | Stage | Base | Contents |
 |---|---|---|
-| build | `golang:1.26` | `CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X apistock.dev/buildinfo.version=${VERSION}"` of `./cmd/api` and `./cmd/migrate` |
+| build | `golang:1.26` | `CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X gorbital.dev/buildinfo.version=${VERSION}"` of `./cmd/api` and `./cmd/migrate` |
 | runtime | `gcr.io/distroless/static-debian12:nonroot` | `/api` (entrypoint), `/migrate`; `APP_ENV=production`, `APP_ADDR=0.0.0.0:8080`, port 8080, user `nonroot` |
 
 `VERSION` appears in `GET /version`, logs, traces and `/ops/releases`. The image has no shell; debug with logs, traces and the ops API.
@@ -108,7 +108,7 @@ On SIGTERM an instance: marks itself not ready, waits 5 s so the load balancer s
 | Audit | `GET /ops/audit`: who changed settings, jobs, roles and accounts |
 | Sign-in methods | `GET /ops/auth/providers`, or `/api auth-providers` in the container |
 
-Alert on: `/readyz` failures, 5xx rate, `unhandled error` and `panic recovered` log lines, discarded or repeatedly failing jobs (especially `apistock.mail.send`), and database connection saturation.
+Alert on: `/readyz` failures, 5xx rate, `unhandled error` and `panic recovered` log lines, discarded or repeatedly failing jobs (especially `gorbital.mail.send`), and database connection saturation.
 
 ## Operate
 

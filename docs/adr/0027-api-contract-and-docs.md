@@ -4,7 +4,7 @@
 
 ## Context
 
-Developers must test the API immediately after `aps new`: interactive docs at `/docs`, an OpenAPI document and a Postman collection. Documentation should look like Mintlify API reference pages. All of these need one source of truth, and the choice shapes how every handler is written. The priority is a seamless developer experience: developers focus on business logic, apistock handles contract, docs and validation.
+Developers must test the API immediately after `orb new`: interactive docs at `/docs`, an OpenAPI document and a Postman collection. Documentation should look like Mintlify API reference pages. All of these need one source of truth, and the choice shapes how every handler is written. The priority is a seamless developer experience: developers focus on business logic, gorbital handles contract, docs and validation.
 
 ## Options
 
@@ -27,22 +27,22 @@ Developers must test the API immediately after `aps new`: interactive docs at `/
 | Validation | From Go struct tags; 422 `validation_failed` with field locations |
 | Auth and tenancy | Per-operation Huma middlewares for session, org membership and permission; `security` documented |
 | Config | `CreateHooks = nil` (no `$schema` links in responses); built-in docs disabled |
-| Interactive docs | Own `/docs` handler, offline with no CDN, Mintlify-style layout with examples and try-it; configurable enabled / disabled / ops-only. Originally an embedded, pinned Scalar asset; since ADR-0049, the apistock reference rendered by `modules/openapi/reference` |
-| Spec export | `my-api openapi` writes `api/openapi.json`; `aps dev` refreshes it; committed so API changes appear in pull requests |
+| Interactive docs | Own `/docs` handler, offline with no CDN, Mintlify-style layout with examples and try-it; configurable enabled / disabled / ops-only. Originally an embedded, pinned Scalar asset; since ADR-0049, the gorbital reference rendered by `modules/openapi/reference` |
+| Spec export | `my-api openapi` writes `api/openapi.json`; `orb dev` refreshes it; committed so API changes appear in pull requests |
 | Breaking changes | CI compares `api/openapi.json` with the base branch and fails on breaking changes |
 | Postman and AI | `api/postman_collection.json` and `api/llms.txt` generated from the exported spec (v0.5) |
 | Undocumented routes | Architecture test fails if a route is registered outside Huma operations (except `/docs`, `/livez`, `/readyz`, `/.well-known/*`) |
 | Time values | Generated clocks return UTC |
-| Generator | `aps gen resource` and `aps gen endpoint` create input/output types, operation registration, handler and use-case stubs |
-| Project docs | `apistock.dev/docs` built with Mintlify; MDX and OpenAPI kept in this repository |
+| Generator | `orb gen resource` and `orb gen endpoint` create input/output types, operation registration, handler and use-case stubs |
+| Project docs | `gorbital.dev/docs` built with Mintlify; MDX and OpenAPI kept in this repository |
 
 ### Unknown request fields: tolerant
 
-Huma rejects unknown request-body fields by default. apistock apps **ignore unknown fields** (tolerant reader) so older server versions keep accepting requests from newer mobile and web clients. Validation still applies to every known field. Huma has no public global switch (its registry setting is unexported), so the generator adds `` _ struct{} `json:"-" additionalProperties:"true"` `` to every request body type, and a template test checks it. Verified in the [first-run spike](../../spikes/firstrun/README.md).
+Huma rejects unknown request-body fields by default. gorbital apps **ignore unknown fields** (tolerant reader) so older server versions keep accepting requests from newer mobile and web clients. Validation still applies to every known field. Huma has no public global switch (its registry setting is unexported), so the generator adds `` _ struct{} `json:"-" additionalProperties:"true"` `` to every request body type, and a template test checks it. Verified in the [first-run spike](../../spikes/firstrun/README.md).
 
 ### Docs asset size
 
-Embedding Scalar added about 3.5 MB per binary, so the template embedded a pre-compressed asset served with `Content-Encoding`. Since ADR-0049 the reference is rendered by apistock itself: about 100 KB of fonts plus its own stylesheet and script, under a Content-Security-Policy without `'unsafe-eval'` or inline styles. `/docs` stays configurable (enabled, disabled, ops-only).
+Embedding Scalar added about 3.5 MB per binary, so the template embedded a pre-compressed asset served with `Content-Encoding`. Since ADR-0049 the reference is rendered by gorbital itself: about 100 KB of fonts plus its own stylesheet and script, under a Content-Security-Policy without `'unsafe-eval'` or inline styles. `/docs` stays configurable (enabled, disabled, ops-only).
 
 ### Open for v0.4
 
@@ -59,10 +59,10 @@ Embedding Scalar added about 3.5 MB per binary, so the template embedded a pre-c
 
 - A third-party library shapes handler signatures in every generated app.
 - Error customisation relies on Huma's package-level hooks.
-- If Huma is abandoned, apistock must fork it or migrate `delivery/` layers with a codemod.
+- If Huma is abandoned, gorbital must fork it or migrate `delivery/` layers with a codemod.
 
 ## Consequences
 
-- apistock pins and tests Huma versions; upgrades go through the compatibility matrix.
+- gorbital pins and tests Huma versions; upgrades go through the compatibility matrix.
 - `delivery/` code is part of the scaffold compatibility promise (ADR-0016).
 - ADR-0022's delivery layer description refers to Huma operations.

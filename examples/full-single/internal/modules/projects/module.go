@@ -1,5 +1,5 @@
 // Package projects holds projects that belong to the signed-in user,
-// with all four layers and its own table (ADR-0039). aps gen resource creates
+// with all four layers and its own table (ADR-0039). orb gen resource creates
 // modules like this one; the code is yours to change.
 package projects
 

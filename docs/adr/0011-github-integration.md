@@ -4,9 +4,9 @@
 
 **Context:** Creating repos and CI is convenient but token handling is a liability.
 
-**Options:** apistock GitHub App / OAuth; CLI device flow storing tokens; delegate to `git` and `gh`.
+**Options:** gorbital GitHub App / OAuth; CLI device flow storing tokens; delegate to `git` and `gh`.
 
-**Decision:** Delegate to `git` and `gh`; generate plain CI files; private by default; no apistock-held tokens in v1.
+**Decision:** Delegate to `git` and `gh`; generate plain CI files; private by default; no gorbital-held tokens in v1.
 
 **Why:** No credentials to protect, no platform dependency, forge-portable.
 

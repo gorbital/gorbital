@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"apistock.dev/modules/jobs"
+	"gorbital.dev/modules/jobs"
 
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 )

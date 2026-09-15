@@ -1,10 +1,10 @@
-# ADR-0051: Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports and `aps doctor`
+# ADR-0051: Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports and `orb doctor`
 
 **Status:** Accepted (2026-09-15) · **Amends:** ADR-0026, ADR-0027
 
 ## Context
 
-v0.5 finishes the operations work ADR-0026 planned: `GET /ops/audit/stats`, `GET /ops/system`, a jobs overview, retention, maintenance mode, plus the Postman collection and `llms.txt` ADR-0027 planned, and `aps doctor`. Its definition of done: ops endpoints require platform roles and 2FA. ADR-0050 already delivered the upgrade half.
+v0.5 finishes the operations work ADR-0026 planned: `GET /ops/audit/stats`, `GET /ops/system`, a jobs overview, retention, maintenance mode, plus the Postman collection and `llms.txt` ADR-0027 planned, and `orb doctor`. Its definition of done: ops endpoints require platform roles and 2FA. ADR-0050 already delivered the upgrade half.
 
 What exists:
 
@@ -17,9 +17,9 @@ What exists:
 | Health | `/livez`, `/readyz`; `health.Checker.Check` returns each check's status | `health/health.go` |
 | Database state | `postgres.Migrations` reports current, latest and pending versions; `pgxpool.Stat` has pool counters | `modules/postgres/migrate.go` |
 | Runtime settings | Typed `Bool`, `String`, `Duration`, … live on every instance through LISTEN/NOTIFY, with history and audit events | ADR-0031 |
-| API exports | `go run ./cmd/api openapi > api/openapi.json`; a test fails when it's stale; `aps upgrade` regenerates it | `cmd/api/main.go`, `TestOpenAPIUpToDate` |
+| API exports | `go run ./cmd/api openapi > api/openapi.json`; a test fails when it's stale; `orb upgrade` regenerates it | `cmd/api/main.go`, `TestOpenAPIUpToDate` |
 
-Constraints: generated apps own their ops module and wiring; the library holds queries and engines (app-owns-modules); every change must reach existing apps through `aps upgrade` (ADR-0050), so no new migration unless needed; ops responses carry no secrets (ADR-0026).
+Constraints: generated apps own their ops module and wiring; the library holds queries and engines (app-owns-modules); every change must reach existing apps through `orb upgrade` (ADR-0050), so no new migration unless needed; ops responses carry no secrets (ADR-0026).
 
 ## Decision
 
@@ -82,19 +82,19 @@ Retention periods are **runtime settings**, one per kind of data, so they're cha
 
 - `go run ./cmd/api openapi` gains `--dir api`, writing `openapi.json`, `postman_collection.json` and `llms.txt` together; without `--dir` it prints the spec as today.
 - Library `modules/openapi/export`: `Postman(spec)` builds a Postman v2.1 collection (a folder per tag, `{{baseUrl}}` and `{{token}}` variables, bearer auth, example bodies from the schema's examples); `LLMs(spec)` writes [llms.txt](https://llmstxt.org) Markdown (the API's title and description, how to authenticate, each tag's operations as `METHOD path: summary`, links to `/openapi.json` and `/docs`). Both are deterministic, so the committed files diff cleanly.
-- `TestOpenAPIUpToDate` checks all three files; `aps dev` and `aps upgrade` regenerate all three (ADR-0050's derived paths gain the two new files).
-- These describe the generated app's API. The framework's own `llms.txt` on `docs.apistock.dev` is ADR-0049's.
+- `TestOpenAPIUpToDate` checks all three files; `orb dev` and `orb upgrade` regenerate all three (ADR-0050's derived paths gain the two new files).
+- These describe the generated app's API. The framework's own `llms.txt` on `docs.gorbital.dev` is ADR-0049's.
 
-### 7. `aps doctor`
+### 7. `orb doctor`
 
 Read-only; prints each check as `ok`, `warn` or `fail` with the fix; exit 1 on any `fail`; `--json`.
 
 | Check | Fails when | Warns when |
 |---|---|---|
 | Toolchain | Go older than `go.mod`'s `go` line; git missing | Docker missing or not running (Full preset) |
-| Project | No `go.mod`, `apistock.yaml` or readable `apistock.lock` | Lock written by a newer `aps`; tracked files edited (count only) |
-| Versions | A `replace` points at a missing checkout | The app's library version or lock release is older than this `aps` (suggests `aps upgrade`) |
-| Anchors and blocks | `//aps:anchor modules` or the `.env.example` mail block is missing (generators would stop) | |
+| Project | No `go.mod`, `gorbital.yaml` or readable `gorbital.lock` | Lock written by a newer `orb`; tracked files edited (count only) |
+| Versions | A `replace` points at a missing checkout | The app's library version or lock release is older than this `orb` (suggests `orb upgrade`) |
+| Anchors and blocks | `//orb:anchor modules` or the `.env.example` mail block is missing (generators would stop) | |
 | Environment | `.env` holds a secret but isn't ignored by git | `.env` lacks keys `.env.example` has; `AUTH_ENCRYPTION_KEYS` malformed. Values are never printed |
 | Exports | | `api/openapi.json`, `postman_collection.json` or `llms.txt` stale |
 | Database (Full preset, when `DATABASE_URL` is reachable) | Migration files older than the database's version are missing | Pending migrations |
@@ -111,7 +111,7 @@ Read-only; prints each check as `ok`, `warn` or `fail` with the fix; exit 1 on a
 ### 9. How existing apps receive it
 
 - Library changes (`auditpg`, `jobs`, `settings`, `releases`, `openapi/export`): `go get`.
-- App changes (ops module, `retention` job, maintenance middleware and command, settings, exports): template changes to both golden apps, delivered by `aps upgrade`, the first release to exercise it on real template changes. No new migration.
+- App changes (ops module, `retention` job, maintenance middleware and command, settings, exports): template changes to both golden apps, delivered by `orb upgrade`, the first release to exercise it on real template changes. No new migration.
 - `releases.WithRetention` stays as a deprecated option that sets the setting's default, removed after v1.0.
 
 ### 10. Order
@@ -121,7 +121,7 @@ Read-only; prints each check as `ok`, `warn` or `fail` with the fix; exit 1 on a
 3. Retention settings, `retention` job, `GET /ops/retention`.
 4. Maintenance mode and the break-glass command.
 5. API exports.
-6. `aps doctor`.
+6. `orb doctor`.
 7. Upgrade note, docs, threat model rows, and the v0.5 definition of done checked end to end.
 
 ## Why
@@ -129,22 +129,22 @@ Read-only; prints each check as `ok`, `warn` or `fail` with the fix; exit 1 on a
 - Settings already give retention and maintenance mode bounds, reasons, history, audit and live propagation; a second configuration store would duplicate all of it.
 - One write path for retention means shortening audit retention is itself audited, and the purge leaves a summary event.
 - Maintenance mode that keeps health checks, sign-in and `/ops` open can always be turned off, and doesn't make load balancers drop every instance.
-- Exports generated by the app, from its own spec, keep generated apps independent of `aps` (architecture principle 8).
-- `aps doctor` calling the app for database state keeps the CLI small and uses the app's own migration files.
+- Exports generated by the app, from its own spec, keep generated apps independent of `orb` (architecture principle 8).
+- `orb doctor` calling the app for database state keeps the CLI small and uses the app's own migration files.
 
 ## Trade-offs
 
 - `GET /ops/system` shows one instance per request; a cluster view is v1.1's live observability.
 - Deleting audit events at all is a policy choice; teams with longer obligations raise the setting (up to 10 years) or export events elsewhere.
 - Maintenance mode leaves `/v1/auth/*` open to everyone, not only staff: sign-in works, but everything after it answers 503.
-- `aps doctor` runs `go run` for exports and database checks, which takes seconds on a cold build cache.
+- `orb doctor` runs `go run` for exports and database checks, which takes seconds on a cold build cache.
 
 ## Consequences
 
 - ADR-0026: `PUT /ops/retention` becomes settings writes plus a read-only summary; `GET /ops/jobs/overview` added; maintenance mode's exempt routes and break-glass command defined.
 - ADR-0027: Postman and `llms.txt` export defined.
-- ADR-0015: new permissions, setting keys, problem code `maintenance` and `aps doctor` output are public API.
-- Threat model: rows for erasing audit trails through retention, maintenance mode lockout or abuse, and information disclosure from `/ops/system` and `aps doctor`.
+- ADR-0015: new permissions, setting keys, problem code `maintenance` and `orb doctor` output are public API.
+- Threat model: rows for erasing audit trails through retention, maintenance mode lockout or abuse, and information disclosure from `/ops/system` and `orb doctor`.
 
 ## Implementation notes
 
@@ -154,8 +154,8 @@ Read-only; prints each check as `ok`, `warn` or `fail` with the fix; exit 1 on a
 | 2. Audit stats, jobs overview | Done (2026-09-15) | `auditpg.Store.Stats`: the list's filter conditions (now shared through `Filter.conditions`), one `GROUP BY` with `sum(n) OVER ()` for the total before `LIMIT`, a 5-second context timeout; `group_by=day` returns every day instead of the top 50. `jobs.Manager.Overview`: one grouped count over `river_job` for available, scheduled, running and retryable jobs and those discarded in the last 24 hours, merged with active queues (paused flag), plus definitions whose last run is retryable or discarded; a 5-second timeout. `GET /ops/audit/stats` (`ops.audit.read`, 422 `invalid_audit_filter`) and `GET /ops/jobs/overview` (`ops.jobs.read`) in both golden apps. Tests: `TestStats`, `TestStatsCountsGroupsBeyondTheLimit`, `TestOverview` (scheduled and discarded jobs, pausing), `TestOpsAuditStatsAndJobsOverview` |
 | 3. Retention | Done (2026-09-15) | Library: `auditpg.Store.DeleteBefore`/`Oldest`, `settings.Store.DeleteHistoryBefore`/`OldestHistory`, `jobs.Manager.DeleteHistoryBefore`/`OldestHistory` (batched `DELETE … WHERE id IN (SELECT … LIMIT n)`), and `releases.WithRetentionFunc` (read at each start, clamped to 1 day–3 years) instead of deprecating `WithRetention`, which stays for apps without settings. App: settings `audit.retention` and `ops.history_retention` (365 days, 30 days–10 years, reason required) and `releases.instance_retention` (90 days) in group `retention`; `internal/jobs/retention` (daily at 04:15, 30-minute timeout) deletes targets in batches of 5,000, continues past a failing target, and records `retention.purged` with the row count and cutoff under the `system:retention` actor; `GET /ops/retention` (`ops.settings.read`) lists each kind of data with its setting, live value, oldest row when known, and enforcing job's last and next run: audit events, settings history, job configuration history, release instances, deleted accounts, and deleted organisations in multi-tenant apps. Oldest rows are reported for the data the retention job deletes. Tests: `TestDeleteBeforeAndOldest` (auditpg), `TestDeleteHistoryBeforeAndOldest` (settings, jobs), `TestRetentionFuncAppliesAtStart`, `TestWorkerDeletesInBatchesAndRecords`, `TestWorkerContinuesPastAFailingTarget`, `TestOpsRetention` |
 | 4. Maintenance mode | Done (2026-09-15) | Settings `maintenance.enabled` (reason required), `maintenance.message` (at most 500 characters) and `maintenance.retry_after` (5 minutes, 1 minute–24 hours) in group `maintenance`. `internal/app/maintenance.go`: a middleware after the body limit and before authentication, reading the settings from memory, answers 503 `maintenance` with the message and `Retry-After`; open routes are `/livez`, `/readyz`, `/version`, `/openapi.json`, `/docs`, `/.well-known/*`, `/ops/*` and `/v1/auth/*`. `go run ./cmd/api maintenance on|off [--message …]` calls `app.SetMaintenance`, which writes the settings directly as `system:cli`. Tests: `TestMaintenanceMode` (on through `/ops/settings`, reason enforced, product route 503 with message and `Retry-After: 300`, every open route served, sign-in not blocked, off again), `TestMaintenanceCommand` (an instance started after the command is in maintenance with its message, and serves again after `off`) |
-| 5. API exports | Done (2026-09-15) | `Postman` and `LLMs` live in `modules/openapi/reference`, not a new `export` package: the reference already parses the document, groups operations by tag, builds examples from schemas and serves each page as Markdown, so the exports reuse all of it. `Postman`: a v2.1 collection with a folder per tag, `{{baseUrl}}` (default `http://localhost:8080`) and `{{token}}`, bearer auth on operations with security, path variables as `:name`, query parameters (optional ones disabled) with example values, and example JSON bodies. `LLMs`: title, summary, how to authenticate, and every endpoint by tag linked to its Markdown page under `/docs`. Both deterministic. Apps: `app.WriteAPIFiles` (`internal/app/api_files.go`, identical in all three golden apps) behind `go run ./cmd/api openapi --dir api`; `TestOpenAPIUpToDate` checks all three files; `aps upgrade` and `aps add orgs` regenerate them (derived paths); `aps gen resource`'s next steps and every guide and golden README use `--dir api`. Not done: `aps dev` doesn't refresh the files, which ADR-0027 planned; the up-to-date test catches stale files instead. Tests: `TestPostman`, `TestLLMs`, `TestOpenAPIUpToDate` (all golden apps) |
-| 6. `aps doctor` | Done (2026-09-15) | `cli/internal/cli/doctor.go`: checks `go` (against `go.mod`'s go directive; pre-releases count as older), `git`, `docker` (Full), `apistock.yaml`, `apistock.lock` (version, v1, release against this `aps`, edited tracked files by hash), `library` (`replace` pointing at a checkout), `anchor` (`//aps:anchor modules`, `jobs`, `org-permissions` in multi-tenant apps, the mail block), `.env` (missing variables by name, secrets not ignored by git; values never printed), `api files` (exported to a temporary directory with `go run ./cmd/api openapi --dir` and compared), and `configuration`/`database` through the app's new `go run ./cmd/migrate --status --json` (`app.WriteMigrationStatus`: configuration error, database error, current, latest, pending). Configuration problems such as a malformed `AUTH_ENCRYPTION_KEYS` come from the app's own `LoadConfig` there, not from a second copy of its validation in the CLI. `--fast` skips the checks that build the app; exit 1 when any check fails. Not done: the port check, since a taken port is usually the app's own running services and `aps dev` already reports ports it can't use. Tests: `TestDoctorOnANewApp`, `TestDoctorFindsProblems` (anchor, secret `.env` not ignored and never printed, stale `llms.txt`, pending, configuration error, database ahead of the code), `TestDoctorOnAMinimalApp`, `TestVersionAtLeast`, `TestMigrationStatus` (both Full golden apps) |
+| 5. API exports | Done (2026-09-15) | `Postman` and `LLMs` live in `modules/openapi/reference`, not a new `export` package: the reference already parses the document, groups operations by tag, builds examples from schemas and serves each page as Markdown, so the exports reuse all of it. `Postman`: a v2.1 collection with a folder per tag, `{{baseUrl}}` (default `http://localhost:8080`) and `{{token}}`, bearer auth on operations with security, path variables as `:name`, query parameters (optional ones disabled) with example values, and example JSON bodies. `LLMs`: title, summary, how to authenticate, and every endpoint by tag linked to its Markdown page under `/docs`. Both deterministic. Apps: `app.WriteAPIFiles` (`internal/app/api_files.go`, identical in all three golden apps) behind `go run ./cmd/api openapi --dir api`; `TestOpenAPIUpToDate` checks all three files; `orb upgrade` and `orb add orgs` regenerate them (derived paths); `orb gen resource`'s next steps and every guide and golden README use `--dir api`. Not done: `orb dev` doesn't refresh the files, which ADR-0027 planned; the up-to-date test catches stale files instead. Tests: `TestPostman`, `TestLLMs`, `TestOpenAPIUpToDate` (all golden apps) |
+| 6. `orb doctor` | Done (2026-09-15) | `cli/internal/cli/doctor.go`: checks `go` (against `go.mod`'s go directive; pre-releases count as older), `git`, `docker` (Full), `gorbital.yaml`, `gorbital.lock` (version, v1, release against this `orb`, edited tracked files by hash), `library` (`replace` pointing at a checkout), `anchor` (`//orb:anchor modules`, `jobs`, `org-permissions` in multi-tenant apps, the mail block), `.env` (missing variables by name, secrets not ignored by git; values never printed), `api files` (exported to a temporary directory with `go run ./cmd/api openapi --dir` and compared), and `configuration`/`database` through the app's new `go run ./cmd/migrate --status --json` (`app.WriteMigrationStatus`: configuration error, database error, current, latest, pending). Configuration problems such as a malformed `AUTH_ENCRYPTION_KEYS` come from the app's own `LoadConfig` there, not from a second copy of its validation in the CLI. `--fast` skips the checks that build the app; exit 1 when any check fails. Not done: the port check, since a taken port is usually the app's own running services and `orb dev` already reports ports it can't use. Tests: `TestDoctorOnANewApp`, `TestDoctorFindsProblems` (anchor, secret `.env` not ignored and never printed, stale `llms.txt`, pending, configuration error, database ahead of the code), `TestDoctorOnAMinimalApp`, `TestVersionAtLeast`, `TestMigrationStatus` (both Full golden apps) |
 | 7. Upgrade note, docs, threat model, done-when | Done (2026-09-15) | [Upgrade notes](../guides/upgrade-notes.md) for v0.5, rendered on the docs site, lead with the one behaviour change existing apps must act on before deploying: audit events older than 365 days are deleted. Threat model rows 29–31 added and done, row 18 checked by the authorisation tests. Roadmap v0.5 marked done with results; architecture, README and site updated. `docs/guides/ops-api.md` documents every new endpoint, setting, error code and command, and renders on the site |
 
 ## Maintainer's answers (2026-09-15)
@@ -163,4 +163,4 @@ Read-only; prints each check as `ok`, `warn` or `fail` with the fix; exit 1 on a
 1. Retention is changed through `/ops/settings`, with a read-only `GET /ops/retention` summary (section 4).
 2. Audit events are kept 365 days by default, at least 30 days and at most 10 years.
 3. Maintenance mode keeps `/v1/auth/*`, `/ops/*`, health checks and docs open, answers 503 elsewhere, and has a `maintenance off` command (section 5); no read-only mode.
-4. `aps doctor` checks the database through the app's `cmd/migrate --status` (section 7).
+4. `orb doctor` checks the database through the app's `cmd/migrate --status` (section 7).

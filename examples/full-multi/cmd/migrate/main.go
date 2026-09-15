@@ -3,7 +3,7 @@
 // the API never migrates at startup (ADR-0017).
 //
 //	migrate                   apply pending migrations
-//	migrate --status [--json] report pending migrations and change nothing (aps doctor uses it)
+//	migrate --status [--json] report pending migrations and change nothing (orb doctor uses it)
 package main
 
 import (
@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 
 	"example.com/acme-api/internal/app"
 )

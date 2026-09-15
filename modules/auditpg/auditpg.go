@@ -24,8 +24,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/audit"
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/postgres"
 )
 
 // DefaultMaxMetadataBytes bounds an event's metadata after redaction.

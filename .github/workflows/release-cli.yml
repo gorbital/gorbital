@@ -1,6 +1,6 @@
-name: Release aps
+name: Release orb
 
-# Push a tag like cli/v0.1.0 to build, sign and publish aps binaries as a
+# Push a tag like cli/v0.1.0 to build, sign and publish orb binaries as a
 # draft GitHub release. Binaries are signed keylessly with Sigstore and get
 # SLSA build provenance attestations (ADR-0029, threat 7).
 on:

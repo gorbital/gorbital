@@ -14,7 +14,7 @@ v1.0 must replace per-instance rate limits with limits shared across instances (
 | Client IP | `ratelimit.ByRemoteIP` and `auth.ClientInfoFrom` use `RemoteAddr`. No trusted-proxy handling exists: behind a load balancer every request has the balancer's address | `httpx`, comment in `routes.go` |
 | Limits | Code constants (`auth.DefaultLoginAttempts`, `authRequestsPerMinute`), not runtime settings | `modules/auth/auth.go` |
 
-Constraints: PostgreSQL is the only required service (ADR-0014); core can't depend on pgx (ADR-0019); generated apps own their wiring and receive changes through `aps upgrade` (ADR-0050); tunables are runtime settings, secrets and infrastructure are environment variables (ADR-0031).
+Constraints: PostgreSQL is the only required service (ADR-0014); core can't depend on pgx (ADR-0019); generated apps own their wiring and receive changes through `orb upgrade` (ADR-0050); tunables are runtime settings, secrets and infrastructure are environment variables (ADR-0031).
 
 The maintainer decided (2026-09-15): when the database can't answer, fall back to per-instance limits; include trusted-proxy handling; make the sign-in limits runtime settings.
 
@@ -105,7 +105,7 @@ d, err := l.Take(ctx, "ada@example.com")
 
 - **Full presets:** every limiter above uses `ratelimitpg`; the auth use cases take a `ratelimit.Taker` per limit instead of building their own; the `ratelimit_cleanup` job is defined; `APP_TRUSTED_PROXIES` is read and the middleware installed; the four settings are declared.
 - **Minimal preset:** in-memory limiters and trusted proxies (no database).
-- `aps upgrade` adds the module, migration, job, setting declarations and wiring; `.env.example` documents `APP_TRUSTED_PROXIES`.
+- `orb upgrade` adds the module, migration, job, setting declarations and wiring; `.env.example` documents `APP_TRUSTED_PROXIES`.
 
 ### Observability
 

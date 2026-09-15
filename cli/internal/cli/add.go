@@ -21,17 +21,17 @@ import (
 
 	"github.com/charmbracelet/huh"
 
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes"
 )
 
-const addUsage = `Usage: aps add mail [flags]
-       aps add orgs [flags]
+const addUsage = `Usage: orb add mail [flags]
+       orb add orgs [flags]
 
-aps add mail sets up email in an app created with the Full preset: Resend or
+orb add mail sets up email in an app created with the Full preset: Resend or
 any SMTP server. Run it again to switch provider.
 
-aps add orgs turns a single-tenant Full app multi-tenant on a branch
-(run "aps add orgs -h").
+orb add orgs turns a single-tenant Full app multi-tenant on a branch
+(run "orb add orgs -h").
 
 Secrets (the Resend API key, the SMTP password) go in .env, never in flags.
 The sender name, address and reply-to are runtime settings, changed later in
@@ -43,7 +43,7 @@ In a terminal, missing values are asked interactively; pass flags to skip them.
 func runAdd(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		fmt.Fprint(stderr, addUsage)
-		return usageError("missing feature: aps add mail or aps add orgs")
+		return usageError("missing feature: orb add mail or orb add orgs")
 	}
 	switch args[0] {
 	case "mail":
@@ -58,7 +58,7 @@ func runAdd(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 const (
 	envExamplePath = ".env.example"
 	envPath        = ".env"
-	manifestPath   = "apistock.yaml"
+	manifestPath   = "gorbital.yaml"
 )
 
 // mailInput holds the user's email choices. Secrets come only from prompts.
@@ -82,7 +82,7 @@ type addMailResult struct {
 }
 
 func runAddMail(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	flags := flag.NewFlagSet("aps add mail", flag.ContinueOnError)
+	flags := flag.NewFlagSet("orb add mail", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	var in mailInput
 	flags.StringVar(&in.provider, "provider", "", "email provider: resend or smtp (default resend)")
@@ -103,7 +103,7 @@ func runAddMail(ctx context.Context, args []string, stdin io.Reader, stdout, std
 		flags.PrintDefaults()
 	}
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
-		return usageError(fmt.Sprintf("unexpected argument %q: aps add mail takes only flags", args[0]))
+		return usageError(fmt.Sprintf("unexpected argument %q: orb add mail takes only flags", args[0]))
 	}
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -134,15 +134,15 @@ func runAddMail(ctx context.Context, args []string, stdin io.Reader, stdout, std
 		return err
 	}
 	if _, err := os.Stat(filepath.Join(app.dir, "internal", "app", "mail.go")); err != nil {
-		return fmt.Errorf("%s has no internal/app/mail.go: aps add mail works in apps created with the Full preset", app.dir)
+		return fmt.Errorf("%s has no internal/app/mail.go: orb add mail works in apps created with the Full preset", app.dir)
 	}
 	example, err := os.ReadFile(filepath.Join(app.dir, envExamplePath))
 	if err != nil {
-		return fmt.Errorf("aps add mail needs %s: %w", envExamplePath, err)
+		return fmt.Errorf("orb add mail needs %s: %w", envExamplePath, err)
 	}
 	if _, err := recipes.Block(example, recipes.MailBlock); err != nil {
-		return fmt.Errorf("%s has no email block; add these two lines where the provider's variables should go, then run aps add mail again:\n"+
-			"  # aps:begin mail\n  # aps:end mail", envExamplePath)
+		return fmt.Errorf("%s has no email block; add these two lines where the provider's variables should go, then run orb add mail again:\n"+
+			"  # orb:begin mail\n  # orb:end mail", envExamplePath)
 	}
 
 	ask := shouldPrompt(p, *asJSON, stdin, stdout)
@@ -229,7 +229,7 @@ func promptMail(in *mailInput, set map[string]bool, p promptFlags, stdin io.Read
 	if in.provider == "" {
 		in.provider = recipes.MailResend
 		err := ask(huh.NewSelect[string]().Title("How should the app send email?").
-			Description("Switch any time by running aps add mail again. In development, email always lands in Mailpit.").
+			Description("Switch any time by running orb add mail again. In development, email always lands in Mailpit.").
 			Options(
 				huh.NewOption("Resend: an email API, the quickest to set up (recommended)", recipes.MailResend),
 				huh.NewOption("SMTP: Amazon SES, Postmark, Mailgun, Google Workspace or your own server", recipes.MailSMTP),
@@ -406,12 +406,12 @@ func validateSecret(s string) error {
 	return nil
 }
 
-// mailPlan is every change aps add mail would make.
+// mailPlan is every change orb add mail would make.
 type mailPlan struct {
 	writes     []fileWrite
 	envVars    []string // variable names saved to .env, never values
 	createsEnv bool
-	modules    []string // apistock modules to add to go.mod
+	modules    []string // gorbital modules to add to go.mod
 	goMod      goModInfo
 }
 
@@ -492,7 +492,7 @@ func planMail(dir string, example []byte, r recipes.MailRecipe, goMod goModInfo,
 
 	// A v2 lock records the provider and the new content of the files it
 	// tracks, so upgrades rebuild this provider's files (ADR-0050). A v1 lock
-	// can't record it; apistock.yaml holds the provider for those apps.
+	// can't record it; gorbital.yaml holds the provider for those apps.
 	lock, err := readLock(dir)
 	switch {
 	case err == nil && lock.APIVersion == LockAPIVersion:
@@ -539,7 +539,7 @@ func applyMail(ctx context.Context, dir string, plan mailPlan, allowDirty, skipT
 		cmd := exec.CommandContext(ctx, "git", "check-ignore", "--quiet", envPath)
 		cmd.Dir = dir
 		if cmd.Run() != nil {
-			return errors.New(".env is not ignored by git, so secrets saved in it could be committed; add .env to .gitignore and run aps add mail again")
+			return errors.New(".env is not ignored by git, so secrets saved in it could be committed; add .env to .gitignore and run orb add mail again")
 		}
 	}
 
@@ -556,11 +556,11 @@ func applyMail(ctx context.Context, dir string, plan mailPlan, allowDirty, skipT
 
 	if len(plan.modules) > 0 {
 		args := []string{"mod", "edit"}
-		version, local := plan.goMod.apistock()
+		version, local := plan.goMod.gorbital()
 		for _, module := range plan.modules {
 			args = append(args, "-require="+module+"@"+version)
 			if local != "" {
-				args = append(args, "-replace="+module+"="+path.Join(filepath.ToSlash(local), strings.TrimPrefix(module, "apistock.dev/")))
+				args = append(args, "-replace="+module+"="+path.Join(filepath.ToSlash(local), strings.TrimPrefix(module, "gorbital.dev/")))
 			}
 		}
 		if err := runIn(ctx, dir, stderr, "go", args...); err != nil {
@@ -591,17 +591,17 @@ type goModInfo struct {
 	}
 }
 
-// apistock returns the version the app requires the library at, and the
+// gorbital returns the version the app requires the library at, and the
 // local checkout it replaces the library with, if any.
-func (g goModInfo) apistock() (version, local string) {
+func (g goModInfo) gorbital() (version, local string) {
 	version = "v0.0.0"
 	for _, r := range g.Require {
-		if r.Path == "apistock.dev" {
+		if r.Path == "gorbital.dev" {
 			version = r.Version
 		}
 	}
 	for _, r := range g.Replace {
-		if r.Old.Path == "apistock.dev" && r.New.Version == "" {
+		if r.Old.Path == "gorbital.dev" && r.New.Version == "" {
 			local = r.New.Path
 		}
 	}
@@ -640,9 +640,9 @@ func updateDotEnv(env, block []byte, values map[string]string) []byte {
 	for _, line := range strings.SplitAfter(string(env), "\n") {
 		trimmed := strings.TrimSpace(line)
 		switch {
-		case strings.HasPrefix(trimmed, "# aps:begin "+recipes.MailBlock):
+		case strings.HasPrefix(trimmed, "# orb:begin "+recipes.MailBlock), strings.HasPrefix(trimmed, "# "+recipes.LegacyMarker+":begin "+recipes.MailBlock):
 			inBlock = true
-		case trimmed == "# aps:end "+recipes.MailBlock:
+		case trimmed == "# orb:end "+recipes.MailBlock, trimmed == "# "+recipes.LegacyMarker+":end "+recipes.MailBlock:
 			inBlock = false
 		}
 		if key, ok := recipes.EnvKey(line); ok {

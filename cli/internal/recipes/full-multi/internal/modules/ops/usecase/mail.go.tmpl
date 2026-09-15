@@ -7,9 +7,9 @@ import (
 	netmail "net/mail"
 	"strings"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/mail"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/mail"
 
 	opsdomain "⟦.Module⟧/internal/modules/ops/domain"
 )
@@ -17,7 +17,7 @@ import (
 // MailInfo describes how the app sends email, without secrets.
 type MailInfo struct {
 	AppName string
-	// Provider is the provider chosen with `aps add mail`: resend or smtp.
+	// Provider is the provider chosen with `orb add mail`: resend or smtp.
 	Provider string
 	// Delivery is mailpit (the development inbox) or provider (real email).
 	Delivery string

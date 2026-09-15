@@ -1,6 +1,6 @@
 # Database guide
 
-`apistock.dev/modules/postgres` connects apps to PostgreSQL. Decisions: [ADR-0005](../adr/0005-database-strategy.md) (PostgreSQL, goose), [ADR-0028](../adr/0028-local-development-environment.md) (Docker), [ADR-0032](../adr/0032-repository-sql.md) (hand-written SQL).
+`gorbital.dev/modules/postgres` connects apps to PostgreSQL. Decisions: [ADR-0005](../adr/0005-database-strategy.md) (PostgreSQL, goose), [ADR-0028](../adr/0028-local-development-environment.md) (Docker), [ADR-0032](../adr/0032-repository-sql.md) (hand-written SQL).
 
 ## Connecting
 
@@ -162,23 +162,23 @@ err := postgres.InTx(ctx, pool, func(tx pgx.Tx) error {
 ## Migrations
 
 - Goose SQL files in `db/migrations`, named `<timestamp>_<description>.sql`, with `-- +goose Up` sections.
-- One ordered history for the app's tables and apistock module tables (modules ship theirs as `settings.Migrations`, `jobs.Migrations`, `auditpg.Migrations`, and they are copied in).
+- One ordered history for the app's tables and gorbital module tables (modules ship theirs as `settings.Migrations`, `jobs.Migrations`, `auditpg.Migrations`, and they are copied in).
 - Released migrations are never edited; changes are new files, forward-only.
-- `aps gen migration <name>` creates an empty one that runs after the existing ones ([CLI guide](cli.md#aps-gen-migration)). Write its SQL before running `cmd/migrate`: an empty migration is recorded as applied.
+- `orb gen migration <name>` creates an empty one that runs after the existing ones ([CLI guide](cli.md#orb-gen-migration)). Write its SQL before running `cmd/migrate`: an empty migration is recorded as applied.
 - `cmd/migrate` applies them with `postgres.Migrate(ctx, pool, migrations.FS)`, then River's migrations with `jobs.Migrate`. Apps never migrate at startup (ADR-0017).
 - `postgres.Migrate` takes a PostgreSQL advisory lock, so concurrent migrators apply each migration once.
 - `postgres.Migrations(ctx, pool, fsys)` reports `Current`, `Latest` and `Pending` without changing anything.
 
 ## Running PostgreSQL locally
 
-| | Generated app | apistock repository |
+| | Generated app | gorbital repository |
 |---|---|---|
 | Defined in | The app's `compose.yaml`, service `postgres` | Root `compose.yaml` |
 | Image | `postgres:18` | `postgres:18` |
-| Address | `127.0.0.1:${POSTGRES_PORT:-5432}` | `127.0.0.1:${APISTOCK_POSTGRES_PORT:-55432}` |
-| User, password, database | The app's name, all three | `apistock` |
+| Address | `127.0.0.1:${POSTGRES_PORT:-5432}` | `127.0.0.1:${GORBITAL_POSTGRES_PORT:-55432}` |
+| User, password, database | The app's name, all three | `gorbital` |
 | Data | Named volume `postgres-data` | Named volume |
-| Start | `aps dev`, or `docker compose up -d --wait` | `docker compose up -d --wait` |
+| Start | `orb dev`, or `docker compose up -d --wait` | `docker compose up -d --wait` |
 
 Ports bind to `127.0.0.1` only, so the development password is never reachable from the network.
 
@@ -188,7 +188,7 @@ Ports bind to `127.0.0.1` only, so the development password is never reachable f
 | See the tables | `\dt` in `psql` |
 | See applied migrations | `SELECT version_id, is_applied, tstamp FROM goose_db_version ORDER BY id;` |
 | Stop, keep data | `docker compose down` |
-| **Reset: delete all data** | `docker compose down -v`, then `aps dev` (migrates and seeds again) |
+| **Reset: delete all data** | `docker compose down -v`, then `orb dev` (migrates and seeds again) |
 | Dump | `docker compose exec postgres pg_dump -U acme-api acme-api > dump.sql` |
 
 ## Commands
@@ -196,11 +196,11 @@ Ports bind to `127.0.0.1` only, so the development password is never reachable f
 | Command | What it does | When |
 |---|---|---|
 | `go run ./cmd/migrate` | Opens `DATABASE_URL`, applies pending goose migrations from `db/migrations` under an advisory lock, then River's queue migrations; prints `applied migration <version>` for each and nothing when up to date | After pulling or generating migrations; before each release in production (`/migrate` in the image) |
-| `go run ./cmd/seed` | Creates the development administrator and example data through the modules' use cases. Refuses when `APP_ENV=production`; needs `AUTH_ENCRYPTION_KEYS`; does nothing when `admin@example.com` exists | Development, after migrating; `aps dev` runs it |
-| `aps gen migration <name>` | Creates an empty migration that sorts last | Schema changes outside `aps gen resource` |
-| `aps gen resource …` | Creates a module with its own migration | New resources |
+| `go run ./cmd/seed` | Creates the development administrator and example data through the modules' use cases. Refuses when `APP_ENV=production`; needs `AUTH_ENCRYPTION_KEYS`; does nothing when `admin@example.com` exists | Development, after migrating; `orb dev` runs it |
+| `orb gen migration <name>` | Creates an empty migration that sorts last | Schema changes outside `orb gen resource` |
+| `orb gen resource …` | Creates a module with its own migration | New resources |
 
-Each needs the environment: `aps dev` provides it, or `set -a; . ./.env; set +a`.
+Each needs the environment: `orb dev` provides it, or `set -a; . ./.env; set +a`.
 
 **Rollbacks.** There are no down migrations ([ADR-0005](../adr/0005-database-strategy.md)). To undo a released migration, write a new one that reverses it. Locally, before a migration is shared, edit it and reset with `docker compose down -v`. A database's schema and data are restored from backups, not by running migrations backwards.
 

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/cli/internal/recipes"
-	"apistock.dev/cli/internal/recipes/generate"
+	"gorbital.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes/generate"
 )
 
 // goldenApps are the hand-written apps each preset is generated from, by
@@ -153,7 +153,7 @@ func parseGoMod(t *testing.T, path string) (requires, replaces map[string]string
 func TestRenderGoMod(t *testing.T) {
 	dir, _ := renderInto(t, "minimal", "single", recipes.Data{Name: "shop-api", Module: "github.com/acme/shop-api", LibraryVersion: "v0.1.0"})
 	goMod, _ := os.ReadFile(filepath.Join(dir, "go.mod"))
-	if !strings.HasPrefix(string(goMod), "module github.com/acme/shop-api\n") || !strings.Contains(string(goMod), "apistock.dev v0.1.0") || strings.Contains(string(goMod), "replace") {
+	if !strings.HasPrefix(string(goMod), "module github.com/acme/shop-api\n") || !strings.Contains(string(goMod), "gorbital.dev v0.1.0") || strings.Contains(string(goMod), "replace") {
 		t.Errorf("go.mod without Local:\n%s", goMod)
 	}
 	main, _ := os.ReadFile(filepath.Join(dir, "cmd", "api", "main.go"))
@@ -161,22 +161,22 @@ func TestRenderGoMod(t *testing.T) {
 		t.Errorf("cmd/api/main.go not rendered for the new module:\n%s", main)
 	}
 
-	dir, _ = renderInto(t, "full", "single", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/src/apistock"})
+	dir, _ = renderInto(t, "full", "single", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/src/gorbital"})
 	goMod, _ = os.ReadFile(filepath.Join(dir, "go.mod"))
 	for _, want := range []string{
-		"apistock.dev/modules/releases v0.1.0",
+		"gorbital.dev/modules/releases v0.1.0",
 		"github.com/riverqueue/river ",
-		"apistock.dev => /src/apistock\n",
-		"apistock.dev/modules/auth => /src/apistock/modules/auth\n",
+		"gorbital.dev => /src/gorbital\n",
+		"gorbital.dev/modules/auth => /src/gorbital/modules/auth\n",
 	} {
 		if !strings.Contains(string(goMod), want) {
 			t.Errorf("full go.mod with Local lacks %q:\n%s", want, goMod)
 		}
 	}
 
-	dir, _ = renderInto(t, "minimal", "single", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/Users/me/My Code/apistock"})
+	dir, _ = renderInto(t, "minimal", "single", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/Users/me/My Code/gorbital"})
 	goMod, _ = os.ReadFile(filepath.Join(dir, "go.mod"))
-	if !strings.Contains(string(goMod), `apistock.dev/modules/openapi => "/Users/me/My Code/apistock/modules/openapi"`) {
+	if !strings.Contains(string(goMod), `gorbital.dev/modules/openapi => "/Users/me/My Code/gorbital/modules/openapi"`) {
 		t.Errorf("go.mod with a Local path containing a space doesn't quote it:\n%s", goMod)
 	}
 }

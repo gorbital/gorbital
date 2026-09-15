@@ -62,7 +62,7 @@ func New(logger *slog.Logger) (http.Handler, huma.API) {
 		return &VersionOutput{Body: buildInfo()}, nil
 	})
 
-	//aps:anchor modules
+	//orb:anchor modules
 	ping.New().Register(api)
 
 	mux.HandleFunc("GET /livez", healthy)

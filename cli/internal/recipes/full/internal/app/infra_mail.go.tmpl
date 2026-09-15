@@ -3,13 +3,13 @@ package app
 import (
 	"errors"
 
-	"apistock.dev/config"
-	"apistock.dev/mail"
-	"apistock.dev/modules/mail/resend"
+	"gorbital.dev/config"
+	"gorbital.dev/mail"
+	"gorbital.dev/modules/mail/resend"
 )
 
-// mailProvider is the email provider, chosen with `aps add mail`. To switch
-// provider, run `aps add mail` again: it replaces this file and the provider
+// mailProvider is the email provider, chosen with `orb add mail`. To switch
+// provider, run `orb add mail` again: it replaces this file and the provider
 // block in .env.example (ADR-0037).
 const mailProvider = "resend"
 

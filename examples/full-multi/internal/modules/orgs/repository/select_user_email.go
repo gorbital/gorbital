@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/modules/postgres"
 
 	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
 )

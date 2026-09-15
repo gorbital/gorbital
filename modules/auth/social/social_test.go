@@ -17,8 +17,8 @@ import (
 
 	"github.com/go-jose/go-jose/v4"
 
-	"apistock.dev/modules/auth/social"
-	"apistock.dev/modules/auth/social/socialtest"
+	"gorbital.dev/modules/auth/social"
+	"gorbital.dev/modules/auth/social/socialtest"
 )
 
 const redirect = "http://localhost:8080/v1/auth/google/callback"

@@ -1,4 +1,4 @@
-# Spike: inserting code at `//aps:anchor` (text vs AST)
+# Spike: inserting code at `//orb:anchor` (text vs AST)
 
 **Status:** done · **Date:** 2026-09-14 · **Decides:** the `insertLine@anchor` note in [ADR-0021](../../docs/adr/0021-generator-operation-model.md)
 
@@ -6,7 +6,7 @@ Throwaway code. Nothing outside `spikes/` may import it.
 
 ## Question
 
-When `aps add` wires a feature into an owned file (for example `internal/app/modules.go`), should it insert the call line with **parser-located text insertion** or by **editing the syntax tree** with `dave/dst`?
+When `orb add` wires a feature into an owned file (for example `internal/app/modules.go`), should it insert the call line with **parser-located text insertion** or by **editing the syntax tree** with `dave/dst`?
 
 ## Method
 

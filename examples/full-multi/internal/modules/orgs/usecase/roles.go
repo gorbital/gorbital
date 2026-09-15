@@ -1,6 +1,6 @@
 package usecase
 
-import orgslib "apistock.dev/modules/orgs"
+import orgslib "gorbital.dev/modules/orgs"
 
 // rank orders roles for what a member may assign. Roles an app adds rank
 // with members.

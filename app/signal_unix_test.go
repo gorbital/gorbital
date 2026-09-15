@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/app"
+	"gorbital.dev/app"
 )
 
 func receive(t *testing.T, errc <-chan error) error {

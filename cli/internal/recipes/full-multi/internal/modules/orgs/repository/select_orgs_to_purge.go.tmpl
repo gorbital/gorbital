@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	orgslib "apistock.dev/modules/orgs"
+	orgslib "gorbital.dev/modules/orgs"
 )
 
 const selectOrgsToPurgeSQL = `

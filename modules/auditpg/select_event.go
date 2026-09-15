@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/modules/postgres"
 )
 
 const selectEventSQL = `SELECT ` + eventColumns + ` FROM audit_events WHERE id = $1`

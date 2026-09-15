@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 
-	"apistock.dev/modules/jobs"
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/postgres"
 
 	"example.com/acme-api/db/migrations"
 )

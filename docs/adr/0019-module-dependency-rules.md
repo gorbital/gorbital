@@ -64,5 +64,5 @@ Independent release cycles, small dependency graphs for users, and no hidden cou
 
 ## Consequences
 
-- The core module lives at the repository root (`module apistock.dev`), as `go-import` maps `apistock.dev` to the root.
+- The core module lives at the repository root (`module gorbital.dev`), as `go-import` maps `gorbital.dev` to the root.
 - New official modules must pass the import-rule and dependency-budget checks.

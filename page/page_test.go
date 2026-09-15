@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/page"
+	"gorbital.dev/page"
 )
 
 func TestParse(t *testing.T) {

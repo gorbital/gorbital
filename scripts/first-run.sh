@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Measures the v0.1 first run with the real aps CLI and checks the running app:
-#   build aps → aps new (against this checkout) → build app → /readyz ready
+# Measures the v0.1 first run with the real orb CLI and checks the running app:
+#   build orb → orb new (against this checkout) → build app → /readyz ready
 #
 # Usage: scripts/first-run.sh [cold|warm] [workdir]
 #   cold  empty Go module and build caches (a clean machine; downloads dependencies)
@@ -35,12 +35,12 @@ step() { # name, command...
   ROWS+=("$(printf '%-30s %6.2fs' "$name" "$(echo "$(now) - $start" | bc)")")
 }
 
-step "build aps"                bash -c "cd '$ROOT/cli' && go build -o '$WORK/aps' ./cmd/aps"
-step "aps new demo-api --local" bash -c "cd '$WORK' && ./aps new demo-api --local '$ROOT' --no-git"
-step "build app"                bash -c "cd '$WORK/demo-api' && go build -o .aps/api ./cmd/api"
+step "build orb"                bash -c "cd '$ROOT/cli' && go build -o '$WORK/orb' ./cmd/orb"
+step "orb new demo-api --local" bash -c "cd '$WORK' && ./orb new demo-api --local '$ROOT' --no-git"
+step "build app"                bash -c "cd '$WORK/demo-api' && go build -o .orb/api ./cmd/api"
 
 start=$(now)
-(cd "$WORK/demo-api" && APP_ADDR="127.0.0.1:$PORT" ./.aps/api >"$WORK/server.log" 2>&1) &
+(cd "$WORK/demo-api" && APP_ADDR="127.0.0.1:$PORT" ./.orb/api >"$WORK/server.log" 2>&1) &
 PID=$!
 trap 'kill $PID 2>/dev/null || true' EXIT
 for _ in $(seq 1 300); do
@@ -71,5 +71,5 @@ printf '%-32s %s\n' "docs search index"          "$(curl -s -o /dev/null -w '%{h
 printf '%-32s %s\n' "security headers"           "$(curl -sI $B/v1/ping | grep -ciE '^(x-content-type-options|x-frame-options|referrer-policy|x-request-id):') of 4"
 echo "== first server log lines"
 head -3 "$WORK/server.log"
-echo "== generated files: $(cd "$WORK/demo-api" && find . -path ./.aps -prune -o -type f -print | wc -l | tr -d ' ')"
+echo "== generated files: $(cd "$WORK/demo-api" && find . -path ./.orb -prune -o -type f -print | wc -l | tr -d ' ')"
 if [ "$MODE" = cold ]; then echo "== module cache downloaded: $(du -sh "$GOMODCACHE" | cut -f1)"; fi

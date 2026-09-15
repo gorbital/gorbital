@@ -1,4 +1,4 @@
-module apistock.dev/spikes/anchor
+module gorbital.dev/spikes/anchor
 
 go 1.25.0
 

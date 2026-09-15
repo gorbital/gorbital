@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/modules/postgres/pgtest"
-	"apistock.dev/page"
+	"gorbital.dev/modules/postgres/pgtest"
+	"gorbital.dev/page"
 
 	"example.com/acme-api/db/migrations"
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"

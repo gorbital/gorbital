@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/spikes/openapi/internal/app"
+	"gorbital.dev/spikes/openapi/internal/app"
 )
 
 type result struct {

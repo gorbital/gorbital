@@ -1,6 +1,6 @@
 # Background jobs guide
 
-`apistock.dev/modules/jobs` runs background jobs on PostgreSQL with [River](https://riverqueue.com). Decision: [ADR-0033](../adr/0033-background-jobs.md). Admin endpoints: [ops API reference](ops-api.md#job-definitions).
+`gorbital.dev/modules/jobs` runs background jobs on PostgreSQL with [River](https://riverqueue.com). Decision: [ADR-0033](../adr/0033-background-jobs.md). Admin endpoints: [ops API reference](ops-api.md#job-definitions).
 
 ## Concepts
 
@@ -16,11 +16,11 @@ Changing a job's **code** always needs a deploy. Its **configuration** never doe
 
 ## Adding a job
 
-Generate a job with the CLI, interactively or with flags ([CLI guide](cli.md#aps-gen-job)):
+Generate a job with the CLI, interactively or with flags ([CLI guide](cli.md#orb-gen-job)):
 
 ```bash
-aps gen job CleanupSessions                                            # asks the rest
-aps gen job CleanupSessions --schedule "0 3 * * *" --timeout 5m --yes  # no questions
+orb gen job CleanupSessions                                            # asks the rest
+orb gen job CleanupSessions --schedule "0 3 * * *" --timeout 5m --yes  # no questions
 ```
 
 It creates these files (shown here with the worker filled in):
@@ -66,7 +66,7 @@ func defineCleanupSessionsJob(defs *jobs.Definitions, deps jobDeps) {
 }
 ```
 
-and adds `defineCleanupSessionsJob(defs, deps)` below `//aps:anchor jobs` in `internal/app/jobs.go`. Without the CLI, create the same files by hand.
+and adds `defineCleanupSessionsJob(defs, deps)` below `//orb:anchor jobs` in `internal/app/jobs.go`. Without the CLI, create the same files by hand.
 
 `Define` panics at startup when the name isn't lowercase snake_case, `Args.Kind()` doesn't equal the name, the worker or `NewArgs` is missing, or the defaults are out of bounds. Zero `Timeout`, `MaxAttempts`, `Queue` and `Priority` become 1 minute, 25, `default` and 1.
 
@@ -142,7 +142,7 @@ Authorise work when enqueuing: a job never runs with a user's permissions.
 
 ```go
 workers := river.NewWorkers()
-_ = jobs.AddMailWorker(workers, sender) // works "apistock.mail.send" jobs; sender is Resend, SMTP or Mailpit
+_ = jobs.AddMailWorker(workers, sender) // works "gorbital.mail.send" jobs; sender is Resend, SMTP or Mailpit
 client, err := jobs.New(pool, workers, jobs.WithQueues(jobs.DefaultQueues()))
 mailer := mail.WithDefaults(jobs.AsyncSender(client), senderSettings) // validates, fills the sender, enqueues
 ```

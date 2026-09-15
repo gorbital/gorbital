@@ -26,7 +26,7 @@ var multiTenantChanges = []string{
 
 	// Wiring that names the orgs module.
 	"go.mod",
-	"apistock.yaml",
+	"gorbital.yaml",
 	"internal/app/app.go",
 	"internal/app/commands.go",
 	"internal/app/jobs.go",

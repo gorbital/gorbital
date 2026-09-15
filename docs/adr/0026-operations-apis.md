@@ -4,7 +4,7 @@
 
 ## Context
 
-Production apps need operational visibility: who did what, whether the system is healthy, which release is running, whether jobs are failing, and how long data is kept. The maintainer's previous production API included audit logs, error logs, system metrics, deployment tracking and a settings center. apistock should provide these by default without requiring a dashboard product, and without turning the application database into a log store.
+Production apps need operational visibility: who did what, whether the system is healthy, which release is running, whether jobs are failing, and how long data is kept. The maintainer's previous production API included audit logs, error logs, system metrics, deployment tracking and a settings center. gorbital should provide these by default without requiring a dashboard product, and without turning the application database into a log store.
 
 ## Options
 

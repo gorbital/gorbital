@@ -6,9 +6,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/audit"
-	"apistock.dev/modules/auditpg"
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/auditpg"
+	"gorbital.dev/modules/postgres"
 
 	authmodule "example.com/acme-api/internal/modules/auth"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"

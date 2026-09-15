@@ -14,9 +14,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/httpx"
-	"apistock.dev/modules/openapi"
-	"apistock.dev/modules/openapi/reference"
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/openapi"
+	"gorbital.dev/modules/openapi/reference"
 )
 
 var errNameTaken = errors.New("project name is already taken")

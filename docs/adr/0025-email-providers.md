@@ -1,6 +1,6 @@
 # ADR-0025: Email providers
 
-**Status:** Accepted (2026-09-14) · **Amended by:** ADR-0033 (two-step mail worker and `jobs.AsyncSender(client)` wiring), ADR-0037 (`aps add mail`, Resend over its HTTP API instead of the SDK, sender as runtime settings, `mail.ErrRejected`, `MAIL_DELIVERY`)
+**Status:** Accepted (2026-09-14) · **Amended by:** ADR-0033 (two-step mail worker and `jobs.AsyncSender(client)` wiring), ADR-0037 (`orb add mail`, Resend over its HTTP API instead of the SDK, sender as runtime settings, `mail.ErrRejected`, `MAIL_DELIVERY`)
 
 ## Context
 

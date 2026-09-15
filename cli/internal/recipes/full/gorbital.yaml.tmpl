@@ -1,0 +1,9 @@
+# gorbital project file: how this app was created. The orb CLI reads it.
+apiVersion: gorbital.dev/v1
+name: ⟦.Name⟧
+module: ⟦.Module⟧
+preset: full
+tenancy: single
+features: [postgres, settings, jobs, audit, mail, auth, ops]
+# Email provider, changed with `orb add mail`: resend or smtp.
+mail: resend

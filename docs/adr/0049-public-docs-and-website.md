@@ -1,17 +1,17 @@
 # ADR-0049: Public website, framework docs and API reference
 
-**Status:** Accepted (2026-09-15), amended 2026-09-15: section 5 is superseded. The Go generator in `site/` was replaced by the apistock-web repository (Next.js, one app per subdomain: `apps/www` for apistock.dev, `apps/docs` for docs.apistock.dev). Content still lives in this repository: builder guides moved from `site/content` to `docs/start` and `docs/sign-in`, and `docs/docs.json` lists the pages; the docs app renders them at build time. Hosting moved from Cloudflare Pages to Vercel (section 5 and maintainer decision 3). Sections 1–4 and 6 stand, except that the site's API tab now uses its own renderer and generated apps keep `modules/openapi/reference`. · **Amends:** roadmap v1.0 (the docs site moves out of v1.0), ADR-0027 (`/docs` no longer embeds Scalar)
+**Status:** Accepted (2026-09-15), amended 2026-09-15: section 5 is superseded. The Go generator in `site/` was replaced by the gorbital-web repository (Next.js, one app per subdomain: `apps/www` for gorbital.dev, `apps/docs` for docs.gorbital.dev). Content still lives in this repository: builder guides moved from `site/content` to `docs/start` and `docs/sign-in`, and `docs/docs.json` lists the pages; the docs app renders them at build time. Hosting moved from Cloudflare Pages to Vercel (section 5 and maintainer decision 3). Sections 1–4 and 6 stand, except that the site's API tab now uses its own renderer and generated apps keep `modules/openapi/reference`. · **Amends:** roadmap v1.0 (the docs site moves out of v1.0), ADR-0027 (`/docs` no longer embeds Scalar)
 
 ## Context
 
-apistock has two kinds of documentation, and neither was presented as a product:
+gorbital has two kinds of documentation, and neither was presented as a product:
 
-1. **Framework documentation.** Guides, module docs, the CLI, decision records and the roadmap live as Markdown in `docs/` and in each golden app's README. Nobody outside the repository could browse them, search them or read them on a phone. The roadmap put an `apistock.dev` docs site on Mintlify in v1.0.
+1. **Framework documentation.** Guides, module docs, the CLI, decision records and the roadmap live as Markdown in `docs/` and in each golden app's README. Nobody outside the repository could browse them, search them or read them on a phone. The roadmap put an `gorbital.dev` docs site on Mintlify in v1.0.
 2. **API documentation for each generated app.** `modules/openapi` embedded Scalar 1.44.20 (about 1 MB compressed) and served it at `/docs` from the app's `openapi.json`, in Scalar's default look. Scalar needs `'unsafe-eval'` and inline styles in the page's Content-Security-Policy.
 
 There was no landing page, and the brand system in [docs/brand/theme.md](../brand/theme.md) (warm black ground, one lime accent, Space Grotesk and JetBrains Mono, square corners, hairlines, no shadows) wasn't applied outside the CLI.
 
-The maintainer wants a landing page, public docs and an API reference with Mintlify's page structure in apistock's own look, built with neither Mintlify nor Astro and ready to publish now; and every generated app's API reference in the same theme, showing the developer's own endpoints without extra work.
+The maintainer wants a landing page, public docs and an API reference with Mintlify's page structure in gorbital's own look, built with neither Mintlify nor Astro and ready to publish now; and every generated app's API reference in the same theme, showing the developer's own endpoints without extra work.
 
 ## Decision
 
@@ -19,9 +19,9 @@ The maintainer wants a landing page, public docs and an API reference with Mintl
 
 | Surface | Address | What it holds |
 |---|---|---|
-| Landing page | `apistock.dev` | What apistock decides for you and what each decision costs, the workflow from `aps new` to production, what a generated app contains, links into the docs |
-| Framework docs | `docs.apistock.dev` | Tabs for Guides, CLI, API reference, Decisions and Roadmap |
-| API reference | `docs.apistock.dev/api-reference` and every app's `/docs` | The public site renders `examples/full-multi/api/openapi.json` as an example; each generated app renders its own API |
+| Landing page | `gorbital.dev` | What gorbital decides for you and what each decision costs, the workflow from `orb new` to production, what a generated app contains, links into the docs |
+| Framework docs | `docs.gorbital.dev` | Tabs for Guides, CLI, API reference, Decisions and Roadmap |
+| API reference | `docs.gorbital.dev/api-reference` and every app's `/docs` | The public site renders `examples/full-multi/api/openapi.json` as an example; each generated app renders its own API |
 
 ### 2. Structure (borrowed from Mintlify)
 
@@ -35,13 +35,13 @@ The maintainer wants a landing page, public docs and an API reference with Mintl
 - Everything follows `docs/brand/theme.md`; the logo files are in [docs/brand/logo](../brand/logo). The landing page and 404 are dark only. Docs and the API reference are dark by default and follow the reader's system setting until they pick a theme; on light grounds lime is never text.
 - Code blocks and terminals keep the dark code ground in both themes.
 - One accent moment per view: the "stock" fill on the landing page, "Try it" on an endpoint page.
-- Fonts are served by the site or app itself (Latin and Latin Extended, under the SIL Open Font License), not fetched from Google. Amended 2026-09-15: the sites, the docs and every app's `/docs` use Manrope and Geist Mono with rounded corners and pill controls, replacing Space Grotesk, JetBrains Mono and square corners, so the API reference in generated apps looks like docs.apistock.dev.
+- Fonts are served by the site or app itself (Latin and Latin Extended, under the SIL Open Font License), not fetched from Google. Amended 2026-09-15: the sites, the docs and every app's `/docs` use Manrope and Geist Mono with rounded corners and pill controls, replacing Space Grotesk, JetBrains Mono and square corners, so the API reference in generated apps looks like docs.gorbital.dev.
 
 ### 4. One API reference renderer for apps and the site
 
-- **`apistock.dev/modules/openapi/reference`** renders an OpenAPI 3.1 document: an overview (base URL, authentication, the problem error shape, every endpoint) and a page per operation. Its stylesheet, scripts and fonts are embedded. It depends only on the standard library: a small highlighter covers the four languages its examples use, and descriptions support paragraphs, `code`, **bold** and https links with everything else escaped.
-- **Generated apps:** `openapi.MountDocs` keeps its signature. On the first request to `/docs` it reads the app's own `/openapi.json` in-process and renders the reference, so every endpoint the developer writes or generates with `aps gen resource` appears with no extra step; a change appears on the next start, which `aps dev` does on every edit. Pages, `search.json`, Markdown copies and assets are served under `/docs` with a strict policy: `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'` and no `'unsafe-*'`. "Try it" sends requests to the app itself with the browser's cookies, so a signed-in session works.
-- **In the app's name:** the header shows the app's title, with the apistock theme and no apistock mark; the mark appears only on `apistock.dev` and `docs.apistock.dev`.
+- **`gorbital.dev/modules/openapi/reference`** renders an OpenAPI 3.1 document: an overview (base URL, authentication, the problem error shape, every endpoint) and a page per operation. Its stylesheet, scripts and fonts are embedded. It depends only on the standard library: a small highlighter covers the four languages its examples use, and descriptions support paragraphs, `code`, **bold** and https links with everything else escaped.
+- **Generated apps:** `openapi.MountDocs` keeps its signature. On the first request to `/docs` it reads the app's own `/openapi.json` in-process and renders the reference, so every endpoint the developer writes or generates with `orb gen resource` appears with no extra step; a change appears on the next start, which `orb dev` does on every edit. Pages, `search.json`, Markdown copies and assets are served under `/docs` with a strict policy: `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'` and no `'unsafe-*'`. "Try it" sends requests to the app itself with the browser's cookies, so a signed-in session works.
+- **In the app's name:** the header shows the app's title, with the gorbital theme and no gorbital mark; the mark appears only on `gorbital.dev` and `docs.gorbital.dev`.
 - **The site** renders its API tab with the same package inside its own layout, so the example on the site is what developers ship.
 
 ### 5. Build: a Go generator in this repository
@@ -60,14 +60,14 @@ Why not Mintlify: its components can be recoloured but not reshaped, it charges 
 ### Maintainer decisions (2026-09-15)
 
 1. Build the site now, before the rest of the plan, in `site/` in this repository.
-2. Neither Mintlify nor Astro: a design similar to Mintlify's in apistock's theme.
+2. Neither Mintlify nor Astro: a design similar to Mintlify's in gorbital's theme.
 3. Publish on Cloudflare Pages.
-4. Generated apps' API reference follows the apistock theme too, and shows the developer's own endpoints automatically.
+4. Generated apps' API reference follows the gorbital theme too, and shows the developer's own endpoints automatically.
 5. Embed the fonts rather than fall back to system fonts.
 
 ## Why
 
-- One design system across the CLI, docs, API reference and landing page makes apistock recognisable, and every generated app ships a reference that looks deliberate.
+- One design system across the CLI, docs, API reference and landing page makes gorbital recognisable, and every generated app ships a reference that looks deliberate.
 - One renderer means the site's example API and a developer's `/docs` can't drift apart.
 - Dropping Scalar removes a third-party bundle from every binary and lets `/docs` run under a policy without `'unsafe-eval'` or inline styles.
 - Rendering docs from the files in `docs/` means documentation changes in the same pull request as the code.
@@ -84,7 +84,7 @@ Why not Mintlify: its components can be recoloured but not reshaped, it charges 
 ## Consequences
 
 - Roadmap: v1.0 no longer delivers the docs site; v1.3 "Public website" is built ahead of order, with versioned docs and compiled code snippets still to do.
-- ADR-0027: `/docs` is the apistock reference, not embedded Scalar; `modules/openapi/internal/scalar` is removed.
+- ADR-0027: `/docs` is the gorbital reference, not embedded Scalar; `modules/openapi/internal/scalar` is removed.
 - `docs/brand/logo` holds the logo kit; the site uses its favicon, touch icon and lockup for link previews.
 - Threat model: "Try it" on the site sends credentials only to the server the reader chooses; in apps it sends them only to the app itself.
 

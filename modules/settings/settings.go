@@ -33,7 +33,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 )
 
 // Kind is a setting's value type.

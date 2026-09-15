@@ -25,7 +25,7 @@ Option 3.
 
 ## Decision
 
-`apistock.dev/modules/releases` records one row per instance start and derives releases from them.
+`gorbital.dev/modules/releases` records one row per instance start and derives releases from them.
 
 ### Library or app-owned
 

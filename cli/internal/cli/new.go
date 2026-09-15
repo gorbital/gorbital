@@ -19,7 +19,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes"
 )
 
 var (
@@ -41,12 +41,12 @@ type newResult struct {
 }
 
 func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	flags := flag.NewFlagSet("aps new", flag.ContinueOnError)
+	flags := flag.NewFlagSet("orb new", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	module := flags.String("module", "", "Go module path (default: the app name)")
 	preset := flags.String("preset", "minimal", "preset: minimal (HTTP API, no database) or full (PostgreSQL, authentication, jobs, email, audit, ops APIs)")
 	tenancy := flags.String("tenancy", recipes.TenancySingle, "who owns the data (Full preset): single (users) or multi (organisations with members, roles and invitations)")
-	local := flags.String("local", "", "path to an apistock checkout, used through replace directives (default: the checkout you are in, if any)")
+	local := flags.String("local", "", "path to an gorbital checkout, used through replace directives (default: the checkout you are in, if any)")
 	noGit := flags.Bool("no-git", false, "don't initialise a git repository")
 	skipTidy := flags.Bool("skip-tidy", false, "don't run go mod tidy")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
@@ -55,7 +55,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	flags.BoolVar(&p.noInput, "no-input", false, "never prompt; fail if a required value is missing")
 	flags.BoolVar(&p.plain, "plain", false, "plain line-by-line prompts (screen-reader friendly)")
 	flags.Usage = func() {
-		fmt.Fprintln(stderr, "Usage: aps new [<name>] [flags]\n\nIn a terminal, missing values are asked interactively; pass flags to skip them.\n\nFlags:")
+		fmt.Fprintln(stderr, "Usage: orb new [<name>] [flags]\n\nIn a terminal, missing values are asked interactively; pass flags to skip them.\n\nFlags:")
 		flags.PrintDefaults()
 	}
 
@@ -156,7 +156,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 		var out bytes.Buffer
 		if err := runIn(ctx, name, &out, "go", "mod", "tidy"); err != nil {
 			return fmt.Errorf("created %s, but go mod tidy failed: %w\n%s"+
-				"  if apistock isn't published yet, create the app with --local <path to apistock checkout>", name, err, out.String())
+				"  if gorbital isn't published yet, create the app with --local <path to gorbital checkout>", name, err, out.String())
 		}
 		step("ran go mod tidy")
 	}
@@ -181,7 +181,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	return nil
 }
 
-// lookupPreset returns the preset aps new --preset name --tenancy tenancy
+// lookupPreset returns the preset orb new --preset name --tenancy tenancy
 // selects, or a usage error naming what exists.
 func lookupPreset(name, tenancy string) (recipes.Preset, error) {
 	switch {
@@ -204,13 +204,13 @@ func lookupPreset(name, tenancy string) (recipes.Preset, error) {
 func nextSteps(s styles, dir string, preset recipes.Preset) string {
 	rows := [][2]string{
 		{"api docs", "http://127.0.0.1:8080/docs"},
-		{"traces", "aps dev --observability (needs Docker)"},
+		{"traces", "orb dev --observability (needs Docker)"},
 	}
 	if preset.Name == "full" {
 		rows = [][2]string{
 			{"api docs", "http://localhost:8080/docs (localhost, not 127.0.0.1, for passkeys)"},
 			{"emails", "http://127.0.0.1:8025 (Mailpit catches every email in development)"},
-			{"admin", "admin@example.com; aps dev prints its password, 2FA key and recovery codes once"},
+			{"admin", "admin@example.com; orb dev prints its password, 2FA key and recovery codes once"},
 			{"sign-in", "AUTH_PROVIDERS.md lists what to set for passkeys, Google and Apple"},
 		}
 		if preset.Tenancy == recipes.TenancyMulti {
@@ -220,9 +220,9 @@ func nextSteps(s styles, dir string, preset recipes.Preset) string {
 			)
 		}
 		rows = append(rows, [][2]string{
-			{"email", "Resend outside development; aps add mail switches to SMTP"},
+			{"email", "Resend outside development; orb add mail switches to SMTP"},
 			{"port 5432", "taken? set POSTGRES_PORT in .env and the same port in DATABASE_URL"},
-			{"without aps", "cp .env.example .env, docker compose up -d --wait,"},
+			{"without orb", "cp .env.example .env, docker compose up -d --wait,"},
 			{"", "go run ./cmd/migrate, go run ./cmd/seed, go run ./cmd/api"},
 		}...)
 	}
@@ -230,7 +230,7 @@ func nextSteps(s styles, dir string, preset recipes.Preset) string {
 	for _, row := range rows {
 		fmt.Fprintf(&b, "  %s %s\n", s.dim.Render(fmt.Sprintf("%-12s", row[0])), row[1])
 	}
-	fmt.Fprintf(&b, "\n  %s cd %s\n        %s\n", s.dim.Render("next:"), dir, s.accent.Render("aps dev"))
+	fmt.Fprintf(&b, "\n  %s cd %s\n        %s\n", s.dim.Render("next:"), dir, s.accent.Render("orb dev"))
 	return b.String()
 }
 
@@ -295,20 +295,20 @@ func promptNew(name, module, preset, tenancy, local *string, noGit *bool, set ma
 	}
 
 	if !set["local"] {
-		input := huh.NewInput().Title(a.title("apistock checkout")).Inline(true).Prompt("").
-			Placeholder("/path/to/apistock").Value(local).
+		input := huh.NewInput().Title(a.title("gorbital checkout")).Inline(true).Prompt("").
+			Placeholder("/path/to/gorbital").Value(local).
 			Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {
-					return errors.New("enter the path of your apistock checkout")
+					return errors.New("enter the path of your gorbital checkout")
 				}
 				_, err := resolveLocal(s)
 				return err
 			})
-		if err := a.ask(input, "apistock checkout", func() string { return *local }); err != nil {
+		if err := a.ask(input, "gorbital checkout", func() string { return *local }); err != nil {
 			return err
 		}
 	} else {
-		a.answered("apistock checkout", *local)
+		a.answered("gorbital checkout", *local)
 	}
 
 	gitInit := !*noGit
@@ -323,11 +323,11 @@ func promptNew(name, module, preset, tenancy, local *string, noGit *bool, set ma
 	return nil
 }
 
-// libraryLine says which apistock the app is built against.
+// libraryLine says which gorbital the app is built against.
 func libraryLine(local string, detected bool) string {
 	switch {
 	case local == "":
-		return "library apistock.dev " + recipes.LibraryVersion
+		return "library gorbital.dev " + recipes.LibraryVersion
 	case detected:
 		return "library " + relPath(local) + " (found above this directory; --local to change)"
 	default:
@@ -354,14 +354,14 @@ func relPath(path string) string {
 }
 
 // findCheckout returns the nearest directory at or above the current one
-// whose go.mod declares module apistock.dev, or "".
+// whose go.mod declares module gorbital.dev, or "".
 func findCheckout() string {
 	dir, err := os.Getwd()
 	if err != nil {
 		return ""
 	}
 	for {
-		if data, err := os.ReadFile(filepath.Join(dir, "go.mod")); err == nil && bytes.HasPrefix(data, []byte("module apistock.dev\n")) {
+		if data, err := os.ReadFile(filepath.Join(dir, "go.mod")); err == nil && bytes.HasPrefix(data, []byte("module gorbital.dev\n")) {
 			return dir
 		}
 		parent := filepath.Dir(dir)
@@ -373,7 +373,7 @@ func findCheckout() string {
 }
 
 // create renders the preset into dir and records this release, the inputs
-// and the tracked files' hashes in apistock.lock (ADR-0050).
+// and the tracked files' hashes in gorbital.lock (ADR-0050).
 func create(dir string, preset recipes.Preset, d recipes.Data) ([]recipes.File, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
@@ -394,7 +394,7 @@ func create(dir string, preset recipes.Preset, d recipes.Data) ([]recipes.File, 
 func validateName(name string) error {
 	switch {
 	case name == "":
-		return usageError("missing app name: aps new <name> (or run it in a terminal to be asked)")
+		return usageError("missing app name: orb new <name> (or run it in a terminal to be asked)")
 	case len(name) > maxNameLength || !namePattern.MatchString(name):
 		return usageError(fmt.Sprintf("invalid app name %q: use lowercase letters, digits and single hyphens, starting with a letter (max %d characters)", name, maxNameLength))
 	}
@@ -419,8 +419,8 @@ func resolveLocal(local string) (string, error) {
 		return "", err
 	}
 	goMod, err := os.ReadFile(filepath.Join(abs, "go.mod"))
-	if err != nil || !strings.HasPrefix(string(goMod), "module apistock.dev\n") {
-		return "", usageError(fmt.Sprintf("--local %s is not an apistock checkout (no go.mod with module apistock.dev)", local))
+	if err != nil || !strings.HasPrefix(string(goMod), "module gorbital.dev\n") {
+		return "", usageError(fmt.Sprintf("--local %s is not an gorbital checkout (no go.mod with module gorbital.dev)", local))
 	}
 	return filepath.ToSlash(abs), nil
 }

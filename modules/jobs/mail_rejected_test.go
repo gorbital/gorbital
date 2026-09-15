@@ -9,8 +9,8 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 
-	"apistock.dev/mail"
-	"apistock.dev/modules/jobs"
+	"gorbital.dev/mail"
+	"gorbital.dev/modules/jobs"
 )
 
 func TestMailWorkerCancelsRejectedEmail(t *testing.T) {

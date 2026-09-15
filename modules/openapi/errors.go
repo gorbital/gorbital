@@ -6,8 +6,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/httpx"
-	"apistock.dev/requestid"
+	"gorbital.dev/httpx"
+	"gorbital.dev/requestid"
 )
 
 // InstallErrors makes every Huma error an [httpx.Problem]:
@@ -20,7 +20,7 @@ import (
 //
 // Huma stores these hooks in package-level variables, so call InstallErrors
 // once, from the composition root, before registering operations. It is the
-// only package-level state an apistock app changes (ADR-0027).
+// only package-level state an gorbital app changes (ADR-0027).
 func InstallErrors(mapper *httpx.Mapper) {
 	huma.NewErrorWithContext = func(hctx huma.Context, status int, msg string, errs ...error) huma.StatusError {
 		ctx := context.Background()

@@ -1,6 +1,6 @@
 # Environment variables
 
-Every environment variable apistock reads, verified against the code: what reads it, its default, how it's validated, whether it's a secret, and where the value comes from. For a beginner's walkthrough of the credentials, see [Every key and credential](../sign-in/all-keys.md).
+Every environment variable gorbital reads, verified against the code: what reads it, its default, how it's validated, whether it's a secret, and where the value comes from. For a beginner's walkthrough of the credentials, see [Every key and credential](../sign-in/all-keys.md).
 
 Three groups of programs read the environment, and each has its own variables:
 
@@ -8,12 +8,12 @@ Three groups of programs read the environment, and each has its own variables:
 |---|---|---|
 | A generated app (`cmd/api`, `cmd/migrate`, `cmd/seed`) | `internal/app/config.go`, `social.go`, `passkeys.go`, `infra_mail.go` | [App](#app-server), [database](#database), [authentication](#authentication), [email](#email), [telemetry](#telemetry) |
 | Docker Compose, from the app's `compose.yaml` | Interpolated by `docker compose`, which reads `.env` itself | [Compose ports](#compose-ports) |
-| `aps`, and the apistock repository's tests | `cli/`, `modules/postgres/pgtest`, root `compose.yaml` | [CLI](#cli), [tests](#tests) |
+| `orb`, and the gorbital repository's tests | `cli/`, `modules/postgres/pgtest`, root `compose.yaml` | [CLI](#cli), [tests](#tests) |
 
 ## How the app reads configuration
 
 - **Only `internal/app` reads the environment** (`LoadConfig` in `config.go`). Libraries take values as constructor arguments; `architecture_test.go` enforces it.
-- **The app reads the process environment, not `.env`.** `aps dev` parses `.env` and passes it to the processes it starts, with variables already set in your shell taking precedence. With plain `go run`, run `set -a; . ./.env; set +a` first. Docker Compose reads `.env` on its own, for the port variables.
+- **The app reads the process environment, not `.env`.** `orb dev` parses `.env` and passes it to the processes it starts, with variables already set in your shell taking precedence. With plain `go run`, run `set -a; . ./.env; set +a` first. Docker Compose reads `.env` on its own, for the port variables.
 - **Every error is reported at once.** `LoadConfig` collects all problems and fails with `invalid configuration:` followed by one line per variable, so one start shows everything to fix.
 - **Secrets can come from files.** For variables marked **Secret** below, `NAME_FILE=/path` reads the value from the file (`config.Source.Secret`, trailing newline trimmed). Setting both `NAME` and `NAME_FILE` fails with `config: both variable and _FILE variant are set: NAME`. Secrets are held as `config.Secret`, whose `String` and `LogValue` print `[redacted]`.
 - **Empty means off; half-filled means stop.** An optional feature with all its variables empty is off. Setting some of a feature's variables but not the rest fails at start with the missing names ([ADR-0045](../adr/0045-sign-in-provider-setup.md)).
@@ -50,7 +50,7 @@ Full preset only.
 
 | Variable | Required | Default | Example | Secret | Description |
 |---|---|---|---|---|---|
-| `AUTH_ENCRYPTION_KEYS` | **Prod**; also `cmd/seed` | empty | `k2:…,k1:…` | **Secret** | AES-256-GCM keys that encrypt TOTP secrets. Format: comma-separated `id:base64`, each key exactly 32 bytes after base64 decoding; ids unique. The first key encrypts, all decrypt. Empty in development turns authenticator apps off (503 `mfa_unavailable`) and `aps dev` fills it. Generate: `echo "k1:$(openssl rand -base64 32)"`. Rotate with `cmd/api rotate-auth-keys` ([secrets and keys](secrets-and-keys.md#auth-encryption-keys)) |
+| `AUTH_ENCRYPTION_KEYS` | **Prod**; also `cmd/seed` | empty | `k2:…,k1:…` | **Secret** | AES-256-GCM keys that encrypt TOTP secrets. Format: comma-separated `id:base64`, each key exactly 32 bytes after base64 decoding; ids unique. The first key encrypts, all decrypt. Empty in development turns authenticator apps off (503 `mfa_unavailable`) and `orb dev` fills it. Generate: `echo "k1:$(openssl rand -base64 32)"`. Rotate with `cmd/api rotate-auth-keys` ([secrets and keys](secrets-and-keys.md#auth-encryption-keys)) |
 
 ### Passkeys
 
@@ -86,7 +86,7 @@ Read in `social.go` ([ADR-0046](../adr/0046-google-and-apple-sign-in.md)).
 
 ## Email
 
-Read in `config.go` and `infra_mail.go`. `infra_mail.go` is replaced by `aps add mail`, so exactly one provider's variables apply.
+Read in `config.go` and `infra_mail.go`. `infra_mail.go` is replaced by `orb add mail`, so exactly one provider's variables apply.
 
 | Variable | Required | Default | Example | Secret | Description |
 |---|---|---|---|---|---|
@@ -105,11 +105,11 @@ The sender (`mail.from_name`, `mail.from_email`, `mail.reply_to`) is a runtime s
 
 | Variable | Required | Default | Example | Description |
 |---|---|---|---|---|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | empty | `http://127.0.0.1:4318` | Turns on OTLP/HTTP export of traces and metrics. Empty keeps telemetry in-process: logs still carry `trace_id` and `span_id`. `aps dev --observability` sets it to the local Grafana. The OpenTelemetry exporters read it, and the other standard `OTEL_EXPORTER_OTLP_*` variables (such as `OTEL_EXPORTER_OTLP_HEADERS` for an API key), directly |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | empty | `http://127.0.0.1:4318` | Turns on OTLP/HTTP export of traces and metrics. Empty keeps telemetry in-process: logs still carry `trace_id` and `span_id`. `orb dev --observability` sets it to the local Grafana. The OpenTelemetry exporters read it, and the other standard `OTEL_EXPORTER_OTLP_*` variables (such as `OTEL_EXPORTER_OTLP_HEADERS` for an API key), directly |
 
 ## Compose ports
 
-Read by `docker compose` from `.env` (and by `aps dev`'s port check), never by the app. All bind to `127.0.0.1`.
+Read by `docker compose` from `.env` (and by `orb dev`'s port check), never by the app. All bind to `127.0.0.1`.
 
 | Variable | Default | Service | Also change |
 |---|---|---|---|
@@ -117,37 +117,37 @@ Read by `docker compose` from `.env` (and by `aps dev`'s port check), never by t
 | `MAILPIT_SMTP_PORT` | `1025` | `mailpit` SMTP | The port in `MAILPIT_SMTP_ADDR` |
 | `MAILPIT_WEB_PORT` | `8025` | `mailpit` web inbox | Nothing |
 | `GRAFANA_PORT` | `3000` | `grafana` (profile `observability`) | Nothing |
-| `OTLP_HTTP_PORT` | `4318` | `grafana` OTLP receiver | Nothing; `aps dev --observability` points the app at it |
+| `OTLP_HTTP_PORT` | `4318` | `grafana` OTLP receiver | Nothing; `orb dev --observability` points the app at it |
 
 ## CLI
 
-Read by `aps`.
+Read by `orb`.
 
 | Variable | Effect |
 |---|---|
 | `CI` | Any value: never prompt, as with `--no-input` |
 | `ACCESSIBLE` | Any value: plain one-line prompts for screen readers, as with `--plain` |
 | `NO_COLOR` | Any value: no colour in output |
-| `GOSUMDB`, `GONOSUMDB`, `GOPRIVATE`, `GOINSECURE` | Read by `aps upgrade` through `go`: it refuses to fetch an earlier release from the module proxy when checksum verification is off for `apistock.dev/cli` |
+| `GOSUMDB`, `GONOSUMDB`, `GOPRIVATE`, `GOINSECURE` | Read by `orb upgrade` through `go`: it refuses to fetch an earlier release from the module proxy when checksum verification is off for `gorbital.dev/cli` |
 
 ## Tests
 
-Read by tests in the apistock repository and in generated apps.
+Read by tests in the gorbital repository and in generated apps.
 
 | Variable | Used by | Effect |
 |---|---|---|
-| `APISTOCK_TEST_DATABASE_URL` | `pgtest` (every database test) | PostgreSQL server URL. Tests create a database per test from a migrated template and drop it afterwards. Unset: database tests skip |
-| `APISTOCK_REQUIRE_DB` | `pgtest` | `1`: a missing `APISTOCK_TEST_DATABASE_URL` fails instead of skipping. Set it whenever you claim tests pass |
-| `APISTOCK_TEST_MAILPIT_SMTP` | `modules/mail/smtp`, example apps | Mailpit SMTP address, such as `127.0.0.1:51025` in the repository |
-| `APISTOCK_TEST_MAILPIT_URL` | Same | Mailpit web URL, such as `http://127.0.0.1:58025`, to read delivered messages |
-| `APISTOCK_REQUIRE_MAILPIT` | Same | `1`: missing Mailpit variables fail instead of skipping |
-| `APS_E2E` | `cli` tests | `1`: generate apps and run their test suites |
-| `APS_E2E_DOCKER` | `cli` tests | `1`: run `aps dev` in a new Full app against real Docker on free ports |
-| `APISTOCK_POSTGRES_PORT`, `APISTOCK_MAILPIT_SMTP_PORT`, `APISTOCK_MAILPIT_WEB_PORT` | Root `compose.yaml` | Host ports of the repository's test services: `55432`, `51025`, `58025` |
+| `GORBITAL_TEST_DATABASE_URL` | `pgtest` (every database test) | PostgreSQL server URL. Tests create a database per test from a migrated template and drop it afterwards. Unset: database tests skip |
+| `GORBITAL_REQUIRE_DB` | `pgtest` | `1`: a missing `GORBITAL_TEST_DATABASE_URL` fails instead of skipping. Set it whenever you claim tests pass |
+| `GORBITAL_TEST_MAILPIT_SMTP` | `modules/mail/smtp`, example apps | Mailpit SMTP address, such as `127.0.0.1:51025` in the repository |
+| `GORBITAL_TEST_MAILPIT_URL` | Same | Mailpit web URL, such as `http://127.0.0.1:58025`, to read delivered messages |
+| `GORBITAL_REQUIRE_MAILPIT` | Same | `1`: missing Mailpit variables fail instead of skipping |
+| `ORB_E2E` | `cli` tests | `1`: generate apps and run their test suites |
+| `ORB_E2E_DOCKER` | `cli` tests | `1`: run `orb dev` in a new Full app against real Docker on free ports |
+| `GORBITAL_POSTGRES_PORT`, `GORBITAL_MAILPIT_SMTP_PORT`, `GORBITAL_MAILPIT_WEB_PORT` | Root `compose.yaml` | Host ports of the repository's test services: `55432`, `51025`, `58025` |
 
 ## Minimal preset
 
-A Minimal app reads only the [app server](#app-server) variables and `OTEL_EXPORTER_OTLP_ENDPOINT`; its `.env.example` also has `GRAFANA_PORT` and `OTLP_HTTP_PORT` for `aps dev --observability`.
+A Minimal app reads only the [app server](#app-server) variables and `OTEL_EXPORTER_OTLP_ENDPOINT`; its `.env.example` also has `GRAFANA_PORT` and `OTLP_HTTP_PORT` for `orb dev --observability`.
 
 ## Checked against `.env.example`
 
@@ -157,4 +157,4 @@ Both Full golden apps' `.env.example` files (`examples/full-single`, `examples/f
 |---|---|
 | `APPLE_PRIVATE_KEY` | Read by the code; mentioned in the comment above `APPLE_PRIVATE_KEY_FILE` rather than as its own line, by design |
 | `*_FILE` variants | Supported for every secret; listed only for `DATABASE_URL` and the Apple key |
-| `SMTP_*` | Appear in the `aps:begin mail` block only after `aps add mail --provider smtp`; a new app lists `RESEND_API_KEY` there |
+| `SMTP_*` | Appear in the `orb:begin mail` block only after `orb add mail --provider smtp`; a new app lists `RESEND_API_KEY` there |

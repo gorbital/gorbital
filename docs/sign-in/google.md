@@ -164,7 +164,7 @@ GOOGLE_CLIENT_SECRET=GOCSPX-your-secret   # or GOOGLE_CLIENT_SECRET_FILE=/run/se
 APP_PUBLIC_URL=https://api.example.com
 ```
 
-Restart the app (stop `aps dev` with Ctrl+C and start it again).
+Restart the app (stop `orb dev` with Ctrl+C and start it again).
 
 ## Step 5: Try it on your computer
 
@@ -172,7 +172,7 @@ Restart the app (stop `aps dev` with Ctrl+C and start it again).
 
 1. **Check it's on**
 
-   The **Sign-in methods** list that `aps dev` prints at start shows `✓ Google sign-in`. Or run `go run ./cmd/api auth-providers`.
+   The **Sign-in methods** list that `orb dev` prints at start shows `✓ Google sign-in`. Or run `go run ./cmd/api auth-providers`.
 
 2. **Sign in**
 

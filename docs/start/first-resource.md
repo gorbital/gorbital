@@ -1,13 +1,13 @@
 # Add your first resource
 
-A **resource** is a kind of data in your API, such as invoices, customers or tasks, with endpoints to create, read, update and delete it. `aps gen resource` writes one for you: the database table, the rules, the endpoints and the tests. The result is ordinary Go code in your repository, which you then change like any other code.
+A **resource** is a kind of data in your API, such as invoices, customers or tasks, with endpoints to create, read, update and delete it. `orb gen resource` writes one for you: the database table, the rules, the endpoints and the tests. The result is ordinary Go code in your repository, which you then change like any other code.
 
 This page adds invoices to the app from the [Quickstart](quickstart.md) and explains every file. The output below comes from a real run.
 
 ## Before you start
 
-- `aps dev` is running in Terminal 1, or at least `docker compose up -d --wait`.
-- Your changes are committed. `aps gen` refuses to run otherwise, so its changes are a clean diff: `git status --short` should print nothing.
+- `orb dev` is running in Terminal 1, or at least `docker compose up -d --wait`.
+- Your changes are committed. `orb gen` refuses to run otherwise, so its changes are a clean diff: `git status --short` should print nothing.
 
 ## 1. Describe the resource
 
@@ -27,7 +27,7 @@ A resource needs at least one `string` field. The first one is its title.
 In **Terminal 2**, in your app's folder:
 
 ```bash
-aps gen resource Invoice number:string:unique 'status:enum(draft,sent,paid)' notes:text
+orb gen resource Invoice number:string:unique 'status:enum(draft,sent,paid)' notes:text
 ```
 
 Quote the enum field: shells treat parentheses specially. Leave the fields out to be asked for them one at a time. Add `--dry-run` first to see the files without writing them.
@@ -137,7 +137,7 @@ What the columns are for:
 
 ## 5. Apply, test, export
 
-If `aps dev` is running, it notices the new migration, applies it and restarts: `/docs` already shows **Invoices**. Otherwise, with the environment loaded:
+If `orb dev` is running, it notices the new migration, applies it and restarts: `/docs` already shows **Invoices**. Otherwise, with the environment loaded:
 
 ```bash
 go run ./cmd/migrate
@@ -146,12 +146,12 @@ go run ./cmd/migrate
 Run the tests. They create their own temporary databases, so your development data isn't touched:
 
 ```bash
-export APISTOCK_TEST_DATABASE_URL='postgres://acme-api:acme-api@127.0.0.1:5432/acme-api?sslmode=disable'
-export APISTOCK_REQUIRE_DB=1
+export GORBITAL_TEST_DATABASE_URL='postgres://acme-api:acme-api@127.0.0.1:5432/acme-api?sslmode=disable'
+export GORBITAL_REQUIRE_DB=1
 go test ./...
 ```
 
-`APISTOCK_REQUIRE_DB=1` makes database tests fail rather than skip when the database is missing, so a green run means they really ran.
+`GORBITAL_REQUIRE_DB=1` makes database tests fail rather than skip when the database is missing, so a green run means they really ran.
 
 Update the API description that's committed with your code, so API changes show up in reviews:
 
@@ -186,7 +186,7 @@ The code is yours. Common changes:
 | To | Edit |
 |---|---|
 | Add a rule, such as "a paid invoice can't be changed" | `domain/invoice.go`, and return a new error from `domain/errors.go`; map it in `internal/app/module_invoices.go` |
-| Add a column | A new migration: `aps gen migration add_invoice_due_date`, then the domain type, the SQL files that read or write it, and `delivery/invoices.go` |
+| Add a column | A new migration: `orb gen migration add_invoice_due_date`, then the domain type, the SQL files that read or write it, and `delivery/invoices.go` |
 | Change a query | The SQL constant in the repository file for that operation |
 | Change a response | The types in `delivery/invoices.go`, then export `api/openapi.json` again |
 
@@ -196,4 +196,4 @@ Edit a migration only until it has run anywhere but your computer. After that, a
 
 In an app created with `--tenancy multi`, the same command makes invoices belong to an **organisation** instead of a user: endpoints under `/v1/orgs/{orgId}/invoices`, an `org_id` column instead of `owner_id`, a membership check in every use case, `invoices.invoice.read` and `.write` permissions for organisation roles, and tests proving a member of another organisation gets 404. See [Organisations](organisations.md).
 
-All flags and rules: [CLI reference](../guides/cli.md#aps-gen-resource).
+All flags and rules: [CLI reference](../guides/cli.md#orb-gen-resource).

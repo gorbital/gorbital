@@ -6,8 +6,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"apistock.dev/config"
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/config"
+	"gorbital.dev/modules/postgres"
 )
 
 func ExampleOpen() {

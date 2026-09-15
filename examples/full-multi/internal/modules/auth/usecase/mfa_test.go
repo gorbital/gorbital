@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/actor"
-	authlib "apistock.dev/modules/auth"
+	"gorbital.dev/actor"
+	authlib "gorbital.dev/modules/auth"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	authrepository "example.com/acme-api/internal/modules/auth/repository"

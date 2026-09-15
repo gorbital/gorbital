@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	authlib "apistock.dev/modules/auth"
+	authlib "gorbital.dev/modules/auth"
 )
 
 func TestTOTPQRCode(t *testing.T) {

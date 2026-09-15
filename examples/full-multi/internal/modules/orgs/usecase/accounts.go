@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	orgslib "apistock.dev/modules/orgs"
+	orgslib "gorbital.dev/modules/orgs"
 
 	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
 )

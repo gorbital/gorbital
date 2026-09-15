@@ -10,7 +10,7 @@ Production needs it: without it the app refuses to start there. Administrator ro
 
 ## On your computer
 
-Nothing to do. When the value is empty, `aps dev` generates a key for development and writes it to `.env`.
+Nothing to do. When the value is empty, `orb dev` generates a key for development and writes it to `.env`.
 
 ## For production
 

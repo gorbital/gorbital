@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/app"
+	"gorbital.dev/app"
 )
 
 type closerFunc func() error

@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/httpx"
-	"apistock.dev/requestid"
+	"gorbital.dev/httpx"
+	"gorbital.dev/requestid"
 )
 
 var ok = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })

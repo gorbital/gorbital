@@ -1387,7 +1387,7 @@
             "type": "string"
           },
           "provider": {
-            "description": "Chosen with aps add mail",
+            "description": "Chosen with orb add mail",
             "enum": [
               "resend",
               "smtp"
@@ -4914,7 +4914,7 @@
     },
     "/ops/mail/test": {
       "post": {
-        "description": "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=apistock.mail.send`.",
+        "description": "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`.",
         "operationId": "ops-send-test-email",
         "requestBody": {
           "content": {

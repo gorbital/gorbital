@@ -12,21 +12,21 @@ import (
 	"text/template"
 )
 
-// Email providers offered by aps add mail (ADR-0037).
+// Email providers offered by orb add mail (ADR-0037).
 const (
 	MailResend = "resend"
 	MailSMTP   = "smtp"
 )
 
-// Paths and names aps add mail works with.
+// Paths and names orb add mail works with.
 const (
-	// InfraMailPath is the provider file aps add mail replaces.
+	// InfraMailPath is the provider file orb add mail replaces.
 	InfraMailPath = "internal/app/infra_mail.go"
 	// InfraMailTestPath holds the provider's side of the app's tests, so the
-	// rest of them pass with any provider. aps add mail replaces it too.
+	// rest of them pass with any provider. orb add mail replaces it too.
 	InfraMailTestPath = "internal/app/infra_mail_test.go"
 	// MailBlock names the block of .env.example holding the provider's
-	// variables: from "# aps:begin mail" to "# aps:end mail".
+	// variables: from "# orb:begin mail" to "# orb:end mail".
 	MailBlock = "mail"
 )
 
@@ -43,11 +43,11 @@ type MailRecipe struct {
 	EnvBlock []byte
 	// EnvKeys are the variables EnvBlock assigns, in order.
 	EnvKeys []string
-	// Modules are the apistock modules the app needs with this provider.
+	// Modules are the gorbital modules the app needs with this provider.
 	Modules []string
 }
 
-// RenderMail returns this aps's recipe for provider in the app with Go
+// RenderMail returns this orb's recipe for provider in the app with Go
 // module path module. Go output is validated with gofmt.
 func RenderMail(provider, module string) (MailRecipe, error) {
 	return Embedded().Mail(provider, module)
@@ -81,9 +81,9 @@ func (r Release) Mail(provider, module string) (MailRecipe, error) {
 		}
 	}
 	// The Mailpit sender in internal/app/mail.go always needs the SMTP module.
-	modules := []string{"apistock.dev/modules/mail/smtp"}
+	modules := []string{"gorbital.dev/modules/mail/smtp"}
 	if provider == MailResend {
-		modules = append(modules, "apistock.dev/modules/mail/resend")
+		modules = append(modules, "gorbital.dev/modules/mail/resend")
 	}
 	return MailRecipe{
 		Provider: provider, Label: label, InfraMail: infra, InfraMailTest: infraTest,
@@ -125,7 +125,7 @@ func EnvKey(line string) (string, bool) {
 	return m[1], true
 }
 
-// SetManifestKey sets a top-level key in apistock.yaml, keeping every other
+// SetManifestKey sets a top-level key in gorbital.yaml, keeping every other
 // line.
 func SetManifestKey(src []byte, key, value string) []byte {
 	lines := strings.SplitAfter(string(src), "\n")
@@ -142,7 +142,7 @@ func SetManifestKey(src []byte, key, value string) []byte {
 	return []byte(out + key + ": " + value + "\n")
 }
 
-// ErrBlockMissing reports a file without the named aps:begin/aps:end block.
+// ErrBlockMissing reports a file without the named orb:begin/orb:end block.
 var ErrBlockMissing = errors.New("block not found")
 
 // Block returns the block named name from src, marker lines included.
@@ -167,20 +167,38 @@ func ReplaceBlock(src []byte, name string, block []byte) ([]byte, error) {
 	return append(out, src[end:]...), nil
 }
 
-// findBlock locates the lines from "# aps:begin <name>" (optionally followed
-// by a comment) through "# aps:end <name>".
+// LegacyMarker is the marker prefix apps generated before the rename to
+// gorbital carry in .env.example. Blocks are found under either prefix and
+// always written back with the current one.
+const LegacyMarker = "aps"
+
+// blockMarkers are the begin and end lines of the block named name, current
+// prefix first.
+func blockMarkers(name string) [][2]string {
+	return [][2]string{
+		{"# orb:begin " + name, "# orb:end " + name},
+		{"# " + LegacyMarker + ":begin " + name, "# " + LegacyMarker + ":end " + name},
+	}
+}
+
+// findBlock locates the lines from "# orb:begin <name>" (optionally followed
+// by a comment) through "# orb:end <name>", accepting the legacy prefix too.
 func findBlock(src []byte, name string) (start, end int, err error) {
-	begin, endMarker := "# aps:begin "+name, "# aps:end "+name
-	offset, start := 0, -1
+	markers := blockMarkers(name)
+	offset, start, endMarker := 0, -1, ""
 	for _, line := range strings.SplitAfter(string(src), "\n") {
 		trimmed := strings.TrimSpace(line)
-		switch {
-		case start < 0 && (trimmed == begin || strings.HasPrefix(trimmed, begin+" ")):
-			start = offset
-		case start >= 0 && trimmed == endMarker:
+		if start < 0 {
+			for _, m := range markers {
+				if trimmed == m[0] || strings.HasPrefix(trimmed, m[0]+" ") {
+					start, endMarker = offset, m[1]
+					break
+				}
+			}
+		} else if trimmed == endMarker {
 			return start, offset + len(line), nil
 		}
 		offset += len(line)
 	}
-	return 0, 0, fmt.Errorf("%w: %s … %s", ErrBlockMissing, begin, endMarker)
+	return 0, 0, fmt.Errorf("%w: %s … %s", ErrBlockMissing, markers[0][0], markers[0][1])
 }

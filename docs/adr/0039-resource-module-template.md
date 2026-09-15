@@ -4,9 +4,9 @@
 
 ## Context
 
-`aps gen resource` (ADR-0021, ADR-0023, ADR-0027, ADR-0032) creates a one-shot layered module, but nothing yet shows what that module looks like. `examples/full-single` has `auth` (too large and specialised to copy), `ops` (no table) and `ping` (no repository). Its generated output can't be golden-tested until a hand-written module exists, and `aps new --preset=full` is generated from the golden app.
+`orb gen resource` (ADR-0021, ADR-0023, ADR-0027, ADR-0032) creates a one-shot layered module, but nothing yet shows what that module looks like. `examples/full-single` has `auth` (too large and specialised to copy), `ops` (no table) and `ping` (no repository). Its generated output can't be golden-tested until a hand-written module exists, and `orb new --preset=full` is generated from the golden app.
 
-Once generated, a resource module belongs to the app and is never upgraded (ADR-0021). Every choice made in the template spreads into every app that runs the generator and can't be fixed later with `aps upgrade`. The template has to be decided before it is written.
+Once generated, a resource module belongs to the app and is never upgraded (ADR-0021). Every choice made in the template spreads into every app that runs the generator and can't be fixed later with `orb upgrade`. The template has to be decided before it is written.
 
 ## Decision
 
@@ -44,7 +44,7 @@ IDs are text with a prefix from the resource name (`prj_`), 128 random bits, the
 | `repository/` | `store.go` and one file per operation (`insert_project.go`, `select_project.go`, `select_projects.go`, `update_project.go`, `delete_project.go`), `scan.go`, tests against `pgtest` (ADR-0032) |
 | `delivery/` | Huma operations with input and output types (ADR-0027); nothing but mapping |
 | `module.go` | `New(pool, deps)`, `Register(api)`; a nil module registers operations for OpenAPI export, like `auth` |
-| App wiring | One wiring file, `internal/app/module_projects.go`, that builds the module from the shared `services` (database pool, audit recorder, logger) and maps its errors, and one `registerProjects(api, mapper, svc),` line after `//aps:anchor modules` inside `errors.Join` in `internal/app/modules.go` (ADR-0018, ADR-0021). Pagination errors (`invalid_cursor`, `invalid_sort`, `invalid_limit`) are mapped once in `routes.go` for every module |
+| App wiring | One wiring file, `internal/app/module_projects.go`, that builds the module from the shared `services` (database pool, audit recorder, logger) and maps its errors, and one `registerProjects(api, mapper, svc),` line after `//orb:anchor modules` inside `errors.Join` in `internal/app/modules.go` (ADR-0018, ADR-0021). Pagination errors (`invalid_cursor`, `invalid_sort`, `invalid_limit`) are mapped once in `routes.go` for every module |
 
 ### Owner isolation
 
@@ -78,16 +78,16 @@ Error codes: `unauthenticated` (401), `validation_failed` (422 with `errors[]` o
 
 ### Fixed versus filled from fields
 
-| Filled from `aps gen resource <Name> [fields]` | Fixed in the template |
+| Filled from `orb gen resource <Name> [fields]` | Fixed in the template |
 |---|---|
 | Names (module, table, ID prefix, routes, errors, audit actions), columns, domain fields and validation, request/response fields, allowlisted sort fields (string and time fields), filters (enum fields), test values | Layer layout, ownership and isolation, pagination, versioned updates, hard delete, audit pattern, error mapping, test structure |
 
-A migration is created with the module (`db/migrations/<timestamp>_<resources>.sql`), not a separate `aps gen migration`.
+A migration is created with the module (`db/migrations/<timestamp>_<resources>.sql`), not a separate `orb gen migration`.
 
 ### Generator (implemented 2026-09-15)
 
 ```text
-aps gen resource <Name> <field:type>... [--plural P] [--id-prefix p] [--scope user]
+orb gen resource <Name> <field:type>... [--plural P] [--id-prefix p] [--scope user]
                  [--dry-run] [--json] [--allow-dirty] [--yes] [--no-input] [--plain]
 ```
 
@@ -102,9 +102,9 @@ aps gen resource <Name> <field:type>... [--plural P] [--id-prefix p] [--scope us
 | Names | Field names are snake_case, up to 20 characters; names every resource has, query parameters and PostgreSQL reserved words are refused; generated Go names are checked for clashes. At least one string field; the first is the title the tests sort by. Up to 20 fields |
 | Derived names | `Project` → package, table and route `projects`, ID prefix `prj` (first letter and next consonants), audit actions `projects.project.*`; `--plural` for irregular plurals, `--id-prefix` to choose the prefix |
 | Migration version | The current UTC time, or one after the newest migration, so it always runs last |
-| Output | The 20 files above and one line in `modules.go`; one-shot, not recorded in `apistock.lock` (ADR-0021) |
+| Output | The 20 files above and one line in `modules.go`; one-shot, not recorded in `gorbital.lock` (ADR-0021) |
 | Scope | Only `user` until organisations (v0.4) and the global template exist |
-| Golden test | `aps gen resource Project name:string:unique description:text 'status:enum(active,archived)'` reproduces `examples/full-single`'s projects module byte for byte; `-update` regenerates it from the templates for review |
+| Golden test | `orb gen resource Project name:string:unique description:text 'status:enum(active,archived)'` reproduces `examples/full-single`'s projects module byte for byte; `-update` regenerates it from the templates for review |
 | Generality test | A resource with several unique and enum fields and one with neither are generated into a copy of `examples/full-single`, which is vetted and runs their tests on PostgreSQL |
 
 The example's tests use generic sample values (`Example name`, `Website`, `Docs`) so that the same test code works for any resource.
@@ -127,11 +127,11 @@ Soft delete, search, bulk operations, nested resources, sharing between users, f
 - Requiring `version` on `PATCH` is stricter than many clients expect.
 - Audit after commit can miss an event if the audit write fails; a failure is logged, the same as `auth`.
 - Hard delete loses data that soft delete would keep; the audit event records only metadata.
-- Moving to organisations (`aps add orgs`) needs a data migration for user-scoped tables; the skeleton comes from ADR-0023.
+- Moving to organisations (`orb add orgs`) needs a data migration for user-scoped tables; the skeleton comes from ADR-0023.
 
 ## Consequences
 
 - `examples/full-single` gains `internal/modules/projects`, its migration, cross-owner tests and an end-to-end test.
-- `aps gen resource` is golden-tested against it; ADR-0022's example aliases (`projectdomain`, `projectusecase`) become real.
+- `orb gen resource` is golden-tested against it; ADR-0022's example aliases (`projectdomain`, `projectusecase`) become real.
 - Error codes and audit actions above are public API for the example app (ADR-0015); generated apps get their own names.
 - Architecture open item "Example business module with its own repository" is resolved when the module lands.

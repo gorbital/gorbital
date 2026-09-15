@@ -1,10 +1,10 @@
-module apistock.dev/modules/settings
+module gorbital.dev/modules/settings
 
 go 1.26.0
 
 require (
-	apistock.dev v0.0.0
-	apistock.dev/modules/postgres v0.0.0
+	gorbital.dev v0.0.0
+	gorbital.dev/modules/postgres v0.0.0
 	github.com/jackc/pgx/v5 v5.11.0
 )
 
@@ -29,6 +29,6 @@ require (
 
 // Local development: consumers' own replace directives are unaffected.
 replace (
-	apistock.dev => ../..
-	apistock.dev/modules/postgres => ../postgres
+	gorbital.dev => ../..
+	gorbital.dev/modules/postgres => ../postgres
 )

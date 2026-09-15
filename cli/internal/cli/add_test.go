@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes"
 )
 
 // goldenApp returns the absolute path of examples/full-single.
@@ -22,12 +22,12 @@ func goldenApp(t *testing.T) string {
 	return filepath.Join(filepath.Dir(file), "..", "..", "..", "examples", "full-single")
 }
 
-// newMailApp copies the files aps add mail reads from examples/full-single
+// newMailApp copies the files orb add mail reads from examples/full-single
 // into a temporary directory and makes it the working directory.
 func newMailApp(t *testing.T) string {
 	t.Helper()
 	golden, dir := goldenApp(t), t.TempDir()
-	for _, f := range []string{"go.mod", "apistock.yaml", ".env.example", "internal/app/mail.go", recipes.InfraMailPath, recipes.InfraMailTestPath} {
+	for _, f := range []string{"go.mod", "gorbital.yaml", ".env.example", "internal/app/mail.go", recipes.InfraMailPath, recipes.InfraMailTestPath} {
 		writeFile(t, filepath.Join(dir, f), readFile(t, filepath.Join(golden, f)))
 	}
 	t.Chdir(dir)
@@ -36,13 +36,13 @@ func newMailApp(t *testing.T) string {
 
 func addMail(t *testing.T, args ...string) addMailResult {
 	t.Helper()
-	code, out, errOut := runAps(t, append([]string{"add", "mail", "--json", "--skip-tidy"}, args...)...)
+	code, out, errOut := runOrb(t, append([]string{"add", "mail", "--json", "--skip-tidy"}, args...)...)
 	if code != 0 {
-		t.Fatalf("aps add mail %v = %d, stderr %q", args, code, errOut)
+		t.Fatalf("orb add mail %v = %d, stderr %q", args, code, errOut)
 	}
 	var res addMailResult
 	if err := json.Unmarshal([]byte(out), &res); err != nil {
-		t.Fatalf("aps add mail --json output %q: %v", out, err)
+		t.Fatalf("orb add mail --json output %q: %v", out, err)
 	}
 	return res
 }
@@ -54,7 +54,7 @@ func TestAddMailSMTPWithFlags(t *testing.T) {
 		!slices.Equal(res.EnvVariables, []string{"SMTP_HOST", "SMTP_PORT", "SMTP_TLS", "SMTP_USERNAME"}) {
 		t.Errorf("result = %+v", res)
 	}
-	if want := []string{recipes.InfraMailPath, recipes.InfraMailTestPath, ".env.example", ".env", "apistock.yaml"}; !slices.Equal(res.Files, want) {
+	if want := []string{recipes.InfraMailPath, recipes.InfraMailTestPath, ".env.example", ".env", "gorbital.yaml"}; !slices.Equal(res.Files, want) {
 		t.Errorf("files = %v, want %v", res.Files, want)
 	}
 
@@ -80,19 +80,19 @@ func TestAddMailSMTPWithFlags(t *testing.T) {
 	if info, err := os.Stat(".env"); err != nil || info.Mode().Perm() != 0o600 {
 		t.Errorf(".env mode = %v, %v; want 0600", info.Mode().Perm(), err)
 	}
-	if manifest := readFile(t, "apistock.yaml"); !strings.HasSuffix(manifest, "\nmail: smtp\n") {
-		t.Errorf("apistock.yaml = %s", manifest)
+	if manifest := readFile(t, "gorbital.yaml"); !strings.HasSuffix(manifest, "\nmail: smtp\n") {
+		t.Errorf("gorbital.yaml = %s", manifest)
 	}
 }
 
-// TestAddMailRecordsTheProviderInTheLock checks that aps add mail keeps
-// apistock.lock true to the files, so upgrades rebuild SMTP files for an
+// TestAddMailRecordsTheProviderInTheLock checks that orb add mail keeps
+// gorbital.lock true to the files, so upgrades rebuild SMTP files for an
 // SMTP app (ADR-0050).
 func TestAddMailRecordsTheProviderInTheLock(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if code, _, errOut := runAps(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git", "--json"); code != 0 {
-		t.Fatalf("aps new = %d, stderr %q", code, errOut)
+	if code, _, errOut := runOrb(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git", "--json"); code != 0 {
+		t.Fatalf("orb new = %d, stderr %q", code, errOut)
 	}
 	t.Chdir(filepath.Join(dir, "shop-api"))
 	before, err := readLock(".")
@@ -108,19 +108,19 @@ func TestAddMailRecordsTheProviderInTheLock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.Inputs.Mail != recipes.MailSMTP || after.Aps != before.Aps || len(after.Files) != len(before.Files) || after.tracks(".env") {
-		t.Errorf("lock after aps add mail = %+v, want mail smtp and the same release and files", after)
+	if after.Inputs.Mail != recipes.MailSMTP || after.Orb != before.Orb || len(after.Files) != len(before.Files) || after.tracks(".env") {
+		t.Errorf("lock after orb add mail = %+v, want mail smtp and the same release and files", after)
 	}
 	for _, f := range after.Files {
 		if sha256Hex([]byte(readFile(t, f.Path))) != f.SHA256 {
-			t.Errorf("apistock.lock hash of %s is stale after aps add mail", f.Path)
+			t.Errorf("gorbital.lock hash of %s is stale after orb add mail", f.Path)
 		}
 	}
 	assertLockRebuilds(t, ".")
 
 	// Choosing the provider the app already has changes nothing.
 	if res := addMail(t, "--provider", "smtp"); !res.AlreadyConfigured {
-		t.Errorf("second aps add mail = %+v, want already configured", res)
+		t.Errorf("second orb add mail = %+v, want already configured", res)
 	}
 }
 
@@ -129,23 +129,23 @@ func TestAddMailSwitchesBackToResend(t *testing.T) {
 	writeFile(t, ".env", "OPS_TOKEN=abc\nRESEND_API_KEY=re_saved_key\n")
 	addMail(t, "--provider", "smtp")
 	// Drop the Resend module, as go mod tidy does once nothing imports it.
-	cmd := exec.Command("go", "mod", "edit", "-droprequire=apistock.dev/modules/mail/resend", "-dropreplace=apistock.dev/modules/mail/resend")
+	cmd := exec.Command("go", "mod", "edit", "-droprequire=gorbital.dev/modules/mail/resend", "-dropreplace=gorbital.dev/modules/mail/resend")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go mod edit: %v\n%s", err, out)
 	}
 
 	res := addMail(t, "--provider", "resend")
-	if !slices.Equal(res.Modules, []string{"apistock.dev/modules/mail/resend"}) || !slices.Contains(res.Files, "go.mod") {
+	if !slices.Equal(res.Modules, []string{"gorbital.dev/modules/mail/resend"}) || !slices.Contains(res.Files, "go.mod") {
 		t.Errorf("result = %+v, want the Resend module added", res)
 	}
 	goMod := readFile(t, "go.mod")
-	for _, want := range []string{"apistock.dev/modules/mail/resend v0.0.0", "apistock.dev/modules/mail/resend => ../../modules/mail/resend"} {
+	for _, want := range []string{"gorbital.dev/modules/mail/resend v0.0.0", "gorbital.dev/modules/mail/resend => ../../modules/mail/resend"} {
 		if !strings.Contains(goMod, want) {
 			t.Errorf("go.mod lacks %q:\n%s", want, goMod)
 		}
 	}
 	env := readFile(t, ".env")
-	if strings.Count(env, "RESEND_API_KEY=") != 1 || !strings.Contains(env, "RESEND_API_KEY=re_saved_key\n# aps:end mail") || strings.Contains(env, "SMTP_HOST") {
+	if strings.Count(env, "RESEND_API_KEY=") != 1 || !strings.Contains(env, "RESEND_API_KEY=re_saved_key\n# orb:end mail") || strings.Contains(env, "SMTP_HOST") {
 		t.Errorf(".env should keep the saved key once, inside the Resend block:\n%s", env)
 	}
 	resend, _ := recipes.RenderMail(recipes.MailResend, "example.com/acme-api")
@@ -156,7 +156,7 @@ func TestAddMailSwitchesBackToResend(t *testing.T) {
 
 func TestAddMailAlreadyConfigured(t *testing.T) {
 	newMailApp(t)
-	files := []string{recipes.InfraMailPath, recipes.InfraMailTestPath, ".env.example", "apistock.yaml", "go.mod"}
+	files := []string{recipes.InfraMailPath, recipes.InfraMailTestPath, ".env.example", "gorbital.yaml", "go.mod"}
 	snapshot := func() string {
 		var b strings.Builder
 		for _, f := range files {
@@ -165,9 +165,9 @@ func TestAddMailAlreadyConfigured(t *testing.T) {
 		return b.String()
 	}
 	before := snapshot()
-	code, out, errOut := runAps(t, "add", "mail", "--yes")
+	code, out, errOut := runOrb(t, "add", "mail", "--yes")
 	if code != 0 || !strings.Contains(out, "already sends email with Resend") || !strings.Contains(out, "RESEND_API_KEY=re_") || !strings.Contains(out, "POST /ops/mail/test") {
-		t.Errorf("aps add mail on a Resend app = %d %q %q", code, out, errOut)
+		t.Errorf("orb add mail on a Resend app = %d %q %q", code, out, errOut)
 	}
 	if snapshot() != before {
 		t.Error("files changed although email was already set up")
@@ -179,10 +179,10 @@ func TestAddMailAlreadyConfigured(t *testing.T) {
 
 func TestAddMailDryRunWritesNothing(t *testing.T) {
 	newMailApp(t)
-	code, out, errOut := runAps(t, "add", "mail", "--provider", "smtp", "--smtp-host", "smtp.example.com", "--smtp-port", "465", "--dry-run")
+	code, out, errOut := runOrb(t, "add", "mail", "--provider", "smtp", "--smtp-host", "smtp.example.com", "--smtp-port", "465", "--dry-run")
 	if code != 0 || !strings.Contains(out, "Would set up email with SMTP") || !strings.Contains(out, "smtp.example.com:465 (tls)") ||
 		!strings.Contains(out, ".env (created from .env.example, saves SMTP_HOST, SMTP_PORT, SMTP_TLS)") {
-		t.Errorf("aps add mail --dry-run = %d %q %q", code, out, errOut)
+		t.Errorf("orb add mail --dry-run = %d %q %q", code, out, errOut)
 	}
 	if _, err := os.Stat(".env"); !os.IsNotExist(err) {
 		t.Error("dry run created .env")
@@ -208,7 +208,7 @@ func TestAddMailValidation(t *testing.T) {
 		{"positional argument", []string{"resend"}, 2, "unexpected arguments"},
 	}
 	for _, tt := range tests {
-		code, _, errOut := runAps(t, append([]string{"add", "mail", "--skip-tidy"}, tt.args...)...)
+		code, _, errOut := runOrb(t, append([]string{"add", "mail", "--skip-tidy"}, tt.args...)...)
 		if code != tt.code || !strings.Contains(errOut, tt.want) {
 			t.Errorf("%s: exit %d %q, want %d containing %q", tt.name, code, errOut, tt.code, tt.want)
 		}
@@ -218,26 +218,26 @@ func TestAddMailValidation(t *testing.T) {
 	}
 
 	writeFile(t, ".env.example", "OPS_TOKEN=\n")
-	if code, _, errOut := runAps(t, "add", "mail", "--yes"); code != 1 || !strings.Contains(errOut, "# aps:begin mail") {
+	if code, _, errOut := runOrb(t, "add", "mail", "--yes"); code != 1 || !strings.Contains(errOut, "# orb:begin mail") {
 		t.Errorf("without the email block = %d %q, want the lines to add", code, errOut)
 	}
 
 	minimal := t.TempDir()
 	writeFile(t, filepath.Join(minimal, "go.mod"), "module example.com/minimal\n")
 	t.Chdir(minimal)
-	if code, _, errOut := runAps(t, "add", "mail", "--yes"); code != 1 || !strings.Contains(errOut, "Full preset") {
+	if code, _, errOut := runOrb(t, "add", "mail", "--yes"); code != 1 || !strings.Contains(errOut, "Full preset") {
 		t.Errorf("in a Minimal app = %d %q, want Full preset guidance", code, errOut)
 	}
-	if code, _, errOut := runAps(t, "add", "cache"); code != 2 || !strings.Contains(errOut, "want mail") {
-		t.Errorf("aps add cache = %d %q", code, errOut)
+	if code, _, errOut := runOrb(t, "add", "cache"); code != 2 || !strings.Contains(errOut, "want mail") {
+		t.Errorf("orb add cache = %d %q", code, errOut)
 	}
 }
 
 func TestUpdateDotEnv(t *testing.T) {
-	env := []byte("OPS_TOKEN=abc\nSMTP_HOST=old.example.com\n# aps:begin mail\nRESEND_API_KEY=re_1\n# aps:end mail\nAPP_ENV=development\n")
-	block := []byte("# aps:begin mail\nSMTP_HOST=\nSMTP_PASSWORD=\n# aps:end mail\n")
+	env := []byte("OPS_TOKEN=abc\nSMTP_HOST=old.example.com\n# orb:begin mail\nRESEND_API_KEY=re_1\n# orb:end mail\nAPP_ENV=development\n")
+	block := []byte("# orb:begin mail\nSMTP_HOST=\nSMTP_PASSWORD=\n# orb:end mail\n")
 	got := string(updateDotEnv(env, block, map[string]string{"SMTP_PASSWORD": "p@ss word#1"}))
-	want := "OPS_TOKEN=abc\n# aps:begin mail\nSMTP_HOST=old.example.com\nSMTP_PASSWORD=\"p@ss word#1\"\n# aps:end mail\nAPP_ENV=development\n"
+	want := "OPS_TOKEN=abc\n# orb:begin mail\nSMTP_HOST=old.example.com\nSMTP_PASSWORD=\"p@ss word#1\"\n# orb:end mail\nAPP_ENV=development\n"
 	if got != want {
 		t.Errorf("updateDotEnv() =\n%s\nwant\n%s", got, want)
 	}
@@ -325,10 +325,10 @@ func TestPromptMailSkipsQuestionsAnsweredByFlags(t *testing.T) {
 
 // TestAddMailAppBuilds switches a copy of examples/full-single to SMTP and
 // back to Resend, building, vetting and testing it each time; tests that need
-// PostgreSQL skip without it. Set APS_E2E=1 to run it.
+// PostgreSQL skip without it. Set ORB_E2E=1 to run it.
 func TestAddMailAppBuilds(t *testing.T) {
-	if os.Getenv("APS_E2E") == "" {
-		t.Skip("set APS_E2E=1 to run the end-to-end test")
+	if os.Getenv("ORB_E2E") == "" {
+		t.Skip("set ORB_E2E=1 to run the end-to-end test")
 	}
 	golden := goldenApp(t)
 	repo, err := filepath.Abs(filepath.Join(golden, "..", ".."))
@@ -342,7 +342,7 @@ func TestAddMailAppBuilds(t *testing.T) {
 		}
 		rel, _ := filepath.Rel(golden, p)
 		if d.IsDir() {
-			if rel == "bin" || rel == ".aps" {
+			if rel == "bin" || rel == ".orb" {
 				return filepath.SkipDir
 			}
 			return os.MkdirAll(filepath.Join(dir, rel), 0o755)
@@ -362,8 +362,8 @@ func TestAddMailAppBuilds(t *testing.T) {
 	t.Chdir(dir)
 
 	for _, provider := range []string{recipes.MailSMTP, recipes.MailResend} {
-		if code, _, errOut := runAps(t, "add", "mail", "--provider", provider, "--allow-dirty"); code != 0 {
-			t.Fatalf("aps add mail --provider %s = %d: %s", provider, code, errOut)
+		if code, _, errOut := runOrb(t, "add", "mail", "--provider", provider, "--allow-dirty"); code != 0 {
+			t.Fatalf("orb add mail --provider %s = %d: %s", provider, code, errOut)
 		}
 		for _, args := range [][]string{{"build", "./..."}, {"vet", "./..."}, {"test", "./internal/app/"}} {
 			cmd := exec.Command("go", args...)

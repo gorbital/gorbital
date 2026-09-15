@@ -22,7 +22,7 @@ var sixDigits = regexp.MustCompile(`\b(\d{6})\b`)
 // is queued as a job, so the code is in the job's arguments.
 func emailedCode(t *testing.T, pool *pgxpool.Pool, to string) string {
 	t.Helper()
-	rows, err := pool.Query(context.Background(), `SELECT args FROM river_job WHERE kind = 'apistock.mail.send' ORDER BY id DESC`)
+	rows, err := pool.Query(context.Background(), `SELECT args FROM river_job WHERE kind = 'gorbital.mail.send' ORDER BY id DESC`)
 	if err != nil {
 		t.Fatal(err)
 	}

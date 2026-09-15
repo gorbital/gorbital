@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"apistock.dev/modules/postgres/pgtest"
+	"gorbital.dev/modules/postgres/pgtest"
 )
 
 func TestURLSkipsWhenNotConfigured(t *testing.T) {

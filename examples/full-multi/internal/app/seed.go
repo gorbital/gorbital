@@ -8,8 +8,8 @@ import (
 	"io"
 	"strings"
 
-	"apistock.dev/actor"
-	orgslib "apistock.dev/modules/orgs"
+	"gorbital.dev/actor"
+	orgslib "gorbital.dev/modules/orgs"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	projectsmodule "example.com/acme-api/internal/modules/projects"
@@ -43,7 +43,7 @@ func Seed(ctx context.Context, cfg Config, email string, w io.Writer) error {
 		return errors.New("seed data is for development only, and APP_ENV is production")
 	}
 	if cfg.keyring() == nil {
-		return errors.New("AUTH_ENCRYPTION_KEYS is required: the administrator's role needs two-factor authentication, whose secrets it encrypts (aps dev sets it in .env)")
+		return errors.New("AUTH_ENCRYPTION_KEYS is required: the administrator's role needs two-factor authentication, whose secrets it encrypts (orb dev sets it in .env)")
 	}
 	deps, err := openCommandDeps(ctx, cfg, "seed")
 	if err != nil {

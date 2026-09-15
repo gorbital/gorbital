@@ -9,9 +9,9 @@ import (
 
 	"log/slog"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/requestid"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/requestid"
 )
 
 func TestEventValidate(t *testing.T) {

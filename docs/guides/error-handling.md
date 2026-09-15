@@ -1,6 +1,6 @@
 # Error handling
 
-How errors are created, passed, mapped to HTTP responses and logged, from the domain layer to the client. The contract is [ADR-0018](../adr/0018-error-contract.md); the code is `apistock.dev/httpx` (`problem.go`) and `apistock.dev/modules/openapi` (`errors.go`).
+How errors are created, passed, mapped to HTTP responses and logged, from the domain layer to the client. The contract is [ADR-0018](../adr/0018-error-contract.md); the code is `gorbital.dev/httpx` (`problem.go`) and `gorbital.dev/modules/openapi` (`errors.go`).
 
 ## The rules
 
@@ -108,7 +108,7 @@ When Huma or middleware produces a status with no specific code, `httpx.DefaultC
 | Where | Codes | Reference |
 |---|---|---|
 | Middleware | `cross_origin_request_denied` (403), `request_too_large` (413), `auth_unavailable` (503), `rate_limited` (429), `internal_error` (500 from a panic), `not_found` (404, no route) | [Life of a request](request-lifecycle.md) |
-| Pagination (`apistock.dev/page`) | `invalid_cursor`, `invalid_sort`, `invalid_limit` (400) | `routes.go` |
+| Pagination (`gorbital.dev/page`) | `invalid_cursor`, `invalid_sort`, `invalid_limit` (400) | `routes.go` |
 | Authentication | `unauthenticated`, `forbidden`, `mfa_required`, `mfa_unavailable`, `passkeys_unavailable`, and each flow's codes | [Authentication](authentication.md#error-codes) |
 | Ops APIs | `setting_not_found`, `setting_version_conflict`, `job_definition_disabled`, `invalid_recipient`, … | [Ops API](ops-api.md#error-codes) |
 | Resources | `<resource>_not_found`, `<resource>_<field>_taken`, `<resource>_version_conflict` | `internal/app/module_<name>.go` |

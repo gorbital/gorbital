@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	authlib "apistock.dev/modules/auth"
+	authlib "gorbital.dev/modules/auth"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 )

@@ -1,9 +1,9 @@
 # Introduction
 
-apistock builds the backend of your app: the API your website or mobile app talks to. One command creates a complete Go project with sign-in, a database, email and background jobs already working. The code lands in your own repository, and every file is yours to read and change.
+gorbital builds the backend of your app: the API your website or mobile app talks to. One command creates a complete Go project with sign-in, a database, email and background jobs already working. The code lands in your own repository, and every file is yours to read and change.
 
 > [!NOTE]
-> apistock is pre-release. The library isn't published at `apistock.dev` yet, so apps are created from a copy of the repository on your computer. Everything these docs describe is built and tested.
+> gorbital is pre-release. The library isn't published at `gorbital.dev` yet, so apps are created from a copy of the repository on your computer. Everything these docs describe is built and tested.
 
 ## Two kinds of docs
 
@@ -24,14 +24,14 @@ apistock builds the backend of your app: the API your website or mobile app talk
 
 ## What it decides for you
 
-apistock makes the early decisions so you can start building. Each one comes with its cost.
+gorbital makes the early decisions so you can start building. Each one comes with its cost.
 
 | Decided | What it costs you |
 |---|---|
-| PostgreSQL is the only database | No MySQL or SQLite. If you need those, apistock isn't for you. |
+| PostgreSQL is the only database | No MySQL or SQLite. If you need those, gorbital isn't for you. |
 | Queries are plain SQL, one file each | More files than an ORM, but every query is readable in a code review. |
 | Security code lives in a library | Fixes reach your app with `go get`; the sign-in flows in your repository are yours to maintain. |
-| You choose single or multi-tenant at the start | Moving from single to multi-tenant later is one command (`aps add orgs`) that merges into your edits; the other way round isn't supported. |
+| You choose single or multi-tenant at the start | Moving from single to multi-tenant later is one command (`orb add orgs`) that merges into your edits; the other way round isn't supported. |
 
 Every decision has a written record with the alternatives considered: see the [decision records](../adr/README.md).
 
@@ -39,7 +39,7 @@ Every decision has a written record with the alternatives considered: see the [d
 
 - [What you need](prerequisites.md): Go, Docker and git, and how to check each works.
 - [Quickstart](quickstart.md): create an app and run it on your computer.
-- [How apistock works](concepts.md): the parts and the words you'll meet, in plain terms.
+- [How gorbital works](concepts.md): the parts and the words you'll meet, in plain terms.
 - [Set up sign-in](../sign-in/overview.md): every key for Google, Apple, passkeys and email, click by click.
 - [Troubleshooting](troubleshooting.md): exact error messages and their fixes.
 - [Architecture overview](../architecture.md): how the library, the CLI and a generated app fit together.

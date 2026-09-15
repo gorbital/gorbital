@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/health"
+	"gorbital.dev/health"
 )
 
 func serve(t *testing.T, h http.Handler) (int, health.Status, string) {

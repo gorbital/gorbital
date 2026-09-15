@@ -9,10 +9,10 @@ import (
 	"runtime"
 	"testing"
 
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes"
 )
 
-// repoRoot returns the apistock checkout these tests run in.
+// repoRoot returns the gorbital checkout these tests run in.
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
@@ -108,8 +108,8 @@ func TestChecksumPolicy(t *testing.T) {
 		{map[string]string{"GOSUMDB": "sum.golang.org"}, true},
 		{map[string]string{"GOPRIVATE": "github.com/acme/*,gitlab.com"}, true},
 		{map[string]string{"GOSUMDB": "off"}, false},
-		{map[string]string{"GONOSUMDB": "apistock.dev"}, false},
-		{map[string]string{"GOPRIVATE": "github.com/acme,apistock.dev/cli"}, false},
+		{map[string]string{"GONOSUMDB": "gorbital.dev"}, false},
+		{map[string]string{"GOPRIVATE": "github.com/acme,gorbital.dev/cli"}, false},
 		{map[string]string{"GOINSECURE": "*.dev"}, false},
 		{map[string]string{"GOFLAGS": "-mod=mod -insecure"}, false},
 	} {

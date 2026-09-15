@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/modules/jobs"
+	"gorbital.dev/modules/jobs"
 )
 
 func TestDeleteHistoryBeforeAndOldest(t *testing.T) {

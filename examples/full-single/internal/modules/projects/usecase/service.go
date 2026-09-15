@@ -13,9 +13,9 @@ import (
 	"log/slog"
 	"time"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/page"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/page"
 
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
 )

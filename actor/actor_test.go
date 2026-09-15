@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"apistock.dev/actor"
+	"gorbital.dev/actor"
 )
 
 func TestContextRoundTrip(t *testing.T) {

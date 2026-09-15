@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"apistock.dev/httpx"
+	"gorbital.dev/httpx"
 )
 
 func TestMapperSharesCodesWithTheSameStatus(t *testing.T) {

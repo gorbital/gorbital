@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"apistock.dev/cli/internal/recipes/generate"
+	"gorbital.dev/cli/internal/recipes/generate"
 )
 
 // goldenApps maps each golden app to the template directory it generates.

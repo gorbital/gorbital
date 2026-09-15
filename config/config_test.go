@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 )
 
 func TestSecretNeverLeaks(t *testing.T) {

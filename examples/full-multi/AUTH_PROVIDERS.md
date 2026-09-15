@@ -1,6 +1,6 @@
 # Sign-in methods: what you provide
 
-This app can sign people in with email and password, authenticator apps, passkeys, Google and Apple. Each method works once you give the app a few values from **your own** accounts: apistock never owns them. This page walks through every value step by step: what it is, how to create it, where to paste it, and how to check it works.
+This app can sign people in with email and password, authenticator apps, passkeys, Google and Apple. Each method works once you give the app a few values from **your own** accounts: gorbital never owns them. This page walks through every value step by step: what it is, how to create it, where to paste it, and how to check it works.
 
 Check what's on at any time:
 
@@ -55,7 +55,7 @@ Two-factor authentication with Google Authenticator, Microsoft Authenticator, 1P
    "k1:" + [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
    ```
 
-2. Paste the whole line, including `k1:`, as `AUTH_ENCRYPTION_KEYS=k1:…` in `.env`. In development `aps dev` does this for you when the value is empty.
+2. Paste the whole line, including `k1:`, as `AUTH_ENCRYPTION_KEYS=k1:…` in `.env`. In development `orb dev` does this for you when the value is empty.
 3. In production, store it in your secret store (or mount a file and set `AUTH_ENCRYPTION_KEYS_FILE`). Use a different key from development.
 4. Back it up like a database password. Losing every key turns off everyone's authenticator app until operators run `go run ./cmd/api reset-mfa <email>` for each user.
 
@@ -171,7 +171,7 @@ A passkey prompt that never appears on Android usually means a missing fingerpri
 
 ## Google sign-in
 
-Sign in with a Google account, in browsers and in your iOS and Android apps ([ADR-0046](https://github.com/apistockhq/apistock/blob/main/docs/adr/0046-google-and-apple-sign-in.md)). Off until you set the variables below. You need a Google account; it's free.
+Sign in with a Google account, in browsers and in your iOS and Android apps ([ADR-0046](https://github.com/gorbital/gorbital/blob/main/docs/adr/0046-google-and-apple-sign-in.md)). Off until you set the variables below. You need a Google account; it's free.
 
 | Variable | Secret? | What it is |
 |---|---|---|
@@ -242,7 +242,7 @@ Use one project per app; separate projects for development and production are op
 
 ## Apple sign-in
 
-Sign in with an Apple Account, in browsers and in your iOS apps ([ADR-0046](https://github.com/apistockhq/apistock/blob/main/docs/adr/0046-google-and-apple-sign-in.md)). Off until you set the variables below. You need a paid [Apple Developer Program](https://developer.apple.com/programs/) membership. Apps on the App Store that offer Google sign-in must generally offer Sign in with Apple too.
+Sign in with an Apple Account, in browsers and in your iOS apps ([ADR-0046](https://github.com/gorbital/gorbital/blob/main/docs/adr/0046-google-and-apple-sign-in.md)). Off until you set the variables below. You need a paid [Apple Developer Program](https://developer.apple.com/programs/) membership. Apps on the App Store that offer Google sign-in must generally offer Sign in with Apple too.
 
 | Variable | Secret? | What it is |
 |---|---|---|
@@ -322,7 +322,7 @@ Users can hide their address; Apple then gives the app one like `abc123@privater
 
 ## Email for codes and alerts
 
-Not a sign-in method, but every method relies on it in production: verification and reset codes, "passkey added" and recovery-code alerts. Configure it with `aps add mail`, which asks for the provider and writes `.env`.
+Not a sign-in method, but every method relies on it in production: verification and reset codes, "passkey added" and recovery-code alerts. Configure it with `orb add mail`, which asks for the provider and writes `.env`.
 
 **Resend**
 

@@ -7,10 +7,10 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/audit"
-	"apistock.dev/config"
-	"apistock.dev/httpx"
-	"apistock.dev/ratelimit"
+	"gorbital.dev/audit"
+	"gorbital.dev/config"
+	"gorbital.dev/httpx"
+	"gorbital.dev/ratelimit"
 
 	authmodule "example.com/acme-api/internal/modules/auth"
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
@@ -32,10 +32,10 @@ type services struct {
 
 // registerModules wires every business module: its HTTP operations and its
 // error mappings. Each module has its own module_<name>.go file, and
-// aps gen resource adds a line after the anchor.
+// orb gen resource adds a line after the anchor.
 func registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {
 	return errors.Join(
-		//aps:anchor modules
+		//orb:anchor modules
 		registerProjects(api, mapper, svc),
 		registerPing(api, mapper, svc.pingMessage),
 		registerOps(api, mapper, svc.ops),

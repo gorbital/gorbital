@@ -14,27 +14,27 @@ import (
 	"strings"
 	"time"
 
-	"apistock.dev/cli/internal/merge"
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/merge"
+	"gorbital.dev/cli/internal/recipes"
 )
 
-// addOrgsBranch is the branch aps add orgs works on.
-const addOrgsBranch = "aps-add-orgs"
+// addOrgsBranch is the branch orb add orgs works on.
+const addOrgsBranch = "orb-add-orgs"
 
 // runAddOrgs turns a single-tenant Full app into a multi-tenant one: the
-// same 3-way merge as aps upgrade, from the single-tenant tree to the
+// same 3-way merge as orb upgrade, from the single-tenant tree to the
 // multi-tenant tree at this release, plus new migrations that add the
 // organisation tables and move existing data into personal workspaces
 // (ADR-0048, ADR-0050).
 func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	flags := flag.NewFlagSet("aps add orgs", flag.ContinueOnError)
+	flags := flag.NewFlagSet("orb add orgs", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	dryRun := flags.Bool("dry-run", false, "show what would change, without writing or creating a branch")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	skipTidy := flags.Bool("skip-tidy", false, "don't run go mod tidy")
 	skipBuild := flags.Bool("skip-build", false, "don't build, regenerate api/openapi.json or commit")
 	flags.Usage = func() {
-		fmt.Fprint(stderr, "Usage: aps add orgs [flags]\n\nTurns a single-tenant app multi-tenant on branch "+addOrgsBranch+": organisations with\nmembers, roles and invitations, a personal workspace for every account, and\nprojects moved into their owners' workspaces.\n\nFlags:\n")
+		fmt.Fprint(stderr, "Usage: orb add orgs [flags]\n\nTurns a single-tenant app multi-tenant on branch "+addOrgsBranch+": organisations with\nmembers, roles and invitations, a personal workspace for every account, and\nprojects moved into their owners' workspaces.\n\nFlags:\n")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(args); err != nil {
@@ -51,21 +51,21 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	lock, err := readLock(app.dir)
 	switch {
 	case errors.Is(err, errNoLock):
-		return fmt.Errorf("%s has no %s: aps add orgs works in apps created with aps new --preset full", app.dir, lockPath)
+		return fmt.Errorf("%s has no %s: orb add orgs works in apps created with orb new --preset full", app.dir, lockPath)
 	case err != nil:
 		return err
 	case lock.APIVersion != LockAPIVersion:
-		return errors.New("apistock.lock was written before v0.5; run aps upgrade --from <release that created the app> first")
+		return errors.New("gorbital.lock was written before v0.5; run orb upgrade --from <release that created the app> first")
 	case lock.Inputs.Preset != "full":
-		return errors.New("aps add orgs needs an app created with the Full preset: organisations need its database and authentication")
+		return errors.New("orb add orgs needs an app created with the Full preset: organisations need its database and authentication")
 	case lock.Inputs.Tenancy == recipes.TenancyMulti:
 		fmt.Fprintf(stdout, "✓ %s already has organisations. Nothing to change.\n", filepath.Base(app.dir))
 		return nil
-	case lock.Aps.Version != Version || (lock.Aps.Revision != "" && lock.Aps.Revision != buildRevision()):
-		return fmt.Errorf("%s was last written by aps %s; run aps upgrade first, so organisations are added to this release's files", filepath.Base(app.dir), cmpOr(lock.Aps.Version, "(unknown)"))
+	case lock.Orb.Version != Version || (lock.Orb.Revision != "" && lock.Orb.Revision != buildRevision()):
+		return fmt.Errorf("%s was last written by orb %s; run orb upgrade first, so organisations are added to this release's files", filepath.Base(app.dir), cmpOr(lock.Orb.Version, "(unknown)"))
 	}
 	if !insideGitRepo(ctx, app.dir) {
-		return errors.New("aps add orgs works on a git branch; put the app in git first: git init && git add -A && git commit -m 'Create app'")
+		return errors.New("orb add orgs works on a git branch; put the app in git first: git init && git add -A && git commit -m 'Create app'")
 	}
 	if !*dryRun {
 		if err := requireCleanGit(ctx, app.dir); err != nil {
@@ -112,7 +112,7 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		return err
 	}
 	defer root.Close()
-	changes, err := merge.Plan(ctx, merge.Input{Base: base, Theirs: theirs, Unproven: unproven, Ours: rootReader(root), Label: "apistock " + Version + " organisations"})
+	changes, err := merge.Plan(ctx, merge.Input{Base: base, Theirs: theirs, Unproven: unproven, Ours: rootReader(root), Label: "gorbital " + Version + " organisations"})
 	if err != nil {
 		return err
 	}

@@ -1,11 +1,11 @@
 # Local services for development and tests (ADR-0028).
 #
-#   aps dev                       # or, without the apistock CLI:
+#   orb dev                       # or, without the gorbital CLI:
 #   docker compose up -d --wait
 #   go run ./cmd/migrate && go run ./cmd/seed && go run ./cmd/api
 #
 # PostgreSQL on 127.0.0.1:5432; Mailpit's inbox on http://127.0.0.1:8025;
-# Grafana, only with `aps dev --observability`, on http://127.0.0.1:3000.
+# Grafana, only with `orb dev --observability`, on http://127.0.0.1:3000.
 # Ports bind to 127.0.0.1 only. `docker compose down -v` resets the data.
 name: acme-api
 
@@ -40,7 +40,7 @@ services:
       retries: 30
 
   # Traces, metrics and logs, only with the observability profile:
-  # `aps dev --observability`, or `docker compose --profile observability up -d`
+  # `orb dev --observability`, or `docker compose --profile observability up -d`
   # with OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 for the app.
   grafana:
     image: grafana/otel-lgtm:0.33.0

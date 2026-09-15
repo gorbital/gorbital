@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"apistock.dev/mail"
+	"gorbital.dev/mail"
 )
 
 // Invitation is what an invitation email says.

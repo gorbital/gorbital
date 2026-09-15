@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/actor"
+	"gorbital.dev/actor"
 
 	"example.com/acme-api/internal/app"
 )
@@ -184,7 +184,7 @@ func TestJobsThroughOps(t *testing.T) {
 	bearer, adminID := signIn(t, a, "admin@example.com", "platform_admin")
 	const def = "/ops/jobs/definitions/heartbeat"
 
-	// Look jobs up by name: `aps gen job` adds more definitions to this app.
+	// Look jobs up by name: `orb gen job` adds more definitions to this app.
 	list := do(t, h, "GET", "/ops/jobs/definitions", "", bearer...)
 	heartbeat := findDefinition(list.json, "heartbeat")
 	if heartbeat == nil {

@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"strings"
 
-	"apistock.dev/config"
-	"apistock.dev/modules/auth/social"
+	"gorbital.dev/config"
+	"gorbital.dev/modules/auth/social"
 )
 
 // devPublicURL is the API's address in development.

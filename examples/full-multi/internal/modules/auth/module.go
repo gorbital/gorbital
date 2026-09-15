@@ -2,7 +2,7 @@
 // verification, sign-in with a session cookie (browsers) or bearer token
 // (native clients), sessions, password reset and change, account deletion
 // and platform roles (ADR-0024, ADR-0038). The flows, tables and SQL are
-// here; the apistock auth module supplies the security building blocks.
+// here; the gorbital auth module supplies the security building blocks.
 package auth
 
 import (
@@ -12,7 +12,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	authlib "apistock.dev/modules/auth"
+	authlib "gorbital.dev/modules/auth"
 
 	authdelivery "example.com/acme-api/internal/modules/auth/delivery"
 	authrepository "example.com/acme-api/internal/modules/auth/repository"

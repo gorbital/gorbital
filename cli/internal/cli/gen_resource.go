@@ -15,10 +15,10 @@ import (
 
 	"github.com/charmbracelet/huh"
 
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes"
 )
 
-const genResourceUsage = `Usage: aps gen resource <Name> <field:type>... [flags]
+const genResourceUsage = `Usage: orb gen resource <Name> <field:type>... [flags]
 
 Generates a module for records that belong to the signed-in user, or in a
 multi-tenant app to an organisation: domain rules, use cases, a repository
@@ -33,7 +33,7 @@ Field types:
   'status:enum(open,done)'   one of the values, the first by default; filterable
 
 The first string field is the title. For example:
-  aps gen resource Project name:string:unique description:text 'status:enum(active,archived)'
+  orb gen resource Project name:string:unique description:text 'status:enum(active,archived)'
 `
 
 type genResourceResult struct {
@@ -54,10 +54,10 @@ func resourceRoute(d recipes.ResourceData) string {
 	return "/v1/" + d.Route
 }
 
-// appTenancy returns the tenancy recorded in the app's apistock.yaml, or
+// appTenancy returns the tenancy recorded in the app's gorbital.yaml, or
 // single when it records none.
 func appTenancy(dir string) string {
-	data, err := os.ReadFile(filepath.Join(dir, "apistock.yaml"))
+	data, err := os.ReadFile(filepath.Join(dir, "gorbital.yaml"))
 	if err != nil {
 		return recipes.TenancySingle
 	}
@@ -70,7 +70,7 @@ func appTenancy(dir string) string {
 }
 
 func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	flags := flag.NewFlagSet("aps gen resource", flag.ContinueOnError)
+	flags := flag.NewFlagSet("orb gen resource", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	plural := flags.String("plural", "", "plural name when adding -s or -es is wrong, such as People")
 	idPrefix := flags.String("id-prefix", "", "2 to 8 lowercase letters that start every ID (default: derived from the name, such as prj)")
@@ -107,12 +107,12 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	modulesGo := filepath.Join("internal", "app", "modules.go")
 	src, err := os.ReadFile(filepath.Join(app.dir, modulesGo))
 	if errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("%s has no %s: aps gen resource works in apps created with the Full preset", app.dir, modulesGo)
+		return fmt.Errorf("%s has no %s: orb gen resource works in apps created with the Full preset", app.dir, modulesGo)
 	} else if err != nil {
 		return err
 	}
 	if info, err := os.Stat(filepath.Join(app.dir, "internal", "modules", "auth")); err != nil || !info.IsDir() {
-		return fmt.Errorf("%s has no internal/modules/auth: resources belong to signed-in users, so aps gen resource needs the Full preset's auth module", app.dir)
+		return fmt.Errorf("%s has no internal/modules/auth: resources belong to signed-in users, so orb gen resource needs the Full preset's auth module", app.dir)
 	}
 	// Records belong to organisations in multi-tenant apps unless --scope says otherwise.
 	_, orgsErr := os.Stat(filepath.Join(app.dir, "internal", "modules", "orgs"))
@@ -123,7 +123,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 		}
 	}
 	if *scope == recipes.ScopeOrg && orgsErr != nil {
-		return fmt.Errorf("%s has no internal/modules/orgs: --scope org needs organisations; add them with aps add orgs, or create the app with aps new --tenancy multi", app.dir)
+		return fmt.Errorf("%s has no internal/modules/orgs: --scope org needs organisations; add them with orb add orgs, or create the app with orb new --tenancy multi", app.dir)
 	}
 
 	ask := shouldPrompt(p, *asJSON, stdin, stdout)
@@ -134,9 +134,9 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	}
 	switch {
 	case name == "":
-		return usageError("missing resource name: aps gen resource <Name> <field:type>... (or run it in a terminal to be asked)")
+		return usageError("missing resource name: orb gen resource <Name> <field:type>... (or run it in a terminal to be asked)")
 	case len(specs) == 0:
-		return usageError(fmt.Sprintf("missing fields: aps gen resource %s name:string ... (aps gen resource -h lists the field types)", name))
+		return usageError(fmt.Sprintf("missing fields: orb gen resource %s name:string ... (orb gen resource -h lists the field types)", name))
 	}
 	fields, err := recipes.ParseFields(specs)
 	if err != nil {
@@ -158,7 +158,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	updated, err := recipes.InsertAfterAnchor(src, recipes.ModulesAnchor, data.ModulesLine())
 	switch {
 	case errors.Is(err, recipes.ErrAnchorMissing):
-		return fmt.Errorf("%s has no %q line; add it as the first line inside errors.Join in registerModules, then run aps gen resource again", modulesGo, recipes.ModulesAnchor)
+		return fmt.Errorf("%s has no %q line; add it as the first line inside errors.Join in registerModules, then run orb gen resource again", modulesGo, recipes.ModulesAnchor)
 	case errors.Is(err, recipes.ErrLinePresent):
 		return fmt.Errorf("%s: the %s module is already registered", modulesGo, data.PluralHuman)
 	case err != nil:
@@ -177,7 +177,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 		permissions, err = recipes.InsertAfterAnchor(src, recipes.OrgPermissionsAnchor, data.PermissionsLine())
 		switch {
 		case errors.Is(err, recipes.ErrAnchorMissing):
-			return fmt.Errorf("%s has no %q line; add it as the first line inside orgResourcePermissions, as in examples/full-multi, then run aps gen resource again", permissionsGo, recipes.OrgPermissionsAnchor)
+			return fmt.Errorf("%s has no %q line; add it as the first line inside orgResourcePermissions, as in examples/full-multi, then run orb gen resource again", permissionsGo, recipes.OrgPermissionsAnchor)
 		case errors.Is(err, recipes.ErrLinePresent):
 			return fmt.Errorf("%s: the %s permissions are already declared", permissionsGo, data.PluralHuman)
 		case err != nil:

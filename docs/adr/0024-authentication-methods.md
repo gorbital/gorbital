@@ -14,7 +14,7 @@ The Full preset promises complete authentication on first run. Authentication is
 
 ## Decision
 
-Option 3. Logic lives in `apistock.dev/modules/auth`; the generated `internal/modules/auth` holds endpoints, customisable rules and adapters.
+Option 3. Logic lives in `gorbital.dev/modules/auth`; the generated `internal/modules/auth` holds endpoints, customisable rules and adapters.
 
 ### Methods and flows (Full preset)
 
@@ -38,7 +38,7 @@ Option 3. Logic lives in `apistock.dev/modules/auth`; the generated `internal/mo
 | GitHub login, API keys | Custom option / v1.1 | v1.1 |
 | SAML, SCIM, enterprise SSO | Delegated to identity providers | Later |
 
-Social providers are included but disabled until credentials are configured; `aps dev` reports their status.
+Social providers are included but disabled until credentials are configured; `orb dev` reports their status.
 
 ### Security rules
 

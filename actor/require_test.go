@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"apistock.dev/actor"
+	"gorbital.dev/actor"
 )
 
 func TestRequire(t *testing.T) {

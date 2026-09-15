@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/modules/auth"
+	"gorbital.dev/modules/auth"
 )
 
 func TestPrincipalRecentlyVerified(t *testing.T) {

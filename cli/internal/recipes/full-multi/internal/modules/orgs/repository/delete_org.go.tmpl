@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	orgslib "apistock.dev/modules/orgs"
+	orgslib "gorbital.dev/modules/orgs"
 )
 
 // deleteOrgSQL removes only deleted organisations whose purge time has

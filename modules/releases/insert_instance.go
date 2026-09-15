@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/modules/postgres"
 )
 
 type instanceRow struct {

@@ -16,8 +16,8 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/config"
-	"apistock.dev/modules/auth/social/socialtest"
+	"gorbital.dev/config"
+	"gorbital.dev/modules/auth/social/socialtest"
 
 	"example.com/acme-api/internal/app"
 )

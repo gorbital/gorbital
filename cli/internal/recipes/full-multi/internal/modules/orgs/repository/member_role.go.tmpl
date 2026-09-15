@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 
-	orgslib "apistock.dev/modules/orgs"
-	"apistock.dev/modules/postgres"
+	orgslib "gorbital.dev/modules/orgs"
+	"gorbital.dev/modules/postgres"
 )
 
 const memberRoleSQL = `

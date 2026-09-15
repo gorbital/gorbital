@@ -1,5 +1,5 @@
 // Package migrations embeds the app's goose migrations: one ordered history
-// for the app's own tables and the apistock modules' tables (ADR-0005).
+// for the app's own tables and the gorbital modules' tables (ADR-0005).
 // River's job tables are migrated separately by jobs.Migrate (ADR-0033).
 package migrations
 

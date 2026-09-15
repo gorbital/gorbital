@@ -12,10 +12,10 @@ import (
 
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	"apistock.dev/actor"
-	"apistock.dev/httpx"
-	"apistock.dev/modules/telemetry"
-	"apistock.dev/requestid"
+	"gorbital.dev/actor"
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/telemetry"
+	"gorbital.dev/requestid"
 )
 
 func TestHTTPTraceAndCorrelatedLogs(t *testing.T) {

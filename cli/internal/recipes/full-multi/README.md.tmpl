@@ -1,14 +1,14 @@
 # ⟦.Name⟧
 
-A Go API created with [apistock](https://apistock.dev) (Full preset, multi-tenant: data belongs to organisations).
+A Go API created with [gorbital](https://gorbital.dev) (Full preset, multi-tenant: data belongs to organisations).
 
 ## Run
 
 ```bash
-aps dev      # PostgreSQL and Mailpit in Docker, migrations, seed data, live reload
+orb dev      # PostgreSQL and Mailpit in Docker, migrations, seed data, live reload
 ```
 
-The first run prints the password of the seeded administrator, `admin@example.com`, once. Sign-in methods (email and password, authenticator apps, passkeys, Google and Apple) and how to create the credentials for each are in [AUTH_PROVIDERS.md](AUTH_PROVIDERS.md); the app lists what's on when it starts. For passkeys, open the app at http://localhost:8080. Without the apistock CLI:
+The first run prints the password of the seeded administrator, `admin@example.com`, once. Sign-in methods (email and password, authenticator apps, passkeys, Google and Apple) and how to create the credentials for each are in [AUTH_PROVIDERS.md](AUTH_PROVIDERS.md); the app lists what's on when it starts. For passkeys, open the app at http://localhost:8080. Without the gorbital CLI:
 
 ```bash
 cp .env.example .env            # then set AUTH_ENCRYPTION_KEYS: echo "k1:$(openssl rand -base64 32)"
@@ -19,7 +19,7 @@ go run ./cmd/seed               # administrator, their personal workspace and ex
 go run ./cmd/api
 ```
 
-Commit the new app before running `aps gen` or `aps add`: they refuse to change an app with uncommitted changes.
+Commit the new app before running `orb gen` or `orb add`: they refuse to change an app with uncommitted changes.
 
 | URL | What |
 |---|---|
@@ -32,12 +32,12 @@ Commit the new app before running `aps gen` or `aps add`: they refuse to change 
 | http://127.0.0.1:8080/ops/audit | Audit log: who changed what, filterable (platform role) |
 | http://127.0.0.1:8080/ops/mail | Email provider and sender; `POST /ops/mail/test` sends a test email (platform role) |
 | http://127.0.0.1:8025 | Mailpit: every email sent in development |
-| http://127.0.0.1:3000 | Grafana: traces, metrics and logs, with `aps dev --observability` |
+| http://127.0.0.1:3000 | Grafana: traces, metrics and logs, with `orb dev --observability` |
 | http://127.0.0.1:8080/livez · /readyz | Health checks |
 
 ## Sign in as the administrator
 
-Seed data creates `admin@example.com` with the `platform_admin` role and two-factor authentication on, because ops roles require it. The first `aps dev` (or `go run ./cmd/seed`) prints its password, 2FA key and recovery codes once; nothing is saved. Add the 2FA key to an authenticator app, then sign in in two steps:
+Seed data creates `admin@example.com` with the `platform_admin` role and two-factor authentication on, because ops roles require it. The first `orb dev` (or `go run ./cmd/seed`) prints its password, 2FA key and recovery codes once; nothing is saved. Add the 2FA key to an authenticator app, then sign in in two steps:
 
 ```bash
 CHALLENGE=$(curl -s -X POST http://127.0.0.1:8080/v1/auth/login -H 'Content-Type: application/json' \
@@ -68,7 +68,7 @@ curl -X POST http://127.0.0.1:8080/v1/auth/mfa/totp/confirm -H "Authorization: B
 curl http://127.0.0.1:8080/ops/settings -H "Authorization: Bearer $TOKEN"
 ```
 
-Browsers sign in without `"transport"` and get an HttpOnly session cookie instead. See the apistock authentication guide for sign-in flows, roles and limits.
+Browsers sign in without `"transport"` and get an HttpOnly session cookie instead. See the gorbital authentication guide for sign-in flows, roles and limits.
 
 ## Organisations
 
@@ -115,7 +115,7 @@ This app sends email with **Resend**. In development every email goes to Mailpit
 2. Set the sender: `PUT /ops/settings/mail.from_email` and `PUT /ops/settings/mail.from_name`.
 3. Check it: `POST /ops/mail/test` with `{"to":"you@example.com"}`.
 
-Prefer SMTP (Amazon SES, Postmark, Mailgun, your own server)? Run `aps add mail` and choose it. See the apistock email guide for providers and delivery.
+Prefer SMTP (Amazon SES, Postmark, Mailgun, your own server)? Run `orb add mail` and choose it. See the gorbital email guide for providers and delivery.
 
 ```bash
 curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
@@ -127,18 +127,18 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 
 | Task | Command |
 |---|---|
-| Run tests (needs `docker compose up -d --wait`) | `APISTOCK_TEST_DATABASE_URL=postgres://⟦.Name⟧:⟦.Name⟧@127.0.0.1:5432/⟦.Name⟧?sslmode=disable go test ./...` |
+| Run tests (needs `docker compose up -d --wait`) | `GORBITAL_TEST_DATABASE_URL=postgres://⟦.Name⟧:⟦.Name⟧@127.0.0.1:5432/⟦.Name⟧?sslmode=disable go test ./...` |
 | Export the OpenAPI document, Postman collection and llms.txt | `go run ./cmd/api openapi --dir api` |
-| Add a background job | `aps gen job <Name>` (asks the rest), or with flags: `aps gen job CleanupSessions --schedule "0 3 * * *" --yes` |
+| Add a background job | `orb gen job <Name>` (asks the rest), or with flags: `orb gen job CleanupSessions --schedule "0 3 * * *" --yes` |
 | Change a job's schedule, timeout or retries | `PUT /ops/jobs/definitions/{name}` (no redeploy) |
 | See who changed a setting or job | `GET /ops/audit?resource_id=<key or name>` |
-| Switch email provider (Resend or SMTP) | `aps add mail` |
+| Switch email provider (Resend or SMTP) | `orb add mail` |
 | Add a role for organisation members, such as a read-only viewer | `declareOrgPermissions` in `internal/app/permissions.go` |
 | Restore a deleted organisation | `POST /v1/orgs/{orgId}/restore` as an owner, before `orgs.deleted_org_retention` ends |
 | Turn off an account's two-factor authentication (lost authenticator app and recovery codes) | `go run ./cmd/api reset-mfa <email>` |
 | Replace the 2FA encryption key | Put the new key first in `AUTH_ENCRYPTION_KEYS` on every instance, run `go run ./cmd/api rotate-auth-keys`, then remove the old key |
 | Turn maintenance mode on or off when `/ops` can't be reached | `go run ./cmd/api maintenance on --message "Back soon"`, then `go run ./cmd/api maintenance off` |
-| Run tests with email delivery checks | also set `APISTOCK_TEST_MAILPIT_SMTP=127.0.0.1:1025 APISTOCK_TEST_MAILPIT_URL=http://127.0.0.1:8025` |
+| Run tests with email delivery checks | also set `GORBITAL_TEST_MAILPIT_SMTP=127.0.0.1:1025 GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:8025` |
 | Build a container | `docker build -t ⟦.Name⟧ .` |
 
 ## Examples to keep or remove
@@ -147,7 +147,7 @@ The app starts with four examples that show the patterns the rest of the code fo
 
 | Example | To remove |
 |---|---|
-| Seed data (`go run ./cmd/seed`) | Delete `cmd/seed/`, `internal/app/seed.go` and `internal/app/seed_test.go`; `aps dev` skips seed data when `cmd/seed` is missing |
+| Seed data (`go run ./cmd/seed`) | Delete `cmd/seed/`, `internal/app/seed.go` and `internal/app/seed_test.go`; `orb dev` skips seed data when `cmd/seed` is missing |
 | `projects` resource (`/v1/orgs/{orgId}/projects`) | Delete its permissions in `internal/app/permissions.go`, then delete `internal/modules/projects/`, `internal/app/module_projects.go` and `internal/app/projects_test.go`, its line in `internal/app/modules.go`, and the example projects in `internal/app/seed.go`. If its migration already ran, add a migration that drops the `projects` table |
 | `heartbeat` job | Delete `internal/jobs/heartbeat/` and `internal/app/job_heartbeat.go`, and its line in `internal/app/jobs.go` |
 | `ping` endpoint (`/v1/ping`) | Delete `internal/modules/ping/` and `internal/app/module_ping.go`, its line and the `pingMessage` field in `internal/app/modules.go`, and the `example.ping_message` setting in `internal/app/settings.go`; the tests that call `/v1/ping` or change that setting use it too |

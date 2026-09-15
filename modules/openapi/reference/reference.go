@@ -1,8 +1,8 @@
 // Package reference renders an OpenAPI 3.1 document as an API reference in
-// the apistock design (ADR-0049): an overview, and a page per operation with
+// the gorbital design (ADR-0049): an overview, and a page per operation with
 // its parameters, responses, request examples in curl, Go and TypeScript,
 // response examples and "Try it". Generated apps serve it at /docs through
-// openapi.MountDocs, and apistock.dev renders its example API with it, so the
+// openapi.MountDocs, and gorbital.dev renders its example API with it, so the
 // two look the same.
 //
 // Pages load nothing from other origins: the stylesheet, scripts and fonts

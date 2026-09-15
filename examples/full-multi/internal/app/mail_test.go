@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 
 	"example.com/acme-api/internal/app"
 )
@@ -19,8 +19,8 @@ import (
 // Mailpit from the repository's compose.yaml. Without these variables, the
 // tests check that email is queued but not that it arrives.
 const (
-	envMailpitSMTP = "APISTOCK_TEST_MAILPIT_SMTP"
-	envMailpitURL  = "APISTOCK_TEST_MAILPIT_URL"
+	envMailpitSMTP = "GORBITAL_TEST_MAILPIT_SMTP"
+	envMailpitURL  = "GORBITAL_TEST_MAILPIT_URL"
 )
 
 func TestEmailThroughOps(t *testing.T) {

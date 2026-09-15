@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/actor"
-	"apistock.dev/mail"
-	"apistock.dev/modules/auth"
+	"gorbital.dev/actor"
+	"gorbital.dev/mail"
+	"gorbital.dev/modules/auth"
 )
 
 func TestHasher(t *testing.T) {

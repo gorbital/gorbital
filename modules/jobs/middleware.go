@@ -12,12 +12,12 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	"apistock.dev/actor"
-	"apistock.dev/requestid"
+	"gorbital.dev/actor"
+	"gorbital.dev/requestid"
 )
 
-// metadataKey namespaces apistock's data inside River job metadata.
-const metadataKey = "apistock"
+// metadataKey namespaces gorbital's data inside River job metadata.
+const metadataKey = "gorbital"
 
 // jobContext is the correlation data stored with each job (ADR-0030).
 // Permissions are deliberately absent.

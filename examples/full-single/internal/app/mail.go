@@ -4,14 +4,14 @@ import (
 	"context"
 	"log/slog"
 
-	"apistock.dev/mail"
-	"apistock.dev/modules/mail/smtp"
+	"gorbital.dev/mail"
+	"gorbital.dev/modules/mail/smtp"
 
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 )
 
 // Email delivery (ADR-0025, ADR-0037). The provider lives in infra_mail.go,
-// managed by `aps add mail`; this file stays the same whichever provider is
+// managed by `orb add mail`; this file stays the same whichever provider is
 // chosen.
 const (
 	// mailDeliveryMailpit sends every email to the local Mailpit inbox from

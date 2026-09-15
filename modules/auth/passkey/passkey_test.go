@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/modules/auth/passkey"
-	"apistock.dev/modules/auth/passkey/passkeytest"
+	"gorbital.dev/modules/auth/passkey"
+	"gorbital.dev/modules/auth/passkey/passkeytest"
 )
 
 const origin = "http://localhost:8080"

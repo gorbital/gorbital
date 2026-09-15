@@ -1,5 +1,5 @@
 // Package domain holds the auth module's rules that don't depend on storage
-// or HTTP. Passwords, sessions and codes are handled by the apistock auth
+// or HTTP. Passwords, sessions and codes are handled by the gorbital auth
 // module (ADR-0024, ADR-0038). It imports only the standard library.
 package domain
 

@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 
-	"apistock.dev/modules/releases"
+	"gorbital.dev/modules/releases"
 
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
 )

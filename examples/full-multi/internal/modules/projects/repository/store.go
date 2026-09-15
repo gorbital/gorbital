@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/modules/postgres"
 
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
 	projectsusecase "example.com/acme-api/internal/modules/projects/usecase"

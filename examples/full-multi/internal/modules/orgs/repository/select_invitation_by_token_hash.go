@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/modules/postgres"
 
 	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
 )

@@ -1,4 +1,4 @@
-# apistock Architecture (v2)
+# gorbital Architecture (v2)
 
 **Status:** Accepted · **Date:** 2026-09-14 · **Supersedes:** Architecture v1 (see git history of this file)
 
@@ -6,27 +6,27 @@ This page is the overview. Each decision's detail, alternatives and trade-offs l
 
 ---
 
-## 1. What apistock is
+## 1. What gorbital is
 
-apistock gives Go developers a production-ready API in minutes, as code they own.
+gorbital gives Go developers a production-ready API in minutes, as code they own.
 
 ```bash
-aps new my-api        # answer a few questions
+orb new my-api        # answer a few questions
 cd my-api
-aps dev               # API, docs and local services running
+orb dev               # API, docs and local services running
 ```
 
 Three products, versioned together ([ADR-0014](adr/0014-product-shape-and-presets.md)):
 
 | Product | What it is | Runs in production? |
 |---|---|---|
-| **Library** `apistock.dev/...` | Go packages with all reusable and security-sensitive logic (auth, sessions, jobs, audit, lifecycle, HTTP) | Yes, imported by the app |
-| **CLI** `aps` | Creates apps, adds features, generates code, upgrades | No |
+| **Library** `gorbital.dev/...` | Go packages with all reusable and security-sensitive logic (auth, sessions, jobs, audit, lifecycle, HTTP) | Yes, imported by the app |
+| **CLI** `orb` | Creates apps, adds features, generates code, upgrades | No |
 | **Templates and recipes** | The generated app's owned code, versioned with the library it calls | No (their output does) |
 
 **Core rule: thin glue, thick library.** Apps get working features out of the box, but the logic lives in the library, so security fixes reach every app with `go get`. Generated code is readable glue the developer owns.
 
-**Non-goals:** a hosted platform, a dashboard required to run apps, a mobile app built into apistock itself (dashboard and mobile clients are optional templates, proposed for v1.2 in [ADR-0047](adr/0047-client-templates.md)), microservices tooling, a custom ORM, router or DI container, databases other than PostgreSQL.
+**Non-goals:** a hosted platform, a dashboard required to run apps, a mobile app built into gorbital itself (dashboard and mobile clients are optional templates, proposed for v1.2 in [ADR-0047](adr/0047-client-templates.md)), microservices tooling, a custom ORM, router or DI container, databases other than PostgreSQL.
 
 ---
 
@@ -39,24 +39,24 @@ Three products, versioned together ([ADR-0014](adr/0014-product-shape-and-preset
 5. **Only PostgreSQL required** in production.
 6. **Secure and observable by default,** every default visible in code.
 7. **Upgrade path before features:** every feature states how existing apps receive it.
-8. **The app survives without apistock tooling:** delete the CLI and the app still builds, tests and deploys.
+8. **The app survives without gorbital tooling:** delete the CLI and the app still builds, tests and deploys.
 
 ---
 
 ## 3. Creating an app
 
 ```text
-$ aps new
+$ orb new
 ✓ app name … my-api
 ✓ Go module path … github.com/acme/my-api
 ✓ preset … full
 ✓ tenancy … single
-✓ apistock checkout … /Users/you/code/apistock
+✓ gorbital checkout … /Users/you/code/gorbital
 ✓ initialise a git repository? … yes
 ? create my-api in ./my-api? … yes  no
 ```
 
-The email provider isn't asked at creation: new Full apps use Resend, and `aps add mail` switches to SMTP. A GitHub repository and CI option ([ADR-0011](adr/0011-github-integration.md)) isn't implemented yet.
+The email provider isn't asked at creation: new Full apps use Resend, and `orb add mail` switches to SMTP. A GitHub repository and CI option ([ADR-0011](adr/0011-github-integration.md)) isn't implemented yet.
 
 | Preset | Contents |
 |---|---|
@@ -64,7 +64,7 @@ The email provider isn't asked at creation: new Full apps use Resend, and `aps a
 | **Full** | Minimal + PostgreSQL, runtime settings, jobs, email, full authentication, users/roles/permissions, tenancy choice, audit logs, operations APIs, seed data, tests, CI option. |
 A Custom preset (a feature checklist) isn't planned for v0.5: every offered combination would need its own tested golden app ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
 
-Every prompt has a flag (`--module`, `--preset`, `--tenancy`, `--local`, `--no-git`, `--yes`) for CI and AI agents. Each preset is a whole template tree generated from a golden app; `aps add` and `aps upgrade` move an app from one tree to another with the same 3-way merge ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
+Every prompt has a flag (`--module`, `--preset`, `--tenancy`, `--local`, `--no-git`, `--yes`) for CI and AI agents. Each preset is a whole template tree generated from a golden app; `orb add` and `orb upgrade` move an app from one tree to another with the same 3-way merge ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
 
 ---
 
@@ -72,10 +72,10 @@ Every prompt has a flag (`--module`, `--preset`, `--tenancy`, `--local`, `--no-g
 
 ```text
 DEVELOPER MACHINE / CI (never in production)        PRODUCTION (any host)
-  aps CLI ── recipes via Go module proxy + sumdb        generated app binary
+  orb CLI ── recipes via Go module proxy + sumdb        generated app binary
     ├─ generator (plan → validate → preview → apply)       ├─ app code (owned)
-    ├─ upgrade (3-way merge on a branch)                   ├─ apistock modules (imported)
-    ├─ dev (Docker: postgres, mailpit, grafana opt-in)     └─ apistock core (imported)
+    ├─ upgrade (3-way merge on a branch)                   ├─ gorbital modules (imported)
+    ├─ dev (Docker: postgres, mailpit, grafana opt-in)     └─ gorbital core (imported)
     └─ git / gh (optional)                              PostgreSQL (only required service)
                                                         OTLP backend of your choice (optional)
 ```
@@ -87,7 +87,7 @@ DEVELOPER MACHINE / CI (never in production)        PRODUCTION (any host)
 | Local dev console (custom UI) | v1.1 | v1 uses Mailpit and Grafana containers ([ADR-0028](adr/0028-local-development-environment.md)) |
 | Admin web UI | Not in v1 | v1 ships `/ops/*` APIs only ([ADR-0026](adr/0026-operations-apis.md)); a dashboard client template is proposed for v1.2 |
 | Hosted control plane | Not planned | Separate product if ever built; standard protocols only |
-| Client templates: docs site, dashboard, Expo | v1.2, proposed | Separate template repositories, pinned and verified archives filled in by `aps new` ([ADR-0047](adr/0047-client-templates.md)) |
+| Client templates: docs site, dashboard, Expo | v1.2, proposed | Separate template repositories, pinned and verified archives filled in by `orb new` ([ADR-0047](adr/0047-client-templates.md)) |
 | Native iOS and Android templates | Later | Only when builders ask; Expo covers both first |
 | GitHub integration | v1 | Delegates to `git` and `gh`; plain workflow files ([ADR-0011](adr/0011-github-integration.md)) |
 
@@ -110,8 +110,8 @@ generated app ──► modules/* ──► core ──► stdlib (+ OpenTelemet
 ### 5.2 Repository layout ([ADR-0009](adr/0009-repository-strategy.md))
 
 ```text
-apistock/
-├── go.mod                   module apistock.dev (core)
+gorbital/
+├── go.mod                   module gorbital.dev (core)
 ├── app/                     lifecycle: Runner, cleanup stack, shutdown sequence
 ├── httpx/                   server, middleware, security headers, CORS, CSRF, problem+json
 ├── health/                  /livez, /readyz, named checks
@@ -136,13 +136,13 @@ apistock/
 │   ├── orgs/                building blocks: organisation IDs, RequireMember, invitation emails   (v0.4)
 │   ├── ratelimitpg/         rate limits shared across instances: GCRA in an unlogged table, in-memory fallback   (v1.0)
 │   └── releases/            instance build record at start, heartbeats, release queries   (v0.2)
-├── cli/                     module apistock.dev/cli → cmd/aps
-│   └── internal/recipes/    templates generated from examples/ (go generate), embedded in aps
+├── cli/                     module gorbital.dev/cli → cmd/orb
+│   └── internal/recipes/    templates generated from examples/ (go generate), embedded in orb
 ├── examples/                hand-written golden apps: minimal (v0.1), full-single (v0.2), full-multi (v0.4, organisations)
 ├── compose.yaml             PostgreSQL in Docker for module tests (host port 55432)
 ├── scripts/                 first-run measurement
 ├── spikes/                  throwaway experiments
-├── .github/workflows/       CI and signed aps releases
+├── .github/workflows/       CI and signed orb releases
 └── docs/
 ```
 
@@ -160,10 +160,10 @@ apistock/
 
 ### 5.4 Public API and versioning ([ADR-0015](adr/0015-public-api-and-stability-tiers.md), [ADR-0016](adr/0016-scaffold-compatibility-and-upgrades.md))
 
-- **Tiers:** stable, experimental (`apistock.dev/x`, always v0), internal.
+- **Tiers:** stable, experimental (`gorbital.dev/x`, always v0), internal.
 - **Also public API:** CLI commands, flags and `--json` output; manifest and lock formats; anchor syntax; error codes; audit action names; module table ID columns.
 - **Everything is v0 until 1.0;** breaking changes in v0 ship with upgrade notes.
-- **From 1.0:** scaffold code from template vX.Y works with library vX.Z for every Z ≥ Y. Minor upgrades are a plain `go get`; majors use bridge releases and `aps upgrade --major`.
+- **From 1.0:** scaffold code from template vX.Y works with library vX.Z for every Z ≥ Y. Minor upgrades are a plain `go get`; majors use bridge releases and `orb upgrade --major`.
 
 ---
 
@@ -190,11 +190,11 @@ my-api/
 │   │   ├── auth/          accounts, sessions, codes, 2FA, passkeys, Google and Apple, platform roles
 │   │   ├── ops/           /ops/* endpoints over the library's managers
 │   │   ├── ping/          example endpoint reading a runtime setting
-│   │   └── projects/      example resource to copy (aps gen resource output)
+│   │   └── projects/      example resource to copy (orb gen resource output)
 │   └── jobs/              job workers: authcleanup/, heartbeat/
 ├── db/migrations/         goose SQL files, embedded by migrations.go
 ├── compose.yaml · Dockerfile · .env.example · .gitignore · .dockerignore
-├── apistock.yaml · apistock.lock
+├── gorbital.yaml · gorbital.lock
 ├── README.md · ARCHITECTURE.md · AUTH_PROVIDERS.md · AGENTS.md
 └── go.mod · go.sum
 ```
@@ -204,7 +204,7 @@ A multi-tenant app adds `internal/modules/orgs/` and the `orgs_purge` job. The `
 Rules enforced by `architecture_test.go`:
 
 - `domain/` imports only the standard library; domain structs have no `json`/`db` tags.
-- `usecase/` imports its own `domain/` and apistock core contracts, and defines its ports in `ports.go`.
+- `usecase/` imports its own `domain/` and gorbital core contracts, and defines its ports in `ports.go`.
 - `repository/` implements the ports with hand-written SQL and pgx, one file per operation (`insert_user.go`, `select_user.go`, …), each tested against Docker PostgreSQL ([ADR-0032](adr/0032-repository-sql.md)); `delivery/` defines Huma request/response types and operations, and never imports `repository/`.
 - Modules never import other modules.
 - Only `internal/app` reads environment variables.
@@ -224,22 +224,22 @@ Implemented in v0.2 ([ADR-0038](adr/0038-authentication-v0-2.md), [authenticatio
 Implemented in v0.3:
 
 - **Two-factor authentication** ([ADR-0043](adr/0043-two-factor-authentication.md)): authenticator apps (TOTP, with the `otpauth://` URI and a scannable QR image), 10 recovery codes, a 202 login challenge completed at `/v1/auth/login/mfa`, secrets encrypted with `AUTH_ENCRYPTION_KEYS`, and required 2FA for `platform_admin` and `ops_viewer`.
-- **Passkeys** ([ADR-0044](adr/0044-passkeys.md)): passwordless sign-in and a second factor through `apistock.dev/modules/auth/passkey` (go-webauthn), up to 10 per account, single-use ceremonies stored server-side, relying party from `WEBAUTHN_*`, and the generated `/.well-known/apple-app-site-association` and `assetlinks.json` for native apps.
+- **Passkeys** ([ADR-0044](adr/0044-passkeys.md)): passwordless sign-in and a second factor through `gorbital.dev/modules/auth/passkey` (go-webauthn), up to 10 per account, single-use ceremonies stored server-side, relying party from `WEBAUTHN_*`, and the generated `/.well-known/apple-app-site-association` and `assetlinks.json` for native apps.
 - **Sign-in provider setup** ([ADR-0045](adr/0045-sign-in-provider-setup.md)): what each method needs from the developer, in `.env.example`, `AUTH_PROVIDERS.md`, a status block at start, `go run ./cmd/api auth-providers` and `GET /ops/auth/providers`.
-- **Google and Apple sign-in** ([ADR-0046](adr/0046-google-and-apple-sign-in.md)): `apistock.dev/modules/auth/social` (x/oauth2, go-oidc); the API hosts the web flow (`/v1/auth/{provider}/start` and callbacks, state bound to a `__Host-oauth` cookie) and verifies native apps' ID tokens with single-use nonces; identities link to accounts by provider-verified email; the second factor still applies; Apple tokens are queued for revocation in the same transaction as unlinking or account deletion and revoked by the `auth_revoke_tokens` job with retries, and Apple's notifications are handled.
+- **Google and Apple sign-in** ([ADR-0046](adr/0046-google-and-apple-sign-in.md)): `gorbital.dev/modules/auth/social` (x/oauth2, go-oidc); the API hosts the web flow (`/v1/auth/{provider}/start` and callbacks, state bound to a `__Host-oauth` cookie) and verifies native apps' ID tokens with single-use nonces; identities link to accounts by provider-verified email; the second factor still applies; Apple tokens are queued for revocation in the same transaction as unlinking or account deletion and revoked by the `auth_revoke_tokens` job with retries, and Apple's notifications are handled.
 
 ### 7.2 Tenancy ([ADR-0023](adr/0023-tenancy.md))
 
-- **Single-tenant** (default) or **multi-tenant**, chosen at creation and stored in `apistock.yaml`.
+- **Single-tenant** (default) or **multi-tenant**, chosen at creation and stored in `gorbital.yaml`.
 - Multi-tenant: shared schema with `org_id`; a personal workspace per user; memberships; invitations; org roles separate from platform roles; `/v1/orgs/{orgId}/...` routes.
 - Isolation at four layers: membership middleware, repositories that require `OrgID`, composite foreign keys including `org_id`, generated cross-org tests. Row-level security in v1.1.
-- `aps add orgs` gives a guided single → multi path. Multi → single is not supported.
+- `orb add orgs` gives a guided single → multi path. Multi → single is not supported.
 
 ### 7.3 Email ([ADR-0025](adr/0025-email-providers.md))
 
 Resend or SMTP behind `mail.Sender`. Development always delivers to Mailpit. Sends run as jobs with idempotency; permanent refusals (`mail.ErrRejected`) are cancelled instead of retried.
 
-Implemented in v0.2 ([ADR-0037](adr/0037-email-setup-and-delivery.md), [email guide](guides/email.md)): `aps add mail` asks Resend or SMTP, saves typed secrets only to `.env`, writes `internal/app/infra_mail.go` and the `.env.example` block, and prints next steps; running it again switches provider. The Resend API key and SMTP credentials are environment variables; the sender name, address and reply-to are runtime settings (`mail.*`) filled into each message by `mail.WithDefaults`. `MAIL_DELIVERY` picks Mailpit (development default) or the provider (always in production).
+Implemented in v0.2 ([ADR-0037](adr/0037-email-setup-and-delivery.md), [email guide](guides/email.md)): `orb add mail` asks Resend or SMTP, saves typed secrets only to `.env`, writes `internal/app/infra_mail.go` and the `.env.example` block, and prints next steps; running it again switches provider. The Resend API key and SMTP credentials are environment variables; the sender name, address and reply-to are runtime settings (`mail.*`) filled into each message by `mail.WithDefaults`. `MAIL_DELIVERY` picks Mailpit (development default) or the provider (always in production).
 
 ### 7.4 Operations APIs ([ADR-0026](adr/0026-operations-apis.md))
 
@@ -249,11 +249,11 @@ Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.
 
 ### 7.5 API contract and docs ([ADR-0027](adr/0027-api-contract-and-docs.md))
 
-Code-first with Huma v2, confined to `delivery/`: developers write Go input/output types and handlers; OpenAPI 3.1, validation and problem+json errors follow automatically. `my-api openapi` exports `api/openapi.json` (committed, checked for breaking changes in CI). `/docs` serves an API reference in the apistock design, rendered from the app's own OpenAPI document by `modules/openapi/reference`, the same renderer as the public API reference ([ADR-0049](adr/0049-public-docs-and-website.md)). The Postman collection and `llms.txt` are generated from the exported spec.
+Code-first with Huma v2, confined to `delivery/`: developers write Go input/output types and handlers; OpenAPI 3.1, validation and problem+json errors follow automatically. `my-api openapi` exports `api/openapi.json` (committed, checked for breaking changes in CI). `/docs` serves an API reference in the gorbital design, rendered from the app's own OpenAPI document by `modules/openapi/reference`, the same renderer as the public API reference ([ADR-0049](adr/0049-public-docs-and-website.md)). The Postman collection and `llms.txt` are generated from the exported spec.
 
 ### 7.6 Observability ([ADR-0007](adr/0007-observability.md), [ADR-0028](adr/0028-local-development-environment.md))
 
-`modules/telemetry` keeps OpenTelemetry always on in the app (traces, metrics, slog logs carrying `request_id`, `trace_id` and `span_id`); export is enabled by setting `OTEL_EXPORTER_OTLP_ENDPOINT`. The Minimal preset needs no Docker. From v0.2, `aps dev` starts PostgreSQL and Mailpit, and `aps dev --observability` also starts Grafana (`grafana/otel-lgtm`). PostgreSQL always runs in Docker (the official image, through `compose.yaml` locally and a service container in CI); apistock never downloads PostgreSQL binaries.
+`modules/telemetry` keeps OpenTelemetry always on in the app (traces, metrics, slog logs carrying `request_id`, `trace_id` and `span_id`); export is enabled by setting `OTEL_EXPORTER_OTLP_ENDPOINT`. The Minimal preset needs no Docker. From v0.2, `orb dev` starts PostgreSQL and Mailpit, and `orb dev --observability` also starts Grafana (`grafana/otel-lgtm`). PostgreSQL always runs in Docker (the official image, through `compose.yaml` locally and a service container in CI); gorbital never downloads PostgreSQL binaries.
 
 ### 7.7 Configuration ([ADR-0020](adr/0020-constructors-and-configuration.md), [ADR-0031](adr/0031-runtime-settings.md))
 
@@ -273,33 +273,33 @@ PostgreSQL only, always from Docker in development, tests and CI. `modules/postg
 
 | Command | Purpose |
 |---|---|
-| `aps new <name>` | Create an app (presets and prompts) |
-| `aps add <feature>` | Add a feature: `mail` switches the email provider; `orgs` (v0.5) turns a single-tenant app multi-tenant |
-| `aps gen resource <Name> <field:type>... [--scope=user]` | One-shot layered module owned by the signed-in user, with table, API and tests ([ADR-0039](adr/0039-resource-module-template.md)); `org` and `global` scopes later |
-| `aps gen job <Name> [--schedule CRON\|--every D\|--on-demand]` | Job args, worker, test and definition; config editable in `/ops/jobs` ([ADR-0033](adr/0033-background-jobs.md)) |
-| `aps gen migration <name>` | Empty forward-only goose migration that runs after the existing ones |
-| `aps dev [--observability] [--no-services] [--no-reload]` | Run locally with reload and Docker services |
-| `aps upgrade [--from <version>] [--dry-run]` | Merge template changes and upgrade the library on branch `aps-upgrade/<version>` (v0.5); `--major` arrives with 1.0 |
-| `aps doctor` | Planned (v0.5): check configuration, versions and migrations |
+| `orb new <name>` | Create an app (presets and prompts) |
+| `orb add <feature>` | Add a feature: `mail` switches the email provider; `orgs` (v0.5) turns a single-tenant app multi-tenant |
+| `orb gen resource <Name> <field:type>... [--scope=user]` | One-shot layered module owned by the signed-in user, with table, API and tests ([ADR-0039](adr/0039-resource-module-template.md)); `org` and `global` scopes later |
+| `orb gen job <Name> [--schedule CRON\|--every D\|--on-demand]` | Job args, worker, test and definition; config editable in `/ops/jobs` ([ADR-0033](adr/0033-background-jobs.md)) |
+| `orb gen migration <name>` | Empty forward-only goose migration that runs after the existing ones |
+| `orb dev [--observability] [--no-services] [--no-reload]` | Run locally with reload and Docker services |
+| `orb upgrade [--from <version>] [--dry-run]` | Merge template changes and upgrade the library on branch `orb-upgrade/<version>` (v0.5); `--major` arrives with 1.0 |
+| `orb doctor` | Planned (v0.5): check configuration, versions and migrations |
 
-**Implemented in v0.1:** `aps new` (Minimal preset; `--module`, `--local`, `--json`, `--no-git`), `aps dev` (build, run, reload, `.env`, port check), `aps version`.
+**Implemented in v0.1:** `orb new` (Minimal preset; `--module`, `--local`, `--json`, `--no-git`), `orb dev` (build, run, reload, `.env`, port check), `orb version`.
 
-**Implemented in v0.2 so far:** `aps gen job` (interactive or flags), `aps gen resource` (string, text and enum fields; golden-tested against `examples/full-single`'s projects module), `aps gen migration`, `aps dev` with Docker services, migrations, seed data and `--observability` ([ADR-0042](adr/0042-development-seed-data.md)), interactive `aps new`, `aps new --preset=full` (generated from `examples/full-single`, [ADR-0041](adr/0041-full-preset-generation.md)), `aps add mail`. Guide: [CLI](guides/cli.md).
+**Implemented in v0.2 so far:** `orb gen job` (interactive or flags), `orb gen resource` (string, text and enum fields; golden-tested against `examples/full-single`'s projects module), `orb gen migration`, `orb dev` with Docker services, migrations, seed data and `--observability` ([ADR-0042](adr/0042-development-seed-data.md)), interactive `orb new`, `orb new --preset=full` (generated from `examples/full-single`, [ADR-0041](adr/0041-full-preset-generation.md)), `orb add mail`. Guide: [CLI](guides/cli.md).
 
-**Implemented in v0.5:** `apistock.lock` v2, `aps upgrade` and `aps add orgs` ([ADR-0050](adr/0050-upgrades-and-adding-features.md)); `aps doctor`, `go run ./cmd/api openapi --dir api` exporting the Postman collection and `llms.txt`, and the operations work above ([ADR-0051](adr/0051-operations-v0-5.md)).
+**Implemented in v0.5:** `gorbital.lock` v2, `orb upgrade` and `orb add orgs` ([ADR-0050](adr/0050-upgrades-and-adding-features.md)); `orb doctor`, `go run ./cmd/api openapi --dir api` exporting the Postman collection and `llms.txt`, and the operations work above ([ADR-0051](adr/0051-operations-v0-5.md)).
 
 **Interaction ([ADR-0035](adr/0035-interactive-cli.md)):** in a terminal, commands ask for missing values with arrow-key selects, checkboxes, validated inputs and a final summary; every prompt has a flag, flags skip their prompts, and `--yes`, `--json`, `--no-input` or `CI` never prompt. Prompts and flags share validators.
 
 - **Recipes are whole preset trees** generated from the golden apps ([ADR-0041](adr/0041-full-preset-generation.md)). API endpoints come from Go code (ADR-0027), so recipes never edit a spec file. No code runs at install time.
 - **One wiring file per feature** stays a style goal: it keeps merges small.
-- **Tracked vs one-shot:** `apistock.lock` v2 records the `aps` release, the template inputs and a hash of every tracked file; `aps upgrade` rebuilds the old tree from that release, proves it against the hashes and merges 3-way ([ADR-0050](adr/0050-upgrades-and-adding-features.md)). `aps gen` output is one-shot.
+- **Tracked vs one-shot:** `gorbital.lock` v2 records the `orb` release, the template inputs and a hash of every tracked file; `orb upgrade` rebuilds the old tree from that release, proves it against the hashes and merges 3-way ([ADR-0050](adr/0050-upgrades-and-adding-features.md)). `orb gen` output is one-shot.
 - **Safety:** names validated as Go identifiers, field types from an allowlist, writes confined with `os.Root`, diff preview with risky new imports highlighted, clean git tree required.
 
 ---
 
 ## 9. Security ([ADR-0029](adr/0029-threat-model.md))
 
-The threat model covers the framework, CLI and ecosystem, not only generated apps. Highest priorities: `apistock.dev` domain and DNS hardening, template injection, malicious recipes, OAuth and ID-token validation, passkey origin checks, cross-tenant access, ops endpoint protection, release signing and maintainer account security.
+The threat model covers the framework, CLI and ecosystem, not only generated apps. Highest priorities: `gorbital.dev` domain and DNS hardening, template injection, malicious recipes, OAuth and ID-token validation, passkey origin checks, cross-tenant access, ops endpoint protection, release signing and maintainer account security.
 
 ---
 
@@ -307,15 +307,15 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 
 | Release | Delivers |
 |---|---|
-| v0.1 ✅ done | Core library, Minimal preset, `aps new` and `aps dev`, OpenAPI docs (Scalar, since replaced by the apistock reference), CI, signed release workflow |
-| v0.2 ✅ done, tagged | PostgreSQL, runtime settings, jobs, email (Resend/SMTP), email/password auth, users and roles, audit, Full preset, single-tenant, `aps dev` with Docker, seed data |
+| v0.1 ✅ done | Core library, Minimal preset, `orb new` and `orb dev`, OpenAPI docs (Scalar, since replaced by the gorbital reference), CI, signed release workflow |
+| v0.2 ✅ done, tagged | PostgreSQL, runtime settings, jobs, email (Resend/SMTP), email/password auth, users and roles, audit, Full preset, single-tenant, `orb dev` with Docker, seed data |
 | v0.3 ✅ done, tagged | Google, Apple, TOTP, passkeys |
 | v0.4 ✅ done, tagged | Multi-tenant organisations, tenancy prompt |
-| v0.5 (in progress) | `apistock.lock` v2, `aps upgrade`, `aps add orgs` (done); operations APIs, Postman, `llms.txt`, `aps doctor` (next) |
+| v0.5 (in progress) | `gorbital.lock` v2, `orb upgrade`, `orb add orgs` (done); operations APIs, Postman, `llms.txt`, `orb doctor` (next) |
 | v1.0 | External security review, API freeze, documentation content |
-| v1.3 (built early) | Public website and docs at apistock.dev and docs.apistock.dev ([ADR-0049](adr/0049-public-docs-and-website.md)) |
+| v1.3 (built early) | Public website and docs at gorbital.dev and docs.gorbital.dev ([ADR-0049](adr/0049-public-docs-and-website.md)) |
 | v1.1 | Feature flags, live observability, API keys, GitHub login, row-level security option, local dev console |
-| v1.2 (proposed) | Client templates: docs site, dashboard and Expo app created by `aps new` from separate template repositories ([ADR-0047](adr/0047-client-templates.md)) |
+| v1.2 (proposed) | Client templates: docs site, dashboard and Expo app created by `orb new` from separate template repositories ([ADR-0047](adr/0047-client-templates.md)) |
 
 ---
 
@@ -327,14 +327,14 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Unknown request fields: strict vs tolerant~~ | Resolved: tolerant (ADR-0027) |
 | ~~Anchor edits: text insertion vs AST~~ | Resolved: parser-located text insertion ([spike](../spikes/anchor/README.md), ADR-0021) |
 | ~~Minimal first run under 60 seconds~~ | Resolved: 12.0 s cold, 1.6 s warm in the spike; 25.0 s cold, 4.8 s warm with the real v0.1 CLI (`scripts/first-run.sh`) |
-| ~~Scalar docs visual check in a real browser~~ | Resolved: Scalar replaced by the apistock reference, checked in a browser in a generated app and on the site ([ADR-0049](adr/0049-public-docs-and-website.md)) |
-| Publish the library at `apistock.dev` | Open: domain hardening, public repository, first tags (until then apps use `--local`) |
+| ~~Scalar docs visual check in a real browser~~ | Resolved: Scalar replaced by the gorbital reference, checked in a browser in a generated app and on the site ([ADR-0049](adr/0049-public-docs-and-website.md)) |
+| Publish the library at `gorbital.dev` | Open: domain hardening, public repository, first tags (until then apps use `--local`) |
 | ~~`/ops/*` protection before authentication~~ | Resolved: sessions and platform roles replaced the interim `OPS_TOKEN` ([ADR-0038](adr/0038-authentication-v0-2.md)); ops roles require two-factor authentication ([ADR-0043](adr/0043-two-factor-authentication.md)) |
-| ~~Example business module with its own repository~~ | Resolved: `examples/full-single/internal/modules/projects` owns the `projects` table with all four layers, user ownership and cross-owner tests ([ADR-0039](adr/0039-resource-module-template.md)); `aps gen resource` reproduces it exactly |
-| ~~`aps new --preset=full`~~ | Resolved: templates generated from `examples/full-single`, reproduced byte for byte, with `go.mod` derived from the golden `go.mod` ([ADR-0041](adr/0041-full-preset-generation.md)) |
+| ~~Example business module with its own repository~~ | Resolved: `examples/full-single/internal/modules/projects` owns the `projects` table with all four layers, user ownership and cross-owner tests ([ADR-0039](adr/0039-resource-module-template.md)); `orb gen resource` reproduces it exactly |
+| ~~`orb new --preset=full`~~ | Resolved: templates generated from `examples/full-single`, reproduced byte for byte, with `go.mod` derived from the golden `go.mod` ([ADR-0041](adr/0041-full-preset-generation.md)) |
 | ~~Audit storage~~ | Resolved: `modules/auditpg` stores events in an append-only `audit_events` table, listed by `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)) |
-| ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `aps add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |
+| ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `orb add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |
 | Email templates and preview route | Open: owned templates in `internal/emails` with a development preview (ADR-0025) arrive with authentication's emails |
 | Client IP and user agent in audit events | Open: no core middleware carries them in the context yet; `modules/auth` sets them on its events |
-| ~~Organisations design~~ | Resolved: [ADR-0048](adr/0048-organisations-v0-4.md) accepted and built in v0.4; `aps add orgs` converts existing apps in v0.5 ([ADR-0050](adr/0050-upgrades-and-adding-features.md)) |
+| ~~Organisations design~~ | Resolved: [ADR-0048](adr/0048-organisations-v0-4.md) accepted and built in v0.4; `orb add orgs` converts existing apps in v0.5 ([ADR-0050](adr/0050-upgrades-and-adding-features.md)) |
 | Client templates | Open: [ADR-0047](adr/0047-client-templates.md) proposed; to decide the dashboard and docs stacks, where archives are hosted, and the bundle ID prompt before accepting |

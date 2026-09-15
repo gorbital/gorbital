@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/modules/postgres"
 )
 
 const deleteInstancesSeenBeforeSQL = `DELETE FROM release_instances WHERE last_seen_at < $1`

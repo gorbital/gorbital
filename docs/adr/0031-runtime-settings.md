@@ -20,7 +20,7 @@ Lessons from that implementation:
 
 ## Decision
 
-Option 3, shipped in v0.2 as `apistock.dev/modules/settings`.
+Option 3, shipped in v0.2 as `gorbital.dev/modules/settings`.
 
 ### Two layers
 
@@ -68,10 +68,10 @@ authService, err := auth.New(db, mailer, recorder, auth.WithVerificationCodeTTL(
 |---|---|
 | Tables | `settings_values` (key, value `jsonb`, version, updated_at, updated_by, nullable `org_id` reserved for per-org settings) and `settings_history` (key, old value, new value, actor, reason, request ID, time) |
 | Rows | Only changed settings have rows; resetting to the default stores a NULL value, so rows are never deleted and versions never repeat (a stale version can't match after a reset) |
-| Write | One transaction: version check (optimistic concurrency), upsert or delete, history row, `pg_notify('apistock_settings', key)`. The audit event `settings.value.changed` is recorded through `audit.Recorder` |
+| Write | One transaction: version check (optimistic concurrency), upsert or delete, history row, `pg_notify('gorbital_settings', key)`. The audit event `settings.value.changed` is recorded through `audit.Recorder` |
 | Propagation | `settings.Store` is an `app.Runner` holding a `LISTEN` connection; on notify it reloads that key; on reconnect it reloads everything; a full resync every 5 minutes covers missed notifications |
 | Startup | `settings.NewStore` loads all values before the app serves traffic; a load failure fails startup |
-| Unknown keys | Rows for keys no longer declared are kept, ignored, and listed by `aps doctor` |
+| Unknown keys | Rows for keys no longer declared are kept, ignored, and listed by `orb doctor` |
 
 ### API (generated `internal/modules/settings`, Full preset)
 

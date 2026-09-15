@@ -8,11 +8,11 @@ import (
 
 	"github.com/riverqueue/river"
 
-	"apistock.dev/mail"
+	"gorbital.dev/mail"
 )
 
 // MailKind is the job kind that delivers queued email.
-const MailKind = "apistock.mail.send"
+const MailKind = "gorbital.mail.send"
 
 const (
 	mailMaxAttempts = 8

@@ -1,3 +1,3 @@
-module apistock.dev/spikes/merge
+module gorbital.dev/spikes/merge
 
 go 1.25

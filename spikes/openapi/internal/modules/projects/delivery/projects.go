@@ -10,8 +10,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	projectdomain "apistock.dev/spikes/openapi/internal/modules/projects/domain"
-	projectusecase "apistock.dev/spikes/openapi/internal/modules/projects/usecase"
+	projectdomain "gorbital.dev/spikes/openapi/internal/modules/projects/domain"
+	projectusecase "gorbital.dev/spikes/openapi/internal/modules/projects/usecase"
 )
 
 // ProjectResponse is the public representation of a project.

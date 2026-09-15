@@ -9,11 +9,11 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/buildinfo"
-	"apistock.dev/httpx"
-	"apistock.dev/modules/openapi"
-	"apistock.dev/page"
-	"apistock.dev/ratelimit"
+	"gorbital.dev/buildinfo"
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/openapi"
+	"gorbital.dev/page"
+	"gorbital.dev/ratelimit"
 )
 
 // authLimitKey limits changing requests to /v1/auth/, and Google and Apple
@@ -60,7 +60,7 @@ func (a *App) buildHTTP(svc services) error {
 		return err
 	}
 	openapi.InstallErrors(mapper)
-	// Pagination errors, shared by every list endpoint that uses apistock.dev/page.
+	// Pagination errors, shared by every list endpoint that uses gorbital.dev/page.
 	err = mapper.Add(
 		httpx.Mapping{Err: page.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
 		httpx.Mapping{Err: page.ErrInvalidSort, Status: http.StatusBadRequest, Code: "invalid_sort", Detail: "sort by one allowed field, with - for descending order"},

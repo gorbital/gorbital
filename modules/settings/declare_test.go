@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/config"
-	"apistock.dev/modules/settings"
+	"gorbital.dev/config"
+	"gorbital.dev/modules/settings"
 )
 
 func TestDeclarationsReturnDefaultsBeforeLoading(t *testing.T) {

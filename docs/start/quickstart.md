@@ -10,32 +10,32 @@ Keep two terminal windows open and a browser:
 
 | Where | What runs there |
 |---|---|
-| **Terminal 1** | `aps dev`: your API and its logs. Leave it running |
-| **Terminal 2** | Commands: `curl` requests, `aps gen`, `go test`, `git` |
+| **Terminal 1** | `orb dev`: your API and its logs. Leave it running |
+| **Terminal 2** | Commands: `curl` requests, `orb gen`, `go test`, `git` |
 | **Browser** | Your API's docs at http://localhost:8080/docs and emails at http://127.0.0.1:8025 |
 
-## 1. Install `aps`
+## 1. Install `orb`
 
 In **Terminal 2**:
 
 ```bash
-git clone https://github.com/apistockhq/apistock.git
-cd apistock/cli
-go install ./cmd/aps
+git clone https://github.com/gorbital/gorbital.git
+cd gorbital/cli
+go install ./cmd/orb
 cd ../..
-aps version
+orb version
 ```
 
-`go install` builds `aps` and puts it in Go's `bin` folder. apistock isn't published yet, so it comes from this checkout, and your app will use the library from it too.
+`go install` builds `orb` and puts it in Go's `bin` folder. gorbital isn't published yet, so it comes from this checkout, and your app will use the library from it too.
 
-If you see `command not found: aps`, Go's `bin` folder isn't on your `PATH`: add `export PATH="$(go env GOPATH)/bin:$PATH"` to `~/.zshrc` or `~/.bashrc`, and open a new terminal.
+If you see `command not found: orb`, Go's `bin` folder isn't on your `PATH`: add `export PATH="$(go env GOPATH)/bin:$PATH"` to `~/.zshrc` or `~/.bashrc`, and open a new terminal.
 
 ## 2. Create your app
 
-Still in **Terminal 2**, in the folder that contains `apistock`:
+Still in **Terminal 2**, in the folder that contains `gorbital`:
 
 ```bash
-aps new acme-api --preset full --tenancy single --local ./apistock
+orb new acme-api --preset full --tenancy single --local ./gorbital
 ```
 
 | Part | Means |
@@ -43,11 +43,11 @@ aps new acme-api --preset full --tenancy single --local ./apistock
 | `acme-api` | Your app's name: its folder, database and Docker project |
 | `--preset full` | Database, sign-in, jobs, email, admin API. `minimal` is a small API without a database |
 | `--tenancy single` | Data belongs to individual users. `multi` makes it belong to organisations, with members and invitations ([Organisations](organisations.md)) |
-| `--local ./apistock` | Where the apistock checkout is |
+| `--local ./gorbital` | Where the gorbital checkout is |
 
-Leave the flags out to be asked each question with arrow keys instead. `aps new` writes the files, runs `go mod tidy` to download dependencies, and creates an empty git repository.
+Leave the flags out to be asked each question with arrow keys instead. `orb new` writes the files, runs `go mod tidy` to download dependencies, and creates an empty git repository.
 
-It doesn't commit the files. Make the first commit now: `aps gen` and `aps add` refuse to change an app with uncommitted changes, so each generated change is a diff you can review.
+It doesn't commit the files. Make the first commit now: `orb gen` and `orb add` refuse to change an app with uncommitted changes, so each generated change is a diff you can review.
 
 ```bash
 cd acme-api
@@ -62,22 +62,22 @@ In **Terminal 1**:
 
 ```bash
 cd acme-api
-aps dev
+orb dev
 ```
 
 The first run does six things, and prints each one:
 
 ```text
-aps: created .env from .env.example
-aps: wrote a random development AUTH_ENCRYPTION_KEYS to .env
-aps: starting services (docker compose up -d --wait)
+orb: created .env from .env.example
+orb: wrote a random development AUTH_ENCRYPTION_KEYS to .env
+orb: starting services (docker compose up -d --wait)
  ✔ Container acme-api-postgres-1  Healthy
  ✔ Container acme-api-mailpit-1   Healthy
-aps: applying migrations (go run ./cmd/migrate)
+orb: applying migrations (go run ./cmd/migrate)
 applied migration 20260914000001
 …
 applied job queue migration 7
-aps: seed data (go run ./cmd/seed)
+orb: seed data (go run ./cmd/seed)
 ✓ Seed data created
   Administrator:   admin@example.com (platform_admin)
   Password:        OHNP6LPWSZNHUM5YECQ4FQN23U
@@ -102,7 +102,7 @@ level=INFO msg=starting service=acme-api addr=http://127.0.0.1:8080
 What happened:
 
 1. **`.env` created.** Your app's settings for this computer, copied from `.env.example`. Git ignores it.
-2. **Encryption key written.** `AUTH_ENCRYPTION_KEYS` encrypts two-factor secrets; `aps` generated a random one for development ([what it is](../sign-in/encryption-key.md)).
+2. **Encryption key written.** `AUTH_ENCRYPTION_KEYS` encrypts two-factor secrets; `orb` generated a random one for development ([what it is](../sign-in/encryption-key.md)).
 3. **PostgreSQL and Mailpit started** in Docker. The first time, Docker downloads their images.
 4. **Migrations applied.** Migrations are SQL files that create your tables, in order; the job queue has its own.
 5. **Seed data created.** An administrator account and three example projects, so you have something to sign in with.
@@ -221,7 +221,7 @@ Lost something?
 |---|---|
 | The password | `POST /v1/auth/password/forgot` with `{"email": "admin@example.com"}`, then `POST /v1/auth/password/reset` with the code from Mailpit |
 | The authenticator app | Send one of the recovery codes as `"recovery_code"` instead of `"code"`, or run `go run ./cmd/api reset-mfa admin@example.com` with the environment loaded (see [without the CLI](#without-the-cli)) |
-| Everything | Delete the database and start again: `docker compose down -v`, then `aps dev` |
+| Everything | Delete the database and start again: `docker compose down -v`, then `orb dev` |
 
 To make your own account an administrator instead: `go run ./cmd/api grant-role you@example.com platform_admin`, then turn on an authenticator app for it (`POST /v1/auth/mfa/totp`, then `POST /v1/auth/mfa/totp/confirm`). Administrator roles require it.
 
@@ -230,13 +230,13 @@ To make your own account an administrator instead: `go run ./cmd/api grant-role 
 In **Terminal 2**, add your own kind of data:
 
 ```bash
-aps gen resource Invoice number:string:unique 'status:enum(draft,sent,paid)'
+orb gen resource Invoice number:string:unique 'status:enum(draft,sent,paid)'
 ```
 
-`aps dev` in Terminal 1 notices the new migration, applies it, and restarts. `/docs` now lists `/v1/invoices`. Run the tests, which use their own temporary databases:
+`orb dev` in Terminal 1 notices the new migration, applies it, and restarts. `/docs` now lists `/v1/invoices`. Run the tests, which use their own temporary databases:
 
 ```bash
-APISTOCK_TEST_DATABASE_URL='postgres://acme-api:acme-api@127.0.0.1:5432/acme-api?sslmode=disable' go test ./...
+GORBITAL_TEST_DATABASE_URL='postgres://acme-api:acme-api@127.0.0.1:5432/acme-api?sslmode=disable' go test ./...
 ```
 
 Then commit: `git add -A && git commit -m "Add invoices"`. [Add your first resource](first-resource.md) explains every file it created.
@@ -246,16 +246,16 @@ Then commit: `git add -A && git commit -m "Add invoices"`. [Add your first resou
 | Want | Do |
 |---|---|
 | Stop the API | Ctrl+C in Terminal 1. PostgreSQL and Mailpit keep running, so the next start is fast |
-| Start again | `aps dev`. Seed data is left as it is: `✓ Seed data is in place` |
+| Start again | `orb dev`. Seed data is left as it is: `✓ Seed data is in place` |
 | Stop PostgreSQL and Mailpit | `docker compose down` in the app's folder. Your data stays |
-| Delete all data and start fresh | `docker compose down -v`, then `aps dev`. `-v` deletes the database volume; you get a new administrator password |
+| Delete all data and start fresh | `docker compose down -v`, then `orb dev`. `-v` deletes the database volume; you get a new administrator password |
 
 ## If a port is taken
 
-If another program already uses a port, `aps dev` says which line to add to `.env`:
+If another program already uses a port, `orb dev` says which line to add to `.env`:
 
 ```text
-aps: port 5432 for postgres is already in use by another program
+orb: port 5432 for postgres is already in use by another program
   use another port by adding this line to .env:
     POSTGRES_PORT=5442
   and the same port in DATABASE_URL
@@ -265,7 +265,7 @@ Some programs, such as another project's PostgreSQL running in Docker, slip past
 
 ```text
 Bind for 0.0.0.0:5432 failed: port is already allocated
-aps: starting services failed: exit status 1
+orb: starting services failed: exit status 1
 ```
 
 The fix is the same. For PostgreSQL, change **both** lines in `.env`:
@@ -282,11 +282,11 @@ DATABASE_URL=postgres://acme-api:acme-api@127.0.0.1:5433/acme-api?sslmode=disabl
 | 8025 | `MAILPIT_WEB_PORT`; Mailpit's inbox moves to that port |
 | 8080 | `APP_ADDR=127.0.0.1:8081`; open the docs on 8081. For Google sign-in also set `APP_PUBLIC_URL=http://localhost:8081`, and for passkeys `WEBAUTHN_RP_ID=localhost` and `WEBAUTHN_ORIGINS=http://localhost:8081` |
 
-Then run `aps dev` again. More problems and fixes: [Troubleshooting](troubleshooting.md).
+Then run `orb dev` again. More problems and fixes: [Troubleshooting](troubleshooting.md).
 
 ## Without the CLI
 
-`aps dev` runs ordinary commands, and you can run them yourself. The app itself doesn't read `.env`: `aps dev` loads it. Without `aps`, load it into your shell first, and give it an encryption key:
+`orb dev` runs ordinary commands, and you can run them yourself. The app itself doesn't read `.env`: `orb dev` loads it. Without `orb`, load it into your shell first, and give it an encryption key:
 
 ```bash
 cp .env.example .env
@@ -302,6 +302,6 @@ Run `set -a; . ./.env; set +a` again in every new terminal, and after editing `.
 
 ## Next
 
-- [How apistock works](concepts.md): the parts, and where settings live.
+- [How gorbital works](concepts.md): the parts, and where settings live.
 - [Set up sign-in](../sign-in/overview.md): Google, Apple, passkeys and real email.
 - [CLI reference](../guides/cli.md): every command and flag.

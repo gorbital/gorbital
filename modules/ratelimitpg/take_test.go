@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/modules/postgres/pgtest"
-	"apistock.dev/ratelimit"
+	"gorbital.dev/modules/postgres/pgtest"
+	"gorbital.dev/ratelimit"
 )
 
 // model is GCRA in integer microseconds: the reference the SQL must match.

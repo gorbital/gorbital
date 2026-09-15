@@ -70,13 +70,13 @@ func TestRenderJobEscapesDescription(t *testing.T) {
 }
 
 func TestInsertAfterAnchor(t *testing.T) {
-	src := []byte("package app\n\nfunc defineJobs() {\n\t//aps:anchor jobs\n\tdefineHeartbeatJob()\n}\n")
+	src := []byte("package app\n\nfunc defineJobs() {\n\t//orb:anchor jobs\n\tdefineHeartbeatJob()\n}\n")
 
 	got, err := InsertAfterAnchor(src, JobAnchor, "defineReportJob()")
 	if err != nil {
 		t.Fatalf("InsertAfterAnchor() error = %v", err)
 	}
-	want := "package app\n\nfunc defineJobs() {\n\t//aps:anchor jobs\n\tdefineReportJob()\n\tdefineHeartbeatJob()\n}\n"
+	want := "package app\n\nfunc defineJobs() {\n\t//orb:anchor jobs\n\tdefineReportJob()\n\tdefineHeartbeatJob()\n}\n"
 	if string(got) != want {
 		t.Errorf("InsertAfterAnchor() =\n%s\nwant\n%s", got, want)
 	}

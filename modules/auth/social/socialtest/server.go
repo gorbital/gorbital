@@ -18,7 +18,7 @@ import (
 
 	"github.com/go-jose/go-jose/v4"
 
-	"apistock.dev/modules/auth/social"
+	"gorbital.dev/modules/auth/social"
 )
 
 const keyID = "socialtest"

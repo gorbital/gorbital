@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"apistock.dev/actor"
-	"apistock.dev/httpx"
+	"gorbital.dev/actor"
+	"gorbital.dev/httpx"
 )
 
 // RecentVerification is how long after verifying a second factor a session

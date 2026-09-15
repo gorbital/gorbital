@@ -5,25 +5,25 @@ import (
 	"io/fs"
 )
 
-// A Release is the templates of one aps release, laid out like this
+// A Release is the templates of one orb release, laid out like this
 // package's directory: minimal/, full/, full-multi/ and mail/. Every release
 // since v0.2.0 uses the same layout and template format (ADR-0050).
 type Release struct {
 	fsys fs.FS
 }
 
-// Embedded returns this aps's own templates.
+// Embedded returns this orb's own templates.
 func Embedded() Release { return Release{fsys: templatesFS} }
 
 // ReleaseFS returns the templates of a release whose cli/internal/recipes
-// directory is fsys, such as an older release fetched by aps upgrade. They
+// directory is fsys, such as an older release fetched by orb upgrade. They
 // are read and rendered as text; nothing in them is compiled or run.
 func ReleaseFS(fsys fs.FS) Release { return Release{fsys: fsys} }
 
-// Tree renders every file aps writes for an app of preset and tenancy that
+// Tree renders every file orb writes for an app of preset and tenancy that
 // sends email with mail ("" for presets without email), keyed by
 // slash-separated path: the preset's templates, then the provider's files,
-// exactly as aps new and aps add mail write them.
+// exactly as orb new and orb add mail write them.
 func (r Release) Tree(preset, tenancy, mail string, d Data) (map[string][]byte, error) {
 	p, ok := LookupPreset(preset, tenancy)
 	if !ok {
@@ -49,7 +49,7 @@ func (r Release) Tree(preset, tenancy, mail string, d Data) (map[string][]byte, 
 	}
 	tree[InfraMailPath] = m.InfraMail
 	// Releases before the provider's tests moved into their own file have
-	// none; aps add mail writes it only where the tree has it.
+	// none; orb add mail writes it only where the tree has it.
 	if _, ok := tree[InfraMailTestPath]; ok {
 		tree[InfraMailTestPath] = m.InfraMailTest
 	}
@@ -64,5 +64,5 @@ func (r Release) Tree(preset, tenancy, mail string, d Data) (map[string][]byte, 
 
 const (
 	envExamplePath = ".env.example"
-	manifestPath   = "apistock.yaml"
+	manifestPath   = "gorbital.yaml"
 )

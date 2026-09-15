@@ -50,7 +50,7 @@ const (
 	DefaultDiscardedRetention = 7 * 24 * time.Hour
 )
 
-const instrumentationName = "apistock.dev/modules/jobs"
+const instrumentationName = "gorbital.dev/modules/jobs"
 
 // Client enqueues and works jobs. It is safe for concurrent use.
 type Client struct {

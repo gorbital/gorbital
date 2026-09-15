@@ -16,11 +16,11 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 
-	"apistock.dev/actor"
-	"apistock.dev/mail"
-	"apistock.dev/modules/jobs"
-	"apistock.dev/modules/postgres/pgtest"
-	"apistock.dev/requestid"
+	"gorbital.dev/actor"
+	"gorbital.dev/mail"
+	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/postgres/pgtest"
+	"gorbital.dev/requestid"
 )
 
 func TestMigrate(t *testing.T) {

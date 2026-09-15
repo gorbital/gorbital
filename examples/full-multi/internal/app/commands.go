@@ -6,11 +6,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/audit"
-	"apistock.dev/config"
-	"apistock.dev/modules/auditpg"
-	orgslib "apistock.dev/modules/orgs"
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/audit"
+	"gorbital.dev/config"
+	"gorbital.dev/modules/auditpg"
+	orgslib "gorbital.dev/modules/orgs"
+	"gorbital.dev/modules/postgres"
 
 	authmodule "example.com/acme-api/internal/modules/auth"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"

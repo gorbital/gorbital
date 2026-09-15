@@ -1,4 +1,4 @@
-// Package recipes renders the project templates used by aps new.
+// Package recipes renders the project templates used by orb new.
 //
 // Each preset's templates are generated from a hand-written golden app by
 // `go generate`: minimal/ from examples/minimal, full/ from
@@ -36,21 +36,21 @@ const (
 	MinimalName   = "base-minimal"
 	FullName      = "base-full"
 	FullMultiName = "base-full-multi"
-	// LibraryVersion is the apistock library version generated apps require.
+	// LibraryVersion is the gorbital library version generated apps require.
 	LibraryVersion = "v0.1.0"
 )
 
-// Tenancy values of aps new --tenancy (ADR-0023).
+// Tenancy values of orb new --tenancy (ADR-0023).
 const (
 	TenancySingle = "single"
 	TenancyMulti  = "multi"
 )
 
-// A Preset is an app aps new can create.
+// A Preset is an app orb new can create.
 type Preset struct {
-	// Name is the value of aps new --preset.
+	// Name is the value of orb new --preset.
 	Name string
-	// Tenancy is the value of aps new --tenancy: single, or multi for
+	// Tenancy is the value of orb new --tenancy: single, or multi for
 	// organisations.
 	Tenancy string
 	// Recipe names the preset's template tree.
@@ -65,7 +65,7 @@ var presets = []Preset{
 	{Name: "full", Tenancy: TenancyMulti, Recipe: FullMultiName, dir: "full-multi"},
 }
 
-// LookupPreset returns the preset aps new --preset name --tenancy tenancy
+// LookupPreset returns the preset orb new --preset name --tenancy tenancy
 // selects.
 func LookupPreset(name, tenancy string) (Preset, bool) {
 	for _, p := range presets {
@@ -77,13 +77,13 @@ func LookupPreset(name, tenancy string) (Preset, bool) {
 }
 
 // SupportsTenancy reports whether the preset name has a multi-tenant
-// variant, so aps new asks about tenancy.
+// variant, so orb new asks about tenancy.
 func SupportsTenancy(name string) bool {
 	_, ok := LookupPreset(name, TenancyMulti)
 	return ok
 }
 
-// PresetNames lists the presets aps new accepts, in the order it offers
+// PresetNames lists the presets orb new accepts, in the order it offers
 // them.
 func PresetNames() []string {
 	var names []string
@@ -110,7 +110,7 @@ type Data struct {
 	Name           string // app name, for example "my-api"
 	Module         string // Go module path
 	LibraryVersion string
-	// Local, when set, is a path to an apistock checkout used through
+	// Local, when set, is a path to an gorbital checkout used through
 	// replace directives (development before a release is published).
 	Local string
 }

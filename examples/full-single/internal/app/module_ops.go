@@ -6,11 +6,11 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/httpx"
-	"apistock.dev/modules/auditpg"
-	"apistock.dev/modules/jobs"
-	"apistock.dev/modules/releases"
-	"apistock.dev/modules/settings"
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/auditpg"
+	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/releases"
+	"gorbital.dev/modules/settings"
 
 	"example.com/acme-api/internal/modules/ops"
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"

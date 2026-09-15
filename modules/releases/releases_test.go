@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/buildinfo"
-	"apistock.dev/modules/postgres/pgtest"
+	"gorbital.dev/buildinfo"
+	"gorbital.dev/modules/postgres/pgtest"
 )
 
 // These tests drive trackers through start, beat and stop with a fake clock

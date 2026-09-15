@@ -32,7 +32,7 @@ Option 1, isolated behind a package so apps never import its types (threat 22).
 
 ### Who owns what (as ADR-0038)
 
-| Library: `apistock.dev/modules/auth/passkey` | App: `internal/modules/auth` |
+| Library: `gorbital.dev/modules/auth/passkey` | App: `internal/modules/auth` |
 |---|---|
 | `passkey.Config` (RP ID, display name, origins, Android apps) and `passkey.New`, which validates it | Registration, sign-in and second-factor flows, limits, tables, endpoints |
 | `BeginRegistration` / `FinishRegistration`, `BeginLogin` (discoverable, or for one user's credentials) / `FinishLogin`, taking and returning JSON and plain structs | Stores the ceremony state and credential records as the library returns them |

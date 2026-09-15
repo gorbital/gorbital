@@ -8,19 +8,19 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/cli/internal/merge"
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/merge"
+	"gorbital.dev/cli/internal/recipes"
 )
 
-// newGitApp creates an app with aps new, commits it and makes it the
+// newGitApp creates an app with orb new, commits it and makes it the
 // working directory.
 func newGitApp(t *testing.T, args ...string) {
 	t.Helper()
 	isolateGit(t)
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if code, _, errOut := runAps(t, append([]string{"new", "shop-api", "--skip-tidy", "--no-git", "--json"}, args...)...); code != 0 {
-		t.Fatalf("aps new %v = %d: %s", args, code, errOut)
+	if code, _, errOut := runOrb(t, append([]string{"new", "shop-api", "--skip-tidy", "--no-git", "--json"}, args...)...); code != 0 {
+		t.Fatalf("orb new %v = %d: %s", args, code, errOut)
 	}
 	t.Chdir(filepath.Join(dir, "shop-api"))
 	commitAll(t, "Create app")
@@ -28,14 +28,14 @@ func newGitApp(t *testing.T, args ...string) {
 
 func addOrgs(t *testing.T, wantCode int, args ...string) (upgradeResult, string) {
 	t.Helper()
-	code, out, errOut := runAps(t, append([]string{"add", "orgs", "--skip-tidy"}, args...)...)
+	code, out, errOut := runOrb(t, append([]string{"add", "orgs", "--skip-tidy"}, args...)...)
 	if code != wantCode {
-		t.Fatalf("aps add orgs %v = %d, want %d; stdout %s stderr %s", args, code, wantCode, out, errOut)
+		t.Fatalf("orb add orgs %v = %d, want %d; stdout %s stderr %s", args, code, wantCode, out, errOut)
 	}
 	var res upgradeResult
 	if slices.Contains(args, "--json") && out != "" {
 		if err := json.Unmarshal([]byte(out), &res); err != nil {
-			t.Fatalf("aps add orgs --json output %q: %v", out, err)
+			t.Fatalf("orb add orgs --json output %q: %v", out, err)
 		}
 	}
 	return res, errOut
@@ -97,15 +97,15 @@ func TestAddOrgs(t *testing.T) {
 	}
 
 	lock, err := readLock(".")
-	if err != nil || lock.Inputs.Tenancy != recipes.TenancyMulti || !strings.HasSuffix(readFile(t, "apistock.yaml"), "mail: resend\n") || !strings.Contains(readFile(t, "apistock.yaml"), "tenancy: multi\n") {
-		t.Errorf("lock inputs = %+v, %v; apistock.yaml:\n%s", lock.Inputs, err, readFile(t, "apistock.yaml"))
+	if err != nil || lock.Inputs.Tenancy != recipes.TenancyMulti || !strings.HasSuffix(readFile(t, "gorbital.yaml"), "mail: resend\n") || !strings.Contains(readFile(t, "gorbital.yaml"), "tenancy: multi\n") {
+		t.Errorf("lock inputs = %+v, %v; gorbital.yaml:\n%s", lock.Inputs, err, readFile(t, "gorbital.yaml"))
 	}
 	assertLockRebuilds(t, ".")
 
 	// Running it again, once merged, changes nothing.
 	commitAll(t, "Add organisations")
-	if code, out, errOut := runAps(t, "add", "orgs"); code != 0 || !strings.Contains(out, "already has organisations") {
-		t.Errorf("second aps add orgs = %d, %q %q", code, out, errOut)
+	if code, out, errOut := runOrb(t, "add", "orgs"); code != 0 || !strings.Contains(out, "already has organisations") {
+		t.Errorf("second orb add orgs = %d, %q %q", code, out, errOut)
 	}
 }
 
@@ -119,11 +119,11 @@ func TestAddOrgsRefuses(t *testing.T) {
 	t.Run("older release", func(t *testing.T) {
 		newGitApp(t, "--preset", "full")
 		l, _ := readLock(".")
-		l.Aps = lockAps{Version: "v0.4.9"}
+		l.Orb = lockOrb{Version: "v0.4.9"}
 		b, _ := l.encode()
 		writeFile(t, lockPath, string(b))
 		commitAll(t, "Older lock")
-		if _, errOut := addOrgs(t, 1); !strings.Contains(errOut, "run aps upgrade first") {
+		if _, errOut := addOrgs(t, 1); !strings.Contains(errOut, "run orb upgrade first") {
 			t.Errorf("stderr = %q", errOut)
 		}
 	})

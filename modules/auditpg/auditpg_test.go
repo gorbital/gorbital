@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel/trace"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/modules/auditpg"
-	"apistock.dev/modules/postgres"
-	"apistock.dev/modules/postgres/pgtest"
-	"apistock.dev/requestid"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/auditpg"
+	"gorbital.dev/modules/postgres"
+	"gorbital.dev/modules/postgres/pgtest"
+	"gorbital.dev/requestid"
 )
 
 func newStore(t *testing.T, opts ...auditpg.Option) (*auditpg.Store, *pgxpool.Pool) {

@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"apistock.dev/config"
-	"apistock.dev/httpx"
+	"gorbital.dev/config"
+	"gorbital.dev/httpx"
 )
 
 // Config is every boot setting of the application: secrets and

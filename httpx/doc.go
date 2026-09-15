@@ -1,4 +1,4 @@
-// Package httpx provides the HTTP foundation of an apistock app: a server
+// Package httpx provides the HTTP foundation of an gorbital app: a server
 // that runs under app.Run with safe timeouts, security middleware, and the
 // RFC 9457 problem+json error contract with an application-owned error
 // mapping (ADR-0018).

@@ -12,7 +12,7 @@ register ──► email with a 6-digit code ──► verify-email ──► lo
                                          /v1/auth/me, /ops/* (with a role and 2FA), your endpoints
 ```
 
-Start the app with `aps dev` (or `docker compose up -d --wait`, `go run ./cmd/migrate`, `go run ./cmd/api`). Emails land in Mailpit at http://127.0.0.1:8025.
+Start the app with `orb dev` (or `docker compose up -d --wait`, `go run ./cmd/migrate`, `go run ./cmd/api`). Emails land in Mailpit at http://127.0.0.1:8025.
 
 ```bash
 # 1. Create an account
@@ -35,7 +35,7 @@ curl http://127.0.0.1:8080/v1/auth/me -H "Authorization: Bearer $TOKEN"
 
 ## Where the code lives
 
-Your app owns authentication like any other module, with all four layers. The apistock library only supplies the security building blocks.
+Your app owns authentication like any other module, with all four layers. The gorbital library only supplies the security building blocks.
 
 | Folder | What's in it |
 |---|---|
@@ -47,13 +47,13 @@ Your app owns authentication like any other module, with all four layers. The ap
 | `internal/app/keys.go` | `AUTH_ENCRYPTION_KEYS`, which encrypts authenticator app secrets |
 | `internal/app/admin.go`, `admin_mfa.go` | The `grant-role`, `revoke-role`, `roles`, `reset-mfa` and `rotate-auth-keys` commands |
 | `db/migrations/…_auth.sql`, `…_auth_mfa.sql` | The `auth_users`, `auth_sessions`, `auth_codes`, `auth_user_roles`, `auth_totp`, `auth_recovery_codes` and `auth_mfa_challenges` tables |
-| `apistock.dev/modules/auth` (library) | Password hashing, tokens, codes, TOTP, the encryption keyring, recovery codes, cookies, the request middleware, the permission catalog, plain emails |
+| `gorbital.dev/modules/auth` (library) | Password hashing, tokens, codes, TOTP, the encryption keyring, recovery codes, cookies, the request middleware, the permission catalog, plain emails |
 
 Change a rule, such as allowing only your company's email domain, in the use case (`register.go`); add a column with a new migration and a repository file.
 
 ## Your first administrator
 
-`/ops/*` needs a platform role, and a session signed in with two-factor authentication. In development, seed data already created one: the first `aps dev` (or `go run ./cmd/seed`) creates `admin@example.com` with `platform_admin` and two-factor authentication on, and prints its random password, authenticator app key and recovery codes once, without saving them ([ADR-0042](../adr/0042-development-seed-data.md)). Add the key to an authenticator app and sign in as in [Two-factor authentication](#two-factor-authentication).
+`/ops/*` needs a platform role, and a session signed in with two-factor authentication. In development, seed data already created one: the first `orb dev` (or `go run ./cmd/seed`) creates `admin@example.com` with `platform_admin` and two-factor authentication on, and prints its random password, authenticator app key and recovery codes once, without saving them ([ADR-0042](../adr/0042-development-seed-data.md)). Add the key to an authenticator app and sign in as in [Two-factor authentication](#two-factor-authentication).
 
 To give your own account a role, in development or production, register and verify it as above, then grant the role from the app's directory:
 
@@ -107,7 +107,7 @@ Authenticator app secrets are stored encrypted (AES-256-GCM) with `AUTH_ENCRYPTI
 | Environment | What happens |
 |---|---|
 | Production | Required: the app doesn't start without a valid key. Generate one with `echo "k1:$(openssl rand -base64 32)"` and keep it in your secret store |
-| Development | `aps dev` writes a random key to `.env` when it's empty. Without a key (plain `go run`), two-factor endpoints answer 503 `mfa_unavailable`, and accounts with it on can't sign in |
+| Development | `orb dev` writes a random key to `.env` when it's empty. Without a key (plain `go run`), two-factor endpoints answer 503 `mfa_unavailable`, and accounts with it on can't sign in |
 
 To replace a key: put the new key first and keep the old one (`k2:…,k1:…`) on every instance, run `go run ./cmd/api rotate-auth-keys` to re-encrypt every secret, then remove the old key. Losing every key turns off everyone's second factor until operators reset it, so back keys up like database credentials.
 
@@ -244,7 +244,7 @@ Change them with `PUT /ops/settings/{key}`. The auth module also enforces hard l
 Use cases get the signed-in user from the context; the middleware sets it for every request.
 
 ```go
-import authlib "apistock.dev/modules/auth"
+import authlib "gorbital.dev/modules/auth"
 
 func (s *Service) CreateProject(ctx context.Context, name string) (Project, error) {
 	switch err := actor.Require(ctx, "projects.create"); {
@@ -293,12 +293,12 @@ Every sign-in (successful or not), second factor (`auth.mfa.challenge_succeeded`
 
 | Symptom | Fix |
 |---|---|
-| No code arrives | Check Mailpit (http://127.0.0.1:8025) in development, or `GET /ops/jobs/runs?kind=apistock.mail.send` for delivery errors ([email guide](email.md)) |
+| No code arrives | Check Mailpit (http://127.0.0.1:8025) in development, or `GET /ops/jobs/runs?kind=gorbital.mail.send` for delivery errors ([email guide](email.md)) |
 | `email_not_verified` | Verify with the emailed code, or `POST /v1/auth/verify-email/resend` |
 | `forbidden` on `/ops/*` | `go run ./cmd/api grant-role <email> platform_admin` |
 | `mfa_required` on `/ops/*` | Turn on two-factor authentication (`POST /v1/auth/mfa/totp`, then `/confirm`), or sign in again with a code |
 | `invalid_mfa` with a correct-looking code | The code was already used, or the phone's clock is off by more than 30 seconds: wait for the next code |
-| `mfa_unavailable` | Set `AUTH_ENCRYPTION_KEYS` (`aps dev` does it in development) |
+| `mfa_unavailable` | Set `AUTH_ENCRYPTION_KEYS` (`orb dev` does it in development) |
 | Lost authenticator app and recovery codes | `go run ./cmd/api reset-mfa <email>` |
 | Browser isn't kept signed in | Serve over HTTPS (or localhost), and call the API from the same site or an origin in `APP_CORS_ORIGINS` |
 | `too_many_attempts` in tests | Limits are per address and per IP; use different addresses per test |

@@ -32,7 +32,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"apistock.dev/ratelimit"
+	"gorbital.dev/ratelimit"
 )
 
 const (
@@ -41,7 +41,7 @@ const (
 	// warnInterval is the least time between two fallback warnings of one
 	// limiter.
 	warnInterval = time.Minute
-	scope        = "apistock.dev/modules/ratelimitpg"
+	scope        = "gorbital.dev/modules/ratelimitpg"
 )
 
 // Store holds the shared buckets of every limiter. It is safe for concurrent

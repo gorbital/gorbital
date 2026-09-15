@@ -3,9 +3,9 @@ module example.com/acme-api
 go 1.26.0
 
 require (
-	apistock.dev v0.0.0
-	apistock.dev/modules/openapi v0.0.0
-	apistock.dev/modules/telemetry v0.0.0
+	gorbital.dev v0.0.0
+	gorbital.dev/modules/openapi v0.0.0
+	gorbital.dev/modules/telemetry v0.0.0
 	github.com/danielgtaylor/huma/v2 v2.39.1
 )
 
@@ -38,7 +38,7 @@ require (
 )
 
 replace (
-	apistock.dev => ../..
-	apistock.dev/modules/openapi => ../../modules/openapi
-	apistock.dev/modules/telemetry => ../../modules/telemetry
+	gorbital.dev => ../..
+	gorbital.dev/modules/openapi => ../../modules/openapi
+	gorbital.dev/modules/telemetry => ../../modules/telemetry
 )

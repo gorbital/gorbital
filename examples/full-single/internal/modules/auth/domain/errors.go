@@ -7,7 +7,7 @@ import (
 )
 
 // Errors returned by the auth use cases. Errors about email addresses,
-// passwords and sessions come from the apistock auth module
+// passwords and sessions come from the gorbital auth module
 // (auth.ErrInvalidEmail, auth.ErrWeakPassword, auth.ErrUnauthenticated).
 var (
 	// ErrInvalidCredentials reports a wrong email or password, without

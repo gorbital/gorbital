@@ -7,8 +7,8 @@
 //		// ...
 //	}
 //
-// The server URL comes from APISTOCK_TEST_DATABASE_URL. When it is unset,
-// tests are skipped with instructions; set APISTOCK_REQUIRE_DB=1 (as CI does)
+// The server URL comes from GORBITAL_TEST_DATABASE_URL. When it is unset,
+// tests are skipped with instructions; set GORBITAL_REQUIRE_DB=1 (as CI does)
 // to fail them instead.
 //
 // Migrations are applied once per distinct set of files into a template
@@ -35,13 +35,13 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/modules/postgres"
 )
 
 // Environment variables read by this package.
 const (
-	EnvURL     = "APISTOCK_TEST_DATABASE_URL"
-	EnvRequire = "APISTOCK_REQUIRE_DB"
+	EnvURL     = "GORBITAL_TEST_DATABASE_URL"
+	EnvRequire = "GORBITAL_REQUIRE_DB"
 )
 
 const setupHint = "PostgreSQL for tests is not configured: run `docker compose up -d --wait` and set " +

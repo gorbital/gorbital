@@ -4,7 +4,7 @@ package usecase
 import (
 	"context"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 
 	pingdomain "example.com/acme-api/internal/modules/ping/domain"
 )

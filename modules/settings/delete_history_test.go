@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/modules/postgres/pgtest"
-	"apistock.dev/modules/settings"
+	"gorbital.dev/modules/postgres/pgtest"
+	"gorbital.dev/modules/settings"
 )
 
 func TestDeleteHistoryBeforeAndOldest(t *testing.T) {

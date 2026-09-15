@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/health"
+	"gorbital.dev/health"
 )
 
 // HealthCheck returns a readiness check that pings the database.

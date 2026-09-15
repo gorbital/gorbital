@@ -1,9 +1,9 @@
-module apistock.dev/modules/postgres
+module gorbital.dev/modules/postgres
 
 go 1.26.0
 
 require (
-	apistock.dev v0.0.0
+	gorbital.dev v0.0.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/pressly/goose/v3 v3.28.0
 	go.opentelemetry.io/otel v1.46.0
@@ -30,4 +30,4 @@ require (
 )
 
 // Local development: consumers' own replace directives are unaffected.
-replace apistock.dev => ../..
+replace gorbital.dev => ../..

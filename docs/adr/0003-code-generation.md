@@ -6,7 +6,7 @@
 
 **Options:** (a) One-shot templates; (b) always-regenerated code with "protected regions"; (c) three code classes (library / derived / scaffold) + typed operations + lock-file baseline + 3-way merge.
 
-**Decision:** (c). Templates create files, AST edits at visible anchors modify owned files, `apistock.lock` records baselines.
+**Decision:** (c). Templates create files, AST edits at visible anchors modify owned files, `gorbital.lock` records baselines.
 
 **Why:** (a) has no upgrades. (b) protected regions break under refactoring and feel like fighting the tool. (c) matches git mental models and is proven by Copier/cruft.
 

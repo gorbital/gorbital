@@ -21,8 +21,8 @@ import (
 	"sort"
 	"strings"
 
-	"apistock.dev/config"
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/config"
+	"gorbital.dev/modules/postgres"
 	"github.com/jackc/pgx/v5"
 
 	"MODULE/db/migrations"
@@ -92,15 +92,15 @@ func run(ctx context.Context, cmd, url string, args []string) error {
 `
 
 // TestAddOrgsConvertsADatabase proves the conversion on real data: a
-// single-tenant app's database with accounts and projects, after aps add
+// single-tenant app's database with accounts and projects, after orb add
 // orgs and its migrations, has the schema of a new multi-tenant app (column
 // order aside), every project in its owner's personal workspace, IDs the
-// app accepts, and the converted app passes its own test suite. Set APS_E2E=1
-// and APISTOCK_TEST_DATABASE_URL to run it.
+// app accepts, and the converted app passes its own test suite. Set ORB_E2E=1
+// and GORBITAL_TEST_DATABASE_URL to run it.
 func TestAddOrgsConvertsADatabase(t *testing.T) {
-	adminURL := os.Getenv("APISTOCK_TEST_DATABASE_URL")
-	if os.Getenv("APS_E2E") == "" || adminURL == "" {
-		t.Skip("set APS_E2E=1 and APISTOCK_TEST_DATABASE_URL to run the end-to-end test")
+	adminURL := os.Getenv("GORBITAL_TEST_DATABASE_URL")
+	if os.Getenv("ORB_E2E") == "" || adminURL == "" {
+		t.Skip("set ORB_E2E=1 and GORBITAL_TEST_DATABASE_URL to run the end-to-end test")
 	}
 	repo, err := filepath.Abs(repoRoot(t))
 	if err != nil {
@@ -112,8 +112,8 @@ func TestAddOrgsConvertsADatabase(t *testing.T) {
 	newApp := func(name string, args ...string) string {
 		t.Helper()
 		t.Chdir(work)
-		if code, _, errOut := runAps(t, append([]string{"new", name, "--local", repo, "--no-git", "--json", "--preset", "full"}, args...)...); code != 0 {
-			t.Fatalf("aps new %s = %d: %s", name, code, errOut)
+		if code, _, errOut := runOrb(t, append([]string{"new", name, "--local", repo, "--no-git", "--json", "--preset", "full"}, args...)...); code != 0 {
+			t.Fatalf("orb new %s = %d: %s", name, code, errOut)
 		}
 		dir := filepath.Join(work, name)
 		writeFile(t, filepath.Join(dir, "internal", "schematool", "main.go"), strings.Replace(schemaTool, "MODULE", name, 1))
@@ -140,15 +140,15 @@ func TestAddOrgsConvertsADatabase(t *testing.T) {
 
 	// A new multi-tenant app's schema is the target.
 	multi := newApp("multi-api", "--tenancy", "multi")
-	tool(multi, "createdb", adminURL, "aps_e2e_multi")
-	tool(multi, "migrate", dbURL("aps_e2e_multi"))
-	want := tool(multi, "schema", dbURL("aps_e2e_multi"))
+	tool(multi, "createdb", adminURL, "orb_e2e_multi")
+	tool(multi, "migrate", dbURL("orb_e2e_multi"))
+	want := tool(multi, "schema", dbURL("orb_e2e_multi"))
 
 	// A single-tenant app with data: two accounts with projects, one of them
 	// deleted, and one without.
 	single := newApp("shop-api")
-	singleDB := dbURL("aps_e2e_single")
-	tool(single, "createdb", adminURL, "aps_e2e_single")
+	singleDB := dbURL("orb_e2e_single")
+	tool(single, "createdb", adminURL, "orb_e2e_single")
 	tool(single, "migrate", singleDB)
 	tool(single, "exec", singleDB, `
 		INSERT INTO auth_users (id, email, email_normalized, created_at, updated_at, deleted_at) VALUES
@@ -162,11 +162,11 @@ func TestAddOrgsConvertsADatabase(t *testing.T) {
 
 	t.Chdir(single)
 	commitAll(t, "Create app")
-	if code, out, errOut := runAps(t, "add", "orgs"); code != 0 {
-		t.Fatalf("aps add orgs = %d\n%s\n%s", code, out, errOut)
+	if code, out, errOut := runOrb(t, "add", "orgs"); code != 0 {
+		t.Fatalf("orb add orgs = %d\n%s\n%s", code, out, errOut)
 	}
 	if git(t, "log", "-1", "--format=%s") != "Add organisations" {
-		t.Error("aps add orgs didn't commit")
+		t.Error("orb add orgs didn't commit")
 	}
 
 	tool(single, "migrate", singleDB)
@@ -189,7 +189,7 @@ func TestAddOrgsConvertsADatabase(t *testing.T) {
 	// The converted app's own tests pass, with the database.
 	test := exec.Command("go", "test", "./...")
 	test.Dir = single
-	test.Env = append(os.Environ(), "APISTOCK_REQUIRE_DB=1")
+	test.Env = append(os.Environ(), "GORBITAL_REQUIRE_DB=1")
 	if out, err := test.CombinedOutput(); err != nil {
 		t.Errorf("converted app's tests: %v\n%s", err, out)
 	}

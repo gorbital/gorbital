@@ -10,10 +10,10 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/httpx"
-	"apistock.dev/modules/openapi"
-	orgslib "apistock.dev/modules/orgs"
-	"apistock.dev/page"
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/openapi"
+	orgslib "gorbital.dev/modules/orgs"
+	"gorbital.dev/page"
 
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
 	projectsusecase "example.com/acme-api/internal/modules/projects/usecase"

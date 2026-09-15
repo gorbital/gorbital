@@ -1,5 +1,5 @@
-// The aps command is a first-run spike prototype: `aps new <name>` renders
-// the Minimal template, and `aps dev` builds and runs the generated app.
+// The orb command is a first-run spike prototype: `orb new <name>` renders
+// the Minimal template, and `orb dev` builds and runs the generated app.
 // Throwaway code: the real CLI is designed in ADR-0021.
 package main
 
@@ -29,14 +29,14 @@ var namePattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,62}$`)
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "aps:", err)
+		fmt.Fprintln(os.Stderr, "orb:", err)
 		os.Exit(1)
 	}
 }
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: aps new <name> [-module path] | aps dev")
+		return errors.New("usage: orb new <name> [-module path] | orb dev")
 	}
 	switch args[0] {
 	case "new":
@@ -55,7 +55,7 @@ type data struct {
 
 func newApp(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: aps new <name> [-module path]")
+		return errors.New("usage: orb new <name> [-module path]")
 	}
 	name := args[0]
 	flags := flag.NewFlagSet("new", flag.ContinueOnError)
@@ -123,12 +123,12 @@ func newApp(args []string) error {
 	if err := tidy.Run(); err != nil {
 		return fmt.Errorf("go mod tidy: %w", err)
 	}
-	fmt.Printf("✓ created %s\n  next: cd %s && aps dev\n", name, name)
+	fmt.Printf("✓ created %s\n  next: cd %s && orb dev\n", name, name)
 	return nil
 }
 
 func dev() error {
-	bin := filepath.Join(".aps", "api")
+	bin := filepath.Join(".orb", "api")
 	build := exec.Command("go", "build", "-o", bin, "./cmd/api")
 	build.Stdout, build.Stderr = os.Stdout, os.Stderr
 	if err := build.Run(); err != nil {

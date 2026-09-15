@@ -7,7 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	projectdomain "apistock.dev/spikes/openapi/internal/modules/projects/domain"
+	projectdomain "gorbital.dev/spikes/openapi/internal/modules/projects/domain"
 )
 
 // Problem is the RFC 9457 problem+json body with a stable machine code.

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"slices"
 
-	"apistock.dev/actor"
-	orgslib "apistock.dev/modules/orgs"
+	"gorbital.dev/actor"
+	orgslib "gorbital.dev/modules/orgs"
 
 	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
 )

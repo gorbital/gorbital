@@ -6,7 +6,7 @@ import (
 	"html"
 	"time"
 
-	"apistock.dev/mail"
+	"gorbital.dev/mail"
 )
 
 // Emails sends the emails authentication needs. Apps use [NewMailEmails] or

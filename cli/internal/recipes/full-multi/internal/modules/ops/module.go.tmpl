@@ -1,6 +1,6 @@
 // Package ops is the operations module: admin APIs for runtime settings,
 // background jobs, the audit log, releases, email and system health, composed
-// from the apistock settings, jobs, auditpg, releases and mail modules
+// from the gorbital settings, jobs, auditpg, releases and mail modules
 // (ADR-0026, ADR-0031, ADR-0033, ADR-0036, ADR-0037, ADR-0040, ADR-0051).
 package ops
 

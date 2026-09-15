@@ -13,12 +13,12 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	lifecycle "apistock.dev/app"
-	"apistock.dev/buildinfo"
-	"apistock.dev/health"
-	"apistock.dev/httpx"
-	"apistock.dev/modules/openapi"
-	"apistock.dev/modules/telemetry"
+	lifecycle "gorbital.dev/app"
+	"gorbital.dev/buildinfo"
+	"gorbital.dev/health"
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/openapi"
+	"gorbital.dev/modules/telemetry"
 )
 
 // ServiceName identifies the service in logs, traces and docs.

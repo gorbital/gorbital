@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"apistock.dev/modules/jobs"
+	"gorbital.dev/modules/jobs"
 
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
 )

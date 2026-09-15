@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 
 	pingdomain "example.com/acme-api/internal/modules/ping/domain"
 	pingusecase "example.com/acme-api/internal/modules/ping/usecase"

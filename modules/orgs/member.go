@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"apistock.dev/actor"
-	"apistock.dev/modules/auth"
+	"gorbital.dev/actor"
+	"gorbital.dev/modules/auth"
 )
 
 // Member is a user's membership in an organisation.

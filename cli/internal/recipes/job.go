@@ -14,9 +14,9 @@ import (
 //go:embed job/*.tmpl
 var jobFS embed.FS
 
-// JobAnchor is the anchor in internal/app/jobs.go that aps gen job adds a
+// JobAnchor is the anchor in internal/app/jobs.go that orb gen job adds a
 // line after.
-const JobAnchor = "//aps:anchor jobs"
+const JobAnchor = "//orb:anchor jobs"
 
 // JobData fills the job templates (ADR-0035).
 type JobData struct {

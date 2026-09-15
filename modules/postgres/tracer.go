@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const instrumentationName = "apistock.dev/modules/postgres"
+const instrumentationName = "gorbital.dev/modules/postgres"
 
 // tracer turns each query into a client span following the OpenTelemetry
 // database semantic conventions. Query arguments are never recorded.

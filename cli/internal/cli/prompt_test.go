@@ -118,7 +118,7 @@ func TestPromptJobSkipsQuestionsAnsweredByFlags(t *testing.T) {
 
 func TestPromptNewAsksForMissingValues(t *testing.T) {
 	checkout := t.TempDir()
-	if err := os.WriteFile(filepath.Join(checkout, "go.mod"), []byte("module apistock.dev\n\ngo 1.26.0\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(checkout, "go.mod"), []byte("module gorbital.dev\n\ngo 1.26.0\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	stdin := answers(
@@ -126,7 +126,7 @@ func TestPromptNewAsksForMissingValues(t *testing.T) {
 		"github.com/acme/shop-api", // module path
 		"2",                        // preset: full
 		"2",                        // tenancy: multi
-		checkout,                   // apistock checkout
+		checkout,                   // gorbital checkout
 		"n",                        // git init: no
 	)
 

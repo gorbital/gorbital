@@ -10,10 +10,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	authlib "apistock.dev/modules/auth"
-	"apistock.dev/modules/postgres/pgtest"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/postgres/pgtest"
 
 	"example.com/acme-api/db/migrations"
 	authrepository "example.com/acme-api/internal/modules/auth/repository"

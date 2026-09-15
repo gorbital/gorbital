@@ -5,7 +5,7 @@ package ping
 import (
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 
 	pingdelivery "example.com/acme-api/internal/modules/ping/delivery"
 	pingusecase "example.com/acme-api/internal/modules/ping/usecase"

@@ -14,7 +14,7 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-const genMigrationUsage = `Usage: aps gen migration <name> [flags]
+const genMigrationUsage = `Usage: orb gen migration <name> [flags]
 
 Creates an empty SQL migration in db/migrations that runs after every existing
 one. Write the change under "-- +goose Up", then run go run ./cmd/migrate.
@@ -23,8 +23,8 @@ new migration instead of editing it. Run it inside an app created with the
 Full preset.
 
 The name says what the migration changes, for example:
-  aps gen migration add_customer_phone
-  aps gen migration AddCustomerPhone      (same file name)
+  orb gen migration add_customer_phone
+  orb gen migration AddCustomerPhone      (same file name)
 `
 
 type genMigrationResult struct {
@@ -35,7 +35,7 @@ type genMigrationResult struct {
 }
 
 func runGenMigration(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	flags := flag.NewFlagSet("aps gen migration", flag.ContinueOnError)
+	flags := flag.NewFlagSet("orb gen migration", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	dryRun := flags.Bool("dry-run", false, "show what would be generated without writing")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
@@ -54,7 +54,7 @@ func runGenMigration(ctx context.Context, args []string, stdin io.Reader, stdout
 		return err
 	}
 	if len(positional) > 1 {
-		return usageError(fmt.Sprintf("aps gen migration takes one name, got %d: join the words with underscores, such as add_customer_phone", len(positional)))
+		return usageError(fmt.Sprintf("orb gen migration takes one name, got %d: join the words with underscores, such as add_customer_phone", len(positional)))
 	}
 	var name string
 	if len(positional) == 1 {
@@ -75,7 +75,7 @@ func runGenMigration(ctx context.Context, args []string, stdin io.Reader, stdout
 		}
 	}
 	if name == "" {
-		return usageError("missing migration name: aps gen migration <name> (or run it in a terminal to be asked)")
+		return usageError("missing migration name: orb gen migration <name> (or run it in a terminal to be asked)")
 	}
 	words, err := migrationName(name)
 	if err != nil {

@@ -32,8 +32,8 @@ import (
 	"strings"
 	"time"
 
-	"apistock.dev/config"
-	"apistock.dev/mail"
+	"gorbital.dev/config"
+	"gorbital.dev/mail"
 )
 
 // Defaults.
@@ -164,7 +164,7 @@ func (s *Sender) Send(ctx context.Context, m mail.Message) error {
 	req.Header.Set("Authorization", "Bearer "+s.apiKey.Reveal())
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "apistock-mail-resend")
+	req.Header.Set("User-Agent", "gorbital-mail-resend")
 	if key := idempotencyKey(m.IdempotencyKey); key != "" {
 		req.Header.Set("Idempotency-Key", key)
 	}

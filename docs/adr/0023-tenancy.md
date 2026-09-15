@@ -1,6 +1,6 @@
 # ADR-0023: Tenancy
 
-**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0013 · **Amended by:** ADR-0033, ADR-0048 (org roles in `org_members`, 404 for non-members, invitation and personal workspace rules, `aps add orgs` moved to v0.5)
+**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0013 · **Amended by:** ADR-0033, ADR-0048 (org roles in `org_members`, 404 for non-members, invitation and personal workspace rules, `orb add orgs` moved to v0.5)
 
 ## Context
 
@@ -25,7 +25,7 @@ Option 3.
 ```
 
 - Default (`--yes`): single-tenant. Flag: `--tenancy=single|multi`.
-- Stored in `apistock.yaml` (`tenancy`, `personal_workspace`); every later command reads it.
+- Stored in `gorbital.yaml` (`tenancy`, `personal_workspace`); every later command reads it.
 
 ### Single-tenant
 
@@ -60,15 +60,15 @@ Row-level security is an optional additional layer in v1.1. `org_id` is carried 
 ### Generator
 
 - Multi-tenant = base recipes + the `orgs` recipe; resource templates `resource/single` and `resource/org`.
-- `aps gen resource <Name> --scope=org|user|global`.
-- apistock's own library tables (audit, sessions, settings) always include a nullable `org_id`. River's job tables don't; a job's org ID is in its metadata (ADR-0033).
+- `orb gen resource <Name> --scope=org|user|global`.
+- gorbital's own library tables (audit, sessions, settings) always include a nullable `org_id`. River's job tables don't; a job's org ID is in its metadata (ADR-0033).
 - Golden apps `examples/full-single` and `examples/full-multi`, both tested.
 
 ### Changing modes
 
 | Change | Support |
 |---|---|
-| Single → multi | `aps add orgs`: adds the module, switches mode, new resources org-scoped; generates a data-migration skeleton and checklist for existing resources |
+| Single → multi | `orb add orgs`: adds the module, switches mode, new resources org-scoped; generates a data-migration skeleton and checklist for existing resources |
 | Multi → single | Not supported |
 
 ### Not supported

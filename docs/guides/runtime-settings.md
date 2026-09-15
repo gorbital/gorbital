@@ -1,6 +1,6 @@
 # Runtime settings guide
 
-`apistock.dev/modules/settings` stores non-secret tunables in PostgreSQL so operators change them without a redeploy. Decision: [ADR-0031](../adr/0031-runtime-settings.md). Admin endpoints: [ops API reference](ops-api.md#runtime-settings).
+`gorbital.dev/modules/settings` stores non-secret tunables in PostgreSQL so operators change them without a redeploy. Decision: [ADR-0031](../adr/0031-runtime-settings.md). Admin endpoints: [ops API reference](ops-api.md#runtime-settings).
 
 ## Environment or runtime setting?
 

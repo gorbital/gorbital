@@ -10,7 +10,7 @@ CREATE TABLE auth_passkeys (
     id              text        PRIMARY KEY,
     user_id         text        NOT NULL REFERENCES auth_users (id) ON DELETE CASCADE,
     credential_id   bytea       NOT NULL UNIQUE,
-    -- The verified credential record from apistock.dev/modules/auth/passkey:
+    -- The verified credential record from gorbital.dev/modules/auth/passkey:
     -- public key, flags, signature counter. Passed back to it unchanged.
     credential      jsonb       NOT NULL,
     name            text        NOT NULL CHECK (char_length(name) BETWEEN 1 AND 100),

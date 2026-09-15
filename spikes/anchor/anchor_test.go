@@ -22,7 +22,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		return nil, err
 	}
 
-	//aps:anchor modules
+	//orb:anchor modules
 
 	mux := http.NewServeMux()
 	return &App{tel: tel, mux: mux}, nil
@@ -36,7 +36,7 @@ const routesGo = `package app
 
 func routes(mux *http.ServeMux, m Modules) {
 	mux.Handle("GET /livez", livez())
-	//aps:anchor routes
+	//orb:anchor routes
 }
 `
 
@@ -44,7 +44,7 @@ const emptyBlockGo = `package app
 
 func debug(cfg Config) {
 	if cfg.Debug {
-		//aps:anchor debug
+		//orb:anchor debug
 	}
 }
 `
@@ -55,7 +55,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 	// custom: warm the cache before modules start
 	warmCache(ctx)
 
-	//aps:anchor modules
+	//orb:anchor modules
 	db := setupPostgres(ctx, cfg) // user note: tuned pool
 
 	mux := http.NewServeMux() // keep default mux
@@ -64,7 +64,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 }
 `
 
-const stringOnlyGo = "package app\n\nvar tmpl = `\n//aps:anchor modules\n`\n\nfunc New() {\n}\n"
+const stringOnlyGo = "package app\n\nvar tmpl = `\n//orb:anchor modules\n`\n\nfunc New() {\n}\n"
 
 type impl struct {
 	name string
@@ -87,36 +87,36 @@ func TestInsert(t *testing.T) {
 		{
 			name: "empty anchor block", src: appGo, anchor: "modules",
 			stmts:   []string{"db := setupPostgres(ctx, cfg)"},
-			inOrder: []string{"//aps:anchor modules\n\tdb := setupPostgres(ctx, cfg)\n\n\tmux := http.NewServeMux()"},
+			inOrder: []string{"//orb:anchor modules\n\tdb := setupPostgres(ctx, cfg)\n\n\tmux := http.NewServeMux()"},
 			oneLine: true,
 		},
 		{
 			name: "second module keeps order", src: appGo, anchor: "modules",
 			stmts:   []string{"db := setupPostgres(ctx, cfg)", "users := setupUsers(db)"},
-			inOrder: []string{"//aps:anchor modules\n\tdb := setupPostgres(ctx, cfg)\n\tusers := setupUsers(db)\n\n\tmux"},
+			inOrder: []string{"//orb:anchor modules\n\tdb := setupPostgres(ctx, cfg)\n\tusers := setupUsers(db)\n\n\tmux"},
 			oneLine: true,
 		},
 		{
 			name: "anchor at end of block", src: routesGo, anchor: "routes",
 			stmts:   []string{"m.Auth.Routes(mux)"},
-			inOrder: []string{"//aps:anchor routes\n\tm.Auth.Routes(mux)\n}"},
+			inOrder: []string{"//orb:anchor routes\n\tm.Auth.Routes(mux)\n}"},
 			oneLine: true,
 		},
 		{
 			name: "anchor alone in nested block", src: emptyBlockGo, anchor: "debug",
 			stmts:   []string{"enablePprof(cfg)"},
-			inOrder: []string{"//aps:anchor debug\n\t\tenablePprof(cfg)\n\t}"},
+			inOrder: []string{"//orb:anchor debug\n\t\tenablePprof(cfg)\n\t}"},
 			oneLine: true,
 		},
 		{
 			name: "user edits and comments preserved", src: userEditedGo, anchor: "modules",
 			stmts:   []string{"users := setupUsers(db)"},
-			inOrder: []string{"// custom: warm the cache", "//aps:anchor modules\n\tdb := setupPostgres(ctx, cfg) // user note: tuned pool\n\tusers := setupUsers(db)\n\n\tmux := http.NewServeMux() // keep default mux"},
+			inOrder: []string{"// custom: warm the cache", "//orb:anchor modules\n\tdb := setupPostgres(ctx, cfg) // user note: tuned pool\n\tusers := setupUsers(db)\n\n\tmux := http.NewServeMux() // keep default mux"},
 			exact:   []string{"// custom: warm the cache before modules start", "// user note: tuned pool", "// keep default mux", `mux.Handle("GET /custom", custom())`},
 			oneLine: true,
 		},
 		{name: "missing anchor", src: appGo, anchor: "nope", stmts: []string{"x := 1"}, wantErr: ErrAnchorMissing},
-		{name: "duplicate anchor", src: appGo + "\nfunc other() {\n\t//aps:anchor modules\n}\n", anchor: "modules", stmts: []string{"x := 1"}, wantErr: ErrAnchorDuplicate},
+		{name: "duplicate anchor", src: appGo + "\nfunc other() {\n\t//orb:anchor modules\n}\n", anchor: "modules", stmts: []string{"x := 1"}, wantErr: ErrAnchorDuplicate},
 		{name: "anchor text only inside string", src: stringOnlyGo, anchor: "modules", stmts: []string{"x := 1"}, wantErr: ErrAnchorMissing},
 		{name: "invalid statement", src: appGo, anchor: "modules", stmts: []string{"db := ("}, wantErr: ErrInvalidStatement},
 		{

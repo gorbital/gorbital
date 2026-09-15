@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"apistock.dev/actor"
-	"apistock.dev/httpx"
-	"apistock.dev/modules/settings"
+	"gorbital.dev/actor"
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/settings"
 )
 
 // maintenanceOpen are the routes maintenance mode keeps serving: health

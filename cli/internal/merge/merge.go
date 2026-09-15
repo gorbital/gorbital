@@ -1,6 +1,6 @@
-// Package merge plans how aps upgrade and aps add carry template changes
+// Package merge plans how orb upgrade and orb add carry template changes
 // into an app the developer has edited: a 3-way merge per file between what
-// aps wrote before (base), what it writes now (theirs) and the file on disk
+// orb wrote before (base), what it writes now (theirs) and the file on disk
 // (ours). Developer edits are never dropped: overlapping changes become
 // conflict markers (ADR-0016, ADR-0050).
 package merge
@@ -62,18 +62,18 @@ func (c Change) Writes() bool {
 
 // Input is what Plan merges.
 type Input struct {
-	// Base is what aps wrote at the old release, by path.
+	// Base is what orb wrote at the old release, by path.
 	Base map[string][]byte
-	// Theirs is what aps writes at the new release, by path.
+	// Theirs is what orb writes at the new release, by path.
 	Theirs map[string][]byte
 	// Unproven lists base files whose rebuilt content didn't match the hash
-	// aps recorded, so they can't be trusted to tell edits from templates.
+	// orb recorded, so they can't be trusted to tell edits from templates.
 	Unproven map[string]bool
 	// Ours reads the file at path from the app; ok is false when it doesn't
 	// exist.
 	Ours func(path string) (content []byte, ok bool, err error)
 	// Label names the new release in conflict markers, such as
-	// "apistock v0.5.0".
+	// "gorbital v0.5.0".
 	Label string
 }
 
@@ -110,13 +110,13 @@ func planFile(ctx context.Context, in Input, p string) (Change, error) {
 	proven := hasBase && !in.Unproven[p]
 	c := Change{Path: p, Action: Unchanged}
 	if hasBase && !proven {
-		c.Note = "couldn't prove what aps wrote before, so both versions are compared"
+		c.Note = "couldn't prove what orb wrote before, so both versions are compared"
 	}
 
 	if isMigration(p) {
 		switch {
 		case hasBase && hasTheirs && proven && !bytes.Equal(base, theirs):
-			return Change{}, errors.New("the new release changes a released migration; released migrations must never change (report this as an apistock bug)")
+			return Change{}, errors.New("the new release changes a released migration; released migrations must never change (report this as an gorbital bug)")
 		case hasTheirs && !hasBase && !hasOurs:
 			c.Action, c.Content = Create, theirs
 		case hasTheirs && hasOurs && !bytes.Equal(ours, theirs) && !hasBase:
@@ -132,7 +132,7 @@ func planFile(ctx context.Context, in Input, p string) (Change, error) {
 		case proven && bytes.Equal(ours, base):
 			c.Action = Delete
 		default:
-			c.Action, c.Note = Kept, "the new release removes this file; kept because it differs from what aps wrote"
+			c.Action, c.Note = Kept, "the new release removes this file; kept because it differs from what orb wrote"
 		}
 
 	case !hasOurs: // deleted by the developer, or new
@@ -175,7 +175,7 @@ func isMigration(p string) bool {
 // mergeFile runs git merge-file on ours, base and theirs and returns the
 // result and the number of conflicts.
 func mergeFile(ctx context.Context, ours, base, theirs []byte, label string) ([]byte, int, error) {
-	dir, err := os.MkdirTemp("", "aps-merge-")
+	dir, err := os.MkdirTemp("", "orb-merge-")
 	if err != nil {
 		return nil, 0, err
 	}

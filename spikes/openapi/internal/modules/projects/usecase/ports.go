@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 
-	projectdomain "apistock.dev/spikes/openapi/internal/modules/projects/domain"
+	projectdomain "gorbital.dev/spikes/openapi/internal/modules/projects/domain"
 )
 
 // ProjectRepository is the storage port the use cases need. Implementations

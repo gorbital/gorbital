@@ -7,9 +7,9 @@ import (
 	"errors"
 	"time"
 
-	"apistock.dev/audit"
-	authlib "apistock.dev/modules/auth"
-	"apistock.dev/modules/auth/passkey"
+	"gorbital.dev/audit"
+	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/auth/passkey"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 )

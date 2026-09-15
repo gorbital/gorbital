@@ -35,7 +35,7 @@ AccessLog writes one line; the span ends
 
 ## 1. The server
 
-`cmd/api/main.go` loads configuration (`app.LoadConfig`), builds the app (`app.New`) and calls `Run`. `Run` starts `httpx.NewServer(cfg.Addr, handler)`, next to the background workers (settings listener, job client, job definitions manager, release tracker), under `apistock.dev/app`'s lifecycle: on SIGINT or SIGTERM, `/readyz` starts failing, the server waits the drain delay (5 s in production, 0 in development) so load balancers stop sending traffic, then gives the server and workers up to 25 s to finish, then the cleanup stack closes what `New` registered (the database pool, then telemetry) in reverse order of creation.
+`cmd/api/main.go` loads configuration (`app.LoadConfig`), builds the app (`app.New`) and calls `Run`. `Run` starts `httpx.NewServer(cfg.Addr, handler)`, next to the background workers (settings listener, job client, job definitions manager, release tracker), under `gorbital.dev/app`'s lifecycle: on SIGINT or SIGTERM, `/readyz` starts failing, the server waits the drain delay (5 s in production, 0 in development) so load balancers stop sending traffic, then gives the server and workers up to 25 s to finish, then the cleanup stack closes what `New` registered (the database pool, then telemetry) in reverse order of creation.
 
 ## 2. Middleware
 

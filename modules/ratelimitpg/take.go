@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"time"
 
-	"apistock.dev/ratelimit"
+	"gorbital.dev/ratelimit"
 )
 
 // takeSQL decides a request with GCRA in one statement. With T the emission

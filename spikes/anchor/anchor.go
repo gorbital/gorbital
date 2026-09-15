@@ -1,5 +1,5 @@
-// Package anchor is a Phase 0 spike comparing two ways for `aps add` to
-// insert one statement at a `//aps:anchor <name>` comment in an owned Go
+// Package anchor is a Phase 0 spike comparing two ways for `orb add` to
+// insert one statement at a `//orb:anchor <name>` comment in an owned Go
 // file: parser-located text insertion (InsertText) and syntax-tree editing
 // with dave/dst (InsertDST). See README.md for results.
 //
@@ -18,7 +18,7 @@ import (
 )
 
 // AnchorPrefix starts every anchor comment.
-const AnchorPrefix = "//aps:anchor "
+const AnchorPrefix = "//orb:anchor "
 
 // Errors returned by both implementations.
 var (

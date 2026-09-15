@@ -6,8 +6,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/httpx"
-	authlib "apistock.dev/modules/auth"
+	"gorbital.dev/httpx"
+	authlib "gorbital.dev/modules/auth"
 
 	authmodule "example.com/acme-api/internal/modules/auth"
 	authdomain "example.com/acme-api/internal/modules/auth/domain"

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/modules/auditpg"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/auditpg"
 )
 
 func TestStats(t *testing.T) {

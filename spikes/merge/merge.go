@@ -43,7 +43,7 @@ func Upgrade(base, ours, theirs []byte) (Result, error) {
 		return Result{Content: ours, Outcome: KeepOurs}, nil
 	}
 
-	dir, err := os.MkdirTemp("", "aps-merge-")
+	dir, err := os.MkdirTemp("", "orb-merge-")
 	if err != nil {
 		return Result{}, err
 	}
@@ -57,7 +57,7 @@ func Upgrade(base, ours, theirs []byte) (Result, error) {
 	}
 
 	cmd := exec.Command("git", "merge-file", "-p",
-		"-L", "yours", "-L", "generated", "-L", "apistock upgrade",
+		"-L", "yours", "-L", "generated", "-L", "gorbital upgrade",
 		filepath.Join(dir, "ours"), filepath.Join(dir, "base"), filepath.Join(dir, "theirs"))
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
@@ -78,9 +78,9 @@ func Upgrade(base, ours, theirs []byte) (Result, error) {
 
 // InsertAfterAnchor mimics the generator's InsertAtAnchor operation at text
 // level (the AST version is a separate spike). It inserts line directly after
-// the "//aps:anchor <name>" comment, using the anchor's indentation.
+// the "//orb:anchor <name>" comment, using the anchor's indentation.
 func InsertAfterAnchor(src []byte, anchor, line string) ([]byte, error) {
-	marker := "//aps:anchor " + anchor
+	marker := "//orb:anchor " + anchor
 	lines := strings.Split(string(src), "\n")
 	for i, l := range lines {
 		if strings.TrimSpace(l) != marker {

@@ -13,9 +13,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/modules/postgres/pgtest"
-	"apistock.dev/modules/ratelimitpg"
-	"apistock.dev/ratelimit"
+	"gorbital.dev/modules/postgres/pgtest"
+	"gorbital.dev/modules/ratelimitpg"
+	"gorbital.dev/ratelimit"
 )
 
 func static(l ratelimit.Limit) func(context.Context) ratelimit.Limit {

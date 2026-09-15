@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"apistock.dev/httpx"
+	"gorbital.dev/httpx"
 )
 
 func TestParseTrustedProxies(t *testing.T) {

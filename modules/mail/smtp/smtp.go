@@ -24,8 +24,8 @@ import (
 	"strings"
 	"time"
 
-	"apistock.dev/config"
-	"apistock.dev/mail"
+	"gorbital.dev/config"
+	"gorbital.dev/mail"
 )
 
 // DefaultTimeout bounds one delivery: connecting, authenticating and sending.

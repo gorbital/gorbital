@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/spikes/openapi/internal/app"
+	"gorbital.dev/spikes/openapi/internal/app"
 )
 
 // TestPrintSamples logs real responses for the spike write-up.

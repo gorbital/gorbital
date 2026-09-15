@@ -55,7 +55,7 @@ func ensureEncryptionKey(envPath, examplePath string) (bool, error) {
 		if n := len(lines); n > 0 && lines[n-1] == "" {
 			lines = lines[:n-1]
 		}
-		lines = append(lines, "", "# Encrypts two-factor authentication secrets; written by aps dev.", line, "")
+		lines = append(lines, "", "# Encrypts two-factor authentication secrets; written by orb dev.", line, "")
 	}
 	if err := os.WriteFile(envPath, []byte(strings.Join(lines, "\n")), 0o600); err != nil { //nolint:gosec // envPath is the app's .env
 		return false, err

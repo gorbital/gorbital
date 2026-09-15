@@ -7,10 +7,10 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/modules/auditpg"
-	"apistock.dev/modules/openapi"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/auditpg"
+	"gorbital.dev/modules/openapi"
 
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 )

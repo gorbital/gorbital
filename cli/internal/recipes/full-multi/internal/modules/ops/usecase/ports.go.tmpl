@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 
-	"apistock.dev/audit"
-	"apistock.dev/modules/auditpg"
-	"apistock.dev/modules/jobs"
-	"apistock.dev/modules/releases"
-	"apistock.dev/modules/settings"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/auditpg"
+	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/releases"
+	"gorbital.dev/modules/settings"
 )
 
 // SettingsStore is the runtime settings store. *settings.Store implements it.

@@ -3,19 +3,19 @@
 In a multi-tenant app, data belongs to organisations. People join them as members with one role each, invite others by email, and reach an organisation's rows only while they are members. Decision: [ADR-0048](../adr/0048-organisations-v0-4.md).
 
 > [!NOTE]
-> Tenancy is chosen when you create the app. To turn an existing single-tenant app multi-tenant, run `aps add orgs`: it merges the multi-tenant files into yours on a branch and adds migrations that give every account a personal workspace and move projects into it. See [Upgrading apps](upgrading.md).
+> Tenancy is chosen when you create the app. To turn an existing single-tenant app multi-tenant, run `orb add orgs`: it merges the multi-tenant files into yours on a branch and adds migrations that give every account a personal workspace and move projects into it. See [Upgrading apps](upgrading.md).
 
 ## Create a multi-tenant app
 
 <div class="code-group">
 
 ```bash terminal
-aps new acme-api --preset full --tenancy multi
+orb new acme-api --preset full --tenancy multi
 ```
 
 ```text output
 creating acme-api in ./acme-api
-preset full · tenancy multi · library ../apistock
+preset full · tenancy multi · library ../gorbital
 
 ✓ ran go mod tidy
 ✓ initialised git
@@ -25,7 +25,7 @@ created acme-api
 
 </div>
 
-Start it with `aps dev`. Seed data creates `admin@example.com` with a personal workspace holding three example projects, so `GET /v1/orgs` and `GET /v1/orgs/{orgId}/projects` return data straight away.
+Start it with `orb dev`. Seed data creates `admin@example.com` with a personal workspace holding three example projects, so `GET /v1/orgs` and `GET /v1/orgs/{orgId}/projects` return data straight away.
 
 ## Roles
 
@@ -65,13 +65,13 @@ Every account gets a workspace called "Personal" when it is created: at registra
 
 ## Add an org-scoped resource
 
-In a multi-tenant app, `aps gen resource` scopes resources to organisations by default:
+In a multi-tenant app, `orb gen resource` scopes resources to organisations by default:
 
 ```bash
-aps gen resource Invoice number:string:unique 'status:enum(draft,sent,paid)'
+orb gen resource Invoice number:string:unique 'status:enum(draft,sent,paid)'
 ```
 
-It writes endpoints under `/v1/orgs/{orgId}/invoices`, declares `invoices.invoice.read` and `invoices.invoice.write`, and adds one line at `//aps:anchor org-permissions` so every organisation role holds them. Change which roles hold them in `declareOrgPermissions`.
+It writes endpoints under `/v1/orgs/{orgId}/invoices`, declares `invoices.invoice.read` and `invoices.invoice.write`, and adds one line at `//orb:anchor org-permissions` so every organisation role holds them. Change which roles hold them in `declareOrgPermissions`.
 
 ## Check membership in a use case
 

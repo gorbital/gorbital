@@ -1,6 +1,6 @@
-// Package openapi integrates Huma with apistock (ADR-0027): an API on the
+// Package openapi integrates Huma with gorbital (ADR-0027): an API on the
 // standard http.ServeMux, problem+json errors produced by the application's
-// error mapper, an API reference at /docs in the apistock design (ADR-0049,
+// error mapper, an API reference at /docs in the gorbital design (ADR-0049,
 // rendered by package reference), and OpenAPI export.
 //
 // Huma is used only in delivery layers and the composition root of

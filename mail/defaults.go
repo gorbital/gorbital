@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 )
 
 // ErrRejected marks a send that will never succeed as it is, such as an

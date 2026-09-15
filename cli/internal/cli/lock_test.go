@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes"
 )
 
 func TestLockRoundTrip(t *testing.T) {
 	preset, _ := recipes.LookupPreset("full", recipes.TenancyMulti)
-	d := recipes.Data{Name: "shop-api", Module: "example.com/shop-api", Local: "/src/apistock"}
+	d := recipes.Data{Name: "shop-api", Module: "example.com/shop-api", Local: "/src/gorbital"}
 	files := []recipes.File{
 		{Path: "internal/app/app.go", SHA256: "b"},
 		{Path: "go.mod", SHA256: "g"},
@@ -37,14 +37,14 @@ func TestLockRoundTrip(t *testing.T) {
 	if err := writeLock(root, want); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(readFile(t, filepath.Join(dir, lockPath)), "/src/apistock") {
-		t.Error("apistock.lock holds the machine-specific --local path")
+	if strings.Contains(readFile(t, filepath.Join(dir, lockPath)), "/src/gorbital") {
+		t.Error("gorbital.lock holds the machine-specific --local path")
 	}
 	got, err := readLock(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.APIVersion != want.APIVersion || got.Aps != want.Aps || got.Inputs != want.Inputs || !slices.Equal(got.Files, want.Files) {
+	if got.APIVersion != want.APIVersion || got.Orb != want.Orb || got.Inputs != want.Inputs || !slices.Equal(got.Files, want.Files) {
 		t.Errorf("readLock = %+v, want %+v", got, want)
 	}
 }
@@ -52,8 +52,8 @@ func TestLockRoundTrip(t *testing.T) {
 func TestReadLockV1(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, lockPath), `{
-  "apiVersion": "apistock.dev/v1",
-  "generator": "aps v0.1.0-dev",
+  "apiVersion": "gorbital.dev/v1",
+  "generator": "orb v0.1.0-dev",
   "recipes": [{"name": "base-full", "version": "v0.1.0", "operations": [
     {"op": "createFile", "path": "internal/app/app.go", "sha256": "b"},
     {"op": "createFile", "path": "go.mod", "sha256": "g"},
@@ -64,7 +64,7 @@ func TestReadLockV1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if l.APIVersion != lockAPIVersionV1 || l.Aps != (lockAps{}) || l.Inputs != (lockInputs{}) {
+	if l.APIVersion != lockAPIVersionV1 || l.Orb != (lockOrb{}) || l.Inputs != (lockInputs{}) {
 		t.Errorf("v1 lock = %+v, want no release or inputs", l)
 	}
 	if paths := lockPaths(l); !slices.Equal(paths, []string{".env.example", "internal/app/app.go"}) {
@@ -74,13 +74,13 @@ func TestReadLockV1(t *testing.T) {
 
 func TestReadLockRejects(t *testing.T) {
 	for name, content := range map[string]string{
-		"newer format":   `{"apiVersion": "apistock.dev/v3"}`,
-		"unknown field":  `{"apiVersion": "apistock.dev/v2", "operations": []}`,
-		"escaping path":  `{"apiVersion": "apistock.dev/v2", "files": [{"path": "../outside.go", "sha256": "a"}]}`,
-		"absolute path":  `{"apiVersion": "apistock.dev/v2", "files": [{"path": "/etc/passwd", "sha256": "a"}]}`,
-		"repeated path":  `{"apiVersion": "apistock.dev/v2", "files": [{"path": "a.go", "sha256": "a"}, {"path": "a.go", "sha256": "b"}]}`,
-		"not JSON":       `apiVersion: apistock.dev/v2`,
-		"v1 bad escapes": `{"apiVersion": "apistock.dev/v1", "recipes": [{"operations": [{"op": "createFile", "path": "../x", "sha256": "a"}]}]}`,
+		"newer format":   `{"apiVersion": "gorbital.dev/v3"}`,
+		"unknown field":  `{"apiVersion": "gorbital.dev/v2", "operations": []}`,
+		"escaping path":  `{"apiVersion": "gorbital.dev/v2", "files": [{"path": "../outside.go", "sha256": "a"}]}`,
+		"absolute path":  `{"apiVersion": "gorbital.dev/v2", "files": [{"path": "/etc/passwd", "sha256": "a"}]}`,
+		"repeated path":  `{"apiVersion": "gorbital.dev/v2", "files": [{"path": "a.go", "sha256": "a"}, {"path": "a.go", "sha256": "b"}]}`,
+		"not JSON":       `apiVersion: gorbital.dev/v2`,
+		"v1 bad escapes": `{"apiVersion": "gorbital.dev/v1", "recipes": [{"operations": [{"op": "createFile", "path": "../x", "sha256": "a"}]}]}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -128,9 +128,9 @@ func TestRevisionOf(t *testing.T) {
 	}
 }
 
-// assertLockRebuilds checks that rendering the lock's inputs with this aps's
+// assertLockRebuilds checks that rendering the lock's inputs with this orb's
 // templates reproduces every tracked file's recorded hash, and tracks every
-// rendered file but go.mod: aps upgrade relies on this to rebuild the merge
+// rendered file but go.mod: orb upgrade relies on this to rebuild the merge
 // base (ADR-0050).
 func assertLockRebuilds(t *testing.T, dir string) {
 	t.Helper()
@@ -145,12 +145,12 @@ func assertLockRebuilds(t *testing.T, dir string) {
 	}
 	for _, f := range l.Files {
 		if content, ok := tree[f.Path]; !ok || sha256Hex(content) != f.SHA256 {
-			t.Errorf("rebuilt %s doesn't match its hash in apistock.lock", f.Path)
+			t.Errorf("rebuilt %s doesn't match its hash in gorbital.lock", f.Path)
 		}
 	}
 	for p := range tree {
 		if !slices.Contains(untrackedPaths, p) && !l.tracks(p) {
-			t.Errorf("rebuilt %s isn't tracked in apistock.lock", p)
+			t.Errorf("rebuilt %s isn't tracked in gorbital.lock", p)
 		}
 	}
 }

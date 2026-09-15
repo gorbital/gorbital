@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	orgslib "apistock.dev/modules/orgs"
-	"apistock.dev/page"
+	orgslib "gorbital.dev/modules/orgs"
+	"gorbital.dev/page"
 
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
 )

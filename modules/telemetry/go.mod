@@ -1,9 +1,9 @@
-module apistock.dev/modules/telemetry
+module gorbital.dev/modules/telemetry
 
 go 1.26.0
 
 require (
-	apistock.dev v0.0.0
+	gorbital.dev v0.0.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.46.0
@@ -35,4 +35,4 @@ require (
 )
 
 // Local development: consumers' own replace directives are unaffected.
-replace apistock.dev => ../..
+replace gorbital.dev => ../..

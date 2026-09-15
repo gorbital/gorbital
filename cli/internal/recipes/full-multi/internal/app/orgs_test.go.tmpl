@@ -18,7 +18,7 @@ var invitationToken = regexp.MustCompile(`#token=([A-Za-z0-9_-]+)`)
 // for to.
 func emailedInvitation(t *testing.T, pool *pgxpool.Pool, to string) string {
 	t.Helper()
-	rows, err := pool.Query(context.Background(), `SELECT args FROM river_job WHERE kind = 'apistock.mail.send' ORDER BY id DESC`)
+	rows, err := pool.Query(context.Background(), `SELECT args FROM river_job WHERE kind = 'gorbital.mail.send' ORDER BY id DESC`)
 	if err != nil {
 		t.Fatal(err)
 	}

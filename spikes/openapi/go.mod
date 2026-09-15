@@ -1,4 +1,4 @@
-module apistock.dev/spikes/openapi
+module gorbital.dev/spikes/openapi
 
 go 1.25.3
 

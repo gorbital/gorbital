@@ -12,7 +12,7 @@ The maintainer decided (2026-09-15): link automatically on a provider-verified e
 
 ## Decision
 
-### 1. Library: `apistock.dev/modules/auth/social`
+### 1. Library: `gorbital.dev/modules/auth/social`
 
 | Library provides | Generated app owns |
 |---|---|

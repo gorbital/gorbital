@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-// fakeDoctorCommands answers the programs aps doctor runs without Docker, a
+// fakeDoctorCommands answers the programs orb doctor runs without Docker, a
 // build or a database: go env and git run for real, docker fails, the API
 // export writes the api/ files as they are when the fake is installed (what
 // the code generates), and migrate --status answers status.
@@ -47,13 +47,13 @@ func fakeDoctorCommands(t *testing.T, status string) *[]string {
 
 func doctorRun(t *testing.T, wantCode int, args ...string) doctorResult {
 	t.Helper()
-	code, out, errOut := runAps(t, append([]string{"doctor", "--json"}, args...)...)
+	code, out, errOut := runOrb(t, append([]string{"doctor", "--json"}, args...)...)
 	if code != wantCode {
-		t.Fatalf("aps doctor %v = %d, want %d; stdout %s stderr %s", args, code, wantCode, out, errOut)
+		t.Fatalf("orb doctor %v = %d, want %d; stdout %s stderr %s", args, code, wantCode, out, errOut)
 	}
 	var res doctorResult
 	if err := json.Unmarshal([]byte(out), &res); err != nil {
-		t.Fatalf("aps doctor --json output %q: %v", out, err)
+		t.Fatalf("orb doctor --json output %q: %v", out, err)
 	}
 	return res
 }
@@ -82,14 +82,14 @@ func TestDoctorOnANewApp(t *testing.T) {
 		t.Fatalf("result = %+v, want no failures", res)
 	}
 	for name, status := range map[string]string{
-		"go": doctorOK, "git": doctorOK, "apistock.yaml": doctorOK, "docker": doctorWarn, "apistock.lock": doctorOK,
+		"go": doctorOK, "git": doctorOK, "gorbital.yaml": doctorOK, "docker": doctorWarn, "gorbital.lock": doctorOK,
 		"anchors": doctorOK, ".env": doctorOK, "api files": doctorOK, "database": doctorOK,
 	} {
 		if c := check(res, name); c.Status != status {
 			t.Errorf("%s = %+v, want %s", name, c, status)
 		}
 	}
-	if c := check(res, "apistock.lock"); !strings.Contains(c.Detail, "0 of") {
+	if c := check(res, "gorbital.lock"); !strings.Contains(c.Detail, "0 of") {
 		t.Errorf("lock detail = %q, want no edited files", c.Detail)
 	}
 
@@ -107,15 +107,15 @@ func TestDoctorFindsProblems(t *testing.T) {
 	writeFile(t, ".gitignore", "")
 	writeFile(t, ".env", "RESEND_API_KEY=re_live_secret\n")
 	modules := readFile(t, "internal/app/modules.go")
-	writeFile(t, "internal/app/modules.go", strings.Replace(modules, "//aps:anchor modules", "", 1))
+	writeFile(t, "internal/app/modules.go", strings.Replace(modules, "//orb:anchor modules", "", 1))
 	writeFile(t, "api/llms.txt", "stale\n")
 
-	code, out, _ := runAps(t, "doctor")
+	code, out, _ := runOrb(t, "doctor")
 	if code != 1 || !strings.Contains(out, "fix:") {
-		t.Errorf("aps doctor with problems = %d:\n%s", code, out)
+		t.Errorf("orb doctor with problems = %d:\n%s", code, out)
 	}
 	if strings.Contains(out, "re_live_secret") {
-		t.Error("aps doctor printed a secret from .env")
+		t.Error("orb doctor printed a secret from .env")
 	}
 
 	res := doctorRun(t, 1)
@@ -124,7 +124,7 @@ func TestDoctorFindsProblems(t *testing.T) {
 		".env":          "holds secrets",
 		"api files":     "api/llms.txt",
 		"database":      "2 migrations pending",
-		"apistock.lock": "3 of",
+		"gorbital.lock": "3 of",
 	} {
 		c := check(res, name)
 		if !strings.Contains(c.Detail, want) {

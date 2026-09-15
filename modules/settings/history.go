@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"apistock.dev/actor"
+	"gorbital.dev/actor"
 )
 
 // historyRow is one change to insert into settings_history.

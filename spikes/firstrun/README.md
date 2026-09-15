@@ -6,12 +6,12 @@ Throwaway code. Nothing outside `spikes/` may import it.
 
 ## Question
 
-Can a developer go from nothing to a running Minimal app with `/docs` in **under 60 seconds**: build the CLI, `aps new`, build, start?
+Can a developer go from nothing to a running Minimal app with `/docs` in **under 60 seconds**: build the CLI, `orb new`, build, start?
 
 ## What was built
 
-- `cmd/aps`: a prototype CLI. `aps new <name>` renders an embedded template with `text/template`, writing through `os.Root`, then runs `go mod tidy`. `aps dev` builds and runs the app.
-- `cmd/aps/template/minimal`: the Minimal app, following the v2 layout: `cmd/api`, `internal/app` (composition root, problem+json errors, `/livez`, `/readyz`, `/version`, `/docs`), a layered example module `internal/modules/ping` (domain / usecase / delivery), `Dockerfile`, `.gitignore`, `.env.example`, `README.md`.
+- `cmd/orb`: a prototype CLI. `orb new <name>` renders an embedded template with `text/template`, writing through `os.Root`, then runs `go mod tidy`. `orb dev` builds and runs the app.
+- `cmd/orb/template/minimal`: the Minimal app, following the v2 layout: `cmd/api`, `internal/app` (composition root, problem+json errors, `/livez`, `/readyz`, `/version`, `/docs`), a layered example module `internal/modules/ping` (domain / usecase / delivery), `Dockerfile`, `.gitignore`, `.env.example`, `README.md`.
 - `measure.sh`: times each step and checks the running app.
 
 ```bash
@@ -25,9 +25,9 @@ Environment: Go 1.25.3, Huma v2.39.1, macOS arm64, home broadband.
 
 | Step | Cold (clean caches) | Warm |
 |---|---|---|
-| Build `aps` (stands in for `go install`) | 2.70 s | 0.37 s |
-| `aps new my-api` (render + `go mod tidy`, downloads Huma) | 4.51 s | 0.42 s |
-| Build app (what `aps dev` does) | 3.75 s | 0.73 s |
+| Build `orb` (stands in for `go install`) | 2.70 s | 0.37 s |
+| `orb new my-api` (render + `go mod tidy`, downloads Huma) | 4.51 s | 0.42 s |
+| Build app (what `orb dev` does) | 3.75 s | 0.73 s |
 | Start → `/docs` returns 200 | 1.01 s | 0.02 s |
 | **Total** | **12.01 s** | **1.59 s** |
 
@@ -56,7 +56,7 @@ Module cache downloaded on a clean machine: 22 MB. App binary: 9.3 MB (not strip
 6. **Visual check of Scalar not done in this session.** The preview tool can't open a local server without changing another repository's configuration. To check manually:
 
    ```bash
-   cd /tmp/firstrun-warm/my-api && ./.aps/api
+   cd /tmp/firstrun-warm/my-api && ./.orb/api
    ```
 
    then open http://127.0.0.1:8080/docs.

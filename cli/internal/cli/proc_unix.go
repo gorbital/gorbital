@@ -8,7 +8,7 @@ import (
 )
 
 // configureProcess starts the app in its own process group, so a terminal
-// Ctrl+C reaches only aps, which then stops the app exactly once.
+// Ctrl+C reaches only orb, which then stops the app exactly once.
 func configureProcess(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }

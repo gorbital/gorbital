@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"apistock.dev/actor"
+	"gorbital.dev/actor"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 )

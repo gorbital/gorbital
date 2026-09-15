@@ -12,8 +12,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"apistock.dev/cli/internal/merge"
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/merge"
+	"gorbital.dev/cli/internal/recipes"
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 	newMigration = "db/migrations/20260915000006_auth_social.sql"
 )
 
-// olderRelease returns this aps's Full templates as an earlier release
+// olderRelease returns this orb's Full templates as an earlier release
 // that differs in three ways: README.md ends with a footer this release
 // removed, OLD_NOTES.md exists, and the social sign-in migration doesn't.
 func olderRelease(t *testing.T) recipes.Release {
@@ -48,7 +48,7 @@ func olderRelease(t *testing.T) recipes.Release {
 	return recipes.ReleaseFS(fsys)
 }
 
-// useRelease makes aps upgrade read release, and records the ref it asked for.
+// useRelease makes orb upgrade read release, and records the ref it asked for.
 func useRelease(t *testing.T, release recipes.Release) *string {
 	t.Helper()
 	var ref string
@@ -68,8 +68,8 @@ func isolateGit(t *testing.T) {
 	writeFile(t, empty, "")
 	for k, v := range map[string]string{
 		"GIT_CONFIG_GLOBAL": empty, "GIT_CONFIG_NOSYSTEM": "1",
-		"GIT_AUTHOR_NAME": "aps test", "GIT_AUTHOR_EMAIL": "test@example.com",
-		"GIT_COMMITTER_NAME": "aps test", "GIT_COMMITTER_EMAIL": "test@example.com",
+		"GIT_AUTHOR_NAME": "orb test", "GIT_AUTHOR_EMAIL": "test@example.com",
+		"GIT_COMMITTER_NAME": "orb test", "GIT_COMMITTER_EMAIL": "test@example.com",
 	} {
 		t.Setenv(k, v)
 	}
@@ -99,7 +99,7 @@ func appFromRelease(t *testing.T, release recipes.Release, version string) {
 		writeFile(t, filepath.Join(dir, filepath.FromSlash(p)), string(content))
 	}
 	l := lockFromTree(in, tree)
-	l.Aps = lockAps{Version: version}
+	l.Orb = lockOrb{Version: version}
 	b, err := l.encode()
 	if err != nil {
 		t.Fatal(err)
@@ -120,14 +120,14 @@ func commitAll(t *testing.T, message string) {
 
 func upgrade(t *testing.T, wantCode int, args ...string) upgradeResult {
 	t.Helper()
-	code, out, errOut := runAps(t, append([]string{"upgrade", "--json", "--skip-tidy"}, args...)...)
+	code, out, errOut := runOrb(t, append([]string{"upgrade", "--json", "--skip-tidy"}, args...)...)
 	if code != wantCode {
-		t.Fatalf("aps upgrade %v = %d, want %d; stdout %s stderr %s", args, code, wantCode, out, errOut)
+		t.Fatalf("orb upgrade %v = %d, want %d; stdout %s stderr %s", args, code, wantCode, out, errOut)
 	}
 	var res upgradeResult
 	if wantCode == 0 || wantCode == 1 && out != "" {
 		if err := json.Unmarshal([]byte(out), &res); err != nil {
-			t.Fatalf("aps upgrade --json output %q: %v", out, err)
+			t.Fatalf("orb upgrade --json output %q: %v", out, err)
 		}
 	}
 	return res
@@ -157,7 +157,7 @@ func TestUpgradeMergesTemplateChanges(t *testing.T) {
 
 	// A dirty tree is refused; a dry run writes nothing.
 	writeFile(t, "scratch.txt", "x")
-	if code, _, errOut := runAps(t, "upgrade", "--skip-tidy", "--skip-build"); code != 1 || !strings.Contains(errOut, "uncommitted changes") {
+	if code, _, errOut := runOrb(t, "upgrade", "--skip-tidy", "--skip-build"); code != 1 || !strings.Contains(errOut, "uncommitted changes") {
 		t.Errorf("upgrade with a dirty tree = %d, %q", code, errOut)
 	}
 	os.Remove("scratch.txt")
@@ -196,8 +196,8 @@ func TestUpgradeMergesTemplateChanges(t *testing.T) {
 		t.Errorf("%s wasn't created: %v", newMigration, err)
 	}
 	lock, err := readLock(".")
-	if err != nil || lock.Aps.Version != Version {
-		t.Errorf("lock = %+v, %v; want this release", lock.Aps, err)
+	if err != nil || lock.Orb.Version != Version {
+		t.Errorf("lock = %+v, %v; want this release", lock.Orb, err)
 	}
 	assertLockRebuilds(t, ".")
 }
@@ -215,7 +215,7 @@ func TestUpgradeConflictKeepsBothSides(t *testing.T) {
 		t.Errorf("result = %+v, want a conflict in README.md and no commit", res)
 	}
 	got := readFile(t, "README.md")
-	for _, s := range []string{"<<<<<<< yours", "Our own footer.", ">>>>>>> apistock " + Version} {
+	for _, s := range []string{"<<<<<<< yours", "Our own footer.", ">>>>>>> gorbital " + Version} {
 		if !strings.Contains(got, s) {
 			t.Errorf("README.md lacks %q:\n%s", s, got)
 		}
@@ -229,7 +229,7 @@ func TestUpgradeUpToDate(t *testing.T) {
 	appFromRelease(t, recipes.Embedded(), Version)
 	useRelease(t, recipes.Embedded())
 	// The lock was written by a development build without a commit.
-	if code, _, errOut := runAps(t, "upgrade"); code != 2 || !strings.Contains(errOut, "--from") {
+	if code, _, errOut := runOrb(t, "upgrade"); code != 2 || !strings.Contains(errOut, "--from") {
 		t.Errorf("upgrade without a recorded release = %d, %q", code, errOut)
 	}
 
@@ -248,17 +248,17 @@ func TestUpgradeFromV1Lock(t *testing.T) {
 	for _, f := range l.Files {
 		ops = append(ops, map[string]string{"op": "createFile", "path": f.Path, "sha256": f.SHA256})
 	}
-	v1, _ := json.Marshal(map[string]any{"apiVersion": lockAPIVersionV1, "generator": "aps v0.1.0-dev",
+	v1, _ := json.Marshal(map[string]any{"apiVersion": lockAPIVersionV1, "generator": "orb v0.1.0-dev",
 		"recipes": []any{map[string]any{"name": "base-full", "version": "v0.1.0", "operations": ops}}})
 	writeFile(t, lockPath, string(v1))
 	commitAll(t, "Lock from v0.4")
 
-	if code, _, errOut := runAps(t, "upgrade"); code != 2 || !strings.Contains(errOut, "--from v0.4.0") {
+	if code, _, errOut := runOrb(t, "upgrade"); code != 2 || !strings.Contains(errOut, "--from v0.4.0") {
 		t.Errorf("upgrade of a v1 lock without --from = %d, %q", code, errOut)
 	}
 
 	useRelease(t, olderRelease(t))
-	if code, _, errOut := runAps(t, "upgrade", "--from", "v0.3.0", "--skip-tidy"); code != 1 || !strings.Contains(errOut, "don't match apistock.lock") {
+	if code, _, errOut := runOrb(t, "upgrade", "--from", "v0.3.0", "--skip-tidy"); code != 1 || !strings.Contains(errOut, "don't match gorbital.lock") {
 		t.Errorf("upgrade --from the wrong release = %d, %q", code, errOut)
 	}
 

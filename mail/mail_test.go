@@ -3,7 +3,7 @@ package mail_test
 import (
 	"testing"
 
-	"apistock.dev/mail"
+	"gorbital.dev/mail"
 )
 
 func valid() mail.Message {

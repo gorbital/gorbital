@@ -4,13 +4,13 @@
 
 ## Context
 
-The CLI creates apps (`aps new`) and adds features (`aps add`) into code the developer owns, and must later upgrade that code without losing edits. The merge spike showed that 3-way merges work, that neighbouring-line edits conflict, and that the merge base must be rebuilt by replaying operations. Editing shared owned files at many anchors multiplies conflicts.
+The CLI creates apps (`orb new`) and adds features (`orb add`) into code the developer owns, and must later upgrade that code without losing edits. The merge spike showed that 3-way merges work, that neighbouring-line edits conflict, and that the merge base must be rebuilt by replaying operations. Editing shared owned files at many anchors multiplies conflicts.
 
 ## Options
 
 1. Regenerate owned files wholesale.
 2. Templates plus AST edits at many anchors in shared files.
-3. A small fixed set of declarative operations, one owned wiring file per feature, a single anchor line per feature, and an operation log in `apistock.lock`.
+3. A small fixed set of declarative operations, one owned wiring file per feature, a single anchor line per feature, and an operation log in `gorbital.lock`.
 
 ## Decision
 
@@ -26,17 +26,17 @@ recipes + project state
   4 CHECK     per operation: applied / already done (idempotent) / conflict
   5 PREVIEW   diff; risky new imports highlighted (os/exec, net, unsafe, plugin, syscall)
   6 APPLY     writes confined with os.Root; temp file + rename
-  7 RECORD    apistock.lock: recipe, version, each operation and its inputs, base hashes
+  7 RECORD    gorbital.lock: recipe, version, each operation and its inputs, base hashes
 ```
 
-`aps new` and `aps add` use the same engine. `aps new` = `base-minimal` + selected feature recipes.
+`orb new` and `orb add` use the same engine. `orb new` = `base-minimal` + selected feature recipes.
 
 ### Operations (fixed vocabulary, versioned)
 
 | Operation | Purpose |
 |---|---|
 | `createFile` | New file from a template |
-| `insertLine@anchor` | One call line after `//aps:anchor <name>` in an owned file |
+| `insertLine@anchor` | One call line after `//orb:anchor <name>` in an owned file |
 | `addRequire` | Go module requirement or `tool` directive |
 | `copyMigration` | Module migration into `db/migrations` with a timestamp |
 | `appendEnv` | Documented entry in `.env.example` |
@@ -48,7 +48,7 @@ No operation executes code, runs shell commands, downloads files or writes outsi
 | Code | Tracked for upgrades? |
 |---|---|
 | Recipe output (base app, `infra_*.go`, module wiring, auth/orgs/ops modules, emails) | **Yes**: operations recorded and replayed for 3-way merges (ADR-0016) |
-| `aps gen resource` output | **No**: one-shot starting point |
+| `orb gen resource` output | **No**: one-shot starting point |
 | Derived code (`internal/db`, `api/openapi.json`) | Regenerated from sources, never merged |
 
 ### Rules
@@ -58,7 +58,7 @@ No operation executes code, runs shell commands, downloads files or writes outsi
 - **Missing anchor:** stop, print the exact line to add; never guess.
 - **Input safety:** names must satisfy `go/token.IsIdentifier`; field types from an allowlist; no raw user strings in generated code.
 - **Clean git tree required** (override with `--allow-dirty`); `--dry-run` and `--json` on every mutating command.
-- **Resource templates** come in variants selected from `apistock.yaml` (`resource/single`, `resource/org`) with `--scope=org|user|global`.
+- **Resource templates** come in variants selected from `gorbital.yaml` (`resource/single`, `resource/org`) with `--scope=org|user|global`.
 
 ## Why
 

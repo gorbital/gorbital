@@ -6,7 +6,7 @@
 
 **Options:** Single monorepo single module; multi-repo; hybrid monorepo with multiple Go modules + separate repos for index and control plane.
 
-**Decision:** Hybrid. `aps` monorepo with core + each official module as its own Go module, recipes beside their module; `apistock-index` and `apistock-console` separate.
+**Decision:** Hybrid. `orb` monorepo with core + each official module as its own Go module, recipes beside their module; `gorbital-index` and `gorbital-console` separate.
 
 **Why:** Atomic cross-cutting changes and one CI, without dependency bloat for users.
 

@@ -1,6 +1,6 @@
 # Local development
 
-How to work on the apistock repository: services, tests, checks and CI.
+How to work on the gorbital repository: services, tests, checks and CI.
 
 ## Prerequisites
 
@@ -15,11 +15,11 @@ PostgreSQL is never installed locally or downloaded as a binary: it always runs 
 ## Installing the CLI
 
 ```bash
-cd cli && go install ./cmd/aps
-aps version
+cd cli && go install ./cmd/orb
+orb version
 ```
 
-If `aps` isn't found, add `$(go env GOPATH)/bin` to your `PATH`. Reinstall after pulling changes. See the [CLI guide](cli.md).
+If `orb` isn't found, add `$(go env GOPATH)/bin` to your `PATH`. Reinstall after pulling changes. See the [CLI guide](cli.md).
 
 ## Repository layout
 
@@ -36,20 +36,20 @@ docker compose down                  # stop, keep data
 docker compose down -v               # stop and delete data (also removes old pgtest templates)
 ```
 
-Set `APISTOCK_POSTGRES_PORT` to use another host port.
+Set `GORBITAL_POSTGRES_PORT` to use another host port.
 
 ## Mailpit
 
-The same `compose.yaml` runs [Mailpit](https://mailpit.axllent.org), a local email inbox, for the SMTP module and example tests: SMTP on **127.0.0.1:51025**, web inbox on **http://127.0.0.1:58025** (`APISTOCK_MAILPIT_SMTP_PORT` and `APISTOCK_MAILPIT_WEB_PORT` to change). Apps have their own Mailpit in their `compose.yaml`, on 1025 and 8025 ([email guide](email.md)).
+The same `compose.yaml` runs [Mailpit](https://mailpit.axllent.org), a local email inbox, for the SMTP module and example tests: SMTP on **127.0.0.1:51025**, web inbox on **http://127.0.0.1:58025** (`GORBITAL_MAILPIT_SMTP_PORT` and `GORBITAL_MAILPIT_WEB_PORT` to change). Apps have their own Mailpit in their `compose.yaml`, on 1025 and 8025 ([email guide](email.md)).
 
 ## Running tests
 
 Database tests use `pgtest`, which reads the server URL from an environment variable; email delivery tests read Mailpit's addresses:
 
 ```bash
-export APISTOCK_TEST_DATABASE_URL='postgres://apistock:apistock@127.0.0.1:55432/apistock?sslmode=disable'
-export APISTOCK_TEST_MAILPIT_SMTP=127.0.0.1:51025
-export APISTOCK_TEST_MAILPIT_URL=http://127.0.0.1:58025
+export GORBITAL_TEST_DATABASE_URL='postgres://gorbital:gorbital@127.0.0.1:55432/gorbital?sslmode=disable'
+export GORBITAL_TEST_MAILPIT_SMTP=127.0.0.1:51025
+export GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:58025
 ```
 
 | Module | Command |
@@ -62,11 +62,11 @@ export APISTOCK_TEST_MAILPIT_URL=http://127.0.0.1:58025
 
 What each kind of test covers, the helpers, and drift checks: [testing](testing.md).
 
-- Without `APISTOCK_TEST_DATABASE_URL`, database tests are **skipped** with instructions.
-- With `APISTOCK_REQUIRE_DB=1` (as in CI), a missing database **fails** the tests instead.
-- Without the Mailpit variables, `modules/mail/smtp`'s Mailpit test is skipped and the example checks that email is queued but not delivered; `APISTOCK_REQUIRE_MAILPIT=1` (as in CI) makes the missing Mailpit a failure.
-- `APS_E2E_DOCKER=1` in `cli` runs `aps dev` in a new Full app against real Docker on free ports, signs in as the seeded administrator and checks that a registration email reaches Mailpit; its containers and volume are removed afterwards.
-- `APS_E2E=1` in `cli` runs the end-to-end tests: a generated Minimal app passes its tests, and a copy of `examples/full-single` builds after `aps add mail` switches it to SMTP and back.
+- Without `GORBITAL_TEST_DATABASE_URL`, database tests are **skipped** with instructions.
+- With `GORBITAL_REQUIRE_DB=1` (as in CI), a missing database **fails** the tests instead.
+- Without the Mailpit variables, `modules/mail/smtp`'s Mailpit test is skipped and the example checks that email is queued but not delivered; `GORBITAL_REQUIRE_MAILPIT=1` (as in CI) makes the missing Mailpit a failure.
+- `ORB_E2E_DOCKER=1` in `cli` runs `orb dev` in a new Full app against real Docker on free ports, signs in as the seeded administrator and checks that a registration email reaches Mailpit; its containers and volume are removed afterwards.
+- `ORB_E2E=1` in `cli` runs the end-to-end tests: a generated Minimal app passes its tests, and a copy of `examples/full-single` builds after `orb add mail` switches it to SMTP and back.
 - Every test gets its own database, cloned from a migrated template, and dropped afterwards; tests are isolated and can run in parallel across packages.
 
 ## Checks
@@ -90,7 +90,7 @@ go run ./cmd/api openapi --dir api
 
 ```bash
 cd examples/full-single
-aps dev      # .env, its own PostgreSQL on 127.0.0.1:5432 and Mailpit on http://127.0.0.1:8025, migrations, seed data
+orb dev      # .env, its own PostgreSQL on 127.0.0.1:5432 and Mailpit on http://127.0.0.1:8025, migrations, seed data
 ```
 
 The first run prints the seeded administrator's password (`admin@example.com`) once. Without the CLI:
@@ -102,7 +102,7 @@ go run ./cmd/migrate && go run ./cmd/seed
 go run ./cmd/api
 ```
 
-The app reads `.env` only through `aps dev`; with plain `go run`, export the variables first (for example `set -a; . ./.env; set +a`).
+The app reads `.env` only through `orb dev`; with plain `go run`, export the variables first (for example `set -a; . ./.env; set +a`).
 
 ## CI
 
@@ -111,8 +111,8 @@ The app reads `.env` only through `aps dev`; with plain `go run`, export the var
 The workflows are currently **disabled on GitHub** during active development. Re-enable them with:
 
 ```bash
-gh workflow enable CI -R apistockhq/apistock
-gh workflow enable "Release aps" -R apistockhq/apistock
+gh workflow enable CI -R gorbital/gorbital
+gh workflow enable "Release orb" -R gorbital/gorbital
 ```
 
 ## Commits

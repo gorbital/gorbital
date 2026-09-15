@@ -79,5 +79,5 @@ func (s *UserStore) InsertUser(ctx context.Context, u *domain.User) error {
 ## Consequences
 
 - ADR-0005's "pgx + sqlc" becomes "pgx with hand-written SQL"; goose migrations, table prefixes and immutable released migrations are unchanged.
-- `aps gen resource` generates the repository files and their tests in this layout.
+- `orb gen resource` generates the repository files and their tests in this layout.
 - `modules/postgres` provides `DBTX`, `InTx`, error classification helpers and `pgtest`.

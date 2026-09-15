@@ -12,7 +12,7 @@ import (
 // library, the OpenTelemetry API, golang.org/x, and the OpenTelemetry API's
 // own transitive dependencies.
 var allowedPrefixes = []string{
-	"apistock.dev/",
+	"gorbital.dev/",
 	"go.opentelemetry.io/otel/attribute",
 	"go.opentelemetry.io/otel/codes",
 	"go.opentelemetry.io/otel/semconv/",

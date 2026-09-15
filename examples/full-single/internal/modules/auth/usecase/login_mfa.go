@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	authlib "apistock.dev/modules/auth"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	authlib "gorbital.dev/modules/auth"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 )

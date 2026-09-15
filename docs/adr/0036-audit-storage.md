@@ -23,7 +23,7 @@ Option 3. Metadata keys are chosen in module code and reviewed there; a registry
 
 ## Decision
 
-`apistock.dev/modules/auditpg` stores events in PostgreSQL. `*auditpg.Store` implements `audit.Recorder`, and apps pass it to every module that records events.
+`gorbital.dev/modules/auditpg` stores events in PostgreSQL. `*auditpg.Store` implements `audit.Recorder`, and apps pass it to every module that records events.
 
 ### Table
 

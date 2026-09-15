@@ -18,27 +18,27 @@ module code ─► mailer ─────────────► job queue �
 Run this inside the app:
 
 ```bash
-aps add mail
+orb add mail
 ```
 
 ```text
 ┃ How should the app send email?
-┃ Switch any time by running aps add mail again. In development, email always lands in Mailpit.
+┃ Switch any time by running orb add mail again. In development, email always lands in Mailpit.
 ┃ > Resend: an email API, the quickest to set up (recommended)
 ┃   SMTP: Amazon SES, Postmark, Mailgun, Google Workspace or your own server
 ```
 
-`aps` then asks only what that provider needs, shows a summary to confirm, and prints the steps that remain. Secrets you type are hidden and saved only in `.env`, which git ignores.
+`orb` then asks only what that provider needs, shows a summary to confirm, and prints the steps that remain. Secrets you type are hidden and saved only in `.env`, which git ignores.
 
 | Want | Command |
 |---|---|
-| Resend, asked step by step | `aps add mail` |
-| Resend, no questions | `aps add mail --provider resend --yes` (add the key to `.env` yourself) |
-| SMTP with flags | `aps add mail --smtp-host smtp.postmarkapp.com --smtp-port 587 --smtp-username <token>` (asks for the password) |
-| See what would change | `aps add mail --provider smtp --dry-run` |
-| Switch provider | Run `aps add mail` again and pick the other one; it replaces `internal/app/infra_mail.go` and its tests, `infra_mail_test.go` |
+| Resend, asked step by step | `orb add mail` |
+| Resend, no questions | `orb add mail --provider resend --yes` (add the key to `.env` yourself) |
+| SMTP with flags | `orb add mail --smtp-host smtp.postmarkapp.com --smtp-port 587 --smtp-username <token>` (asks for the password) |
+| See what would change | `orb add mail --provider smtp --dry-run` |
+| Switch provider | Run `orb add mail` again and pick the other one; it replaces `internal/app/infra_mail.go` and its tests, `infra_mail_test.go` |
 
-All flags are in the [CLI guide](cli.md#aps-add-mail).
+All flags are in the [CLI guide](cli.md#orb-add-mail).
 
 ## Where each setting lives
 
@@ -56,7 +56,7 @@ Secrets are never runtime settings, and the sender is never an environment varia
 ## Set up Resend
 
 1. Create an API key at [resend.com/api-keys](https://resend.com/api-keys) ("Sending access" is enough).
-2. Put it in `.env`, or paste it when `aps add mail` asks:
+2. Put it in `.env`, or paste it when `orb add mail` asks:
    ```bash
    RESEND_API_KEY=re_…
    ```
@@ -73,7 +73,7 @@ Secrets are never runtime settings, and the sender is never an environment varia
 | Google Workspace or Gmail | `smtp.gmail.com` | 587 / `starttls` | Your address and an app password |
 | Your own server | its host name | 465 / `tls`, or 587 / `starttls` | as configured |
 
-`SMTP_TLS=none` is only for servers on your own machine; `aps` refuses to send a password unencrypted to another host.
+`SMTP_TLS=none` is only for servers on your own machine; `orb` refuses to send a password unencrypted to another host.
 
 ## Set the sender
 
@@ -107,7 +107,7 @@ curl -X POST http://127.0.0.1:8080/ops/mail/test \
   -d '{"to":"you@example.com"}'
 ```
 
-It returns 202 once the email is queued. See the delivery in `GET /ops/jobs/runs?kind=apistock.mail.send`.
+It returns 202 once the email is queued. See the delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`.
 
 ## Development: Mailpit
 
@@ -141,7 +141,7 @@ err := mailer.Send(ctx, mail.Message{
 | App won't start: `RESEND_API_KEY is required` | Startup error | Add the key to `.env`, or leave `MAIL_DELIVERY` empty in development |
 | App won't start: `SMTP_HOST is required` | Startup error | Add the SMTP variables to `.env` |
 | Nothing in Mailpit | `docker compose ps`; `MAILPIT_SMTP_ADDR` | Start Mailpit; check the address matches `compose.yaml` |
-| Run cancelled with `403 … domain is not verified` | `GET /ops/jobs/runs?kind=apistock.mail.send` | Verify the domain in Resend, or change `mail.from_email` |
+| Run cancelled with `403 … domain is not verified` | `GET /ops/jobs/runs?kind=gorbital.mail.send` | Verify the domain in Resend, or change `mail.from_email` |
 | Run retrying with `401 … check RESEND_API_KEY` | Job runs | Fix the key in `.env` and restart; pending retries then succeed |
 | Run cancelled with `550` | Job runs | The SMTP server refused the sender or recipient; check the address and your provider's sending rules |
 | Run retrying with `authenticate … check the SMTP username and password` | Job runs | Fix `SMTP_USERNAME` / `SMTP_PASSWORD` and restart |

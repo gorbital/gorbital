@@ -72,12 +72,12 @@ func (p devPorts) env() string {
 		p.app, p.postgres, p.smtp, p.web, p.grafana, p.otlp)
 }
 
-// newDevApp writes a stand-in app with apistock.yaml, .env.example,
+// newDevApp writes a stand-in app with gorbital.yaml, .env.example,
 // compose.yaml and cmd/seed, and makes it the working directory.
 func newDevApp(t *testing.T, manifest, envExample string) string {
 	t.Helper()
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "apistock.yaml"), manifest)
+	writeFile(t, filepath.Join(dir, "gorbital.yaml"), manifest)
 	writeFile(t, filepath.Join(dir, ".env.example"), envExample)
 	writeFile(t, filepath.Join(dir, "compose.yaml"), "services: {}\n")
 	writeFile(t, filepath.Join(dir, "cmd", "seed", "main.go"), "package main\n")
@@ -114,10 +114,10 @@ func TestDevPrepareFullApp(t *testing.T) {
 		t.Errorf(".env = %v %v, want a 0600 copy of .env.example", info, err)
 	}
 	for _, s := range []string{
-		"aps: created .env from .env.example",
+		"orb: created .env from .env.example",
 		"✓ API docs   http://127.0.0.1:" + ports.app + "/docs",
 		"✓ Emails     http://127.0.0.1:" + ports.web,
-		"aps dev --observability",
+		"orb dev --observability",
 	} {
 		if !strings.Contains(out.String(), s) {
 			t.Errorf("output lacks %q:\n%s", s, out.String())
@@ -216,7 +216,7 @@ func TestDevPrepareNoServices(t *testing.T) {
 		t.Errorf("commands = %q, want %q", f.calls, want)
 	}
 	if strings.Contains(out.String(), "Emails") {
-		t.Errorf("output lists Mailpit, which aps dev didn't start:\n%s", out.String())
+		t.Errorf("output lists Mailpit, which orb dev didn't start:\n%s", out.String())
 	}
 }
 

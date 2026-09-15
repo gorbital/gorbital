@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	authlib "apistock.dev/modules/auth"
-	orgslib "apistock.dev/modules/orgs"
-	"apistock.dev/modules/postgres/pgtest"
-	"apistock.dev/page"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	authlib "gorbital.dev/modules/auth"
+	orgslib "gorbital.dev/modules/orgs"
+	"gorbital.dev/modules/postgres/pgtest"
+	"gorbital.dev/page"
 
 	"example.com/acme-api/db/migrations"
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"

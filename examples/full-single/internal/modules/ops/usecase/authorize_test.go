@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"apistock.dev/actor"
+	"gorbital.dev/actor"
 
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"

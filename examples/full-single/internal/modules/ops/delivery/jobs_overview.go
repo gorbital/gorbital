@@ -6,7 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/modules/openapi"
+	"gorbital.dev/modules/openapi"
 
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 )

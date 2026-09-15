@@ -3,9 +3,9 @@ module ⟦.Module⟧
 go 1.26.0
 
 require (
-	apistock.dev ⟦.LibraryVersion⟧
-	apistock.dev/modules/openapi ⟦.LibraryVersion⟧
-	apistock.dev/modules/telemetry ⟦.LibraryVersion⟧
+	gorbital.dev ⟦.LibraryVersion⟧
+	gorbital.dev/modules/openapi ⟦.LibraryVersion⟧
+	gorbital.dev/modules/telemetry ⟦.LibraryVersion⟧
 	github.com/danielgtaylor/huma/v2 v2.39.1
 )
 
@@ -39,8 +39,8 @@ require (
 ⟦- if .Local⟧
 
 replace (
-	apistock.dev => ⟦.LocalDir ""⟧
-	apistock.dev/modules/openapi => ⟦.LocalDir "/modules/openapi"⟧
-	apistock.dev/modules/telemetry => ⟦.LocalDir "/modules/telemetry"⟧
+	gorbital.dev => ⟦.LocalDir ""⟧
+	gorbital.dev/modules/openapi => ⟦.LocalDir "/modules/openapi"⟧
+	gorbital.dev/modules/telemetry => ⟦.LocalDir "/modules/telemetry"⟧
 )
 ⟦- end⟧

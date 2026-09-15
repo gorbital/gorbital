@@ -4,9 +4,9 @@
 
 ## Context
 
-apistock provides passkeys, Google sign-in and Apple sign-in (v0.3), but it never owns the accounts they depend on. Each app's developer creates their own Apple Developer and Google Cloud resources and gives the app the identifiers, keys and fingerprints. Mobile apps and web frontends are built later; the backend must be ready for them now.
+gorbital provides passkeys, Google sign-in and Apple sign-in (v0.3), but it never owns the accounts they depend on. Each app's developer creates their own Apple Developer and Google Cloud resources and gives the app the identifiers, keys and fingerprints. Mobile apps and web frontends are built later; the backend must be ready for them now.
 
-The maintainer's requirement (2026-09-15): developers must be told plainly what they need to provide, where to get it and where to paste it, in the `.env` file, in the documentation and in the terminal, so every sign-in method works once they have filled it in. ADR-0024 already promised that social providers are "disabled until credentials are configured" and that `aps dev` "reports their status"; ADR-0028's banner showed `Google login: not configured → docs/auth-providers.md`. Nothing defines what that report contains or where the instructions live.
+The maintainer's requirement (2026-09-15): developers must be told plainly what they need to provide, where to get it and where to paste it, in the `.env` file, in the documentation and in the terminal, so every sign-in method works once they have filled it in. ADR-0024 already promised that social providers are "disabled until credentials are configured" and that `orb dev` "reports their status"; ADR-0028's banner showed `Google login: not configured → docs/auth-providers.md`. Nothing defines what that report contains or where the instructions live.
 
 ## Decision
 
@@ -59,19 +59,19 @@ To register at Apple: the Services ID's domain and return URL `https://<your API
 |---|---|
 | `.env.example` | A commented block per method: each variable, whether it is a secret, where to get it in one line, the URLs to register, and a pointer to `AUTH_PROVIDERS.md`. Empty by default |
 | `AUTH_PROVIDERS.md` in every Full app (next to `AGENTS.md`) | Step-by-step setup per method with the console paths above, what to paste where, the URLs to register, how to check it works, and a "when you build the web frontend / iOS app / Android app" checklist (entitlements, Credential Manager, callback handling) for later stages |
-| `docs/guides/auth-providers.md` (apistock) | The same guide for the repository |
+| `docs/guides/auth-providers.md` (gorbital) | The same guide for the repository |
 | `AGENTS.md` | One row: configure sign-in methods in `.env` following `AUTH_PROVIDERS.md`; never commit the values |
 
 ### 3. How the developer is told
 
 | Where | Behaviour |
 |---|---|
-| App start, development | Prints a **Sign-in methods** block: each method `✓ on` or `– off`, and for each off method the exact variables to set and the `AUTH_PROVIDERS.md` section. `aps dev` shows it as the app starts |
+| App start, development | Prints a **Sign-in methods** block: each method `✓ on` or `– off`, and for each off method the exact variables to set and the `AUTH_PROVIDERS.md` section. `orb dev` shows it as the app starts |
 | App start, production | Logs one line per method at info (`method`, `configured`), never values |
 | Partial configuration | Fails at start in every environment, naming the missing variables (for example `GOOGLE_CLIENT_ID` without `GOOGLE_CLIENT_SECRET`), so a half-configured provider can't silently stay off |
 | `go run ./cmd/api auth-providers` | Prints the same block and exits non-zero when a configured method is invalid, for CI and deploy checks |
 | `GET /ops/auth/providers` | Each method's status and missing variable names, never values, for the future dashboard; permission `ops.auth.read` (in `ops_viewer` and `platform_admin`) |
-| `aps new --preset full` | Next steps mention `AUTH_PROVIDERS.md` for passkeys, Google and Apple |
+| `orb new --preset full` | Next steps mention `AUTH_PROVIDERS.md` for passkeys, Google and Apple |
 
 Example in development:
 
@@ -119,5 +119,5 @@ Only `GOOGLE_CLIENT_SECRET` and the Apple private key are secrets: `config.Secre
 
 - The status comes from one place, `Config.signInMethods` in `internal/app/providers.go`: method key and name, enabled, a detail for enabled methods (relying party ID and origins, app IDs, Android packages), and the missing variables and guide section for the others. The start block, the command and the endpoint all use it.
 - Partial configuration is refused by `LoadConfig`: `WEBAUTHN_ORIGINS` or native app IDs without `WEBAUTHN_RP_ID`, an RP ID without origins, http origins in production, origins off the RP ID, and malformed Apple app IDs or Android fingerprints, each naming the variable and `AUTH_PROVIDERS.md`.
-- `aps new --preset full` prints `AUTH_PROVIDERS.md` in its next steps, and the docs URL on `localhost`, which passkeys need.
+- `orb new --preset full` prints `AUTH_PROVIDERS.md` in its next steps, and the docs URL on `localhost`, which passkeys need.
 - Tests: the block's lines for enabled and missing methods; the endpoint for `ops_viewer`, never containing the encryption key, and 403 without an ops role; every configuration error above.

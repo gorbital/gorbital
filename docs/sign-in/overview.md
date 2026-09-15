@@ -5,7 +5,7 @@ Your app can already sign people in with an email address and a password. It can
 This section walks through every value, click by click. You don't need to have used those websites before.
 
 > [!NOTE]
-> apistock never owns or sees these values. They go into your app's environment, and only your app uses them.
+> gorbital never owns or sees these values. They go into your app's environment, and only your app uses them.
 
 ## What you can set up
 
@@ -34,7 +34,7 @@ You don't need all of them. Start with the ones your users expect.
 
 ## Where the values go
 
-1. **On your computer:** open `.env` in your app's folder and fill in the line for the value, such as `GOOGLE_CLIENT_ID=…`. Every name is already listed with a comment in `.env.example`, and `aps dev` creates `.env` from it the first time.
+1. **On your computer:** open `.env` in your app's folder and fill in the line for the value, such as `GOOGLE_CLIENT_ID=…`. Every name is already listed with a comment in `.env.example`, and `orb dev` creates `.env` from it the first time.
 2. **In production:** add the same names in your hosting provider's environment or secrets settings. Use different values from the ones on your computer.
 3. **Restart the app** after changing a value.
 
@@ -61,7 +61,7 @@ Sign-in methods
   – Passkeys in Android apps  set WEBAUTHN_ANDROID_APPS in .env   AUTH_PROVIDERS.md#passkeys-in-android-apps
 ```
 
-A tick means the method is on. A dash means it's off, and shows what to set. `aps dev` prints the same list each time the app starts.
+A tick means the method is on. A dash means it's off, and shows what to set. `orb dev` prints the same list each time the app starts.
 
 ## A good order
 

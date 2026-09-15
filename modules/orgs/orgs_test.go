@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/actor"
-	"apistock.dev/mail"
-	"apistock.dev/modules/auth"
-	"apistock.dev/modules/orgs"
+	"gorbital.dev/actor"
+	"gorbital.dev/mail"
+	"gorbital.dev/modules/auth"
+	"gorbital.dev/modules/orgs"
 )
 
 func TestIDs(t *testing.T) {

@@ -1,28 +1,28 @@
-# PostgreSQL and Mailpit for apistock's own module tests (ADR-0028).
+# PostgreSQL and Mailpit for gorbital's own module tests (ADR-0028).
 #
 #   docker compose up -d --wait
-#   export APISTOCK_TEST_DATABASE_URL=postgres://apistock:apistock@127.0.0.1:55432/apistock?sslmode=disable
-#   export APISTOCK_TEST_MAILPIT_SMTP=127.0.0.1:51025 APISTOCK_TEST_MAILPIT_URL=http://127.0.0.1:58025
+#   export GORBITAL_TEST_DATABASE_URL=postgres://gorbital:gorbital@127.0.0.1:55432/gorbital?sslmode=disable
+#   export GORBITAL_TEST_MAILPIT_SMTP=127.0.0.1:51025 GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:58025
 #
 # Host ports default to 55432, 51025 and 58025 so they don't clash with other
-# projects; override with APISTOCK_POSTGRES_PORT, APISTOCK_MAILPIT_SMTP_PORT
-# and APISTOCK_MAILPIT_WEB_PORT. `docker compose down -v` resets the data.
-name: apistock
+# projects; override with GORBITAL_POSTGRES_PORT, GORBITAL_MAILPIT_SMTP_PORT
+# and GORBITAL_MAILPIT_WEB_PORT. `docker compose down -v` resets the data.
+name: gorbital
 
 services:
   postgres:
     image: postgres:18
     environment:
-      POSTGRES_USER: apistock
-      POSTGRES_PASSWORD: apistock
-      POSTGRES_DB: apistock
+      POSTGRES_USER: gorbital
+      POSTGRES_PASSWORD: gorbital
+      POSTGRES_DB: gorbital
     ports:
-      - "127.0.0.1:${APISTOCK_POSTGRES_PORT:-55432}:5432"
+      - "127.0.0.1:${GORBITAL_POSTGRES_PORT:-55432}:5432"
     volumes:
       # PostgreSQL 18+ images keep versioned data under /var/lib/postgresql.
       - postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U apistock -d apistock"]
+      test: ["CMD-SHELL", "pg_isready -U gorbital -d gorbital"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -30,8 +30,8 @@ services:
   mailpit:
     image: axllent/mailpit:v1.27
     ports:
-      - "127.0.0.1:${APISTOCK_MAILPIT_SMTP_PORT:-51025}:1025"
-      - "127.0.0.1:${APISTOCK_MAILPIT_WEB_PORT:-58025}:8025"
+      - "127.0.0.1:${GORBITAL_MAILPIT_SMTP_PORT:-51025}:1025"
+      - "127.0.0.1:${GORBITAL_MAILPIT_WEB_PORT:-58025}:8025"
     healthcheck:
       test: ["CMD", "/mailpit", "readyz"]
       interval: 2s

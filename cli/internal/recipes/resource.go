@@ -20,11 +20,11 @@ import (
 //go:embed resource/*.tmpl
 var resourceFS embed.FS
 
-// ModulesAnchor is the anchor in internal/app/modules.go that aps gen
+// ModulesAnchor is the anchor in internal/app/modules.go that orb gen
 // resource adds a line after.
-const ModulesAnchor = "//aps:anchor modules"
+const ModulesAnchor = "//orb:anchor modules"
 
-// Field kinds of aps gen resource (ADR-0039).
+// Field kinds of orb gen resource (ADR-0039).
 const (
 	KindString = "string" // 1 to StringMaxLength characters; required, sortable, can be unique
 	KindText   = "text"   // up to TextMaxLength characters; optional
@@ -288,7 +288,7 @@ type ResourceOptions struct {
 	Scope string
 }
 
-// Resource scopes of aps gen resource --scope.
+// Resource scopes of orb gen resource --scope.
 const (
 	ScopeUser = "user"
 	ScopeOrg  = "org"
@@ -688,17 +688,17 @@ func (d ResourceData) JSONChoice() string {
 	return "," + jsonString(e.Name) + ":" + jsonString(e.LastValue().Value)
 }
 
-// ModulesLine is the line aps gen resource adds after ModulesAnchor.
+// ModulesLine is the line orb gen resource adds after ModulesAnchor.
 func (d ResourceData) ModulesLine() string {
 	return "register" + d.Plural + "(api, mapper, svc),"
 }
 
 // OrgPermissionsAnchor is the anchor in internal/app/permissions.go that
-// aps gen resource --scope org adds a line after, so the organisation roles
+// orb gen resource --scope org adds a line after, so the organisation roles
 // get the new resource's permissions.
-const OrgPermissionsAnchor = "//aps:anchor org-permissions"
+const OrgPermissionsAnchor = "//orb:anchor org-permissions"
 
-// PermissionsLine is the line aps gen resource --scope org adds after
+// PermissionsLine is the line orb gen resource --scope org adds after
 // OrgPermissionsAnchor: the permissions its app wiring file declares.
 func (d ResourceData) PermissionsLine() string { return d.Package + "Permissions," }
 

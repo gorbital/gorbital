@@ -21,13 +21,13 @@ import (
 
 	"github.com/charmbracelet/huh"
 
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes"
 )
 
 const genUsage = `Usage:
-  aps gen job <Name> [flags]
-  aps gen resource <Name> <field:type>... [flags]
-  aps gen migration <name> [flags]
+  orb gen job <Name> [flags]
+  orb gen resource <Name> <field:type>... [flags]
+  orb gen migration <name> [flags]
 
 job generates a background job whose schedule, timeout and retries can be
 changed at runtime through /ops/jobs. resource generates a module, table and
@@ -40,7 +40,7 @@ interactively; pass flags to skip them.
 func runGen(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		fmt.Fprint(stderr, genUsage)
-		return usageError("missing generator: aps gen job <Name>, aps gen resource <Name> <field:type>... or aps gen migration <name>")
+		return usageError("missing generator: orb gen job <Name>, orb gen resource <Name> <field:type>... or orb gen migration <name>")
 	}
 	switch args[0] {
 	case "job":
@@ -83,7 +83,7 @@ const (
 )
 
 func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	flags := flag.NewFlagSet("aps gen job", flag.ContinueOnError)
+	flags := flag.NewFlagSet("orb gen job", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	in := jobInput{}
 	flags.StringVar(&in.description, "description", "", `what the job does (default "<Name> job.")`)
@@ -149,7 +149,7 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 			return err
 		}
 	} else if in.name == "" {
-		return usageError("missing job name: aps gen job <Name> (or run it in a terminal to be asked)")
+		return usageError("missing job name: orb gen job <Name> (or run it in a terminal to be asked)")
 	}
 	if in.trigger == "" {
 		in.trigger = triggerSchedule
@@ -167,14 +167,14 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 	jobsGo := filepath.Join("internal", "app", "jobs.go")
 	src, err := os.ReadFile(filepath.Join(app.dir, jobsGo))
 	if errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("%s has no %s: aps gen job works in apps created with the Full preset", app.dir, jobsGo)
+		return fmt.Errorf("%s has no %s: orb gen job works in apps created with the Full preset", app.dir, jobsGo)
 	} else if err != nil {
 		return err
 	}
 	callLine := "define" + data.Ident + "Job(defs, deps)"
 	updated, err := recipes.InsertAfterAnchor(src, recipes.JobAnchor, callLine)
 	if errors.Is(err, recipes.ErrAnchorMissing) {
-		return fmt.Errorf("%s has no %q line; add it inside defineJobs, then run aps gen job again", jobsGo, recipes.JobAnchor)
+		return fmt.Errorf("%s has no %q line; add it inside defineJobs, then run orb gen job again", jobsGo, recipes.JobAnchor)
 	} else if err != nil {
 		return fmt.Errorf("%s: job %s is already registered: %w", jobsGo, data.Name, err)
 	}
@@ -548,7 +548,7 @@ func findApp() (appInfo, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return appInfo{}, errors.New("no go.mod found: run aps gen job inside an apistock app")
+			return appInfo{}, errors.New("no go.mod found: run orb gen job inside an gorbital app")
 		}
 		dir = parent
 	}

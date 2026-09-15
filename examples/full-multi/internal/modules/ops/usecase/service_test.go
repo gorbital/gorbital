@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"apistock.dev/actor"
-	"apistock.dev/modules/auditpg"
-	"apistock.dev/modules/settings"
+	"gorbital.dev/actor"
+	"gorbital.dev/modules/auditpg"
+	"gorbital.dev/modules/settings"
 
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"

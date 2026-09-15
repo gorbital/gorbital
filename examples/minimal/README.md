@@ -1,15 +1,15 @@
 # acme-api
 
-A Go API created with [apistock](https://apistock.dev) (Minimal preset).
+A Go API created with [gorbital](https://gorbital.dev) (Minimal preset).
 
 ## Run
 
 ```bash
-aps dev
-aps dev --observability      # also Grafana on http://127.0.0.1:3000 for traces, metrics and logs (needs Docker)
+orb dev
+orb dev --observability      # also Grafana on http://127.0.0.1:3000 for traces, metrics and logs (needs Docker)
 ```
 
-Without the apistock CLI:
+Without the gorbital CLI:
 
 ```bash
 go run ./cmd/api

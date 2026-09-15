@@ -2,7 +2,7 @@
 // administrator and example projects (ADR-0042). It prints the
 // administrator's random password once, refuses to run when APP_ENV is
 // production, and changes nothing when the administrator already exists.
-// Run it after cmd/migrate; aps dev runs both.
+// Run it after cmd/migrate; orb dev runs both.
 //
 // Usage:
 //
@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"os"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 
 	"example.com/acme-api/internal/app"
 )

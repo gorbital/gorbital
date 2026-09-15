@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"apistock.dev/modules/openapi/reference"
+	"gorbital.dev/modules/openapi/reference"
 )
 
 // apiFileNames are the files WriteAPIFiles writes, in api/ by convention.

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"apistock.dev/modules/auth/passkey"
+	"gorbital.dev/modules/auth/passkey"
 )
 
 // devWebAuthn is the passkey relying party in development: browsers allow

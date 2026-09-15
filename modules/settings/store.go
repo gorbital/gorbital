@@ -15,9 +15,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/requestid"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/requestid"
 )
 
 // DefaultResyncInterval is how often a running [Store] reloads every value,
@@ -25,7 +25,7 @@ import (
 const DefaultResyncInterval = 5 * time.Minute
 
 // notifyChannel carries the key of each changed setting.
-const notifyChannel = "apistock_settings"
+const notifyChannel = "gorbital_settings"
 
 // dbtx is the query subset of *pgxpool.Pool and pgx.Tx the store uses.
 type dbtx interface {

@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	orgslib "apistock.dev/modules/orgs"
+	orgslib "gorbital.dev/modules/orgs"
 )
 
 const countOwnersSQL = `SELECT count(*) FROM org_members WHERE org_id = $1 AND role = 'owner'`

@@ -3,8 +3,8 @@ package usecase
 import (
 	"context"
 
-	"apistock.dev/modules/auditpg"
-	"apistock.dev/modules/jobs"
+	"gorbital.dev/modules/auditpg"
+	"gorbital.dev/modules/jobs"
 
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
 )

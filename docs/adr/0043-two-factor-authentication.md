@@ -33,7 +33,7 @@ TOTP option 2; development option 1 (chosen 2026-09-15).
 
 ### Who owns what (as ADR-0038)
 
-| Library: `apistock.dev/modules/auth` | App: `internal/modules/auth` |
+| Library: `gorbital.dev/modules/auth` | App: `internal/modules/auth` |
 |---|---|
 | `TOTP`: RFC 6238 with SHA-1, 6 digits, 30-second steps, ±1 step of clock skew; `NewTOTPSecret` (20 random bytes, base32), `TOTPURI` (`otpauth://totp/...` for authenticator apps), `VerifyTOTP` returning the matched step | Enrollment, confirmation, disabling, challenges, recovery codes, policy checks, tables, endpoints |
 | `Keyring`: AES-256-GCM with key IDs; encrypts with the first key, decrypts with any; additional data binds a ciphertext to its user and purpose | Stores ciphertexts; the `rotate-auth-keys` command |
@@ -50,7 +50,7 @@ No QR images are generated: the API returns the `otpauth://` URI and clients ren
 | Stored form | Key ID, nonce and ciphertext; additional data is `user_id` and `totp` so a ciphertext copied to another row fails to decrypt |
 | Rotation | Put a new key first and keep the old one; `go run ./cmd/api rotate-auth-keys` re-encrypts every secret with the first key and is audited; then remove the old key |
 | Production | The app refuses to start without a valid key |
-| Development | `aps dev` writes a random key to `.env` when the variable is empty; without a key (plain `go run`), 2FA endpoints return 503 `mfa_unavailable` and users with 2FA can't sign in, with a log line saying why |
+| Development | `orb dev` writes a random key to `.env` when the variable is empty; without a key (plain `go run`), 2FA endpoints return 503 `mfa_unavailable` and users with 2FA can't sign in, with a log line saying why |
 | `.env.example` | The variable, empty, with how to generate a key (`openssl rand -base64 32`) |
 
 ### Tables
@@ -95,7 +95,7 @@ Lost device and recovery codes: an operator runs `go run ./cmd/api reset-mfa <em
 
 ### Seed data (amends ADR-0042)
 
-Seed also enrolls the administrator: it creates and confirms a TOTP secret and recovery codes through the use cases, and prints, once, next to the password, the setup key, the `otpauth://` URI and the 10 recovery codes. Nothing is stored in plain text. The first `aps dev` still ends with a working `/ops/*`: add the key to an authenticator app, sign in, answer the challenge.
+Seed also enrolls the administrator: it creates and confirms a TOTP secret and recovery codes through the use cases, and prints, once, next to the password, the setup key, the `otpauth://` URI and the 10 recovery codes. Nothing is stored in plain text. The first `orb dev` still ends with a working `/ops/*`: add the key to an authenticator app, sign in, answer the challenge.
 
 ### Audit actions and emails
 
@@ -124,7 +124,7 @@ Seed also enrolls the administrator: it creates and confirms a TOTP secret and r
 
 - `modules/auth` gains `TOTP`, `Keyring`, recovery code helpers and `Catalog.RequireMFA`; core `actor` gains `StepUp`, `Require`, `ErrForbidden` and `ErrStepUpRequired` (public API, ADR-0015).
 - The Full preset gains a migration, use cases, repository files and endpoints, `reset-mfa` and `rotate-auth-keys` commands, seed enrollment, and tests for replay, challenge limits, key rotation, role policy and seed.
-- `aps dev` writes `AUTH_ENCRYPTION_KEYS` to `.env` when empty.
+- `orb dev` writes `AUTH_ENCRYPTION_KEYS` to `.env` when empty.
 - Threat model rows 15 and 18 (required 2FA for ops) are addressed when this ships; ADR-0024's library list drops `pquerna/otp`.
 
 ## Implementation notes (2026-09-15)
@@ -135,7 +135,7 @@ Seed also enrolls the administrator: it creates and confirms a TOTP secret and r
 - `EnrollTOTP` (operators, seed data) confirms a secret without a code and records step 0, so the first real code is accepted.
 - `auth_cleanup` removes sign-in challenges a day after they expire.
 - `LoadConfig` validates `AUTH_ENCRYPTION_KEYS` everywhere and requires it in production. Tests share one generated key per process, so two app instances on one database decrypt each other's secrets.
-- `aps dev` fills an empty `AUTH_ENCRYPTION_KEYS` in `.env` with `dev:<random key>`, only for apps whose `.env.example` declares it and when the environment doesn't set it, and keeps `.env` at mode 0600.
+- `orb dev` fills an empty `AUTH_ENCRYPTION_KEYS` in `.env` with `dev:<random key>`, only for apps whose `.env.example` declares it and when the environment doesn't set it, and keeps `.env` at mode 0600.
 - The migration is `20260915000004_auth_mfa.sql`.
 - Amended 2026-09-15 (with ADR-0044): the setup response also returns `qr_code`, a PNG data URL of the `otpauth://` URI, so the API is usable with an authenticator app before any frontend exists. `modules/auth` gains `TOTPQRCode` on `rsc.io/qr` (no dependencies of its own); the "no QR images" line above is replaced.
 
@@ -147,6 +147,6 @@ Seed also enrolls the administrator: it creates and confirms a TOTP secret and r
 | HTTP | 403 `mfa_required` on `/ops/*` before 2FA; `/v1/auth/me` fields; setup and confirmation; 202 challenge with nothing else; a used code refused; recovery code sign-in; `mfa_required_by_role`; the audit event |
 | Seed | The printed password and 2FA key sign in and `/ops/*` answers; a second run prints no secrets |
 | Every existing test | Passes with ops helpers signing in through the challenge |
-| New Full app (`APS_E2E=1`) | Passes its own suite, including the tests above |
-| `aps dev` with Docker (`APS_E2E_DOCKER=1`) | Writes a development `AUTH_ENCRYPTION_KEYS`; seed enrolls the administrator; the printed password and a code from the printed key sign in; API ready in 9 s with warm caches |
+| New Full app (`ORB_E2E=1`) | Passes its own suite, including the tests above |
+| `orb dev` with Docker (`ORB_E2E_DOCKER=1`) | Writes a development `AUTH_ENCRYPTION_KEYS`; seed enrolls the administrator; the printed password and a code from the printed key sign in; API ready in 9 s with warm caches |
 | Lint | golangci-lint clean in `actor`, `modules/auth`, `examples/full-single` and `cli`; no new module dependencies |

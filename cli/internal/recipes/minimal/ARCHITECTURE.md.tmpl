@@ -1,6 +1,6 @@
 # Architecture
 
-This app follows the apistock layered module structure. The rules below are checked by `internal/app/architecture_test.go`, so `go test ./...` fails when they are broken.
+This app follows the gorbital layered module structure. The rules below are checked by `internal/app/architecture_test.go`, so `go test ./...` fails when they are broken.
 
 ## Layout
 
@@ -10,7 +10,7 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   config.go              every setting, read from environment variables
   app.go                 construction order and lifecycle
   routes.go              API, health, docs and the middleware chain
-  modules.go             one line per business module (//aps:anchor modules)
+  modules.go             one line per business module (//orb:anchor modules)
   module_<name>.go       wires one module: its operations and error codes
 internal/modules/<name>/ one bounded context per directory
   module.go              wires the module's layers

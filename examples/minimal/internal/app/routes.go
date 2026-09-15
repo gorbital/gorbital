@@ -7,9 +7,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/buildinfo"
-	"apistock.dev/httpx"
-	"apistock.dev/modules/openapi"
+	"gorbital.dev/buildinfo"
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/openapi"
 )
 
 type versionOutput struct {

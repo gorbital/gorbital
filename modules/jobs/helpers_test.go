@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/modules/jobs"
-	"apistock.dev/modules/postgres/pgtest"
-	"apistock.dev/requestid"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/postgres/pgtest"
+	"gorbital.dev/requestid"
 )
 
 // newPool returns a database with the jobs definition tables and River's

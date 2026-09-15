@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/modules/postgres"
 
 	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
 	orgsusecase "example.com/acme-api/internal/modules/orgs/usecase"

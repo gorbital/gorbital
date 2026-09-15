@@ -1,6 +1,6 @@
 # Architecture
 
-This app follows the apistock layered module structure. The rules below are checked by `internal/app/architecture_test.go`, so `go test ./...` fails when they are broken.
+This app follows the gorbital layered module structure. The rules below are checked by `internal/app/architecture_test.go`, so `go test ./...` fails when they are broken.
 
 ## Layout
 
@@ -8,11 +8,11 @@ This app follows the apistock layered module structure. The rules below are chec
 cmd/api/                 entry point: config → app → run ("api openapi" exports the spec)
 cmd/migrate/             applies db/migrations, then the job queue's migrations
 cmd/seed/                development seed data: an administrator and example projects
-db/migrations/           one ordered goose history, including apistock module tables
+db/migrations/           one ordered goose history, including gorbital module tables
 internal/app/            composition root: builds, wires, runs and shuts down the app
   config.go              boot configuration: secrets and infrastructure from environment variables
   settings.go            runtime settings: tunables edited through /ops/settings
-  jobs.go                one line per background job (//aps:anchor jobs)
+  jobs.go                one line per background job (//orb:anchor jobs)
   job_<name>.go          declares one job and its default configuration
   app.go                 construction order and lifecycle
   routes.go              API, health, docs and the middleware chain
@@ -27,9 +27,9 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   rate_limits.go         rate limits every instance shares (ratelimitpg), read from runtime settings
   seed.go                development seed data (cmd/seed)
   mail.go                email delivery: Mailpit in development or the provider
-  infra_mail.go          the email provider's configuration (replaced by `aps add mail`)
-  infra_mail_test.go     the email provider's tests and fixtures (replaced by `aps add mail`)
-  modules.go             one line per business module (//aps:anchor modules)
+  infra_mail.go          the email provider's configuration (replaced by `orb add mail`)
+  infra_mail_test.go     the email provider's tests and fixtures (replaced by `orb add mail`)
+  modules.go             one line per business module (//orb:anchor modules)
   module_<name>.go       wires one module: its operations and error codes
 internal/jobs/<name>/    background job arguments and worker
 internal/modules/<name>/ one bounded context per directory
@@ -63,25 +63,25 @@ A value is never in more than one layer, and secrets are never runtime settings.
 
 ## Background jobs
 
-Jobs run in the API process on PostgreSQL (River). A job carries the request ID, trace and actor that enqueued it, but never their permissions; it runs as the `jobs` system actor. Add one with `aps gen job <Name>`, or copy `internal/jobs/heartbeat` and `internal/app/job_heartbeat.go` and add a line in `jobs.go`.
+Jobs run in the API process on PostgreSQL (River). A job carries the request ID, trace and actor that enqueued it, but never their permissions; it runs as the `jobs` system actor. Add one with `orb gen job <Name>`, or copy `internal/jobs/heartbeat` and `internal/app/job_heartbeat.go` and add a line in `jobs.go`.
 
 ## Authentication
 
-`internal/modules/auth` owns sign-up, email codes, sign-in, sessions, password reset and change, account deletion and platform roles, with all four layers: its use cases hold every flow and its repository holds the SQL for `auth_users`, `auth_sessions`, `auth_codes` and `auth_user_roles`. The apistock auth library supplies password hashing, tokens, codes, cookies, the permission catalog and the middleware that puts the signed-in user's actor (with the permissions of their roles) in each request's context. Use cases check `actor.Can(permission)`; declare permissions and roles in `internal/app/permissions.go`.
+`internal/modules/auth` owns sign-up, email codes, sign-in, sessions, password reset and change, account deletion and platform roles, with all four layers: its use cases hold every flow and its repository holds the SQL for `auth_users`, `auth_sessions`, `auth_codes` and `auth_user_roles`. The gorbital auth library supplies password hashing, tokens, codes, cookies, the permission catalog and the middleware that puts the signed-in user's actor (with the permissions of their roles) in each request's context. Use cases check `actor.Can(permission)`; declare permissions and roles in `internal/app/permissions.go`.
 
 ## Business resources
 
-`internal/modules/projects` is exactly what `aps gen resource Project name:string:unique description:text 'status:enum(active,archived)'` creates. Generate your own resources the same way, or copy it. All of it is your code: change any rule, query or response.
+`internal/modules/projects` is exactly what `orb gen resource Project name:string:unique description:text 'status:enum(active,archived)'` creates. Generate your own resources the same way, or copy it. All of it is your code: change any rule, query or response.
 
 - **Ownership:** every project has an `owner_id` (the signed-in user). Every repository method takes the owner ID, and someone else's project returns 404 `project_not_found`, so IDs can't be probed. Deleting an account deletes its projects.
-- **Lists:** `GET /v1/projects` uses keyset pagination through `apistock.dev/page`: `limit`, an opaque `cursor`, and `sort` by one allowlisted field, with one fixed query per sort in `repository/select_projects.go`.
+- **Lists:** `GET /v1/projects` uses keyset pagination through `gorbital.dev/page`: `limit`, an opaque `cursor`, and `sort` by one allowlisted field, with one fixed query per sort in `repository/select_projects.go`.
 - **Updates:** `PATCH` sends the `version` it read; a stale version returns 409 `project_version_conflict` instead of overwriting someone else's change.
 - **Audit:** `projects.project.created`, `.updated` (changed field names only) and `.deleted`.
 - **Tests:** domain rules, repository methods on real PostgreSQL, use cases including cross-owner access, and an end-to-end HTTP test in `internal/app/projects_test.go`.
 
 ## Email
 
-Modules send email through `mailer`, a `mail.Sender` built in `app.go`: it fills the sender from the `mail.*` runtime settings and queues the message; the mail worker delivers it with retries and idempotency. `mail.go` sends to Mailpit in development (`MAIL_DELIVERY`) or to the provider in `infra_mail.go`. The provider's secrets are environment variables in the `# aps:begin mail` block of `.env.example`. `aps add mail` replaces `infra_mail.go`, `infra_mail_test.go` and that block to switch between Resend and SMTP; don't edit them by hand.
+Modules send email through `mailer`, a `mail.Sender` built in `app.go`: it fills the sender from the `mail.*` runtime settings and queues the message; the mail worker delivers it with retries and idempotency. `mail.go` sends to Mailpit in development (`MAIL_DELIVERY`) or to the provider in `infra_mail.go`. The provider's secrets are environment variables in the `# orb:begin mail` block of `.env.example`. `orb add mail` replaces `infra_mail.go`, `infra_mail_test.go` and that block to switch between Resend and SMTP; don't edit them by hand.
 
 ## Audit log
 

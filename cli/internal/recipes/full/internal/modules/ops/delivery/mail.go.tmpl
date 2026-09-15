@@ -6,14 +6,14 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/modules/openapi"
+	"gorbital.dev/modules/openapi"
 
 	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
 )
 
 // MailStatusResponse is how the app sends email.
 type MailStatusResponse struct {
-	Provider  string            `json:"provider" enum:"resend,smtp" doc:"Chosen with aps add mail"`
+	Provider  string            `json:"provider" enum:"resend,smtp" doc:"Chosen with orb add mail"`
 	Delivery  string            `json:"delivery" enum:"mailpit,provider" doc:"mailpit: every email goes to the development inbox; provider: real email"`
 	Details   map[string]string `json:"details" doc:"Provider configuration from the environment, without secrets"`
 	FromName  string            `json:"from_name" doc:"Runtime setting mail.from_name" example:"Acme"`
@@ -58,7 +58,7 @@ func RegisterMail(api huma.API, svc *opsusecase.Service) {
 	huma.Register(api, huma.Operation{
 		OperationID: "ops-send-test-email", Method: http.MethodPost, Path: "/ops/mail/test",
 		Summary:     "Send a test email",
-		Description: "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=apistock.mail.send`.",
+		Description: "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`.",
 		Tags:        tags, Security: openapi.Bearer, DefaultStatus: http.StatusAccepted,
 		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity},
 	}, h.sendTest)

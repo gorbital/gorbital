@@ -14,30 +14,30 @@ import (
 	"slices"
 	"strings"
 
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes"
 )
 
-// LockAPIVersion versions the apistock.lock format (ADR-0015, ADR-0050).
-const LockAPIVersion = "apistock.dev/v2"
+// LockAPIVersion versions the gorbital.lock format (ADR-0015, ADR-0050).
+const LockAPIVersion = "gorbital.dev/v2"
 
-// lockAPIVersionV1 is the format aps wrote before v0.5: one createFile
+// lockAPIVersionV1 is the format orb wrote before v0.5: one createFile
 // operation per file, without the release or inputs that rendered them.
-const lockAPIVersionV1 = "apistock.dev/v1"
+const lockAPIVersionV1 = "gorbital.dev/v1"
 
-const lockPath = "apistock.lock"
+const lockPath = "gorbital.lock"
 
-// lockFile records what aps rendered into an app, so aps upgrade can rebuild
+// lockFile records what orb rendered into an app, so orb upgrade can rebuild
 // those files at the recorded release and merge template changes into the
 // developer's edits (ADR-0016, ADR-0050).
 type lockFile struct {
 	APIVersion string       `json:"apiVersion"`
-	Aps        lockAps      `json:"aps"`
+	Orb        lockOrb      `json:"orb"`
 	Inputs     lockInputs   `json:"inputs"`
 	Files      []lockedFile `json:"files"`
 }
 
-// lockAps is the aps release that rendered the tracked files.
-type lockAps struct {
+// lockOrb is the orb release that rendered the tracked files.
+type lockOrb struct {
 	Version string `json:"version,omitempty"`
 	// Revision is the commit a development build was built from, recorded
 	// only when its tree was clean, so the templates are exactly that commit.
@@ -54,7 +54,7 @@ type lockInputs struct {
 	Mail    string `json:"mail,omitempty"`
 }
 
-// lockedFile is a tracked file and the SHA-256 of its content as aps wrote it.
+// lockedFile is a tracked file and the SHA-256 of its content as orb wrote it.
 type lockedFile struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
@@ -64,11 +64,11 @@ type lockedFile struct {
 // rewrite them, and upgrades update them with go get instead of merging.
 var untrackedPaths = []string{"go.mod", "go.sum"}
 
-// newLock records files rendered from preset with d by this aps.
+// newLock records files rendered from preset with d by this orb.
 func newLock(preset recipes.Preset, d recipes.Data, files []recipes.File) lockFile {
 	l := lockFile{
 		APIVersion: LockAPIVersion,
-		Aps:        lockAps{Version: Version, Revision: buildRevision()},
+		Orb:        lockOrb{Version: Version, Revision: buildRevision()},
 		Inputs:     lockInputs{Name: d.Name, Module: d.Module, Preset: preset.Name, Tenancy: preset.Tenancy},
 	}
 	if preset.Name == "full" {
@@ -96,7 +96,7 @@ func (l lockFile) tracks(path string) bool {
 }
 
 // record sets the hash of a tracked file to content's. Untracked paths, such
-// as .env or files aps gen wrote, are left out.
+// as .env or files orb gen wrote, are left out.
 func (l *lockFile) record(path string, content []byte) {
 	if i, ok := l.find(path); ok {
 		l.Files[i].SHA256 = sha256Hex(content)
@@ -122,10 +122,10 @@ func writeLock(root *os.Root, l lockFile) error {
 	return nil
 }
 
-// errNoLock reports an app without apistock.lock.
+// errNoLock reports an app without gorbital.lock.
 var errNoLock = errors.New("no " + lockPath)
 
-// readLock reads dir's apistock.lock. A v1 lock comes back with its files
+// readLock reads dir's gorbital.lock. A v1 lock comes back with its files
 // and APIVersion v1, but no release or inputs: v1 didn't record them.
 func readLock(dir string) (lockFile, error) {
 	data, err := os.ReadFile(filepath.Join(dir, lockPath))
@@ -171,7 +171,7 @@ func readLock(dir string) (lockFile, error) {
 			}
 		}
 	default:
-		return lockFile{}, fmt.Errorf("%s has apiVersion %q; this aps reads %s and %s (a newer aps may have written it)", lockPath, head.APIVersion, LockAPIVersion, lockAPIVersionV1)
+		return lockFile{}, fmt.Errorf("%s has apiVersion %q; this orb reads %s and %s (a newer orb may have written it)", lockPath, head.APIVersion, LockAPIVersion, lockAPIVersionV1)
 	}
 
 	slices.SortFunc(l.Files, compareLocked)

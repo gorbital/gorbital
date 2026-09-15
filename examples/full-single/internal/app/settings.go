@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"apistock.dev/mail"
-	authlib "apistock.dev/modules/auth"
-	"apistock.dev/modules/releases"
-	"apistock.dev/modules/settings"
+	"gorbital.dev/mail"
+	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/releases"
+	"gorbital.dev/modules/settings"
 )
 
 const (

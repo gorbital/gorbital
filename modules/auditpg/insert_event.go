@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/modules/postgres"
 )
 
 // eventRow is a prepared event to insert into audit_events.

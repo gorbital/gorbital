@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"apistock.dev/mail"
+	"gorbital.dev/mail"
 )
 
 // buildMessage formats m as an RFC 5322 message with CRLF line endings. m

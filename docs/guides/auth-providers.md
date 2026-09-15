@@ -8,7 +8,7 @@ What a developer provides so each sign-in method works with their own accounts, 
 
 | Where | What you see |
 |---|---|
-| App start in development (`aps dev`) | A **Sign-in methods** block: `✓` for each method that's on, `–` with the variables to set and the guide section for each that's off |
+| App start in development (`orb dev`) | A **Sign-in methods** block: `✓` for each method that's on, `–` with the variables to set and the guide section for each that's off |
 | `go run ./cmd/api auth-providers` | The same block, anywhere (CI, a production shell) |
 | `GET /ops/auth/providers` | The same status as JSON for dashboards, with permission `ops.auth.read`; never values |
 | App start in production | One log line per method: `method`, `configured` |
@@ -27,7 +27,7 @@ Sign-in methods
 
 | Method | Variable | Secret | Where to get it |
 |---|---|---|---|
-| Authenticator apps | `AUTH_ENCRYPTION_KEYS` | **Yes** | `echo "k1:$(openssl rand -base64 32)"`; `aps dev` writes one in development; required in production |
+| Authenticator apps | `AUTH_ENCRYPTION_KEYS` | **Yes** | `echo "k1:$(openssl rand -base64 32)"`; `orb dev` writes one in development; required in production |
 | Passkeys | `WEBAUTHN_RP_ID` | No | Your site's domain, such as `example.com`; empty in development means `localhost` |
 | Passkeys | `WEBAUTHN_ORIGINS` | No | Browser origins of your frontend, such as `https://app.example.com`; https in production |
 | Passkeys in iOS apps | `WEBAUTHN_APPLE_APP_IDS` | No | `TEAMID.bundle.id`: Apple Developer → Membership details → Team ID, plus the app's bundle ID |
@@ -35,7 +35,7 @@ Sign-in methods
 | Google and Apple | `APP_PUBLIC_URL` | No | The API's public URL, which providers return to; empty in development means `http://localhost:8080`; https in production |
 | Google sign-in | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (secret), `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_ANDROID_CLIENT_ID` | Secret: yes | Google Cloud Console → Google Auth Platform → Clients; redirect URI `https://<API>/v1/auth/google/callback` |
 | Apple sign-in | `APPLE_TEAM_ID`, `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_FILE` (secret), `APPLE_BUNDLE_IDS` | Key: yes | Apple Developer → Identifiers (App ID, Services ID) and Keys (Sign in with Apple, `.p8`); return URL `https://<API>/v1/auth/apple/callback`; notifications `https://<API>/v1/auth/apple/notifications` |
-| Email | `RESEND_API_KEY` or `SMTP_*` | **Yes** | Resend → API Keys, or your SMTP provider; `aps add mail` |
+| Email | `RESEND_API_KEY` or `SMTP_*` | **Yes** | Resend → API Keys, or your SMTP provider; `orb add mail` |
 
 Files the backend serves for native apps, generated from the variables (nothing to upload): `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json`. They must be reachable on `WEBAUTHN_RP_ID`'s domain; when a separate web frontend serves that domain, it proxies the two paths to the API.
 

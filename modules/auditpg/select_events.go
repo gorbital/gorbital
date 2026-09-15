@@ -10,9 +10,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/modules/postgres"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/postgres"
 )
 
 // Filter selects events to list. Empty fields match everything.

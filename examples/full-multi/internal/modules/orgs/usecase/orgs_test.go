@@ -11,12 +11,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/config"
-	authlib "apistock.dev/modules/auth"
-	orgslib "apistock.dev/modules/orgs"
-	"apistock.dev/modules/postgres/pgtest"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/config"
+	authlib "gorbital.dev/modules/auth"
+	orgslib "gorbital.dev/modules/orgs"
+	"gorbital.dev/modules/postgres/pgtest"
 
 	"example.com/acme-api/db/migrations"
 	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"

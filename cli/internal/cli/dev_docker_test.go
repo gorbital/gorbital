@@ -34,15 +34,15 @@ func (b *lockedBuffer) String() string {
 	return b.buf.String()
 }
 
-// TestDevWithDocker creates a Full app and runs aps dev in it with real
+// TestDevWithDocker creates a Full app and runs orb dev in it with real
 // Docker: services start, migrations and seed data run, the API serves its
 // docs, the seeded administrator signs in, and a registration's email code
 // reaches Mailpit. A multi-tenant app also shows the administrator's
 // personal workspace with the example projects. It pulls images the first
-// time. Set APS_E2E_DOCKER=1 to run it.
+// time. Set ORB_E2E_DOCKER=1 to run it.
 func TestDevWithDocker(t *testing.T) {
-	if os.Getenv("APS_E2E_DOCKER") == "" {
-		t.Skip("set APS_E2E_DOCKER=1 to run aps dev against Docker")
+	if os.Getenv("ORB_E2E_DOCKER") == "" {
+		t.Skip("set ORB_E2E_DOCKER=1 to run orb dev against Docker")
 	}
 	repo, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	if err != nil {
@@ -56,8 +56,8 @@ func TestDevWithDocker(t *testing.T) {
 func devWithDocker(t *testing.T, repo, tenancy string) {
 	t.Chdir(t.TempDir())
 	name := "e2e-dev-" + tenancy
-	if code, _, errOut := runAps(t, "new", name, "--preset", "full", "--tenancy", tenancy, "--local", repo, "--no-git"); code != 0 {
-		t.Fatalf("aps new --preset full --tenancy %s = %d: %s", tenancy, code, errOut)
+	if code, _, errOut := runOrb(t, "new", name, "--preset", "full", "--tenancy", tenancy, "--local", repo, "--no-git"); code != 0 {
+		t.Fatalf("orb new --preset full --tenancy %s = %d: %s", tenancy, code, errOut)
 	}
 	dir, _ := filepath.Abs(name)
 	t.Chdir(dir)
@@ -96,7 +96,7 @@ func devWithDocker(t *testing.T, repo, tenancy string) {
 		}
 		select {
 		case code := <-done:
-			t.Fatalf("aps dev exited with %d before the API was ready:\n%s", code, stderr.String())
+			t.Fatalf("orb dev exited with %d before the API was ready:\n%s", code, stderr.String())
 		default:
 		}
 		if time.Now().After(deadline) {
@@ -104,12 +104,12 @@ func devWithDocker(t *testing.T, repo, tenancy string) {
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
-	t.Logf("aps dev: API ready %s after start", time.Since(start).Round(100*time.Millisecond))
+	t.Logf("orb dev: API ready %s after start", time.Since(start).Round(100*time.Millisecond))
 
 	out := stderr.String()
 	for _, want := range []string{"docker compose up -d --wait", "go run ./cmd/migrate", "Seed data created", "✓ Emails     http://127.0.0.1:" + ports.web} {
 		if !strings.Contains(out, want) {
-			t.Errorf("aps dev output lacks %q:\n%s", want, out)
+			t.Errorf("orb dev output lacks %q:\n%s", want, out)
 		}
 	}
 	if r, err := http.Get(api + "/docs"); err != nil || r.StatusCode != http.StatusOK {
@@ -128,7 +128,7 @@ func devWithDocker(t *testing.T, repo, tenancy string) {
 		}
 	}
 	if !strings.Contains(out, "wrote a random development AUTH_ENCRYPTION_KEYS") {
-		t.Errorf("aps dev output lacks the encryption key step:\n%s", out)
+		t.Errorf("orb dev output lacks the encryption key step:\n%s", out)
 	}
 	// The administrator's role requires two-factor authentication (ADR-0043).
 	started := postJSON(t, api+"/v1/auth/login", fmt.Sprintf(`{"email":"admin@example.com","password":%q}`, password))

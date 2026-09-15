@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/modules/openapi/reference"
+	"gorbital.dev/modules/openapi/reference"
 )
 
 func TestPostman(t *testing.T) {

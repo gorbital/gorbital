@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"apistock.dev/config"
-	"apistock.dev/mail"
+	"gorbital.dev/config"
+	"gorbital.dev/mail"
 )
 
 func TestWithDefaults(t *testing.T) {

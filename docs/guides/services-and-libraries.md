@@ -1,8 +1,8 @@
 # Services and libraries
 
-Everything apistock depends on, grouped by role: what it is, why it was chosen, where it's used, what problem it solves, what would happen without it, and how it's set up. Versions are the ones pinned in the repository's `go.mod` files and compose files when this page was written; the files are the source of truth.
+Everything gorbital depends on, grouped by role: what it is, why it was chosen, where it's used, what problem it solves, what would happen without it, and how it's set up. Versions are the ones pinned in the repository's `go.mod` files and compose files when this page was written; the files are the source of truth.
 
-The dependency rules behind this list ([ADR-0019](../adr/0019-module-dependency-rules.md)): the core library (`apistock.dev`) may only depend on the standard library, the OpenTelemetry API and `golang.org/x`; everything heavier lives in a module that an app imports only if it uses it. `internal/archtest` fails the build when core gains another dependency.
+The dependency rules behind this list ([ADR-0019](../adr/0019-module-dependency-rules.md)): the core library (`gorbital.dev`) may only depend on the standard library, the OpenTelemetry API and `golang.org/x`; everything heavier lives in a module that an app imports only if it uses it. `internal/archtest` fails the build when core gains another dependency.
 
 ## Runtime services
 
@@ -17,7 +17,7 @@ What a Full app talks to while it runs.
 | **Where** | `modules/postgres` (pool, transactions, migrations), every repository, `modules/settings`, `modules/jobs`, `modules/auditpg`, `modules/releases`, `modules/ratelimitpg` (rate limits shared by every instance, in an unlogged table) |
 | **Version** | `postgres:18` in `compose.yaml`; CI tests against the same image |
 | **Without it** | A Full app doesn't start: `DATABASE_URL is required` |
-| **Setup** | Development: `aps dev` or `docker compose up -d --wait`. Production: any managed PostgreSQL; set `DATABASE_URL` and run `cmd/migrate` before each release. Always in Docker locally, never installed on the machine ([ADR-0028](../adr/0028-local-development-environment.md)) |
+| **Setup** | Development: `orb dev` or `docker compose up -d --wait`. Production: any managed PostgreSQL; set `DATABASE_URL` and run `cmd/migrate` before each release. Always in Docker locally, never installed on the machine ([ADR-0028](../adr/0028-local-development-environment.md)) |
 
 ### Email provider: Resend or SMTP
 
@@ -25,9 +25,9 @@ What a Full app talks to while it runs.
 |---|---|
 | **What** | Delivers email: [Resend](https://resend.com) through its HTTP API (`modules/mail/resend`), or any SMTP server (`modules/mail/smtp`, standard library `net/smtp`) |
 | **Why** | Sign-up codes, password resets and security alerts must reach real inboxes with SPF and DKIM ([ADR-0025](../adr/0025-email-providers.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md)) |
-| **Where** | `internal/app/infra_mail.go` builds the sender; the `apistock.mail.send` job worker calls it |
+| **Where** | `internal/app/infra_mail.go` builds the sender; the `gorbital.mail.send` job worker calls it |
 | **Without it** | Production refuses to start without credentials; users can't verify their email or reset passwords |
-| **Setup** | `aps add mail`; [email guide](email.md) |
+| **Setup** | `orb add mail`; [email guide](email.md) |
 
 ### Google and Apple
 
@@ -39,7 +39,7 @@ Any OpenTelemetry-compatible collector or vendor receives traces and metrics whe
 
 ## Development services
 
-Run by `aps dev` from the app's `compose.yaml`. None of them run in production.
+Run by `orb dev` from the app's `compose.yaml`. None of them run in production.
 
 ### Mailpit
 
@@ -51,7 +51,7 @@ Run by `aps dev` from the app's `compose.yaml`. None of them run in production.
 | **How it works** | It accepts any message over SMTP without authentication and stores it; the web UI and its HTTP API (`/api/v1/messages`, `/api/v1/search`) show them. Tests read codes from that API |
 | **Without it** | Development email sends fail and retry; nobody can finish sign-up locally. The app still starts |
 | **Production** | Refused: `MAIL_DELIVERY=mailpit is for development` |
-| **Setup** | Nothing: `aps dev` starts it. Ports: `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT`. The repository's own `compose.yaml` runs another instance on 51025 and 58025 for library tests |
+| **Setup** | Nothing: `orb dev` starts it. Ports: `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT`. The repository's own `compose.yaml` runs another instance on 51025 and 58025 for library tests |
 
 ### Grafana LGTM
 
@@ -59,9 +59,9 @@ Run by `aps dev` from the app's `compose.yaml`. None of them run in production.
 |---|---|
 | **What** | `grafana/otel-lgtm:0.33.0`: Grafana with Loki, Tempo and Prometheus-compatible storage and an OpenTelemetry collector, in one container |
 | **Why** | To see traces, metrics and logs locally with no setup |
-| **Where** | `compose.yaml` service `grafana`, profile `observability`; `aps dev --observability` starts it and sets `OTEL_EXPORTER_OTLP_ENDPOINT` |
+| **Where** | `compose.yaml` service `grafana`, profile `observability`; `orb dev --observability` starts it and sets `OTEL_EXPORTER_OTLP_ENDPOINT` |
 | **Without it** | Nothing breaks; telemetry isn't exported |
-| **Setup** | `aps dev --observability`, then http://127.0.0.1:3000 |
+| **Setup** | `orb dev --observability`, then http://127.0.0.1:3000 |
 
 ### Docker and Docker Compose
 
@@ -69,11 +69,11 @@ Run the services above, with health checks (`pg_isready`, `mailpit readyz`) that
 
 ## Core Go libraries
 
-Imported by generated apps through the apistock modules.
+Imported by generated apps through the gorbital modules.
 
 | Library | Version | Used in | What it does and why | Without it |
 |---|---|---|---|---|
-| Go standard library | 1.26 | Everywhere | `net/http` routing (method and wildcard patterns), `log/slog`, `crypto/*`, `http.CrossOriginProtection`, `net/smtp`. apistock prefers it before any dependency | — |
+| Go standard library | 1.26 | Everywhere | `net/http` routing (method and wildcard patterns), `log/slog`, `crypto/*`, `http.CrossOriginProtection`, `net/smtp`. gorbital prefers it before any dependency | — |
 | [Huma](https://huma.rocks) `github.com/danielgtaylor/huma/v2` | v2.39.1 | `modules/openapi`, each module's `delivery/` | Code-first API: Go request and response types become validation, OpenAPI 3.1 and problem+json errors ([ADR-0027](../adr/0027-api-contract-and-docs.md), [spike](../../spikes/openapi/README.md)). Confined to `delivery/` | Hand-written validation and a spec that drifts from the code |
 | [pgx](https://github.com/jackc/pgx) `github.com/jackc/pgx/v5` | v5.11.0 | `modules/postgres`, repositories, settings, jobs, auditpg, releases | PostgreSQL driver and pool, with native types, `LISTEN/NOTIFY` (live settings) and tracing hooks. Hand-written SQL on it, no ORM ([ADR-0032](../adr/0032-repository-sql.md)) | No database access |
 | [goose](https://github.com/pressly/goose) `github.com/pressly/goose/v3` | v3.28.0 | `modules/postgres` (`postgres.Migrate`) | Applies SQL migration files in order, under an advisory lock, recording versions | Manual schema changes |
@@ -107,13 +107,13 @@ TOTP (RFC 6238) and the AES-GCM keyring are implemented on the standard library 
 
 ## Website libraries
 
-apistock.dev and docs.apistock.dev are built by the separate apistock-web repository from this repository's `docs/` ([ADR-0049](../adr/0049-public-docs-and-website.md)). Not part of apps.
+gorbital.dev and docs.gorbital.dev are built by the separate gorbital-web repository from this repository's `docs/` ([ADR-0049](../adr/0049-public-docs-and-website.md)). Not part of apps.
 
 | Library | Version | Why |
 |---|---|---|
 | [goldmark](https://github.com/yuin/goldmark) | v1.8.6 | Markdown to HTML with GitHub-flavoured extensions and heading IDs |
 | [chroma](https://github.com/alecthomas/chroma) | v2.27.0 | Syntax highlighting in code blocks |
-| `apistock.dev/modules/openapi/reference` | this repository | Renders the API reference, the same renderer apps serve at `/docs` |
+| `gorbital.dev/modules/openapi/reference` | this repository | Renders the API reference, the same renderer apps serve at `/docs` |
 
 ## Development and CI tools
 
@@ -124,16 +124,16 @@ Not imported; run with `go run pkg@version` or in CI (`.github/workflows/`).
 | golangci-lint | v2.13.2 | Lint every module with the repository's `.golangci.yml` |
 | govulncheck | v1.8.0 | Known vulnerabilities in dependencies and the Go toolchain |
 | gitleaks | CI action | Secrets committed by mistake |
-| GoReleaser and cosign | `release-cli.yml` | Build, sign and attest `aps` releases on `cli/v*` tags |
+| GoReleaser and cosign | `release-cli.yml` | Build, sign and attest `orb` releases on `cli/v*` tags |
 | gofmt, go vet | Go toolchain | Formatting and suspicious code |
 
 ## Testing helpers
 
 | Package | What |
 |---|---|
-| `apistock.dev/modules/postgres/pgtest` | A fresh database per test, cloned from a migrated template, dropped afterwards; skips without `APISTOCK_TEST_DATABASE_URL` |
-| `apistock.dev/modules/auth/passkey/passkeytest` | A software WebAuthn authenticator, so passkey flows run in `go test` |
-| `apistock.dev/modules/auth/social/socialtest` | A fake Google and Apple OpenID provider with signed tokens and notifications |
+| `gorbital.dev/modules/postgres/pgtest` | A fresh database per test, cloned from a migrated template, dropped afterwards; skips without `GORBITAL_TEST_DATABASE_URL` |
+| `gorbital.dev/modules/auth/passkey/passkeytest` | A software WebAuthn authenticator, so passkey flows run in `go test` |
+| `gorbital.dev/modules/auth/social/socialtest` | A fake Google and Apple OpenID provider with signed tokens and notifications |
 | `net/http/httptest` | End-to-end HTTP tests against the app's handler |
 
 ## Deliberately not used

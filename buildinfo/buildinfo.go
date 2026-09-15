@@ -3,7 +3,7 @@
 //
 // Set an explicit version when building:
 //
-//	go build -ldflags "-X apistock.dev/buildinfo.version=v1.2.3" ./cmd/api
+//	go build -ldflags "-X gorbital.dev/buildinfo.version=v1.2.3" ./cmd/api
 //
 // Stability: pre-1.0 (ADR-0015).
 package buildinfo
@@ -14,7 +14,7 @@ import (
 	"runtime/debug"
 )
 
-// version is set with -ldflags "-X apistock.dev/buildinfo.version=...".
+// version is set with -ldflags "-X gorbital.dev/buildinfo.version=...".
 var version string
 
 // Info describes the running binary.

@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"apistock.dev/config"
+	"gorbital.dev/config"
 
 	"example.com/acme-api/internal/app"
 )

@@ -11,7 +11,7 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 
-	"apistock.dev/audit"
+	"gorbital.dev/audit"
 )
 
 // JobRun is one job and its attempts, without its arguments: arguments can

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	authlib "apistock.dev/modules/auth"
+	authlib "gorbital.dev/modules/auth"
 )
 
 // rfcSecret is RFC 6238's SHA-1 test key, "12345678901234567890".

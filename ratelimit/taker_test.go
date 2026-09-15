@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/ratelimit"
+	"gorbital.dev/ratelimit"
 )
 
 func TestPer(t *testing.T) {

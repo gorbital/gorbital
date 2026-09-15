@@ -18,24 +18,24 @@ import (
 	"time"
 )
 
-const devUsage = `Usage: aps dev [flags]
+const devUsage = `Usage: orb dev [flags]
 
 Builds and runs the app, rebuilding when files change. In an app with a
 database (Full preset) it first creates .env from .env.example when missing,
 starts PostgreSQL and Mailpit from compose.yaml with Docker, applies
 migrations and runs seed data; changed migrations are applied before the
-restart. Services keep running after aps dev stops: docker compose down
+restart. Services keep running after orb dev stops: docker compose down
 stops them, docker compose down -v also deletes their data.
 `
 
 // watchIgnored are directories never watched for changes.
-var watchIgnored = map[string]bool{".git": true, ".aps": true, "bin": true, "node_modules": true, "vendor": true, "tmp": true}
+var watchIgnored = map[string]bool{".git": true, ".orb": true, "bin": true, "node_modules": true, "vendor": true, "tmp": true}
 
 // migrationsDir holds a Full app's migrations.
 var migrationsDir = filepath.Join("db", "migrations")
 
 func runDev(ctx context.Context, args []string, stderr io.Writer) error {
-	flags := flag.NewFlagSet("aps dev", flag.ContinueOnError)
+	flags := flag.NewFlagSet("orb dev", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	noReload := flags.Bool("no-reload", false, "build and run once, without watching for changes")
 	interval := flags.Duration("interval", 500*time.Millisecond, "how often to check for changes")
@@ -49,11 +49,11 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 		return err
 	}
 	if flags.NArg() > 0 {
-		return usageError("aps dev takes no arguments")
+		return usageError("orb dev takes no arguments")
 	}
-	manifest, err := os.ReadFile("apistock.yaml")
+	manifest, err := os.ReadFile("gorbital.yaml")
 	if err != nil {
-		return usageError("no apistock.yaml in this directory; run aps dev inside an app created with aps new")
+		return usageError("no gorbital.yaml in this directory; run orb dev inside an app created with orb new")
 	}
 
 	d := newDevRunner(stderr)
@@ -88,7 +88,7 @@ type devRunner struct {
 func newDevRunner(out io.Writer) *devRunner {
 	return &devRunner{
 		out: out,
-		bin: filepath.Join(".aps", "api"),
+		bin: filepath.Join(".orb", "api"),
 		run: func(ctx context.Context, env []string, name string, args ...string) error {
 			cmd := exec.CommandContext(ctx, name, args...)
 			cmd.Env, cmd.Stdout, cmd.Stderr = env, out, out
@@ -131,14 +131,14 @@ func (d *devRunner) prepare(ctx context.Context) error {
 			return err
 		}
 		if created {
-			fmt.Fprintln(d.out, "aps: created .env from .env.example")
+			fmt.Fprintln(d.out, "orb: created .env from .env.example")
 		}
 		wrote, err := ensureEncryptionKey(".env", ".env.example")
 		if err != nil {
 			return err
 		}
 		if wrote {
-			fmt.Fprintln(d.out, "aps: wrote a random development AUTH_ENCRYPTION_KEYS to .env")
+			fmt.Fprintln(d.out, "orb: wrote a random development AUTH_ENCRYPTION_KEYS to .env")
 		}
 	}
 	env, err := devEnv(".env")
@@ -175,7 +175,7 @@ func (d *devRunner) prepare(ctx context.Context) error {
 // services and waits until they are healthy.
 func (d *devRunner) startServices(ctx context.Context, env []string, services []composeService) error {
 	if _, err := os.Stat("compose.yaml"); err != nil {
-		return errors.New("no compose.yaml in this directory: aps dev starts the services defined there")
+		return errors.New("no compose.yaml in this directory: orb dev starts the services defined there")
 	}
 	if _, err := d.lookPath("docker"); err != nil {
 		return errors.New(d.dockerHelp("Docker isn't installed"))
@@ -205,7 +205,7 @@ func (d *devRunner) startServices(ctx context.Context, env []string, services []
 	}
 
 	args := slices.Concat(compose, []string{"up", "-d", "--wait"})
-	fmt.Fprintf(d.out, "aps: starting services (docker %s)\n", strings.Join(args, " "))
+	fmt.Fprintf(d.out, "orb: starting services (docker %s)\n", strings.Join(args, " "))
 	if err := d.run(ctx, env, "docker", args...); err != nil {
 		return fmt.Errorf("starting services failed: %w", err)
 	}
@@ -213,9 +213,9 @@ func (d *devRunner) startServices(ctx context.Context, env []string, services []
 }
 
 func (d *devRunner) dockerHelp(problem string) string {
-	msg := problem + "\n  aps dev starts the services in compose.yaml with Docker: install Docker Desktop (or Docker Engine with Compose v2) and start it"
+	msg := problem + "\n  orb dev starts the services in compose.yaml with Docker: install Docker Desktop (or Docker Engine with Compose v2) and start it"
 	if d.database && !d.observability {
-		msg += ",\n  or set DATABASE_URL in .env to an existing PostgreSQL and run aps dev --no-services"
+		msg += ",\n  or set DATABASE_URL in .env to an existing PostgreSQL and run orb dev --no-services"
 	}
 	return msg
 }
@@ -244,7 +244,7 @@ func checkServicePort(service, envVar, port string) error {
 }
 
 func (d *devRunner) migrate(ctx context.Context, env []string) error {
-	fmt.Fprintln(d.out, "aps: applying migrations (go run ./cmd/migrate)")
+	fmt.Fprintln(d.out, "orb: applying migrations (go run ./cmd/migrate)")
 	if err := d.run(ctx, env, "go", "run", "./cmd/migrate"); err != nil {
 		return fmt.Errorf("migrations failed: %w", err)
 	}
@@ -257,7 +257,7 @@ func (d *devRunner) seed(ctx context.Context, env []string) error {
 	if _, err := os.Stat(filepath.Join("cmd", "seed")); errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
-	fmt.Fprintln(d.out, "aps: seed data (go run ./cmd/seed)")
+	fmt.Fprintln(d.out, "orb: seed data (go run ./cmd/seed)")
 	if err := d.run(ctx, env, "go", "run", "./cmd/seed"); err != nil {
 		return fmt.Errorf("seed data failed: %w", err)
 	}
@@ -277,7 +277,7 @@ func (d *devRunner) banner(env []string) {
 	if d.observability {
 		fmt.Fprintf(d.out, "  ✓ Grafana    http://127.0.0.1:%s (traces, metrics and logs)\n", envValue(env, "GRAFANA_PORT", "3000"))
 	} else if _, err := os.Stat("compose.yaml"); err == nil {
-		fmt.Fprintln(d.out, "  Tip: aps dev --observability to see traces and logs")
+		fmt.Fprintln(d.out, "  Tip: orb dev --observability to see traces and logs")
 	}
 	fmt.Fprintln(d.out)
 }
@@ -308,10 +308,10 @@ func (d *devRunner) loop(ctx context.Context, reload bool, interval time.Duratio
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Fprintln(d.out, "aps: stopping")
+			fmt.Fprintln(d.out, "orb: stopping")
 			return nil
 		case err := <-d.done:
-			fmt.Fprintf(d.out, "aps: app exited (%v); waiting for changes\n", exitError(err))
+			fmt.Fprintf(d.out, "orb: app exited (%v); waiting for changes\n", exitError(err))
 			d.cmd, d.done = nil, nil
 		case <-ticker.C:
 			cur, err := snapshot(".", watched)
@@ -319,7 +319,7 @@ func (d *devRunner) loop(ctx context.Context, reload bool, interval time.Duratio
 				continue
 			}
 			last = cur
-			fmt.Fprintln(d.out, "aps: change detected, rebuilding")
+			fmt.Fprintln(d.out, "orb: change detected, rebuilding")
 			if err := d.build(ctx); err != nil {
 				d.keepRunning("build failed")
 				continue
@@ -337,7 +337,7 @@ func (d *devRunner) loop(ctx context.Context, reload bool, interval time.Duratio
 			}
 			d.stop()
 			if err := d.start(); err != nil {
-				fmt.Fprintf(d.out, "aps: start failed: %v\n", err)
+				fmt.Fprintf(d.out, "orb: start failed: %v\n", err)
 			}
 		}
 	}
@@ -346,9 +346,9 @@ func (d *devRunner) loop(ctx context.Context, reload bool, interval time.Duratio
 // keepRunning reports a failed rebuild step.
 func (d *devRunner) keepRunning(what string) {
 	if d.cmd != nil {
-		fmt.Fprintf(d.out, "aps: %s; the previous version keeps running\n", what)
+		fmt.Fprintf(d.out, "orb: %s; the previous version keeps running\n", what)
 	} else {
-		fmt.Fprintf(d.out, "aps: %s; fix the errors and save again\n", what)
+		fmt.Fprintf(d.out, "orb: %s; fix the errors and save again\n", what)
 	}
 }
 
@@ -474,7 +474,7 @@ func copyIfMissing(src, dst string) (bool, error) {
 	return true, os.WriteFile(dst, data, 0o600) //nolint:gosec // dst is a fixed file name (.env) in the app directory
 }
 
-// manifestFeatures returns the features listed in apistock.yaml, written as
+// manifestFeatures returns the features listed in gorbital.yaml, written as
 // "features: [a, b]" or as a block list.
 func manifestFeatures(manifest []byte) []string {
 	var features []string

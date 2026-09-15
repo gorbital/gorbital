@@ -1,9 +1,9 @@
-module apistock.dev/modules/auth
+module gorbital.dev/modules/auth
 
 go 1.26.0
 
 require (
-	apistock.dev v0.0.0
+	gorbital.dev v0.0.0
 	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/fxamacker/cbor/v2 v2.9.3
 	github.com/go-jose/go-jose/v4 v4.1.4
@@ -27,6 +27,6 @@ require (
 
 // Local development: consumers' own replace directives are unaffected.
 replace (
-	apistock.dev => ../..
-	apistock.dev/modules/postgres => ../postgres
+	gorbital.dev => ../..
+	gorbital.dev/modules/postgres => ../postgres
 )

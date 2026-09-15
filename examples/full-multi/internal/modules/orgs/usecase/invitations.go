@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	authlib "apistock.dev/modules/auth"
-	orgslib "apistock.dev/modules/orgs"
+	authlib "gorbital.dev/modules/auth"
+	orgslib "gorbital.dev/modules/orgs"
 
 	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
 )

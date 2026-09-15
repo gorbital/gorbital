@@ -1,5 +1,5 @@
-/* API reference and docs in the apistock design (ADR-0049). Generated apps
-   serve this at /docs. It matches docs.apistock.dev: apistock colours
+/* API reference and docs in the gorbital design (ADR-0049). Generated apps
+   serve this at /docs. It matches docs.gorbital.dev: gorbital colours
    (docs/brand/theme.md), Manrope and Geist Mono, rounded corners and pill
    controls. Dark is primary: the bare :root is dark and light is the
    redefinition. Code keeps the dark code ground in both themes. Fonts are

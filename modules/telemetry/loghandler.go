@@ -6,8 +6,8 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
-	"apistock.dev/actor"
-	"apistock.dev/requestid"
+	"gorbital.dev/actor"
+	"gorbital.dev/requestid"
 )
 
 // Log attribute keys added from the context.

@@ -15,12 +15,12 @@ import (
 	"slices"
 	"strings"
 
-	"apistock.dev/cli/internal/merge"
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/merge"
+	"gorbital.dev/cli/internal/recipes"
 )
 
-// upgradeBranchPrefix starts the branch aps upgrade works on.
-const upgradeBranchPrefix = "aps-upgrade/"
+// upgradeBranchPrefix starts the branch orb upgrade works on.
+const upgradeBranchPrefix = "orb-upgrade/"
 
 // derivedPaths are generated from the app's code, so upgrades regenerate
 // them instead of merging (ADR-0021).
@@ -38,11 +38,11 @@ type upgradeResult struct {
 	Changes   []merge.Change `json:"changes"`
 	Conflicts []string       `json:"conflicts"`
 	// Unproven counts files whose earlier content couldn't be proven
-	// against apistock.lock, so they were compared 2-way.
+	// against gorbital.lock, so they were compared 2-way.
 	Unproven  int  `json:"unproven"`
 	Committed bool `json:"committed"`
 	DryRun    bool `json:"dry_run"`
-	// UserScoped lists modules the developer generated that aps add orgs
+	// UserScoped lists modules the developer generated that orb add orgs
 	// leaves owned by users.
 	UserScoped []string `json:"user_scoped_modules,omitempty"`
 
@@ -50,20 +50,20 @@ type upgradeResult struct {
 	message string // commit message
 }
 
-const upgradeUsage = `Usage: aps upgrade [flags]
+const upgradeUsage = `Usage: orb upgrade [flags]
 
-Merges this aps's templates into the app on branch aps-upgrade/<version>.
+Merges this orb's templates into the app on branch orb-upgrade/<version>.
 Files you never edited take the new templates, separate edits merge, and
 overlapping edits become conflict markers; your changes are never dropped.
-It rebuilds what aps wrote before from the release recorded in apistock.lock
+It rebuilds what orb wrote before from the release recorded in gorbital.lock
 (ADR-0050).
 `
 
 func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	flags := flag.NewFlagSet("aps upgrade", flag.ContinueOnError)
+	flags := flag.NewFlagSet("orb upgrade", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	from := flags.String("from", "", "release or commit that created or last upgraded the app, such as v0.4.0 (needed for apps created before v0.5 and by development builds)")
-	local := flags.String("local", "", "apistock checkout to read earlier releases from (default: the app's replace directive, or the checkout you are in)")
+	local := flags.String("local", "", "gorbital checkout to read earlier releases from (default: the app's replace directive, or the checkout you are in)")
 	dryRun := flags.Bool("dry-run", false, "show what would change, without writing or creating a branch")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	skipTidy := flags.Bool("skip-tidy", false, "don't run go mod tidy")
@@ -85,12 +85,12 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	}
 	lock, err := readLock(app.dir)
 	if errors.Is(err, errNoLock) {
-		return fmt.Errorf("%s has no %s: aps upgrade works in apps created with aps new", app.dir, lockPath)
+		return fmt.Errorf("%s has no %s: orb upgrade works in apps created with orb new", app.dir, lockPath)
 	} else if err != nil {
 		return err
 	}
 	if !insideGitRepo(ctx, app.dir) {
-		return errors.New("aps upgrade works on a git branch; put the app in git first: git init && git add -A && git commit -m 'Create app'")
+		return errors.New("orb upgrade works on a git branch; put the app in git first: git init && git add -A && git commit -m 'Create app'")
 	}
 	if !*dryRun {
 		if err := requireCleanGit(ctx, app.dir); err != nil {
@@ -107,7 +107,7 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		return err
 	}
 	if checkout == "" && !strings.HasPrefix(ref, "v") {
-		return usageError(fmt.Sprintf("reading release %s needs an apistock checkout: pass --local <path>", ref))
+		return usageError(fmt.Sprintf("reading release %s needs an gorbital checkout: pass --local <path>", ref))
 	}
 	old, cleanup, err := openRelease(ctx, checkout, ref, ref)
 	if err != nil {
@@ -139,15 +139,15 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		return err
 	}
 	defer root.Close()
-	changes, err := merge.Plan(ctx, merge.Input{Base: base, Theirs: theirs, Unproven: unproven, Ours: rootReader(root), Label: "apistock " + Version})
+	changes, err := merge.Plan(ctx, merge.Input{Base: base, Theirs: theirs, Unproven: unproven, Ours: rootReader(root), Label: "gorbital " + Version})
 	if err != nil {
 		return err
 	}
 
 	res := upgradeResult{
 		Name: filepath.Base(app.dir), From: ref, To: Version, DryRun: *dryRun, Unproven: len(unproven),
-		title:   fmt.Sprintf("upgrade %s from %s to apistock %s", filepath.Base(app.dir), ref, Version),
-		message: "Upgrade apistock to " + Version,
+		title:   fmt.Sprintf("upgrade %s from %s to gorbital %s", filepath.Base(app.dir), ref, Version),
+		message: "Upgrade gorbital to " + Version,
 	}
 	res.setChanges(changes)
 	current, _ := root.ReadFile(lockPath)
@@ -215,7 +215,7 @@ func applyMove(ctx context.Context, dir string, root *os.Root, res *upgradeResul
 func upgradeSource(dir string, lock lockFile, from string) (lockInputs, string, error) {
 	if lock.APIVersion == lockAPIVersionV1 {
 		if from == "" {
-			return lockInputs{}, "", usageError("apistock.lock was written before v0.5 and doesn't record the release that created the app; pass it with --from, such as --from v0.4.0")
+			return lockInputs{}, "", usageError("gorbital.lock was written before v0.5 and doesn't record the release that created the app; pass it with --from, such as --from v0.4.0")
 		}
 		inputs, err := readManifest(dir)
 		return inputs, from, err
@@ -223,12 +223,12 @@ func upgradeSource(dir string, lock lockFile, from string) (lockInputs, string, 
 	switch {
 	case from != "":
 		return lock.Inputs, from, nil
-	case lock.Aps.Revision != "":
-		return lock.Inputs, lock.Aps.Revision, nil
-	case lock.Aps.Version == "" || strings.Contains(lock.Aps.Version, "-dev"):
-		return lockInputs{}, "", usageError(fmt.Sprintf("apistock.lock was written by a development build of aps (%s) that recorded no commit; pass the release or commit with --from", cmpOr(lock.Aps.Version, "unknown version")))
+	case lock.Orb.Revision != "":
+		return lock.Inputs, lock.Orb.Revision, nil
+	case lock.Orb.Version == "" || strings.Contains(lock.Orb.Version, "-dev"):
+		return lockInputs{}, "", usageError(fmt.Sprintf("gorbital.lock was written by a development build of orb (%s) that recorded no commit; pass the release or commit with --from", cmpOr(lock.Orb.Version, "unknown version")))
 	default:
-		return lock.Inputs, lock.Aps.Version, nil
+		return lock.Inputs, lock.Orb.Version, nil
 	}
 }
 
@@ -239,7 +239,7 @@ func cmpOr(s, fallback string) string {
 	return s
 }
 
-// readManifest reads the template inputs from apistock.yaml, for apps whose
+// readManifest reads the template inputs from gorbital.yaml, for apps whose
 // lock doesn't record them.
 func readManifest(dir string) (lockInputs, error) {
 	data, err := os.ReadFile(filepath.Join(dir, manifestPath))
@@ -272,7 +272,7 @@ func readManifest(dir string) (lockInputs, error) {
 	return in, nil
 }
 
-// releaseCheckout returns the apistock checkout to read releases from: the
+// releaseCheckout returns the gorbital checkout to read releases from: the
 // --local path, the checkout the app's go.mod replaces the library with, or
 // the checkout the command runs in; "" when there is none.
 func releaseCheckout(ctx context.Context, appDir, local string) (string, error) {
@@ -280,7 +280,7 @@ func releaseCheckout(ctx context.Context, appDir, local string) (string, error) 
 		return resolveLocal(local)
 	}
 	if info, err := readGoMod(ctx, appDir); err == nil {
-		if _, dir := info.apistock(); dir != "" {
+		if _, dir := info.gorbital(); dir != "" {
 			if !filepath.IsAbs(dir) {
 				dir = filepath.Join(appDir, dir)
 			}
@@ -297,7 +297,7 @@ func releaseCheckout(ctx context.Context, appDir, local string) (string, error) 
 // must match completely, since --from names its release by hand; a v2 lock
 // must match at least one file.
 func rebuildBase(release recipes.Release, lock lockFile, in lockInputs, d recipes.Data, ref string) (map[string][]byte, map[string]bool, error) {
-	// v1 hashed files as aps new wrote them, before aps add mail recorded
+	// v1 hashed files as orb new wrote them, before orb add mail recorded
 	// anything; the golden apps send with Resend.
 	proveMail := in.Mail
 	if lock.APIVersion == lockAPIVersionV1 && in.Mail != "" {
@@ -317,9 +317,9 @@ func rebuildBase(release recipes.Release, lock lockFile, in lockInputs, d recipe
 	}
 	switch {
 	case lock.APIVersion == lockAPIVersionV1 && len(unproven) > 0:
-		return nil, nil, fmt.Errorf("%d of %d files rebuilt at %s don't match apistock.lock (such as %s): --from must name the release that created the app", len(unproven), len(lock.Files), ref, first)
+		return nil, nil, fmt.Errorf("%d of %d files rebuilt at %s don't match gorbital.lock (such as %s): --from must name the release that created the app", len(unproven), len(lock.Files), ref, first)
 	case len(lock.Files) > 0 && len(unproven) == len(lock.Files):
-		return nil, nil, fmt.Errorf("no file rebuilt at %s matches apistock.lock: that release didn't write this app; pass the right one with --from", ref)
+		return nil, nil, fmt.Errorf("no file rebuilt at %s matches gorbital.lock: that release didn't write this app; pass the right one with --from", ref)
 	}
 	if proveMail == in.Mail {
 		return proof, unproven, nil
@@ -328,9 +328,9 @@ func rebuildBase(release recipes.Release, lock lockFile, in lockInputs, d recipe
 	return base, unproven, err
 }
 
-// lockFromTree records tree as this aps rendered it for in.
+// lockFromTree records tree as this orb rendered it for in.
 func lockFromTree(in lockInputs, tree map[string][]byte) lockFile {
-	l := lockFile{APIVersion: LockAPIVersion, Aps: lockAps{Version: Version, Revision: buildRevision()}, Inputs: in}
+	l := lockFile{APIVersion: LockAPIVersion, Orb: lockOrb{Version: Version, Revision: buildRevision()}, Inputs: in}
 	for p, content := range tree {
 		if !slices.Contains(untrackedPaths, p) {
 			l.Files = append(l.Files, lockedFile{Path: p, SHA256: sha256Hex(content)})
@@ -375,10 +375,10 @@ func applyChanges(root *os.Root, changes []merge.Change) error {
 }
 
 // upgradeGoMod adds the requirements the new templates' go.mod has and the
-// app's doesn't, moves apistock modules to the new library version (unless
+// app's doesn't, moves gorbital modules to the new library version (unless
 // the app uses a local checkout), then runs go mod tidy.
 func upgradeGoMod(ctx context.Context, dir string, theirsGoMod []byte, skipTidy bool, stderr io.Writer) error {
-	tmp, err := os.MkdirTemp("", "aps-gomod-")
+	tmp, err := os.MkdirTemp("", "orb-gomod-")
 	if err != nil {
 		return err
 	}
@@ -394,17 +394,17 @@ func upgradeGoMod(ctx context.Context, dir string, theirsGoMod []byte, skipTidy 
 	if err != nil {
 		return err
 	}
-	_, local := have.apistock()
+	_, local := have.gorbital()
 
 	args := []string{"mod", "edit"}
 	for _, req := range want.Require {
-		library := req.Path == "apistock.dev" || strings.HasPrefix(req.Path, "apistock.dev/")
+		library := req.Path == "gorbital.dev" || strings.HasPrefix(req.Path, "gorbital.dev/")
 		i := slices.IndexFunc(have.Require, func(r goModRequire) bool { return r.Path == req.Path })
 		switch {
 		case i < 0:
 			args = append(args, "-require="+req.Path+"@"+req.Version)
 			if library && local != "" {
-				args = append(args, "-replace="+req.Path+"="+path.Join(filepath.ToSlash(local), strings.TrimPrefix(strings.TrimPrefix(req.Path, "apistock.dev"), "/")))
+				args = append(args, "-replace="+req.Path+"="+path.Join(filepath.ToSlash(local), strings.TrimPrefix(strings.TrimPrefix(req.Path, "gorbital.dev"), "/")))
 			}
 		case library && local == "" && have.Require[i].Version != req.Version:
 			args = append(args, "-require="+req.Path+"@"+req.Version)
@@ -457,7 +457,7 @@ func reportUpgrade(w io.Writer, asJSON bool, res upgradeResult) error {
 	}
 	s := newStyles(w)
 	if res.UpToDate {
-		fmt.Fprintf(w, "%s %s is up to date with apistock %s\n", s.muted.Render("✓"), res.Name, res.To)
+		fmt.Fprintf(w, "%s %s is up to date with gorbital %s\n", s.muted.Render("✓"), res.Name, res.To)
 		return nil
 	}
 	title := res.title
@@ -476,14 +476,14 @@ func reportUpgrade(w io.Writer, asJSON bool, res upgradeResult) error {
 		fmt.Fprintln(w, line)
 	}
 	if len(res.Changes) == 0 {
-		fmt.Fprintln(w, "  no file changes; apistock.lock records the new release")
+		fmt.Fprintln(w, "  no file changes; gorbital.lock records the new release")
 	}
 	if res.Unproven > 0 {
-		fmt.Fprintf(w, "\n%s\n", s.dim.Render(fmt.Sprintf("%d files couldn't be proven against apistock.lock and were compared as yours versus the release", res.Unproven)))
+		fmt.Fprintf(w, "\n%s\n", s.dim.Render(fmt.Sprintf("%d files couldn't be proven against gorbital.lock and were compared as yours versus the release", res.Unproven)))
 	}
 	if len(res.UserScoped) > 0 {
 		fmt.Fprintf(w, "\n  modules you generated stay owned by users: %s\n  %s\n", strings.Join(res.UserScoped, ", "),
-			s.dim.Render("they keep working; to move one to organisations, generate it again with aps gen resource --scope org and move its data"))
+			s.dim.Render("they keep working; to move one to organisations, generate it again with orb gen resource --scope org and move its data"))
 	}
 
 	fmt.Fprintln(w)
@@ -491,13 +491,13 @@ func reportUpgrade(w io.Writer, asJSON bool, res upgradeResult) error {
 	case res.DryRun:
 		fmt.Fprintf(w, "  %s nothing written; run it without --dry-run to apply on a branch\n", s.dim.Render("next:"))
 	case len(res.Conflicts) > 0:
-		fmt.Fprintf(w, "  on branch %s, not committed. Resolve the markers (<<<<<<< yours … >>>>>>> apistock %s) in:\n", res.Branch, res.To)
+		fmt.Fprintf(w, "  on branch %s, not committed. Resolve the markers (<<<<<<< yours … >>>>>>> gorbital %s) in:\n", res.Branch, res.To)
 		for _, p := range res.Conflicts {
 			fmt.Fprintf(w, "    %s\n", p)
 		}
 		fmt.Fprintf(w, "\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        go test ./...\n        git add -A && git commit -m '%s'\n", s.dim.Render("next:"), res.message)
 	case res.Committed:
-		fmt.Fprintf(w, "  committed on branch %s\n\n  %s go test ./...   (database tests need aps dev or docker compose up -d --wait)\n        then merge %s\n", res.Branch, s.dim.Render("next:"), res.Branch)
+		fmt.Fprintf(w, "  committed on branch %s\n\n  %s go test ./...   (database tests need orb dev or docker compose up -d --wait)\n        then merge %s\n", res.Branch, s.dim.Render("next:"), res.Branch)
 	default:
 		fmt.Fprintf(w, "  on branch %s, not committed\n\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        git add -A && git commit -m '%s'\n", res.Branch, s.dim.Render("next:"), res.message)
 	}

@@ -11,11 +11,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"apistock.dev/actor"
-	"apistock.dev/audit"
-	"apistock.dev/modules/postgres/pgtest"
-	"apistock.dev/modules/settings"
-	"apistock.dev/requestid"
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/postgres/pgtest"
+	"gorbital.dev/modules/settings"
+	"gorbital.dev/requestid"
 )
 
 // declared is the setting set used by store tests.
@@ -379,7 +379,7 @@ func TestInstancesConvergeThroughNotifications(t *testing.T) {
 	// also picked up; wait for B to be listening to test notifications.
 	waitFor(t, "listener to start", func() bool {
 		var n int
-		_ = pool.QueryRow(ctx, "SELECT count(*) FROM pg_stat_activity WHERE query = 'LISTEN apistock_settings'").Scan(&n)
+		_ = pool.QueryRow(ctx, "SELECT count(*) FROM pg_stat_activity WHERE query = 'LISTEN gorbital_settings'").Scan(&n)
 		return n > 0
 	})
 

@@ -4,7 +4,7 @@
 
 ## Context
 
-Errors cross four boundaries: module → framework → application → HTTP client. Without a contract, driver errors leak into public APIs (making pgx part of apistock's API), a shared "error kinds" package couples every module, clients parse message strings, and the same error gets logged several times.
+Errors cross four boundaries: module → framework → application → HTTP client. Without a contract, driver errors leak into public APIs (making pgx part of gorbital's API), a shared "error kinds" package couples every module, clients parse message strings, and the same error gets logged several times.
 
 ## Options
 
@@ -38,7 +38,7 @@ HTTP client   → application/problem+json {type, title, status, code, detail, r
 | Logging | Modules return errors and never log errors they return. Only edges log: HTTP error handler, job runner, `main`. |
 | Panics | Recover middleware → 500, logged once, span marked as error; nothing echoed to the client |
 
-Core package `apistock.dev/httpx` provides the problem type, the handler and the mapping helper. There is no shared error-kinds package.
+Core package `gorbital.dev/httpx` provides the problem type, the handler and the mapping helper. There is no shared error-kinds package.
 
 ## Why
 

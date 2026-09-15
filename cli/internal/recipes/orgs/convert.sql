@@ -1,5 +1,5 @@
 -- Organisations for an app that started single-tenant (ADR-0048, ADR-0050),
--- written by aps add orgs to run after the organisations migration: every
+-- written by orb add orgs to run after the organisations migration: every
 -- account gets a personal workspace, and each project moves into its
 -- owner's workspace. Projects are changed in place, so columns you added
 -- to the table are kept.
@@ -9,7 +9,7 @@
 -- An organisation ID as the app makes them (orgs.NewID): org_ and 128
 -- random bits in unpadded lowercase base32. The bits come from
 -- gen_random_uuid, skipping each UUID's fixed version and variant bits.
-CREATE FUNCTION pg_temp.aps_new_org_id() RETURNS text
+CREATE FUNCTION pg_temp.orb_new_org_id() RETURNS text
 LANGUAGE sql VOLATILE AS $$
     WITH r AS (
         SELECT substring(uuid_send(gen_random_uuid()) FROM 1 FOR 6)
@@ -32,7 +32,7 @@ $$;
 -- workspace is deleted too, and purged when the account would have been
 -- (the 30-day default of auth.deleted_account_retention).
 INSERT INTO orgs (id, name, personal, created_by, version, created_at, updated_at, deleted_at, purge_after)
-SELECT pg_temp.aps_new_org_id(), 'Personal', true, u.id, 1, now(), now(), u.deleted_at, u.deleted_at + interval '30 days'
+SELECT pg_temp.orb_new_org_id(), 'Personal', true, u.id, 1, now(), now(), u.deleted_at, u.deleted_at + interval '30 days'
 FROM auth_users u
 WHERE NOT EXISTS (SELECT 1 FROM orgs o WHERE o.created_by = u.id AND o.personal);
 
@@ -79,4 +79,4 @@ END
 $$;
 -- +goose StatementEnd
 
-DROP FUNCTION pg_temp.aps_new_org_id();
+DROP FUNCTION pg_temp.orb_new_org_id();

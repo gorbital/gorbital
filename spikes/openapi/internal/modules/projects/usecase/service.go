@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	projectdomain "apistock.dev/spikes/openapi/internal/modules/projects/domain"
+	projectdomain "gorbital.dev/spikes/openapi/internal/modules/projects/domain"
 )
 
 // Service runs the projects use cases.

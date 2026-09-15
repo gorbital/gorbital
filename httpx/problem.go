@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"sync"
 
-	"apistock.dev/requestid"
+	"gorbital.dev/requestid"
 )
 
 // ProblemContentType is the media type of problem responses.

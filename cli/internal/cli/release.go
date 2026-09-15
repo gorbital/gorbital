@@ -14,22 +14,22 @@ import (
 	"regexp"
 	"strings"
 
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes"
 )
 
 // recipesDir is where a release keeps its templates, relative to the
-// apistock repository and to the apistock.dev/cli module.
+// gorbital repository and to the gorbital.dev/cli module.
 const recipesDir = "cli/internal/recipes"
 
-// cliModule is the module an apistock release publishes aps in.
-const cliModule = "apistock.dev/cli"
+// cliModule is the module an gorbital release publishes orb in.
+const cliModule = "gorbital.dev/cli"
 
-// refPattern matches the git revisions and tags aps passes to git: never an
+// refPattern matches the git revisions and tags orb passes to git: never an
 // option, never a range or reflog expression.
 var refPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]*$`)
 
 // openRelease returns the templates of an older release: ref (a tag or
-// commit) from the apistock checkout, when one is given, or version from the
+// commit) from the gorbital checkout, when one is given, or version from the
 // Go module proxy, verified by the checksum database (ADR-0050). The
 // templates are only read and rendered as text. It is a variable so tests can
 // supply releases.
@@ -50,7 +50,7 @@ func releaseFromCheckout(ctx context.Context, checkout, ref string) (recipes.Rel
 	commit, err := gitOutput(ctx, checkout, "rev-parse", "--verify", "--quiet", "cli/"+ref+"^{commit}")
 	if err != nil {
 		if commit, err = gitOutput(ctx, checkout, "rev-parse", "--verify", "--quiet", ref+"^{commit}"); err != nil {
-			return recipes.Release{}, nil, fmt.Errorf("release %s isn't in the apistock checkout %s (try git fetch --tags there)", ref, checkout)
+			return recipes.Release{}, nil, fmt.Errorf("release %s isn't in the gorbital checkout %s (try git fetch --tags there)", ref, checkout)
 		}
 	}
 
@@ -60,7 +60,7 @@ func releaseFromCheckout(ctx context.Context, checkout, ref string) (recipes.Rel
 	if err := cmd.Run(); err != nil {
 		return recipes.Release{}, nil, fmt.Errorf("read the templates of %s from %s: %w: %s", ref, checkout, err, strings.TrimSpace(stderr.String()))
 	}
-	dir, err := os.MkdirTemp("", "aps-release-")
+	dir, err := os.MkdirTemp("", "orb-release-")
 	if err != nil {
 		return recipes.Release{}, nil, err
 	}
@@ -111,9 +111,9 @@ func extractTemplates(r io.Reader, dir string) error {
 	}
 }
 
-// releaseFromProxy downloads apistock.dev/cli at version into the module
+// releaseFromProxy downloads gorbital.dev/cli at version into the module
 // cache with go mod download, refusing when checksum verification is off for
-// apistock.dev.
+// gorbital.dev.
 func releaseFromProxy(ctx context.Context, version string) (recipes.Release, func(), error) {
 	if !refPattern.MatchString(version) || !strings.HasPrefix(version, "v") {
 		return recipes.Release{}, nil, fmt.Errorf("invalid release version %q", version)
@@ -133,24 +133,24 @@ func releaseFromProxy(ctx context.Context, version string) (recipes.Release, fun
 	out, err := goOutput(ctx, "mod", "download", "-json", cliModule+"@"+version)
 	var info struct{ Dir, Error string }
 	if jsonErr := json.Unmarshal([]byte(out), &info); jsonErr != nil || info.Error != "" || err != nil {
-		return recipes.Release{}, nil, fmt.Errorf("download %s@%s: %s (with an apistock checkout, pass --local <path>)", cliModule, version, strings.TrimSpace(info.Error+" "+errString(err)))
+		return recipes.Release{}, nil, fmt.Errorf("download %s@%s: %s (with an gorbital checkout, pass --local <path>)", cliModule, version, strings.TrimSpace(info.Error+" "+errString(err)))
 	}
 	return recipes.ReleaseFS(os.DirFS(path.Join(info.Dir, "internal", "recipes"))), func() {}, nil
 }
 
-// checksumPolicy refuses Go environments that would download apistock.dev
+// checksumPolicy refuses Go environments that would download gorbital.dev
 // modules without checking them against the checksum database.
 func checksumPolicy(env map[string]string) error {
 	if env["GOSUMDB"] == "off" {
-		return errors.New("GOSUMDB=off: aps upgrade only uses releases verified by the Go checksum database")
+		return errors.New("GOSUMDB=off: orb upgrade only uses releases verified by the Go checksum database")
 	}
 	for _, name := range []string{"GONOSUMDB", "GOPRIVATE", "GOINSECURE"} {
 		if matchesModulePrefix(env[name], cliModule) {
-			return fmt.Errorf("%s covers %s: aps upgrade only uses releases verified by the Go checksum database", name, cliModule)
+			return fmt.Errorf("%s covers %s: orb upgrade only uses releases verified by the Go checksum database", name, cliModule)
 		}
 	}
 	if strings.Contains(" "+env["GOFLAGS"]+" ", " -insecure ") {
-		return errors.New("GOFLAGS has -insecure: aps upgrade only uses releases verified by the Go checksum database")
+		return errors.New("GOFLAGS has -insecure: orb upgrade only uses releases verified by the Go checksum database")
 	}
 	return nil
 }

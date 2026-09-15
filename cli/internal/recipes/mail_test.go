@@ -55,7 +55,7 @@ func TestRenderMailSMTP(t *testing.T) {
 	if want := []string{"SMTP_HOST", "SMTP_PORT", "SMTP_TLS", "SMTP_USERNAME", "SMTP_PASSWORD"}; !slices.Equal(r.EnvKeys, want) {
 		t.Errorf("EnvKeys = %v, want %v", r.EnvKeys, want)
 	}
-	if !slices.Equal(r.Modules, []string{"apistock.dev/modules/mail/smtp"}) {
+	if !slices.Equal(r.Modules, []string{"gorbital.dev/modules/mail/smtp"}) {
 		t.Errorf("Modules = %v", r.Modules)
 	}
 	if _, err := RenderMail("sendgrid", "example.com/shop-api"); err == nil {
@@ -64,16 +64,16 @@ func TestRenderMailSMTP(t *testing.T) {
 }
 
 func TestReplaceBlock(t *testing.T) {
-	src := []byte("A=1\n# aps:begin mail (managed)\nOLD=1\n# aps:end mail\nB=2\n")
-	got, err := ReplaceBlock(src, MailBlock, []byte("# aps:begin mail\nNEW=1\n# aps:end mail\n"))
-	if err != nil || string(got) != "A=1\n# aps:begin mail\nNEW=1\n# aps:end mail\nB=2\n" {
+	src := []byte("A=1\n# orb:begin mail (managed)\nOLD=1\n# orb:end mail\nB=2\n")
+	got, err := ReplaceBlock(src, MailBlock, []byte("# orb:begin mail\nNEW=1\n# orb:end mail\n"))
+	if err != nil || string(got) != "A=1\n# orb:begin mail\nNEW=1\n# orb:end mail\nB=2\n" {
 		t.Errorf("ReplaceBlock() = %q, %v", got, err)
 	}
 	block, err := Block(src, MailBlock)
-	if err != nil || string(block) != "# aps:begin mail (managed)\nOLD=1\n# aps:end mail\n" {
+	if err != nil || string(block) != "# orb:begin mail (managed)\nOLD=1\n# orb:end mail\n" {
 		t.Errorf("Block() = %q, %v", block, err)
 	}
-	for _, bad := range []string{"A=1\n", "# aps:begin mail\nA=1\n", "# aps:begin mailbox\n# aps:end mail\n"} {
+	for _, bad := range []string{"A=1\n", "# orb:begin mail\nA=1\n", "# orb:begin mailbox\n# orb:end mail\n"} {
 		if _, err := ReplaceBlock([]byte(bad), MailBlock, nil); !errors.Is(err, ErrBlockMissing) {
 			t.Errorf("ReplaceBlock(%q) error = %v, want ErrBlockMissing", bad, err)
 		}

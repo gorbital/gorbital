@@ -7,7 +7,7 @@ RUN go mod download
 COPY . .
 ARG VERSION=dev
 RUN CGO_ENABLED=0 go build -trimpath \
-    -ldflags="-s -w -X apistock.dev/buildinfo.version=${VERSION}" \
+    -ldflags="-s -w -X gorbital.dev/buildinfo.version=${VERSION}" \
     -o /out/ ./cmd/api ./cmd/migrate
 
 FROM gcr.io/distroless/static-debian12:nonroot

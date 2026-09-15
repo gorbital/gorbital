@@ -6,7 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/httpx"
+	"gorbital.dev/httpx"
 
 	projectsmodule "example.com/acme-api/internal/modules/projects"
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"

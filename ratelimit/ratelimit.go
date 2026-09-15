@@ -3,7 +3,7 @@
 // [Limiter], and HTTP middleware.
 //
 // The in-memory limiter is per process: behind several instances each one
-// enforces its own limit. apistock.dev/modules/ratelimitpg implements
+// enforces its own limit. gorbital.dev/modules/ratelimitpg implements
 // [Taker] with limits shared across instances (ADR-0052).
 //
 // Stability: pre-1.0 (ADR-0015).

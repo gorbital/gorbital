@@ -10,9 +10,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/riverqueue/river/rivertype"
 
-	"apistock.dev/httpx"
-	"apistock.dev/modules/jobs"
-	"apistock.dev/modules/openapi"
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/openapi"
 
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 )

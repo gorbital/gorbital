@@ -8,7 +8,7 @@ import (
 
 	"github.com/riverqueue/river"
 
-	"apistock.dev/modules/postgres/pgtest"
+	"gorbital.dev/modules/postgres/pgtest"
 )
 
 func TestParseSchedule(t *testing.T) {

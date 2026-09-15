@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"apistock.dev/requestid"
+	"gorbital.dev/requestid"
 )
 
 func TestNew(t *testing.T) {

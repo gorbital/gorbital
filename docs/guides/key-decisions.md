@@ -1,6 +1,6 @@
 # Key decisions
 
-The design choices that shape every apistock app, each with what was chosen, the alternatives, the trade-offs and what follows from it. Each links to its architecture decision record (ADR), which has the full context; if this page and an ADR disagree, the ADR wins.
+The design choices that shape every gorbital app, each with what was chosen, the alternatives, the trade-offs and what follows from it. Each links to its architecture decision record (ADR), which has the full context; if this page and an ADR disagree, the ADR wins.
 
 | # | Decision | Chosen | Main alternative rejected |
 |---|---|---|---|
@@ -18,7 +18,7 @@ The design choices that shape every apistock app, each with what was chosen, the
 | 12 | [Two-factor authentication](#12-2fa-required-for-operators-everywhere) | Own RFC 6238, required for ops roles in every environment | A TOTP library; production-only |
 | 13 | [Passkeys](#13-passkeys-through-go-webauthn-behind-a-package) | go-webauthn behind `modules/auth/passkey` | Own WebAuthn verification |
 | 14 | [Google and Apple](#14-api-hosted-provider-flows) | API-hosted redirect flow and native ID tokens | Frontend-only OAuth |
-| 15 | [Local services](#15-docker-compose-managed-by-aps-dev) | Docker Compose run by `aps dev` | Embedded binaries, manual installs |
+| 15 | [Local services](#15-docker-compose-managed-by-orb-dev) | Docker Compose run by `orb dev` | Embedded binaries, manual installs |
 | 16 | [Tenancy](#16-tenancy-chosen-at-creation) | Chosen at creation, both modes tested | Always multi-tenant |
 | 17 | [Generation](#17-golden-apps-are-the-templates) | Golden apps generate the templates | Hand-written templates |
 | 18 | [Upgrades](#18-upgrades-as-3-way-merges) | Whole-tree 3-way merges from the recorded release | Embedded templates per release |
@@ -30,7 +30,7 @@ The design choices that shape every apistock app, each with what was chosen, the
 
 **Alternatives.** Everything in the library behind options (ADR-0024 as first written); everything generated.
 
-**Trade-offs.** Developers can read and change every flow, and customise freely. The price: a fix to a flow reaches existing apps through `aps upgrade` rather than `go get`, and generated code is more code to own.
+**Trade-offs.** Developers can read and change every flow, and customise freely. The price: a fix to a flow reaches existing apps through `orb upgrade` rather than `go get`, and generated code is more code to own.
 
 **Consequences.** A hashing or cookie fix is a library release. A flow fix is a template change plus an upgrade merge. The example apps are the reference implementation and are tested end to end.
 
@@ -40,7 +40,7 @@ The design choices that shape every apistock app, each with what was chosen, the
 
 **Alternatives.** Database-agnostic repositories; SQLite for small apps; Redis for queues and caches.
 
-**Trade-offs.** One engine lets apistock use its features directly: `LISTEN/NOTIFY` for live settings, transactional job enqueueing, partial indexes, advisory locks. Teams committed to MySQL are excluded.
+**Trade-offs.** One engine lets gorbital use its features directly: `LISTEN/NOTIFY` for live settings, transactional job enqueueing, partial indexes, advisory locks. Teams committed to MySQL are excluded.
 
 **Consequences.** Settings, jobs, audit, sessions and releases all live in one database, backed up together. Operating one service is simpler than several.
 
@@ -76,7 +76,7 @@ The design choices that shape every apistock app, each with what was chosen, the
 
 ## 6. Constructors, runners and a cleanup stack
 
-**Chosen.** Constructors do blocking setup and return `(*T, error)`; long-running work implements `Runner` (`Run(ctx) error`); resources implement `io.Closer`; `apistock.dev/app` runs runners under `errgroup` with a defined shutdown: readiness off, 5 s drain, graceful stop, 25 s deadline, reverse-order cleanup. Migrations never run at start ([ADR-0017](../adr/0017-application-lifecycle.md), [ADR-0004](../adr/0004-dependency-injection.md), [ADR-0020](../adr/0020-constructors-and-configuration.md)).
+**Chosen.** Constructors do blocking setup and return `(*T, error)`; long-running work implements `Runner` (`Run(ctx) error`); resources implement `io.Closer`; `gorbital.dev/app` runs runners under `errgroup` with a defined shutdown: readiness off, 5 s drain, graceful stop, 25 s deadline, reverse-order cleanup. Migrations never run at start ([ADR-0017](../adr/0017-application-lifecycle.md), [ADR-0004](../adr/0004-dependency-injection.md), [ADR-0020](../adr/0020-constructors-and-configuration.md)).
 
 **Alternatives.** `Starter`/`Stopper` interfaces with ordered lists; a DI container with lifecycle hooks (Fx).
 
@@ -148,7 +148,7 @@ The design choices that shape every apistock app, each with what was chosen, the
 
 ## 13. Passkeys through go-webauthn, behind a package
 
-**Chosen.** `github.com/go-webauthn/webauthn` wrapped by `apistock.dev/modules/auth/passkey`, so apps never import its types; ceremonies stored server-side and single use; a software authenticator (`passkeytest`) for tests ([ADR-0044](../adr/0044-passkeys.md)).
+**Chosen.** `github.com/go-webauthn/webauthn` wrapped by `gorbital.dev/modules/auth/passkey`, so apps never import its types; ceremonies stored server-side and single use; a software authenticator (`passkeytest`) for tests ([ADR-0044](../adr/0044-passkeys.md)).
 
 **Alternatives.** Own CBOR, COSE and attestation verification.
 
@@ -162,9 +162,9 @@ The design choices that shape every apistock app, each with what was chosen, the
 
 **Trade-offs.** One implementation serves every frontend, secrets never reach browsers, and the provider sees one registered redirect URI. The API needs a public https URL for web sign-in.
 
-## 15. Docker Compose managed by `aps dev`
+## 15. Docker Compose managed by `orb dev`
 
-**Chosen.** Each Full app's `compose.yaml` runs PostgreSQL and Mailpit (Grafana on a profile); `aps dev` checks Docker and ports, starts them, migrates, seeds and runs the app with reload ([ADR-0028](../adr/0028-local-development-environment.md)).
+**Chosen.** Each Full app's `compose.yaml` runs PostgreSQL and Mailpit (Grafana on a profile); `orb dev` checks Docker and ports, starts them, migrates, seeds and runs the app with reload ([ADR-0028](../adr/0028-local-development-environment.md)).
 
 **Alternatives.** Developers install PostgreSQL and a mail catcher themselves; embedded PostgreSQL binaries downloaded by the CLI.
 
@@ -172,7 +172,7 @@ The design choices that shape every apistock app, each with what was chosen, the
 
 ## 16. Tenancy chosen at creation
 
-**Chosen.** `aps new` asks whether data belongs to users or organisations; both modes are golden apps with full tests; `aps add orgs` converts single to multi ([ADR-0023](../adr/0023-tenancy.md), [ADR-0048](../adr/0048-organisations-v0-4.md)).
+**Chosen.** `orb new` asks whether data belongs to users or organisations; both modes are golden apps with full tests; `orb add orgs` converts single to multi ([ADR-0023](../adr/0023-tenancy.md), [ADR-0048](../adr/0048-organisations-v0-4.md)).
 
 **Alternatives.** Single-tenant only; always multi-tenant.
 
@@ -192,11 +192,11 @@ The design choices that shape every apistock app, each with what was chosen, the
 
 ## 18. Upgrades as 3-way merges
 
-**Chosen.** `apistock.lock` records the release, template inputs and a hash of every written file. `aps upgrade` fetches the recorded release's templates (from a checkout tag, or the module proxy verified by the checksum database), rebuilds the base, proves it against the hashes, and merges base → new release into the app on a branch. Recipes are whole preset trees, so `aps add orgs` is the same merge into the multi-tenant tree ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)).
+**Chosen.** `gorbital.lock` records the release, template inputs and a hash of every written file. `orb upgrade` fetches the recorded release's templates (from a checkout tag, or the module proxy verified by the checksum database), rebuilds the base, proves it against the hashes, and merges base → new release into the app on a branch. Recipes are whole preset trees, so `orb add orgs` is the same merge into the multi-tenant tree ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)).
 
 | Merge base from | For | Against |
 |---|---|---|
-| Embed every release in `aps` | Offline | Binary grows forever |
+| Embed every release in `orb` | Offline | Binary grows forever |
 | **Fetch the recorded release** | Binary unchanged; verified by the checksum database | Needs the module cache or network once |
 | Pristine copy in the app's git | Exact | Refs teammates and CI don't fetch |
 
@@ -204,8 +204,8 @@ The design choices that shape every apistock app, each with what was chosen, the
 
 ## 19. One reference renderer, and a generated site
 
-**Chosen.** `modules/openapi/reference` renders every app's `/docs` from its own OpenAPI document with embedded assets and a strict Content-Security-Policy; the public site renders its API tab from the same `openapi.json`. docs.apistock.dev and apistock.dev are built by the separate apistock-web repository (Next.js) from this repository's Markdown and deployed on Vercel ([ADR-0049](../adr/0049-public-docs-and-website.md)).
+**Chosen.** `modules/openapi/reference` renders every app's `/docs` from its own OpenAPI document with embedded assets and a strict Content-Security-Policy; the public site renders its API tab from the same `openapi.json`. docs.gorbital.dev and gorbital.dev are built by the separate gorbital-web repository (Next.js) from this repository's Markdown and deployed on Vercel ([ADR-0049](../adr/0049-public-docs-and-website.md)).
 
 **Alternatives.** Embedded Scalar (the original choice); a hosted docs product; a JavaScript static-site framework.
 
-**Trade-offs.** The example on the site is exactly what apps ship, docs can't drift from the repository, and nothing is fetched from CDNs. apistock maintains its own renderer and generator.
+**Trade-offs.** The example on the site is exactly what apps ship, docs can't drift from the repository, and nothing is fetched from CDNs. gorbital maintains its own renderer and generator.

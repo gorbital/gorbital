@@ -1,17 +1,17 @@
 # CLI guide
 
-`aps` creates apistock apps, generates code in them and runs them locally. Decisions: [ADR-0014](../adr/0014-product-shape-and-presets.md) (presets and prompts), [ADR-0021](../adr/0021-generator-operation-model.md) (generator), [ADR-0035](../adr/0035-interactive-cli.md) (interactive prompts with flag parity), [ADR-0037](../adr/0037-email-setup-and-delivery.md) (`aps add mail`), [ADR-0039](../adr/0039-resource-module-template.md) (`aps gen resource`).
+`orb` creates gorbital apps, generates code in them and runs them locally. Decisions: [ADR-0014](../adr/0014-product-shape-and-presets.md) (presets and prompts), [ADR-0021](../adr/0021-generator-operation-model.md) (generator), [ADR-0035](../adr/0035-interactive-cli.md) (interactive prompts with flag parity), [ADR-0037](../adr/0037-email-setup-and-delivery.md) (`orb add mail`), [ADR-0039](../adr/0039-resource-module-template.md) (`orb gen resource`).
 
 ## Installing
 
-The library and CLI aren't published yet, so install `aps` from your checkout:
+The library and CLI aren't published yet, so install `orb` from your checkout:
 
 ```bash
-cd apistock/cli
-go install ./cmd/aps
+cd gorbital/cli
+go install ./cmd/orb
 ```
 
-This puts `aps` in `$(go env GOPATH)/bin` (usually `~/go/bin`). If your shell then says `command not found: aps`, add that directory to your `PATH`, for example in `~/.zshrc`:
+This puts `orb` in `$(go env GOPATH)/bin` (usually `~/go/bin`). If your shell then says `command not found: orb`, add that directory to your `PATH`, for example in `~/.zshrc`:
 
 ```bash
 export PATH="$(go env GOPATH)/bin:$PATH"
@@ -20,10 +20,10 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 Open a new terminal (or run `hash -r`) and check it works:
 
 ```bash
-aps version
+orb version
 ```
 
-Run `go install ./cmd/aps` again after pulling changes.
+Run `go install ./cmd/orb` again after pulling changes.
 
 ## Interactive or flags: both work
 
@@ -31,7 +31,7 @@ Every command can be used two ways:
 
 | Way | How | Best for |
 |---|---|---|
-| **Interactive** | Leave values out. In a terminal, `aps` asks for them with arrow-key menus, yes/no toggles and validated text inputs, then shows a summary to confirm | People |
+| **Interactive** | Leave values out. In a terminal, `orb` asks for them with arrow-key menus, yes/no toggles and validated text inputs, then shows a summary to confirm | People |
 | **Flags** | Pass every value as a flag. Values given by flag are never asked | Scripts, CI, AI agents, repeatable commands |
 
 You can mix them: flags you pass skip their questions, and you're asked only for the rest.
@@ -43,17 +43,17 @@ You can mix them: flags you pass skip their questions, and you're asked only for
 | Keys | ↑/↓ to choose, ←/→ or y/n for yes/no, Enter to confirm, Tab/Shift+Tab to move between fields, Esc or Ctrl+C to cancel |
 | Cancel | Exits with code 130 and writes nothing |
 | Validation | Questions check exactly what flags check, as you type |
-| Look | The apistock theme ([theme](../brand/theme.md)): no borders, dim hints, lime only on the open question's `?` and the option cursor |
+| Look | The gorbital theme ([theme](../brand/theme.md)): no borders, dim hints, lime only on the open question's `?` and the option cursor |
 | Accessibility | `--plain` or `ACCESSIBLE=1` asks one plain line at a time (screen readers); `NO_COLOR=1` disables colour, and the output reads the same without it |
 
-## `aps new`
+## `orb new`
 
 Creates an app.
 
 ```bash
-aps new                                   # asks for everything
-aps new my-api                            # asks for the rest
-aps new my-api --module github.com/you/my-api --local ~/code/apistock --yes
+orb new                                   # asks for everything
+orb new my-api                            # asks for the rest
+orb new my-api --module github.com/you/my-api --local ~/code/gorbital --yes
 ```
 
 | Question | Flag | Default |
@@ -62,7 +62,7 @@ aps new my-api --module github.com/you/my-api --local ~/code/apistock --yes
 | Go module path | `--module` | the app name |
 | Preset (Minimal or Full) | `--preset minimal\|full` | `minimal` (Custom arrives later) |
 | Tenancy (Full only): records belong to users, or to organisations | `--tenancy single\|multi` | `single` |
-| apistock checkout | `--local <path>` | the checkout you run `aps` inside, if any |
+| gorbital checkout | `--local <path>` | the checkout you run `orb` inside, if any |
 | Initialise git | `--no-git` | yes |
 
 Other flags: `--skip-tidy` (don't run `go mod tidy`), `--json`, `--yes`, `--no-input`, `--plain`.
@@ -74,16 +74,16 @@ Questions come one at a time. Each answered question folds into one line, and va
 ✓ Go module path … github.com/acme/shop-api
 ✓ preset … full
 ✓ tenancy … multi
-✓ apistock checkout … /Users/you/code/apistock
+✓ gorbital checkout … /Users/you/code/gorbital
 ✓ initialise a git repository? … yes
 ? create shop-api in ./shop-api? … yes  no
 ```
 
-Then `aps new` prints a log: one line per finished step, where things are in the new app, and the commands to run next. `--json` prints only the result.
+Then `orb new` prints a log: one line per finished step, where things are in the new app, and the commands to run next. `--json` prints only the result.
 
 ```text
 creating shop-api in ./shop-api
-preset full · library ../apistock
+preset full · library ../gorbital
 
 ✓ wrote 214 files
 ✓ ran go mod tidy
@@ -96,23 +96,23 @@ created shop-api
   ...
 
   next: cd shop-api
-        aps dev
+        orb dev
 ```
 
 | Preset | What you get | Needs |
 |---|---|---|
 | **Minimal** | HTTP API with configuration, telemetry, health checks, security headers and interactive docs | Go |
-| **Full** | Everything in Minimal, plus PostgreSQL, runtime settings, background jobs, email (Resend, or SMTP with `aps add mail`), authentication and platform roles, audit log, release tracking, `/ops/*` APIs, and example code: the `ping` endpoint, the `heartbeat` job and the `projects` resource | Go and Docker |
+| **Full** | Everything in Minimal, plus PostgreSQL, runtime settings, background jobs, email (Resend, or SMTP with `orb add mail`), authentication and platform roles, audit log, release tracking, `/ops/*` APIs, and example code: the `ping` endpoint, the `heartbeat` job and the `projects` resource | Go and Docker |
 
-A Full app is exactly [examples/full-single](../../examples/full-single) with your name and module path ([ADR-0041](../adr/0041-full-preset-generation.md)): its database, Compose project and service name are your app's name. With `--tenancy multi` it is exactly [examples/full-multi](../../examples/full-multi) instead: data belongs to organisations, with members, one role each, invitations, personal workspaces and org-scoped projects under `/v1/orgs/{orgId}/…` ([ADR-0048](../adr/0048-organisations-v0-4.md)). Tenancy is chosen at creation; `aps add orgs` turns a single-tenant app into a multi-tenant one later. After creating one:
+A Full app is exactly [examples/full-single](../../examples/full-single) with your name and module path ([ADR-0041](../adr/0041-full-preset-generation.md)): its database, Compose project and service name are your app's name. With `--tenancy multi` it is exactly [examples/full-multi](../../examples/full-multi) instead: data belongs to organisations, with members, one role each, invitations, personal workspaces and org-scoped projects under `/v1/orgs/{orgId}/…` ([ADR-0048](../adr/0048-organisations-v0-4.md)). Tenancy is chosen at creation; `orb add orgs` turns a single-tenant app into a multi-tenant one later. After creating one:
 
 ```bash
 cd my-api
-git add -A && git commit -m "Create my-api"   # aps new doesn't commit; aps gen and aps add need a clean tree
-aps dev                                      # .env, PostgreSQL and Mailpit, migrations, seed data, the API
+git add -A && git commit -m "Create my-api"   # orb new doesn't commit; orb gen and orb add need a clean tree
+orb dev                                      # .env, PostgreSQL and Mailpit, migrations, seed data, the API
 ```
 
-Without `aps dev`, export `.env` yourself: the app reads environment variables, not the file.
+Without `orb dev`, export `.env` yourself: the app reads environment variables, not the file.
 
 ```bash
 cp .env.example .env           # then set AUTH_ENCRYPTION_KEYS: echo "k1:$(openssl rand -base64 32)"
@@ -125,18 +125,18 @@ go run ./cmd/api
 
 If port 5432 is taken, set `POSTGRES_PORT` in `.env` and the same port in `DATABASE_URL`. The app's README explains how to create the first admin and how to remove the examples.
 
-Commit `apistock.lock` with the app. It records the `aps` release that created the app, the answers the templates used (name, module, preset, tenancy, email provider) and a SHA-256 of every file `aps` wrote except `go.mod` and `go.sum`. `aps upgrade` (v0.5) uses it to rebuild those files as they were and merge newer templates into your edits ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)). Don't edit it by hand.
+Commit `gorbital.lock` with the app. It records the `orb` release that created the app, the answers the templates used (name, module, preset, tenancy, email provider) and a SHA-256 of every file `orb` wrote except `go.mod` and `go.sum`. `orb upgrade` (v0.5) uses it to rebuild those files as they were and merge newer templates into your edits ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)). Don't edit it by hand.
 
-## `aps gen job`
+## `orb gen job`
 
 Generates a background job in an app created with the Full preset. The job's schedule, timeout and retries can be changed later in `/ops/jobs` without a deploy ([background jobs guide](background-jobs.md)).
 
 ```bash
-aps gen job                                                     # asks for everything
-aps gen job CleanupSessions                                     # asks for the rest
-aps gen job CleanupSessions --schedule "0 3 * * *" --timeout 5m --max-attempts 5 --yes
-aps gen job SendDigest --every 6h --description "Emails the daily digest." --disabled --yes
-aps gen job RebuildIndex --on-demand --dry-run
+orb gen job                                                     # asks for everything
+orb gen job CleanupSessions                                     # asks for the rest
+orb gen job CleanupSessions --schedule "0 3 * * *" --timeout 5m --max-attempts 5 --yes
+orb gen job SendDigest --every 6h --description "Emails the daily digest." --disabled --yes
+orb gen job RebuildIndex --on-demand --dry-run
 ```
 
 | Question | Flag | Default |
@@ -161,19 +161,19 @@ What it creates for `CleanupSessions`:
 | `internal/jobs/cleanupsessions/cleanupsessions.go` | `Name`, `Args`, `Worker`; write the job in `Work` |
 | `internal/jobs/cleanupsessions/cleanupsessions_test.go` | A starting test |
 | `internal/app/job_cleanup_sessions.go` | `jobs.Define` with the defaults you chose |
-| `internal/app/jobs.go` | One `defineCleanupSessionsJob(defs, deps)` line after `//aps:anchor jobs` |
+| `internal/app/jobs.go` | One `defineCleanupSessionsJob(defs, deps)` line after `//orb:anchor jobs` |
 
 Safety checks: the app must have `internal/app/jobs.go` with the anchor; existing files are never overwritten; a job name can be registered once; the git repository must have no uncommitted changes (so the generated diff is easy to review) unless you pass `--allow-dirty`; generated Go is checked with gofmt.
 
-## `aps gen resource`
+## `orb gen resource`
 
-Generates a module for records that belong to the signed-in user, in an app created with the Full preset: domain rules, use cases, a repository with hand-written SQL, `/v1/<names>` endpoints, tests and a migration. In a multi-tenant app (`aps new --tenancy multi`) records belong to an organisation instead: endpoints under `/v1/orgs/{orgId}/<names>`, every use case checks membership and a `<module>.<resource>.read` or `.write` permission with `orgs.RequireMember`, and the tests include non-members, roles without the permission and cross-organisation requests ([ADR-0048](../adr/0048-organisations-v0-4.md)). Everything it writes is your code to change ([ADR-0039](../adr/0039-resource-module-template.md)); `examples/full-single/internal/modules/projects` is exactly what it generates for the first example below, and `examples/full-multi/internal/modules/projects` what it generates there.
+Generates a module for records that belong to the signed-in user, in an app created with the Full preset: domain rules, use cases, a repository with hand-written SQL, `/v1/<names>` endpoints, tests and a migration. In a multi-tenant app (`orb new --tenancy multi`) records belong to an organisation instead: endpoints under `/v1/orgs/{orgId}/<names>`, every use case checks membership and a `<module>.<resource>.read` or `.write` permission with `orgs.RequireMember`, and the tests include non-members, roles without the permission and cross-organisation requests ([ADR-0048](../adr/0048-organisations-v0-4.md)). Everything it writes is your code to change ([ADR-0039](../adr/0039-resource-module-template.md)); `examples/full-single/internal/modules/projects` is exactly what it generates for the first example below, and `examples/full-multi/internal/modules/projects` what it generates there.
 
 ```bash
-aps gen resource                                                        # asks for everything
-aps gen resource Project name:string:unique description:text 'status:enum(active,archived)'
-aps gen resource Person name:string bio:text --plural People --dry-run
-aps gen resource Customer email:string:unique notes:text 'tier:enum(free,pro)' --json
+orb gen resource                                                        # asks for everything
+orb gen resource Project name:string:unique description:text 'status:enum(active,archived)'
+orb gen resource Person name:string bio:text --plural People --dry-run
+orb gen resource Customer email:string:unique notes:text 'tier:enum(free,pro)' --json
 ```
 
 Quote enum fields: shells treat parentheses specially.
@@ -184,7 +184,7 @@ Quote enum fields: shells treat parentheses specially.
 | Fields | positional, after the name, separated by spaces | required |
 | (flag only) Plural | `--plural People` | the name with -s, -es or -ies |
 | (flag only) ID prefix | `--id-prefix prj` (2 to 8 lowercase letters) | first letter and the next consonants: `prj`, `cst` |
-| (flag only) Who the records belong to | `--scope user\|org` | `org` in multi-tenant apps (`tenancy: multi` in `apistock.yaml`), `user` otherwise; `org` needs the orgs module |
+| (flag only) Who the records belong to | `--scope user\|org` | `org` in multi-tenant apps (`tenancy: multi` in `gorbital.yaml`), `user` otherwise; `org` needs the orgs module |
 
 Flags may come before, between or after the name and fields. Other flags: `--dry-run`, `--json`, `--allow-dirty`, `--yes`, `--no-input`, `--plain`.
 
@@ -197,7 +197,7 @@ Flags may come before, between or after the name and fields. Other flags: `--dry
 
 Field names are snake_case (up to 20 characters). A resource needs at least one string field; the first one is its title. Names every resource already has (`id`, `owner_id`, `org_id`, `created_by`, `version`, `created_at`, `updated_at`, `limit`, `cursor`, `sort`, …) and PostgreSQL reserved words (`order`, `user`, …) are refused.
 
-An org-scoped resource declares its `<module>.<resource>.read` and `.write` permissions in its `internal/app/module_<names>.go`, and the generator adds one line after `//aps:anchor org-permissions` in `internal/app/permissions.go`, so every organisation role gets them. Change which roles hold them in `declareOrgPermissions`.
+An org-scoped resource declares its `<module>.<resource>.read` and `.write` permissions in its `internal/app/module_<names>.go`, and the generator adds one line after `//orb:anchor org-permissions` in `internal/app/permissions.go`, so every organisation role gets them. Change which roles hold them in `declareOrgPermissions`.
 
 What it creates for `Project`:
 
@@ -211,21 +211,21 @@ What it creates for `Project`:
 | `internal/app/module_projects.go` | Builds the module and maps its error codes |
 | `internal/app/projects_test.go` | An end-to-end HTTP test, including another user's requests getting 404 |
 | `db/migrations/<version>_projects.sql` | The table, a unique index per unique field and one index per sort |
-| `internal/app/modules.go` | One `registerProjects(api, mapper, svc),` line after `//aps:anchor modules` |
-| `internal/app/permissions.go` (`--scope org` only) | One `projectsPermissions,` line after `//aps:anchor org-permissions` |
+| `internal/app/modules.go` | One `registerProjects(api, mapper, svc),` line after `//orb:anchor modules` |
+| `internal/app/permissions.go` (`--scope org` only) | One `projectsPermissions,` line after `//orb:anchor org-permissions` |
 
 Then run `go run ./cmd/migrate`, `go test ./...` and `go run ./cmd/api openapi --dir api`.
 
 Safety checks: the app must have `internal/app/modules.go` with the anchor inside `errors.Join`, the auth module and `db/migrations`; existing modules and files are never overwritten; a resource can be registered once; the migration always sorts after the existing ones; the git repository must be clean unless `--allow-dirty`; names and field types come from allowlists and generated Go names are checked for clashes, so no input reaches the code unchecked; generated Go is checked with gofmt.
 
-## `aps gen migration`
+## `orb gen migration`
 
-Creates an empty SQL migration in an app created with the Full preset, for database changes that aren't a new resource: a column, an index, a data fix. (`aps gen resource` creates its own migration.)
+Creates an empty SQL migration in an app created with the Full preset, for database changes that aren't a new resource: a column, an index, a data fix. (`orb gen resource` creates its own migration.)
 
 ```bash
-aps gen migration add_customer_phone
-aps gen migration AddCustomerPhone --dry-run      # the same file name; writes nothing
-aps gen migration                                  # asks for the name
+orb gen migration add_customer_phone
+orb gen migration AddCustomerPhone --dry-run      # the same file name; writes nothing
+orb gen migration                                  # asks for the name
 ```
 
 | Question | Flag | Default |
@@ -245,15 +245,15 @@ Then write the SQL under `-- +goose Up`, run `go run ./cmd/migrate` and `go test
 
 Safety checks: the app must have `db/migrations`; the name may only use letters, digits, hyphens and underscores (at most 60), so it can't reach a path or the SQL; an existing file is never overwritten; the git repository must be clean unless `--allow-dirty`.
 
-## `aps add mail`
+## `orb add mail`
 
 Sets up email in an app created with the Full preset: Resend or any SMTP server. Run it again to switch provider. Full walkthrough: [email guide](email.md).
 
 ```bash
-aps add mail                                             # asks for everything
-aps add mail --provider resend --yes                     # Resend; add RESEND_API_KEY to .env yourself
-aps add mail --smtp-host smtp.postmarkapp.com --smtp-username <token>   # SMTP; asks for the password
-aps add mail --provider smtp --dry-run                   # show what would change
+orb add mail                                             # asks for everything
+orb add mail --provider resend --yes                     # Resend; add RESEND_API_KEY to .env yourself
+orb add mail --smtp-host smtp.postmarkapp.com --smtp-username <token>   # SMTP; asks for the password
+orb add mail --provider smtp --dry-run                   # show what would change
 ```
 
 | Question | Flag | Default |
@@ -275,101 +275,101 @@ What it changes:
 |---|---|
 | `internal/app/infra_mail.go` | Replaced with the provider's configuration and constructor |
 | `internal/app/infra_mail_test.go` | Replaced with the provider's tests and the fixtures the rest of the app's tests use, so `go test ./...` passes with either provider |
-| `.env.example` | The block between `# aps:begin mail` and `# aps:end mail` holds the provider's variables |
+| `.env.example` | The block between `# orb:begin mail` and `# orb:end mail` holds the provider's variables; the `# aps:` markers of apps generated before the rename are read too and rewritten as `# orb:` |
 | `.env` | Updated if it exists, or created from `.env.example` (mode 0600) when there are values to save; values already there are kept |
-| `apistock.yaml` | `mail: resend` or `mail: smtp` |
-| `apistock.lock` | The provider and the new hashes of the files above that `aps` tracks (apps created before v0.5 keep their lock as it is) |
-| `go.mod` | Requires the provider module (with a `replace` to your apistock checkout when the app uses one), then `go mod tidy` |
+| `gorbital.yaml` | `mail: resend` or `mail: smtp` |
+| `gorbital.lock` | The provider and the new hashes of the files above that `orb` tracks (apps created before v0.5 keep their lock as it is) |
+| `go.mod` | Requires the provider module (with a `replace` to your gorbital checkout when the app uses one), then `go mod tidy` |
 
 After confirming, it prints numbered next steps: where to get the Resend key and verify your domain (or which SMTP variables are left), how to set the sender with `PUT /ops/settings/mail.from_email`, and how to send a test email with `POST /ops/mail/test`. The sender name, address and reply-to are runtime settings, so they're never asked here.
 
 Safety checks: the app must have `internal/app/mail.go` and the `.env.example` block; the git repository must be clean unless `--allow-dirty`; `.env` must be ignored by git before a secret is saved in it; secret values are never printed or included in `--json` output. Running it with the provider already in place changes nothing.
 
-## `aps add orgs`
+## `orb add orgs`
 
-Turns a single-tenant Full app into a multi-tenant one, on branch `aps-add-orgs`: organisations with members, one role each, invitations and personal workspaces, and projects under `/v1/orgs/{orgId}/projects` ([ADR-0048](../adr/0048-organisations-v0-4.md), [ADR-0050](../adr/0050-upgrades-and-adding-features.md)).
+Turns a single-tenant Full app into a multi-tenant one, on branch `orb-add-orgs`: organisations with members, one role each, invitations and personal workspaces, and projects under `/v1/orgs/{orgId}/projects` ([ADR-0048](../adr/0048-organisations-v0-4.md), [ADR-0050](../adr/0050-upgrades-and-adding-features.md)).
 
 ```bash
-aps add orgs --dry-run     # what would change, per file
-aps add orgs               # apply on branch aps-add-orgs
+orb add orgs --dry-run     # what would change, per file
+orb add orgs               # apply on branch orb-add-orgs
 ```
 
-It merges the multi-tenant app's files into yours the way `aps upgrade` merges a release: files you never edited are replaced, your edits are merged or shown as conflicts. Then it adds two migrations after your existing ones:
+It merges the multi-tenant app's files into yours the way `orb upgrade` merges a release: files you never edited are replaced, your edits are merged or shown as conflicts. Then it adds two migrations after your existing ones:
 
 | Migration | What it does |
 |---|---|
 | `<version>_orgs.sql` | Creates `orgs`, `org_members` and `org_invitations` |
 | `<version>_orgs_convert.sql` | Gives every account a personal workspace it owns (a deleted account's workspace is deleted too, purged 30 days after the account's deletion), then moves each project into its owner's workspace: `org_id` and `created_by` replace `owner_id`. The table is changed in place, so columns you added stay; this step is skipped if `projects` no longer has `owner_id` |
 
-Without conflicts it updates `go.mod`, builds, regenerates `api/openapi.json` and commits `Add organisations`. Then run `go test ./...`, apply the migrations (`aps dev`, or `go run ./cmd/migrate` in each environment) and merge the branch. Set `orgs.invitation_url` before inviting people.
+Without conflicts it updates `go.mod`, builds, regenerates `api/openapi.json` and commits `Add organisations`. Then run `go test ./...`, apply the migrations (`orb dev`, or `go run ./cmd/migrate` in each environment) and merge the branch. Set `orgs.invitation_url` before inviting people.
 
-Resources you generated with `aps gen resource` stay owned by users and keep working; the command lists them. To move one to organisations, generate it again with `--scope org` and move its data.
+Resources you generated with `orb gen resource` stay owned by users and keep working; the command lists them. To move one to organisations, generate it again with `--scope org` and move its data.
 
-Other flags: `--json`, `--skip-tidy`, `--skip-build`. Safety checks: the app must be in git with no uncommitted changes, and on this release (run `aps upgrade` first). An app that already has organisations is left alone.
+Other flags: `--json`, `--skip-tidy`, `--skip-build`. Safety checks: the app must be in git with no uncommitted changes, and on this release (run `orb upgrade` first). An app that already has organisations is left alone.
 
-## `aps upgrade`
+## `orb upgrade`
 
-Brings the files `aps` wrote into your app up to this release, on a branch, without losing your edits ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)).
+Brings the files `orb` wrote into your app up to this release, on a branch, without losing your edits ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)).
 
 ```bash
-aps upgrade --dry-run          # what would change, per file; writes nothing
-aps upgrade                    # apply on branch aps-upgrade/<version>
-aps upgrade --from v0.4.0      # apps created before v0.5 name the release that created them
+orb upgrade --dry-run          # what would change, per file; writes nothing
+orb upgrade                    # apply on branch orb-upgrade/<version>
+orb upgrade --from v0.4.0      # apps created before v0.5 name the release that created them
 ```
 
-It rebuilds every file exactly as the release recorded in `apistock.lock` wrote it, checks each against the hash in the lock, and merges per file:
+It rebuilds every file exactly as the release recorded in `gorbital.lock` wrote it, checks each against the hash in the lock, and merges per file:
 
 | Your file | The new release | Result |
 |---|---|---|
 | Never edited | Changed | `update`: takes the new template |
 | Edited | Unchanged | Kept as you left it |
 | Edited | Changed elsewhere in the file | `merged` |
-| Edited | Changed the same lines | `conflict`: `<<<<<<< yours` … `>>>>>>> apistock <version>` markers |
+| Edited | Changed the same lines | `conflict`: `<<<<<<< yours` … `>>>>>>> gorbital <version>` markers |
 | Missing | New | `create` |
 | Never edited | Removed | `delete` |
 | Edited or deleted by you | Removed or changed | `kept`, with a note |
 
-A file whose rebuilt content doesn't match the lock is compared as yours against the release, so it can conflict but is never overwritten. Migrations are never merged: new ones are added with their released names, and yours stay as they are. Files `aps gen` created aren't tracked, so they're never touched.
+A file whose rebuilt content doesn't match the lock is compared as yours against the release, so it can conflict but is never overwritten. Migrations are never merged: new ones are added with their released names, and yours stay as they are. Files `orb gen` created aren't tracked, so they're never touched.
 
-Without conflicts it then updates `go.mod` (new requirements and the new library version, then `go mod tidy`), runs `go build ./...`, regenerates `api/openapi.json` and commits `Upgrade apistock to <version>`. Run your tests (database tests need `aps dev` or `docker compose up -d --wait`) and merge the branch. With conflicts it exits with code 1, commits nothing, and lists the files to resolve and the commands to finish.
+Without conflicts it then updates `go.mod` (new requirements and the new library version, then `go mod tidy`), runs `go build ./...`, regenerates `api/openapi.json` and commits `Upgrade gorbital to <version>`. Run your tests (database tests need `orb dev` or `docker compose up -d --wait`) and merge the branch. With conflicts it exits with code 1, commits nothing, and lists the files to resolve and the commands to finish.
 
-Where earlier releases come from: with an apistock checkout (`--local`, the checkout your `go.mod` replaces the library with, or the one you run in), `git archive` of the release's tag or commit. Otherwise the `apistock.dev/cli` module from the Go module proxy, verified by the checksum database: `aps upgrade` refuses when `GOSUMDB=off` or `GONOSUMDB`, `GOPRIVATE` or `GOINSECURE` covers it. Templates are only rendered as text; nothing downloaded is run.
+Where earlier releases come from: with an gorbital checkout (`--local`, the checkout your `go.mod` replaces the library with, or the one you run in), `git archive` of the release's tag or commit. Otherwise the `gorbital.dev/cli` module from the Go module proxy, verified by the checksum database: `orb upgrade` refuses when `GOSUMDB=off` or `GONOSUMDB`, `GOPRIVATE` or `GOINSECURE` covers it. Templates are only rendered as text; nothing downloaded is run.
 
 | Flag | Default |
 |---|---|
-| `--from` | the release in `apistock.lock`. Needed for apps created before v0.5 and by development builds without a recorded commit |
+| `--from` | the release in `gorbital.lock`. Needed for apps created before v0.5 and by development builds without a recorded commit |
 | `--local` | detected, as above |
 | `--dry-run`, `--json` | off |
 | `--skip-tidy` | run `go mod tidy` |
 | `--skip-build` | build, regenerate `api/openapi.json` and commit |
 
-Safety checks: the app must be in git with no uncommitted changes, and the branch `aps-upgrade/<version>` must not exist yet.
+Safety checks: the app must be in git with no uncommitted changes, and the branch `orb-upgrade/<version>` must not exist yet.
 
-## `aps doctor`
+## `orb doctor`
 
 Checks the app in the current directory and says what to fix. It changes nothing ([ADR-0051](../adr/0051-operations-v0-5.md)).
 
 ```bash
-aps doctor           # every check
-aps doctor --fast    # skip the checks that build the app
-aps doctor --json    # for scripts and agents
+orb doctor           # every check
+orb doctor --fast    # skip the checks that build the app
+orb doctor --json    # for scripts and agents
 ```
 
 ```text
-aps doctor · shop-api (full, single tenancy)
+orb doctor · shop-api (full, single tenancy)
 
   ok    go             go1.26.0; go.mod needs 1.26.0
   ok    git            installed
-  ok    apistock.yaml  full preset, single tenancy
+  ok    gorbital.yaml  full preset, single tenancy
   warn  docker         Docker isn't running or isn't installed
-                       fix: start Docker Desktop (or Docker Engine with Compose v2): aps dev runs PostgreSQL and Mailpit in it
-  ok    apistock.lock  from aps v0.5.0; 3 of 214 files apistock wrote are edited or removed
-  ok    library        apistock.dev v0.5.0
+                       fix: start Docker Desktop (or Docker Engine with Compose v2): orb dev runs PostgreSQL and Mailpit in it
+  ok    gorbital.lock  from orb v0.5.0; 3 of 214 files gorbital wrote are edited or removed
+  ok    library        gorbital.dev v0.5.0
   ok    anchors        every line generators insert at is in place
   ok    .env           has every variable .env.example has
   ok    api files      openapi.json, postman_collection.json and llms.txt match the code
   warn  database       2 migrations pending
-                       fix: go run ./cmd/migrate (aps dev runs them)
+                       fix: go run ./cmd/migrate (orb dev runs them)
 
   0 failed, 2 warnings
 ```
@@ -377,16 +377,16 @@ aps doctor · shop-api (full, single tenancy)
 | Check | Fails when | Warns when |
 |---|---|---|
 | `go`, `git`, `docker` | Go isn't installed | Go is older than `go.mod` needs; git isn't installed; Docker isn't running (Full preset) |
-| `apistock.yaml`, `apistock.lock` | Either is unreadable, or the lock was written by a newer `aps` | The lock is missing, from before v0.5, or from an older `aps` (run `aps upgrade`) |
-| `library` | A `replace` directive points at something that isn't an apistock checkout | `go.mod` doesn't require `apistock.dev` |
-| `anchor` (Full preset) | A line generators insert after is gone: `//aps:anchor modules`, `//aps:anchor jobs`, `//aps:anchor org-permissions` (multi-tenant), or the mail block in `.env.example` | |
+| `gorbital.yaml`, `gorbital.lock` | Either is unreadable, or the lock was written by a newer `orb` | The lock is missing, from before v0.5, or from an older `orb` (run `orb upgrade`) |
+| `library` | A `replace` directive points at something that isn't an gorbital checkout | `go.mod` doesn't require `gorbital.dev` |
+| `anchor` (Full preset) | A line generators insert after is gone: `//orb:anchor modules`, `//orb:anchor jobs`, `//orb:anchor org-permissions` (multi-tenant), or the mail block in `.env.example` | |
 | `.env` (Full preset) | It holds secrets and git doesn't ignore it | It's missing, git doesn't ignore it, or it lacks variables `.env.example` has |
 | `api files` | | `api/openapi.json`, `postman_collection.json` or `llms.txt` doesn't match the code |
 | `configuration`, `database` (Full preset) | The app's configuration doesn't load; the database ran migrations the code doesn't have | The database is unreachable, or migrations are pending |
 
-Values from `.env` are never printed. The database checks run the app's own `go run ./cmd/migrate --status --json`, so `aps` needs no database driver and reads the app's migration files. Exit code 1 when any check fails.
+Values from `.env` are never printed. The database checks run the app's own `go run ./cmd/migrate --status --json`, so `orb` needs no database driver and reads the app's migration files. Exit code 1 when any check fails.
 
-## `aps dev`
+## `orb dev`
 
 Builds and runs the app in the current directory, rebuilding when files change and loading `.env` (variables already set in the environment win).
 
@@ -398,7 +398,7 @@ In an app with a database (Full preset), before the first start it:
 4. Applies migrations (`go run ./cmd/migrate`) and runs seed data (`go run ./cmd/seed`). The first run prints the administrator's password once ([ADR-0042](../adr/0042-development-seed-data.md)); later runs change nothing.
 5. Prints the API, docs and email inbox addresses, then starts the app.
 
-While it runs, a changed or new migration is applied before the restart; if it fails, the previous version keeps running. Services keep running after `aps dev` stops, so the next start is fast: `docker compose down` stops them, and `docker compose down -v` also deletes the database.
+While it runs, a changed or new migration is applied before the restart; if it fails, the previous version keeps running. Services keep running after `orb dev` stops, so the next start is fast: `docker compose down` stops them, and `docker compose down -v` also deletes the database.
 
 | Flag | Default |
 |---|---|

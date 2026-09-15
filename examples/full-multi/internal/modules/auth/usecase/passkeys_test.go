@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	authlib "apistock.dev/modules/auth"
-	"apistock.dev/modules/auth/passkey"
-	"apistock.dev/modules/auth/passkey/passkeytest"
+	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/auth/passkey"
+	"gorbital.dev/modules/auth/passkey/passkeytest"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"

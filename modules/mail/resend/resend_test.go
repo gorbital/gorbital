@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/config"
-	"apistock.dev/mail"
-	"apistock.dev/modules/mail/resend"
+	"gorbital.dev/config"
+	"gorbital.dev/mail"
+	"gorbital.dev/modules/mail/resend"
 )
 
 const apiKey = "re_test_0123456789" // gitleaks:allow (placeholder for the fake server)

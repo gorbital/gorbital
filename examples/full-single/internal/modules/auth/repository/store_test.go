@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/modules/postgres/pgtest"
+	"gorbital.dev/modules/postgres/pgtest"
 
 	"example.com/acme-api/db/migrations"
 	authdomain "example.com/acme-api/internal/modules/auth/domain"

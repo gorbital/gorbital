@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"apistock.dev/modules/openapi/reference"
+	"gorbital.dev/modules/openapi/reference"
 )
 
 // DocsOptions configure [MountDocs].
@@ -20,7 +20,7 @@ type DocsOptions struct {
 }
 
 // MountDocs serves an API reference for the API on mux at opts.Path, in the
-// apistock design (ADR-0049): an overview, a page per operation with its
+// gorbital design (ADR-0049): an overview, a page per operation with its
 // parameters, responses, request examples and "Try it", and search.
 //
 // The pages are rendered from the OpenAPI document that mux serves at

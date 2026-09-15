@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"apistock.dev/config"
-	"apistock.dev/mail"
-	"apistock.dev/modules/mail/smtp"
+	"gorbital.dev/config"
+	"gorbital.dev/mail"
+	"gorbital.dev/modules/mail/smtp"
 )
 
 // session is what the fake server received in one connection.

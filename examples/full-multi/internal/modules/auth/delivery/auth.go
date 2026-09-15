@@ -11,9 +11,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/httpx"
-	authlib "apistock.dev/modules/auth"
-	"apistock.dev/modules/openapi"
+	"gorbital.dev/httpx"
+	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/openapi"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"

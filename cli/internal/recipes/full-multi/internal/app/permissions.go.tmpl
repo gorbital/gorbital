@@ -1,8 +1,8 @@
 package app
 
 import (
-	authlib "apistock.dev/modules/auth"
-	orgslib "apistock.dev/modules/orgs"
+	authlib "gorbital.dev/modules/auth"
+	orgslib "gorbital.dev/modules/orgs"
 
 	opsdomain "⟦.Module⟧/internal/modules/ops/domain"
 	orgsusecase "⟦.Module⟧/internal/modules/orgs/usecase"
@@ -54,10 +54,10 @@ type resourcePermissions struct {
 }
 
 // orgResourcePermissions lists the org-scoped resources' permissions.
-// aps gen resource --scope org adds a line at the anchor.
+// orb gen resource --scope org adds a line at the anchor.
 func orgResourcePermissions() []resourcePermissions {
 	return []resourcePermissions{
-		//aps:anchor org-permissions
+		//orb:anchor org-permissions
 		projectsPermissions,
 	}
 }

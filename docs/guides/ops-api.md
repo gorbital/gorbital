@@ -303,7 +303,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/system
  "from_name": "Acme", "from_email": "hello@acme.com", "reply_to": "support@acme.com"}
 ```
 
-Resend details are `{"api_key": "configured"}` or `"missing"`. Change the sender with `PUT /ops/settings/mail.from_email` (and `mail.from_name`, `mail.reply_to`). The test email's delivery appears in `GET /ops/jobs/runs?kind=apistock.mail.send`. Setup: [email guide](email.md).
+Resend details are `{"api_key": "configured"}` or `"missing"`. Change the sender with `PUT /ops/settings/mail.from_email` (and `mail.from_name`, `mail.reply_to`). The test email's delivery appears in `GET /ops/jobs/runs?kind=gorbital.mail.send`. Setup: [email guide](email.md).
 
 ## Sign-in methods
 

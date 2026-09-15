@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 
-	"apistock.dev/buildinfo"
-	"apistock.dev/health"
-	"apistock.dev/modules/postgres"
-	"apistock.dev/modules/releases"
+	"gorbital.dev/buildinfo"
+	"gorbital.dev/health"
+	"gorbital.dev/modules/postgres"
+	"gorbital.dev/modules/releases"
 
 	"example.com/acme-api/db/migrations"
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"

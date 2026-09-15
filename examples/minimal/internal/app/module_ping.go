@@ -6,7 +6,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/httpx"
+	"gorbital.dev/httpx"
 
 	"example.com/acme-api/internal/modules/ping"
 	pingdomain "example.com/acme-api/internal/modules/ping/domain"

@@ -7,9 +7,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	authlib "apistock.dev/modules/auth"
-	"apistock.dev/modules/ratelimitpg"
-	"apistock.dev/ratelimit"
+	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/ratelimitpg"
+	"gorbital.dev/ratelimit"
 )
 
 // rateLimits are the request limits every instance shares through PostgreSQL

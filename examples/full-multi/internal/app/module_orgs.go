@@ -6,9 +6,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"apistock.dev/actor"
-	"apistock.dev/httpx"
-	orgslib "apistock.dev/modules/orgs"
+	"gorbital.dev/actor"
+	"gorbital.dev/httpx"
+	orgslib "gorbital.dev/modules/orgs"
 
 	orgsmodule "example.com/acme-api/internal/modules/orgs"
 	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"

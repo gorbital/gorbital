@@ -1,24 +1,24 @@
-# How apistock works
+# How gorbital works
 
-This page explains apistock in plain words: the three parts, what a new app contains, how you work with it day to day, and the terms the rest of the docs use. You don't need to know Go to follow it.
+This page explains gorbital in plain words: the three parts, what a new app contains, how you work with it day to day, and the terms the rest of the docs use. You don't need to know Go to follow it.
 
 ## Three parts
 
 | Part | What it is | Where it runs |
 |---|---|---|
-| **`aps`**, the command-line tool | Creates your app, adds features to it and generates code, such as a new resource or a background job | Only on your computer |
+| **`orb`**, the command-line tool | Creates your app, adds features to it and generates code, such as a new resource or a background job | Only on your computer |
 | **Your app** | A Go project in your own repository: your endpoints, your database tables, your rules | Your computer while you build, then your servers |
-| **The apistock library** | Go packages your app imports for the parts that are hard to get right: password hashing, sessions, passkeys, background jobs | Inside your app |
+| **The gorbital library** | Go packages your app imports for the parts that are hard to get right: password hashing, sessions, passkeys, background jobs | Inside your app |
 
 Why split it this way:
 
 - **Your code stays yours.** Everything specific to your product is plain Go in your repository. There's no hidden framework magic to learn.
 - **Security fixes are easy to get.** The risky parts are in the library, so a fix reaches your app when you update it with `go get`.
-- **Nothing locks you in.** Remove `aps` and your app still builds, runs and deploys.
+- **Nothing locks you in.** Remove `orb` and your app still builds, runs and deploys.
 
 ## What a new app contains
 
-When you run `aps new` and choose the **Full** preset, you get a working API with:
+When you run `orb new` and choose the **Full** preset, you get a working API with:
 
 | Feature | What it does for you |
 |---|---|
@@ -35,7 +35,7 @@ The **Minimal** preset is a much smaller API with no database or sign-in, for wh
 
 ## Single or multi-tenant
 
-`aps new` asks one question that shapes your data: will different companies or teams use your app, each with their own separate data?
+`orb new` asks one question that shapes your data: will different companies or teams use your app, each with their own separate data?
 
 - **No (single-tenant):** data belongs to individual users. A to-do app is single-tenant.
 - **Yes (multi-tenant):** data belongs to organisations. People join organisations, get a role and invite others. A project-management tool for companies is multi-tenant. See [Organisations](organisations.md).
@@ -43,10 +43,10 @@ The **Minimal** preset is a much smaller API with no database or sign-in, for wh
 ## Working on your app
 
 ```bash
-aps dev
+orb dev
 ```
 
-`aps dev` is the one command you run while building. It:
+`orb dev` is the one command you run while building. It:
 
 1. Starts PostgreSQL and Mailpit (a local inbox that catches every email) in Docker.
 2. Updates the database with any new migrations.

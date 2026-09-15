@@ -9,13 +9,13 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"apistock.dev/cli/internal/recipes"
+	"gorbital.dev/cli/internal/recipes"
 )
 
 var shopData = recipes.Data{Name: "shop-api", Module: "example.com/shop-api", LibraryVersion: recipes.LibraryVersion}
 
 // TestTreeMatchesRender: the in-memory tree an upgrade rebuilds is exactly
-// what aps new writes, for every preset.
+// what orb new writes, for every preset.
 func TestTreeMatchesRender(t *testing.T) {
 	for _, golden := range goldenApps {
 		t.Run(golden.templates, func(t *testing.T) {
@@ -41,7 +41,7 @@ func TestTreeMatchesRender(t *testing.T) {
 	}
 }
 
-// TestTreeFromDirectory: templates read from a directory, as aps upgrade
+// TestTreeFromDirectory: templates read from a directory, as orb upgrade
 // reads an older release, render the same tree as the embedded ones. This
 // package's directory has a release's layout.
 func TestTreeFromDirectory(t *testing.T) {
@@ -73,8 +73,8 @@ func TestTreeWithSMTP(t *testing.T) {
 	if example := string(tree[".env.example"]); !strings.Contains(example, "\nSMTP_HOST=\n") || strings.Contains(example, "RESEND_API_KEY") {
 		t.Errorf(".env.example doesn't hold the SMTP block alone:\n%s", example)
 	}
-	if manifest := string(tree["apistock.yaml"]); !strings.HasSuffix(manifest, "\nmail: smtp\n") {
-		t.Errorf("apistock.yaml = %s", manifest)
+	if manifest := string(tree["gorbital.yaml"]); !strings.HasSuffix(manifest, "\nmail: smtp\n") {
+		t.Errorf("gorbital.yaml = %s", manifest)
 	}
 }
 
