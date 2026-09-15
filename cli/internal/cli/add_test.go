@@ -82,6 +82,44 @@ func TestAddMailSMTPWithFlags(t *testing.T) {
 	}
 }
 
+// TestAddMailRecordsTheProviderInTheLock checks that aps add mail keeps
+// apistock.lock true to the files, so upgrades rebuild SMTP files for an
+// SMTP app (ADR-0050).
+func TestAddMailRecordsTheProviderInTheLock(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	if code, _, errOut := runAps(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git", "--json"); code != 0 {
+		t.Fatalf("aps new = %d, stderr %q", code, errOut)
+	}
+	t.Chdir(filepath.Join(dir, "shop-api"))
+	before, err := readLock(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res := addMail(t, "--provider", "smtp")
+	if !slices.Contains(res.Files, lockPath) {
+		t.Errorf("files = %v, want %s among them", res.Files, lockPath)
+	}
+	after, err := readLock(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Inputs.Mail != recipes.MailSMTP || after.Aps != before.Aps || len(after.Files) != len(before.Files) || after.tracks(".env") {
+		t.Errorf("lock after aps add mail = %+v, want mail smtp and the same release and files", after)
+	}
+	for _, f := range after.Files {
+		if sha256Hex([]byte(readFile(t, f.Path))) != f.SHA256 {
+			t.Errorf("apistock.lock hash of %s is stale after aps add mail", f.Path)
+		}
+	}
+
+	// Choosing the provider the app already has changes nothing.
+	if res := addMail(t, "--provider", "smtp"); !res.AlreadyConfigured {
+		t.Errorf("second aps add mail = %+v, want already configured", res)
+	}
+}
+
 func TestAddMailSwitchesBackToResend(t *testing.T) {
 	newMailApp(t)
 	writeFile(t, ".env", "OPS_TOKEN=abc\nRESEND_API_KEY=re_saved_key\n")

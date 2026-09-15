@@ -119,11 +119,20 @@ func TestNewCreatesApp(t *testing.T) {
 				}
 			}
 
-			var lock lockFile
-			lockBytes, _ := os.ReadFile(filepath.Join("shop-api", "apistock.lock"))
-			if err := json.Unmarshal(lockBytes, &lock); err != nil || lock.APIVersion != LockAPIVersion || len(lock.Recipes) != 1 ||
-				lock.Recipes[0].Name != tt.recipe || len(lock.Recipes[0].Operations) != res.Files {
-				t.Errorf("apistock.lock = %s (%v), want recipe %s with %d createFile operations", lockBytes, err, tt.recipe, res.Files)
+			wantInputs := lockInputs{Name: "shop-api", Module: "example.com/shop-api", Preset: tt.preset, Tenancy: tt.tenancy}
+			if tt.preset == "full" {
+				wantInputs.Mail = "resend"
+			}
+			lock, err := readLock("shop-api")
+			// Every rendered file is tracked except go.mod.
+			if err != nil || lock.APIVersion != LockAPIVersion || lock.Aps.Version != Version || lock.Inputs != wantInputs ||
+				len(lock.Files) != res.Files-1 || lock.tracks("go.mod") {
+				t.Errorf("apistock.lock = %+v (%v), want %s with inputs %+v and %d files", lock, err, LockAPIVersion, wantInputs, res.Files-1)
+			}
+			for _, f := range lock.Files {
+				if got, _ := os.ReadFile(filepath.Join("shop-api", filepath.FromSlash(f.Path))); sha256Hex(got) != f.SHA256 {
+					t.Errorf("apistock.lock hash of %s doesn't match the file", f.Path)
+				}
 			}
 
 			_ = filepath.WalkDir("shop-api", func(p string, d fs.DirEntry, err error) error {

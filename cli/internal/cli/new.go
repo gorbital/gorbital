@@ -372,8 +372,8 @@ func findCheckout() string {
 	}
 }
 
-// create renders the preset into dir and records its files in
-// apistock.lock.
+// create renders the preset into dir and records this release, the inputs
+// and the tracked files' hashes in apistock.lock (ADR-0050).
 func create(dir string, preset recipes.Preset, d recipes.Data) ([]recipes.File, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
@@ -385,7 +385,7 @@ func create(dir string, preset recipes.Preset, d recipes.Data) ([]recipes.File, 
 	if err != nil {
 		return nil, err
 	}
-	if err := writeLock(root, preset.Recipe, recipes.LibraryVersion, files); err != nil {
+	if err := writeLock(root, newLock(preset, d, files)); err != nil {
 		return nil, err
 	}
 	return files, nil

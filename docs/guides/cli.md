@@ -116,6 +116,8 @@ go run ./cmd/api               # or: aps dev
 
 If port 5432 is taken, set `POSTGRES_PORT` in `.env` and the same port in `DATABASE_URL`. The app's README explains how to create the first admin and how to remove the examples.
 
+Commit `apistock.lock` with the app. It records the `aps` release that created the app, the answers the templates used (name, module, preset, tenancy, email provider) and a SHA-256 of every file `aps` wrote except `go.mod` and `go.sum`. `aps upgrade` (v0.5) uses it to rebuild those files as they were and merge newer templates into your edits ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)). Don't edit it by hand.
+
 ## `aps gen job`
 
 Generates a background job in an app created with the Full preset. The job's schedule, timeout and retries can be changed later in `/ops/jobs` without a deploy ([background jobs guide](background-jobs.md)).
@@ -266,6 +268,7 @@ What it changes:
 | `.env.example` | The block between `# aps:begin mail` and `# aps:end mail` holds the provider's variables |
 | `.env` | Updated if it exists, or created from `.env.example` (mode 0600) when there are values to save; values already there are kept |
 | `apistock.yaml` | `mail: resend` or `mail: smtp` |
+| `apistock.lock` | The provider and the new hashes of the files above that `aps` tracks (apps created before v0.5 keep their lock as it is) |
 | `go.mod` | Requires the provider module (with a `replace` to your apistock checkout when the app uses one), then `go mod tidy` |
 
 After confirming, it prints numbered next steps: where to get the Resend key and verify your domain (or which SMTP variables are left), how to set the sender with `PUT /ops/settings/mail.from_email`, and how to send a test email with `POST /ops/mail/test`. The sender name, address and reply-to are runtime settings, so they're never asked here.

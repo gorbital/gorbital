@@ -1,47 +1,214 @@
 package cli
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"runtime/debug"
+	"slices"
+	"strings"
 
 	"apistock.dev/cli/internal/recipes"
 )
 
-// LockAPIVersion versions the apistock.lock format (ADR-0015).
-const LockAPIVersion = "apistock.dev/v1"
+// LockAPIVersion versions the apistock.lock format (ADR-0015, ADR-0050).
+const LockAPIVersion = "apistock.dev/v2"
 
-// lockFile records every operation apistock applied, so later upgrades can
-// rebuild the original files and merge template changes (ADR-0016, ADR-0021).
+// lockAPIVersionV1 is the format aps wrote before v0.5: one createFile
+// operation per file, without the release or inputs that rendered them.
+const lockAPIVersionV1 = "apistock.dev/v1"
+
+const lockPath = "apistock.lock"
+
+// lockFile records what aps rendered into an app, so aps upgrade can rebuild
+// those files at the recorded release and merge template changes into the
+// developer's edits (ADR-0016, ADR-0050).
 type lockFile struct {
 	APIVersion string       `json:"apiVersion"`
-	Generator  string       `json:"generator"`
-	Recipes    []lockRecipe `json:"recipes"`
+	Aps        lockAps      `json:"aps"`
+	Inputs     lockInputs   `json:"inputs"`
+	Files      []lockedFile `json:"files"`
 }
 
-type lockRecipe struct {
-	Name       string          `json:"name"`
-	Version    string          `json:"version"`
-	Operations []lockOperation `json:"operations"`
+// lockAps is the aps release that rendered the tracked files.
+type lockAps struct {
+	Version string `json:"version,omitempty"`
+	// Revision is the commit a development build was built from, recorded
+	// only when its tree was clean, so the templates are exactly that commit.
+	Revision string `json:"revision,omitempty"`
 }
 
-type lockOperation struct {
-	Op     string `json:"op"`
+// lockInputs are the values the templates read. The --local checkout path
+// isn't one: it only reaches go.mod, which is never hashed or merged.
+type lockInputs struct {
+	Name    string `json:"name"`
+	Module  string `json:"module"`
+	Preset  string `json:"preset"`
+	Tenancy string `json:"tenancy"`
+	Mail    string `json:"mail,omitempty"`
+}
+
+// lockedFile is a tracked file and the SHA-256 of its content as aps wrote it.
+type lockedFile struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
 }
 
-func writeLock(root *os.Root, recipe, version string, files []recipes.File) error {
-	r := lockRecipe{Name: recipe, Version: version}
+// untrackedPaths are rendered but never hashed: go mod tidy and go get
+// rewrite them, and upgrades update them with go get instead of merging.
+var untrackedPaths = []string{"go.mod", "go.sum"}
+
+// newLock records files rendered from preset with d by this aps.
+func newLock(preset recipes.Preset, d recipes.Data, files []recipes.File) lockFile {
+	l := lockFile{
+		APIVersion: LockAPIVersion,
+		Aps:        lockAps{Version: Version, Revision: buildRevision()},
+		Inputs:     lockInputs{Name: d.Name, Module: d.Module, Preset: preset.Name, Tenancy: preset.Tenancy},
+	}
+	if preset.Name == "full" {
+		l.Inputs.Mail = recipes.MailResend // the golden apps send with Resend
+	}
 	for _, f := range files {
-		r.Operations = append(r.Operations, lockOperation{Op: "createFile", Path: f.Path, SHA256: f.SHA256})
+		if !slices.Contains(untrackedPaths, f.Path) {
+			l.Files = append(l.Files, lockedFile{Path: f.Path, SHA256: f.SHA256})
+		}
 	}
-	b, err := json.MarshalIndent(lockFile{APIVersion: LockAPIVersion, Generator: "aps " + Version, Recipes: []lockRecipe{r}}, "", "  ")
+	slices.SortFunc(l.Files, compareLocked)
+	return l
+}
+
+func compareLocked(a, b lockedFile) int { return strings.Compare(a.Path, b.Path) }
+
+func (l lockFile) find(path string) (int, bool) {
+	return slices.BinarySearchFunc(l.Files, path, func(f lockedFile, p string) int { return strings.Compare(f.Path, p) })
+}
+
+// tracks reports whether path is a tracked file.
+func (l lockFile) tracks(path string) bool {
+	_, ok := l.find(path)
+	return ok
+}
+
+// record sets the hash of a tracked file to content's. Untracked paths, such
+// as .env or files aps gen wrote, are left out.
+func (l *lockFile) record(path string, content []byte) {
+	if i, ok := l.find(path); ok {
+		l.Files[i].SHA256 = sha256Hex(content)
+	}
+}
+
+func (l lockFile) encode() ([]byte, error) {
+	b, err := json.MarshalIndent(l, "", "  ")
 	if err != nil {
-		return fmt.Errorf("encode apistock.lock: %w", err)
+		return nil, fmt.Errorf("encode %s: %w", lockPath, err)
 	}
-	if err := root.WriteFile("apistock.lock", append(b, '\n'), 0o644); err != nil {
-		return fmt.Errorf("write apistock.lock: %w", err)
+	return append(b, '\n'), nil
+}
+
+func writeLock(root *os.Root, l lockFile) error {
+	b, err := l.encode()
+	if err != nil {
+		return err
+	}
+	if err := root.WriteFile(lockPath, b, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", lockPath, err)
 	}
 	return nil
+}
+
+// errNoLock reports an app without apistock.lock.
+var errNoLock = errors.New("no " + lockPath)
+
+// readLock reads dir's apistock.lock. A v1 lock comes back with its files
+// and APIVersion v1, but no release or inputs: v1 didn't record them.
+func readLock(dir string) (lockFile, error) {
+	data, err := os.ReadFile(filepath.Join(dir, lockPath))
+	if errors.Is(err, fs.ErrNotExist) {
+		return lockFile{}, errNoLock
+	} else if err != nil {
+		return lockFile{}, err
+	}
+	var head struct {
+		APIVersion string `json:"apiVersion"`
+	}
+	if err := json.Unmarshal(data, &head); err != nil {
+		return lockFile{}, fmt.Errorf("read %s: %w", lockPath, err)
+	}
+
+	var l lockFile
+	switch head.APIVersion {
+	case LockAPIVersion:
+		dec := json.NewDecoder(bytes.NewReader(data))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&l); err != nil {
+			return lockFile{}, fmt.Errorf("read %s: %w", lockPath, err)
+		}
+	case lockAPIVersionV1:
+		var v1 struct {
+			Recipes []struct {
+				Operations []struct {
+					Op     string `json:"op"`
+					Path   string `json:"path"`
+					SHA256 string `json:"sha256"`
+				} `json:"operations"`
+			} `json:"recipes"`
+		}
+		if err := json.Unmarshal(data, &v1); err != nil {
+			return lockFile{}, fmt.Errorf("read %s: %w", lockPath, err)
+		}
+		l.APIVersion = lockAPIVersionV1
+		for _, r := range v1.Recipes {
+			for _, op := range r.Operations {
+				if op.Op == "createFile" && !slices.Contains(untrackedPaths, op.Path) {
+					l.Files = append(l.Files, lockedFile{Path: op.Path, SHA256: op.SHA256})
+				}
+			}
+		}
+	default:
+		return lockFile{}, fmt.Errorf("%s has apiVersion %q; this aps reads %s and %s (a newer aps may have written it)", lockPath, head.APIVersion, LockAPIVersion, lockAPIVersionV1)
+	}
+
+	slices.SortFunc(l.Files, compareLocked)
+	for i, f := range l.Files {
+		if !fs.ValidPath(f.Path) || f.Path == "." || (i > 0 && l.Files[i-1].Path == f.Path) {
+			return lockFile{}, fmt.Errorf("read %s: invalid or repeated path %q", lockPath, f.Path)
+		}
+	}
+	return l, nil
+}
+
+// buildRevision returns the commit this binary was built from, or "" for
+// builds without version control information and builds of a modified tree.
+func buildRevision() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	return revisionOf(info)
+}
+
+func revisionOf(info *debug.BuildInfo) string {
+	var revision string
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			revision = s.Value
+		case "vcs.modified":
+			if s.Value == "true" {
+				return ""
+			}
+		}
+	}
+	return revision
+}
+
+func sha256Hex(content []byte) string {
+	sum := sha256.Sum256(content)
+	return hex.EncodeToString(sum[:])
 }

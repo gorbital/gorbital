@@ -475,6 +475,29 @@ func planMail(ctx context.Context, dir string, example []byte, r recipes.MailRec
 		change(manifestPath, manifest, setManifestKey(manifest, "mail", r.Provider), 0o644)
 	}
 
+	// A v2 lock records the provider and the new content of the files it
+	// tracks, so upgrades rebuild this provider's files (ADR-0050). A v1 lock
+	// can't record it; apistock.yaml holds the provider for those apps.
+	lock, err := readLock(dir)
+	switch {
+	case err == nil && lock.APIVersion == LockAPIVersion:
+		lock.Inputs.Mail = r.Provider
+		for _, w := range plan.writes {
+			lock.record(w.path, w.content)
+		}
+		updated, err := lock.encode()
+		if err != nil {
+			return mailPlan{}, err
+		}
+		old, _, err := readOptional(filepath.Join(dir, lockPath))
+		if err != nil {
+			return mailPlan{}, err
+		}
+		change(lockPath, old, updated, 0o644)
+	case err != nil && !errors.Is(err, errNoLock):
+		return mailPlan{}, err
+	}
+
 	plan.goMod, err = readGoMod(ctx, dir)
 	if err != nil {
 		return mailPlan{}, err

@@ -65,6 +65,8 @@ Option 2 for the base, option B for recipes.
 - `inputs` are every value the templates read, apart from the machine-specific `--local` path.
 - `files` holds the hash of every tracked file exactly as `aps` wrote it. `aps add mail`, `aps add orgs` and `aps upgrade` rewrite the lock; `aps gen resource`, `aps gen job` and `aps gen migration` stay one-shot and untracked (ADR-0021).
 - `apistock.dev/v1` locks are read too: they have no version to rebuild from, so `aps upgrade --from <tag or commit>` names it, and the rebuild must match every recorded hash or the upgrade stops.
+- `go.mod` and `go.sum` are rendered but never hashed: `aps new` runs `go mod tidy` straight after writing them, and upgrades update them with `go get` (section 3).
+- Recipe names (`base-full`, `base-full-multi`) are no longer recorded: `inputs.preset` and `inputs.tenancy` select the tree.
 
 ### 2. Rebuilding the base
 
@@ -155,6 +157,15 @@ Before the first release, "generated with v0.2" means: tag `v0.2.0`, `v0.3.0` an
 - ADR-0048: `aps add orgs` converts data with a new migration instead of copying `full-multi`'s.
 - Threat model: new rows for tampered fetched recipes (checksum database, templates never run) and upgrades overwriting edits (hash-proven base, branch, conflicts).
 - Every template change to a golden app needs an upgrade note; CI fails when a released migration changes.
+
+## Implementation notes
+
+| Step | State | Notes |
+|---|---|---|
+| 1. Lock v2 | Done (2026-09-15) | `cli/internal/cli/lock.go`. `aps new` writes v2; `aps add mail` sets `inputs.mail` and rehashes the tracked files it rewrote when the lock is v2, and leaves a v1 lock alone (`apistock.yaml` holds the provider for those apps). `revision` is recorded only when the binary was built from a clean tree, since a modified tree's templates aren't that commit. Reading refuses unknown fields, unknown versions, and paths that are absolute, escape the app or repeat. Tests: `TestLockRoundTrip`, `TestReadLockV1`, `TestReadLockRejects`, `TestLockRecordOnlyTrackedFiles`, `TestRevisionOf`, `TestNewCreatesApp` (every hash matches the written file), `TestAddMailRecordsTheProviderInTheLock` |
+| 2. Base rebuild and merge engine | Next | |
+| 3. `aps upgrade` | | |
+| 4. `aps add orgs` | | |
 
 ## Maintainer's answers (2026-09-15)
 
