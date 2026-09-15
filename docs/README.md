@@ -56,6 +56,7 @@ The documentation has two audiences, and the website at [docs.apistock.dev](http
 | [CLI](guides/cli.md) | Every `aps` command and flag |
 | [Testing](guides/testing.md) | What's tested, helpers, commands, drift checks, CI |
 | [Running in production](guides/production.md) | Image, configuration, migrations, scaling, observability, operations, what never to do |
+| [Upgrade notes](guides/upgrade-notes.md) | What changes for existing apps in each release, and what to do before deploying |
 | [Local development](guides/local-development.md) | Working on the apistock repository |
 | [Roadmap](roadmap.md) | Milestones and status |
 | [Architecture decision records](adr/README.md) | Every decision with context, options and trade-offs |

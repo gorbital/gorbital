@@ -242,7 +242,7 @@ Implemented in v0.2 ([ADR-0037](adr/0037-email-setup-and-delivery.md), [email gu
 
 ### 7.4 Operations APIs ([ADR-0026](adr/0026-operations-apis.md))
 
-`/ops/*`, protected by platform roles and required 2FA. v1: audit logs, system health, release monitor, jobs, retention, maintenance mode, runtime settings. v1.1: feature flags, live observability, incidents, API keys.
+`/ops/*`, protected by platform roles and required 2FA. Built by v0.5: runtime settings, jobs and queues with an overview, audit log with stats, release monitor, system health (`/ops/system`), retention as runtime settings enforced by a `retention` job (`/ops/retention`), maintenance mode, email and sign-in method status ([ADR-0051](adr/0051-operations-v0-5.md)). v1.1: feature flags, live observability, incidents, API keys.
 
 Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)), `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)), `/ops/mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)). They require a signed-in user whose platform roles grant the operation's permission ([ADR-0038](adr/0038-authentication-v0-2.md)); required 2FA for ops roles arrived in v0.3 ([ADR-0043](adr/0043-two-factor-authentication.md)), with `/ops/auth/providers` ([ADR-0045](adr/0045-sign-in-provider-setup.md)).
 
@@ -285,7 +285,7 @@ PostgreSQL only, always from Docker in development, tests and CI. `modules/postg
 
 **Implemented in v0.2 so far:** `aps gen job` (interactive or flags), `aps gen resource` (string, text and enum fields; golden-tested against `examples/full-single`'s projects module), `aps gen migration`, `aps dev` with Docker services, migrations, seed data and `--observability` ([ADR-0042](adr/0042-development-seed-data.md)), interactive `aps new`, `aps new --preset=full` (generated from `examples/full-single`, [ADR-0041](adr/0041-full-preset-generation.md)), `aps add mail`. Guide: [CLI](guides/cli.md).
 
-**Implemented in v0.5 so far:** `apistock.lock` v2, `aps upgrade` and `aps add orgs` ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
+**Implemented in v0.5:** `apistock.lock` v2, `aps upgrade` and `aps add orgs` ([ADR-0050](adr/0050-upgrades-and-adding-features.md)); `aps doctor`, `go run ./cmd/api openapi --dir api` exporting the Postman collection and `llms.txt`, and the operations work above ([ADR-0051](adr/0051-operations-v0-5.md)).
 
 **Interaction ([ADR-0035](adr/0035-interactive-cli.md)):** in a terminal, commands ask for missing values with arrow-key selects, checkboxes, validated inputs and a final summary; every prompt has a flag, flags skip their prompts, and `--yes`, `--json`, `--no-input` or `CI` never prompt. Prompts and flags share validators.
 
@@ -335,5 +335,5 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `aps add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |
 | Email templates and preview route | Open: owned templates in `internal/emails` with a development preview (ADR-0025) arrive with authentication's emails |
 | Client IP and user agent in audit events | Open: no core middleware carries them in the context yet; `modules/auth` sets them on its events |
-| ~~Organisations design~~ | Resolved: [ADR-0048](adr/0048-organisations-v0-4.md) accepted and implemented in v0.4; `aps add orgs` shipped in v0.5 |
+| ~~Organisations design~~ | Resolved: [ADR-0048](adr/0048-organisations-v0-4.md) accepted and built in v0.4; `aps add orgs` converts existing apps in v0.5 ([ADR-0050](adr/0050-upgrades-and-adding-features.md)) |
 | Client templates | Open: [ADR-0047](adr/0047-client-templates.md) proposed; to decide the dashboard and docs stacks, where archives are hosted, and the bundle ID prompt before accepting |

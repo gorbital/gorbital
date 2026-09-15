@@ -70,7 +70,7 @@ aps dev                 # API at :8080, docs at /docs, local email inbox
 | v0.2 PostgreSQL, runtime settings, jobs, email, authentication, roles, audit, Full preset | Done, tagged |
 | v0.3 Google and Apple sign-in, TOTP, passkeys | Done, tagged |
 | v0.4 Multi-tenant organisations | Done, tagged |
-| v0.5 `aps upgrade`, `aps add orgs` (done); operations APIs, Postman, `aps doctor` | In progress |
+| v0.5 `aps upgrade`, `aps add orgs`, `aps doctor`, system health, audit stats, retention, maintenance mode, Postman collection and `llms.txt` | Done |
 | v1.0 External security review, stable API | Planned |
 
 ## Contributing

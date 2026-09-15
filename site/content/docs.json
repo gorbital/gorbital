@@ -80,7 +80,8 @@
           "name": "Test and deploy",
           "pages": [
             {"title": "Testing", "slug": "technical/testing", "source": "docs/guides/testing.md"},
-            {"title": "Running in production", "slug": "technical/production", "source": "docs/guides/production.md"}
+            {"title": "Running in production", "slug": "technical/production", "source": "docs/guides/production.md"},
+            {"title": "Upgrade notes", "slug": "technical/upgrade-notes", "source": "docs/guides/upgrade-notes.md"}
           ]
         },
         {"name": "Package reference", "slug": "reference", "generate": "packages"},
