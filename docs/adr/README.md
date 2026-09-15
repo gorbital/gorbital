@@ -61,3 +61,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0049](0049-public-docs-and-website.md) | Public website: landing page, framework docs and API reference in the apistock look, built by a Go generator in `site/` | Accepted |
 | [0050](0050-upgrades-and-adding-features.md) | Upgrading apps and adding features to them (v0.5): lock v2, rebuilt merge base, `aps upgrade`, `aps add orgs` | Accepted |
 | [0051](0051-operations-v0-5.md) | Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports, `aps doctor` | Accepted |
+| [0052](0052-shared-rate-limits.md) | Shared rate limits and trusted proxies | Proposed |

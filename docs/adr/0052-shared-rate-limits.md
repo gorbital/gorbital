@@ -1,0 +1,150 @@
+# ADR-0052: Shared rate limits and trusted proxies
+
+**Status:** Proposed (2026-09-15) · **Amends:** ADR-0019, ADR-0031, ADR-0038
+
+## Context
+
+v1.0 must replace per-instance rate limits with limits shared across instances (roadmap). Today:
+
+| Area | Today | Evidence |
+|---|---|---|
+| Limiter | Core `ratelimit`: an in-memory token bucket per key (`golang.org/x/time/rate`), `Allow(key) (bool, time.Duration)`, no context, no error; bounded memory, fails open past 100 000 keys | `ratelimit/ratelimit.go` |
+| Uses in Full apps | Per-IP limit on `/v1/auth/*` (60 a minute, `routes.go`); per-address sign-in limit (10 in 15 minutes, second factors included); per-user limit on 2FA changes; "account exists" notices (one a minute per address) | `internal/app/routes.go`, `internal/modules/auth/usecase/{login,login_mfa,mfa,register}.go` |
+| Instances | Each keeps its own buckets, so N instances allow N times each limit; a load balancer spreading requests multiplies brute-force budgets | ADR-0038 trade-off |
+| Client IP | `ratelimit.ByRemoteIP` and `auth.ClientInfoFrom` use `RemoteAddr`. No trusted-proxy handling exists: behind a load balancer every request has the balancer's address | `httpx`, comment in `routes.go` |
+| Limits | Code constants (`auth.DefaultLoginAttempts`, `authRequestsPerMinute`), not runtime settings | `modules/auth/auth.go` |
+
+Constraints: PostgreSQL is the only required service (ADR-0014); core can't depend on pgx (ADR-0019); generated apps own their wiring and receive changes through `aps upgrade` (ADR-0050); tunables are runtime settings, secrets and infrastructure are environment variables (ADR-0031).
+
+The maintainer decided (2026-09-15): when the database can't answer, fall back to per-instance limits; include trusted-proxy handling; make the sign-in limits runtime settings.
+
+**Why trusted proxies belong here:** a shared per-IP limit behind a load balancer keys every user by the balancer's IP, so one person's retries would lock out everyone. Shared limits are unsafe without it.
+
+## Options
+
+| Option | Verdict |
+|---|---|
+| Redis or Valkey | Rejected: a second required service |
+| Divide each limit by the number of instances | Rejected: wrong under autoscaling and uneven load balancing |
+| Sticky sessions | Rejected: attackers choose their connections |
+| Fixed-window counters in PostgreSQL | Rejected: allow twice the limit across a window boundary |
+| Sliding log (a row per request) | Rejected: a write and a growing table per request |
+| **GCRA in PostgreSQL: one row per key, one statement per decision** | **Chosen**: exact token-bucket semantics (rate and burst, as today), constant storage per key, atomic across instances |
+
+## Decision
+
+### 1. Core `ratelimit`: a small interface
+
+```go
+// Decision is the outcome of one request against a limit.
+type Decision struct {
+	Allowed    bool
+	RetryAfter time.Duration // when not allowed
+}
+
+// A Taker decides whether a request for key may proceed. An error means the
+// limiter couldn't decide; callers allow the request.
+type Taker interface {
+	Take(ctx context.Context, key string) (Decision, error)
+}
+```
+
+- The in-memory `*Limiter` gains `Take`; `Allow` stays for compatibility and is documented as the in-memory shortcut.
+- `Middleware` takes a `Taker` (a `*Limiter` still fits, so existing calls compile). An error allows the request: a store that can fail handles its own fallback (below).
+- Core stays within its budget: no new dependency.
+
+### 2. `modules/ratelimitpg`: the shared limiter
+
+A new module, like `auditpg`: core `ratelimit`, `modules/postgres` and pgx.
+
+```go
+l, err := ratelimitpg.New(pool, "auth_login", ratelimit.Limit{PerSecond: 10.0 / 900, Burst: 10},
+	ratelimitpg.WithLogger(logger))
+d, err := l.Take(ctx, "ada@example.com")
+```
+
+| Topic | Decision |
+|---|---|
+| Algorithm | GCRA (generic cell rate algorithm): each key stores its theoretical arrival time `tat`. With emission interval `T = 1/rate` and tolerance `T × burst`, a request at `now` is allowed when `max(tat, now) + T − now ≤ T × burst`, and then `tat` becomes `max(tat, now) + T`; otherwise `RetryAfter = max(tat, now) + T − now − T × burst`. Same decisions as a token bucket with that rate and burst |
+| Storage | `ratelimit_buckets (key bytea PRIMARY KEY, tat timestamptz, expires_at timestamptz)`, **UNLOGGED** (no WAL; a crash resets budgets, which is acceptable for limits). Keys are SHA-256 of the limiter name and key, so no email address or IP is stored |
+| Statement | One `INSERT … ON CONFLICT (key) DO UPDATE … WHERE <allowed> RETURNING tat` decides and records atomically; a denied request reads `tat` for `Retry-After`. Row locks serialise only requests for the same key |
+| Time | The database clock (`statement_timestamp()`), so instances with skewed clocks agree; `WithClock` for tests |
+| Limit changes | `Limit` is read on every call from a function, so runtime settings apply at once |
+| Cleanup | `DeleteExpired(ctx, limit)`: rows whose `expires_at` passed (a full bucket again). The app runs it hourly in a `ratelimit_cleanup` job |
+| Migrations | Embedded in the module as `ratelimitpg.Migrations` and copied into the app's `db/migrations`, like `auditpg` |
+| Deadline | Each decision has its own 250 ms timeout, so a slow database can't hold requests |
+
+### 3. Failing safe: per-instance fallback, and a local pre-check
+
+- **Fallback (maintainer's decision):** when the statement fails or times out, `Take` decides with an in-memory `ratelimit.Limiter` of the same limit, logs a warning at most once a minute per limiter, and counts `ratelimit.fallbacks`. Sign-in keeps working with today's per-instance protection during an outage.
+- **Local pre-check:** before the database, each limiter checks an in-memory bucket with twice the burst. A client far over its limit is refused without a database write, so a flood of requests can't become a flood of writes. Normal clients never reach the local limit first.
+- `Take` returns an error only for invalid use (an empty key); outages never surface as errors.
+
+### 4. Trusted proxies
+
+| Topic | Decision |
+|---|---|
+| Configuration | `APP_TRUSTED_PROXIES`: comma-separated CIDRs of load balancers and reverse proxies, such as `10.0.0.0/8,172.16.0.0/12`. Empty (the default) trusts no header. Infrastructure, so an environment variable (ADR-0031) |
+| Middleware | `httpx.TrustedProxies(prefixes)`: when `RemoteAddr` is in a trusted range, walk `X-Forwarded-For` from the right, skip trusted addresses, and use the first untrusted one as the client, replacing `r.RemoteAddr`. A request from an untrusted address keeps its own address and its headers are ignored, so clients can't spoof their IP |
+| Placement | First in the chain after recovery, so access logs, audit client info and every limiter see the client's address |
+| Validation | Invalid CIDRs stop the app at start; `0.0.0.0/0` and `::/0` are refused (they would trust every client's header) |
+| Not included | `Forwarded` (RFC 7239) and PROXY protocol: added when a supported platform needs them |
+
+### 5. Limits as runtime settings
+
+| Setting | Default | Bounds | Used by |
+|---|---|---|---|
+| `auth.ip_requests_per_minute` | 60 | 10–10 000 | Per-IP limit on `/v1/auth/*` |
+| `auth.login_attempts` | 10 | 3–100 | Per address, sign-in and second factors |
+| `auth.login_window` | 15 min | 1 min–24 h | With `auth.login_attempts` |
+| `auth.mfa_change_attempts` | 10 per 15 min | 3–100 | Per user, 2FA changes |
+
+"Account exists" notices stay at one a minute: an anti-abuse rule for email, not a tunable. Settings are audited and apply to every instance through LISTEN/NOTIFY (ADR-0031).
+
+### 6. Wiring
+
+- **Full presets:** every limiter above uses `ratelimitpg`; the auth use cases take a `ratelimit.Taker` per limit instead of building their own; the `ratelimit_cleanup` job is defined; `APP_TRUSTED_PROXIES` is read and the middleware installed; the four settings are declared.
+- **Minimal preset:** in-memory limiters and trusted proxies (no database).
+- `aps upgrade` adds the module, migration, job, setting declarations and wiring; `.env.example` documents `APP_TRUSTED_PROXIES`.
+
+### Observability
+
+- Spans from the pool's tracer on each decision (`db.statement` names the operation only).
+- Counters in `ratelimitpg` through the OpenTelemetry metric API: `ratelimit.decisions` (attributes `limiter`, `allowed`), `ratelimit.fallbacks` (`limiter`, `reason`).
+- `GET /ops/system` shows fallbacks since start per limiter.
+- A denied request is logged at debug; audit keeps recording `auth.login.failed` with reason `rate_limited` as today.
+
+### Testing
+
+| Level | Checks |
+|---|---|
+| Unit (`ratelimit`) | `Take` matches `Allow`; `Middleware` with a `Taker`, errors allowed |
+| Property (`ratelimitpg`) | For random request times, rates and bursts, decisions and `RetryAfter` match the in-memory token bucket |
+| Integration (Docker PostgreSQL) | Three limiters on one pool (three "instances") hammered concurrently on one key allow exactly the burst; limit changes apply to the next call; expired rows deleted; keys stored hashed; database stopped or statement timeout forces the fallback and the warning; the local pre-check refuses a flood without writes |
+| Middleware (`httpx`) | Trusted and untrusted peers, multiple proxies, spoofed headers from untrusted peers, IPv6, invalid and all-trusting CIDRs |
+| App end to end | Two app instances on one database share the sign-in limit; behind a trusted proxy, two clients get separate per-IP budgets; settings change limits live |
+| Benchmark | `Take` against local PostgreSQL, allowed and denied paths |
+
+## Why
+
+- GCRA keeps today's rate-and-burst behaviour exactly, with one row and one statement per decision.
+- PostgreSQL is already required; an unlogged table makes it cheap enough for authentication paths.
+- Falling back to per-instance limits keeps sign-in available and never removes protection entirely.
+- The local pre-check stops the limiter from becoming a way to load the database.
+- Trusted proxies make per-IP limits and audit addresses correct behind load balancers.
+
+## Trade-offs
+
+- A database round trip on every rate-limited request (authentication paths only), and a hot key serialises its own requests.
+- A crash or failover resets budgets (unlogged table).
+- During a database outage, limits are per instance again.
+- Operators must list their proxies; a wrong `APP_TRUSTED_PROXIES` either ignores real client IPs or trusts spoofed ones (documented, and all-trusting ranges refused).
+- One more module, table, job and four settings.
+
+## Consequences
+
+- `ratelimit` gains `Taker`, `Decision`, `Limit` and `(*Limiter).Take` (additions only); `Middleware` accepts a `Taker`.
+- New module `modules/ratelimitpg` (pre-1.0, ADR-0015); `httpx.TrustedProxies`.
+- Full apps: changed auth use-case config (limiters injected), new settings, job, migration and middleware; upgrade notes describe the behaviour change: **limits now apply across all instances**, so multi-instance deployments see stricter effective limits.
+- Threat model: rate-limit rows (credential stuffing, 2FA guessing) gain shared enforcement; a new row for client IP spoofing through forwarded headers.
+- ADR-0038's "rate limits are per instance" trade-off and "trusted-proxy client IP handling" follow-up are resolved.

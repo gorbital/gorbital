@@ -119,7 +119,7 @@ Each milestone below has the same parts: **status** with what was built, then a 
 
 | | |
 |---|---|
-| **Delivers** | External security review with findings fixed, API freeze and stability tiers in force, documentation content ready for the public site ([ADR-0049](adr/0049-public-docs-and-website.md)), domain hardening complete (including rate limits shared across instances, replacing today's per-instance limiters), governance and contribution guide |
+| **Delivers** | External security review with findings fixed, API freeze and stability tiers in force, documentation content ready for the public site ([ADR-0049](adr/0049-public-docs-and-website.md)), domain hardening complete (including rate limits shared across instances with trusted-proxy client IPs, replacing today's per-instance limiters; proposed in [ADR-0052](adr/0052-shared-rate-limits.md)), governance and contribution guide |
 | **Done when** | Security review signed off; `gorelease` baseline recorded; scaffold compatibility promise ([ADR-0016](adr/0016-scaffold-compatibility-and-upgrades.md)) active |
 
 ## v1.1
