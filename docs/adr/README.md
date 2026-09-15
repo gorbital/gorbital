@@ -35,8 +35,8 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033, 0048 |
 | [0024](0024-authentication-methods.md) | Authentication methods | Accepted, amended by 0038, 0043, 0044, 0046 |
 | [0025](0025-email-providers.md) | Email providers | Accepted, amended by 0033, 0037 |
-| [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038 |
-| [0027](0027-api-contract-and-docs.md) | API contract and documentation | Accepted |
+| [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038, 0051 |
+| [0027](0027-api-contract-and-docs.md) | API contract and documentation | Accepted, amended by 0049, 0051 |
 | [0028](0028-local-development-environment.md) | Local development environment | Accepted |
 | [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted, amended by 0036, 0038 |
 | [0030](0030-context-and-correlation.md) | Context and correlation propagation | Accepted |
@@ -60,3 +60,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Accepted, amended by 0050 |
 | [0049](0049-public-docs-and-website.md) | Public website: landing page, framework docs and API reference in the apistock look, built by a Go generator in `site/` | Accepted |
 | [0050](0050-upgrades-and-adding-features.md) | Upgrading apps and adding features to them (v0.5): lock v2, rebuilt merge base, `aps upgrade`, `aps add orgs` | Accepted |
+| [0051](0051-operations-v0-5.md) | Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports, `aps doctor` | Accepted |

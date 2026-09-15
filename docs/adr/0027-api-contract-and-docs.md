@@ -1,6 +1,6 @@
 # ADR-0027: API contract and documentation
 
-**Status:** Accepted (2026-09-14), amended by [ADR-0049](0049-public-docs-and-website.md) · decided by [spikes/openapi](../../spikes/openapi/README.md)
+**Status:** Accepted (2026-09-14), amended by [ADR-0049](0049-public-docs-and-website.md), [ADR-0051](0051-operations-v0-5.md) (Postman collection and `llms.txt` exported with the spec) · decided by [spikes/openapi](../../spikes/openapi/README.md)
 
 ## Context
 
