@@ -16,7 +16,8 @@
           "name": "Build your API",
           "pages": [
             {"title": "Add your first resource", "slug": "guides/first-resource", "source": "site/content/first-resource.md"},
-            {"title": "Organisations", "slug": "guides/organisations", "source": "site/content/organisations.md"}
+            {"title": "Organisations", "slug": "guides/organisations", "source": "site/content/organisations.md"},
+            {"title": "Upgrading apps", "slug": "guides/upgrading", "source": "site/content/upgrading.md"}
           ]
         },
         {
