@@ -66,6 +66,7 @@ func (a *App) buildHTTP() error {
 	a.api = api
 	a.handler = httpx.Chain(mux,
 		httpx.Recover(a.logger),
+		httpx.TrustedProxies(a.cfg.TrustedProxies), // the client's address behind load balancers (APP_TRUSTED_PROXIES)
 		httpx.RequestID(),
 		a.tel.HTTPMiddleware(),
 		httpx.AccessLog(a.logger),

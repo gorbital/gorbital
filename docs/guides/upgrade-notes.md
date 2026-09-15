@@ -7,7 +7,10 @@ What changes for existing apps in each release, and what to do that `aps upgrade
 | Change | What to do |
 |---|---|
 | **Apple tokens are revoked by a job.** Unlinking Apple or deleting an account queues the token in `auth_token_revocations`; the new `auth_revoke_tokens` job (every minute) revokes it and retries failures ([ADR-0046](../adr/0046-google-and-apple-sign-in.md)) | Nothing: `aps upgrade` adds the job and migration. Account deletion no longer waits on Apple |
-| Database | One new migration, `20260917000001_auth_token_revocations.sql`; run migrations as usual |
+| **Rate limits are shared by every instance** ([ADR-0052](../adr/0052-shared-rate-limits.md)). Sign-in, per-IP and two-factor limits are counted in PostgreSQL (`modules/ratelimitpg`), so an app running several instances no longer allows several times each limit. They became runtime settings: `auth.login_attempts` (10), `auth.login_window` (15 min), `auth.ip_requests_per_minute` (60), `auth.mfa_change_attempts` (10) | Nothing for one instance. With several, effective limits get stricter: raise the settings if your traffic needs it |
+| **`APP_TRUSTED_PROXIES`** | Behind a load balancer or reverse proxy, **set it before deploying** to their CIDR ranges (such as `10.0.0.0/8`). Otherwise every client shares the balancer's per-IP budget, and logs and audit events show the balancer's address |
+| New job `ratelimit_cleanup` (hourly) | Nothing |
+| Database | Two new migrations, `20260917000001_auth_token_revocations.sql` and `20260917000002_ratelimit_buckets.sql` (an unlogged table); run migrations as usual |
 
 ## v0.5
 

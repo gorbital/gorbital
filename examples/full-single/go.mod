@@ -11,6 +11,7 @@ require (
 	apistock.dev/modules/mail/smtp v0.0.0
 	apistock.dev/modules/openapi v0.0.0
 	apistock.dev/modules/postgres v0.0.0
+	apistock.dev/modules/ratelimitpg v0.0.0
 	apistock.dev/modules/settings v0.0.0
 	apistock.dev/modules/telemetry v0.0.0
 	github.com/danielgtaylor/huma/v2 v2.39.1
@@ -91,6 +92,7 @@ replace (
 	apistock.dev/modules/mail/smtp => ../../modules/mail/smtp
 	apistock.dev/modules/openapi => ../../modules/openapi
 	apistock.dev/modules/postgres => ../../modules/postgres
+	apistock.dev/modules/ratelimitpg => ../../modules/ratelimitpg
 	apistock.dev/modules/settings => ../../modules/settings
 	apistock.dev/modules/telemetry => ../../modules/telemetry
 )

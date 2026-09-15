@@ -53,6 +53,7 @@ DATABASE_URL_FILE=/run/secrets/database_url        # sslmode=require or verify-f
 AUTH_ENCRYPTION_KEYS_FILE=/run/secrets/auth_encryption_keys
 RESEND_API_KEY_FILE=/run/secrets/resend_api_key    # or the SMTP_ variables
 APP_CORS_ORIGINS=https://app.example.com
+APP_TRUSTED_PROXIES=10.0.0.0/8                     # your load balancer's range
 WEBAUTHN_RP_ID=example.com
 WEBAUTHN_ORIGINS=https://app.example.com
 ```
@@ -142,4 +143,4 @@ Account and organisation deletion is soft first: data is purged by jobs after `a
 - Remove an old key from `AUTH_ENCRYPTION_KEYS` before `rotate-auth-keys` has finished.
 - Set `APP_CORS_ORIGINS` to origins you don't control: they're also trusted for cross-origin requests and as sign-in `return_to` targets.
 - Leave the Google consent screen in Testing, or forget the production redirect URI.
-- Rely on in-memory rate limits as your only protection when running many instances behind a proxy without client IP handling.
+- Run behind a load balancer without `APP_TRUSTED_PROXIES`: every client shares the balancer's per-IP rate limit, and logs and audit events show its address. Don't list ranges clients can connect from directly: they could choose their own IP.

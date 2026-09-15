@@ -31,6 +31,7 @@ Read in `config.go` by both presets.
 | `APP_LOG_LEVEL` | No | `info` | `debug` | `debug`, `info`, `warn`, `error` | Minimum `slog` level |
 | `APP_DOCS_ENABLED` | No | `true` | `false` | `true` or `false` | Serves `/docs` and `/openapi.json` |
 | `APP_CORS_ORIGINS` | No | empty | `https://app.example.com,http://localhost:3000` | Comma-separated origins (scheme, host, optional port) | Browser origins allowed by CORS, trusted by the cross-origin protection, and accepted as `return_to` for Google and Apple web sign-in. Empty disables CORS |
+| `APP_TRUSTED_PROXIES` | No | empty | `10.0.0.0/8,192.0.2.10` | Comma-separated CIDR ranges or IP addresses; ranges covering every address (`0.0.0.0/0`, `::/0`) are refused | Load balancers and reverse proxies whose `X-Forwarded-For` names the client, for rate limits, logs and audit events ([ADR-0052](../adr/0052-shared-rate-limits.md)). Requests from other addresses keep their own address and their forwarding headers are ignored. Empty trusts no header: correct only when clients connect directly |
 | `APP_MAX_BODY_BYTES` | No | `1048576` | `5242880` | Positive integer | Request body limit; larger bodies get 413 `request_too_large` |
 
 ## Database

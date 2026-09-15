@@ -63,7 +63,15 @@ type Config struct {
 	VerificationCodeTTL     config.Value[time.Duration]
 	ResetCodeTTL            config.Value[time.Duration]
 	DeletedAccountRetention config.Value[time.Duration]
-	// LoginAttempts per address within LoginWindow, per instance.
+	// LoginLimiter limits sign-in attempts per address (second factors
+	// included), MFALimiter changes to two-factor authentication per user,
+	// and NoticeLimiter "account exists" emails per address. The app passes
+	// limiters shared across instances (ADR-0052). Without them, in-memory
+	// limiters allow LoginAttempts per LoginWindow and one notice a minute,
+	// per instance.
+	LoginLimiter  ratelimit.Taker
+	MFALimiter    ratelimit.Taker
+	NoticeLimiter ratelimit.Taker
 	LoginAttempts int
 	LoginWindow   time.Duration
 	// Now is the clock, for tests.
@@ -89,10 +97,11 @@ type Service struct {
 	hooks           AccountHooks
 	now             func() time.Time
 	hasher          *authlib.Hasher
-	limiter         *ratelimit.Limiter
-	// notices limits "account exists" emails per address, separately from
-	// logins, so registrations can't lock the owner out.
-	notices *ratelimit.Limiter
+	loginLimiter    ratelimit.Taker
+	mfaLimiter      ratelimit.Taker
+	// noticeLimiter limits "account exists" emails per address, separately
+	// from logins, so registrations can't lock the owner out.
+	noticeLimiter ratelimit.Taker
 
 	sessionIdle      config.Value[time.Duration]
 	sessionAbsolute  config.Value[time.Duration]
@@ -158,9 +167,29 @@ func NewService(c Config) (*Service, error) {
 	}
 	c.Catalog.Freeze()
 	s.hasher = hasher
-	s.limiter = ratelimit.New(float64(attempts)/window.Seconds(), attempts, ratelimit.WithClock(s.now))
-	s.notices = ratelimit.New(1/authlib.CodeResendInterval.Seconds(), 1, ratelimit.WithClock(s.now))
+	s.loginLimiter, s.mfaLimiter, s.noticeLimiter = c.LoginLimiter, c.MFALimiter, c.NoticeLimiter
+	if s.loginLimiter == nil {
+		s.loginLimiter = ratelimit.New(float64(attempts)/window.Seconds(), attempts, ratelimit.WithClock(s.now))
+	}
+	if s.mfaLimiter == nil {
+		s.mfaLimiter = ratelimit.New(float64(attempts)/window.Seconds(), attempts, ratelimit.WithClock(s.now))
+	}
+	if s.noticeLimiter == nil {
+		s.noticeLimiter = ratelimit.New(1/authlib.CodeResendInterval.Seconds(), 1, ratelimit.WithClock(s.now))
+	}
 	return s, nil
+}
+
+// allow asks limiter whether a request for key may proceed. A limiter that
+// can't decide allows it: shared limiters fall back to memory themselves,
+// so this only happens for a misconfigured limit.
+func (s *Service) allow(ctx context.Context, limiter ratelimit.Taker, key string) (bool, time.Duration) {
+	d, err := limiter.Take(ctx, key)
+	if err != nil {
+		s.logger.ErrorContext(ctx, "rate limiter couldn't decide; allowing the request", "err", err)
+		return true, 0
+	}
+	return d.Allowed, d.RetryAfter
 }
 
 func orDefault[T comparable](v, def T) T {

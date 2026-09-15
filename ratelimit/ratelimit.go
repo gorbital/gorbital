@@ -1,13 +1,17 @@
-// Package ratelimit provides in-memory token-bucket rate limiting keyed by a
-// string (an IP address, account or API key) and HTTP middleware.
+// Package ratelimit provides token-bucket rate limiting keyed by a string (an
+// IP address, account or API key): the [Taker] interface, an in-memory
+// [Limiter], and HTTP middleware.
 //
-// Limits are per process. Behind several instances each instance enforces
-// its own limit; a shared store can implement the same behaviour later.
+// The in-memory limiter is per process: behind several instances each one
+// enforces its own limit. apistock.dev/modules/ratelimitpg implements
+// [Taker] with limits shared across instances (ADR-0052).
 //
 // Stability: pre-1.0 (ADR-0015).
 package ratelimit
 
 import (
+	"context"
+	"errors"
 	"net"
 	"net/http"
 	"strconv"
@@ -16,6 +20,39 @@ import (
 
 	"golang.org/x/time/rate"
 )
+
+// Limit is a token bucket: PerSecond requests on average, with bursts of up
+// to Burst.
+type Limit struct {
+	PerSecond float64
+	Burst     int
+}
+
+// Per returns the limit of n requests per window, all of which may arrive at
+// once.
+func Per(n int, window time.Duration) Limit {
+	return Limit{PerSecond: float64(n) / window.Seconds(), Burst: n}
+}
+
+// Valid reports whether l allows any request.
+func (l Limit) Valid() bool { return l.PerSecond > 0 && l.Burst > 0 }
+
+// Decision is the outcome of one request against a limit.
+type Decision struct {
+	Allowed bool
+	// RetryAfter is how long until a request may proceed, when not allowed.
+	RetryAfter time.Duration
+}
+
+// A Taker decides whether a request for key may proceed. An error means the
+// limiter couldn't decide, and callers allow the request: implementations
+// that can fail handle their own fallback.
+type Taker interface {
+	Take(ctx context.Context, key string) (Decision, error)
+}
+
+// ErrEmptyKey reports a request without a key.
+var ErrEmptyKey = errors.New("ratelimit: empty key")
 
 // Defaults for [New].
 const (
@@ -114,6 +151,16 @@ func (l *Limiter) Allow(key string) (ok bool, retryAfter time.Duration) {
 	return true, 0
 }
 
+// Take implements [Taker] with [Limiter.Allow]; it never fails for a
+// non-empty key.
+func (l *Limiter) Take(_ context.Context, key string) (Decision, error) {
+	if key == "" {
+		return Decision{}, ErrEmptyKey
+	}
+	ok, retry := l.Allow(key)
+	return Decision{Allowed: ok, RetryAfter: retry}, nil
+}
+
 // evictIdle removes keys unused for longer than idleTTL. l.mu must be held.
 func (l *Limiter) evictIdle(now time.Time) {
 	for k, b := range l.buckets {
@@ -139,8 +186,8 @@ func ByRemoteIP(r *http.Request) string {
 
 // Middleware limits requests with l. Limited requests receive onLimit, or a
 // 429 application/problem+json response with a Retry-After header when
-// onLimit is nil.
-func Middleware(l *Limiter, key KeyFunc, onLimit http.Handler) func(http.Handler) http.Handler {
+// onLimit is nil. When l can't decide, the request proceeds.
+func Middleware(l Taker, key KeyFunc, onLimit http.Handler) func(http.Handler) http.Handler {
 	if onLimit == nil {
 		onLimit = http.HandlerFunc(tooManyRequests)
 	}
@@ -151,9 +198,9 @@ func Middleware(l *Limiter, key KeyFunc, onLimit http.Handler) func(http.Handler
 				next.ServeHTTP(w, r)
 				return
 			}
-			ok, retry := l.Allow(k)
-			if !ok {
-				secs := int(retry.Round(time.Second) / time.Second)
+			d, err := l.Take(r.Context(), k)
+			if err == nil && !d.Allowed {
+				secs := int(d.RetryAfter.Round(time.Second) / time.Second)
 				w.Header().Set("Retry-After", strconv.Itoa(max(secs, 1)))
 				onLimit.ServeHTTP(w, r)
 				return

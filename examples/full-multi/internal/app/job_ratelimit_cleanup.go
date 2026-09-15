@@ -1,0 +1,27 @@
+package app
+
+import (
+	"time"
+
+	"apistock.dev/modules/jobs"
+
+	"example.com/acme-api/internal/jobs/ratelimitcleanup"
+)
+
+// defineRateLimitCleanupJob declares the ratelimit_cleanup job with its code
+// defaults. Operators can override them in
+// /ops/jobs/definitions/ratelimit_cleanup.
+func defineRateLimitCleanupJob(defs *jobs.Definitions, deps jobDeps) {
+	jobs.Define(defs, jobs.Definition[ratelimitcleanup.Args]{
+		Name:        ratelimitcleanup.Name,
+		Description: "Deletes shared rate limit buckets whose keys are back to a full budget.",
+		Worker:      ratelimitcleanup.NewWorker(deps.rateLimitCleanup, deps.logger),
+		NewArgs:     func() ratelimitcleanup.Args { return ratelimitcleanup.Args{} },
+		Enabled:     true,
+		Schedule:    "@every 1h",
+		Timeout:     5 * time.Minute,
+		MaxAttempts: 3,
+		Queue:       "default",
+		Priority:    3,
+	})
+}

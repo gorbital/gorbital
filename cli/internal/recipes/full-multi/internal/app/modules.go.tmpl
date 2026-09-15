@@ -10,6 +10,7 @@ import (
 	"apistock.dev/audit"
 	"apistock.dev/config"
 	"apistock.dev/httpx"
+	"apistock.dev/ratelimit"
 
 	authmodule "⟦.Module⟧/internal/modules/auth"
 	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
@@ -26,6 +27,8 @@ type services struct {
 	pingMessage config.Value[string]
 	ops         opsusecase.Deps
 	auth        *authmodule.Module
+	// ipLimiter limits /v1/auth/ requests per client IP (rate_limits.go).
+	ipLimiter ratelimit.Taker
 	// orgs gives org-scoped modules the org catalog and memberships.
 	orgs *orgsmodule.Module
 }

@@ -49,7 +49,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (LoginResul
 		s.hasher.VerifyDummy(password)
 		return LoginResult{}, authdomain.ErrInvalidCredentials
 	}
-	if ok, retry := s.limiter.Allow(normalized); !ok {
+	if ok, retry := s.allow(ctx, s.loginLimiter, normalized); !ok {
 		s.loginFailed(ctx, "", "rate_limited", client)
 		return LoginResult{}, &authdomain.RateLimitError{RetryAfter: retry}
 	}

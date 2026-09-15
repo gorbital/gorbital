@@ -31,6 +31,10 @@ type appSettings struct {
 	authVerificationCodeTTL     *settings.Setting[time.Duration]
 	authResetCodeTTL            *settings.Setting[time.Duration]
 	authDeletedAccountRetention *settings.Setting[time.Duration]
+	authIPRequestsPerMinute     *settings.Setting[int]
+	authLoginAttempts           *settings.Setting[int]
+	authLoginWindow             *settings.Setting[time.Duration]
+	authMFAChangeAttempts       *settings.Setting[int]
 
 	auditRetention            *settings.Setting[time.Duration]
 	historyRetention          *settings.Setting[time.Duration]
@@ -108,6 +112,32 @@ func declareSettings(reg *settings.Registry) appSettings {
 		authDeletedAccountRetention: settings.Duration(reg, "auth.deleted_account_retention", authlib.DefaultDeletedAccountRetention,
 			settings.Describe("How long deleted accounts are kept before the auth_cleanup job removes them."),
 			settings.Range(24*time.Hour, 365*24*time.Hour),
+			settings.ReasonRequired(),
+		),
+
+		// Rate limits every instance shares (rate_limits.go, ADR-0052).
+		authIPRequestsPerMinute: settings.Int(reg, "auth.ip_requests_per_minute", 60,
+			settings.Describe("Requests to /v1/auth/ allowed per client IP address per minute, across all instances. Behind a load balancer, set APP_TRUSTED_PROXIES so each client has its own budget."),
+			settings.Group("rate_limits"),
+			settings.Range(10, 10_000),
+			settings.ReasonRequired(),
+		),
+		authLoginAttempts: settings.Int(reg, "auth.login_attempts", authlib.DefaultLoginAttempts,
+			settings.Describe("Sign-in attempts allowed per email address within auth.login_window, second factors included."),
+			settings.Group("rate_limits"),
+			settings.Range(3, 100),
+			settings.ReasonRequired(),
+		),
+		authLoginWindow: settings.Duration(reg, "auth.login_window", authlib.DefaultLoginWindow,
+			settings.Describe("The window of auth.login_attempts and auth.mfa_change_attempts."),
+			settings.Group("rate_limits"),
+			settings.Range(time.Minute, 24*time.Hour),
+			settings.ReasonRequired(),
+		),
+		authMFAChangeAttempts: settings.Int(reg, "auth.mfa_change_attempts", authlib.DefaultLoginAttempts,
+			settings.Describe("Changes to two-factor authentication (confirming, turning off, replacing recovery codes) allowed per user within auth.login_window."),
+			settings.Group("rate_limits"),
+			settings.Range(3, 100),
 			settings.ReasonRequired(),
 		),
 

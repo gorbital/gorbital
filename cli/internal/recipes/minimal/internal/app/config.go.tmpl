@@ -5,22 +5,27 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 
 	"apistock.dev/config"
+	"apistock.dev/httpx"
 )
 
 // Config is every setting of the application. Each field maps to an
 // environment variable documented in .env.example.
 type Config struct {
-	Env          string // APP_ENV: development or production
-	Addr         string // APP_ADDR
-	LogLevel     slog.Level
-	DocsEnabled  bool     // APP_DOCS_ENABLED
-	CORSOrigins  []string // APP_CORS_ORIGINS
-	MaxBodyBytes int64    // APP_MAX_BODY_BYTES
-	OTLPEndpoint string   // OTEL_EXPORTER_OTLP_ENDPOINT
+	Env         string // APP_ENV: development or production
+	Addr        string // APP_ADDR
+	LogLevel    slog.Level
+	DocsEnabled bool     // APP_DOCS_ENABLED
+	CORSOrigins []string // APP_CORS_ORIGINS
+	// TrustedProxies are the load balancers whose X-Forwarded-For names the
+	// client (APP_TRUSTED_PROXIES, ADR-0052).
+	TrustedProxies []netip.Prefix
+	MaxBodyBytes   int64  // APP_MAX_BODY_BYTES
+	OTLPEndpoint   string // OTEL_EXPORTER_OTLP_ENDPOINT
 }
 
 // Production reports whether the app runs in production mode.
@@ -77,6 +82,12 @@ func LoadConfig(src config.Source) (Config, error) {
 		if origin = strings.TrimSpace(origin); origin != "" {
 			cfg.CORSOrigins = append(cfg.CORSOrigins, origin)
 		}
+	}
+
+	if proxies, err := httpx.ParseTrustedProxies(get("APP_TRUSTED_PROXIES")); err != nil {
+		errs = append(errs, fmt.Errorf("APP_TRUSTED_PROXIES: %w", err))
+	} else {
+		cfg.TrustedProxies = proxies
 	}
 
 	if v := get("APP_MAX_BODY_BYTES"); v != "" {

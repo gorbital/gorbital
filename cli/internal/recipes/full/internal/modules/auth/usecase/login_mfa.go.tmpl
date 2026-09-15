@@ -50,7 +50,7 @@ func (s *Service) LoginMFA(ctx context.Context, challengeToken string, factor au
 		if err != nil {
 			return err
 		}
-		if ok, wait := s.limiter.Allow(u.NormalizedEmail); !ok {
+		if ok, wait := s.allow(ctx, s.loginLimiter, u.NormalizedEmail); !ok {
 			limited, retry = true, wait
 			return nil
 		}

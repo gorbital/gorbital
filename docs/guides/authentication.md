@@ -215,7 +215,7 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 - **Forgot password** always answers "check your email".
 - **Codes** are 6 digits, expire (15 minutes to verify, 30 to reset, adjustable), allow 5 tries, and a new one replaces the old one.
 - **Passwords** need 12 to 128 characters; `weak_password` says what's wrong.
-- **Too many attempts**: 10 logins per address per 15 minutes (second factors included), 60 auth requests per minute per IP address; `too_many_attempts` says how long to wait.
+- **Too many attempts**: 10 logins per address per 15 minutes (second factors included), 60 auth requests per minute per IP address, 10 changes to two-factor authentication per user per 15 minutes; `too_many_attempts` says how long to wait. The limits are shared by every instance (PostgreSQL, [ADR-0052](../adr/0052-shared-rate-limits.md)) and are runtime settings: `auth.login_attempts`, `auth.login_window`, `auth.ip_requests_per_minute`, `auth.mfa_change_attempts`. If the database doesn't answer, each instance applies them on its own until it does. Behind a load balancer, set `APP_TRUSTED_PROXIES` so the per-IP limit applies to each client rather than to the balancer.
 - **Two-factor authentication** emails the user when it's turned on or off and when a recovery code is used.
 
 ## Sessions
@@ -224,6 +224,7 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 - A session is `mfa_verified` when it was created with a second factor, or when the user confirmed two-factor authentication in it. Roles requiring 2FA grant their permissions only to such sessions.
 - Changing the password signs out other devices; resetting it or deleting the account signs out every device; turning two-factor authentication on or off signs out other devices.
 - The `auth_cleanup` job (daily, 03:30 UTC) removes ended sessions after 7 days, old codes and sign-in challenges, and deleted accounts after `auth.deleted_account_retention` (30 days).
+- The `ratelimit_cleanup` job (hourly) deletes rate limit buckets that are full again.
 - The `auth_revoke_tokens` job (every minute) revokes queued Apple tokens, retrying after 1, 2, 4 … minutes up to 6 hours; after 10 failures it gives up and records `auth.identity.revocation_abandoned`.
 
 ## Settings

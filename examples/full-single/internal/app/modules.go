@@ -10,6 +10,7 @@ import (
 	"apistock.dev/audit"
 	"apistock.dev/config"
 	"apistock.dev/httpx"
+	"apistock.dev/ratelimit"
 
 	authmodule "example.com/acme-api/internal/modules/auth"
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
@@ -25,6 +26,8 @@ type services struct {
 	pingMessage config.Value[string]
 	ops         opsusecase.Deps
 	auth        *authmodule.Module
+	// ipLimiter limits /v1/auth/ requests per client IP (rate_limits.go).
+	ipLimiter ratelimit.Taker
 }
 
 // registerModules wires every business module: its HTTP operations and its

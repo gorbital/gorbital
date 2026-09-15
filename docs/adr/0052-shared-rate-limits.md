@@ -1,6 +1,6 @@
 # ADR-0052: Shared rate limits and trusted proxies
 
-**Status:** Proposed (2026-09-15) · **Amends:** ADR-0019, ADR-0031, ADR-0038
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0019, ADR-0031, ADR-0038
 
 ## Context
 
@@ -148,3 +148,21 @@ d, err := l.Take(ctx, "ada@example.com")
 - Full apps: changed auth use-case config (limiters injected), new settings, job, migration and middleware; upgrade notes describe the behaviour change: **limits now apply across all instances**, so multi-instance deployments see stricter effective limits.
 - Threat model: rate-limit rows (credential stuffing, 2FA guessing) gain shared enforcement; a new row for client IP spoofing through forwarded headers.
 - ADR-0038's "rate limits are per instance" trade-off and "trusted-proxy client IP handling" follow-up are resolved.
+
+## Implementation notes (2026-09-15)
+
+- **Core:** `ratelimit` gains `Limit` (with `Per(n, window)` and `Valid`), `Decision`, `Taker`, `ErrEmptyKey` and `(*Limiter).Take`; `Middleware` takes a `Taker`, so existing calls with a `*Limiter` compile unchanged. `httpx` gains `ParseTrustedProxies` (CIDRs or single addresses; `/0` refused with `ErrTrustAll`) and `TrustedProxies`. No new core dependency.
+- **`modules/ratelimitpg`:** `NewStore(pool, opts)` and `store.Limiter(name, limit func(ctx) ratelimit.Limit)`, so a limit backed by runtime settings applies to the next request. The in-memory pre-check and fallback are rebuilt when the limit changes.
+- **Storage differs from the decision above in one detail:** the table has no `expires_at`. A bucket is full again exactly when `tat` has passed, so `tat` serves both the decision and `DeleteExpired` (indexed). One statement decides, and returns the snapshot's previous `tat` and the clock for the retry time, so a refused request costs one round trip too.
+- **Deferred:** fallback counts in `GET /ops/system`. The OpenTelemetry counters `ratelimit.decisions` (`limiter`, `allowed`, `source` = database, local or fallback) and `ratelimit.fallbacks` (`limiter`, `reason` = timeout or error) and a warning at most once a minute per limiter cover operations for now.
+- **Apps:** `internal/app/rate_limits.go` builds four limiters (`auth_ip`, `auth_login`, `auth_mfa`, `auth_notice`) on the app's pool; the auth use cases take `LoginLimiter`, `MFALimiter` and `NoticeLimiter` (in-memory defaults when nil, for tests and other wiring); the per-IP middleware uses the shared limiter; `APP_TRUSTED_PROXIES` in all three golden apps; settings `auth.ip_requests_per_minute`, `auth.login_attempts`, `auth.login_window` and `auth.mfa_change_attempts` in group `rate_limits`, reason required; the hourly `ratelimit_cleanup` job; the module's migration copied as `20260917000002_ratelimit_buckets.sql`. The 2FA-change limit now has its own budget instead of sharing the sign-in limiter under an `mfa:` prefix.
+- **Performance:** `BenchmarkTake` against the Docker PostgreSQL on a laptop: about 0.43 ms per decision, including the round trip.
+
+| Check | Result |
+|---|---|
+| Model test (`TestTakeMatchesModel`) | 25 random limits × 60 random request times: every decision and retry time equals a reference GCRA in integer microseconds |
+| Concurrency (`TestSharedAcrossInstances`, race detector) | 45 concurrent requests through three limiters on one key allow exactly the burst of 5; another limiter name keeps its own budget |
+| Limits, keys, cleanup | A changed limit applies to the next request; no row contains the raw key; `DeleteExpired` removes a bucket only once it is full again |
+| Failure | With the pool closed, decisions keep the burst in memory and log one warning; requests past twice the burst are refused locally without touching the database |
+| Trusted proxies | Direct clients, spoofed headers from untrusted peers, one and several proxies, client-supplied hops left of the proxy, IPv6 and IPv4-mapped peers, malformed hops, all-trusting ranges |
+| Apps | Two instances on one database share the sign-in limit (`TestSignInLimitSharedAcrossInstances`); behind a trusted proxy two clients get separate per-IP budgets while an untrusted peer claiming new addresses is still limited (`TestPerIPLimitBehindTrustedProxy`); `APP_TRUSTED_PROXIES` validation |

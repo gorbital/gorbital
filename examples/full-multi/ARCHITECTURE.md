@@ -25,6 +25,7 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   passkeys.go            WEBAUTHN_*: the passkey relying party and the /.well-known files for apps
   social.go              GOOGLE_*, APPLE_*, APP_PUBLIC_URL: Google and Apple sign-in providers
   providers.go           sign-in method status: printed at start, auth-providers, /ops/auth/providers
+  rate_limits.go         rate limits every instance shares (ratelimitpg), read from runtime settings
   seed.go                development seed data (cmd/seed)
   mail.go                email delivery: Mailpit in development or the provider
   infra_mail.go          the email provider's configuration (replaced by `aps add mail`)
@@ -49,8 +50,8 @@ compose.yaml             PostgreSQL and Mailpit for development and tests
 ## Request flow
 
 ```text
-HTTP → middleware (recover, request ID, tracing, access log, security headers, CORS,
-       cross-origin protection, body limit, session authentication, auth rate limit) → delivery → usecase → domain
+HTTP → middleware (recover, trusted proxies, request ID, tracing, access log, security headers, CORS,
+       cross-origin protection, body limit, session authentication, shared auth rate limit) → delivery → usecase → domain
      ← domain errors mapped to problem+json in internal/app/module_<name>.go
 ```
 

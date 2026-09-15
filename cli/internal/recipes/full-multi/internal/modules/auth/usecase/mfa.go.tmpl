@@ -261,7 +261,7 @@ func (s *Service) mfaPrincipal(ctx context.Context) (authlib.Principal, error) {
 	if err != nil {
 		return authlib.Principal{}, err
 	}
-	if ok, retry := s.limiter.Allow("mfa:" + p.UserID); !ok {
+	if ok, retry := s.allow(ctx, s.mfaLimiter, p.UserID); !ok {
 		return authlib.Principal{}, &authdomain.RateLimitError{RetryAfter: retry}
 	}
 	return p, nil

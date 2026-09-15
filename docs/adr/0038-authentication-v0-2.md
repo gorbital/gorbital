@@ -112,7 +112,7 @@ Core `httpx.Mapper` now lets several errors share a code when their status match
 
 ### Not in v0.2
 
-2FA and passkeys (v0.3), social sign-in (v0.3), new-device alert emails, changing the email address, owned email templates with a preview route, trusted-proxy client IP handling, a shared rate-limit store across instances.
+2FA and passkeys (v0.3), social sign-in (v0.3), new-device alert emails, changing the email address, owned email templates with a preview route, trusted-proxy client IP handling and a shared rate-limit store across instances (both done in [ADR-0052](0052-shared-rate-limits.md)).
 
 ## Why
 
@@ -123,7 +123,7 @@ Core `httpx.Mapper` now lets several errors share a code when their status match
 
 ## Trade-offs
 
-- Rate limits are per instance; several instances multiply them until a shared store exists.
+- Rate limits are per instance; several instances multiply them until a shared store exists. Resolved by [ADR-0052](0052-shared-rate-limits.md): limits are shared in PostgreSQL.
 - The per-address login limit lets someone slow down another person's logins for 15 minutes; there is no hard lockout.
 - Reading roles on every request costs one query per authenticated request.
 - Soft deletion keeps personal data until the retention ends; it is documented and configurable.

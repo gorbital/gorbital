@@ -148,10 +148,17 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
+	// Rate limits every instance shares (rate_limits.go, ADR-0052).
+	limits, err := newRateLimits(pool, appSettings, a.logger)
+	if err != nil {
+		return err
+	}
+
 	defs := jobs.NewDefinitions()
 	defineJobs(defs, jobDeps{
-		logger:   a.logger,
-		recorder: recorder,
+		logger:           a.logger,
+		recorder:         recorder,
+		rateLimitCleanup: limits.store.DeleteExpired,
 		// a.auth, a.orgs and a.jobsManager are built below, before any job runs.
 		authCleanup: func(ctx context.Context) (authdomain.CleanupResult, error) { return a.auth.Service().Cleanup(ctx) },
 		authRevokeTokens: func(ctx context.Context) (authdomain.RevocationResult, error) {
@@ -206,6 +213,9 @@ func (a *App) build(ctx context.Context) error {
 	// permissions (permissions.go).
 	google, apple := a.cfg.Social.providers(a.cfg.ProviderEndpoints)
 	a.auth, err = authmodule.New(pool, authusecase.Config{
+		LoginLimiter:            limits.login,
+		MFALimiter:              limits.mfa,
+		NoticeLimiter:           limits.notice,
 		Google:                  google,
 		Apple:                   apple,
 		PublicURL:               a.cfg.Social.PublicURL,
@@ -249,6 +259,7 @@ func (a *App) build(ctx context.Context) error {
 		logger:      a.logger,
 		pingMessage: appSettings.pingMessage,
 		auth:        a.auth,
+		ipLimiter:   limits.ip,
 		orgs:        a.orgs,
 		ops: opsusecase.Deps{
 			Settings: a.settings,

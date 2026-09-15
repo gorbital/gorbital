@@ -12,8 +12,8 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 | [v0.2](#v02-data-and-identity) | Data and identity | ✅ Done, tagged `v0.2.0` | Full preset: PostgreSQL, settings, jobs, email, sign-in, roles, audit, `aps gen` |
 | [v0.3](#v03-strong-authentication) | Strong authentication | ✅ Done, tagged `v0.3.0` | Authenticator apps, passkeys, Google and Apple sign-in |
 | [v0.4](#v04-organisations) | Organisations | ✅ Done, tagged `v0.4.0` | `aps new --tenancy multi`, org-scoped resources |
-| [v0.5](#v05-operations-and-upgrades) | Operations and upgrades | 🔨 In progress | `aps upgrade`, `aps add orgs` |
-| [v1.0](#v10-stable) | Stable | Planned | |
+| [v0.5](#v05-operations-and-upgrades) | Operations and upgrades | ✅ Done, tagged `v0.5.0` | `aps upgrade`, `aps add orgs`, `aps doctor`, ops endpoints, maintenance mode |
+| [v1.0](#v10-stable) | Stable | 🔨 In progress | Rate limits shared across instances, trusted proxies |
 | [v1.1](#v11) | Operations and integrations | Planned | |
 | [v1.2](#v12-client-templates) | Client templates | Proposed | |
 | [v1.3](#v13-public-website) | Public website | 🔨 Built early, published | apistock.dev, docs.apistock.dev |
@@ -119,7 +119,7 @@ Each milestone below has the same parts: **status** with what was built, then a 
 
 | | |
 |---|---|
-| **Delivers** | External security review with findings fixed, API freeze and stability tiers in force, documentation content ready for the public site ([ADR-0049](adr/0049-public-docs-and-website.md)), domain hardening complete (including rate limits shared across instances with trusted-proxy client IPs, replacing today's per-instance limiters; proposed in [ADR-0052](adr/0052-shared-rate-limits.md)), governance and contribution guide |
+| **Delivers** | External security review with findings fixed, API freeze and stability tiers in force, documentation content ready for the public site ([ADR-0049](adr/0049-public-docs-and-website.md)), domain hardening complete (including rate limits shared across instances with trusted-proxy client IPs, done in [ADR-0052](adr/0052-shared-rate-limits.md)), governance and contribution guide |
 | **Done when** | Security review signed off; `gorelease` baseline recorded; scaffold compatibility promise ([ADR-0016](adr/0016-scaffold-compatibility-and-upgrades.md)) active |
 
 ## v1.1

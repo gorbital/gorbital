@@ -16,10 +16,6 @@ import (
 	"apistock.dev/ratelimit"
 )
 
-// authRequestsPerMinute bounds sign-up, sign-in, code and password requests
-// per client IP address, on top of the auth module's per-account limits.
-const authRequestsPerMinute = 60
-
 // authLimitKey limits changing requests to /v1/auth/, and Google and Apple
 // sign-in redirects, by client IP. Behind a proxy, add trusted-proxy
 // middleware so RemoteAddr is the client.
@@ -118,6 +114,7 @@ func (a *App) buildHTTP(svc services) error {
 
 	middlewares := []httpx.Middleware{
 		httpx.Recover(a.logger),
+		httpx.TrustedProxies(a.cfg.TrustedProxies), // the client's address behind load balancers (APP_TRUSTED_PROXIES)
 		httpx.RequestID(),
 		a.tel.HTTPMiddleware(),
 		httpx.AccessLog(a.logger),
@@ -130,7 +127,8 @@ func (a *App) buildHTTP(svc services) error {
 	if svc.auth != nil {
 		middlewares = append(middlewares,
 			svc.auth.Middleware(a.logger),
-			ratelimit.Middleware(ratelimit.New(authRequestsPerMinute/60.0, authRequestsPerMinute), authLimitKey, nil),
+			// auth.ip_requests_per_minute, shared by every instance (ADR-0052).
+			ratelimit.Middleware(svc.ipLimiter, authLimitKey, nil),
 		)
 	}
 	a.api = api

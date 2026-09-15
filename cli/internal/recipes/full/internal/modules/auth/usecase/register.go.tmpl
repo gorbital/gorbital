@@ -74,7 +74,7 @@ func (s *Service) Register(ctx context.Context, email, password string) error {
 	case err != nil:
 		return dbError("register", err)
 	case exists:
-		if ok, _ := s.notices.Allow(normalized); ok {
+		if ok, _ := s.allow(ctx, s.noticeLimiter, normalized); ok {
 			s.sent(ctx, "account_exists", s.emails.SendAccountExists(ctx, to))
 		}
 		return nil
