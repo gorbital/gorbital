@@ -72,16 +72,21 @@ func loadSocialConfig(get func(string) string, secret func(string) config.Secret
 	a := c.Apple
 	if a.TeamID != "" || a.KeyID != "" || !a.PrivateKey.IsZero() || a.web() || a.native() {
 		var missing []string
-		for name, empty := range map[string]bool{
-			"APPLE_TEAM_ID": a.TeamID == "", "APPLE_KEY_ID": a.KeyID == "", "APPLE_PRIVATE_KEY_FILE": a.PrivateKey.IsZero(),
-			"APPLE_SERVICES_ID or APPLE_BUNDLE_IDS": !a.web() && !a.native(),
+		for _, v := range []struct {
+			name  string
+			empty bool
+		}{
+			{"APPLE_TEAM_ID", a.TeamID == ""},
+			{"APPLE_KEY_ID", a.KeyID == ""},
+			{"APPLE_PRIVATE_KEY_FILE", a.PrivateKey.IsZero()},
+			{"APPLE_SERVICES_ID or APPLE_BUNDLE_IDS", !a.web() && !a.native()},
 		} {
-			if empty {
-				missing = append(missing, name)
+			if v.empty {
+				missing = append(missing, v.name)
 			}
 		}
 		if len(missing) > 0 {
-			errs = append(errs, fmt.Errorf("sign-in with Apple also needs %s (see AUTH_PROVIDERS.md#apple-sign-in)", strings.Join(sortedStrings(missing), ", ")))
+			errs = append(errs, fmt.Errorf("sign-in with Apple also needs %s (see AUTH_PROVIDERS.md#apple-sign-in)", strings.Join(missing, ", ")))
 		} else if _, err := social.ParseApplePrivateKey([]byte(a.PrivateKey.Reveal())); err != nil {
 			errs = append(errs, fmt.Errorf("APPLE_PRIVATE_KEY_FILE: %w", err))
 		}
@@ -140,13 +145,4 @@ func splitList(s string) []string {
 		}
 	}
 	return out
-}
-
-func sortedStrings(s []string) []string {
-	for i := 1; i < len(s); i++ {
-		for j := i; j > 0 && s[j] < s[j-1]; j-- {
-			s[j], s[j-1] = s[j-1], s[j]
-		}
-	}
-	return s
 }

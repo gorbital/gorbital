@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net/url"
 	"slices"
+	"sync"
 	"testing"
 
 	authlib "apistock.dev/modules/auth"
@@ -337,6 +338,36 @@ func TestIdentitiesRemovalAndAccountDeletion(t *testing.T) {
 	again, err := f.webSignIn(t, social.Google, google, "")
 	if err != nil || again.User.ID == res.User.ID {
 		t.Errorf("sign-in after deletion = %+v, %v; want a new account", again.User, err)
+	}
+}
+
+// TestConcurrentFirstSignIn signs one new person in from several requests
+// at once: every request gets the same account.
+func TestConcurrentFirstSignIn(t *testing.T) {
+	f := newSocialFixture(t)
+	const n = 6
+	tokens, nonces := make([]string, n), make([]string, n)
+	for i := range n {
+		nonce, _, err := f.svc.SocialNonce(requestCtx(), social.Google)
+		if err != nil {
+			t.Fatal(err)
+		}
+		nonces[i] = nonce
+		tokens[i] = f.srv.IDToken(socialtest.Claims{Subject: "g-race", Audience: "ios-client", Email: "race@example.com", EmailVerified: true, Nonce: nonce})
+	}
+	users, errs := make([]string, n), make([]error, n)
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Go(func() {
+			res, err := f.svc.SignInWithIDToken(requestCtx(), social.Google, tokens[i], nonces[i], "", "")
+			users[i], errs[i] = res.User.ID, err
+		})
+	}
+	wg.Wait()
+	for i := range n {
+		if errs[i] != nil || users[i] != users[0] {
+			t.Errorf("sign-in %d = %q, %v; want account %q", i, users[i], errs[i], users[0])
+		}
 	}
 }
 

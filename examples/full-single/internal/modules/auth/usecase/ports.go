@@ -151,6 +151,7 @@ type SocialStore interface {
 	// VerifyEmailRemovePassword marks an address verified and removes the
 	// account's password.
 	VerifyEmailRemovePassword(ctx context.Context, userID string, now time.Time) error
+	// InsertIdentity links an identity, or returns ErrIdentityTaken.
 	InsertIdentity(ctx context.Context, i authdomain.Identity) error
 	// SelectIdentity returns a provider subject's identity; lock locks it
 	// until the transaction ends.

@@ -85,8 +85,12 @@ func (s *Service) FinishSocialSignIn(ctx context.Context, provider, stateToken, 
 		valid bool
 	)
 	err := s.store.InTx(ctx, func(tx Store) error {
-		found, err := false, error(nil)
-		if st, found, err = tx.SelectOAuthStateByTokenHash(ctx, authlib.HashToken(stateToken)); err != nil || !found {
+		var (
+			found bool
+			err   error
+		)
+		st, found, err = tx.SelectOAuthStateByTokenHash(ctx, authlib.HashToken(stateToken))
+		if err != nil || !found {
 			return err
 		}
 		res.ReturnTo = st.ReturnTo
@@ -207,7 +211,7 @@ func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, re
 		linked, created bool
 	)
 	now := s.now()
-	err := s.store.InTx(ctx, func(tx Store) error {
+	link := func(tx Store) error {
 		existing, found, err := tx.SelectIdentity(ctx, id.Provider, id.Subject, true)
 		if err != nil {
 			return err
@@ -256,7 +260,17 @@ func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, re
 		identity.UserID = u.ID
 		identity.CreatedAt = now
 		return tx.InsertIdentity(ctx, identity)
-	})
+	}
+	// Two first sign-ins of one person can race to create the account or the
+	// identity: the loser's transaction rolls back, and its retry finds what
+	// the winner committed.
+	var err error
+	for range 2 {
+		linked, created = false, false
+		if err = s.store.InTx(ctx, link); !errors.Is(err, authdomain.ErrEmailTaken) && !errors.Is(err, authdomain.ErrIdentityTaken) {
+			break
+		}
+	}
 	switch {
 	case errors.Is(err, authdomain.ErrUserNotFound):
 		s.loginFailed(ctx, "", "account_deleted", client)

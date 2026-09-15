@@ -141,6 +141,8 @@ Errors: `invalid_social_token` (401), `invalid_state` (401), `social_email_unver
 - A web sign-in without the `__Host-oauth` cookie still uses up its state and returns to its `return_to` with `#error=invalid_state`; a person cancelling at the provider returns `#error=access_denied`.
 - Account deletion unlinks identities in its transaction and revokes Apple tokens afterwards (failures logged). `rotate-auth-keys` re-encrypts Apple refresh tokens with the authenticator secrets.
 - User responses gain `has_password`, so clients can hide "change password" for accounts created with Google or Apple.
+- Two first sign-ins of one person at the same moment race to create the account or identity; the loser's transaction rolls back on the unique constraint (`ErrEmailTaken`, `ErrIdentityTaken`) and retries once, finding the winner's account. Tested with concurrent requests under the race detector.
+- Follow-up: Apple token revocation runs in the account-deletion request (up to 10 seconds per token, failures logged, no retry). A background job with retries would be more reliable; planned with the jobs-based cleanup work.
 - The status block, `auth-providers` and `GET /ops/auth/providers` report `google`, `google_ios`, `google_android`, `apple` and `apple_ios`, with the callback URL.
 
 | Check | Result |

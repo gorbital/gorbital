@@ -39,6 +39,9 @@ var (
 	ErrIdentityNotFound = errors.New("identity not found")
 	// ErrLastSignInMethod reports removing an account's only way to sign in.
 	ErrLastSignInMethod = errors.New("this is the account's last way to sign in")
+	// ErrIdentityTaken reports an identity linked at the same moment by
+	// another request.
+	ErrIdentityTaken = errors.New("identity already linked")
 )
 
 // Identity is a Google or Apple account linked to a user.
