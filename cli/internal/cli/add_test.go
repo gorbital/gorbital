@@ -113,6 +113,7 @@ func TestAddMailRecordsTheProviderInTheLock(t *testing.T) {
 			t.Errorf("apistock.lock hash of %s is stale after aps add mail", f.Path)
 		}
 	}
+	assertLockRebuilds(t, ".")
 
 	// Choosing the provider the app already has changes nothing.
 	if res := addMail(t, "--provider", "smtp"); !res.AlreadyConfigured {
@@ -248,11 +249,11 @@ func TestUpdateDotEnv(t *testing.T) {
 }
 
 func TestSetManifestKey(t *testing.T) {
-	if got := string(setManifestKey([]byte("name: x\nmail: resend\npreset: full\n"), "mail", "smtp")); got != "name: x\nmail: smtp\npreset: full\n" {
-		t.Errorf("setManifestKey(replace) = %q", got)
+	if got := string(recipes.SetManifestKey([]byte("name: x\nmail: resend\npreset: full\n"), "mail", "smtp")); got != "name: x\nmail: smtp\npreset: full\n" {
+		t.Errorf("recipes.SetManifestKey(replace) = %q", got)
 	}
-	if got := string(setManifestKey([]byte("name: x"), "mail", "smtp")); got != "name: x\nmail: smtp\n" {
-		t.Errorf("setManifestKey(append) = %q", got)
+	if got := string(recipes.SetManifestKey([]byte("name: x"), "mail", "smtp")); got != "name: x\nmail: smtp\n" {
+		t.Errorf("recipes.SetManifestKey(append) = %q", got)
 	}
 }
 

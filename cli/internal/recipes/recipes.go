@@ -16,25 +16,22 @@ import (
 	"fmt"
 	"go/format"
 	"io/fs"
+	"maps"
 	"os"
 	"path"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"text/template"
 )
 
-//go:embed all:minimal
-var minimalFS embed.FS
+// templatesFS holds this directory's preset and email templates, laid out
+// like an older release's cli/internal/recipes (ADR-0050).
+//
+//go:embed all:minimal all:full all:full-multi mail/*.tmpl
+var templatesFS embed.FS
 
-//go:embed all:full
-var fullFS embed.FS
-
-//go:embed all:full-multi
-var fullMultiFS embed.FS
-
-// Recipe identities recorded in apistock.lock.
+// Recipe identities: the names of the preset template trees.
 const (
 	MinimalName   = "base-minimal"
 	FullName      = "base-full"
@@ -56,16 +53,16 @@ type Preset struct {
 	// Tenancy is the value of aps new --tenancy: single, or multi for
 	// organisations.
 	Tenancy string
-	// Recipe is the recipe name recorded in apistock.lock.
+	// Recipe names the preset's template tree.
 	Recipe string
-	dir    string
-	fsys   embed.FS
+	// dir is the tree's directory in every release since v0.2.0.
+	dir string
 }
 
 var presets = []Preset{
-	{Name: "minimal", Tenancy: TenancySingle, Recipe: MinimalName, dir: "minimal", fsys: minimalFS},
-	{Name: "full", Tenancy: TenancySingle, Recipe: FullName, dir: "full", fsys: fullFS},
-	{Name: "full", Tenancy: TenancyMulti, Recipe: FullMultiName, dir: "full-multi", fsys: fullMultiFS},
+	{Name: "minimal", Tenancy: TenancySingle, Recipe: MinimalName, dir: "minimal"},
+	{Name: "full", Tenancy: TenancySingle, Recipe: FullName, dir: "full"},
+	{Name: "full", Tenancy: TenancyMulti, Recipe: FullMultiName, dir: "full-multi"},
 }
 
 // LookupPreset returns the preset aps new --preset name --tenancy tenancy
@@ -101,7 +98,11 @@ func PresetNames() []string {
 // Render writes the preset into root and returns the files written, sorted
 // by path. Go files are validated with gofmt before writing.
 func (p Preset) Render(root *os.Root, d Data) ([]File, error) {
-	return render(p.fsys, p.dir, root, d)
+	tree, err := renderTree(templatesFS, p.dir, d)
+	if err != nil {
+		return nil, err
+	}
+	return writeTree(root, tree)
 }
 
 // Data fills the templates.
@@ -131,19 +132,15 @@ type File struct {
 	SHA256 string `json:"sha256"`
 }
 
-func render(fsys fs.FS, base string, root *os.Root, d Data) ([]File, error) {
-	var files []File
+// renderTree renders the templates under base in fsys, keyed by the
+// slash-separated path of each file they produce.
+func renderTree(fsys fs.FS, base string, d Data) (map[string][]byte, error) {
+	tree := map[string][]byte{}
 	err := fs.WalkDir(fsys, base, func(p string, entry fs.DirEntry, err error) error {
-		if err != nil {
+		if err != nil || entry.IsDir() {
 			return err
 		}
-		rel := strings.TrimPrefix(strings.TrimPrefix(p, base), "/")
-		if rel == "" {
-			return nil
-		}
-		if entry.IsDir() {
-			return root.MkdirAll(rel, 0o755)
-		}
+		rel := strings.TrimPrefix(p, base+"/")
 
 		src, err := fs.ReadFile(fsys, p)
 		if err != nil {
@@ -167,16 +164,30 @@ func render(fsys fs.FS, base string, root *os.Root, d Data) ([]File, error) {
 			}
 			content = formatted
 		}
-		if err := root.WriteFile(target, content, 0o644); err != nil {
-			return fmt.Errorf("recipes: write %s: %w", target, err)
-		}
-		sum := sha256.Sum256(content)
-		files = append(files, File{Path: target, SHA256: hex.EncodeToString(sum[:])})
+		tree[target] = content
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
+	return tree, nil
+}
+
+// writeTree writes tree into root and returns the files written, sorted by
+// path.
+func writeTree(root *os.Root, tree map[string][]byte) ([]File, error) {
+	files := make([]File, 0, len(tree))
+	for _, p := range slices.Sorted(maps.Keys(tree)) {
+		if dir := path.Dir(p); dir != "." {
+			if err := root.MkdirAll(dir, 0o755); err != nil {
+				return nil, fmt.Errorf("recipes: create %s: %w", dir, err)
+			}
+		}
+		if err := root.WriteFile(p, tree[p], 0o644); err != nil {
+			return nil, fmt.Errorf("recipes: write %s: %w", p, err)
+		}
+		sum := sha256.Sum256(tree[p])
+		files = append(files, File{Path: p, SHA256: hex.EncodeToString(sum[:])})
+	}
 	return files, nil
 }

@@ -163,7 +163,7 @@ Before the first release, "generated with v0.2" means: tag `v0.2.0`, `v0.3.0` an
 | Step | State | Notes |
 |---|---|---|
 | 1. Lock v2 | Done (2026-09-15) | `cli/internal/cli/lock.go`. `aps new` writes v2; `aps add mail` sets `inputs.mail` and rehashes the tracked files it rewrote when the lock is v2, and leaves a v1 lock alone (`apistock.yaml` holds the provider for those apps). `revision` is recorded only when the binary was built from a clean tree, since a modified tree's templates aren't that commit. Reading refuses unknown fields, unknown versions, and paths that are absolute, escape the app or repeat. Tests: `TestLockRoundTrip`, `TestReadLockV1`, `TestReadLockRejects`, `TestLockRecordOnlyTrackedFiles`, `TestRevisionOf`, `TestNewCreatesApp` (every hash matches the written file), `TestAddMailRecordsTheProviderInTheLock` |
-| 2. Base rebuild and merge engine | Next | |
+| 2. Base rebuild and merge engine | In progress | Rendering done (2026-09-15): `recipes.Release` renders a whole app in memory from any release's `cli/internal/recipes` directory (`Embedded()` or `ReleaseFS`), preset tree then email provider, exactly as `aps new` and `aps add mail` write it; `aps new` now renders the same tree and writes it. The layout and template format are unchanged since `v0.2.0`, so every tagged release renders with the current code. Tests: `TestTreeMatchesRender`, `TestTreeFromDirectory`, `TestTreeWithSMTP`, `TestTreeErrors`, and every lock written by `aps new` or `aps add mail` rebuilds hash for hash (`assertLockRebuilds`). Next: fetching a release's templates (checkout `git archive`, module proxy) and the 3-way merge |
 | 3. `aps upgrade` | | |
 | 4. `aps add orgs` | | |
 

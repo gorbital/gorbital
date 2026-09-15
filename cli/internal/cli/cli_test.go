@@ -134,6 +134,7 @@ func TestNewCreatesApp(t *testing.T) {
 					t.Errorf("apistock.lock hash of %s doesn't match the file", f.Path)
 				}
 			}
+			assertLockRebuilds(t, "shop-api")
 
 			_ = filepath.WalkDir("shop-api", func(p string, d fs.DirEntry, err error) error {
 				if err != nil || d.IsDir() {

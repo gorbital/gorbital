@@ -128,6 +128,33 @@ func TestRevisionOf(t *testing.T) {
 	}
 }
 
+// assertLockRebuilds checks that rendering the lock's inputs with this aps's
+// templates reproduces every tracked file's recorded hash, and tracks every
+// rendered file but go.mod: aps upgrade relies on this to rebuild the merge
+// base (ADR-0050).
+func assertLockRebuilds(t *testing.T, dir string) {
+	t.Helper()
+	l, err := readLock(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, err := recipes.Embedded().Tree(l.Inputs.Preset, l.Inputs.Tenancy, l.Inputs.Mail,
+		recipes.Data{Name: l.Inputs.Name, Module: l.Inputs.Module, LibraryVersion: recipes.LibraryVersion})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range l.Files {
+		if content, ok := tree[f.Path]; !ok || sha256Hex(content) != f.SHA256 {
+			t.Errorf("rebuilt %s doesn't match its hash in apistock.lock", f.Path)
+		}
+	}
+	for p := range tree {
+		if !slices.Contains(untrackedPaths, p) && !l.tracks(p) {
+			t.Errorf("rebuilt %s isn't tracked in apistock.lock", p)
+		}
+	}
+}
+
 func lockPaths(l lockFile) []string {
 	paths := make([]string, len(l.Files))
 	for i, f := range l.Files {

@@ -472,7 +472,7 @@ func planMail(ctx context.Context, dir string, example []byte, r recipes.MailRec
 		return mailPlan{}, err
 	}
 	if manifestExists {
-		change(manifestPath, manifest, setManifestKey(manifest, "mail", r.Provider), 0o644)
+		change(manifestPath, manifest, recipes.SetManifestKey(manifest, "mail", r.Provider), 0o644)
 	}
 
 	// A v2 lock records the provider and the new content of the files it
@@ -674,23 +674,6 @@ func quoteEnvValue(v string) string {
 		return `"` + v + `"`
 	}
 	return "'" + v + "'"
-}
-
-// setManifestKey sets a top-level key in apistock.yaml, keeping every other
-// line.
-func setManifestKey(src []byte, key, value string) []byte {
-	lines := strings.SplitAfter(string(src), "\n")
-	for i, line := range lines {
-		if strings.HasPrefix(line, key+":") {
-			lines[i] = key + ": " + value + "\n"
-			return []byte(strings.Join(lines, ""))
-		}
-	}
-	out := string(src)
-	if out != "" && !strings.HasSuffix(out, "\n") {
-		out += "\n"
-	}
-	return []byte(out + key + ": " + value + "\n")
 }
 
 func mailSummary(in mailInput, r recipes.MailRecipe, plan mailPlan) string {

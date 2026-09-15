@@ -1,16 +1,13 @@
 package recipes
 
 import (
-	"embed"
 	"errors"
 	"fmt"
 	"go/format"
+	"io/fs"
 	"regexp"
 	"strings"
 )
-
-//go:embed mail/*.tmpl
-var mailFS embed.FS
 
 // Email providers offered by aps add mail (ADR-0037).
 const (
@@ -42,14 +39,19 @@ type MailRecipe struct {
 	Modules []string
 }
 
-// RenderMail returns the recipe for provider. Go output is validated with
-// gofmt.
+// RenderMail returns this aps's recipe for provider. Go output is validated
+// with gofmt.
 func RenderMail(provider string) (MailRecipe, error) {
+	return Embedded().Mail(provider)
+}
+
+// Mail returns the release's recipe for provider.
+func (r Release) Mail(provider string) (MailRecipe, error) {
 	label, ok := map[string]string{MailResend: "Resend", MailSMTP: "SMTP"}[provider]
 	if !ok {
 		return MailRecipe{}, fmt.Errorf("recipes: unknown email provider %q (want resend or smtp)", provider)
 	}
-	src, err := mailFS.ReadFile("mail/" + provider + ".infra_mail.go.tmpl")
+	src, err := fs.ReadFile(r.fsys, "mail/"+provider+".infra_mail.go.tmpl")
 	if err != nil {
 		return MailRecipe{}, err
 	}
@@ -57,7 +59,7 @@ func RenderMail(provider string) (MailRecipe, error) {
 	if err != nil {
 		return MailRecipe{}, fmt.Errorf("recipes: %s for %s is not valid Go: %w", InfraMailPath, provider, err)
 	}
-	block, err := mailFS.ReadFile("mail/" + provider + ".env.tmpl")
+	block, err := fs.ReadFile(r.fsys, "mail/"+provider+".env.tmpl")
 	if err != nil {
 		return MailRecipe{}, err
 	}
@@ -84,6 +86,23 @@ func EnvKey(line string) (string, bool) {
 		return "", false
 	}
 	return m[1], true
+}
+
+// SetManifestKey sets a top-level key in apistock.yaml, keeping every other
+// line.
+func SetManifestKey(src []byte, key, value string) []byte {
+	lines := strings.SplitAfter(string(src), "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(line, key+":") {
+			lines[i] = key + ": " + value + "\n"
+			return []byte(strings.Join(lines, ""))
+		}
+	}
+	out := string(src)
+	if out != "" && !strings.HasSuffix(out, "\n") {
+		out += "\n"
+	}
+	return []byte(out + key + ": " + value + "\n")
 }
 
 // ErrBlockMissing reports a file without the named aps:begin/aps:end block.
