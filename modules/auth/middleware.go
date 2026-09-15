@@ -13,6 +13,10 @@ import (
 	"apistock.dev/httpx"
 )
 
+// RecentVerification is how long after verifying a second factor a session
+// can change the account's sign-in methods without the password (ADR-0044).
+const RecentVerification = 10 * time.Minute
+
 // Principal is the authenticated user of a request.
 type Principal struct {
 	UserID    string
@@ -23,8 +27,16 @@ type Principal struct {
 	// held back because the session isn't verified with a second factor.
 	StepUp []string
 	// MFAVerified reports whether the session was verified with a second
-	// factor.
-	MFAVerified bool
+	// factor, and MFAVerifiedAt when it last was.
+	MFAVerified   bool
+	MFAVerifiedAt time.Time
+}
+
+// RecentlyVerified reports whether the session verified a second factor
+// less than [RecentVerification] before now. A stolen session that verified
+// one long ago doesn't pass.
+func (p Principal) RecentlyVerified(now time.Time) bool {
+	return p.MFAVerified && !p.MFAVerifiedAt.IsZero() && now.Sub(p.MFAVerifiedAt) < RecentVerification
 }
 
 // An Authenticator resolves a session token, returning [ErrUnauthenticated]

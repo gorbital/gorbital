@@ -133,7 +133,7 @@
         "additionalProperties": true,
         "properties": {
           "password": {
-            "description": "Required unless this session was verified with a second factor",
+            "description": "Required unless this session verified a second factor in the last 10 minutes",
             "maxLength": 512,
             "type": "string"
           }
@@ -245,6 +245,10 @@
             "maxLength": 16,
             "type": "string"
           },
+          "passkey": {
+            "$ref": "#/components/schemas/PasskeyFactor",
+            "description": "With two-factor authentication on, a passkey's response instead of code"
+          },
           "password": {
             "maxLength": 512,
             "type": "string"
@@ -273,6 +277,10 @@
             ],
             "maxLength": 16,
             "type": "string"
+          },
+          "passkey": {
+            "$ref": "#/components/schemas/PasskeyFactor",
+            "description": "A passkey's response, instead of code"
           },
           "password": {
             "maxLength": 512,
@@ -885,7 +893,7 @@
             "type": "string"
           },
           "passkey": {
-            "$ref": "#/components/schemas/PasskeyStruct",
+            "$ref": "#/components/schemas/PasskeyFactor",
             "description": "A passkey's response, instead of code"
           },
           "recovery_code": {
@@ -958,7 +966,7 @@
             "type": "string"
           },
           "methods": {
-            "description": "Second factors accepted: totp (a code from the authenticator app) or recovery_code",
+            "description": "Second factors accepted: totp (a code from the authenticator app), passkey or recovery_code",
             "items": {
               "type": "string"
             },
@@ -1137,6 +1145,26 @@
         ],
         "type": "object"
       },
+      "PasskeyFactor": {
+        "additionalProperties": false,
+        "properties": {
+          "ceremony_token": {
+            "description": "From POST /v1/auth/login/mfa/passkey when signing in, or POST /v1/auth/passkeys/verification when signed in",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "credential": {
+            "additionalProperties": {},
+            "description": "The PublicKeyCredential from navigator.credentials.get(), as JSON",
+            "type": "object"
+          }
+        },
+        "required": [
+          "ceremony_token",
+          "credential"
+        ],
+        "type": "object"
+      },
       "PasskeyList": {
         "additionalProperties": false,
         "properties": {
@@ -1231,26 +1259,6 @@
         },
         "required": [
           "challenge_token"
-        ],
-        "type": "object"
-      },
-      "PasskeyStruct": {
-        "additionalProperties": false,
-        "properties": {
-          "ceremony_token": {
-            "description": "From POST /v1/auth/login/mfa/passkey",
-            "maxLength": 256,
-            "type": "string"
-          },
-          "credential": {
-            "additionalProperties": {},
-            "description": "The PublicKeyCredential from navigator.credentials.get(), as JSON",
-            "type": "object"
-          }
-        },
-        "required": [
-          "ceremony_token",
-          "credential"
         ],
         "type": "object"
       },
@@ -1470,6 +1478,24 @@
         ],
         "type": "object"
       },
+      "RegenerateRecoveryCodesInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "code": {
+            "description": "A code from the authenticator app",
+            "examples": [
+              "123456"
+            ],
+            "maxLength": 16,
+            "type": "string"
+          },
+          "passkey": {
+            "$ref": "#/components/schemas/PasskeyFactor",
+            "description": "A passkey's response, instead of code"
+          }
+        },
+        "type": "object"
+      },
       "RegisterInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -1565,7 +1591,7 @@
         "additionalProperties": true,
         "properties": {
           "password": {
-            "description": "Required unless this session was verified with a second factor",
+            "description": "Required unless this session verified a second factor in the last 10 minutes",
             "maxLength": 512,
             "type": "string"
           }
@@ -5101,7 +5127,7 @@
     },
     "/v1/auth/me": {
       "delete": {
-        "description": "Requires the password, and a code or recovery code when two-factor authentication is on. Signs out every device.",
+        "description": "Requires the password, and with two-factor authentication on a code, recovery code or passkey response (start one with `POST /v1/auth/passkeys/verification`). Signs out every device.",
         "operationId": "auth-delete-account",
         "requestBody": {
           "content": {
@@ -5222,13 +5248,13 @@
     },
     "/v1/auth/mfa/recovery-codes": {
       "post": {
-        "description": "Send a code from the authenticator app; accounts with only passkeys call it from a session verified with a passkey. Returns 10 new codes, shown once; the old codes stop working.",
+        "description": "Send a code from the authenticator app or a passkey's response (start one with `POST /v1/auth/passkeys/verification`). Returns 10 new codes, shown once; the old codes stop working.",
         "operationId": "auth-regenerate-recovery-codes",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TotpCodeInputBody"
+                "$ref": "#/components/schemas/RegenerateRecoveryCodesInputBody"
               }
             }
           },
@@ -5319,7 +5345,7 @@
     },
     "/v1/auth/mfa/totp": {
       "delete": {
-        "description": "Requires the password and a code or recovery code; signs out other devices. Not allowed while a role requires two-factor authentication and no passkey is left.",
+        "description": "Requires the password and a code, recovery code or passkey response (start one with `POST /v1/auth/passkeys/verification`); signs out other devices. Not allowed while a role requires two-factor authentication and no passkey is left.",
         "operationId": "auth-disable-totp",
         "requestBody": {
           "content": {
@@ -5853,7 +5879,7 @@
     },
     "/v1/auth/passkeys/registration": {
       "post": {
-        "description": "Returns the options for `navigator.credentials.create()`. Send the password unless this session was verified with a second factor.",
+        "description": "Returns the options for `navigator.credentials.create()`. Send the password unless this session verified a second factor in the last 10 minutes; once the account has two-factor authentication on, the session must also have verified one.",
         "operationId": "auth-begin-passkey-registration",
         "requestBody": {
           "content": {
@@ -5938,9 +5964,76 @@
         ]
       }
     },
+    "/v1/auth/passkeys/verification": {
+      "post": {
+        "description": "Returns options for `navigator.credentials.get()` limited to the user's passkeys. Send the response as `passkey` when deleting the account, turning off the authenticator app or replacing recovery codes.",
+        "operationId": "auth-begin-passkey-verification",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasskeyCeremonyResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Confirm a change with a passkey",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/v1/auth/passkeys/{id}": {
       "delete": {
-        "description": "Send the password unless this session was verified with a second factor. Not allowed for the last second factor while a role requires two-factor authentication.",
+        "description": "Send the password unless this session verified a second factor in the last 10 minutes. Not allowed for the last second factor while a role requires two-factor authentication.",
         "operationId": "auth-remove-passkey",
         "parameters": [
           {

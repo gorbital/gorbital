@@ -230,11 +230,11 @@ func TestDisableTOTPAndRegenerateRecoveryCodes(t *testing.T) {
 	ctx = f.principalCtx(t, res.Token)
 	f.clock.advance(30 * time.Second)
 
-	fresh, err := f.svc.RegenerateRecoveryCodes(ctx, f.totpCode(t, secret))
+	fresh, err := f.svc.RegenerateRecoveryCodes(ctx, authdomain.SecondFactor{Code: f.totpCode(t, secret)})
 	if err != nil || len(fresh) != authlib.RecoveryCodeCount || slices.Contains(fresh, codes[0]) {
 		t.Fatalf("RegenerateRecoveryCodes() = %v, %v", fresh, err)
 	}
-	if _, err := f.svc.RegenerateRecoveryCodes(ctx, f.totpCode(t, secret)); !errors.Is(err, authdomain.ErrInvalidMFA) {
+	if _, err := f.svc.RegenerateRecoveryCodes(ctx, authdomain.SecondFactor{Code: f.totpCode(t, secret)}); !errors.Is(err, authdomain.ErrInvalidMFA) {
 		t.Errorf("RegenerateRecoveryCodes(reused code) error = %v", err)
 	}
 	if err := f.svc.DisableTOTP(ctx, password, authdomain.SecondFactor{RecoveryCode: codes[0]}); !errors.Is(err, authdomain.ErrInvalidMFA) {

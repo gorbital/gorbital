@@ -18,6 +18,8 @@ const (
 	CeremonyRegister     = "register"
 	CeremonyLogin        = "login"
 	CeremonySecondFactor = "second_factor"
+	// CeremonyReauth confirms a signed-in user's sensitive change.
+	CeremonyReauth = "reauth"
 )
 
 // Errors returned by the passkey use cases.
@@ -90,7 +92,8 @@ func (c WebAuthnCeremony) UsableAt(now time.Time) bool {
 	return c.ConsumedAt == nil && now.Before(c.ExpiresAt)
 }
 
-// PasskeyAssertion is a passkey's response to a second-factor ceremony.
+// PasskeyAssertion is a passkey's response to a second-factor ceremony of a
+// sign-in, or to a verification ceremony of a signed-in user.
 type PasskeyAssertion struct {
 	CeremonyToken string
 	Credential    []byte

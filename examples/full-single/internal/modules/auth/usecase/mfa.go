@@ -148,7 +148,8 @@ func (s *Service) ConfirmTOTP(ctx context.Context, code string) ([]string, error
 }
 
 // DisableTOTP turns the authenticator app off after checking the password and
-// a second factor, and ends the user's other sessions. Without passkeys left,
+// a second factor (a code, a recovery code, or a passkey's response to
+// BeginPasskeyVerification), and ends the user's other sessions. Without passkeys left,
 // it also deletes the recovery codes, and it refuses while a role requires
 // two-factor authentication. It returns ErrInvalidCredentials, ErrInvalidMFA,
 // ErrMFANotEnabled, ErrMFARequiredByRole or a *RateLimitError.
@@ -216,39 +217,29 @@ func (s *Service) DisableTOTP(ctx context.Context, password string, factor authd
 }
 
 // RegenerateRecoveryCodes replaces the signed-in user's recovery codes and
-// returns the new codes to show once. With an authenticator app it needs a
-// code from the app; with only passkeys, a session verified with one. It
-// returns ErrInvalidMFA, ErrMFANotEnabled or a *RateLimitError.
-func (s *Service) RegenerateRecoveryCodes(ctx context.Context, code string) ([]string, error) {
+// returns the new codes to show once. It needs a code from the authenticator
+// app or a passkey's response to BeginPasskeyVerification; a recovery code
+// can't replace the recovery codes. It returns ErrInvalidMFA,
+// ErrMFANotEnabled or a *RateLimitError.
+func (s *Service) RegenerateRecoveryCodes(ctx context.Context, factor authdomain.SecondFactor) ([]string, error) {
 	p, err := s.mfaPrincipal(ctx)
 	if err != nil {
 		return nil, err
 	}
+	factor.RecoveryCode = "" // never used up here
 	codes := authlib.NewRecoveryCodes()
 	var state error
 	err = s.store.InTx(ctx, func(tx Store) error {
-		totp, found, err := tx.SelectTOTP(ctx, p.UserID, true)
-		if err != nil {
+		has, err := s.hasSecondFactor(ctx, tx, p.UserID)
+		switch {
+		case err != nil:
 			return err
+		case !has:
+			state = authdomain.ErrMFANotEnabled
+			return nil
 		}
-		if found && totp.Confirmed() {
-			// Only a code from the authenticator app: a recovery code can't
-			// replace the recovery codes.
-			if state, err = s.requireSecondFactor(ctx, tx, p.UserID, authdomain.SecondFactor{Code: code}); err != nil || state != nil {
-				return err
-			}
-		} else {
-			n, err := tx.CountPasskeys(ctx, p.UserID)
-			switch {
-			case err != nil:
-				return err
-			case n == 0:
-				state = authdomain.ErrMFANotEnabled
-				return nil
-			case !p.MFAVerified:
-				state = authdomain.ErrInvalidMFA
-				return nil
-			}
+		if state, err = s.requireSecondFactor(ctx, tx, p.UserID, factor); err != nil || state != nil {
+			return err
 		}
 		return s.replaceRecoveryCodes(ctx, tx, p.UserID, codes, s.now())
 	})
@@ -298,10 +289,10 @@ func (s *Service) hasSecondFactor(ctx context.Context, store Store, userID strin
 	return n > 0, err
 }
 
-// requireSecondFactor checks a code or recovery code when the user has
-// two-factor authentication on, returning ErrInvalidMFA as state when it
-// fails and nil when it passes or isn't needed. Passkeys answer only sign-in
-// challenges.
+// requireSecondFactor checks a code, recovery code or passkey response (to
+// BeginPasskeyVerification) when the user has two-factor authentication on,
+// returning ErrInvalidMFA as state when it fails and nil when it passes or
+// isn't needed.
 func (s *Service) requireSecondFactor(ctx context.Context, tx Store, userID string, factor authdomain.SecondFactor) (state, err error) {
 	has, err := s.hasSecondFactor(ctx, tx, userID)
 	if err != nil || !has {
@@ -314,8 +305,9 @@ func (s *Service) requireSecondFactor(ctx context.Context, tx Store, userID stri
 	return authdomain.ErrInvalidMFA, nil
 }
 
-// checkSecondFactor checks a passkey's response (for the sign-in challenge
-// challengeID), a code from the user's authenticator app, or a recovery code,
+// checkSecondFactor checks a passkey's response (to the sign-in challenge
+// challengeID, or with none to a verification ceremony), a code from the
+// user's authenticator app, or a recovery code,
 // and uses it up: a code's time step can't be used again, a recovery code is
 // marked used, and a passkey ceremony can't be finished twice. It returns the
 // method, the recovery codes left after using one, and whether the factor was

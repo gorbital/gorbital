@@ -22,21 +22,24 @@ type RecoveryCodesResponse struct {
 	RecoveryCodes []string `json:"recovery_codes" doc:"Single-use codes for signing in without the authenticator app or passkeys. They are shown once; keep them somewhere safe."`
 }
 
+// PasskeyFactor is a passkey's response given as a second factor.
+type PasskeyFactor struct {
+	CeremonyToken string         `json:"ceremony_token" maxLength:"256" doc:"From POST /v1/auth/login/mfa/passkey when signing in, or POST /v1/auth/passkeys/verification when signed in"`
+	Credential    map[string]any `json:"credential" doc:"The PublicKeyCredential from navigator.credentials.get(), as JSON"`
+}
+
 type totpEnrollmentOutput struct{ Body TOTPEnrollmentResponse }
 
 type recoveryCodesOutput struct{ Body RecoveryCodesResponse }
 
 type loginMFAInput struct {
 	Body struct {
-		_              struct{} `json:"-" additionalProperties:"true"`
-		ChallengeToken string   `json:"challenge_token" maxLength:"256" doc:"From the 202 response of POST /v1/auth/login"`
-		Code           string   `json:"code,omitempty" maxLength:"16" example:"123456" doc:"A code from the authenticator app"`
-		RecoveryCode   string   `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"A recovery code, instead of code"`
-		Passkey        *struct {
-			CeremonyToken string         `json:"ceremony_token" maxLength:"256" doc:"From POST /v1/auth/login/mfa/passkey"`
-			Credential    map[string]any `json:"credential" doc:"The PublicKeyCredential from navigator.credentials.get(), as JSON"`
-		} `json:"passkey,omitempty" doc:"A passkey's response, instead of code"`
-		Transport string `json:"transport,omitempty" enum:"cookie,bearer" default:"cookie" doc:"cookie (browsers): an HttpOnly session cookie; bearer (native apps): the token in the response"`
+		_              struct{}       `json:"-" additionalProperties:"true"`
+		ChallengeToken string         `json:"challenge_token" maxLength:"256" doc:"From the 202 response of POST /v1/auth/login"`
+		Code           string         `json:"code,omitempty" maxLength:"16" example:"123456" doc:"A code from the authenticator app"`
+		RecoveryCode   string         `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"A recovery code, instead of code"`
+		Passkey        *PasskeyFactor `json:"passkey,omitempty" doc:"A passkey's response, instead of code"`
+		Transport      string         `json:"transport,omitempty" enum:"cookie,bearer" default:"cookie" doc:"cookie (browsers): an HttpOnly session cookie; bearer (native apps): the token in the response"`
 	}
 }
 
@@ -54,12 +57,21 @@ type totpCodeInput struct {
 	}
 }
 
+type regenerateRecoveryCodesInput struct {
+	Body struct {
+		_       struct{}       `json:"-" additionalProperties:"true"`
+		Code    string         `json:"code,omitempty" maxLength:"16" example:"123456" doc:"A code from the authenticator app"`
+		Passkey *PasskeyFactor `json:"passkey,omitempty" doc:"A passkey's response, instead of code"`
+	}
+}
+
 type disableTOTPInput struct {
 	Body struct {
-		_            struct{} `json:"-" additionalProperties:"true"`
-		Password     string   `json:"password" maxLength:"512"`
-		Code         string   `json:"code,omitempty" maxLength:"16" example:"123456" doc:"A code from the authenticator app"`
-		RecoveryCode string   `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"A recovery code, instead of code"`
+		_            struct{}       `json:"-" additionalProperties:"true"`
+		Password     string         `json:"password" maxLength:"512"`
+		Code         string         `json:"code,omitempty" maxLength:"16" example:"123456" doc:"A code from the authenticator app"`
+		RecoveryCode string         `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"A recovery code, instead of code"`
+		Passkey      *PasskeyFactor `json:"passkey,omitempty" doc:"A passkey's response, instead of code"`
 	}
 }
 
@@ -88,26 +100,36 @@ func registerMFA(api huma.API, h *handler, public, signedIn func(huma.Operation)
 	}), h.confirmTOTP)
 	huma.Register(api, signedIn(huma.Operation{
 		OperationID: "auth-disable-totp", Method: http.MethodDelete, Path: "/v1/auth/mfa/totp",
-		Summary:       "Turn off the authenticator app",
-		Description:   "Requires the password and a code or recovery code; signs out other devices. Not allowed while a role requires two-factor authentication and no passkey is left.",
+		Summary: "Turn off the authenticator app",
+		Description: "Requires the password and a code, recovery code or passkey response (start one with `POST /v1/auth/passkeys/verification`); signs out other devices. " +
+			"Not allowed while a role requires two-factor authentication and no passkey is left.",
 		DefaultStatus: http.StatusNoContent, Errors: unavailable,
 	}), h.disableTOTP)
 	huma.Register(api, signedIn(huma.Operation{
 		OperationID: "auth-regenerate-recovery-codes", Method: http.MethodPost, Path: "/v1/auth/mfa/recovery-codes",
 		Summary:     "Replace the recovery codes",
-		Description: "Send a code from the authenticator app; accounts with only passkeys call it from a session verified with a passkey. Returns 10 new codes, shown once; the old codes stop working.",
+		Description: "Send a code from the authenticator app or a passkey's response (start one with `POST /v1/auth/passkeys/verification`). Returns 10 new codes, shown once; the old codes stop working.",
 		Errors:      unavailable,
 	}), h.regenerateRecoveryCodes)
 }
 
-func (h *handler) loginMFA(ctx context.Context, in *loginMFAInput) (*loginOutput, error) {
-	factor := authdomain.SecondFactor{Code: in.Body.Code, RecoveryCode: in.Body.RecoveryCode}
-	if pk := in.Body.Passkey; pk != nil {
+// secondFactor is the second factor a request body carries.
+func secondFactor(code, recoveryCode string, pk *PasskeyFactor) (authdomain.SecondFactor, error) {
+	factor := authdomain.SecondFactor{Code: code, RecoveryCode: recoveryCode}
+	if pk != nil {
 		credential, err := json.Marshal(pk.Credential)
 		if err != nil {
-			return nil, err
+			return factor, err
 		}
 		factor.Passkey = &authdomain.PasskeyAssertion{CeremonyToken: pk.CeremonyToken, Credential: credential}
+	}
+	return factor, nil
+}
+
+func (h *handler) loginMFA(ctx context.Context, in *loginMFAInput) (*loginOutput, error) {
+	factor, err := secondFactor(in.Body.Code, in.Body.RecoveryCode, in.Body.Passkey)
+	if err != nil {
+		return nil, err
 	}
 	res, err := h.svc.LoginMFA(ctx, in.Body.ChallengeToken, factor)
 	if err != nil {
@@ -133,12 +155,19 @@ func (h *handler) confirmTOTP(ctx context.Context, in *totpCodeInput) (*recovery
 }
 
 func (h *handler) disableTOTP(ctx context.Context, in *disableTOTPInput) (*struct{}, error) {
-	factor := authdomain.SecondFactor{Code: in.Body.Code, RecoveryCode: in.Body.RecoveryCode}
+	factor, err := secondFactor(in.Body.Code, in.Body.RecoveryCode, in.Body.Passkey)
+	if err != nil {
+		return nil, err
+	}
 	return nil, authError(h.svc.DisableTOTP(ctx, in.Body.Password, factor))
 }
 
-func (h *handler) regenerateRecoveryCodes(ctx context.Context, in *totpCodeInput) (*recoveryCodesOutput, error) {
-	codes, err := h.svc.RegenerateRecoveryCodes(ctx, in.Body.Code)
+func (h *handler) regenerateRecoveryCodes(ctx context.Context, in *regenerateRecoveryCodesInput) (*recoveryCodesOutput, error) {
+	factor, err := secondFactor(in.Body.Code, "", in.Body.Passkey)
+	if err != nil {
+		return nil, err
+	}
+	codes, err := h.svc.RegenerateRecoveryCodes(ctx, factor)
 	if err != nil {
 		return nil, authError(err)
 	}

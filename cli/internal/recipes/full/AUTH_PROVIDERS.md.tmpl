@@ -110,6 +110,7 @@ Register your domain and the return URL `https://<your API>/v1/auth/apple/callba
 - Sign in with a passkey: `POST /v1/auth/passkeys/login/options`, pass `options` to `navigator.credentials.get()` (or `PublicKeyCredential.parseRequestOptionsFromJSON`), send the result's `toJSON()` to `POST /v1/auth/passkeys/login`.
 - Add a passkey: `POST /v1/auth/passkeys/registration`, `navigator.credentials.create()`, `POST /v1/auth/passkeys`.
 - Second factor: after a 202 from `POST /v1/auth/login`, offer the `methods` it lists; for `passkey`, call `POST /v1/auth/login/mfa/passkey` first.
+- Confirm sensitive changes (delete the account, turn off the authenticator app, replace recovery codes) with a passkey: `POST /v1/auth/passkeys/verification`, `navigator.credentials.get()`, then send the result as `passkey`. Adding or removing a passkey asks for the password once the sign-in is 10 minutes old.
 - Authenticator apps: show `qr_code` from `POST /v1/auth/mfa/totp` as an image, then confirm a code.
 - Add the frontend's origin to `WEBAUTHN_ORIGINS` and `APP_CORS_ORIGINS`.
 

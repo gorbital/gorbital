@@ -11,8 +11,9 @@ import (
 )
 
 // DeleteAccount deletes the signed-in user's account after checking the
-// password, and a second factor when two-factor authentication is on, and
-// ends every session. The address can register again at once; Cleanup
+// password, and a second factor when two-factor authentication is on (a
+// code, a recovery code, or a passkey's response to
+// BeginPasskeyVerification), and ends every session. The address can register again at once; Cleanup
 // removes the account's data after the retention period. It returns
 // ErrInvalidCredentials, ErrInvalidMFA or ErrMFAUnavailable.
 func (s *Service) DeleteAccount(ctx context.Context, password string, factor authdomain.SecondFactor) error {
@@ -183,7 +184,8 @@ func (s *Service) Cleanup(ctx context.Context) (authdomain.CleanupResult, error)
 	if res.Challenges, err = s.store.DeleteOldMFAChallenges(ctx, now.Add(-authlib.CodeRetention)); err != nil {
 		return res, dbError("clean up sign-in challenges", err)
 	}
-	ceremonies, err := s.store.DeleteOldWebAuthnCeremonies(ctx, now.Add(-authlib.CodeRetention))
+	// Ceremonies go as soon as they expire: public endpoints start them.
+	ceremonies, err := s.store.DeleteOldWebAuthnCeremonies(ctx, now)
 	if err != nil {
 		return res, dbError("clean up passkey ceremonies", err)
 	}

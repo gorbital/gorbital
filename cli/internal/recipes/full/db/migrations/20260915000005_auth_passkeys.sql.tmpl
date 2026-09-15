@@ -30,7 +30,9 @@ CREATE TABLE auth_webauthn_ceremonies (
     token_hash       bytea       NOT NULL UNIQUE,
     -- NULL for a passwordless sign-in, which learns the account from the passkey.
     user_id          text        REFERENCES auth_users (id) ON DELETE CASCADE,
-    purpose          text        NOT NULL CHECK (purpose IN ('register', 'login', 'second_factor')),
+    -- reauth confirms a signed-in user's sensitive change, such as deleting
+    -- the account.
+    purpose          text        NOT NULL CHECK (purpose IN ('register', 'login', 'second_factor', 'reauth')),
     mfa_challenge_id text        REFERENCES auth_mfa_challenges (id) ON DELETE CASCADE,
     -- The challenge and options the response must match.
     session_data     jsonb       NOT NULL,

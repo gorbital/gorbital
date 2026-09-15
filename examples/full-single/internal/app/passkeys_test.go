@@ -94,6 +94,14 @@ func TestPasskeysEndToEnd(t *testing.T) {
 	}
 	verified := []string{"Authorization", "Bearer " + finished.json["token"].(string)}
 
+	// A signed-in user confirms a change with a passkey.
+	check := do(t, h, "POST", "/v1/auth/passkeys/verification", "", verified...)
+	assertion, _ = laptop.Get(optionsOf(t, check))
+	regenerated := do(t, h, "POST", "/v1/auth/mfa/recovery-codes", fmt.Sprintf(`{"passkey":{"ceremony_token":%q,"credential":%s}}`, check.json["ceremony_token"], assertion), verified...)
+	if fresh, _ := regenerated.json["recovery_codes"].([]any); regenerated.code != http.StatusOK || len(fresh) != 10 {
+		t.Errorf("POST /v1/auth/mfa/recovery-codes with a passkey = %d %s", regenerated.code, regenerated.body)
+	}
+
 	// Manage passkeys.
 	list := do(t, h, "GET", "/v1/auth/passkeys", "", verified...)
 	if items, _ := list.json["passkeys"].([]any); list.code != http.StatusOK || len(items) != 1 {

@@ -33,9 +33,8 @@ type PasskeyRegistration struct {
 }
 
 // BeginPasskeyRegistration starts adding a passkey for the signed-in user.
-// It checks the password unless the session was verified with a second
-// factor. It returns ErrInvalidCredentials, ErrPasskeyLimitReached or
-// ErrPasskeysUnavailable.
+// It checks the user as confirmUser does. It returns ErrInvalidCredentials,
+// ErrInvalidMFA, ErrPasskeyLimitReached or ErrPasskeysUnavailable.
 func (s *Service) BeginPasskeyRegistration(ctx context.Context, password string) (PasskeyCeremony, error) {
 	p, err := requirePrincipal(ctx)
 	if err != nil {
@@ -53,9 +52,8 @@ func (s *Service) BeginPasskeyRegistration(ctx context.Context, password string)
 		if err != nil {
 			return err // ErrUserNotFound is handled below
 		}
-		if !p.MFAVerified && !s.passwordMatches(u, password) {
-			state = authdomain.ErrInvalidCredentials
-			return nil
+		if state, err = s.confirmUser(ctx, tx, p, u, password); err != nil || state != nil {
+			return err
 		}
 		existing, err := tx.SelectPasskeys(ctx, u.ID)
 		if err != nil {
@@ -89,7 +87,8 @@ func (s *Service) BeginPasskeyRegistration(ctx context.Context, password string)
 
 // FinishPasskeyRegistration verifies the client's response to a registration
 // the signed-in user started, and stores the passkey. The first second factor
-// of an account also creates its recovery codes. It marks the session
+// of an account also creates its recovery codes and ends the user's other
+// sessions, as turning on the authenticator app does. It marks the session
 // verified with a second factor. It returns ErrInvalidPasskey (including a
 // used or expired ceremony), ErrInvalidPasskeyName, ErrPasskeyLimitReached
 // or ErrPasskeysUnavailable.
@@ -156,6 +155,9 @@ func (s *Service) FinishPasskeyRegistration(ctx context.Context, ceremonyToken, 
 			if err := s.replaceRecoveryCodes(ctx, tx, u.ID, out.RecoveryCodes, now); err != nil {
 				return err
 			}
+			if _, err := tx.RevokeUserSessions(ctx, u.ID, p.SessionID, now, "mfa_enabled"); err != nil {
+				return err
+			}
 		}
 		to = u.Email
 		return tx.MarkSessionMFAVerified(ctx, p.SessionID, now)
@@ -212,10 +214,10 @@ func (s *Service) RenamePasskey(ctx context.Context, id, name string) error {
 }
 
 // RemovePasskey removes one of the signed-in user's passkeys. It checks the
-// password unless the session was verified with a second factor, and refuses
-// to remove the last second factor while a role requires one. Removing the
-// last second factor also deletes the recovery codes. It returns
-// ErrInvalidCredentials, ErrPasskeyNotFound or ErrMFARequiredByRole.
+// user as confirmUser does, and refuses to remove the last second factor
+// while a role requires one. Removing the last second factor also deletes
+// the recovery codes. It returns ErrInvalidCredentials, ErrInvalidMFA,
+// ErrPasskeyNotFound or ErrMFARequiredByRole.
 func (s *Service) RemovePasskey(ctx context.Context, id, password string) error {
 	p, err := requirePrincipal(ctx)
 	if err != nil {
@@ -230,9 +232,8 @@ func (s *Service) RemovePasskey(ctx context.Context, id, password string) error 
 		if err != nil {
 			return err // ErrUserNotFound is handled below
 		}
-		if !p.MFAVerified && !s.passwordMatches(u, password) {
-			state = authdomain.ErrInvalidCredentials
-			return nil
+		if state, err = s.confirmUser(ctx, tx, p, u, password); err != nil || state != nil {
+			return err
 		}
 		existing, err := tx.SelectPasskeys(ctx, u.ID)
 		if err != nil {
@@ -426,14 +427,89 @@ func (s *Service) BeginPasskeySecondFactor(ctx context.Context, challengeToken s
 	return out, nil
 }
 
+// BeginPasskeyVerification starts a passkey ceremony limited to the signed-in
+// user's passkeys, to confirm a sensitive change: deleting the account,
+// turning off the authenticator app or replacing recovery codes take its
+// response as their second factor. It returns ErrMFANotEnabled for an
+// account without passkeys, or ErrPasskeysUnavailable.
+func (s *Service) BeginPasskeyVerification(ctx context.Context) (PasskeyCeremony, error) {
+	p, err := requirePrincipal(ctx)
+	if err != nil {
+		return PasskeyCeremony{}, err
+	}
+	if s.passkeys == nil {
+		return PasskeyCeremony{}, authdomain.ErrPasskeysUnavailable
+	}
+	var (
+		out   PasskeyCeremony
+		state error
+	)
+	err = s.store.InTx(ctx, func(tx Store) error {
+		u, err := tx.SelectUserByID(ctx, p.UserID, false)
+		if err != nil {
+			return err // ErrUserNotFound is handled below
+		}
+		pks, err := tx.SelectPasskeys(ctx, u.ID)
+		if err != nil {
+			return err
+		}
+		if len(pks) == 0 {
+			state = authdomain.ErrMFANotEnabled
+			return nil
+		}
+		c, err := s.passkeys.BeginUserLogin(passkeyUser(u, u.WebAuthnUserHandle, pks))
+		if err != nil {
+			return err
+		}
+		out, err = s.startCeremony(ctx, tx, authdomain.CeremonyReauth, u.ID, "", c)
+		return err
+	})
+	switch {
+	case errors.Is(err, authdomain.ErrUserNotFound):
+		return PasskeyCeremony{}, authlib.ErrUnauthenticated
+	case err != nil:
+		return PasskeyCeremony{}, dbError("start passkey verification", err)
+	case state != nil:
+		return PasskeyCeremony{}, state
+	}
+	return out, nil
+}
+
+// confirmUser checks that the person using the session p is the account's
+// owner before a change to its sign-in methods (ADR-0044). A session that
+// verified a second factor within auth.RecentVerification needs nothing
+// more. Otherwise the password is required, and an account with two-factor
+// authentication on also needs a session verified with a second factor. It
+// returns ErrInvalidCredentials or ErrInvalidMFA as state.
+func (s *Service) confirmUser(ctx context.Context, tx Store, p authlib.Principal, u authdomain.User, password string) (state, err error) {
+	switch {
+	case p.RecentlyVerified(s.now()):
+		return state, nil
+	case !s.passwordMatches(u, password):
+		return authdomain.ErrInvalidCredentials, nil
+	case p.MFAVerified:
+		return state, nil
+	}
+	has, err := s.hasSecondFactor(ctx, tx, u.ID)
+	if err != nil || !has {
+		return state, err
+	}
+	return authdomain.ErrInvalidMFA, nil
+}
+
 // checkPasskeyFactor verifies a passkey's response to a second-factor
-// ceremony of challengeID, and updates the passkey.
+// ceremony of the sign-in challenge challengeID or, without a challenge, to
+// a verification ceremony of the signed-in user, and updates the passkey.
 func (s *Service) checkPasskeyFactor(ctx context.Context, tx Store, userID, challengeID string, a authdomain.PasskeyAssertion) (method string, remaining int, valid bool, err error) {
 	method = authdomain.MFAMethodPasskey
-	if s.passkeys == nil || challengeID == "" {
+	if s.passkeys == nil {
 		return method, 0, false, nil
 	}
-	c, ok, err := s.takeCeremony(ctx, tx, a.CeremonyToken, authdomain.CeremonySecondFactor)
+	purpose := authdomain.CeremonySecondFactor
+	if challengeID == "" {
+		purpose = authdomain.CeremonyReauth
+	}
+	c, ok, err := s.takeCeremony(ctx, tx, a.CeremonyToken, purpose)
 	if err != nil || !ok || c.UserID != userID || c.MFAChallengeID != challengeID {
 		return method, 0, false, err
 	}

@@ -95,8 +95,8 @@ TOKEN=$(curl -s -X POST http://127.0.0.1:8080/v1/auth/login/mfa -H 'Content-Type
 - Confirming turns it on, verifies the current session with a second factor and signs out other devices.
 - Each code works once: a code already used, even on another server instance, is refused. Wait for the app's next code.
 - A challenge lasts 5 minutes and allows 5 attempts; the attempts count toward the login limit.
-- A recovery code works once; the user gets an email saying how many are left. `POST /v1/auth/mfa/recovery-codes` with a code replaces them all.
-- Turning it off (`DELETE /v1/auth/mfa/totp`) needs the password and a code or recovery code, and isn't allowed while a role requires it. Deleting the account also needs a code or recovery code.
+- A recovery code works once; the user gets an email saying how many are left. `POST /v1/auth/mfa/recovery-codes` with a code or a passkey response replaces them all (a recovery code can't).
+- Turning it off (`DELETE /v1/auth/mfa/totp`) needs the password and a code, recovery code or passkey response, and isn't allowed while a role requires it. Deleting the account also needs one of them.
 - Password reset doesn't turn it off: the next sign-in still asks for a code.
 - Lost the app and the recovery codes: an operator runs `go run ./cmd/api reset-mfa <email>`, which turns it off and signs the account out everywhere.
 
@@ -119,15 +119,17 @@ Passkeys sign people in with Face ID, Touch ID, Windows Hello, an Android phone 
 Add:        POST /v1/auth/passkeys/registration → navigator.credentials.create(options) → POST /v1/auth/passkeys
 Sign in:    POST /v1/auth/passkeys/login/options → navigator.credentials.get(options) → POST /v1/auth/passkeys/login
 2nd factor: POST /v1/auth/login (202, methods include passkey) → POST /v1/auth/login/mfa/passkey → get() → POST /v1/auth/login/mfa {"passkey": …}
+Confirm:    POST /v1/auth/passkeys/verification → get() → DELETE /v1/auth/me, DELETE /v1/auth/mfa/totp or POST /v1/auth/mfa/recovery-codes {"passkey": …}
 ```
 
 | Endpoint | Needs a session | Purpose | Success |
 |---|---|---|---|
-| `POST /v1/auth/passkeys/registration` | ✓ | `{password}` unless the session used a second factor; returns `ceremony_token` and `options` | 200 |
+| `POST /v1/auth/passkeys/registration` | ✓ | `{password}` unless the session verified a second factor in the last 10 minutes; returns `ceremony_token` and `options` | 200 |
 | `POST /v1/auth/passkeys` | ✓ | `{ceremony_token, name?, credential}`; recovery codes when it's the first second factor | 201 `{passkey, recovery_codes?}` |
 | `GET /v1/auth/passkeys` | ✓ | The user's passkeys | 200 |
 | `PATCH /v1/auth/passkeys/{id}` | ✓ | `{name}` | 204 |
-| `DELETE /v1/auth/passkeys/{id}` | ✓ | `{password}` unless the session used a second factor | 204 |
+| `DELETE /v1/auth/passkeys/{id}` | ✓ | `{password}` unless the session verified a second factor in the last 10 minutes | 204 |
+| `POST /v1/auth/passkeys/verification` | ✓ | Options limited to the user's passkeys, to confirm a sensitive change | 200 |
 | `POST /v1/auth/passkeys/login/options` | | Start a passwordless sign-in | 200 |
 | `POST /v1/auth/passkeys/login` | | `{ceremony_token, credential, transport?}` | 200 `{user, session, token?}` |
 | `POST /v1/auth/login/mfa/passkey` | | `{challenge_token}`; options limited to the account's passkeys | 200 |
@@ -135,6 +137,8 @@ Sign in:    POST /v1/auth/passkeys/login/options → navigator.credentials.get(o
 - `credential` is the browser's `PublicKeyCredential` as JSON (`credential.toJSON()`); `options` go to `PublicKeyCredential.parseCreationOptionsFromJSON` or `parseRequestOptionsFromJSON`, or a WebAuthn helper library.
 - Each ceremony works once and lasts 5 minutes. Up to 10 passkeys per account.
 - The device must verify the user (biometrics or PIN). A passkey whose signature counter goes backwards is refused and recorded as `auth.passkey.clone_warning`.
+- Adding or removing a passkey needs the password once the session's second factor is 10 minutes old, so a stolen session can't plant its own passkey. With two-factor authentication on, the session must also have verified one.
+- The first passkey signs out other devices, like turning on the authenticator app.
 - The last second factor can't be removed while a role requires one; `reset-mfa` removes passkeys too.
 - In development, open the app at `http://localhost:8080`: browsers don't allow passkeys on `127.0.0.1`.
 
@@ -161,7 +165,7 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 | `POST /v1/auth/verify-email` | | `{email, code}` | 204 |
 | `POST /v1/auth/verify-email/resend` | | `{email}`; at most once a minute | 202 |
 | `POST /v1/auth/login` | | `{email, password, transport?}` | 200 `{user, session, token?}`, or 202 `{mfa: {challenge_token, methods, expires_at}}` with 2FA on |
-| `POST /v1/auth/login/mfa` | | `{challenge_token, code or recovery_code, transport?}` | 200 `{user, session, token?}` |
+| `POST /v1/auth/login/mfa` | | `{challenge_token, code, recovery_code or passkey, transport?}` | 200 `{user, session, token?}` |
 | `POST /v1/auth/password/forgot` | | `{email}`; emails a reset code | 202 |
 | `POST /v1/auth/password/reset` | | `{email, code, password}`; signs out every device | 204 |
 | `GET /v1/auth/me` | ✓ | User, current session, permissions, `step_up_permissions`, `mfa_enabled`, `mfa_required` | 200 |
@@ -170,11 +174,11 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 | `DELETE /v1/auth/sessions/{id}` | ✓ | Sign out one device | 204 |
 | `POST /v1/auth/logout` | ✓ | Sign out this device | 204 |
 | `POST /v1/auth/logout-all` | ✓ | Sign out every device | 200 `{revoked}` |
-| `DELETE /v1/auth/me` | ✓ | `{password, code or recovery_code with 2FA}`; delete the account | 204 |
-| `POST /v1/auth/mfa/totp` | ✓ | `{password}`; start setting up an authenticator app | 200 `{secret, uri}` |
+| `DELETE /v1/auth/me` | ✓ | `{password, code, recovery_code or passkey with 2FA}`; delete the account | 204 |
+| `POST /v1/auth/mfa/totp` | ✓ | `{password}`; start setting up an authenticator app | 200 `{secret, uri, qr_code}` |
 | `POST /v1/auth/mfa/totp/confirm` | ✓ | `{code}`; turn two-factor authentication on | 200 `{recovery_codes}` |
-| `DELETE /v1/auth/mfa/totp` | ✓ | `{password, code or recovery_code}`; turn it off | 204 |
-| `POST /v1/auth/mfa/recovery-codes` | ✓ | `{code}`; replace the recovery codes | 200 `{recovery_codes}` |
+| `DELETE /v1/auth/mfa/totp` | ✓ | `{password, code, recovery_code or passkey}`; turn it off | 204 |
+| `POST /v1/auth/mfa/recovery-codes` | ✓ | `{code or passkey}`; replace the recovery codes | 200 `{recovery_codes}` |
 
 ## What users see
 

@@ -10,9 +10,11 @@ import (
 )
 
 //nolint:gosec // SQL text, not a credential
-const selectPasskeyByCredentialIDSQL = `SELECT ` + passkeyColumns + ` FROM auth_passkeys WHERE credential_id = $1`
+const selectPasskeyByCredentialIDSQL = `SELECT ` + passkeyColumns + ` FROM auth_passkeys WHERE credential_id = $1 FOR UPDATE`
 
-// SelectPasskeyByCredentialID returns the passkey with a credential ID.
+// SelectPasskeyByCredentialID returns the passkey with a credential ID,
+// locked until the transaction ends so simultaneous sign-ins with it update
+// its signature counter one after the other.
 func (s *Store) SelectPasskeyByCredentialID(ctx context.Context, credentialID []byte) (authdomain.Passkey, bool, error) {
 	rows, err := s.db.Query(ctx, selectPasskeyByCredentialIDSQL, credentialID)
 	if err != nil {

@@ -78,7 +78,8 @@ func TestPasskeyRegistrationAndSignIn(t *testing.T) {
 		t.Error("session after adding a passkey isn't verified with a second factor")
 	}
 
-	// A verified session adds another without the password; a ceremony works once.
+	// A session that just verified a second factor adds another without the
+	// password; a ceremony works once.
 	c, err := f.svc.BeginPasskeyRegistration(verified, "")
 	if err != nil {
 		t.Fatal(err)
@@ -142,9 +143,11 @@ func TestPasskeyRegistrationAndSignIn(t *testing.T) {
 func TestPasskeyRejections(t *testing.T) {
 	f := newFixture(t, withPasskeys)
 	f.signUp(t, "ada@example.com")
-	ctx, _ := f.login(t, "ada@example.com")
+	ctx, res := f.login(t, "ada@example.com")
 	laptop := passkeytest.New(passkeyOrigin)
 	f.addPasskey(t, ctx, password, laptop)
+	// The session is verified now; later requests see it.
+	ctx = f.principalCtx(t, res.Token)
 
 	// Another site can't register a passkey.
 	c, _ := f.svc.BeginPasskeyRegistration(ctx, password)
@@ -240,5 +243,92 @@ func TestPasskeysAndRolesRequiringMFA(t *testing.T) {
 	}
 	if res, err := f.svc.Login(requestCtx(), "admin@example.com", password); err != nil || res.Challenge != nil {
 		t.Errorf("Login() after a reset = %+v, %v; want a session", res, err)
+	}
+}
+
+// verifyWithPasskey returns auth's passkey response to a verification
+// ceremony of the signed-in user of ctx, as a second factor.
+func (f *fixture) verifyWithPasskey(t *testing.T, ctx context.Context, auth *passkeytest.Authenticator) authdomain.SecondFactor {
+	t.Helper()
+	c, err := f.svc.BeginPasskeyVerification(ctx)
+	if err != nil {
+		t.Fatalf("BeginPasskeyVerification() error = %v", err)
+	}
+	resp, err := auth.Get(c.Options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return authdomain.SecondFactor{Passkey: &authdomain.PasskeyAssertion{CeremonyToken: c.Token, Credential: resp}}
+}
+
+// TestPasskeyChangesConfirmTheUser checks that a session whose second factor
+// is old can't change sign-in methods without the password, and that a
+// passkey confirms a signed-in user's sensitive changes (ADR-0044).
+func TestPasskeyChangesConfirmTheUser(t *testing.T) {
+	f := newFixture(t, withPasskeys)
+	f.signUp(t, "ada@example.com")
+	_, other := f.login(t, "ada@example.com")
+	ctx, res := f.login(t, "ada@example.com")
+	laptop := passkeytest.New(passkeyOrigin)
+	reg := f.addPasskey(t, ctx, password, laptop)
+
+	// The first second factor signs out other devices.
+	if _, err := f.svc.Authenticate(context.Background(), other.Token); !errors.Is(err, authlib.ErrUnauthenticated) {
+		t.Errorf("Authenticate(other session) after the first passkey error = %v, want ErrUnauthenticated", err)
+	}
+
+	// Once the second factor is 10 minutes old, changes need the password.
+	f.clock.advance(authlib.RecentVerification)
+	stale := f.principalCtx(t, res.Token)
+	if _, err := f.svc.BeginPasskeyRegistration(stale, ""); !errors.Is(err, authdomain.ErrInvalidCredentials) {
+		t.Errorf("BeginPasskeyRegistration(old second factor, no password) error = %v", err)
+	}
+	if err := f.svc.RemovePasskey(stale, reg.Passkey.ID, ""); !errors.Is(err, authdomain.ErrInvalidCredentials) {
+		t.Errorf("RemovePasskey(old second factor, no password) error = %v", err)
+	}
+	if _, err := f.svc.BeginPasskeyRegistration(stale, password); err != nil {
+		t.Errorf("BeginPasskeyRegistration(old second factor, password) error = %v", err)
+	}
+
+	// A passkey replaces the recovery codes; a recovery code can't.
+	if _, err := f.svc.RegenerateRecoveryCodes(stale, authdomain.SecondFactor{RecoveryCode: reg.RecoveryCodes[0]}); !errors.Is(err, authdomain.ErrInvalidMFA) {
+		t.Errorf("RegenerateRecoveryCodes(recovery code) error = %v", err)
+	}
+	byPasskey := f.verifyWithPasskey(t, stale, laptop)
+	if codes, err := f.svc.RegenerateRecoveryCodes(stale, byPasskey); err != nil || len(codes) != authlib.RecoveryCodeCount {
+		t.Fatalf("RegenerateRecoveryCodes(passkey) = %v, %v", codes, err)
+	}
+	if _, err := f.svc.RegenerateRecoveryCodes(stale, byPasskey); !errors.Is(err, authdomain.ErrInvalidMFA) {
+		t.Errorf("RegenerateRecoveryCodes(used verification) error = %v", err)
+	}
+
+	// A sign-in's ceremony and another user's verification don't count.
+	started, err := f.svc.Login(requestCtx(), "ada@example.com", password)
+	if err != nil || started.Challenge == nil {
+		t.Fatalf("Login() = %+v, %v", started, err)
+	}
+	pc, err := f.svc.BeginPasskeySecondFactor(requestCtx(), started.Challenge.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, _ := laptop.Get(pc.Options)
+	signIn := authdomain.SecondFactor{Passkey: &authdomain.PasskeyAssertion{CeremonyToken: pc.Token, Credential: resp}}
+	if err := f.svc.DeleteAccount(stale, password, signIn); !errors.Is(err, authdomain.ErrInvalidMFA) {
+		t.Errorf("DeleteAccount(sign-in ceremony) error = %v", err)
+	}
+	f.signUp(t, "bob@example.com")
+	bob, _ := f.login(t, "bob@example.com")
+	if _, err := f.svc.BeginPasskeyVerification(bob); !errors.Is(err, authdomain.ErrMFANotEnabled) {
+		t.Errorf("BeginPasskeyVerification() without passkeys error = %v", err)
+	}
+	bobKey := passkeytest.New(passkeyOrigin)
+	f.addPasskey(t, bob, password, bobKey)
+	if err := f.svc.DeleteAccount(stale, password, f.verifyWithPasskey(t, bob, bobKey)); !errors.Is(err, authdomain.ErrInvalidMFA) {
+		t.Errorf("DeleteAccount(another user's verification) error = %v", err)
+	}
+
+	// An account with only passkeys deletes itself with one.
+	if err := f.svc.DeleteAccount(stale, password, f.verifyWithPasskey(t, stale, laptop)); err != nil {
+		t.Errorf("DeleteAccount(passkey) error = %v", err)
 	}
 }

@@ -48,7 +48,7 @@ type passkeyListOutput struct{ Body PasskeyList }
 type beginPasskeyRegistrationInput struct {
 	Body struct {
 		_        struct{} `json:"-" additionalProperties:"true"`
-		Password string   `json:"password,omitempty" maxLength:"512" doc:"Required unless this session was verified with a second factor"`
+		Password string   `json:"password,omitempty" maxLength:"512" doc:"Required unless this session verified a second factor in the last 10 minutes"`
 	}
 }
 
@@ -69,13 +69,13 @@ type renamePasskeyInput struct {
 	}
 }
 
-// removePasskeyInput's body is optional: a session verified with a second
-// factor sends none.
+// removePasskeyInput's body is optional: a session that verified a second
+// factor in the last 10 minutes sends none.
 type removePasskeyInput struct {
 	ID   string `path:"id" maxLength:"64" example:"pky_nbswy3dpeb3w64tmmq"`
 	Body *struct {
 		_        struct{} `json:"-" additionalProperties:"true"`
-		Password string   `json:"password,omitempty" maxLength:"512" doc:"Required unless this session was verified with a second factor"`
+		Password string   `json:"password,omitempty" maxLength:"512" doc:"Required unless this session verified a second factor in the last 10 minutes"`
 	}
 }
 
@@ -101,9 +101,10 @@ func registerPasskeys(api huma.API, h *handler, public, signedIn func(huma.Opera
 
 	huma.Register(api, signedIn(huma.Operation{
 		OperationID: "auth-begin-passkey-registration", Method: http.MethodPost, Path: "/v1/auth/passkeys/registration",
-		Summary:     "Start adding a passkey",
-		Description: "Returns the options for `navigator.credentials.create()`. Send the password unless this session was verified with a second factor.",
-		Errors:      []int{http.StatusConflict, http.StatusServiceUnavailable},
+		Summary: "Start adding a passkey",
+		Description: "Returns the options for `navigator.credentials.create()`. Send the password unless this session verified a second factor in the last 10 minutes; " +
+			"once the account has two-factor authentication on, the session must also have verified one.",
+		Errors: []int{http.StatusConflict, http.StatusServiceUnavailable},
 	}), h.beginPasskeyRegistration)
 	huma.Register(api, signedIn(huma.Operation{
 		OperationID: "auth-create-passkey", Method: http.MethodPost, Path: "/v1/auth/passkeys",
@@ -122,9 +123,16 @@ func registerPasskeys(api huma.API, h *handler, public, signedIn func(huma.Opera
 	huma.Register(api, signedIn(huma.Operation{
 		OperationID: "auth-remove-passkey", Method: http.MethodDelete, Path: "/v1/auth/passkeys/{id}",
 		Summary:       "Remove a passkey",
-		Description:   "Send the password unless this session was verified with a second factor. Not allowed for the last second factor while a role requires two-factor authentication.",
+		Description:   "Send the password unless this session verified a second factor in the last 10 minutes. Not allowed for the last second factor while a role requires two-factor authentication.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusNotFound, http.StatusConflict},
 	}), h.removePasskey)
+	huma.Register(api, signedIn(huma.Operation{
+		OperationID: "auth-begin-passkey-verification", Method: http.MethodPost, Path: "/v1/auth/passkeys/verification",
+		Summary: "Confirm a change with a passkey",
+		Description: "Returns options for `navigator.credentials.get()` limited to the user's passkeys. Send the response as `passkey` when deleting the account, " +
+			"turning off the authenticator app or replacing recovery codes.",
+		Errors: []int{http.StatusConflict, http.StatusServiceUnavailable},
+	}), h.beginPasskeyVerification)
 	huma.Register(api, public(huma.Operation{
 		OperationID: "auth-passkey-login-options", Method: http.MethodPost, Path: "/v1/auth/passkeys/login/options",
 		Summary:     "Start signing in with a passkey",
@@ -187,6 +195,14 @@ func (h *handler) removePasskey(ctx context.Context, in *removePasskeyInput) (*s
 		password = in.Body.Password
 	}
 	return nil, authError(h.svc.RemovePasskey(ctx, in.ID, password))
+}
+
+func (h *handler) beginPasskeyVerification(ctx context.Context, _ *struct{}) (*passkeyCeremonyOutput, error) {
+	c, err := h.svc.BeginPasskeyVerification(ctx)
+	if err != nil {
+		return nil, authError(err)
+	}
+	return ceremonyOutput(c), nil
 }
 
 func (h *handler) passkeyLoginOptions(ctx context.Context, _ *struct{}) (*passkeyCeremonyOutput, error) {

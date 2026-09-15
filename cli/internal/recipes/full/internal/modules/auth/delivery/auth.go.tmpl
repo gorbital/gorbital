@@ -52,7 +52,7 @@ type LoginResponse struct {
 // MFAChallenge is a sign-in waiting for a second factor.
 type MFAChallenge struct {
 	ChallengeToken string    `json:"challenge_token" doc:"Send it to POST /v1/auth/login/mfa. It is shown once."`
-	Methods        []string  `json:"methods" doc:"Second factors accepted: totp (a code from the authenticator app) or recovery_code"`
+	Methods        []string  `json:"methods" doc:"Second factors accepted: totp (a code from the authenticator app), passkey or recovery_code"`
 	ExpiresAt      time.Time `json:"expires_at"`
 }
 
@@ -154,10 +154,11 @@ type changePasswordInput struct {
 
 type deleteAccountInput struct {
 	Body struct {
-		_            struct{} `json:"-" additionalProperties:"true"`
-		Password     string   `json:"password" maxLength:"512"`
-		Code         string   `json:"code,omitempty" maxLength:"16" example:"123456" doc:"With two-factor authentication on: a code from the authenticator app"`
-		RecoveryCode string   `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"With two-factor authentication on, instead of code"`
+		_            struct{}       `json:"-" additionalProperties:"true"`
+		Password     string         `json:"password" maxLength:"512"`
+		Code         string         `json:"code,omitempty" maxLength:"16" example:"123456" doc:"With two-factor authentication on: a code from the authenticator app"`
+		RecoveryCode string         `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"With two-factor authentication on, instead of code"`
+		Passkey      *PasskeyFactor `json:"passkey,omitempty" doc:"With two-factor authentication on, a passkey's response instead of code"`
 	}
 }
 
@@ -247,7 +248,7 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 	huma.Register(api, signedIn(huma.Operation{
 		OperationID: "auth-delete-account", Method: http.MethodDelete, Path: "/v1/auth/me",
 		Summary:       "Delete the account",
-		Description:   "Requires the password, and a code or recovery code when two-factor authentication is on. Signs out every device.",
+		Description:   "Requires the password, and with two-factor authentication on a code, recovery code or passkey response (start one with `POST /v1/auth/passkeys/verification`). Signs out every device.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusServiceUnavailable},
 	}), h.deleteAccount)
 
@@ -358,7 +359,10 @@ func (h *handler) revokeSession(ctx context.Context, in *sessionIDInput) (*struc
 }
 
 func (h *handler) deleteAccount(ctx context.Context, in *deleteAccountInput) (*cookieOutput, error) {
-	factor := authdomain.SecondFactor{Code: in.Body.Code, RecoveryCode: in.Body.RecoveryCode}
+	factor, err := secondFactor(in.Body.Code, in.Body.RecoveryCode, in.Body.Passkey)
+	if err != nil {
+		return nil, err
+	}
 	if err := h.svc.DeleteAccount(ctx, in.Body.Password, factor); err != nil {
 		return nil, authError(err)
 	}
