@@ -1,0 +1,27 @@
+package app
+
+import (
+	"time"
+
+	"apistock.dev/modules/jobs"
+
+	"example.com/acme-api/internal/jobs/authrevoke"
+)
+
+// defineAuthRevokeTokensJob declares the auth_revoke_tokens job with its
+// code defaults. Operators can override them in
+// /ops/jobs/definitions/auth_revoke_tokens.
+func defineAuthRevokeTokensJob(defs *jobs.Definitions, deps jobDeps) {
+	jobs.Define(defs, jobs.Definition[authrevoke.Args]{
+		Name:        authrevoke.Name,
+		Description: "Revokes the Apple refresh tokens of unlinked identities and deleted accounts, retrying failures with backoff.",
+		Worker:      authrevoke.NewWorker(deps.authRevokeTokens, deps.logger),
+		NewArgs:     func() authrevoke.Args { return authrevoke.Args{} },
+		Enabled:     true,
+		Schedule:    "@every 1m",
+		Timeout:     5 * time.Minute,
+		MaxAttempts: 1, // the next run retries; revocations keep their own backoff
+		Queue:       "default",
+		Priority:    2,
+	})
+}

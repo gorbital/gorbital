@@ -168,7 +168,7 @@ Native app: POST /v1/auth/{provider}/nonce → SDK sign-in with the nonce → PO
 - **An existing account with the same email** is linked when the provider has verified the email, and the owner gets an email. If that account never verified its email, its password is removed and its sessions end, so whoever registered the address without owning it loses access.
 - **Two-factor authentication** still applies: an account with it on gets a challenge, as with a password.
 - **Accounts without a password** confirm sensitive changes (authenticator app setup, deleting the account, passkeys, unlinking) with a sign-in less than 10 minutes old.
-- The last way to sign in can't be unlinked. Deleting the account unlinks every identity and revokes Apple's tokens; Apple's "consent revoked" notification unlinks Apple too.
+- The last way to sign in can't be unlinked. Deleting the account (or unlinking Apple) queues Apple's tokens for the `auth_revoke_tokens` job, which revokes them within a minute and retries if Apple is unavailable; Apple's "consent revoked" notification unlinks Apple too.
 
 Errors: `invalid_social_token` (401), `invalid_state` (401), `social_email_unverified` (403), `identity_not_found` (404), `last_sign_in_method` (409), `invalid_return_to` (422), `social_unavailable` (503). The web flow puts the same codes in `#error=`, plus `access_denied` when the person cancels.
 
@@ -224,6 +224,7 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 - A session is `mfa_verified` when it was created with a second factor, or when the user confirmed two-factor authentication in it. Roles requiring 2FA grant their permissions only to such sessions.
 - Changing the password signs out other devices; resetting it or deleting the account signs out every device; turning two-factor authentication on or off signs out other devices.
 - The `auth_cleanup` job (daily, 03:30 UTC) removes ended sessions after 7 days, old codes and sign-in challenges, and deleted accounts after `auth.deleted_account_retention` (30 days).
+- The `auth_revoke_tokens` job (every minute) revokes queued Apple tokens, retrying after 1, 2, 4 … minutes up to 6 hours; after 10 failures it gives up and records `auth.identity.revocation_abandoned`.
 
 ## Settings
 

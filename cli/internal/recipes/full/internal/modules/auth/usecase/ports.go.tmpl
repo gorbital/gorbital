@@ -179,6 +179,20 @@ type SocialStore interface {
 	// usable.
 	UseSocialNonce(ctx context.Context, provider string, tokenHash []byte, now time.Time) (bool, error)
 	DeleteOldSocialRequests(ctx context.Context, before time.Time) (int64, error)
+	// InsertTokenRevocation queues a provider token for revocation.
+	InsertTokenRevocation(ctx context.Context, r authdomain.TokenRevocation) error
+	// ClaimTokenRevocations returns up to limit revocations due at now and
+	// leases them until leaseUntil.
+	ClaimTokenRevocations(ctx context.Context, now, leaseUntil time.Time, limit int) ([]authdomain.TokenRevocation, error)
+	DeleteTokenRevocation(ctx context.Context, id string) error
+	// RetryTokenRevocation records a failed revocation and when to try again.
+	RetryTokenRevocation(ctx context.Context, id string, attempts int, next time.Time, lastError string) error
+	// SelectTokenRevocationsWithOtherKey returns up to limit queued tokens
+	// encrypted with a key other than keyID.
+	SelectTokenRevocationsWithOtherKey(ctx context.Context, keyID string, limit int) ([]authdomain.TokenRevocation, error)
+	// UpdateTokenRevocationKey replaces a queued token still encrypted with
+	// oldKeyID and reports whether it did.
+	UpdateTokenRevocationKey(ctx context.Context, id, oldKeyID, keyID string, ciphertext []byte) (bool, error)
 }
 
 // Store is every storage operation the use cases need, plus transactions.

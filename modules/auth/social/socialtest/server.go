@@ -50,10 +50,19 @@ type Server struct {
 	key    *rsa.PrivateKey
 	signer jose.Signer
 
-	mu       sync.Mutex
-	grants   map[string]grant
-	requests []url.Values
-	revoked  []string
+	mu         sync.Mutex
+	grants     map[string]grant
+	requests   []url.Values
+	revoked    []string
+	failRevoke bool
+}
+
+// FailRevocations makes the revocation endpoint answer 503 while fail is
+// true, to test retries.
+func (s *Server) FailRevocations(fail bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.failRevoke = fail
 }
 
 type grant struct {
@@ -210,8 +219,12 @@ func (s *Server) serveRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.failRevoke {
+		http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+		return
+	}
 	s.revoked = append(s.revoked, r.PostForm.Get("token"))
-	s.mu.Unlock()
 }
 
 func random() string {

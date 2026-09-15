@@ -118,8 +118,8 @@ func (s *Service) ResetMFA(ctx context.Context, userID string) error {
 }
 
 // RotateEncryptionKeys re-encrypts every authenticator app secret and Apple
-// refresh token with the current (first) key of AUTH_ENCRYPTION_KEYS and
-// returns how many changed.
+// refresh token, stored or queued for revocation, with the current (first)
+// key of AUTH_ENCRYPTION_KEYS and returns how many changed.
 // Put a new key first, run it, then remove the old key. It returns
 // ErrActorRequired or ErrMFAUnavailable.
 func (s *Service) RotateEncryptionKeys(ctx context.Context) (int, error) {
@@ -174,6 +174,32 @@ func (s *Service) RotateEncryptionKeys(ctx context.Context) (int, error) {
 				return n, err
 			}
 			updated, err := s.store.UpdateIdentityRefreshKey(ctx, i.ID, i.RefreshKeyID, keyID, ciphertext)
+			if err != nil {
+				return n, dbError("rotate encryption keys", err)
+			}
+			if updated {
+				n++
+			}
+		}
+	}
+	for {
+		batch, err := s.store.SelectTokenRevocationsWithOtherKey(ctx, current, 100)
+		if err != nil {
+			return n, dbError("rotate encryption keys", err)
+		}
+		if len(batch) == 0 {
+			break
+		}
+		for _, r := range batch {
+			plain, err := s.keyring.Decrypt(r.KeyID, r.TokenCiphertext, identityAAD(r.Provider, r.Subject))
+			if err != nil {
+				return n, fmt.Errorf("auth: rotate encryption keys: the queued token %s: %w", r.ID, err)
+			}
+			keyID, ciphertext, err := s.keyring.Encrypt(plain, identityAAD(r.Provider, r.Subject))
+			if err != nil {
+				return n, err
+			}
+			updated, err := s.store.UpdateTokenRevocationKey(ctx, r.ID, r.KeyID, keyID, ciphertext)
 			if err != nil {
 				return n, dbError("rotate encryption keys", err)
 			}

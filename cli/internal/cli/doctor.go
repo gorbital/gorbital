@@ -378,7 +378,7 @@ func (d *doctor) report(w io.Writer) {
 	}
 	fmt.Fprintf(w, "%s\n\n", s.strong.Render("aps doctor · "+about))
 	for _, c := range d.res.Checks {
-		status := c.Status
+		var status string
 		switch c.Status {
 		case doctorOK:
 			status = s.muted.Render(fmt.Sprintf("%-4s", c.Status))

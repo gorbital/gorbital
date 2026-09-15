@@ -149,6 +149,9 @@ func (a *App) build(ctx context.Context) error {
 		recorder: recorder,
 		// a.auth and a.jobsManager are built below, before any job runs.
 		authCleanup: func(ctx context.Context) (authdomain.CleanupResult, error) { return a.auth.Service().Cleanup(ctx) },
+		authRevokeTokens: func(ctx context.Context) (authdomain.RevocationResult, error) {
+			return a.auth.Service().RevokeProviderTokens(ctx)
+		},
 		// What the retention job deletes (ADR-0051).
 		retentionTargets: []retention.Target{
 			{Name: "audit_events", Retention: appSettings.auditRetention.Get, Delete: recorder.DeleteBefore},

@@ -75,7 +75,9 @@ func TestExtractTemplatesStaysInside(t *testing.T) {
 		if err := tw.WriteHeader(&tar.Header{Name: name, Typeflag: typ, Size: int64(len(body)), Mode: 0o644, Linkname: "/etc/passwd"}); err != nil {
 			t.Fatal(err)
 		}
-		tw.Write([]byte(body))
+		if _, err := tw.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
 	}
 	add(recipesDir+"/full/README.md.tmpl", tar.TypeReg, "# ⟦.Name⟧\n")
 	add(recipesDir+"/../../escape.txt", tar.TypeReg, "escaped")

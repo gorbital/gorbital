@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+//nolint:gosec // SQL text, not a credential
 const replaceInvitationTokenSQL = `UPDATE org_invitations SET token_hash = $2, sent_at = $3, expires_at = $4 WHERE id = $1`
 
 // ReplaceInvitationToken gives an invitation a new token and expiry; the old

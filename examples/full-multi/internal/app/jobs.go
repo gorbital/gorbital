@@ -7,6 +7,7 @@ import (
 	"apistock.dev/modules/jobs"
 
 	"example.com/acme-api/internal/jobs/authcleanup"
+	"example.com/acme-api/internal/jobs/authrevoke"
 	"example.com/acme-api/internal/jobs/orgspurge"
 	"example.com/acme-api/internal/jobs/retention"
 )
@@ -14,10 +15,11 @@ import (
 // jobDeps are what job workers may use. Add stores and clients here when a
 // job needs them.
 type jobDeps struct {
-	logger      *slog.Logger
-	recorder    audit.Recorder
-	authCleanup authcleanup.Cleanup
-	orgsPurge   orgspurge.Purge
+	logger           *slog.Logger
+	recorder         audit.Recorder
+	authCleanup      authcleanup.Cleanup
+	authRevokeTokens authrevoke.Revoke
+	orgsPurge        orgspurge.Purge
 	// retentionTargets are the data the retention job deletes (ADR-0051).
 	retentionTargets []retention.Target
 }
@@ -29,6 +31,7 @@ func defineJobs(defs *jobs.Definitions, deps jobDeps) {
 	//aps:anchor jobs
 	defineHeartbeatJob(defs, deps)
 	defineAuthCleanupJob(defs, deps)
+	defineAuthRevokeTokensJob(defs, deps)
 	defineOrgsPurgeJob(defs, deps)
 	defineRetentionJob(defs, deps)
 }

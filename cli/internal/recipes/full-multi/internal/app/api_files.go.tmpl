@@ -27,7 +27,7 @@ func WriteAPIFiles(ctx context.Context, cfg Config, dir string) error {
 		return err
 	}
 	for _, name := range apiFileNames {
-		if err := os.WriteFile(filepath.Join(dir, name), files[name], 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), files[name], 0o644); err != nil { //nolint:gosec // public API documents committed to the repository
 			return fmt.Errorf("write %s: %w", name, err)
 		}
 	}

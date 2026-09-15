@@ -35,7 +35,11 @@ func TestUpgradeFromV040(t *testing.T) {
 	if out, err := exec.Command("git", "-C", repo, "worktree", "add", "--detach", "--quiet", old, "v0.4.0").CombinedOutput(); err != nil {
 		t.Fatalf("git worktree add: %v\n%s", err, out)
 	}
-	t.Cleanup(func() { exec.Command("git", "-C", repo, "worktree", "remove", "--force", old).Run() })
+	t.Cleanup(func() {
+		if out, err := exec.Command("git", "-C", repo, "worktree", "remove", "--force", old).CombinedOutput(); err != nil {
+			t.Logf("git worktree remove: %v\n%s", err, out)
+		}
+	})
 	oldAps := filepath.Join(work, "aps-v0.4.0")
 	build := exec.Command("go", "build", "-o", oldAps, "./cmd/aps")
 	build.Dir = filepath.Join(old, "cli")

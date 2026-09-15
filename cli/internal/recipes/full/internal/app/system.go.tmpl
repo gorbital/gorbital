@@ -95,7 +95,7 @@ func goRuntime() opsusecase.SystemRuntime {
 		HeapInUseBytes: m.HeapInuse, GCs: m.NumGC,
 	}
 	if m.NumGC > 0 {
-		rt.LastGCPause = time.Duration(m.PauseNs[(m.NumGC+255)%256])
+		rt.LastGCPause = time.Duration(m.PauseNs[(m.NumGC+255)%256]) //nolint:gosec // a GC pause is far below MaxInt64 nanoseconds (292 years)
 	}
 	return rt
 }

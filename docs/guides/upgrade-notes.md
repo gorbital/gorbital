@@ -2,6 +2,13 @@
 
 What changes for existing apps in each release, and what to do that `aps upgrade` can't do for you. How upgrades work: [ADR-0016](../adr/0016-scaffold-compatibility-and-upgrades.md) and [ADR-0050](../adr/0050-upgrades-and-adding-features.md); commands: [CLI reference](cli.md).
 
+## Unreleased
+
+| Change | What to do |
+|---|---|
+| **Apple tokens are revoked by a job.** Unlinking Apple or deleting an account queues the token in `auth_token_revocations`; the new `auth_revoke_tokens` job (every minute) revokes it and retries failures ([ADR-0046](../adr/0046-google-and-apple-sign-in.md)) | Nothing: `aps upgrade` adds the job and migration. Account deletion no longer waits on Apple |
+| Database | One new migration, `20260917000001_auth_token_revocations.sql`; run migrations as usual |
+
 ## v0.5
 
 ```bash

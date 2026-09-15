@@ -93,10 +93,10 @@ else                                      → 403 social_email_unverified
 | Endpoint | Behaviour |
 |---|---|
 | `GET /v1/auth/identities` | The user's linked providers: provider, email, private email, created, last used |
-| `DELETE /v1/auth/identities/{id}` | Unlinks, after the password or a recent sign-in; 409 `last_sign_in_method` when no password, passkey or other identity remains; revokes Apple's token |
+| `DELETE /v1/auth/identities/{id}` | Unlinks, after the password or a recent sign-in; 409 `last_sign_in_method` when no password, passkey or other identity remains; queues Apple's token for revocation |
 | `POST /v1/auth/apple/notifications` | Apple's server-to-server events, verified with Apple's keys: `consent-revoked` and `account-delete` unlink, and end the account's sessions when no other way to sign in remains; `email-disabled`/`email-enabled` recorded |
 
-Account deletion revokes stored Apple tokens, as App Store rules require.
+Account deletion revokes stored Apple tokens, as App Store rules require, through a background job with retries (implementation notes).
 
 ### 8. Security and limits
 
@@ -139,14 +139,14 @@ Errors: `invalid_social_token` (401), `invalid_state` (401), `social_email_unver
 - A consent-revoked or account-delete notification unlinks the Apple identity and ends the account's sessions only when no password, passkey or other identity remains: sessions don't record which method started them.
 - Cross-origin protection skips `POST /v1/auth/apple/callback` and `POST /v1/auth/apple/notifications`; the per-IP auth limit covers `GET …/start` and `…/callback`.
 - A web sign-in without the `__Host-oauth` cookie still uses up its state and returns to its `return_to` with `#error=invalid_state`; a person cancelling at the provider returns `#error=access_denied`.
-- Account deletion unlinks identities in its transaction and revokes Apple tokens afterwards (failures logged). `rotate-auth-keys` re-encrypts Apple refresh tokens with the authenticator secrets.
+- Account deletion unlinks identities in its transaction and queues Apple tokens for revocation (below). `rotate-auth-keys` re-encrypts Apple refresh tokens with the authenticator secrets.
 - User responses gain `has_password`, so clients can hide "change password" for accounts created with Google or Apple.
 - Two first sign-ins of one person at the same moment race to create the account or identity; the loser's transaction rolls back on the unique constraint (`ErrEmailTaken`, `ErrIdentityTaken`) and retries once, finding the winner's account. Tested with concurrent requests under the race detector.
-- Follow-up: Apple token revocation runs in the account-deletion request (up to 10 seconds per token, failures logged, no retry). A background job with retries would be more reliable; planned with the jobs-based cleanup work.
+- Apple token revocation is a background job (2026-09-15, after review): unlinking an identity or deleting an account writes the still-encrypted token to `auth_token_revocations` in the same transaction, so no token is lost and the request never waits on Apple. The `auth_revoke_tokens` job (every minute) claims up to 20 due tokens with `FOR UPDATE SKIP LOCKED` and a 10-minute lease, revokes them, retries failures after 1, 2, 4 … minutes up to 6 hours, and after 10 attempts deletes the row, logs an error and records `auth.identity.revocation_abandoned`. `rotate-auth-keys` re-encrypts queued tokens too. Apple's own consent-revoked and account-delete notifications queue nothing: Apple has already revoked them.
 - The status block, `auth-providers` and `GET /ops/auth/providers` report `google`, `google_ios`, `google_android`, `apple` and `apple_ios`, with the callback URL.
 
 | Check | Result |
 |---|---|
 | Library (`socialtest` fake provider) | Google authorization URL with PKCE; code exchange with verifier and secret; used codes and other nonces refused; native audiences; string booleans; wrong audience, nonce, issuer, age, expiry, subject, signature and key refused; Apple form_post URL, ES256 client secret claims and key ID, native code exchange, revocation, notifications with audience checks; configuration and `.p8` parsing |
-| Use cases (Docker PostgreSQL) | New account, returning identity, Apple linking by email with an email, verified password account kept, unverified account's password removed; invalid return addresses, other browser, other provider, expired and used states, other nonce, unverified email, cancelled sign-in; second factor asked; native Google and Apple with single-use and hashed nonces, audience and refresh token; last sign-in method kept, unlinking after a recent sign-in, deletion revoking Apple's token and a new account afterwards; Apple notifications |
+| Use cases (Docker PostgreSQL) | New account, returning identity, Apple linking by email with an email, verified password account kept, unverified account's password removed; invalid return addresses, other browser, other provider, expired and used states, other nonce, unverified email, cancelled sign-in; second factor asked; native Google and Apple with single-use and hashed nonces, audience and refresh token; last sign-in method kept, unlinking after a recent sign-in, deletion queuing Apple's token and the job revoking it, a new account afterwards; revocation retried with backoff and abandoned with an audit event; Apple notifications |
 | HTTP | Google redirect with the SameSite=None cookie, callback setting the session and redirecting, missing cookie and bad `return_to`; Apple's cross-site form post with the name; identities; native token with nonce reuse refused; notifications accepted and forged ones refused; configuration errors and status lines |

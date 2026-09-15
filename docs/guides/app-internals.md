@@ -130,6 +130,7 @@ Declares every job with its code defaults; `aps gen job` adds a line after `//ap
 |---|---|---|
 | `heartbeat` | `job_heartbeat.go` | Logs a heartbeat every hour; an example to copy or remove |
 | `auth_cleanup` | `job_auth_cleanup.go` | Daily at 03:30 UTC: deletes expired sessions, codes and second-factor challenges, and purges accounts deleted longer ago than `auth.deleted_account_retention` (audit action `auth.accounts.purged`). Returns the counts as `authdomain.CleanupResult` |
+| `auth_revoke_tokens` | `job_auth_revoke_tokens.go` | Every minute: revokes up to 20 Apple refresh tokens queued in `auth_token_revocations` by unlinking or account deletion; failures back off from 1 minute to 6 hours and are abandoned after 10 attempts (audit action `auth.identity.revocation_abandoned`). Returns the counts as `authdomain.RevocationResult` |
 | `apistock.mail.send` | `jobs.AddMailWorker` in `app.go` | Delivers queued email; 8 attempts; `mail.ErrRejected` cancels |
 
 `jobDeps` holds what workers may use. Add a store or client there when a job needs one.

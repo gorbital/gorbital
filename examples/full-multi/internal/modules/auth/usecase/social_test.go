@@ -12,6 +12,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
 	authlib "apistock.dev/modules/auth"
 	"apistock.dev/modules/auth/social"
@@ -330,14 +331,79 @@ func TestIdentitiesRemovalAndAccountDeletion(t *testing.T) {
 	if err := f.svc.DeleteAccount(ctx, "", authdomain.SecondFactor{}); err != nil {
 		t.Fatalf("DeleteAccount(recent sign-in) error = %v", err)
 	}
+	if revoked := f.srv.Revoked(); len(revoked) != 0 {
+		t.Errorf("revoked tokens during deletion = %v, want none: the job revokes them", revoked)
+	}
+	if got, err := f.svc.RevokeProviderTokens(context.Background()); err != nil || got.Revoked != 1 {
+		t.Fatalf("RevokeProviderTokens() = %+v, %v", got, err)
+	}
 	if revoked := f.srv.Revoked(); len(revoked) != 1 || revoked[0] != "refresh-1" {
-		t.Errorf("revoked tokens after deletion = %v, want refresh-1", revoked)
+		t.Errorf("revoked tokens after the job = %v, want refresh-1", revoked)
 	}
 
 	// Signing in again creates a new account.
 	again, err := f.webSignIn(t, social.Google, google, "")
 	if err != nil || again.User.ID == res.User.ID {
 		t.Errorf("sign-in after deletion = %+v, %v; want a new account", again.User, err)
+	}
+}
+
+// TestProviderTokenRevocationRetries checks that a provider failing to
+// revoke a queued token is retried with backoff, and abandoned with an audit
+// event after MaxRevocationAttempts.
+func TestProviderTokenRevocationRetries(t *testing.T) {
+	f := newSocialFixture(t)
+	ctx := context.Background()
+	deleteAppleAccount := func(subject, refresh string) {
+		t.Helper()
+		claims := socialtest.Claims{Subject: subject, Audience: "com.example.app", Email: subject + "@example.com", Extra: map[string]any{"email_verified": "true"}}
+		res, err := f.nativeSignIn(t, social.Apple, claims, f.srv.Code(socialtest.Claims{Subject: subject, Audience: "com.example.app"}, refresh), "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := f.svc.DeleteAccount(f.principalCtx(t, res.Token), "", authdomain.SecondFactor{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	deleteAppleAccount("001.retry", "refresh-retry")
+	f.srv.FailRevocations(true)
+	if got, err := f.svc.RevokeProviderTokens(ctx); err != nil || got != (authdomain.RevocationResult{Retrying: 1}) {
+		t.Fatalf("RevokeProviderTokens() with the provider down = %+v, %v; want one retrying", got, err)
+	}
+	if got, err := f.svc.RevokeProviderTokens(ctx); err != nil || got != (authdomain.RevocationResult{}) {
+		t.Errorf("RevokeProviderTokens() before the backoff = %+v, %v; want nothing due", got, err)
+	}
+	f.clock.advance(authdomain.RevocationBackoff(1))
+	f.srv.FailRevocations(false)
+	if got, err := f.svc.RevokeProviderTokens(ctx); err != nil || got.Revoked != 1 || !slices.Equal(f.srv.Revoked(), []string{"refresh-retry"}) {
+		t.Fatalf("RevokeProviderTokens() after the backoff = %+v, %v; revoked %v", got, err, f.srv.Revoked())
+	}
+
+	deleteAppleAccount("001.gone", "refresh-gone")
+	f.srv.FailRevocations(true)
+	var total authdomain.RevocationResult
+	for range authdomain.MaxRevocationAttempts {
+		got, err := f.svc.RevokeProviderTokens(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		total.Retrying, total.Abandoned = total.Retrying+got.Retrying, total.Abandoned+got.Abandoned
+		f.clock.advance(6*time.Hour + time.Minute)
+	}
+	if total != (authdomain.RevocationResult{Retrying: authdomain.MaxRevocationAttempts - 1, Abandoned: 1}) {
+		t.Errorf("results over %d attempts = %+v", authdomain.MaxRevocationAttempts, total)
+	}
+	if _, ok := f.audit.find("auth.identity.revocation_abandoned"); !ok {
+		t.Error("no auth.identity.revocation_abandoned event")
+	}
+}
+
+func TestRevocationBackoff(t *testing.T) {
+	for attempts, want := range map[int]time.Duration{0: time.Minute, 1: time.Minute, 2: 2 * time.Minute, 5: 16 * time.Minute, 9: 256 * time.Minute, 10: 6 * time.Hour, 50: 6 * time.Hour} {
+		if got := authdomain.RevocationBackoff(attempts); got != want {
+			t.Errorf("RevocationBackoff(%d) = %s, want %s", attempts, got, want)
+		}
 	}
 }
 

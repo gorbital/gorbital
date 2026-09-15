@@ -14,7 +14,8 @@ import (
 // password (for an account without one, a recent sign-in), and a second
 // factor when two-factor authentication is on (a code, a recovery code, or a
 // passkey's response to BeginPasskeyVerification), and ends every session.
-// It unlinks Google and Apple identities and revokes Apple's tokens. The
+// It unlinks Google and Apple identities and queues Apple's tokens for
+// revocation. The
 // address can register again at once; Cleanup removes the account's data
 // after the retention period. It returns ErrInvalidCredentials, ErrInvalidMFA
 // or ErrMFAUnavailable.
@@ -28,10 +29,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 	if err := s.checkAccountDeletion(ctx, p.UserID); err != nil {
 		return err
 	}
-	var (
-		state      error
-		identities []authdomain.Identity
-	)
+	var state error
 	err = s.store.InTx(ctx, func(tx Store) error {
 		u, err := tx.SelectUserByID(ctx, p.UserID, true)
 		if err != nil {
@@ -48,7 +46,11 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 		if err := tx.MarkUserDeleted(ctx, u.ID, now); err != nil {
 			return err
 		}
-		if identities, err = tx.DeleteIdentities(ctx, u.ID); err != nil {
+		identities, err := tx.DeleteIdentities(ctx, u.ID)
+		if err != nil {
+			return err
+		}
+		if err := s.queueRevocations(ctx, tx, identities...); err != nil {
 			return err
 		}
 		_, err = tx.RevokeUserSessions(ctx, u.ID, "", now, "account_deleted")
@@ -62,7 +64,6 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 	case state != nil:
 		return state
 	}
-	s.revokeIdentities(ctx, identities...)
 	s.audit(ctx, userEvent("auth.account.deleted", p.UserID, authlib.ClientInfoFromContext(ctx)))
 	s.accountDeleted(ctx, p.UserID)
 	return nil

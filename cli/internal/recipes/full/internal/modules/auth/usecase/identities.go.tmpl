@@ -4,11 +4,23 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"time"
 
+	"apistock.dev/actor"
+	"apistock.dev/audit"
 	authlib "apistock.dev/modules/auth"
 	"apistock.dev/modules/auth/social"
 
 	authdomain "⟦.Module⟧/internal/modules/auth/domain"
+)
+
+const (
+	// revocationBatch is how many provider tokens one job run revokes; with
+	// the provider client's 10-second timeout it finishes within the lease.
+	revocationBatch = 20
+	// revocationLease is how long a claimed revocation is hidden from other
+	// runs.
+	revocationLease = 10 * time.Minute
 )
 
 // ListIdentities returns the Google and Apple accounts linked to the
@@ -28,8 +40,9 @@ func (s *Service) ListIdentities(ctx context.Context) ([]authdomain.Identity, er
 // RemoveIdentity unlinks one of the signed-in user's Google or Apple
 // accounts. It checks the user as confirmUser does, refuses to remove the
 // account's last way to sign in (no password, passkey or other identity
-// left), and revokes Apple's token. It returns ErrInvalidCredentials,
-// ErrInvalidMFA, ErrIdentityNotFound or ErrLastSignInMethod.
+// left), and queues Apple's token for revocation. It returns
+// ErrInvalidCredentials, ErrInvalidMFA, ErrIdentityNotFound or
+// ErrLastSignInMethod.
 func (s *Service) RemoveIdentity(ctx context.Context, id, password string) error {
 	p, err := requirePrincipal(ctx)
 	if err != nil {
@@ -65,8 +78,10 @@ func (s *Service) RemoveIdentity(ctx context.Context, id, password string) error
 			return nil
 		}
 		to = u.Email
-		removed, _, err = tx.DeleteIdentity(ctx, id, u.ID)
-		return err
+		if removed, _, err = tx.DeleteIdentity(ctx, id, u.ID); err != nil {
+			return err
+		}
+		return s.queueRevocations(ctx, tx, removed)
 	})
 	switch {
 	case errors.Is(err, authdomain.ErrUserNotFound):
@@ -76,7 +91,6 @@ func (s *Service) RemoveIdentity(ctx context.Context, id, password string) error
 	case state != nil:
 		return state
 	}
-	s.revokeIdentities(ctx, removed)
 	s.sent(ctx, "sign_in_method_removed", s.emails.SendSignInMethodRemoved(ctx, to, providerName(removed.Provider)))
 	e := userEvent("auth.identity.unlinked", p.UserID, authlib.ClientInfoFromContext(ctx))
 	e.Metadata = map[string]any{"provider": removed.Provider, "identity_id": removed.ID}
@@ -87,8 +101,9 @@ func (s *Service) RemoveIdentity(ctx context.Context, id, password string) error
 // HandleAppleNotification acts on a server-to-server notification Apple
 // posts: consent-revoked and account-delete unlink the Apple identity and,
 // when the account has no other way to sign in, end its sessions; email
-// changes are recorded. Unknown people are ignored. It returns
-// ErrSocialUnavailable or ErrInvalidSocialToken.
+// changes are recorded. Unknown people are ignored. Apple has already
+// revoked the tokens, so none are queued. It returns ErrSocialUnavailable or
+// ErrInvalidSocialToken.
 func (s *Service) HandleAppleNotification(ctx context.Context, payload string) error {
 	p := s.providers[social.Apple]
 	if p == nil {
@@ -145,25 +160,83 @@ func (s *Service) HandleAppleNotification(ctx context.Context, payload string) e
 	return nil
 }
 
-// revokeIdentities revokes the stored Apple refresh tokens of removed
-// identities. Failures are logged: the identity is already unlinked.
-func (s *Service) revokeIdentities(ctx context.Context, identities ...authdomain.Identity) {
-	ctx = context.WithoutCancel(ctx)
+// queueRevocations queues the provider refresh tokens of removed identities
+// for the auth_revoke_tokens job, in the transaction that removed them, so
+// no token is lost and the request never waits on the provider.
+func (s *Service) queueRevocations(ctx context.Context, tx Store, identities ...authdomain.Identity) error {
+	now := s.now()
 	for _, i := range identities {
 		if len(i.RefreshTokenCiphertext) == 0 {
 			continue
 		}
-		p := s.providers[i.Provider]
-		if p == nil || s.keyring == nil {
-			s.logger.WarnContext(ctx, "can't revoke the provider's token: the provider or AUTH_ENCRYPTION_KEYS isn't configured", "provider", i.Provider, "identity_id", i.ID)
-			continue
-		}
-		token, err := s.keyring.Decrypt(i.RefreshKeyID, i.RefreshTokenCiphertext, identityAAD(i.Provider, i.Subject))
-		if err == nil {
-			err = p.Revoke(ctx, string(token), i.RefreshClientID)
-		}
+		err := tx.InsertTokenRevocation(ctx, authdomain.TokenRevocation{
+			ID: authlib.NewID("rvk"), Provider: i.Provider, Subject: i.Subject, ClientID: i.RefreshClientID,
+			KeyID: i.RefreshKeyID, TokenCiphertext: i.RefreshTokenCiphertext, NextAttemptAt: now, CreatedAt: now,
+		})
 		if err != nil {
-			s.logger.ErrorContext(ctx, "revoke the provider's token", "provider", i.Provider, "identity_id", i.ID, "err", err)
+			return err
 		}
 	}
+	return nil
+}
+
+// RevokeProviderTokens revokes queued provider tokens that are due, for the
+// auth_revoke_tokens job. A failed revocation is retried with
+// RevocationBackoff and abandoned, with an audit event, after
+// MaxRevocationAttempts. Only database errors are returned.
+func (s *Service) RevokeProviderTokens(ctx context.Context) (authdomain.RevocationResult, error) {
+	var res authdomain.RevocationResult
+	now := s.now()
+	due, err := s.store.ClaimTokenRevocations(ctx, now, now.Add(revocationLease), revocationBatch)
+	if err != nil {
+		return res, dbError("claim token revocations", err)
+	}
+	for _, r := range due {
+		revokeErr := s.revokeToken(ctx, r)
+		attempts := r.Attempts + 1
+		switch {
+		case revokeErr == nil:
+			if err := s.store.DeleteTokenRevocation(ctx, r.ID); err != nil {
+				return res, dbError("finish token revocation", err)
+			}
+			res.Revoked++
+		case attempts >= authdomain.MaxRevocationAttempts:
+			if err := s.store.DeleteTokenRevocation(ctx, r.ID); err != nil {
+				return res, dbError("abandon token revocation", err)
+			}
+			res.Abandoned++
+			s.logger.ErrorContext(ctx, "gave up revoking a provider token", "provider", r.Provider, "revocation_id", r.ID, "attempts", attempts, "err", revokeErr)
+			s.audit(ctx, auditEvent{
+				Action: "auth.identity.revocation_abandoned", Outcome: audit.OutcomeFailure, ActorKind: actor.KindSystem, ActorID: "auth_revoke_tokens",
+				Metadata: map[string]any{"provider": r.Provider, "revocation_id": r.ID, "attempts": attempts},
+			})
+		default:
+			if err := s.store.RetryTokenRevocation(ctx, r.ID, attempts, s.now().Add(authdomain.RevocationBackoff(attempts)), truncate(revokeErr.Error(), 500)); err != nil {
+				return res, dbError("retry token revocation", err)
+			}
+			res.Retrying++
+			s.logger.WarnContext(ctx, "revoke a provider token; will retry", "provider", r.Provider, "revocation_id", r.ID, "attempts", attempts, "err", revokeErr)
+		}
+	}
+	return res, nil
+}
+
+// revokeToken decrypts a queued token and revokes it at its provider.
+func (s *Service) revokeToken(ctx context.Context, r authdomain.TokenRevocation) error {
+	p := s.providers[r.Provider]
+	if p == nil || s.keyring == nil {
+		return errors.New("the provider or AUTH_ENCRYPTION_KEYS isn't configured")
+	}
+	token, err := s.keyring.Decrypt(r.KeyID, r.TokenCiphertext, identityAAD(r.Provider, r.Subject))
+	if err != nil {
+		return err
+	}
+	return p.Revoke(ctx, string(token), r.ClientID)
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
 }
