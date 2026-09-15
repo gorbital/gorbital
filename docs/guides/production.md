@@ -1,6 +1,6 @@
 # Running in production
 
-How to build, configure, migrate, run and operate a Full app on servers. apistock doesn't host anything: the app is one container image and PostgreSQL, deployable on any platform that runs containers. Beginners: start with the [go-live checklist](../../site/content/sign-in/go-live.md).
+How to build, configure, migrate, run and operate a Full app on servers. apistock doesn't host anything: the app is one container image and PostgreSQL, deployable on any platform that runs containers. Beginners: start with the [go-live checklist](../sign-in/go-live.md).
 
 ## What runs
 

@@ -58,7 +58,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0046](0046-google-and-apple-sign-in.md) | Google and Apple sign-in | Accepted |
 | [0047](0047-client-templates.md) | Client templates: docs site, dashboard and mobile apps from separate template repositories | Proposed |
 | [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Accepted, amended by 0050 |
-| [0049](0049-public-docs-and-website.md) | Public website: landing page, framework docs and API reference in the apistock look, built by a Go generator in `site/` | Accepted |
+| [0049](0049-public-docs-and-website.md) | Public website: landing page, framework docs and API reference in the apistock look; the Go generator in `site/` was replaced by the apistock-web Next.js repository on 2026-09-15 | Accepted |
 | [0050](0050-upgrades-and-adding-features.md) | Upgrading apps and adding features to them (v0.5): lock v2, rebuilt merge base, `aps upgrade`, `aps add orgs` | Accepted |
 | [0051](0051-operations-v0-5.md) | Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports, `aps doctor` | Accepted |
 | [0052](0052-shared-rate-limits.md) | Shared rate limits and trusted proxies | Accepted |

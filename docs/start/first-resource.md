@@ -196,4 +196,4 @@ Edit a migration only until it has run anywhere but your computer. After that, a
 
 In an app created with `--tenancy multi`, the same command makes invoices belong to an **organisation** instead of a user: endpoints under `/v1/orgs/{orgId}/invoices`, an `org_id` column instead of `owner_id`, a membership check in every use case, `invoices.invoice.read` and `.write` permissions for organisation roles, and tests proving a member of another organisation gets 404. See [Organisations](organisations.md).
 
-All flags and rules: [CLI reference](../../docs/guides/cli.md#aps-gen-resource).
+All flags and rules: [CLI reference](../guides/cli.md#aps-gen-resource).

@@ -107,7 +107,7 @@ TOTP (RFC 6238) and the AES-GCM keyring are implemented on the standard library 
 
 ## Website libraries
 
-The `site/` generator for apistock.dev and docs.apistock.dev ([ADR-0049](../adr/0049-public-docs-and-website.md)). Not part of apps.
+apistock.dev and docs.apistock.dev are built by the separate apistock-web repository from this repository's `docs/` ([ADR-0049](../adr/0049-public-docs-and-website.md)). Not part of apps.
 
 | Library | Version | Why |
 |---|---|---|

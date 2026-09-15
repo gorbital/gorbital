@@ -1,0 +1,115 @@
+{
+  "name": "apistock",
+  "version": "v0.5",
+  "announcement": "pre-release · v0.5: upgrades and ops are in",
+  "github": "https://github.com/apistockhq/apistock",
+  "www": "https://apistock.dev",
+  "url": "https://docs.apistock.dev",
+  "install": "git clone https://github.com/apistockhq/apistock.git && cd apistock/cli && go install ./cmd/aps",
+  "tabs": [
+    {
+      "name": "Guides",
+      "groups": [
+        {
+          "name": "Start",
+          "pages": [
+            { "title": "Introduction", "slug": "", "source": "docs/start/introduction.md" },
+            { "title": "What you need", "slug": "prerequisites", "source": "docs/start/prerequisites.md" },
+            { "title": "Quickstart", "slug": "quickstart", "source": "docs/start/quickstart.md" },
+            { "title": "How apistock works", "slug": "concepts", "source": "docs/start/concepts.md" }
+          ]
+        },
+        {
+          "name": "Build your API",
+          "pages": [
+            { "title": "Add your first resource", "slug": "guides/first-resource", "source": "docs/start/first-resource.md" },
+            { "title": "Organisations", "slug": "guides/organisations", "source": "docs/start/organisations.md" },
+            { "title": "Upgrading apps", "slug": "guides/upgrading", "source": "docs/start/upgrading.md" }
+          ]
+        },
+        {
+          "name": "Set up sign-in",
+          "pages": [
+            { "title": "Overview", "slug": "sign-in", "source": "docs/sign-in/overview.md" },
+            { "title": "Every key and credential", "slug": "sign-in/all-keys", "source": "docs/sign-in/all-keys.md" },
+            { "title": "Encryption key", "slug": "sign-in/encryption-key", "source": "docs/sign-in/encryption-key.md" },
+            { "title": "Email sending", "slug": "sign-in/email", "source": "docs/sign-in/email.md" },
+            { "title": "Passkeys", "slug": "sign-in/passkeys", "source": "docs/sign-in/passkeys.md" },
+            { "title": "Passkeys in mobile apps", "slug": "sign-in/passkeys-mobile", "source": "docs/sign-in/passkeys-mobile.md" },
+            { "title": "Google sign-in", "slug": "sign-in/google", "source": "docs/sign-in/google.md" },
+            { "title": "Apple sign-in", "slug": "sign-in/apple", "source": "docs/sign-in/apple.md" },
+            { "title": "Go-live checklist", "slug": "sign-in/go-live", "source": "docs/sign-in/go-live.md" }
+          ]
+        },
+        {
+          "name": "Help",
+          "pages": [
+            { "title": "Troubleshooting", "slug": "troubleshooting", "source": "docs/start/troubleshooting.md" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Technical",
+      "groups": [
+        {
+          "name": "Architecture",
+          "pages": [
+            { "title": "Architecture overview", "slug": "technical/architecture", "source": "docs/architecture.md" },
+            { "title": "Key decisions", "slug": "technical/key-decisions", "source": "docs/guides/key-decisions.md" },
+            { "title": "App layout and rules", "slug": "technical/app-layout", "source": "examples/full-single/ARCHITECTURE.md" },
+            { "title": "Life of a request", "slug": "technical/request-lifecycle", "source": "docs/guides/request-lifecycle.md" },
+            { "title": "Inside a generated app", "slug": "technical/app-internals", "source": "docs/guides/app-internals.md" },
+            { "title": "Services and libraries", "slug": "technical/services-and-libraries", "source": "docs/guides/services-and-libraries.md" }
+          ]
+        },
+        {
+          "name": "Configuration and security",
+          "pages": [
+            { "title": "Environment variables", "slug": "technical/environment-variables", "source": "docs/guides/environment-variables.md" },
+            { "title": "Secrets and keys", "slug": "technical/secrets-and-keys", "source": "docs/guides/secrets-and-keys.md" }
+          ]
+        },
+        {
+          "name": "Subsystems",
+          "pages": [
+            { "title": "Database", "slug": "technical/database", "source": "docs/guides/database.md" },
+            { "title": "Runtime settings", "slug": "technical/runtime-settings", "source": "docs/guides/runtime-settings.md" },
+            { "title": "Background jobs", "slug": "technical/background-jobs", "source": "docs/guides/background-jobs.md" },
+            { "title": "Authentication", "slug": "technical/authentication", "source": "docs/guides/authentication.md" },
+            { "title": "Sign-in providers", "slug": "technical/sign-in-providers", "source": "docs/guides/auth-providers.md" },
+            { "title": "Email", "slug": "technical/email", "source": "docs/guides/email.md" },
+            { "title": "Error handling", "slug": "technical/error-handling", "source": "docs/guides/error-handling.md" },
+            { "title": "Ops API", "slug": "technical/ops-api", "source": "docs/guides/ops-api.md" },
+            { "title": "Local development", "slug": "technical/local-development", "source": "docs/guides/local-development.md" }
+          ]
+        },
+        {
+          "name": "Test and deploy",
+          "pages": [
+            { "title": "Testing", "slug": "technical/testing", "source": "docs/guides/testing.md" },
+            { "title": "Running in production", "slug": "technical/production", "source": "docs/guides/production.md" },
+            { "title": "Upgrade notes", "slug": "technical/upgrade-notes", "source": "docs/guides/upgrade-notes.md" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CLI",
+      "groups": [
+        {
+          "name": "Reference",
+          "pages": [{ "title": "CLI reference", "slug": "cli", "source": "docs/guides/cli.md" }]
+        }
+      ]
+    },
+    { "name": "API reference", "slug": "api-reference", "generate": "openapi", "source": "examples/full-multi/api/openapi.json" },
+    { "name": "Decisions", "slug": "decisions", "generate": "decisions", "source": "docs/adr" },
+    {
+      "name": "Roadmap",
+      "groups": [
+        { "name": "Roadmap", "pages": [{ "title": "Roadmap", "slug": "roadmap", "source": "docs/roadmap.md" }] }
+      ]
+    }
+  ]
+}

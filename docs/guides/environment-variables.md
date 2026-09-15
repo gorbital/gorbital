@@ -1,6 +1,6 @@
 # Environment variables
 
-Every environment variable apistock reads, verified against the code: what reads it, its default, how it's validated, whether it's a secret, and where the value comes from. For a beginner's walkthrough of the credentials, see [Every key and credential](../../site/content/sign-in/all-keys.md).
+Every environment variable apistock reads, verified against the code: what reads it, its default, how it's validated, whether it's a secret, and where the value comes from. For a beginner's walkthrough of the credentials, see [Every key and credential](../sign-in/all-keys.md).
 
 Three groups of programs read the environment, and each has its own variables:
 

@@ -2,7 +2,7 @@
 
 Every secret, key, token and code in a Full app: what it is, why it exists, who creates it, how it's stored, whether it's safe to expose, how to rotate it, and what an attacker could do with it. Verified against `modules/auth`, `modules/auth/social`, `config` and `examples/full-single/internal/app`.
 
-For step-by-step instructions for the values you provide, see the beginner guides: [Encryption key](../../site/content/sign-in/encryption-key.md), [Google](../../site/content/sign-in/google.md), [Apple](../../site/content/sign-in/apple.md), [Email](../../site/content/sign-in/email.md), and [Every key and credential](../../site/content/sign-in/all-keys.md).
+For step-by-step instructions for the values you provide, see the beginner guides: [Encryption key](../sign-in/encryption-key.md), [Google](../sign-in/google.md), [Apple](../sign-in/apple.md), [Email](../sign-in/email.md), and [Every key and credential](../sign-in/all-keys.md).
 
 ## Summary
 

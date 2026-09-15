@@ -94,4 +94,4 @@ Secrets never go in the database, and nothing is set in two places.
 
 - [Quickstart](quickstart.md): create and run an app.
 - [Add your first resource](first-resource.md): add your own kind of data.
-- [Set up sign-in](sign-in/overview.md): turn on Google, Apple, passkeys and email.
+- [Set up sign-in](../sign-in/overview.md): turn on Google, Apple, passkeys and email.

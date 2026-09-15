@@ -1,6 +1,6 @@
 # Organisations
 
-In a multi-tenant app, data belongs to organisations. People join them as members with one role each, invite others by email, and reach an organisation's rows only while they are members. Decision: [ADR-0048](../../docs/adr/0048-organisations-v0-4.md).
+In a multi-tenant app, data belongs to organisations. People join them as members with one role each, invite others by email, and reach an organisation's rows only while they are members. Decision: [ADR-0048](../adr/0048-organisations-v0-4.md).
 
 > [!NOTE]
 > Tenancy is chosen when you create the app. To turn an existing single-tenant app multi-tenant, run `aps add orgs`: it merges the multi-tenant files into yours on a branch and adds migrations that give every account a personal workspace and move projects into it. See [Upgrading apps](upgrading.md).

@@ -102,7 +102,7 @@ level=INFO msg=starting service=acme-api addr=http://127.0.0.1:8080
 What happened:
 
 1. **`.env` created.** Your app's settings for this computer, copied from `.env.example`. Git ignores it.
-2. **Encryption key written.** `AUTH_ENCRYPTION_KEYS` encrypts two-factor secrets; `aps` generated a random one for development ([what it is](sign-in/encryption-key.md)).
+2. **Encryption key written.** `AUTH_ENCRYPTION_KEYS` encrypts two-factor secrets; `aps` generated a random one for development ([what it is](../sign-in/encryption-key.md)).
 3. **PostgreSQL and Mailpit started** in Docker. The first time, Docker downloads their images.
 4. **Migrations applied.** Migrations are SQL files that create your tables, in order; the job queue has its own.
 5. **Seed data created.** An administrator account and three example projects, so you have something to sign in with.
@@ -303,5 +303,5 @@ Run `set -a; . ./.env; set +a` again in every new terminal, and after editing `.
 ## Next
 
 - [How apistock works](concepts.md): the parts, and where settings live.
-- [Set up sign-in](sign-in/overview.md): Google, Apple, passkeys and real email.
-- [CLI reference](../../docs/guides/cli.md): every command and flag.
+- [Set up sign-in](../sign-in/overview.md): Google, Apple, passkeys and real email.
+- [CLI reference](../guides/cli.md): every command and flag.

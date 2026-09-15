@@ -204,7 +204,7 @@ The design choices that shape every apistock app, each with what was chosen, the
 
 ## 19. One reference renderer, and a generated site
 
-**Chosen.** `modules/openapi/reference` renders every app's `/docs` from its own OpenAPI document with embedded assets and a strict Content-Security-Policy; the public site renders its API tab with the same package. docs.apistock.dev and apistock.dev are built by a small Go generator in `site/` from the repository's Markdown and published on Cloudflare Pages ([ADR-0049](../adr/0049-public-docs-and-website.md)).
+**Chosen.** `modules/openapi/reference` renders every app's `/docs` from its own OpenAPI document with embedded assets and a strict Content-Security-Policy; the public site renders its API tab from the same `openapi.json`. docs.apistock.dev and apistock.dev are built by the separate apistock-web repository (Next.js) from this repository's Markdown and deployed on Vercel ([ADR-0049](../adr/0049-public-docs-and-website.md)).
 
 **Alternatives.** Embedded Scalar (the original choice); a hosted docs product; a JavaScript static-site framework.
 

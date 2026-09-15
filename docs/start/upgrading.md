@@ -1,6 +1,6 @@
 # Upgrading apps
 
-apistock writes your app's code once, then you own it. When a new release improves those files, `aps upgrade` merges the improvements into your edited code on a branch, and `aps add orgs` uses the same merge to make a single-tenant app multi-tenant. Decision: [ADR-0050](../../docs/adr/0050-upgrades-and-adding-features.md).
+apistock writes your app's code once, then you own it. When a new release improves those files, `aps upgrade` merges the improvements into your edited code on a branch, and `aps add orgs` uses the same merge to make a single-tenant app multi-tenant. Decision: [ADR-0050](../adr/0050-upgrades-and-adding-features.md).
 
 ## How it keeps your edits
 
@@ -59,4 +59,4 @@ It merges the multi-tenant app's files into yours on branch `aps-add-orgs` and a
 > [!WARNING]
 > Run `aps upgrade` first when your app is on an older release: `aps add orgs` adds organisations to this release's files.
 
-Full flags and merge rules: [CLI reference](../../docs/guides/cli.md).
+Full flags and merge rules: [CLI reference](../guides/cli.md).

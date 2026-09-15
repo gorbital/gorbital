@@ -145,16 +145,16 @@ The app checks every setting before it starts and lists **all** problems at once
 
 | Message | Fix |
 |---|---|
-| `AUTH_ENCRYPTION_KEYS is required in production` | Generate a key: [Encryption key](sign-in/encryption-key.md) |
+| `AUTH_ENCRYPTION_KEYS is required in production` | Generate a key: [Encryption key](../sign-in/encryption-key.md) |
 | `AUTH_ENCRYPTION_KEYS: auth: invalid encryption keys: key "k1" must be 32 bytes in base64` | The part after `k1:` isn't a 32-byte key; generate it with `openssl rand -base64 32` and copy the whole line |
-| `RESEND_API_KEY is required to send email with Resend` | Set the key ([Email sending](sign-in/email.md)); in development, leave `MAIL_DELIVERY` empty to use Mailpit |
+| `RESEND_API_KEY is required to send email with Resend` | Set the key ([Email sending](../sign-in/email.md)); in development, leave `MAIL_DELIVERY` empty to use Mailpit |
 | `SMTP_HOST is required` or `SMTP_PASSWORD is required when SMTP_USERNAME is set` | Fill in your SMTP values |
 | `MAIL_DELIVERY=mailpit is for development; production sends email through the provider` | Remove `MAIL_DELIVERY` in production |
-| `GOOGLE_CLIENT_SECRET is required with GOOGLE_CLIENT_ID` | Add the secret, or empty the client ID ([Google](sign-in/google.md)) |
-| `sign-in with Apple also needs …` | Set the variables it names, or empty every `APPLE_` variable ([Apple](sign-in/apple.md)) |
+| `GOOGLE_CLIENT_SECRET is required with GOOGLE_CLIENT_ID` | Add the secret, or empty the client ID ([Google](../sign-in/google.md)) |
+| `sign-in with Apple also needs …` | Set the variables it names, or empty every `APPLE_` variable ([Apple](../sign-in/apple.md)) |
 | `APPLE_PRIVATE_KEY_FILE: … isn't a PEM private key` | Point to the `.p8` file Apple gave you |
 | `APP_PUBLIC_URL is required with Google or Apple sign-in` | Set your API's https address |
-| `WEBAUTHN_RP_ID is required with WEBAUTHN_ORIGINS, WEBAUTHN_APPLE_APP_IDS or WEBAUTHN_ANDROID_APPS` | Set your domain as `WEBAUTHN_RP_ID` ([Passkeys](sign-in/passkeys.md)) |
+| `WEBAUTHN_RP_ID is required with WEBAUTHN_ORIGINS, WEBAUTHN_APPLE_APP_IDS or WEBAUTHN_ANDROID_APPS` | Set your domain as `WEBAUTHN_RP_ID` ([Passkeys](../sign-in/passkeys.md)) |
 | `WEBAUTHN_ORIGINS: "http://…" must use https in production` | Use https addresses |
 | `config: both variable and _FILE variant are set: DATABASE_URL` | Set `DATABASE_URL` or `DATABASE_URL_FILE`, not both |
 | `config: read DATABASE_URL_FILE: …` | The file path is wrong or unreadable |
@@ -183,7 +183,7 @@ Check `code` in your code: it never changes. `detail` is for people, and can.
 | 422 `validation_failed` | A field is missing or invalid | `errors` lists each field and what's wrong |
 | 429 `rate_limited` | More than 60 sign-in requests a minute from your address, or too many attempts on one account | Wait a minute |
 | 503 `mfa_unavailable` | No `AUTH_ENCRYPTION_KEYS` in development, so authenticator apps are off | Set a key and restart |
-| 503 `passkeys_unavailable` | `WEBAUTHN_RP_ID` is empty in production | Set it ([Passkeys](sign-in/passkeys.md)) |
+| 503 `passkeys_unavailable` | `WEBAUTHN_RP_ID` is empty in production | Set it ([Passkeys](../sign-in/passkeys.md)) |
 | 503 `auth_unavailable` | The app couldn't check the session, usually because the database is down | `curl /readyz`; check PostgreSQL |
 | 500 `internal_error` | An unexpected error; details are only in the log | Search the log for the `request_id` |
 
@@ -195,7 +195,7 @@ Check `code` in your code: it never changes. `detail` is for people, and can.
 
 **Look at the delivery:** emails are sent by a background job. `GET /ops/jobs/runs?kind=apistock.mail.send` shows each attempt and its error.
 
-**Fix:** start Mailpit (`docker compose up -d --wait`), or correct the port. More email problems: [Email sending](sign-in/email.md#if-something-goes-wrong).
+**Fix:** start Mailpit (`docker compose up -d --wait`), or correct the port. More email problems: [Email sending](../sign-in/email.md#if-something-goes-wrong).
 
 ## Passkeys, Google and Apple
 
@@ -203,9 +203,9 @@ Check `code` in your code: it never changes. `detail` is for people, and can.
 |---|---|
 | Browser console: `SecurityError` when adding or using a passkey | Open the app at `http://localhost:8080`, not `127.0.0.1`; in production the page must be https on `WEBAUTHN_RP_ID` or a subdomain |
 | Browser console: blocked by CORS policy | Add the page's origin to `APP_CORS_ORIGINS` (and to `WEBAUTHN_ORIGINS` for passkeys) |
-| Google: `Error 400: redirect_uri_mismatch` | Register the exact redirect URI Google shows ([Google](sign-in/google.md#if-something-goes-wrong)) |
+| Google: `Error 400: redirect_uri_mismatch` | Register the exact redirect URI Google shows ([Google](../sign-in/google.md#if-something-goes-wrong)) |
 | Google: `Access blocked: … has not completed the Google verification process` | Add yourself as a test user, or publish the consent screen |
-| Apple: `invalid_client` or `Invalid redirect_uri` | [Apple](sign-in/apple.md#if-something-goes-wrong) |
+| Apple: `invalid_client` or `Invalid redirect_uri` | [Apple](../sign-in/apple.md#if-something-goes-wrong) |
 | Back on your site with `#error=…` | Sign-in with the provider didn't finish; the log line for the callback says why |
 
 ## Tests

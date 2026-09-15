@@ -1,7 +1,0 @@
-{
-  "name": "apistock",
-  "version": "v0.4",
-  "announcement": "pre-release · v0.4: organisations are in",
-  "github": "https://github.com/apistockhq/apistock",
-  "install": "git clone https://github.com/apistockhq/apistock.git && cd apistock/cli && go install ./cmd/aps"
-}

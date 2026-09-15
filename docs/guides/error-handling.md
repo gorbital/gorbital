@@ -143,4 +143,4 @@ For errors that carry data, such as a retry delay, define a type implementing `e
 
 ## Startup errors
 
-Configuration errors don't reach HTTP: `LoadConfig` collects every problem and `cmd/api` exits with `invalid configuration:` and one line per variable. Construction errors (`app.New`: database connection, invalid mappings, invalid keys) exit with the wrapped cause, such as `postgres: connect: …`. See [Troubleshooting](../../site/content/troubleshooting.md#configuration-errors-at-start).
+Configuration errors don't reach HTTP: `LoadConfig` collects every problem and `cmd/api` exits with `invalid configuration:` and one line per variable. Construction errors (`app.New`: database connection, invalid mappings, invalid keys) exit with the wrapped cause, such as `postgres: connect: …`. See [Troubleshooting](../start/troubleshooting.md#configuration-errors-at-start).

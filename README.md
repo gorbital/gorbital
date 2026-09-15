@@ -6,7 +6,7 @@
 
 ## Try it
 
-Requires Go 1.26 or later (latest patch) and Docker. Full walkthrough with the real output: [Quickstart](site/content/quickstart.md).
+Requires Go 1.26 or later (latest patch) and Docker. Full walkthrough with the real output: [Quickstart](docs/start/quickstart.md).
 
 ```bash
 git clone https://github.com/apistockhq/apistock.git
@@ -25,7 +25,7 @@ aps dev                                               # PostgreSQL and Mailpit i
 | http://127.0.0.1:8025 | Mailpit: every email sent in development |
 | http://127.0.0.1:8080/readyz | Readiness |
 
-If your shell says `command not found: aps`, add Go's bin directory to your `PATH` (`export PATH="$(go env GOPATH)/bin:$PATH"`) and open a new terminal. If port 5432 is taken, set `POSTGRES_PORT` and the same port in `DATABASE_URL` in `.env`. More: [Troubleshooting](site/content/troubleshooting.md).
+If your shell says `command not found: aps`, add Go's bin directory to your `PATH` (`export PATH="$(go env GOPATH)/bin:$PATH"`) and open a new terminal. If port 5432 is taken, set `POSTGRES_PORT` and the same port in `DATABASE_URL` in `.env`. More: [Troubleshooting](docs/start/troubleshooting.md).
 
 ## What apistock is
 
@@ -55,7 +55,7 @@ aps dev                 # API at :8080, docs at /docs, local email inbox
 ## Documentation
 
 - [Documentation index](docs/README.md): everything below, with what each covers
-- For app builders: [What you need](site/content/prerequisites.md), [Quickstart](site/content/quickstart.md), [Set up sign-in](site/content/sign-in/overview.md), [Every key and credential](site/content/sign-in/all-keys.md), [Troubleshooting](site/content/troubleshooting.md)
+- For app builders: [What you need](docs/start/prerequisites.md), [Quickstart](docs/start/quickstart.md), [Set up sign-in](docs/sign-in/overview.md), [Every key and credential](docs/sign-in/all-keys.md), [Troubleshooting](docs/start/troubleshooting.md)
 - Technical: [Architecture](docs/architecture.md), [Life of a request](docs/guides/request-lifecycle.md), [Environment variables](docs/guides/environment-variables.md), [Secrets and keys](docs/guides/secrets-and-keys.md), [Testing](docs/guides/testing.md), [Running in production](docs/guides/production.md)
 - [Roadmap](docs/roadmap.md) and [architecture decision records](docs/adr/README.md)
 - [Spikes](spikes/): experiments that informed decisions

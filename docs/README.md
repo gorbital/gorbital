@@ -2,37 +2,37 @@
 
 The documentation has two audiences, and the website at [docs.apistock.dev](https://docs.apistock.dev) renders both from this repository ([ADR-0049](adr/0049-public-docs-and-website.md)):
 
-- **Guides** explain in plain words how to create, run and configure an app, click by click, assuming no prior knowledge. They live in `site/content/`.
+- **Guides** explain in plain words how to create, run and configure an app, click by click, assuming no prior knowledge. They live in `docs/start/` and `docs/sign-in/`.
 - **Technical documentation** explains how apistock works and why: architecture, request lifecycle, functions, configuration, security, testing and production. It lives in `docs/`.
 
 ## Start here
 
 | If you want to | Read |
 |---|---|
-| Understand what apistock is | [Introduction](../site/content/introduction.md), [How apistock works](../site/content/concepts.md) |
-| Install what you need | [What you need](../site/content/prerequisites.md) |
-| Create and run an app | [Quickstart](../site/content/quickstart.md) |
-| Add your own data | [Add your first resource](../site/content/first-resource.md) |
-| Set up Google, Apple, passkeys or email | [Set up sign-in](../site/content/sign-in/overview.md), [Every key and credential](../site/content/sign-in/all-keys.md) |
-| Fix a problem | [Troubleshooting](../site/content/troubleshooting.md) |
-| Launch | [Go-live checklist](../site/content/sign-in/go-live.md), [Running in production](guides/production.md) |
+| Understand what apistock is | [Introduction](start/introduction.md), [How apistock works](start/concepts.md) |
+| Install what you need | [What you need](start/prerequisites.md) |
+| Create and run an app | [Quickstart](start/quickstart.md) |
+| Add your own data | [Add your first resource](start/first-resource.md) |
+| Set up Google, Apple, passkeys or email | [Set up sign-in](sign-in/overview.md), [Every key and credential](sign-in/all-keys.md) |
+| Fix a problem | [Troubleshooting](start/troubleshooting.md) |
+| Launch | [Go-live checklist](sign-in/go-live.md), [Running in production](guides/production.md) |
 | Work on apistock itself | [Local development](guides/local-development.md), [Testing](guides/testing.md) |
 
 ## Guides for app builders
 
 | Guide | Covers |
 |---|---|
-| [Introduction](../site/content/introduction.md) | What apistock is, the two kinds of docs |
-| [What you need](../site/content/prerequisites.md) | Go, Docker, git and the rest: what each is, why, install on macOS and Linux, how to check |
-| [Quickstart](../site/content/quickstart.md) | Install `aps`, create an app, `aps dev` with its real output, sign up, sign in as administrator, ports, running without the CLI |
-| [How apistock works](../site/content/concepts.md) | The three parts, what an app contains, where settings live, glossary |
-| [Add your first resource](../site/content/first-resource.md) | `aps gen resource`, every generated file, the table, testing |
-| [Organisations](../site/content/organisations.md) | Multi-tenant apps |
-| [Set up sign-in](../site/content/sign-in/overview.md) | Overview of sign-in methods and where values go |
-| [Every key and credential](../site/content/sign-in/all-keys.md) | Every value, how it's obtained, complete development and production environments |
-| [Encryption key](../site/content/sign-in/encryption-key.md), [Email sending](../site/content/sign-in/email.md), [Passkeys](../site/content/sign-in/passkeys.md), [Passkeys in mobile apps](../site/content/sign-in/passkeys-mobile.md), [Google](../site/content/sign-in/google.md), [Apple](../site/content/sign-in/apple.md) | Step-by-step setup of each |
-| [Go-live checklist](../site/content/sign-in/go-live.md) | Before real users arrive |
-| [Troubleshooting](../site/content/troubleshooting.md) | Symptoms, exact messages, causes and fixes |
+| [Introduction](start/introduction.md) | What apistock is, the two kinds of docs |
+| [What you need](start/prerequisites.md) | Go, Docker, git and the rest: what each is, why, install on macOS and Linux, how to check |
+| [Quickstart](start/quickstart.md) | Install `aps`, create an app, `aps dev` with its real output, sign up, sign in as administrator, ports, running without the CLI |
+| [How apistock works](start/concepts.md) | The three parts, what an app contains, where settings live, glossary |
+| [Add your first resource](start/first-resource.md) | `aps gen resource`, every generated file, the table, testing |
+| [Organisations](start/organisations.md) | Multi-tenant apps |
+| [Set up sign-in](sign-in/overview.md) | Overview of sign-in methods and where values go |
+| [Every key and credential](sign-in/all-keys.md) | Every value, how it's obtained, complete development and production environments |
+| [Encryption key](sign-in/encryption-key.md), [Email sending](sign-in/email.md), [Passkeys](sign-in/passkeys.md), [Passkeys in mobile apps](sign-in/passkeys-mobile.md), [Google](sign-in/google.md), [Apple](sign-in/apple.md) | Step-by-step setup of each |
+| [Go-live checklist](sign-in/go-live.md) | Before real users arrive |
+| [Troubleshooting](start/troubleshooting.md) | Symptoms, exact messages, causes and fixes |
 
 ## Technical documentation
 
@@ -67,7 +67,7 @@ The documentation has two audiences, and the website at [docs.apistock.dev](http
 |---|---|
 | [Theme](brand/theme.md) | The visual system and voice for docs, landing page, README and CLI output |
 | [Logo files](brand/logo/README.txt) | The mark, lockups, avatars and favicon |
-| [Website](../site/README.md) | How apistock.dev and docs.apistock.dev are built, run locally and published |
+| [Website](https://github.com/apistockhq/apistock-web) | apistock.dev and docs.apistock.dev: a separate Next.js repository that renders these files; `docs/docs.json` lists the pages |
 
 ## Examples
 

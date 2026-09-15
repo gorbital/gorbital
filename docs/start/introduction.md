@@ -33,13 +33,13 @@ apistock makes the early decisions so you can start building. Each one comes wit
 | Security code lives in a library | Fixes reach your app with `go get`; the sign-in flows in your repository are yours to maintain. |
 | You choose single or multi-tenant at the start | Moving from single to multi-tenant later is one command (`aps add orgs`) that merges into your edits; the other way round isn't supported. |
 
-Every decision has a written record with the alternatives considered: see the [decision records](../../docs/adr/README.md).
+Every decision has a written record with the alternatives considered: see the [decision records](../adr/README.md).
 
 ## Where to go next
 
 - [What you need](prerequisites.md): Go, Docker and git, and how to check each works.
 - [Quickstart](quickstart.md): create an app and run it on your computer.
 - [How apistock works](concepts.md): the parts and the words you'll meet, in plain terms.
-- [Set up sign-in](sign-in/overview.md): every key for Google, Apple, passkeys and email, click by click.
+- [Set up sign-in](../sign-in/overview.md): every key for Google, Apple, passkeys and email, click by click.
 - [Troubleshooting](troubleshooting.md): exact error messages and their fixes.
-- [Architecture overview](../../docs/architecture.md): how the library, the CLI and a generated app fit together.
+- [Architecture overview](../architecture.md): how the library, the CLI and a generated app fit together.

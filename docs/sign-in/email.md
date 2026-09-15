@@ -100,7 +100,7 @@ The sender's name and address aren't environment variables: they're **runtime se
 | `mail.from_name` | Your app's name | What people see as the sender, such as `Acme` |
 | `mail.reply_to` | Empty | Where replies go, such as `support@example.com` |
 
-Sign in as an administrator ([how](../quickstart.md#6-sign-in-as-the-administrator)), keep the token in `$TOKEN`, then:
+Sign in as an administrator ([how](../start/quickstart.md#6-sign-in-as-the-administrator)), keep the token in `$TOKEN`, then:
 
 ```bash
 curl -X PUT http://127.0.0.1:8080/ops/settings/mail.from_email \

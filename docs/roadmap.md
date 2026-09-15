@@ -150,10 +150,10 @@ Each milestone below has the same parts: **status** with what was built, then a 
 
 **Status: in progress, built ahead of order** ([ADR-0049](adr/0049-public-docs-and-website.md), accepted 2026-09-15). What's done:
 
-- `site/`: a Go generator for `apistock.dev` (landing page) and `docs.apistock.dev`, published on Cloudflare Pages, with a build only when `site/`, `docs/`, the golden apps' `openapi.json` or the reference renderer change.
+- The website: `apistock.dev` (landing page) and `docs.apistock.dev` are a separate Next.js repository, apistock-web, deployed on Vercel. Its docs app renders a snapshot of this repository's `docs/` (plus the golden app's `ARCHITECTURE.md` and `openapi.json`), synced with `pnpm sync-docs` whenever the docs here change; `docs/docs.json` lists the tabs and pages. The Go generator that first built both sites in `site/` was removed on 2026-09-15.
 - Docs in two audiences: **Guides** for app builders (prerequisites, a quickstart verified against a real run, first resource, every sign-in credential step by step, go-live, troubleshooting) and **Technical** documentation (architecture, key decisions, request lifecycle, app internals, services and libraries, environment variables, secrets and keys, subsystems, error handling, testing, production), plus a package reference generated from Go doc comments, the CLI reference, decision records and this roadmap.
 - An API reference with request and response examples and "Try it", rendered from `examples/full-multi/api/openapi.json`.
-- Search, light and dark themes, Markdown copies of every page, `llms.txt`, Cloudflare Pages `_headers` and `_redirects`, and a test that fails on any broken link.
+- Search, light and dark themes, Markdown copies of every page, `llms.txt`, and redirects for moved pages.
 - The logo kit in `docs/brand/logo`.
 - Generated apps' `/docs` in the same design: `modules/openapi/reference` renders every app's own endpoints with examples, "Try it" and search under a strict Content-Security-Policy with embedded fonts, replacing the embedded Scalar.
 
@@ -161,7 +161,7 @@ Still to do: versioned docs, and compiling the site's code snippets.
 
 | | |
 |---|---|
-| **Delivers** | `apistock.dev` landing page; `docs.apistock.dev` framework documentation (guides, modules, CLI, decision records, changelog) with search, a version per minor release, copy as Markdown and `llms.txt`; a public API reference at `docs.apistock.dev/api-reference` rendered from `examples/full-multi/api/openapi.json`; all three in the apistock look ([theme](brand/theme.md)) with Mintlify's page structure; generated apps' `/docs` restyled with the same system in the app's own name and accent. Built by a small Go generator in `site/` and published on Cloudflare Pages |
+| **Delivers** | `apistock.dev` landing page; `docs.apistock.dev` framework documentation (guides, modules, CLI, decision records, changelog) with search, a version per minor release, copy as Markdown and `llms.txt`; a public API reference at `docs.apistock.dev/api-reference` rendered from `examples/full-multi/api/openapi.json`; all three in the apistock look ([theme](brand/theme.md)) with Mintlify's page structure; generated apps' `/docs` restyled with the same system in the app's own name and accent. Built by the apistock-web Next.js repository from `docs/` and deployed on Vercel |
 | **Not included** | Hosting docs for developers' own apps, a blog, community module index pages (Later), translations |
 | **Done when** | CI builds the site and fails on broken links, WCAG 2.2 AA failures in both themes and code snippets that no longer compile or match the golden apps; the public API reference and a new app's `/docs` render the same `openapi.json` with the same theme; the landing page and a docs page reach Largest Contentful Paint within 2.5 s on a mid-range phone over 4G |
 

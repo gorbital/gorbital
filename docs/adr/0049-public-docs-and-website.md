@@ -1,6 +1,6 @@
 # ADR-0049: Public website, framework docs and API reference
 
-**Status:** Accepted (2026-09-15) · **Amends:** roadmap v1.0 (the docs site moves out of v1.0), ADR-0027 (`/docs` no longer embeds Scalar)
+**Status:** Accepted (2026-09-15), amended 2026-09-15: section 5 is superseded. The Go generator in `site/` was replaced by the apistock-web repository (Next.js, one app per subdomain: `apps/www` for apistock.dev, `apps/docs` for docs.apistock.dev). Content still lives in this repository: builder guides moved from `site/content` to `docs/start` and `docs/sign-in`, and `docs/docs.json` lists the pages; the docs app renders them at build time. Hosting moved from Cloudflare Pages to Vercel (section 5 and maintainer decision 3). Sections 1–4 and 6 stand, except that the site's API tab now uses its own renderer and generated apps keep `modules/openapi/reference`. · **Amends:** roadmap v1.0 (the docs site moves out of v1.0), ADR-0027 (`/docs` no longer embeds Scalar)
 
 ## Context
 
