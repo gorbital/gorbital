@@ -8,6 +8,7 @@ import (
 
 	"apistock.dev/mail"
 	authlib "apistock.dev/modules/auth"
+	"apistock.dev/modules/releases"
 	"apistock.dev/modules/settings"
 )
 
@@ -30,6 +31,10 @@ type appSettings struct {
 	authVerificationCodeTTL     *settings.Setting[time.Duration]
 	authResetCodeTTL            *settings.Setting[time.Duration]
 	authDeletedAccountRetention *settings.Setting[time.Duration]
+
+	auditRetention            *settings.Setting[time.Duration]
+	historyRetention          *settings.Setting[time.Duration]
+	releasesInstanceRetention *settings.Setting[time.Duration]
 }
 
 // mailDefaults fills the sender of every email from the mail.* settings.
@@ -100,6 +105,26 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.Describe("How long deleted accounts are kept before the auth_cleanup job removes them."),
 			settings.Range(24*time.Hour, 365*24*time.Hour),
 			settings.ReasonRequired(),
+		),
+
+		// Retention (ADR-0051): GET /ops/retention lists every kind of data
+		// and what enforces it.
+		auditRetention: settings.Duration(reg, "audit.retention", 365*24*time.Hour,
+			settings.Describe("How long audit events are kept before the retention job deletes them. Each deletion leaves a retention.purged audit event."),
+			settings.Group("retention"),
+			settings.Range(30*24*time.Hour, 10*365*24*time.Hour),
+			settings.ReasonRequired(),
+		),
+		historyRetention: settings.Duration(reg, "ops.history_retention", 365*24*time.Hour,
+			settings.Describe("How long the history of runtime setting and job configuration changes is kept before the retention job deletes it."),
+			settings.Group("retention"),
+			settings.Range(30*24*time.Hour, 10*365*24*time.Hour),
+			settings.ReasonRequired(),
+		),
+		releasesInstanceRetention: settings.Duration(reg, "releases.instance_retention", releases.DefaultRetention,
+			settings.Describe("How long instances are listed in /ops/releases after they were last seen. Applied when an instance starts."),
+			settings.Group("retention"),
+			settings.Range(24*time.Hour, 3*365*24*time.Hour),
 		),
 	}
 }

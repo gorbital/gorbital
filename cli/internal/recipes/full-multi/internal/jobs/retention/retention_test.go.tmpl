@@ -1,0 +1,106 @@
+package retention_test
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"testing"
+	"time"
+
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
+
+	"apistock.dev/actor"
+	"apistock.dev/audit"
+
+	"⟦.Module⟧/internal/jobs/retention"
+)
+
+type recorder struct{ events []audit.Event }
+
+func (r *recorder) Record(ctx context.Context, e audit.Event) error {
+	if a, _ := actor.From(ctx); a.ID != retention.Name {
+		return errors.New("recorded without the retention system actor")
+	}
+	r.events = append(r.events, e)
+	return nil
+}
+
+// table is a fake data set holding rows of the given ages.
+type table struct {
+	rows    []time.Time
+	calls   int
+	failing bool
+}
+
+func (tb *table) delete(_ context.Context, before time.Time, limit int) (int64, error) {
+	tb.calls++
+	if tb.failing {
+		return 0, errors.New("database unavailable")
+	}
+	var kept []time.Time
+	var n int64
+	for _, r := range tb.rows {
+		if r.Before(before) && n < int64(limit) {
+			n++
+			continue
+		}
+		kept = append(kept, r)
+	}
+	tb.rows = kept
+	return n, nil
+}
+
+func days(d int) func(context.Context) time.Duration {
+	return func(context.Context) time.Duration { return time.Duration(d) * 24 * time.Hour }
+}
+
+func TestWorkerDeletesInBatchesAndRecords(t *testing.T) {
+	now := time.Now()
+	events := &table{}
+	for i := range retention.BatchSize*2 + 10 {
+		events.rows = append(events.rows, now.Add(-400*24*time.Hour-time.Duration(i)*time.Second))
+	}
+	events.rows = append(events.rows, now.Add(-time.Hour))
+	history := &table{rows: []time.Time{now.Add(-time.Hour)}}
+
+	rec := &recorder{}
+	w := retention.NewWorker([]retention.Target{
+		{Name: "audit_events", Retention: days(365), Delete: events.delete},
+		{Name: "settings_history", Retention: days(365), Delete: history.delete},
+	}, rec, slog.New(slog.DiscardHandler))
+	job := &river.Job[retention.Args]{JobRow: &rivertype.JobRow{ID: 3}}
+	if err := w.Work(context.Background(), job); err != nil {
+		t.Fatalf("Work() error = %v", err)
+	}
+
+	if len(events.rows) != 1 || events.calls != 3 {
+		t.Errorf("audit events left %d after %d deletes, want 1 after 3 batches", len(events.rows), events.calls)
+	}
+	if len(history.rows) != 1 {
+		t.Errorf("settings history left %d, want the recent change kept", len(history.rows))
+	}
+	if len(rec.events) != 1 || rec.events[0].Action != "retention.purged" || rec.events[0].ResourceID != "audit_events" ||
+		rec.events[0].Metadata["rows"] != int64(retention.BatchSize*2+10) {
+		t.Errorf("audit events = %+v, want one retention.purged for audit_events with the count", rec.events)
+	}
+}
+
+func TestWorkerContinuesPastAFailingTarget(t *testing.T) {
+	broken := &table{failing: true}
+	history := &table{rows: []time.Time{time.Now().Add(-400 * 24 * time.Hour)}}
+	w := retention.NewWorker([]retention.Target{
+		{Name: "audit_events", Retention: days(365), Delete: broken.delete},
+		{Name: "settings_history", Retention: days(365), Delete: history.delete},
+	}, &recorder{}, slog.New(slog.DiscardHandler))
+	err := w.Work(context.Background(), &river.Job[retention.Args]{JobRow: &rivertype.JobRow{ID: 4}})
+	if err == nil {
+		t.Error("Work() with a failing target error = nil, want an error so the job retries")
+	}
+	if len(history.rows) != 0 {
+		t.Error("a failing target stopped the others")
+	}
+	if (retention.Args{}).Kind() != retention.Name {
+		t.Error("Args.Kind() doesn't return Name")
+	}
+}

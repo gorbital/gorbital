@@ -31,6 +31,8 @@ type Deps struct {
 	SignInMethods func() []opsdomain.SignInMethod
 	// System describes the instance for GET /ops/system (ADR-0051).
 	System SystemReporter
+	// Retention lists retention policies for GET /ops/retention (ADR-0051).
+	Retention RetentionReporter
 }
 
 // Service runs the operations use cases.
@@ -43,13 +45,14 @@ type Service struct {
 	mail          MailInfo
 	signInMethods func() []opsdomain.SignInMethod
 	system        SystemReporter
+	retention     RetentionReporter
 }
 
 // NewService returns a Service.
 func NewService(d Deps) *Service {
 	return &Service{
 		settings: d.Settings, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail,
-		signInMethods: d.SignInMethods, system: d.System,
+		signInMethods: d.SignInMethods, system: d.System, retention: d.Retention,
 	}
 }
 

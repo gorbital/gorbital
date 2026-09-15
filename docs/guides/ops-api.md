@@ -82,6 +82,26 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 }
 ```
 
+## Retention
+
+How long data is kept is a runtime setting per kind of data ([ADR-0051](../adr/0051-operations-v0-5.md)), so changes need the setting's reason, appear in its history and audit log, and apply on every instance without a restart. `GET /ops/retention` (`ops.settings.read`) lists them:
+
+| Data | Setting | Default | Deleted by |
+|---|---|---|---|
+| `audit_events` | `audit.retention` | 365 days (30 days to 10 years) | `retention` job, daily at 04:15 |
+| `settings_history`, `job_definition_history` | `ops.history_retention` | 365 days (30 days to 10 years) | `retention` job |
+| `release_instances` | `releases.instance_retention` | 90 days (1 day to 3 years) | each instance, when it starts |
+| `deleted_accounts` | `auth.deleted_account_retention` | 30 days | `auth_cleanup` job |
+| `deleted_organisations` (multi-tenant apps) | `orgs.deleted_org_retention` | 30 days | `orgs_purge` job |
+
+Each policy shows `retention` (a Go duration) and `retention_seconds`, the enforcing `job` with its `last_run` and `next_run_at`, and `oldest_at` for the data the `retention` job deletes. The job deletes 5,000 rows per statement until nothing is older, and records a `retention.purged` audit event with the row count and cutoff for each kind of data, so a shortened retention stays visible after the rows are gone.
+
+```bash
+curl -X PUT http://127.0.0.1:8080/ops/settings/audit.retention \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"value":"17520h","version":0,"reason":"two-year compliance requirement"}'
+```
+
 ## Job definitions
 
 | Method and path | Purpose | Success |
@@ -195,7 +215,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 - `request_id` links an event to its access log line, trace and any jobs the request enqueued.
 - `ip` and `user_agent` appear on events recorded during a request, such as sign-ins.
 - Metadata values under sensitive keys such as `password` or `token` are stored as `"[REDACTED]"`; oversized metadata is replaced with `{"metadata_dropped": "too_large"}`.
-- Events can't be changed. Retention, deleting events older than `audit.retention`, arrives with the rest of ADR-0051.
+- Events can't be changed. The `retention` job deletes events older than `audit.retention` (365 days by default) and records a `retention.purged` event for each deletion: see [Retention](#retention).
 
 ## Releases
 

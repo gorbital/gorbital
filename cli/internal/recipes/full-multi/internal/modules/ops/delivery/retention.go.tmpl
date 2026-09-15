@@ -1,0 +1,73 @@
+package delivery
+
+import (
+	"context"
+	"net/http"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"apistock.dev/modules/openapi"
+
+	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
+)
+
+// RetentionResponse lists how long each kind of data is kept.
+type RetentionResponse struct {
+	Policies []RetentionPolicyResponse `json:"policies"`
+}
+
+// RetentionPolicyResponse is how long one kind of data is kept and what
+// deletes it.
+type RetentionPolicyResponse struct {
+	Data             string              `json:"data" example:"audit_events"`
+	Setting          string              `json:"setting" example:"audit.retention" doc:"Change it with PUT /ops/settings/{key}"`
+	Retention        string              `json:"retention" example:"8760h0m0s" doc:"As a Go duration"`
+	RetentionSeconds int64               `json:"retention_seconds"`
+	Job              string              `json:"job,omitempty" example:"retention" doc:"The job that deletes the data"`
+	EnforcedBy       string              `json:"enforced_by,omitempty" doc:"What deletes the data, when it isn't a job"`
+	OldestAt         *time.Time          `json:"oldest_at,omitempty" doc:"The oldest stored row, when known"`
+	LastRun          *RetentionRunResult `json:"last_run,omitempty"`
+	NextRunAt        *time.Time          `json:"next_run_at,omitempty"`
+}
+
+// RetentionRunResult is the enforcing job's most recent run.
+type RetentionRunResult struct {
+	ID          int64      `json:"id"`
+	State       string     `json:"state" example:"completed"`
+	FinalizedAt *time.Time `json:"finalized_at,omitempty"`
+}
+
+type retentionOutput struct{ Body RetentionResponse }
+
+// RegisterRetention adds the retention summary operation to api (ADR-0051).
+func RegisterRetention(api huma.API, svc *opsusecase.Service) {
+	huma.Register(api, huma.Operation{
+		OperationID: "ops-retention", Method: http.MethodGet, Path: "/ops/retention",
+		Summary:     "List retention policies",
+		Description: "How long each kind of data is kept, the runtime setting that decides it, the oldest stored row, and the job that deletes expired rows with its last and next run. Change a policy with PUT /ops/settings/{key}.",
+		Tags:        []string{"Ops: settings"}, Security: openapi.Bearer,
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden},
+	}, func(ctx context.Context, _ *struct{}) (*retentionOutput, error) {
+		policies, err := svc.Retention(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out := RetentionResponse{Policies: make([]RetentionPolicyResponse, len(policies))}
+		for i, p := range policies {
+			r := RetentionPolicyResponse{
+				Data: p.Data, Setting: p.Setting, Retention: p.Retention.String(), RetentionSeconds: int64(p.Retention / time.Second),
+				Job: p.Job, EnforcedBy: p.EnforcedBy, OldestAt: p.OldestAt,
+			}
+			if p.LastRun != nil {
+				r.LastRun = &RetentionRunResult{ID: p.LastRun.ID, State: string(p.LastRun.State), FinalizedAt: p.LastRun.FinalizedAt}
+			}
+			if !p.NextRunAt.IsZero() {
+				next := p.NextRunAt
+				r.NextRunAt = &next
+			}
+			out.Policies[i] = r
+		}
+		return &retentionOutput{Body: out}, nil
+	})
+}

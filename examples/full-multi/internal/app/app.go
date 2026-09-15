@@ -31,6 +31,9 @@ import (
 	"apistock.dev/modules/settings"
 	"apistock.dev/modules/telemetry"
 
+	"example.com/acme-api/internal/jobs/authcleanup"
+	"example.com/acme-api/internal/jobs/orgspurge"
+	"example.com/acme-api/internal/jobs/retention"
 	authmodule "example.com/acme-api/internal/modules/auth"
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"
@@ -145,10 +148,19 @@ func (a *App) build(ctx context.Context) error {
 
 	defs := jobs.NewDefinitions()
 	defineJobs(defs, jobDeps{
-		logger: a.logger,
-		// a.auth is built below, before any job runs.
+		logger:   a.logger,
+		recorder: recorder,
+		// a.auth, a.orgs and a.jobsManager are built below, before any job runs.
 		authCleanup: func(ctx context.Context) (authdomain.CleanupResult, error) { return a.auth.Service().Cleanup(ctx) },
 		orgsPurge:   func(ctx context.Context) (int, error) { return a.orgs.Service().Purge(ctx) },
+		// What the retention job deletes (ADR-0051).
+		retentionTargets: []retention.Target{
+			{Name: "audit_events", Retention: appSettings.auditRetention.Get, Delete: recorder.DeleteBefore},
+			{Name: "settings_history", Retention: appSettings.historyRetention.Get, Delete: a.settings.DeleteHistoryBefore},
+			{Name: "job_definition_history", Retention: appSettings.historyRetention.Get, Delete: func(ctx context.Context, before time.Time, limit int) (int64, error) {
+				return a.jobsManager.DeleteHistoryBefore(ctx, before, limit)
+			}},
+		},
 	})
 	a.jobs, err = jobs.New(pool, workers,
 		jobs.WithQueues(map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: a.cfg.JobWorkers}}),
@@ -214,7 +226,8 @@ func (a *App) build(ctx context.Context) error {
 
 	// Release tracking: this instance records its build and a heartbeat while
 	// it runs, listed by /ops/releases (ADR-0040).
-	a.releases, err = releases.NewTracker(pool, buildinfo.Read(), releases.WithLogger(a.logger))
+	a.releases, err = releases.NewTracker(pool, buildinfo.Read(), releases.WithLogger(a.logger),
+		releases.WithRetentionFunc(appSettings.releasesInstanceRetention.Get))
 	if err != nil {
 		return err
 	}
@@ -243,6 +256,15 @@ func (a *App) build(ctx context.Context) error {
 			SignInMethods: a.cfg.signInMethods,
 			// What /ops/system reports (ADR-0051).
 			System: systemReporter{pool: pool, health: a.health, tracker: a.releases, started: a.started, workers: a.cfg.JobWorkers},
+			// What /ops/retention reports (ADR-0051).
+			Retention: retentionReporter{jobs: a.jobsManager, policies: []retentionPolicy{
+				{data: "audit_events", setting: appSettings.auditRetention.Key(), retention: appSettings.auditRetention.Get, job: retention.Name, oldest: recorder.Oldest},
+				{data: "settings_history", setting: appSettings.historyRetention.Key(), retention: appSettings.historyRetention.Get, job: retention.Name, oldest: a.settings.OldestHistory},
+				{data: "job_definition_history", setting: appSettings.historyRetention.Key(), retention: appSettings.historyRetention.Get, job: retention.Name, oldest: a.jobsManager.OldestHistory},
+				{data: "release_instances", setting: appSettings.releasesInstanceRetention.Key(), retention: appSettings.releasesInstanceRetention.Get, enforcedBy: "each instance, when it starts"},
+				{data: "deleted_accounts", setting: appSettings.authDeletedAccountRetention.Key(), retention: appSettings.authDeletedAccountRetention.Get, job: authcleanup.Name},
+				{data: "deleted_organisations", setting: appSettings.orgsDeletedOrgRetention.Key(), retention: appSettings.orgsDeletedOrgRetention.Get, job: orgspurge.Name},
+			}},
 		},
 	})
 }

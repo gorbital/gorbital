@@ -1,0 +1,41 @@
+package usecase
+
+import (
+	"context"
+	"time"
+
+	"apistock.dev/modules/jobs"
+
+	opsdomain "⟦.Module⟧/internal/modules/ops/domain"
+)
+
+// RetentionPolicy is how long one kind of data is kept and what deletes it
+// (ADR-0051). Retention periods are runtime settings, changed through
+// SetSetting.
+type RetentionPolicy struct {
+	Data      string
+	Setting   string
+	Retention time.Duration
+	// Job deletes the data; EnforcedBy describes anything else that does.
+	Job        string
+	EnforcedBy string
+	// OldestAt is the oldest stored row, when known.
+	OldestAt *time.Time
+	// LastRun and NextRunAt are Job's.
+	LastRun   *jobs.JobRun
+	NextRunAt time.Time
+}
+
+// RetentionReporter lists the retention policies. The app implements it
+// (retention.go).
+type RetentionReporter interface {
+	RetentionReport(ctx context.Context) ([]RetentionPolicy, error)
+}
+
+// Retention returns every retention policy.
+func (s *Service) Retention(ctx context.Context) ([]RetentionPolicy, error) {
+	if err := authorize(ctx, opsdomain.PermSettingsRead); err != nil {
+		return nil, err
+	}
+	return s.retention.RetentionReport(ctx)
+}

@@ -20,6 +20,7 @@
 package releases
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -56,10 +57,13 @@ var ErrInvalidCursor = errors.New("releases: invalid cursor")
 type config struct {
 	heartbeat time.Duration
 	retention time.Duration
-	host      string
-	hostSet   bool
-	logger    *slog.Logger
-	now       func() time.Time
+	// retentionFunc, when set, gives the retention at each start, such as
+	// a runtime setting; values outside the bounds are clamped.
+	retentionFunc func(context.Context) time.Duration
+	host          string
+	hostSet       bool
+	logger        *slog.Logger
+	now           func() time.Time
 }
 
 // An Option configures [NewTracker] and [NewStore].
@@ -82,6 +86,22 @@ func WithHeartbeat(d time.Duration) Option {
 // Default: [DefaultRetention].
 func WithRetention(d time.Duration) Option {
 	return optionFunc(func(c *config) { c.retention = d })
+}
+
+// WithRetentionFunc reads the retention each time a tracker starts, so a
+// runtime setting such as releases.instance_retention applies without a
+// redeploy (ADR-0051). Values outside 1 day to 3 years are clamped. It
+// overrides [WithRetention].
+func WithRetentionFunc(fn func(context.Context) time.Duration) Option {
+	return optionFunc(func(c *config) { c.retentionFunc = fn })
+}
+
+// retentionAt returns the retention to apply now.
+func (c config) retentionAt(ctx context.Context) time.Duration {
+	if c.retentionFunc == nil {
+		return c.retention
+	}
+	return min(max(c.retentionFunc(ctx), minRetention), maxRetention)
 }
 
 // WithHost sets the host a tracker records, such as a pod name. Default: the

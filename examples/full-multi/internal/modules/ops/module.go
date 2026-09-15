@@ -32,4 +32,5 @@ func (m *Module) Register(api huma.API) {
 	opsdelivery.RegisterSystem(api, m.svc)
 	opsdelivery.RegisterAuditStats(api, m.svc)
 	opsdelivery.RegisterJobsOverview(api, m.svc)
+	opsdelivery.RegisterRetention(api, m.svc)
 }

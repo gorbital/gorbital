@@ -97,7 +97,7 @@ func (t *Tracker) start(ctx context.Context) {
 		return
 	}
 	t.id = id
-	if _, err := deleteInstancesSeenBefore(ctx, t.pool, now.Add(-t.cfg.retention)); err != nil {
+	if _, err := deleteInstancesSeenBefore(ctx, t.pool, now.Add(-t.cfg.retentionAt(ctx))); err != nil {
 		t.cfg.logger.ErrorContext(ctx, "delete old release instances", "err", err)
 	}
 }
