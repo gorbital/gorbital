@@ -64,10 +64,11 @@ Durations come from runtime settings but the library clamps them, so an operator
 
 ### Account enumeration and brute force (threat 12)
 
-- Registration returns the same 202 whether or not the address has an account; an existing verified account's owner gets an "account exists" email instead of a code. Registering again before verifying replaces the password and the code (the code proves ownership).
+- Registration returns the same 202 whether or not the address has an account; an existing verified account's owner gets an "account exists" email instead of a code, at most once a minute per address per instance.
+- Registering again before verifying keeps the account's password and sends a new code, at most once a minute. *Amended 2026-09-15 after review:* replacing the password let anyone who registered an address last choose the password of the account its owner then verified, and sending a code on every registration bypassed the resend limit, allowing unlimited fresh codes to guess. An owner who forgot the password before verifying uses password reset, which also verifies the address.
 - Login returns `invalid_credentials` for unknown addresses and wrong passwords after the same hashing work; `email_not_verified` only after a correct password.
 - Resend and forgot-password always return 202.
-- Limits: 10 login attempts per address per 15 minutes per instance (`too_many_attempts`); 5 attempts per code; 60 changing requests per minute per client IP on `/v1/auth/*` in the app.
+- Limits: 10 login attempts per address per 15 minutes per instance (`too_many_attempts`); 5 attempts per code; a new verification or reset code at most once a minute per account, whether requested by resend, forgot-password or registering again; 60 changing requests per minute per client IP on `/v1/auth/*` in the app.
 
 ### Accounts
 

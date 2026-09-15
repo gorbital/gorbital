@@ -57,6 +57,9 @@ type Service struct {
 	now      func() time.Time
 	hasher   *authlib.Hasher
 	limiter  *ratelimit.Limiter
+	// notices limits "account exists" emails per address, separately from
+	// logins, so registrations can't lock the owner out.
+	notices *ratelimit.Limiter
 
 	sessionIdle      config.Value[time.Duration]
 	sessionAbsolute  config.Value[time.Duration]
@@ -105,6 +108,7 @@ func NewService(c Config) (*Service, error) {
 	c.Catalog.Freeze()
 	s.hasher = hasher
 	s.limiter = ratelimit.New(float64(attempts)/window.Seconds(), attempts, ratelimit.WithClock(s.now))
+	s.notices = ratelimit.New(1/authlib.CodeResendInterval.Seconds(), 1, ratelimit.WithClock(s.now))
 	return s, nil
 }
 

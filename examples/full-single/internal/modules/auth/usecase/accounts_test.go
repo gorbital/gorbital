@@ -95,23 +95,49 @@ func TestRegisterNeverRevealsExistingAccounts(t *testing.T) {
 	ctx := requestCtx()
 	f.signUp(t, "ada@example.com")
 
-	if err := f.svc.Register(ctx, "ADA@example.com", "another long password"); err != nil {
-		t.Fatalf("Register(existing) error = %v, want nil", err)
+	// A verified account: an "account exists" notice, at most once a minute,
+	// and the password stays.
+	for range 2 {
+		if err := f.svc.Register(ctx, "ADA@example.com", "another long password"); err != nil {
+			t.Fatalf("Register(existing) error = %v, want nil", err)
+		}
 	}
 	if f.emails.count("exists") != 1 || f.emails.count("verify") != 1 {
-		t.Errorf("emails = %+v, want one account-exists notice and no new code", f.emails.sent)
+		t.Errorf("emails = %+v, want one account-exists notice (the second throttled) and no new code", f.emails.sent)
 	}
 	if _, err := f.svc.Login(ctx, "ada@example.com", "another long password"); !errors.Is(err, authdomain.ErrInvalidCredentials) {
-		t.Errorf("the second registration changed the password: %v", err)
+		t.Errorf("registering again changed a verified account's password: %v", err)
 	}
+	f.clock.advance(authlib.CodeResendInterval)
+	if err := f.svc.Register(ctx, "ada@example.com", "another long password"); err != nil || f.emails.count("exists") != 2 {
+		t.Errorf("Register(existing) a minute later = %v, %d notices, want a second notice", err, f.emails.count("exists"))
+	}
+}
 
-	// Registering again before verifying replaces the password and the code.
-	if err := f.svc.Register(ctx, "bob@example.com", "first long password"); err != nil {
+// TestRegisterAgainKeepsThePassword: someone registering an address whose
+// owner hasn't verified yet can't choose the password of the account the
+// owner then verifies, nor mint codes faster than resend allows.
+func TestRegisterAgainKeepsThePassword(t *testing.T) {
+	f := newFixture(t)
+	ctx := requestCtx()
+	const ownerPassword, otherPassword = "the owner's long password", "someone else's long password"
+
+	if err := f.svc.Register(ctx, "bob@example.com", ownerPassword); err != nil {
 		t.Fatal(err)
 	}
 	first := f.emails.last(t, "verify").code
-	if err := f.svc.Register(ctx, "bob@example.com", password); err != nil {
-		t.Fatal(err)
+	for range 3 {
+		if err := f.svc.Register(ctx, "bob@example.com", otherPassword); err != nil {
+			t.Fatalf("Register(unverified again) error = %v, want nil", err)
+		}
+	}
+	if n := f.emails.count("verify"); n != 1 {
+		t.Errorf("verification emails = %d, want registering again within a minute throttled", n)
+	}
+
+	f.clock.advance(authlib.CodeResendInterval)
+	if err := f.svc.Register(ctx, "bob@example.com", otherPassword); err != nil || f.emails.count("verify") != 2 {
+		t.Fatalf("Register(unverified again) a minute later = %v, %d emails, want a new code", err, f.emails.count("verify"))
 	}
 	second := f.emails.last(t, "verify").code
 	if first != second {
@@ -122,8 +148,20 @@ func TestRegisterNeverRevealsExistingAccounts(t *testing.T) {
 	if err := f.svc.VerifyEmail(ctx, "bob@example.com", second); err != nil {
 		t.Fatalf("VerifyEmail(new code) error = %v", err)
 	}
-	if _, err := f.svc.Login(ctx, "bob@example.com", password); err != nil {
-		t.Errorf("Login() with the newest password error = %v", err)
+	if _, err := f.svc.Login(ctx, "bob@example.com", otherPassword); !errors.Is(err, authdomain.ErrInvalidCredentials) {
+		t.Errorf("Login() with the password from registering again = %v, want ErrInvalidCredentials", err)
+	}
+	if _, err := f.svc.Login(ctx, "bob@example.com", ownerPassword); err != nil {
+		t.Errorf("Login() with the owner's password error = %v", err)
+	}
+	registered := 0
+	for _, action := range f.audit.actions() {
+		if action == "auth.user.registered" {
+			registered++
+		}
+	}
+	if registered != 1 {
+		t.Errorf("auth.user.registered events = %d, want 1 for the one account created", registered)
 	}
 }
 

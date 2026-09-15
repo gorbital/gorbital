@@ -10,11 +10,16 @@ import (
 )
 
 // Register creates an account and emails a verification code. It returns
-// only auth.ErrInvalidEmail or an *auth.PasswordError for bad input: when the
-// address already has a verified account, the owner is emailed instead and
-// the result is the same, so registration never reveals which addresses
-// have accounts. Registering again before verifying replaces the password
-// and sends a new code.
+// only auth.ErrInvalidEmail or an *auth.PasswordError for bad input, and the
+// result never reveals whether the address has an account:
+//
+//   - a new address gets an account and a code;
+//   - an address with an unverified account keeps its password and gets a
+//     new code, at most once a minute, so nobody can choose the password of
+//     an account its owner then verifies (the owner can reset the password,
+//     which also verifies the address);
+//   - an address with a verified account gets an "account exists" notice, at
+//     most once a minute per instance.
 func (s *Service) Register(ctx context.Context, email, password string) error {
 	email, normalized, err := authlib.NormalizeEmail(email)
 	if err != nil {
@@ -23,6 +28,7 @@ func (s *Service) Register(ctx context.Context, email, password string) error {
 	if err := authlib.ValidatePassword(ctx, password, s.checker); err != nil {
 		return err
 	}
+	// Hash in every case, so each outcome takes the same time.
 	hash, err := s.hasher.Hash(password)
 	if err != nil {
 		return err
@@ -33,7 +39,7 @@ func (s *Service) Register(ctx context.Context, email, password string) error {
 
 	var (
 		userID, to, code string
-		exists           bool
+		created, exists  bool
 	)
 	err = s.store.InTx(ctx, func(tx Store) error {
 		u, err := tx.SelectUserByEmail(ctx, normalized, true)
@@ -45,30 +51,37 @@ func (s *Service) Register(ctx context.Context, email, password string) error {
 			if err != nil {
 				return err
 			}
+			created = true
 		case err != nil:
 			return err
 		case u.EmailVerified():
 			exists, to = true, u.Email
 			return nil
-		default:
-			if err := tx.UpdatePassword(ctx, u.ID, hash, now); err != nil {
-				return err
-			}
 		}
 		userID, to = u.ID, u.Email
-		code, err = s.issueCode(ctx, tx, userID, authdomain.PurposeVerifyEmail, ttl, 0)
+		interval := authlib.CodeResendInterval
+		if created {
+			interval = 0
+		}
+		code, err = s.issueCode(ctx, tx, userID, authdomain.PurposeVerifyEmail, ttl, interval)
 		return err
 	})
 	switch {
 	case errors.Is(err, authdomain.ErrEmailTaken):
 		return nil // registered at the same moment by another request
+	case errors.Is(err, errThrottled):
+		return nil
 	case err != nil:
 		return dbError("register", err)
 	case exists:
-		s.sent(ctx, "account_exists", s.emails.SendAccountExists(ctx, to))
+		if ok, _ := s.notices.Allow(normalized); ok {
+			s.sent(ctx, "account_exists", s.emails.SendAccountExists(ctx, to))
+		}
 		return nil
 	}
 	s.sent(ctx, "verification_code", s.emails.SendVerificationCode(ctx, to, code, ttl))
-	s.audit(ctx, userEvent("auth.user.registered", userID, client))
+	if created {
+		s.audit(ctx, userEvent("auth.user.registered", userID, client))
+	}
 	return nil
 }
