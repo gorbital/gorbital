@@ -116,7 +116,10 @@
 {{define "ref-header"}}
 <header class="dhead">
   <div class="dhead-top">
-    <a class="dbrand" href="{{.Home}}"><span class="wordmark">{{.Title}}</span></a>
+    <a class="dbrand" href="{{.Home}}" aria-label="apistock API atlas">
+      <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="wordmark">apistock</span><span class="suffix">atlas</span>
+    </a>
     <button class="search" type="button" data-search aria-label="Search endpoints">{{template "ref-icon-search"}}<span>Search endpoints</span><kbd>⌘K</kbd></button>
     <div class="dhead-end">
       {{if .Version}}<span class="ver" title="API version">{{.Version}}</span>{{end}}

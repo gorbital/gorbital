@@ -113,6 +113,11 @@ func TestHandler(t *testing.T) {
 	if rec.Code != http.StatusOK || rec.Header().Get("Content-Security-Policy") != reference.ContentSecurityPolicy {
 		t.Fatalf("GET /docs = %d, CSP %q", rec.Code, rec.Header().Get("Content-Security-Policy"))
 	}
+	for _, want := range []string{`aria-label="apistock API atlas"`, `class="wordmark">apistock</span>`, `class="suffix">API atlas</span>`, `class="mark"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("header lacks %s", want)
+		}
+	}
 	if strings.Contains(reference.ContentSecurityPolicy, "unsafe") || strings.Contains(page, "https://fonts") || strings.Contains(page, "style=") {
 		t.Error("pages must need no inline styles, unsafe policies or external requests")
 	}

@@ -67,6 +67,11 @@ p { margin:0; text-wrap:pretty; }
 .wordmark { font:700 19px/1 var(--font-sans); letter-spacing:-.05em; }
 .dbrand { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink); min-width:0; }
 .dbrand .wordmark { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dbrand .suffix { font:500 15px/1 var(--font-sans); letter-spacing:-.02em; color:var(--dim); margin-left:-4px; white-space:nowrap; }
+.mark { display:inline-flex; flex-direction:column; gap:1px; width:17px; flex:none; }
+.mark i { display:block; width:14px; height:3px; background:var(--ink); border-radius:1px; }
+.mark i:first-child { background:var(--accent); margin-left:3px; }
+.mark i:last-child { background:var(--border-2); }
 
 /* Buttons */
 .btn { display:inline-flex; align-items:center; gap:8px; height:40px; padding-inline:16px; font:600 14px/1 var(--font-sans); text-decoration:none; border:1px solid transparent; border-radius:var(--r-pill); white-space:nowrap; transition:background .15s, border-color .15s, transform .1s; }
