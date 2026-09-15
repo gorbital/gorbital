@@ -37,8 +37,9 @@ func (b *lockedBuffer) String() string {
 // TestDevWithDocker creates a Full app and runs aps dev in it with real
 // Docker: services start, migrations and seed data run, the API serves its
 // docs, the seeded administrator signs in, and a registration's email code
-// reaches Mailpit. It pulls images the first time. Set APS_E2E_DOCKER=1 to
-// run it.
+// reaches Mailpit. A multi-tenant app also shows the administrator's
+// personal workspace with the example projects. It pulls images the first
+// time. Set APS_E2E_DOCKER=1 to run it.
 func TestDevWithDocker(t *testing.T) {
 	if os.Getenv("APS_E2E_DOCKER") == "" {
 		t.Skip("set APS_E2E_DOCKER=1 to run aps dev against Docker")
@@ -47,10 +48,16 @@ func TestDevWithDocker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, tenancy := range []string{"single", "multi"} {
+		t.Run(tenancy, func(t *testing.T) { devWithDocker(t, repo, tenancy) })
+	}
+}
+
+func devWithDocker(t *testing.T, repo, tenancy string) {
 	t.Chdir(t.TempDir())
-	const name = "e2e-dev"
-	if code, _, errOut := runAps(t, "new", name, "--preset", "full", "--local", repo, "--no-git"); code != 0 {
-		t.Fatalf("aps new --preset full = %d: %s", code, errOut)
+	name := "e2e-dev-" + tenancy
+	if code, _, errOut := runAps(t, "new", name, "--preset", "full", "--tenancy", tenancy, "--local", repo, "--no-git"); code != 0 {
+		t.Fatalf("aps new --preset full --tenancy %s = %d: %s", tenancy, code, errOut)
 	}
 	dir, _ := filepath.Abs(name)
 	t.Chdir(dir)
@@ -143,6 +150,19 @@ func TestDevWithDocker(t *testing.T) {
 		_ = r.Body.Close()
 	}
 
+	if tenancy == "multi" {
+		orgs := getJSON(t, api+"/v1/orgs", token)
+		items, _ := orgs["items"].([]any)
+		if len(items) == 0 || items[0].(map[string]any)["personal"] != true {
+			t.Fatalf("GET /v1/orgs as the administrator = %v, want the personal workspace", orgs)
+		}
+		workspace, _ := items[0].(map[string]any)["id"].(string)
+		projects := getJSON(t, api+"/v1/orgs/"+workspace+"/projects", token)
+		if list, _ := projects["items"].([]any); len(list) != 3 {
+			t.Errorf("seeded projects in the personal workspace = %v, want 3", projects)
+		}
+	}
+
 	postJSON(t, api+"/v1/auth/register", `{"email":"new-user@example.com","password":"a long enough password"}`)
 	inbox := "http://127.0.0.1:" + ports.web + "/api/v1/search?query=to:new-user@example.com"
 	for deadline := time.Now().Add(time.Minute); ; {
@@ -161,6 +181,23 @@ func TestDevWithDocker(t *testing.T) {
 		}
 		time.Sleep(time.Second)
 	}
+}
+
+func getJSON(t *testing.T, url, token string) map[string]any {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	r, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("GET %s: %v", url, err)
+	}
+	defer r.Body.Close()
+	var v map[string]any
+	_ = json.NewDecoder(r.Body).Decode(&v)
+	if r.StatusCode >= 300 {
+		t.Fatalf("GET %s = %d %v", url, r.StatusCode, v)
+	}
+	return v
 }
 
 func postJSON(t *testing.T, url, body string) map[string]any {
