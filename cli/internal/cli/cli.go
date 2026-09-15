@@ -28,6 +28,7 @@ Usage:
   aps add orgs [flags]           turn a single-tenant app multi-tenant on a branch (Full preset apps)
   aps dev [flags]                run the application with live reload
   aps upgrade [flags]            merge this release's templates into the app on a branch
+  aps doctor [flags]             check the app, its environment and database, and say what to fix
   aps version                   print version information
   aps help                       show this help
 
@@ -62,6 +63,8 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io
 		err = runDev(ctx, args[1:], stderr)
 	case "upgrade":
 		err = runUpgrade(ctx, args[1:], stdout, stderr)
+	case "doctor":
+		err = runDoctor(ctx, args[1:], stdout, stderr)
 	case "version", "-version", "--version":
 		fmt.Fprintf(stdout, "aps %s (recipe %s, library %s)\n", Version, recipes.MinimalName, recipes.LibraryVersion)
 		return 0

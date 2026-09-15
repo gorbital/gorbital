@@ -344,6 +344,47 @@ Where earlier releases come from: with an apistock checkout (`--local`, the chec
 
 Safety checks: the app must be in git with no uncommitted changes, and the branch `aps-upgrade/<version>` must not exist yet.
 
+## `aps doctor`
+
+Checks the app in the current directory and says what to fix. It changes nothing ([ADR-0051](../adr/0051-operations-v0-5.md)).
+
+```bash
+aps doctor           # every check
+aps doctor --fast    # skip the checks that build the app
+aps doctor --json    # for scripts and agents
+```
+
+```text
+aps doctor · shop-api (full, single tenancy)
+
+  ok    go             go1.26.0; go.mod needs 1.26.0
+  ok    git            installed
+  ok    apistock.yaml  full preset, single tenancy
+  warn  docker         Docker isn't running or isn't installed
+                       fix: start Docker Desktop (or Docker Engine with Compose v2): aps dev runs PostgreSQL and Mailpit in it
+  ok    apistock.lock  from aps v0.5.0; 3 of 214 files apistock wrote are edited or removed
+  ok    library        apistock.dev v0.5.0
+  ok    anchors        every line generators insert at is in place
+  ok    .env           has every variable .env.example has
+  ok    api files      openapi.json, postman_collection.json and llms.txt match the code
+  warn  database       2 migrations pending
+                       fix: go run ./cmd/migrate (aps dev runs them)
+
+  0 failed, 2 warnings
+```
+
+| Check | Fails when | Warns when |
+|---|---|---|
+| `go`, `git`, `docker` | Go isn't installed | Go is older than `go.mod` needs; git isn't installed; Docker isn't running (Full preset) |
+| `apistock.yaml`, `apistock.lock` | Either is unreadable, or the lock was written by a newer `aps` | The lock is missing, from before v0.5, or from an older `aps` (run `aps upgrade`) |
+| `library` | A `replace` directive points at something that isn't an apistock checkout | `go.mod` doesn't require `apistock.dev` |
+| `anchor` (Full preset) | A line generators insert after is gone: `//aps:anchor modules`, `//aps:anchor jobs`, `//aps:anchor org-permissions` (multi-tenant), or the mail block in `.env.example` | |
+| `.env` (Full preset) | It holds secrets and git doesn't ignore it | It's missing, git doesn't ignore it, or it lacks variables `.env.example` has |
+| `api files` | | `api/openapi.json`, `postman_collection.json` or `llms.txt` doesn't match the code |
+| `configuration`, `database` (Full preset) | The app's configuration doesn't load; the database ran migrations the code doesn't have | The database is unreachable, or migrations are pending |
+
+Values from `.env` are never printed. The database checks run the app's own `go run ./cmd/migrate --status --json`, so `aps` needs no database driver and reads the app's migration files. Exit code 1 when any check fails.
+
 ## `aps dev`
 
 Builds and runs the app in the current directory, rebuilding when files change and loading `.env` (variables already set in the environment win).

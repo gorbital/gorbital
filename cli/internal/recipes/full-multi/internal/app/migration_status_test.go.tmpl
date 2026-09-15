@@ -1,0 +1,48 @@
+package app_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"testing"
+
+	"⟦.Module⟧/internal/app"
+)
+
+func TestMigrationStatus(t *testing.T) {
+	_, url := newAppWithURL(t, nil)
+	ctx := context.Background()
+	status := func(cfg app.Config, cfgErr error) app.MigrationStatus {
+		t.Helper()
+		var out bytes.Buffer
+		if err := app.WriteMigrationStatus(ctx, cfg, cfgErr, true, &out); err != nil {
+			t.Fatalf("WriteMigrationStatus(json) error = %v", err)
+		}
+		var s app.MigrationStatus
+		if err := json.Unmarshal(out.Bytes(), &s); err != nil {
+			t.Fatalf("status output %q: %v", out.String(), err)
+		}
+		return s
+	}
+
+	migrated := testConfig(t, map[string]string{"DATABASE_URL": url})
+	if s := status(migrated, nil); s.Latest == 0 || s.Current != s.Latest || s.Pending != 0 || s.ConfigError != "" || s.DatabaseError != "" {
+		t.Errorf("status of a migrated database = %+v", s)
+	}
+	var human bytes.Buffer
+	if err := app.WriteMigrationStatus(ctx, migrated, nil, false, &human); err != nil || !bytes.Contains(human.Bytes(), []byte("0 pending")) {
+		t.Errorf("human status = %q, %v", human.String(), err)
+	}
+
+	unreachable := testConfig(t, map[string]string{"DATABASE_URL": "postgres://nobody:nothing@127.0.0.1:1/none?sslmode=disable"})
+	if s := status(unreachable, nil); s.DatabaseError == "" {
+		t.Errorf("status of an unreachable database = %+v, want a database error", s)
+	}
+	if err := app.WriteMigrationStatus(ctx, unreachable, nil, false, &human); err == nil {
+		t.Error("human status of an unreachable database error = nil")
+	}
+	if s := status(app.Config{}, errors.New("APP_ENV must be development, test or production")); s.ConfigError == "" || s.DatabaseError != "" {
+		t.Errorf("status with a configuration error = %+v", s)
+	}
+}

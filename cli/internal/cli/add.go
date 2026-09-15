@@ -576,6 +576,8 @@ type goModRequire struct {
 }
 
 type goModInfo struct {
+	// Go is the go directive's version, such as 1.26.0.
+	Go      string
 	Require []goModRequire
 	Replace []struct {
 		Old struct{ Path string }

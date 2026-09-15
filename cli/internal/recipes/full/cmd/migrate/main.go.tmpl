@@ -1,10 +1,14 @@
 // The migrate command applies database migrations: the app's goose
 // migrations, then River's job tables. Run it before starting a new version;
 // the API never migrates at startup (ADR-0017).
+//
+//	migrate                   apply pending migrations
+//	migrate --status [--json] report pending migrations and change nothing (aps doctor uses it)
 package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 
@@ -21,7 +25,14 @@ func main() {
 }
 
 func run(ctx context.Context) error {
+	status := flag.Bool("status", false, "report pending migrations without applying them")
+	asJSON := flag.Bool("json", false, "with --status, print one JSON object")
+	flag.Parse()
+
 	cfg, err := app.LoadConfig(config.OS)
+	if *status {
+		return app.WriteMigrationStatus(ctx, cfg, err, *asJSON, os.Stdout)
+	}
 	if err != nil {
 		return err
 	}
