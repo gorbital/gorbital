@@ -24,6 +24,8 @@ CLI ↔ Go module proxy; recipe → owned code; `apistock.dev` → `go-import` r
 | 4 | Recipe executes code at install time | Declarative operations only; no exec, shell or download operation | v0.1 |
 | 5 | Malicious or compromised recipe injects a backdoor | Diff preview, clean git tree, risky new imports highlighted, trust levels for community modules | v0.1 / after 1.0 |
 | 6 | Tampered module download | Go module proxy and checksum database; lock file records versions | v0.1 |
+| 27 | Tampered or wrong earlier release used as an upgrade's merge base, smuggling code into "unchanged" files | Earlier templates come only from a git tag or commit of an apistock checkout or from the module proxy with checksum verification on; rendered as text, never compiled or run; every rebuilt file checked against its hash in `apistock.lock`; files that don't match are compared 2-way and can only conflict ([ADR-0050](0050-upgrades-and-adding-features.md)) | v0.5 |
+| 28 | Upgrade silently overwrites or drops developer edits | Hash-proven base; 3-way merges with conflict markers; migrations never merged; clean git tree required; work happens on branch `aps-upgrade/<version>` and conflicts are never committed | v0.5 |
 | 7 | Compromised CLI release | Releases built only in CI with OIDC; Sigstore signatures and provenance; protected tags; two-person approval for security-sensitive code | v0.1 |
 | 8 | Maintainer account takeover | Required 2FA in the GitHub organisation; `CODEOWNERS`; branch protection | Now |
 | 9 | GitHub token theft through the CLI | CLI never stores tokens; delegates to `gh`; generated workflows use least-privilege `permissions`, actions pinned by SHA, no `pull_request_target` | v0.1 |
@@ -108,3 +110,10 @@ Reviewed against the code for v0.2's definition of done (rows 12, 13, 19, 23 and
 | 25 Invitation takeover | Done: 256-bit tokens stored as SHA-256 in the URL fragment of the link, single use, replaced on resend, revocable, expiring (`orgs.invitation_ttl`, 1 to 30 days); accepting requires a signed-in account whose verified email equals the invited address; nobody invites, promotes or removes above their own role and only owners manage owners; 20 invitations per organisation per hour; every step is audited without email addresses in metadata |
 | 26 Organisation enumeration | Done: organisation IDs carry 128 random bits; non-members, deleted and missing organisations all get 404 `org_not_found`, checked before the resource is read; a resource ID from another organisation returns that resource's 404 |
 | 18 Privilege escalation to ops | Organisations keep their own role catalog: `RequireMember` replaces the actor's platform permissions with the member's org-role permissions for org operations, org roles never grant `/ops` permissions, and platform roles grant no access to organisations' data |
+
+## v0.5 status (in progress, 2026-09-15)
+
+| # | Status |
+|---|---|
+| 27 Tampered earlier release | Done in `aps upgrade` ([ADR-0050](0050-upgrades-and-adding-features.md)): `git archive` of a validated tag or commit (never an option or range) extracts only regular files under the templates through `os.Root`; `go mod download` is refused when checksum verification is off for `apistock.dev/cli`; every rebuilt file is checked against `apistock.lock`, a v1 lock must match completely, and a v2 lock with no matching file stops the upgrade. Tests: `TestExtractTemplatesStaysInside`, `TestReleaseFromCheckoutRejectsRefs`, `TestChecksumPolicy`, `TestUpgradeFromV1Lock` |
+| 28 Upgrade drops edits | Done: `cli/internal/merge` keeps every line the developer added (`TestPlan`); unproven bases can't take the template silently; dirty trees are refused, conflicts exit 1 uncommitted on the branch; an app edited with `aps` at `v0.4.0` upgrades with every edit kept (`TestUpgradeFromV040`) |

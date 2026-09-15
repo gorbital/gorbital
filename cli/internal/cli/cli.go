@@ -26,7 +26,8 @@ Usage:
                                  generate an empty database migration (Full preset apps)
   aps add mail [flags]           set up email with Resend or SMTP (Full preset apps)
   aps dev [flags]                run the application with live reload
-  aps version                    print version information
+  aps upgrade [flags]            merge this release's templates into the app on a branch
+  aps version                   print version information
   aps help                       show this help
 
 In a terminal, commands ask for anything you leave out, with arrow-key menus.
@@ -58,6 +59,8 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io
 		err = runAdd(ctx, args[1:], stdin, stdout, stderr)
 	case "dev":
 		err = runDev(ctx, args[1:], stderr)
+	case "upgrade":
+		err = runUpgrade(ctx, args[1:], stdout, stderr)
 	case "version", "-version", "--version":
 		fmt.Fprintf(stdout, "aps %s (recipe %s, library %s)\n", Version, recipes.MinimalName, recipes.LibraryVersion)
 		return 0

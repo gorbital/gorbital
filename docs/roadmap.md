@@ -59,7 +59,7 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 ## v0.5: Operations and upgrades
 
-**Status: design accepted** ([ADR-0050](adr/0050-upgrades-and-adding-features.md), 2026-09-15; `v0.2.0`, `v0.3.0` and `v0.4.0` tagged at their milestone commits). Done: `apistock.lock` v2, written by `aps new` and kept current by `aps add mail`: `apistock.lock` v2 with recorded inputs and file hashes, the merge base rebuilt from the recorded release and checked against those hashes, `aps upgrade` on a branch, and `aps add orgs` as the same merge plus a data-converting migration. The proposal moves the Custom preset out of v0.5. The ops endpoints, maintenance mode, `aps doctor`, Postman collection and `llms.txt` follow in their own ADR.
+**Status: design accepted** ([ADR-0050](adr/0050-upgrades-and-adding-features.md), 2026-09-15; `v0.2.0`, `v0.3.0` and `v0.4.0` tagged at their milestone commits). Done: `apistock.lock` v2, written by `aps new` and kept current by `aps add mail`; `aps upgrade` (merge base rebuilt from a checkout tag or the module proxy and proven against the lock, 3-way merges on branch `aps-upgrade/<version>`, `go.mod`, build, `api/openapi.json` and commit), with an end-to-end test upgrading an app created and edited with `aps` at `v0.4.0`. Next: `aps add orgs`: `apistock.lock` v2 with recorded inputs and file hashes, the merge base rebuilt from the recorded release and checked against those hashes, `aps upgrade` on a branch, and `aps add orgs` as the same merge plus a data-converting migration. The proposal moves the Custom preset out of v0.5. The ops endpoints, maintenance mode, `aps doctor`, Postman collection and `llms.txt` follow in their own ADR.
 
 | | |
 |---|---|

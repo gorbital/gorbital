@@ -275,6 +275,44 @@ After confirming, it prints numbered next steps: where to get the Resend key and
 
 Safety checks: the app must have `internal/app/mail.go` and the `.env.example` block; the git repository must be clean unless `--allow-dirty`; `.env` must be ignored by git before a secret is saved in it; secret values are never printed or included in `--json` output. Running it with the provider already in place changes nothing.
 
+## `aps upgrade`
+
+Brings the files `aps` wrote into your app up to this release, on a branch, without losing your edits ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)).
+
+```bash
+aps upgrade --dry-run          # what would change, per file; writes nothing
+aps upgrade                    # apply on branch aps-upgrade/<version>
+aps upgrade --from v0.4.0      # apps created before v0.5 name the release that created them
+```
+
+It rebuilds every file exactly as the release recorded in `apistock.lock` wrote it, checks each against the hash in the lock, and merges per file:
+
+| Your file | The new release | Result |
+|---|---|---|
+| Never edited | Changed | `update`: takes the new template |
+| Edited | Unchanged | Kept as you left it |
+| Edited | Changed elsewhere in the file | `merged` |
+| Edited | Changed the same lines | `conflict`: `<<<<<<< yours` … `>>>>>>> apistock <version>` markers |
+| Missing | New | `create` |
+| Never edited | Removed | `delete` |
+| Edited or deleted by you | Removed or changed | `kept`, with a note |
+
+A file whose rebuilt content doesn't match the lock is compared as yours against the release, so it can conflict but is never overwritten. Migrations are never merged: new ones are added with their released names, and yours stay as they are. Files `aps gen` created aren't tracked, so they're never touched.
+
+Without conflicts it then updates `go.mod` (new requirements and the new library version, then `go mod tidy`), runs `go build ./...`, regenerates `api/openapi.json` and commits `Upgrade apistock to <version>`. Run your tests (database tests need `aps dev` or `docker compose up -d --wait`) and merge the branch. With conflicts it exits with code 1, commits nothing, and lists the files to resolve and the commands to finish.
+
+Where earlier releases come from: with an apistock checkout (`--local`, the checkout your `go.mod` replaces the library with, or the one you run in), `git archive` of the release's tag or commit. Otherwise the `apistock.dev/cli` module from the Go module proxy, verified by the checksum database: `aps upgrade` refuses when `GOSUMDB=off` or `GONOSUMDB`, `GOPRIVATE` or `GOINSECURE` covers it. Templates are only rendered as text; nothing downloaded is run.
+
+| Flag | Default |
+|---|---|
+| `--from` | the release in `apistock.lock`. Needed for apps created before v0.5 and by development builds without a recorded commit |
+| `--local` | detected, as above |
+| `--dry-run`, `--json` | off |
+| `--skip-tidy` | run `go mod tidy` |
+| `--skip-build` | build, regenerate `api/openapi.json` and commit |
+
+Safety checks: the app must be in git with no uncommitted changes, and the branch `aps-upgrade/<version>` must not exist yet.
+
 ## `aps dev`
 
 Builds and runs the app in the current directory, rebuilding when files change and loading `.env` (variables already set in the environment win).
