@@ -70,16 +70,16 @@ Dark theme is primary. Light theme is for README, docs and print only.
 
 ## 3. Type
 
-Two families, from Google Fonts:
+Two families, both under the SIL Open Font License and always served by the
+site or app itself, never fetched from Google at runtime (Next.js bundles them
+with `next/font`; `modules/openapi/reference` embeds the variable woff2 files):
 
-```html
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-```
-
-- **Space Grotesk** (400/500/700) — headlines, UI, prose.
-  Technical, slightly mechanical grotesque. Deliberately NOT Inter.
-- **JetBrains Mono** (400/500) — code, labels, data, terminal, all paths,
+- **Manrope** (variable, 200–800) — headlines, UI, prose.
+- **Geist Mono** (variable) — code, labels, data, terminal, all paths,
   payloads, headers, version numbers. Anything a developer would copy.
+
+The logo lockup files in `logo/` were set in Space Grotesk before 2026-09-15
+and stay as they are; live UI sets the wordmark in the site font.
 
 Mono carries the technical register so the grotesque never has to shout.
 
@@ -104,8 +104,12 @@ Use `text-wrap: pretty` on prose.
 
 - Max content width 1080px (1240px for wide reference tables).
 - Sections separated by `1px solid #22221e` + 48–72px padding.
-- Square corners everywhere. `border-radius: 0`. No exceptions.
-- NO shadows. Depth comes from the 1px hairline and the surface step only.
+- Rounded corners, from one scale: 8px small controls and inputs, 12px
+  cards, panels and code blocks, 16–24px dialogs and hero panels, fully round
+  (999px) buttons, tabs, pills and search fields. The logo mark stays square.
+- Depth comes from the 1px border and the surface step. Shadows only on
+  floating layers (dialogs, menus); a soft lime glow (`rgba(216,255,62,.14)`)
+  marks focus and the active "Try it" form.
 - Section labels: `12px mono, 0.12em tracking, accent color`, numbered
   `01 /`, `02 /` …
 - Grids: `repeat(auto-fit, minmax(280px, 1fr))` with `gap: 16–20px`.
@@ -149,7 +153,8 @@ instead: `#14140f`, `#57564f`, `#8a8a80`, `#c9c6bc`.
 
 NEVER: round the corners; add perspective, bevel or wood texture; make more
 than one bar accent; offset the top bar left or align it flush; set the
-wordmark in anything but Space Grotesk Bold at -0.05em.
+wordmark in anything but the brand sans (Manrope Bold in live UI, Space
+Grotesk Bold in the existing lockup files) at -0.05em.
 
 ---
 
@@ -259,10 +264,13 @@ LISTED     1px border #4a4a42, text #a5a59a
   --ink-dark:   #14140f;
   --secondary:  #57564f;
 
-  --font-sans: "Space Grotesk", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
 
-  --radius: 0;
+  --r-sm: 8px;
+  --r: 12px;
+  --r-lg: 16px;
+  --r-pill: 999px;
 }
 ```
 

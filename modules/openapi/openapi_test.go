@@ -176,7 +176,7 @@ func TestDocs(t *testing.T) {
 	if rec = get(css[1]); rec.Code != http.StatusOK || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/css") {
 		t.Errorf("GET %s = %d", css[1], rec.Code)
 	}
-	if rec = get("/docs/assets/fonts/spacegrotesk-v22-latin.woff2"); rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "font/woff2" {
+	if rec = get("/docs/assets/fonts/manrope-latin.woff2"); rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "font/woff2" {
 		t.Errorf("GET font = %d %s", rec.Code, rec.Header().Get("Content-Type"))
 	}
 	if rec = get("/docs/nope"); rec.Code != http.StatusNotFound {

@@ -35,7 +35,7 @@ The maintainer wants a landing page, public docs and an API reference with Mintl
 - Everything follows `docs/brand/theme.md`; the logo files are in [docs/brand/logo](../brand/logo). The landing page and 404 are dark only. Docs and the API reference are dark by default and follow the reader's system setting until they pick a theme; on light grounds lime is never text.
 - Code blocks and terminals keep the dark code ground in both themes.
 - One accent moment per view: the "stock" fill on the landing page, "Try it" on an endpoint page.
-- Fonts are served by the site or app itself (Space Grotesk and JetBrains Mono, Latin and Latin Extended, under the SIL Open Font License), not fetched from Google.
+- Fonts are served by the site or app itself (Latin and Latin Extended, under the SIL Open Font License), not fetched from Google. Amended 2026-09-15: the sites, the docs and every app's `/docs` use Manrope and Geist Mono with rounded corners and pill controls, replacing Space Grotesk, JetBrains Mono and square corners, so the API reference in generated apps looks like docs.apistock.dev.
 
 ### 4. One API reference renderer for apps and the site
 
