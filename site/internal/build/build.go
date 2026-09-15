@@ -68,8 +68,12 @@ type navTab struct {
 }
 
 type navGroup struct {
-	Name  string    `json:"name"`
-	Pages []navPage `json:"pages"`
+	Name string `json:"name"`
+	// Slug and Generate "packages" make the group the package reference,
+	// generated from the library's Go doc comments; Pages is then empty.
+	Slug     string    `json:"slug"`
+	Generate string    `json:"generate"`
+	Pages    []navPage `json:"pages"`
 }
 
 type navPage struct {
@@ -172,6 +176,16 @@ func (b *builder) collect() error {
 		switch tab.Generate {
 		case "":
 			for _, g := range tab.Groups {
+				switch g.Generate {
+				case "":
+				case "packages":
+					if err := b.collectPackages(ti, g); err != nil {
+						return err
+					}
+					continue
+				default:
+					return fmt.Errorf("build: docs.json: group %q: unknown generate %q", g.Name, g.Generate)
+				}
 				for _, np := range g.Pages {
 					b.add(&page{URL: pageURL(np.Slug), Title: np.Title, Label: np.Title, Tab: ti, Group: g.Name, Source: np.Source, Kind: "guide"})
 				}
@@ -530,6 +544,14 @@ func (b *builder) writeDocs() error {
 	files["llms.txt"], files["llms-full.txt"] = b.llms()
 	files["sitemap.xml"] = b.sitemap(b.cfg.DocsURL, b.pageURLs())
 	files["robots.txt"] = robots(b.cfg.DocsURL)
+	// Pages that moved keep working: Cloudflare Pages reads _redirects.
+	redirects, err := os.ReadFile(filepath.Join(b.cfg.Root, "site", "content", "redirects.txt"))
+	switch {
+	case err == nil:
+		files["_redirects"] = redirects
+	case !errors.Is(err, fs.ErrNotExist):
+		return fmt.Errorf("build: %w", err)
+	}
 	for name, data := range files {
 		if err := writeFile(filepath.Join(dir, name), data); err != nil {
 			return err

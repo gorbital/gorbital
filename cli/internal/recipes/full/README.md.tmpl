@@ -11,12 +11,15 @@ aps dev      # PostgreSQL and Mailpit in Docker, migrations, seed data, live rel
 The first run prints the password of the seeded administrator, `admin@example.com`, once. Sign-in methods (email and password, authenticator apps, passkeys, Google and Apple) and how to create the credentials for each are in [AUTH_PROVIDERS.md](AUTH_PROVIDERS.md); the app lists what's on when it starts. For passkeys, open the app at http://localhost:8080. Without the apistock CLI:
 
 ```bash
-cp .env.example .env
+cp .env.example .env            # then set AUTH_ENCRYPTION_KEYS: echo "k1:$(openssl rand -base64 32)"
 docker compose up -d --wait     # PostgreSQL and Mailpit
+set -a; . ./.env; set +a        # the app reads the environment, not .env: export it in each terminal
 go run ./cmd/migrate            # database migrations
 go run ./cmd/seed               # administrator and example projects (development only)
 go run ./cmd/api
 ```
+
+Commit the new app before running `aps gen` or `aps add`: they refuse to change an app with uncommitted changes.
 
 | URL | What |
 |---|---|

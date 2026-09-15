@@ -1,36 +1,45 @@
 # Introduction
 
-apistock is a Go library and a CLI, `aps`, that write a production-ready API into your repository: PostgreSQL, sign-in with two-factor authentication and passkeys, organisations, background jobs, email, an audit log and operations endpoints. The generated code is yours to read and change. The parts that need security fixes live in versioned library modules, so fixes reach you with `go get`.
+apistock builds the backend of your app: the API your website or mobile app talks to. One command creates a complete Go project with sign-in, a database, email and background jobs already working. The code lands in your own repository, and every file is yours to read and change.
 
 > [!NOTE]
-> apistock is pre-release. The library isn't published at `apistock.dev` yet, so apps are created from a checkout of the repository. Everything these docs describe is implemented and tested in the golden apps under [`examples/`](../../examples).
+> apistock is pre-release. The library isn't published at `apistock.dev` yet, so apps are created from a copy of the repository on your computer. Everything these docs describe is built and tested.
+
+## Two kinds of docs
+
+| You want to | Read |
+|---|---|
+| Create an app, run it, add your own data, set up Google or Apple sign-in, go live | **Guides**: step by step, written for people who haven't done it before |
+| Understand how it's built: the architecture, every package and function, and why each decision was made | **Technical**: architecture, subsystems, the package reference and the decision records |
+
+## What you get
+
+- **Sign-in:** email and password, codes by email, authenticator apps, passkeys, Google and Apple.
+- **A database:** PostgreSQL, with your tables and migrations in your repository.
+- **Email:** Resend or any SMTP server, with a local inbox while you develop.
+- **Background jobs:** work that runs later or on a schedule, such as cleanups and emails.
+- **Organisations**, if different companies or teams will use your app with their own separate data.
+- **Admin endpoints** to change settings and run jobs without a deploy, and an audit log of who did what.
+- **API docs** at `/docs` in every app, generated from your code.
 
 ## What it decides for you
 
-Opinions are the product. Each one comes with its cost, and with a record of why.
+apistock makes the early decisions so you can start building. Each one comes with its cost.
 
-| Decided | Cost |
+| Decided | What it costs you |
 |---|---|
-| PostgreSQL only, no ORM | No MySQL, no SQLite. If that rules you out, it rules you out. |
-| Hand-written SQL, one file per operation | More files than a query builder. Each is a query you can read in review. |
-| Authentication is a library; the flows are in your app | Security fixes arrive with `go get`, and you maintain the flows you change. |
-| Tenancy is chosen when you create the app | Moving from single to multi-tenant with a command waits for `aps add orgs` in v0.5. |
-| Runtime settings live in PostgreSQL | Change them without a deploy. Secrets stay in the environment. |
+| PostgreSQL is the only database | No MySQL or SQLite. If you need those, apistock isn't for you. |
+| Queries are plain SQL, one file each | More files than an ORM, but every query is readable in a code review. |
+| Security code lives in a library | Fixes reach your app with `go get`; the sign-in flows in your repository are yours to maintain. |
+| You choose single or multi-tenant at the start | Moving from single to multi-tenant later is one command (`aps add orgs`) that merges into your edits; the other way round isn't supported. |
 
-Every decision has its context, options and trade-offs written down: see the [decision records](../../docs/adr/README.md).
-
-## Presets
-
-| Preset | What you get | Needs |
-|---|---|---|
-| **Minimal** | An HTTP API with configuration, telemetry, health checks, security headers and interactive docs | Go |
-| **Full** | Everything in Minimal, plus PostgreSQL, runtime settings, background jobs, email, authentication with platform roles, audit log, release tracking, `/ops/*` APIs and example code | Go and Docker |
-
-A Full app is single-tenant by default: records belong to users. With `--tenancy multi`, records belong to [organisations](organisations.md), with members, roles and invitations.
+Every decision has a written record with the alternatives considered: see the [decision records](../../docs/adr/README.md).
 
 ## Where to go next
 
-- [Quickstart](quickstart.md): create a Full app and run it locally.
-- [Architecture](../../docs/architecture.md): how the library, the CLI and a generated app fit together.
-- [CLI reference](../../docs/guides/cli.md): every command, question and flag.
-- [API reference](../../examples/full-multi/api/openapi.json): every endpoint of the example multi-tenant app.
+- [What you need](prerequisites.md): Go, Docker and git, and how to check each works.
+- [Quickstart](quickstart.md): create an app and run it on your computer.
+- [How apistock works](concepts.md): the parts and the words you'll meet, in plain terms.
+- [Set up sign-in](sign-in/overview.md): every key for Google, Apple, passkeys and email, click by click.
+- [Troubleshooting](troubleshooting.md): exact error messages and their fixes.
+- [Architecture overview](../../docs/architecture.md): how the library, the CLI and a generated app fit together.

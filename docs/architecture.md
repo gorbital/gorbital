@@ -46,13 +46,17 @@ Three products, versioned together ([ADR-0014](adr/0014-product-shape-and-preset
 ## 3. Creating an app
 
 ```text
-$ aps new my-api
-? Preset           › ● Full  ○ Minimal
-? Will different companies or teams use your app, each with their own separate data?
-                     ● No (single-tenant)  ○ Yes (multi-tenant)
-? Email provider   › ● Resend  ○ SMTP
-? GitHub repo + CI › ○ No  ● Yes
+$ aps new
+✓ app name … my-api
+✓ Go module path … github.com/acme/my-api
+✓ preset … full
+✓ tenancy … single
+✓ apistock checkout … /Users/you/code/apistock
+✓ initialise a git repository? … yes
+? create my-api in ./my-api? … yes  no
 ```
+
+The email provider isn't asked at creation: new Full apps use Resend, and `aps add mail` switches to SMTP. A GitHub repository and CI option ([ADR-0011](adr/0011-github-integration.md)) isn't implemented yet.
 
 | Preset | Contents |
 |---|---|
@@ -60,7 +64,7 @@ $ aps new my-api
 | **Full** | Minimal + PostgreSQL, runtime settings, jobs, email, full authentication, users/roles/permissions, tenancy choice, audit logs, operations APIs, seed data, tests, CI option. |
 A Custom preset (a feature checklist) isn't planned for v0.5: every offered combination would need its own tested golden app ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
 
-Every prompt has a flag (`--preset`, `--tenancy`, `--mail`, `--github`, `--yes`) for CI and AI agents. Each preset is a whole template tree generated from a golden app; `aps add` and `aps upgrade` move an app from one tree to another with the same 3-way merge ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
+Every prompt has a flag (`--module`, `--preset`, `--tenancy`, `--local`, `--no-git`, `--yes`) for CI and AI agents. Each preset is a whole template tree generated from a golden app; `aps add` and `aps upgrade` move an app from one tree to another with the same 3-way merge ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
 
 ---
 
@@ -166,28 +170,35 @@ apistock/
 
 Layered modules (`domain / usecase / repository / delivery`) inside `internal/modules/`, with `internal/app` as the composition root.
 
+The tree of a new single-tenant Full app, as generated from `examples/full-single`:
+
 ```text
 my-api/
-├── cmd/{api,worker,migrate,seed}/main.go
-├── api/{openapi.json, postman_collection.json, llms.txt}   (exported from code)
+├── cmd/
+│   ├── api/main.go        server, and commands: openapi, roles, grant-role, revoke-role, reset-mfa, rotate-auth-keys, auth-providers
+│   ├── migrate/main.go    goose migrations, then River's
+│   └── seed/main.go       development administrator and example data
+├── api/openapi.json       exported from code: go run ./cmd/api openapi > api/openapi.json
 ├── internal/
-│   ├── app/            app.go · config.go · routes.go · infra_*.go · modules.go · module_<name>.go · architecture_test.go
-│   ├── modules/
-│   │   ├── auth/       module.go · domain/ · usecase/ · repository/ · delivery/
-│   │   ├── users/      (same layers)
-│   │   ├── orgs/       (multi-tenant only)
-│   │   ├── ops/
-│   │   └── projects/   example module to copy
-│   ├── jobs/           job workers and schedules
-│   ├── emails/         templates and dev preview
-│   └── wellknown/      apple-app-site-association, assetlinks.json
-├── db/migrations/
-├── test/{e2e,testutil}/
-├── docs/{adr,deployment.md,auth-providers.md,runbook.md}
-├── compose.yaml · Dockerfile · .env.example
-├── apistock.yaml · apistock.lock · ARCHITECTURE.md · AGENTS.md · README.md
-└── go.mod
+│   ├── app/               composition root, the only package that reads the environment
+│   │   ├── app.go · config.go · routes.go · modules.go · jobs.go · settings.go · permissions.go
+│   │   ├── infra_mail.go · mail.go · keys.go · passkeys.go · social.go · providers.go
+│   │   ├── module_<name>.go · job_<name>.go · commands.go · admin.go · admin_mfa.go · migrate.go · seed.go
+│   │   └── *_test.go      end-to-end HTTP tests, architecture_test.go (import rules)
+│   ├── modules/           each: module.go · domain/ · usecase/ · repository/ · delivery/
+│   │   ├── auth/          accounts, sessions, codes, 2FA, passkeys, Google and Apple, platform roles
+│   │   ├── ops/           /ops/* endpoints over the library's managers
+│   │   ├── ping/          example endpoint reading a runtime setting
+│   │   └── projects/      example resource to copy (aps gen resource output)
+│   └── jobs/              job workers: authcleanup/, heartbeat/
+├── db/migrations/         goose SQL files, embedded by migrations.go
+├── compose.yaml · Dockerfile · .env.example · .gitignore · .dockerignore
+├── apistock.yaml · apistock.lock
+├── README.md · ARCHITECTURE.md · AUTH_PROVIDERS.md · AGENTS.md
+└── go.mod · go.sum
 ```
+
+A multi-tenant app adds `internal/modules/orgs/` and the `orgs_purge` job. The `.well-known` files are served by `mountWellKnown` in `internal/app/passkeys.go`. There's no separate worker command: jobs run in the API process. Email templates are plain-text and HTML strings in `modules/auth` (`authlib.NewMailEmails`); owned email templates with a development preview are still open (section 11). A Postman collection and `llms.txt` are planned for v0.5.
 
 Rules enforced by `architecture_test.go`:
 
@@ -249,7 +260,7 @@ Two layers. **Environment** holds secrets, credentials and infrastructure (datab
 
 ### 7.8 Background jobs ([ADR-0033](adr/0033-background-jobs.md))
 
-Jobs run on PostgreSQL with River, in the API process or a separate worker. Each job is a **definition**, like a serverless function: developers write and deploy the code, and operators change its configuration at runtime (enabled, schedule, timeout, max attempts, queue, priority) through `/ops/jobs`, with versions, reasons, history and audit events. Schedules are 5-field cron in UTC or `@every` intervals, run once across instances by River's elected leader, and never more often than once a minute. Jobs carry the enqueuing request ID, trace and actor but never permissions, and run as the `jobs` system actor. Email is sent through `jobs.AsyncSender` with job-ID idempotency keys. River's tables are migrated by River's migrator from `cmd/migrate`. Guide: [background jobs](guides/background-jobs.md).
+Jobs run on PostgreSQL with River, in the API process: every instance serves HTTP and works jobs (the library allows a separate worker process, but generated apps don't include one). Each job is a **definition**, like a serverless function: developers write and deploy the code, and operators change its configuration at runtime (enabled, schedule, timeout, max attempts, queue, priority) through `/ops/jobs`, with versions, reasons, history and audit events. Schedules are 5-field cron in UTC or `@every` intervals, run once across instances by River's elected leader, and never more often than once a minute. Jobs carry the enqueuing request ID, trace and actor but never permissions, and run as the `jobs` system actor. Email is sent through `jobs.AsyncSender` with job-ID idempotency keys. River's tables are migrated by River's migrator from `cmd/migrate`. Guide: [background jobs](guides/background-jobs.md).
 
 ### 7.9 Database ([ADR-0005](adr/0005-database-strategy.md), [ADR-0028](adr/0028-local-development-environment.md), [ADR-0032](adr/0032-repository-sql.md))
 
@@ -264,11 +275,11 @@ PostgreSQL only, always from Docker in development, tests and CI. `modules/postg
 | `aps new <name>` | Create an app (presets and prompts) |
 | `aps add <feature>` | Add a feature: `mail` switches the email provider; `orgs` (v0.5) turns a single-tenant app multi-tenant |
 | `aps gen resource <Name> <field:type>... [--scope=user]` | One-shot layered module owned by the signed-in user, with table, API and tests ([ADR-0039](adr/0039-resource-module-template.md)); `org` and `global` scopes later |
-| `aps gen job <Name> [--cron SPEC\|--every D]` | Job args, worker, test and definition; config editable in `/ops/jobs` ([ADR-0033](adr/0033-background-jobs.md)) |
+| `aps gen job <Name> [--schedule CRON\|--every D\|--on-demand]` | Job args, worker, test and definition; config editable in `/ops/jobs` ([ADR-0033](adr/0033-background-jobs.md)) |
 | `aps gen migration <name>` | Empty forward-only goose migration that runs after the existing ones |
-| `aps dev [--observability]` | Run locally with reload and Docker services |
-| `aps upgrade [--from <version>] [--major]` | Merge template changes and upgrade the library on branch `aps-upgrade/<version>` (v0.5) |
-| `aps doctor` | Check configuration, versions and migrations |
+| `aps dev [--observability] [--no-services] [--no-reload]` | Run locally with reload and Docker services |
+| `aps upgrade [--from <version>] [--dry-run]` | Merge template changes and upgrade the library on branch `aps-upgrade/<version>` (v0.5); `--major` arrives with 1.0 |
+| `aps doctor` | Planned (v0.5): check configuration, versions and migrations |
 
 **Implemented in v0.1:** `aps new` (Minimal preset; `--module`, `--local`, `--json`, `--no-git`), `aps dev` (build, run, reload, `.env`, port check), `aps version`.
 
@@ -295,12 +306,13 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 
 | Release | Delivers |
 |---|---|
-| v0.1 ✅ implemented, unreleased | Core library, Minimal preset, `aps new` and `aps dev`, OpenAPI + Scalar docs, CI, signed release workflow |
-| v0.2 | PostgreSQL, runtime settings, jobs, email (Resend/SMTP), email/password auth, users and roles, audit, Full preset, single-tenant, `aps dev` with Docker, seed data |
-| v0.3 | Google, Apple, TOTP, passkeys |
-| v0.4 | Multi-tenant organisations, tenancy prompt |
-| v0.5 | Operations APIs, Postman, `llms.txt`, `aps upgrade`, `aps add orgs`, `aps doctor` |
-| v1.0 | External security review, API freeze, documentation site |
+| v0.1 ✅ done | Core library, Minimal preset, `aps new` and `aps dev`, OpenAPI docs (Scalar, since replaced by the apistock reference), CI, signed release workflow |
+| v0.2 ✅ done, tagged | PostgreSQL, runtime settings, jobs, email (Resend/SMTP), email/password auth, users and roles, audit, Full preset, single-tenant, `aps dev` with Docker, seed data |
+| v0.3 ✅ done, tagged | Google, Apple, TOTP, passkeys |
+| v0.4 ✅ done, tagged | Multi-tenant organisations, tenancy prompt |
+| v0.5 (in progress) | `apistock.lock` v2, `aps upgrade`, `aps add orgs` (done); operations APIs, Postman, `llms.txt`, `aps doctor` (next) |
+| v1.0 | External security review, API freeze, documentation content |
+| v1.3 (built early) | Public website and docs at apistock.dev and docs.apistock.dev ([ADR-0049](adr/0049-public-docs-and-website.md)) |
 | v1.1 | Feature flags, live observability, API keys, GitHub login, row-level security option, local dev console |
 | v1.2 (proposed) | Client templates: docs site, dashboard and Expo app created by `aps new` from separate template repositories ([ADR-0047](adr/0047-client-templates.md)) |
 
@@ -323,5 +335,5 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `aps add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |
 | Email templates and preview route | Open: owned templates in `internal/emails` with a development preview (ADR-0025) arrive with authentication's emails |
 | Client IP and user agent in audit events | Open: no core middleware carries them in the context yet; `modules/auth` sets them on its events |
-| Organisations design | Open: [ADR-0048](adr/0048-organisations-v0-4.md) proposed; five questions for the maintainer (role per member, staff access, personal workspace invitations, invited-email match, `aps add orgs` in v0.5) |
+| ~~Organisations design~~ | Resolved: [ADR-0048](adr/0048-organisations-v0-4.md) accepted and implemented in v0.4; `aps add orgs` shipped in v0.5 |
 | Client templates | Open: [ADR-0047](adr/0047-client-templates.md) proposed; to decide the dashboard and docs stacks, where archives are hosted, and the bundle ID prompt before accepting |

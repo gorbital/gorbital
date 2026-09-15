@@ -108,10 +108,19 @@ A Full app is exactly [examples/full-single](../../examples/full-single) with yo
 
 ```bash
 cd my-api
-cp .env.example .env
+git add -A && git commit -m "Create my-api"   # aps new doesn't commit; aps gen and aps add need a clean tree
+aps dev                                      # .env, PostgreSQL and Mailpit, migrations, seed data, the API
+```
+
+Without `aps dev`, export `.env` yourself: the app reads environment variables, not the file.
+
+```bash
+cp .env.example .env           # then set AUTH_ENCRYPTION_KEYS: echo "k1:$(openssl rand -base64 32)"
 docker compose up -d --wait    # PostgreSQL and Mailpit
+set -a; . ./.env; set +a       # in each terminal, and again after editing .env
 go run ./cmd/migrate
-go run ./cmd/api               # or: aps dev
+go run ./cmd/seed
+go run ./cmd/api
 ```
 
 If port 5432 is taken, set `POSTGRES_PORT` in `.env` and the same port in `DATABASE_URL`. The app's README explains how to create the first admin and how to remove the examples.
@@ -356,7 +365,9 @@ While it runs, a changed or new migration is applied before the restart; if it f
 | `--no-reload` | reload on change |
 | `--interval` | 500ms between change checks |
 
-Without Docker, a Full app stops with a message: install and start Docker, or point `DATABASE_URL` at an existing PostgreSQL and use `--no-services`. Without the CLI, the same steps are `cp .env.example .env`, `docker compose up -d --wait`, `go run ./cmd/migrate`, `go run ./cmd/seed` and `go run ./cmd/api`.
+Without Docker, a Full app stops with a message: install and start Docker, or point `DATABASE_URL` at an existing PostgreSQL and use `--no-services`. Without the CLI, the same steps are `cp .env.example .env` (and a key in `AUTH_ENCRYPTION_KEYS`), `docker compose up -d --wait`, `set -a; . ./.env; set +a` to export `.env`, `go run ./cmd/migrate`, `go run ./cmd/seed` and `go run ./cmd/api`.
+
+The port check listens on `127.0.0.1` only. On macOS, a program listening on all addresses (such as another Docker project's PostgreSQL on `0.0.0.0:5432`) isn't detected, and `docker compose up` then fails with `Bind for 0.0.0.0:5432 failed: port is already allocated`; move the port the same way.
 
 ## Exit codes
 

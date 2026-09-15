@@ -57,6 +57,10 @@ export APISTOCK_TEST_MAILPIT_URL=http://127.0.0.1:58025
 | Core | `go test ./...` (repository root) |
 | A module | `cd modules/jobs && go test -race ./...` |
 | An example app | `cd examples/full-single && go test -race ./...` |
+| The CLI | `cd cli && go test -race ./...` |
+| The website | `cd site && go test ./...` (builds both sites, fails on broken links) |
+
+What each kind of test covers, the helpers, and drift checks: [testing](testing.md).
 
 - Without `APISTOCK_TEST_DATABASE_URL`, database tests are **skipped** with instructions.
 - With `APISTOCK_REQUIRE_DB=1` (as in CI), a missing database **fails** the tests instead.

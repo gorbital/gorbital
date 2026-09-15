@@ -7,38 +7,86 @@
           "name": "Start",
           "pages": [
             {"title": "Introduction", "slug": "", "source": "site/content/introduction.md"},
+            {"title": "What you need", "slug": "prerequisites", "source": "site/content/prerequisites.md"},
             {"title": "Quickstart", "slug": "quickstart", "source": "site/content/quickstart.md"},
-            {"title": "Architecture", "slug": "architecture", "source": "docs/architecture.md"},
-            {"title": "Project layout", "slug": "project-layout", "source": "examples/full-single/ARCHITECTURE.md"}
+            {"title": "How apistock works", "slug": "concepts", "source": "site/content/concepts.md"}
           ]
         },
         {
-          "name": "Build",
+          "name": "Build your API",
           "pages": [
-            {"title": "Organisations", "slug": "guides/organisations", "source": "site/content/organisations.md"},
-            {"title": "Database", "slug": "guides/database", "source": "docs/guides/database.md"},
-            {"title": "Runtime settings", "slug": "guides/runtime-settings", "source": "docs/guides/runtime-settings.md"},
-            {"title": "Background jobs", "slug": "guides/background-jobs", "source": "docs/guides/background-jobs.md"},
-            {"title": "Email", "slug": "guides/email", "source": "docs/guides/email.md"}
+            {"title": "Add your first resource", "slug": "guides/first-resource", "source": "site/content/first-resource.md"},
+            {"title": "Organisations", "slug": "guides/organisations", "source": "site/content/organisations.md"}
           ]
         },
         {
-          "name": "Secure",
+          "name": "Set up sign-in",
           "pages": [
-            {"title": "Authentication", "slug": "guides/authentication", "source": "docs/guides/authentication.md"},
-            {"title": "Sign-in providers", "slug": "guides/auth-providers", "source": "docs/guides/auth-providers.md"}
+            {"title": "Overview", "slug": "sign-in", "source": "site/content/sign-in/overview.md"},
+            {"title": "Every key and credential", "slug": "sign-in/all-keys", "source": "site/content/sign-in/all-keys.md"},
+            {"title": "Encryption key", "slug": "sign-in/encryption-key", "source": "site/content/sign-in/encryption-key.md"},
+            {"title": "Email sending", "slug": "sign-in/email", "source": "site/content/sign-in/email.md"},
+            {"title": "Passkeys", "slug": "sign-in/passkeys", "source": "site/content/sign-in/passkeys.md"},
+            {"title": "Passkeys in mobile apps", "slug": "sign-in/passkeys-mobile", "source": "site/content/sign-in/passkeys-mobile.md"},
+            {"title": "Google sign-in", "slug": "sign-in/google", "source": "site/content/sign-in/google.md"},
+            {"title": "Apple sign-in", "slug": "sign-in/apple", "source": "site/content/sign-in/apple.md"},
+            {"title": "Go-live checklist", "slug": "sign-in/go-live", "source": "site/content/sign-in/go-live.md"}
           ]
         },
         {
-          "name": "Operate",
+          "name": "Help",
           "pages": [
-            {"title": "Ops API", "slug": "guides/ops-api", "source": "docs/guides/ops-api.md"}
+            {"title": "Troubleshooting", "slug": "troubleshooting", "source": "site/content/troubleshooting.md"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Technical",
+      "groups": [
+        {
+          "name": "Architecture",
+          "pages": [
+            {"title": "Architecture overview", "slug": "technical/architecture", "source": "docs/architecture.md"},
+            {"title": "Key decisions", "slug": "technical/key-decisions", "source": "docs/guides/key-decisions.md"},
+            {"title": "App layout and rules", "slug": "technical/app-layout", "source": "examples/full-single/ARCHITECTURE.md"},
+            {"title": "Life of a request", "slug": "technical/request-lifecycle", "source": "docs/guides/request-lifecycle.md"},
+            {"title": "Inside a generated app", "slug": "technical/app-internals", "source": "docs/guides/app-internals.md"},
+            {"title": "Services and libraries", "slug": "technical/services-and-libraries", "source": "docs/guides/services-and-libraries.md"}
           ]
         },
+        {
+          "name": "Configuration and security",
+          "pages": [
+            {"title": "Environment variables", "slug": "technical/environment-variables", "source": "docs/guides/environment-variables.md"},
+            {"title": "Secrets and keys", "slug": "technical/secrets-and-keys", "source": "docs/guides/secrets-and-keys.md"}
+          ]
+        },
+        {
+          "name": "Subsystems",
+          "pages": [
+            {"title": "Database", "slug": "technical/database", "source": "docs/guides/database.md"},
+            {"title": "Runtime settings", "slug": "technical/runtime-settings", "source": "docs/guides/runtime-settings.md"},
+            {"title": "Background jobs", "slug": "technical/background-jobs", "source": "docs/guides/background-jobs.md"},
+            {"title": "Authentication", "slug": "technical/authentication", "source": "docs/guides/authentication.md"},
+            {"title": "Sign-in providers", "slug": "technical/sign-in-providers", "source": "docs/guides/auth-providers.md"},
+            {"title": "Email", "slug": "technical/email", "source": "docs/guides/email.md"},
+            {"title": "Error handling", "slug": "technical/error-handling", "source": "docs/guides/error-handling.md"},
+            {"title": "Ops API", "slug": "technical/ops-api", "source": "docs/guides/ops-api.md"}
+          ]
+        },
+        {
+          "name": "Test and deploy",
+          "pages": [
+            {"title": "Testing", "slug": "technical/testing", "source": "docs/guides/testing.md"},
+            {"title": "Running in production", "slug": "technical/production", "source": "docs/guides/production.md"}
+          ]
+        },
+        {"name": "Package reference", "slug": "reference", "generate": "packages"},
         {
           "name": "Contribute",
           "pages": [
-            {"title": "Local development", "slug": "guides/local-development", "source": "docs/guides/local-development.md"}
+            {"title": "Local development", "slug": "technical/local-development", "source": "docs/guides/local-development.md"}
           ]
         }
       ]
