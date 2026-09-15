@@ -247,7 +247,7 @@ func (d *devRunner) migrate(ctx context.Context, env []string) error {
 // seed runs the app's seed data command, which does nothing when its data
 // is already there (ADR-0042). Apps without cmd/seed skip it.
 func (d *devRunner) seed(ctx context.Context, env []string) error {
-	if _, err := os.Stat(filepath.Join("cmd", "seed")); err != nil {
+	if _, err := os.Stat(filepath.Join("cmd", "seed")); errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
 	fmt.Fprintln(d.out, "aps: seed data (go run ./cmd/seed)")
@@ -464,7 +464,7 @@ func copyIfMissing(src, dst string) (bool, error) {
 	} else if err != nil {
 		return false, err
 	}
-	return true, os.WriteFile(dst, data, 0o600)
+	return true, os.WriteFile(dst, data, 0o600) //nolint:gosec // dst is a fixed file name (.env) in the app directory
 }
 
 // manifestFeatures returns the features listed in apistock.yaml, written as
