@@ -1,0 +1,330 @@
+package usecase
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	authlib "apistock.dev/modules/auth"
+
+	authdomain "example.com/acme-api/internal/modules/auth/domain"
+)
+
+// TOTPEnrollment is a new authenticator app secret, shown once.
+type TOTPEnrollment struct {
+	// Secret is typed into an authenticator app.
+	Secret string
+	// URI is the otpauth:// URI to show as a QR code.
+	URI string
+}
+
+// StartTOTPEnrollment creates a new authenticator app secret for the
+// signed-in user after checking the password, replacing one that was never
+// confirmed. Turn two-factor authentication on with ConfirmTOTP. It returns
+// ErrInvalidCredentials, ErrMFAAlreadyEnabled or ErrMFAUnavailable.
+func (s *Service) StartTOTPEnrollment(ctx context.Context, password string) (TOTPEnrollment, error) {
+	p, err := requirePrincipal(ctx)
+	if err != nil {
+		return TOTPEnrollment{}, err
+	}
+	if s.keyring == nil {
+		return TOTPEnrollment{}, authdomain.ErrMFAUnavailable
+	}
+	secret := authlib.NewTOTPSecret()
+	keyID, ciphertext, err := s.keyring.Encrypt([]byte(secret), totpAAD(p.UserID))
+	if err != nil {
+		return TOTPEnrollment{}, err
+	}
+	var (
+		email string
+		state error
+	)
+	err = s.store.InTx(ctx, func(tx Store) error {
+		u, err := tx.SelectUserByID(ctx, p.UserID, true)
+		if err != nil {
+			return err // ErrUserNotFound is handled below
+		}
+		if !s.passwordMatches(u, password) {
+			state = authdomain.ErrInvalidCredentials
+			return nil
+		}
+		email = u.Email
+		stored, err := tx.UpsertPendingTOTP(ctx, authdomain.TOTP{UserID: u.ID, KeyID: keyID, SecretCiphertext: ciphertext, CreatedAt: s.now()})
+		if err == nil && !stored {
+			state = authdomain.ErrMFAAlreadyEnabled
+		}
+		return err
+	})
+	switch {
+	case errors.Is(err, authdomain.ErrUserNotFound):
+		return TOTPEnrollment{}, authlib.ErrUnauthenticated
+	case err != nil:
+		return TOTPEnrollment{}, dbError("start two-factor setup", err)
+	case state != nil:
+		return TOTPEnrollment{}, state
+	}
+	s.audit(ctx, userEvent("auth.mfa.totp_enrollment_started", p.UserID, authlib.ClientInfoFromContext(ctx)))
+	return TOTPEnrollment{Secret: secret, URI: authlib.TOTPURI(s.issuer, email, secret)}, nil
+}
+
+// ConfirmTOTP turns two-factor authentication on with a code from the
+// authenticator app set up by StartTOTPEnrollment. It marks the current
+// session verified with a second factor, ends the user's other sessions, and
+// returns 10 recovery codes to show once. It returns ErrInvalidMFA,
+// ErrMFANotEnabled (setup wasn't started), ErrMFAAlreadyEnabled,
+// ErrMFAUnavailable or a *RateLimitError.
+func (s *Service) ConfirmTOTP(ctx context.Context, code string) ([]string, error) {
+	p, err := s.mfaPrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	codes := authlib.NewRecoveryCodes()
+	var (
+		to    string
+		state error
+	)
+	err = s.store.InTx(ctx, func(tx Store) error {
+		u, err := tx.SelectUserByID(ctx, p.UserID, true)
+		if err != nil {
+			return err // ErrUserNotFound is handled below
+		}
+		totp, found, err := tx.SelectTOTP(ctx, u.ID, true)
+		switch {
+		case err != nil:
+			return err
+		case !found:
+			state = authdomain.ErrMFANotEnabled
+			return nil
+		case totp.Confirmed():
+			state = authdomain.ErrMFAAlreadyEnabled
+			return nil
+		}
+		secret, err := s.decryptTOTP(totp)
+		if err != nil {
+			return err
+		}
+		step, match := authlib.VerifyTOTP(secret, code, s.now())
+		if !match {
+			state = authdomain.ErrInvalidMFA
+			return nil
+		}
+		now := s.now()
+		to = u.Email
+		if err := tx.ConfirmTOTP(ctx, u.ID, step, now); err != nil {
+			return err
+		}
+		if err := s.replaceRecoveryCodes(ctx, tx, u.ID, codes, now); err != nil {
+			return err
+		}
+		if err := tx.MarkSessionMFAVerified(ctx, p.SessionID, now); err != nil {
+			return err
+		}
+		_, err = tx.RevokeUserSessions(ctx, u.ID, p.SessionID, now, "mfa_enabled")
+		return err
+	})
+	switch {
+	case errors.Is(err, authdomain.ErrUserNotFound):
+		return nil, authlib.ErrUnauthenticated
+	case err != nil:
+		return nil, dbError("turn on two-factor authentication", err)
+	case state != nil:
+		return nil, state
+	}
+	s.sent(ctx, "mfa_enabled", s.emails.SendTwoFactorEnabled(ctx, to))
+	s.audit(ctx, userEvent("auth.mfa.totp_enabled", p.UserID, authlib.ClientInfoFromContext(ctx)))
+	return codes, nil
+}
+
+// DisableTOTP turns two-factor authentication off after checking the
+// password and a second factor, deletes the recovery codes and ends the
+// user's other sessions. It returns ErrInvalidCredentials, ErrInvalidMFA,
+// ErrMFANotEnabled, ErrMFARequiredByRole, ErrMFAUnavailable or a
+// *RateLimitError.
+func (s *Service) DisableTOTP(ctx context.Context, password string, factor authdomain.SecondFactor) error {
+	p, err := s.mfaPrincipal(ctx)
+	if err != nil {
+		return err
+	}
+	var (
+		to    string
+		state error
+	)
+	err = s.store.InTx(ctx, func(tx Store) error {
+		u, err := tx.SelectUserByID(ctx, p.UserID, true)
+		if err != nil {
+			return err // ErrUserNotFound is handled below
+		}
+		if !s.passwordMatches(u, password) {
+			state = authdomain.ErrInvalidCredentials
+			return nil
+		}
+		roles, err := tx.SelectUserRoles(ctx, u.ID)
+		if err != nil {
+			return err
+		}
+		if s.catalog.RequiresMFA(roles...) {
+			state = authdomain.ErrMFARequiredByRole
+			return nil
+		}
+		if totp, found, err := tx.SelectTOTP(ctx, u.ID, true); err != nil || !found || !totp.Confirmed() {
+			state = authdomain.ErrMFANotEnabled
+			return err
+		}
+		if state, err = s.requireSecondFactor(ctx, tx, u.ID, factor); err != nil || state != nil {
+			return err
+		}
+		now := s.now()
+		to = u.Email
+		if _, err := tx.DeleteTOTP(ctx, u.ID); err != nil {
+			return err
+		}
+		if err := tx.DeleteRecoveryCodes(ctx, u.ID); err != nil {
+			return err
+		}
+		_, err = tx.RevokeUserSessions(ctx, u.ID, p.SessionID, now, "mfa_disabled")
+		return err
+	})
+	switch {
+	case errors.Is(err, authdomain.ErrUserNotFound):
+		return authlib.ErrUnauthenticated
+	case err != nil:
+		return dbError("turn off two-factor authentication", err)
+	case state != nil:
+		return state
+	}
+	s.sent(ctx, "mfa_disabled", s.emails.SendTwoFactorDisabled(ctx, to))
+	s.audit(ctx, userEvent("auth.mfa.totp_disabled", p.UserID, authlib.ClientInfoFromContext(ctx)))
+	return nil
+}
+
+// RegenerateRecoveryCodes replaces the signed-in user's recovery codes after
+// checking a code from the authenticator app, and returns the new codes to
+// show once. It returns ErrInvalidMFA, ErrMFANotEnabled, ErrMFAUnavailable
+// or a *RateLimitError.
+func (s *Service) RegenerateRecoveryCodes(ctx context.Context, code string) ([]string, error) {
+	p, err := s.mfaPrincipal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	codes := authlib.NewRecoveryCodes()
+	var state error
+	err = s.store.InTx(ctx, func(tx Store) error {
+		if totp, found, err := tx.SelectTOTP(ctx, p.UserID, true); err != nil || !found || !totp.Confirmed() {
+			state = authdomain.ErrMFANotEnabled
+			return err
+		}
+		// Only a code from the authenticator app: a recovery code can't
+		// replace the recovery codes.
+		if state, err = s.requireSecondFactor(ctx, tx, p.UserID, authdomain.SecondFactor{Code: code}); err != nil || state != nil {
+			return err
+		}
+		return s.replaceRecoveryCodes(ctx, tx, p.UserID, codes, s.now())
+	})
+	if err != nil {
+		return nil, dbError("replace recovery codes", err)
+	}
+	if state != nil {
+		return nil, state
+	}
+	s.audit(ctx, userEvent("auth.mfa.recovery_codes_regenerated", p.UserID, authlib.ClientInfoFromContext(ctx)))
+	return codes, nil
+}
+
+// mfaPrincipal returns the signed-in principal for a two-factor change,
+// checking that encryption keys are configured and the user isn't guessing
+// codes too fast.
+func (s *Service) mfaPrincipal(ctx context.Context) (authlib.Principal, error) {
+	p, err := requirePrincipal(ctx)
+	if err != nil {
+		return authlib.Principal{}, err
+	}
+	if s.keyring == nil {
+		return authlib.Principal{}, authdomain.ErrMFAUnavailable
+	}
+	if ok, retry := s.limiter.Allow("mfa:" + p.UserID); !ok {
+		return authlib.Principal{}, &authdomain.RateLimitError{RetryAfter: retry}
+	}
+	return p, nil
+}
+
+// passwordMatches reports whether password is u's.
+func (s *Service) passwordMatches(u authdomain.User, password string) bool {
+	if !u.HasPassword() {
+		return false
+	}
+	ok, _ := s.hasher.Verify(password, u.PasswordHash)
+	return ok
+}
+
+// requireSecondFactor checks factor when the user has two-factor
+// authentication on, returning ErrInvalidMFA or ErrMFAUnavailable as state
+// when it fails and nil when it passes or isn't needed.
+func (s *Service) requireSecondFactor(ctx context.Context, tx Store, userID string, factor authdomain.SecondFactor) (state, err error) {
+	totp, found, err := tx.SelectTOTP(ctx, userID, false)
+	if err != nil || !found || !totp.Confirmed() {
+		return nil, err
+	}
+	if s.keyring == nil {
+		return authdomain.ErrMFAUnavailable, nil
+	}
+	_, _, valid, err := s.checkSecondFactor(ctx, tx, userID, factor)
+	if err != nil || valid {
+		return nil, err
+	}
+	return authdomain.ErrInvalidMFA, nil
+}
+
+// checkSecondFactor checks a code from the user's authenticator app, or else
+// a recovery code, and uses it up: a code's time step can't be used again,
+// and a recovery code is marked used. It returns the method, the recovery
+// codes left after using one, and whether the factor was valid.
+func (s *Service) checkSecondFactor(ctx context.Context, tx Store, userID string, factor authdomain.SecondFactor) (method string, remaining int, valid bool, err error) {
+	totp, found, err := tx.SelectTOTP(ctx, userID, true)
+	if err != nil || !found || !totp.Confirmed() {
+		return "", 0, false, err
+	}
+	if strings.TrimSpace(factor.Code) != "" {
+		secret, err := s.decryptTOTP(totp)
+		if err != nil {
+			return "", 0, false, err
+		}
+		step, match := authlib.VerifyTOTP(secret, factor.Code, s.now())
+		if !match {
+			return authdomain.MFAMethodTOTP, 0, false, nil
+		}
+		used, err := tx.UseTOTPStep(ctx, userID, step)
+		return authdomain.MFAMethodTOTP, 0, used, err
+	}
+	used, err := tx.UseRecoveryCode(ctx, userID, authlib.HashRecoveryCode(userID, factor.RecoveryCode), s.now())
+	if err != nil || !used {
+		return authdomain.MFAMethodRecoveryCode, 0, false, err
+	}
+	remaining, err = tx.CountUnusedRecoveryCodes(ctx, userID)
+	return authdomain.MFAMethodRecoveryCode, remaining, true, err
+}
+
+func (s *Service) decryptTOTP(t authdomain.TOTP) (string, error) {
+	if s.keyring == nil {
+		return "", authdomain.ErrMFAUnavailable
+	}
+	plain, err := s.keyring.Decrypt(t.KeyID, t.SecretCiphertext, totpAAD(t.UserID))
+	if err != nil {
+		return "", fmt.Errorf("decrypt the TOTP secret with key %q: %w", t.KeyID, err)
+	}
+	return string(plain), nil
+}
+
+// replaceRecoveryCodes stores the hashes of a user's new recovery codes.
+func (s *Service) replaceRecoveryCodes(ctx context.Context, tx Store, userID string, codes []string, now time.Time) error {
+	ids, hashes := make([]string, len(codes)), make([][]byte, len(codes))
+	for i, c := range codes {
+		ids[i], hashes[i] = authlib.NewID("rec"), authlib.HashRecoveryCode(userID, c)
+	}
+	return tx.ReplaceRecoveryCodes(ctx, userID, ids, hashes, now)
+}
+
+// totpAAD binds an encrypted TOTP secret to its user, so a ciphertext copied
+// to another user's row can't be decrypted.
+func totpAAD(userID string) []byte { return []byte(userID + ":totp") }

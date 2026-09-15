@@ -32,6 +32,7 @@ type Catalog struct {
 	mu          sync.RWMutex
 	permissions []Permission
 	roles       []Role
+	mfaRoles    []string // roles that require two-factor authentication
 	frozen      bool
 }
 

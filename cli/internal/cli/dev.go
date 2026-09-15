@@ -133,6 +133,13 @@ func (d *devRunner) prepare(ctx context.Context) error {
 		if created {
 			fmt.Fprintln(d.out, "aps: created .env from .env.example")
 		}
+		wrote, err := ensureEncryptionKey(".env", ".env.example")
+		if err != nil {
+			return err
+		}
+		if wrote {
+			fmt.Fprintln(d.out, "aps: wrote a random development AUTH_ENCRYPTION_KEYS to .env")
+		}
 	}
 	env, err := devEnv(".env")
 	if err != nil {

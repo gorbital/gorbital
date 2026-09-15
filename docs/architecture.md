@@ -304,7 +304,7 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Minimal first run under 60 seconds~~ | Resolved: 12.0 s cold, 1.6 s warm in the spike; 25.0 s cold, 4.8 s warm with the real v0.1 CLI (`scripts/first-run.sh`) |
 | Scalar docs visual check in a real browser | Open: served, CSP-checked and asset-verified in tests, not yet viewed |
 | Publish the library at `apistock.dev` | Open: domain hardening, public repository, first tags (until then apps use `--local`) |
-| ~~`/ops/*` protection before authentication~~ | Resolved: sessions and platform roles replaced the interim `OPS_TOKEN` ([ADR-0038](adr/0038-authentication-v0-2.md)); required 2FA for ops roles is v0.3 |
+| ~~`/ops/*` protection before authentication~~ | Resolved: sessions and platform roles replaced the interim `OPS_TOKEN` ([ADR-0038](adr/0038-authentication-v0-2.md)); ops roles require two-factor authentication ([ADR-0043](adr/0043-two-factor-authentication.md)) |
 | ~~Example business module with its own repository~~ | Resolved: `examples/full-single/internal/modules/projects` owns the `projects` table with all four layers, user ownership and cross-owner tests ([ADR-0039](adr/0039-resource-module-template.md)); `aps gen resource` reproduces it exactly |
 | ~~`aps new --preset=full`~~ | Resolved: templates generated from `examples/full-single`, reproduced byte for byte, with `go.mod` derived from the golden `go.mod` ([ADR-0041](adr/0041-full-preset-generation.md)) |
 | ~~Audit storage~~ | Resolved: `modules/auditpg` stores events in an append-only `audit_events` table, listed by `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)) |

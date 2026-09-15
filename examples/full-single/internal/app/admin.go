@@ -90,5 +90,9 @@ func (noEmails) SendPasswordResetCode(context.Context, string, string, time.Dura
 	return nil
 }
 
-func (noEmails) SendAccountExists(context.Context, string) error   { return nil }
-func (noEmails) SendPasswordChanged(context.Context, string) error { return nil }
+func (noEmails) SendAccountExists(context.Context, string) error     { return nil }
+func (noEmails) SendPasswordChanged(context.Context, string) error   { return nil }
+func (noEmails) SendTwoFactorEnabled(context.Context, string) error  { return nil }
+func (noEmails) SendTwoFactorDisabled(context.Context, string) error { return nil }
+
+func (noEmails) SendRecoveryCodeUsed(context.Context, string, int) error { return nil }

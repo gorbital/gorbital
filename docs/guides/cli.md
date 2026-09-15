@@ -241,7 +241,7 @@ Builds and runs the app in the current directory, rebuilding when files change a
 
 In an app with a database (Full preset), before the first start it:
 
-1. Creates `.env` from `.env.example` (mode 0600) when there is none.
+1. Creates `.env` from `.env.example` (mode 0600) when there is none, and fills an empty `AUTH_ENCRYPTION_KEYS` with a random development key ([ADR-0043](../adr/0043-two-factor-authentication.md)).
 2. Checks Docker, and that the services' host ports are free: `POSTGRES_PORT`, `MAILPIT_SMTP_PORT` and `MAILPIT_WEB_PORT` (ports held by the app's own running services are fine). A taken port names the `.env` line that moves it.
 3. Starts PostgreSQL and Mailpit from the app's `compose.yaml` with `docker compose up -d --wait`.
 4. Applies migrations (`go run ./cmd/migrate`) and runs seed data (`go run ./cmd/seed`). The first run prints the administrator's password once ([ADR-0042](../adr/0042-development-seed-data.md)); later runs change nothing.

@@ -34,5 +34,9 @@ func declarePermissions() *authlib.Catalog {
 	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission", opsdomain.AllPermissions()...)
 	c.Role(roleOpsViewer, "Reads operational data without changing anything",
 		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead)
+
+	// Ops roles grant their permissions only to sessions signed in with a
+	// second factor (ADR-0043).
+	c.RequireMFA(rolePlatformAdmin, roleOpsViewer)
 	return c
 }

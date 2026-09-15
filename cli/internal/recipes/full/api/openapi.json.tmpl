@@ -226,8 +226,53 @@
       "DeleteAccountInputBody": {
         "additionalProperties": true,
         "properties": {
+          "code": {
+            "description": "With two-factor authentication on: a code from the authenticator app",
+            "examples": [
+              "123456"
+            ],
+            "maxLength": 16,
+            "type": "string"
+          },
           "password": {
             "maxLength": 512,
+            "type": "string"
+          },
+          "recovery_code": {
+            "description": "With two-factor authentication on, instead of code",
+            "examples": [
+              "abcde-fghij"
+            ],
+            "maxLength": 32,
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "type": "object"
+      },
+      "DisableTOTPInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "code": {
+            "description": "A code from the authenticator app",
+            "examples": [
+              "123456"
+            ],
+            "maxLength": 16,
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 512,
+            "type": "string"
+          },
+          "recovery_code": {
+            "description": "A recovery code, instead of code",
+            "examples": [
+              "abcde-fghij"
+            ],
+            "maxLength": 32,
             "type": "string"
           }
         },
@@ -785,24 +830,65 @@
         ],
         "type": "object"
       },
+      "LoginMFAInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "challenge_token": {
+            "description": "From the 202 response of POST /v1/auth/login",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "code": {
+            "description": "A code from the authenticator app",
+            "examples": [
+              "123456"
+            ],
+            "maxLength": 16,
+            "type": "string"
+          },
+          "recovery_code": {
+            "description": "A recovery code, instead of code",
+            "examples": [
+              "abcde-fghij"
+            ],
+            "maxLength": 32,
+            "type": "string"
+          },
+          "transport": {
+            "default": "cookie",
+            "description": "cookie (browsers): an HttpOnly session cookie; bearer (native apps): the token in the response",
+            "enum": [
+              "cookie",
+              "bearer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_token"
+        ],
+        "type": "object"
+      },
       "LoginResponse": {
         "additionalProperties": false,
         "properties": {
+          "mfa": {
+            "$ref": "#/components/schemas/MFAChallenge",
+            "description": "With status 202: the account has two-factor authentication; finish with POST /v1/auth/login/mfa"
+          },
           "session": {
-            "$ref": "#/components/schemas/SessionResponse"
+            "$ref": "#/components/schemas/SessionResponse",
+            "description": "With a new session"
           },
           "token": {
             "description": "Only with transport bearer: send it as Authorization: Bearer \u003ctoken\u003e. It is shown once.",
             "type": "string"
           },
           "user": {
-            "$ref": "#/components/schemas/UserResponse"
+            "$ref": "#/components/schemas/UserResponse",
+            "description": "With a new session"
           }
         },
-        "required": [
-          "user",
-          "session"
-        ],
         "type": "object"
       },
       "LogoutAllResponse": {
@@ -815,6 +901,35 @@
         },
         "required": [
           "revoked"
+        ],
+        "type": "object"
+      },
+      "MFAChallenge": {
+        "additionalProperties": false,
+        "properties": {
+          "challenge_token": {
+            "description": "Send it to POST /v1/auth/login/mfa. It is shown once.",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "methods": {
+            "description": "Second factors accepted: totp (a code from the authenticator app) or recovery_code",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "challenge_token",
+          "methods",
+          "expires_at"
         ],
         "type": "object"
       },
@@ -875,8 +990,16 @@
       "MeResponse": {
         "additionalProperties": false,
         "properties": {
+          "mfa_enabled": {
+            "description": "Two-factor authentication is on",
+            "type": "boolean"
+          },
+          "mfa_required": {
+            "description": "A role of the account requires two-factor authentication",
+            "type": "boolean"
+          },
           "permissions": {
-            "description": "Granted by the user's roles",
+            "description": "Granted by the user's roles to this session",
             "items": {
               "type": "string"
             },
@@ -888,6 +1011,16 @@
           "session": {
             "$ref": "#/components/schemas/SessionResponse"
           },
+          "step_up_permissions": {
+            "description": "Granted by the user's roles after signing in with a second factor",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "user": {
             "$ref": "#/components/schemas/UserResponse"
           }
@@ -895,7 +1028,10 @@
         "required": [
           "user",
           "session",
-          "permissions"
+          "permissions",
+          "step_up_permissions",
+          "mfa_enabled",
+          "mfa_required"
         ],
         "type": "object"
       },
@@ -912,6 +1048,19 @@
         },
         "required": [
           "message"
+        ],
+        "type": "object"
+      },
+      "PasswordInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "password": {
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
         ],
         "type": "object"
       },
@@ -1096,6 +1245,25 @@
           "paused",
           "created_at",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "RecoveryCodesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "recovery_codes": {
+            "description": "Single-use codes for signing in without the authenticator app. They are shown once; keep them somewhere safe.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "recovery_codes"
         ],
         "type": "object"
       },
@@ -1304,6 +1472,10 @@
             "format": "date-time",
             "type": "string"
           },
+          "mfa_verified": {
+            "description": "Signed in or confirmed with a second factor",
+            "type": "boolean"
+          },
           "user_agent": {
             "type": "string"
           }
@@ -1313,7 +1485,8 @@
           "created_at",
           "last_seen_at",
           "expires_at",
-          "current"
+          "current",
+          "mfa_verified"
         ],
         "type": "object"
       },
@@ -1507,6 +1680,27 @@
         ],
         "type": "object"
       },
+      "TOTPEnrollmentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "secret": {
+            "description": "Type it into an authenticator app. It is shown once.",
+            "examples": [
+              "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
+            ],
+            "type": "string"
+          },
+          "uri": {
+            "description": "otpauth:// URI to show as a QR code. It is shown once.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret",
+          "uri"
+        ],
+        "type": "object"
+      },
       "TestEmailInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -1549,6 +1743,23 @@
           "status",
           "to",
           "delivery"
+        ],
+        "type": "object"
+      },
+      "TotpCodeInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "code": {
+            "description": "A code from the authenticator app",
+            "examples": [
+              "123456"
+            ],
+            "maxLength": 16,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
         ],
         "type": "object"
       },
@@ -4180,7 +4391,7 @@
     },
     "/v1/auth/login": {
       "post": {
-        "description": "Starts a session. Browsers get an HttpOnly `__Host-session` cookie; native apps pass `\"transport\": \"bearer\"` and get the token in the response.",
+        "description": "Starts a session (200). Browsers get an HttpOnly `__Host-session` cookie; native apps pass `\"transport\": \"bearer\"` and get the token in the response. For an account with two-factor authentication the response is 202 with `mfa.challenge_token` instead: finish with `POST /v1/auth/login/mfa`.",
         "operationId": "auth-login",
         "requestBody": {
           "content": {
@@ -4259,9 +4470,108 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Sign in",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/login/mfa": {
+      "post": {
+        "description": "After a 202 from `POST /v1/auth/login`: send the challenge token with a code from the authenticator app or a recovery code. Each sign-in allows 5 attempts within 5 minutes; each code works once.",
+        "operationId": "auth-login-mfa",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginMFAInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Finish signing in with a second factor",
         "tags": [
           "Auth"
         ]
@@ -4368,7 +4678,7 @@
     },
     "/v1/auth/me": {
       "delete": {
-        "description": "Requires the password. Signs out every device.",
+        "description": "Requires the password, and a code or recovery code when two-factor authentication is on. Signs out every device.",
         "operationId": "auth-delete-account",
         "requestBody": {
           "content": {
@@ -4420,6 +4730,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "security": [
@@ -4472,6 +4792,385 @@
           }
         ],
         "summary": "Get the signed-in user",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/mfa/recovery-codes": {
+      "post": {
+        "description": "Send a code from the authenticator app. Returns 10 new codes, shown once; the old codes stop working.",
+        "operationId": "auth-regenerate-recovery-codes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCodeInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodesResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Replace the recovery codes",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/mfa/totp": {
+      "delete": {
+        "description": "Requires the password and a code or recovery code; signs out other devices. Not allowed while a role of the account requires two-factor authentication.",
+        "operationId": "auth-disable-totp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisableTOTPInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Turn off two-factor authentication",
+        "tags": [
+          "Auth"
+        ]
+      },
+      "post": {
+        "description": "Requires the password. Returns a secret and an otpauth:// URI, shown once. Two-factor authentication turns on when a code is confirmed with `POST /v1/auth/mfa/totp/confirm`.",
+        "operationId": "auth-start-totp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TOTPEnrollmentResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Start setting up an authenticator app",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/mfa/totp/confirm": {
+      "post": {
+        "description": "Send a code from the authenticator app. Returns 10 recovery codes, shown once, verifies this session with a second factor and signs out other devices.",
+        "operationId": "auth-confirm-totp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpCodeInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodesResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Turn on two-factor authentication",
         "tags": [
           "Auth"
         ]
@@ -4601,7 +5300,7 @@
     },
     "/v1/auth/password/reset": {
       "post": {
-        "description": "Signs out every device.",
+        "description": "Signs out every device. Two-factor authentication stays on.",
         "operationId": "auth-reset-password",
         "requestBody": {
           "content": {

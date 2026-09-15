@@ -38,6 +38,8 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 ## v0.3: Strong authentication
 
+**Status: in progress.** Two-factor authentication (2026-09-15, [ADR-0043](adr/0043-two-factor-authentication.md)): TOTP implemented in `modules/auth` (RFC 6238) with an AES-256-GCM `Keyring` from `AUTH_ENCRYPTION_KEYS` and `rotate-auth-keys`, 10 single-use recovery codes, a sign-in challenge (`POST /v1/auth/login` returns 202, `POST /v1/auth/login/mfa` finishes), replay protection across instances, `Catalog.RequireMFA` and core `actor.Require` with step-up permissions, `platform_admin` and `ops_viewer` requiring 2FA in every environment (403 `mfa_required`), `reset-mfa` for lost devices, seed data that enrolls the administrator, and `aps dev` writing a development key to `.env`. Next: passkeys, then Google and Apple sign-in (which need provider credentials), each with its own ADR.
+
 | | |
 |---|---|
 | **Delivers** | Google and Apple sign-in (web and native), account linking, TOTP with recovery codes, passkeys, 2FA policy per role, `docs/auth-providers.md` |

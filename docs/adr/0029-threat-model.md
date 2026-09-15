@@ -88,3 +88,11 @@ Reviewed against the code for v0.2's definition of done (rows 12, 13, 19, 23 and
 - Row 19: the auth use cases' log line for an email that couldn't be queued named its attribute `email`, which reads like an address; the value was always the email's kind (`verification_code`), never the address. It is now `email_kind`.
 - Row 19: seed data (ADR-0042) prints the administrator's random password once to the developer's terminal, never to logs, files or the audit log, and refuses to run in production.
 - Row 24: disabling requires a reason, a disabled job can't be run now (409) and leaves the schedule, and each change is in the job's history and audit log (`TestJobsThroughOps`).
+
+## v0.3 status (in progress, 2026-09-15)
+
+| # | Status |
+|---|---|
+| 15 TOTP secret disclosure or code replay | Done ([ADR-0043](0043-two-factor-authentication.md)): secrets encrypted with AES-256-GCM under `AUTH_ENCRYPTION_KEYS`, with key IDs, bound to the user ID and re-encrypted by `rotate-auth-keys`; a code is accepted only for a later time step than the last one used, checked and recorded in one statement (safe across instances); sign-in challenges allow 5 attempts in 5 minutes and count toward the per-address login limit; recovery codes are hashed and single-use; secrets, codes and recovery codes never appear in logs or audit metadata |
+| 18 Privilege escalation to ops | Required 2FA done ([ADR-0043](0043-two-factor-authentication.md)): `platform_admin` and `ops_viewer` grant their permissions only to sessions verified with a second factor, in every environment; the rule is code, not a runtime setting; other roles' permissions are unaffected. The optional internal port remains (v0.5) |
+| 14 OAuth attacks, 16 Passkey phishing | Open: Google and Apple sign-in and passkeys come next, each with its own ADR |

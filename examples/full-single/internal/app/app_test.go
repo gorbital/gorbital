@@ -22,7 +22,15 @@ import (
 func testConfig(t *testing.T, env map[string]string) app.Config {
 	t.Helper()
 	cfg, err := app.LoadConfig(config.Source{
-		Getenv:   func(k string) string { return env[k] },
+		Getenv: func(k string) string {
+			if v, ok := env[k]; ok {
+				return v
+			}
+			if k == "AUTH_ENCRYPTION_KEYS" {
+				return testEncryptionKeys
+			}
+			return ""
+		},
 		ReadFile: os.ReadFile,
 	})
 	if err != nil {
@@ -169,13 +177,14 @@ func TestLoadConfigReportsAllErrors(t *testing.T) {
 	_, err := app.LoadConfig(config.Source{
 		Getenv: func(k string) string {
 			return map[string]string{
-				"APP_ENV":            "staging",
-				"APP_ADDR":           "8080",
-				"APP_DOCS_ENABLED":   "maybe",
-				"APP_MAX_BODY_BYTES": "-1",
-				"APP_DB_MAX_CONNS":   "0",
-				"APP_JOB_WORKERS":    "many",
-				"MAIL_DELIVERY":      "provider",
+				"APP_ENV":              "staging",
+				"APP_ADDR":             "8080",
+				"APP_DOCS_ENABLED":     "maybe",
+				"APP_MAX_BODY_BYTES":   "-1",
+				"APP_DB_MAX_CONNS":     "0",
+				"APP_JOB_WORKERS":      "many",
+				"MAIL_DELIVERY":        "provider",
+				"AUTH_ENCRYPTION_KEYS": "k1:not-a-key",
 			}[k]
 		},
 		ReadFile: os.ReadFile,
@@ -183,7 +192,7 @@ func TestLoadConfigReportsAllErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("LoadConfig(invalid values) error = nil, want error")
 	}
-	for _, key := range []string{"APP_ENV", "APP_ADDR", "APP_DOCS_ENABLED", "APP_MAX_BODY_BYTES", "APP_DB_MAX_CONNS", "APP_JOB_WORKERS", "RESEND_API_KEY"} {
+	for _, key := range []string{"APP_ENV", "APP_ADDR", "APP_DOCS_ENABLED", "APP_MAX_BODY_BYTES", "APP_DB_MAX_CONNS", "APP_JOB_WORKERS", "RESEND_API_KEY", "AUTH_ENCRYPTION_KEYS"} {
 		if !strings.Contains(err.Error(), key) {
 			t.Errorf("LoadConfig() error does not mention %s:\n%v", key, err)
 		}

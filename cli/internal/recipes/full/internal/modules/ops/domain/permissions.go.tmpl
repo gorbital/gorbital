@@ -26,5 +26,6 @@ func AllPermissions() []string {
 var (
 	ErrUnauthenticated  = errors.New("authentication is required")
 	ErrForbidden        = errors.New("missing permission")
+	ErrMFARequired      = errors.New("the permission needs a session signed in with two-factor authentication")
 	ErrInvalidRecipient = errors.New("recipient is not an email address")
 )

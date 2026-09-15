@@ -310,10 +310,10 @@ func TestChangePasswordAndDeleteAccount(t *testing.T) {
 		t.Errorf("other session after changing password error = %v, want ended", err)
 	}
 
-	if err := f.svc.DeleteAccount(current, password); !errors.Is(err, authdomain.ErrInvalidCredentials) {
+	if err := f.svc.DeleteAccount(current, password, authdomain.SecondFactor{}); !errors.Is(err, authdomain.ErrInvalidCredentials) {
 		t.Errorf("DeleteAccount(old password) error = %v", err)
 	}
-	if err := f.svc.DeleteAccount(current, "new long password!"); err != nil {
+	if err := f.svc.DeleteAccount(current, "new long password!", authdomain.SecondFactor{}); err != nil {
 		t.Fatalf("DeleteAccount() error = %v", err)
 	}
 	if _, err := f.svc.Authenticate(ctx, currentRes.Token); !errors.Is(err, authlib.ErrUnauthenticated) {

@@ -36,7 +36,12 @@ type Session struct {
 	RevokedAt         *time.Time
 	IP                string
 	UserAgent         string
+	// MFAVerifiedAt is when the session was verified with a second factor.
+	MFAVerifiedAt *time.Time
 }
+
+// MFAVerified reports whether the session was verified with a second factor.
+func (s Session) MFAVerified() bool { return s.MFAVerifiedAt != nil }
 
 // ActiveAt reports whether the session can be used at now.
 func (s Session) ActiveAt(now time.Time) bool {
@@ -71,7 +76,8 @@ type Code struct {
 
 // CleanupResult counts what a cleanup removed.
 type CleanupResult struct {
-	Sessions int64
-	Codes    int64
-	Users    int64
+	Sessions   int64
+	Codes      int64
+	Challenges int64
+	Users      int64
 }

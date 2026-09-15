@@ -33,13 +33,17 @@ go run ./cmd/api
 
 ## Sign in as the administrator
 
-Seed data creates `admin@example.com` with the `platform_admin` role. Its password is printed once, by the first `aps dev` (or `go run ./cmd/seed`), and isn't saved anywhere; if you lose it, call `POST /v1/auth/password/forgot` and reset it with the code from Mailpit.
+Seed data creates `admin@example.com` with the `platform_admin` role and two-factor authentication on, because ops roles require it. The first `aps dev` (or `go run ./cmd/seed`) prints its password, 2FA key and recovery codes once; nothing is saved. Add the 2FA key to an authenticator app, then sign in in two steps:
 
 ```bash
-TOKEN=$(curl -s -X POST http://127.0.0.1:8080/v1/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"admin@example.com","password":"<the printed password>","transport":"bearer"}' | jq -r .token)
+CHALLENGE=$(curl -s -X POST http://127.0.0.1:8080/v1/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"admin@example.com","password":"<the printed password>"}' | jq -r .mfa.challenge_token)
+TOKEN=$(curl -s -X POST http://127.0.0.1:8080/v1/auth/login/mfa -H 'Content-Type: application/json' \
+  -d "{\"challenge_token\":\"$CHALLENGE\",\"code\":\"<code from the app>\",\"transport\":\"bearer\"}" | jq -r .token)
 curl http://127.0.0.1:8080/ops/settings -H "Authorization: Bearer $TOKEN"
 ```
+
+Lost the password? `POST /v1/auth/password/forgot` and the code from Mailpit. Lost the authenticator app? Send a recovery code as `"recovery_code"` instead of `"code"`, or run `go run ./cmd/api reset-mfa admin@example.com`.
 
 To make your own account an administrator:
 
@@ -52,6 +56,11 @@ curl -X POST http://127.0.0.1:8080/v1/auth/verify-email -H 'Content-Type: applic
 go run ./cmd/api grant-role you@example.com platform_admin
 TOKEN=$(curl -s -X POST http://127.0.0.1:8080/v1/auth/login -H 'Content-Type: application/json' \
   -d '{"email":"you@example.com","password":"a long enough password","transport":"bearer"}' | jq -r .token)
+# ops roles need two-factor authentication: set up an authenticator app, then confirm a code
+curl -X POST http://127.0.0.1:8080/v1/auth/mfa/totp -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"password":"a long enough password"}'      # the secret and otpauth:// URI for the app
+curl -X POST http://127.0.0.1:8080/v1/auth/mfa/totp/confirm -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"code":"<code from the app>"}'              # recovery codes; this session can now use /ops
 curl http://127.0.0.1:8080/ops/settings -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -92,6 +101,8 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 | Change a job's schedule, timeout or retries | `PUT /ops/jobs/definitions/{name}` (no redeploy) |
 | See who changed a setting or job | `GET /ops/audit?resource_id=<key or name>` |
 | Switch email provider (Resend or SMTP) | `aps add mail` |
+| Turn off an account's two-factor authentication (lost authenticator app and recovery codes) | `go run ./cmd/api reset-mfa <email>` |
+| Replace the 2FA encryption key | Put the new key first in `AUTH_ENCRYPTION_KEYS` on every instance, run `go run ./cmd/api rotate-auth-keys`, then remove the old key |
 | Run tests with email delivery checks | also set `APISTOCK_TEST_MAILPIT_SMTP=127.0.0.1:1025 APISTOCK_TEST_MAILPIT_URL=http://127.0.0.1:8025` |
 | Build a container | `docker build -t acme-api .` |
 

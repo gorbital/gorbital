@@ -111,16 +111,29 @@ func TestDevWithDocker(t *testing.T) {
 		_ = r.Body.Close()
 	}
 
-	var password string
+	var password, secret string
 	for line := range strings.Lines(out) {
 		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "Password:"); ok {
 			password = strings.TrimSpace(v)
 		}
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "2FA key:"); ok {
+			secret = strings.TrimSpace(v)
+		}
 	}
-	login := postJSON(t, api+"/v1/auth/login", fmt.Sprintf(`{"email":"admin@example.com","password":%q,"transport":"bearer"}`, password))
+	if !strings.Contains(out, "wrote a random development AUTH_ENCRYPTION_KEYS") {
+		t.Errorf("aps dev output lacks the encryption key step:\n%s", out)
+	}
+	// The administrator's role requires two-factor authentication (ADR-0043).
+	started := postJSON(t, api+"/v1/auth/login", fmt.Sprintf(`{"email":"admin@example.com","password":%q}`, password))
+	mfa, _ := started["mfa"].(map[string]any)
+	challenge, _ := mfa["challenge_token"].(string)
+	if challenge == "" || secret == "" {
+		t.Fatalf("login as the seeded administrator = %v, 2FA key %q", started, secret)
+	}
+	login := postJSON(t, api+"/v1/auth/login/mfa", fmt.Sprintf(`{"challenge_token":%q,"code":%q,"transport":"bearer"}`, challenge, totpCode(t, secret, time.Now())))
 	token, _ := login["token"].(string)
 	if token == "" {
-		t.Fatalf("login as the seeded administrator = %v", login)
+		t.Fatalf("second factor for the seeded administrator = %v", login)
 	}
 	req, _ := http.NewRequest(http.MethodGet, api+"/ops/settings", nil)
 	req.Header.Set("Authorization", "Bearer "+token)

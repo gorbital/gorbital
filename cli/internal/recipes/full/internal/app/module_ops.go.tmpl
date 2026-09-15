@@ -24,6 +24,7 @@ func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error
 	err := mapper.Add(
 		httpx.Mapping{Err: opsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
 		httpx.Mapping{Err: opsdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
+		httpx.Mapping{Err: opsdomain.ErrMFARequired, Status: http.StatusForbidden, Code: "mfa_required", Detail: "sign in with two-factor authentication to use this operation; turn it on first if needed"},
 
 		httpx.Mapping{Err: settings.ErrUnknownSetting, Status: http.StatusNotFound, Code: "setting_not_found", Detail: "no setting has this key"},
 		httpx.Mapping{Err: settings.ErrVersionConflict, Status: http.StatusConflict, Code: "setting_version_conflict", Detail: "the setting changed since it was read; read it again"},

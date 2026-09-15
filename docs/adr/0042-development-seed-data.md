@@ -1,6 +1,6 @@
 # ADR-0042: Development seed data
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0028
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0028 · **Amended by:** ADR-0043 (seed also enrolls the administrator in 2FA)
 
 ## Context
 

@@ -1,0 +1,132 @@
+package delivery
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	authdomain "⟦.Module⟧/internal/modules/auth/domain"
+)
+
+// TOTPEnrollmentResponse is a new authenticator app secret.
+type TOTPEnrollmentResponse struct {
+	Secret string `json:"secret" doc:"Type it into an authenticator app. It is shown once." example:"JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"`
+	URI    string `json:"uri" doc:"otpauth:// URI to show as a QR code. It is shown once."`
+}
+
+// RecoveryCodesResponse is a new set of recovery codes.
+type RecoveryCodesResponse struct {
+	RecoveryCodes []string `json:"recovery_codes" doc:"Single-use codes for signing in without the authenticator app. They are shown once; keep them somewhere safe."`
+}
+
+type totpEnrollmentOutput struct{ Body TOTPEnrollmentResponse }
+
+type recoveryCodesOutput struct{ Body RecoveryCodesResponse }
+
+type loginMFAInput struct {
+	Body struct {
+		_              struct{} `json:"-" additionalProperties:"true"`
+		ChallengeToken string   `json:"challenge_token" maxLength:"256" doc:"From the 202 response of POST /v1/auth/login"`
+		Code           string   `json:"code,omitempty" maxLength:"16" example:"123456" doc:"A code from the authenticator app"`
+		RecoveryCode   string   `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"A recovery code, instead of code"`
+		Transport      string   `json:"transport,omitempty" enum:"cookie,bearer" default:"cookie" doc:"cookie (browsers): an HttpOnly session cookie; bearer (native apps): the token in the response"`
+	}
+}
+
+type passwordInput struct {
+	Body struct {
+		_        struct{} `json:"-" additionalProperties:"true"`
+		Password string   `json:"password" maxLength:"512"`
+	}
+}
+
+type totpCodeInput struct {
+	Body struct {
+		_    struct{} `json:"-" additionalProperties:"true"`
+		Code string   `json:"code" maxLength:"16" example:"123456" doc:"A code from the authenticator app"`
+	}
+}
+
+type disableTOTPInput struct {
+	Body struct {
+		_            struct{} `json:"-" additionalProperties:"true"`
+		Password     string   `json:"password" maxLength:"512"`
+		Code         string   `json:"code,omitempty" maxLength:"16" example:"123456" doc:"A code from the authenticator app"`
+		RecoveryCode string   `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"A recovery code, instead of code"`
+	}
+}
+
+// registerMFA adds the two-factor authentication operations (ADR-0043).
+func registerMFA(api huma.API, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
+	unavailable := []int{http.StatusConflict, http.StatusTooManyRequests, http.StatusServiceUnavailable}
+
+	huma.Register(api, public(huma.Operation{
+		OperationID: "auth-login-mfa", Method: http.MethodPost, Path: "/v1/auth/login/mfa",
+		Summary:     "Finish signing in with a second factor",
+		Description: "After a 202 from `POST /v1/auth/login`: send the challenge token with a code from the authenticator app or a recovery code. Each sign-in allows 5 attempts within 5 minutes; each code works once.",
+		Errors:      []int{http.StatusUnauthorized, http.StatusTooManyRequests, http.StatusServiceUnavailable},
+	}), h.loginMFA)
+	huma.Register(api, signedIn(huma.Operation{
+		OperationID: "auth-start-totp", Method: http.MethodPost, Path: "/v1/auth/mfa/totp",
+		Summary:     "Start setting up an authenticator app",
+		Description: "Requires the password. Returns a secret and an otpauth:// URI, shown once. Two-factor authentication turns on when a code is confirmed with `POST /v1/auth/mfa/totp/confirm`.",
+		Errors:      unavailable,
+	}), h.startTOTP)
+	huma.Register(api, signedIn(huma.Operation{
+		OperationID: "auth-confirm-totp", Method: http.MethodPost, Path: "/v1/auth/mfa/totp/confirm",
+		Summary:     "Turn on two-factor authentication",
+		Description: "Send a code from the authenticator app. Returns 10 recovery codes, shown once, verifies this session with a second factor and signs out other devices.",
+		Errors:      unavailable,
+	}), h.confirmTOTP)
+	huma.Register(api, signedIn(huma.Operation{
+		OperationID: "auth-disable-totp", Method: http.MethodDelete, Path: "/v1/auth/mfa/totp",
+		Summary:       "Turn off two-factor authentication",
+		Description:   "Requires the password and a code or recovery code; signs out other devices. Not allowed while a role of the account requires two-factor authentication.",
+		DefaultStatus: http.StatusNoContent, Errors: unavailable,
+	}), h.disableTOTP)
+	huma.Register(api, signedIn(huma.Operation{
+		OperationID: "auth-regenerate-recovery-codes", Method: http.MethodPost, Path: "/v1/auth/mfa/recovery-codes",
+		Summary:     "Replace the recovery codes",
+		Description: "Send a code from the authenticator app. Returns 10 new codes, shown once; the old codes stop working.",
+		Errors:      unavailable,
+	}), h.regenerateRecoveryCodes)
+}
+
+func (h *handler) loginMFA(ctx context.Context, in *loginMFAInput) (*loginOutput, error) {
+	factor := authdomain.SecondFactor{Code: in.Body.Code, RecoveryCode: in.Body.RecoveryCode}
+	res, err := h.svc.LoginMFA(ctx, in.Body.ChallengeToken, factor)
+	if err != nil {
+		return nil, authError(err)
+	}
+	return h.session(res, in.Body.Transport), nil
+}
+
+func (h *handler) startTOTP(ctx context.Context, in *passwordInput) (*totpEnrollmentOutput, error) {
+	e, err := h.svc.StartTOTPEnrollment(ctx, in.Body.Password)
+	if err != nil {
+		return nil, authError(err)
+	}
+	return &totpEnrollmentOutput{Body: TOTPEnrollmentResponse{Secret: e.Secret, URI: e.URI}}, nil
+}
+
+func (h *handler) confirmTOTP(ctx context.Context, in *totpCodeInput) (*recoveryCodesOutput, error) {
+	codes, err := h.svc.ConfirmTOTP(ctx, in.Body.Code)
+	if err != nil {
+		return nil, authError(err)
+	}
+	return &recoveryCodesOutput{Body: RecoveryCodesResponse{RecoveryCodes: codes}}, nil
+}
+
+func (h *handler) disableTOTP(ctx context.Context, in *disableTOTPInput) (*struct{}, error) {
+	factor := authdomain.SecondFactor{Code: in.Body.Code, RecoveryCode: in.Body.RecoveryCode}
+	return nil, authError(h.svc.DisableTOTP(ctx, in.Body.Password, factor))
+}
+
+func (h *handler) regenerateRecoveryCodes(ctx context.Context, in *totpCodeInput) (*recoveryCodesOutput, error) {
+	codes, err := h.svc.RegenerateRecoveryCodes(ctx, in.Body.Code)
+	if err != nil {
+		return nil, authError(err)
+	}
+	return &recoveryCodesOutput{Body: RecoveryCodesResponse{RecoveryCodes: codes}}, nil
+}

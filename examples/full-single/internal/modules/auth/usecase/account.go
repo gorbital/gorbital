@@ -11,24 +11,27 @@ import (
 )
 
 // DeleteAccount deletes the signed-in user's account after checking the
-// password, and ends every session. The address can register again at
-// once; Cleanup removes the account's data after the retention period.
-func (s *Service) DeleteAccount(ctx context.Context, password string) error {
+// password, and a second factor when two-factor authentication is on, and
+// ends every session. The address can register again at once; Cleanup
+// removes the account's data after the retention period. It returns
+// ErrInvalidCredentials, ErrInvalidMFA or ErrMFAUnavailable.
+func (s *Service) DeleteAccount(ctx context.Context, password string, factor authdomain.SecondFactor) error {
 	p, err := requirePrincipal(ctx)
 	if err != nil {
 		return err
 	}
-	valid := false
+	var state error
 	err = s.store.InTx(ctx, func(tx Store) error {
 		u, err := tx.SelectUserByID(ctx, p.UserID, true)
-		if errors.Is(err, authdomain.ErrUserNotFound) {
+		if err != nil {
+			return err // ErrUserNotFound is handled below
+		}
+		if !s.passwordMatches(u, password) {
+			state = authdomain.ErrInvalidCredentials
 			return nil
 		}
-		if err != nil || !u.HasPassword() {
+		if state, err = s.requireSecondFactor(ctx, tx, u.ID, factor); err != nil || state != nil {
 			return err
-		}
-		if valid, _ = s.hasher.Verify(password, u.PasswordHash); !valid {
-			return nil
 		}
 		now := s.now()
 		if err := tx.MarkUserDeleted(ctx, u.ID, now); err != nil {
@@ -37,11 +40,13 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) error {
 		_, err = tx.RevokeUserSessions(ctx, u.ID, "", now, "account_deleted")
 		return err
 	})
-	if err != nil {
-		return dbError("delete account", err)
-	}
-	if !valid {
+	switch {
+	case errors.Is(err, authdomain.ErrUserNotFound):
 		return authdomain.ErrInvalidCredentials
+	case err != nil:
+		return dbError("delete account", err)
+	case state != nil:
+		return state
 	}
 	s.audit(ctx, userEvent("auth.account.deleted", p.UserID, authlib.ClientInfoFromContext(ctx)))
 	return nil
@@ -174,6 +179,9 @@ func (s *Service) Cleanup(ctx context.Context) (authdomain.CleanupResult, error)
 	}
 	if res.Codes, err = s.store.DeleteOldCodes(ctx, now.Add(-authlib.CodeRetention)); err != nil {
 		return res, dbError("clean up codes", err)
+	}
+	if res.Challenges, err = s.store.DeleteOldMFAChallenges(ctx, now.Add(-authlib.CodeRetention)); err != nil {
+		return res, dbError("clean up sign-in challenges", err)
 	}
 	retention := authlib.DeletedRetentionLimits.Clamp(s.retention.Get(ctx))
 	if res.Users, err = s.store.DeleteDeletedUsers(ctx, now.Add(-retention)); err != nil {

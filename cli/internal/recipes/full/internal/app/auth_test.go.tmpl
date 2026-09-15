@@ -143,9 +143,15 @@ func TestAuthenticationEndToEnd(t *testing.T) {
 	if err := app.GrantRole(context.Background(), cfg, "nobody@example.com", "ops_viewer", io.Discard); err == nil || !strings.Contains(err.Error(), "register") {
 		t.Errorf("GrantRole(unknown account) error = %v", err)
 	}
-	events := do(t, h, "GET", "/ops/audit?action_prefix=auth.&actor_id="+userID, "", native...)
+	// The role requires two-factor authentication, which this account hasn't
+	// turned on (ADR-0043).
+	if r := do(t, h, "GET", "/ops/audit", "", native...); r.code != http.StatusForbidden || r.json["code"] != "mfa_required" {
+		t.Errorf("GET /ops/audit as ops_viewer without 2FA = %d %s, want 403 mfa_required", r.code, r.body)
+	}
+	admin, _ := signIn(t, a, "admin@example.com", "platform_admin")
+	events := do(t, h, "GET", "/ops/audit?action_prefix=auth.&actor_id="+userID, "", admin...)
 	if events.code != http.StatusOK {
-		t.Fatalf("GET /ops/audit as ops_viewer = %d %s", events.code, events.body)
+		t.Fatalf("GET /ops/audit as a platform admin = %d %s", events.code, events.body)
 	}
 	list, _ := events.json["events"].([]any)
 	found := false

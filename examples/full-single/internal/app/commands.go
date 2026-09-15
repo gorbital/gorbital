@@ -37,7 +37,9 @@ func openCommandDeps(ctx context.Context, cfg Config, name string) (commandDeps,
 		pool.Close()
 		return commandDeps{}, err
 	}
-	m, err := authmodule.New(pool, authusecase.Config{Catalog: declarePermissions(), Recorder: recorder, Emails: noEmails{}})
+	m, err := authmodule.New(pool, authusecase.Config{
+		Catalog: declarePermissions(), Recorder: recorder, Emails: noEmails{}, Keyring: cfg.keyring(), Issuer: ServiceName,
+	})
 	if err != nil {
 		pool.Close()
 		return commandDeps{}, err

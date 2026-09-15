@@ -101,7 +101,16 @@ func TestEmailThroughOps(t *testing.T) {
 
 func TestEmailConfiguration(t *testing.T) {
 	load := func(env map[string]string) error {
-		_, err := app.LoadConfig(config.Source{Getenv: func(k string) string { return env[k] }, ReadFile: os.ReadFile})
+		getenv := func(k string) string {
+			if v, ok := env[k]; ok {
+				return v
+			}
+			if k == "AUTH_ENCRYPTION_KEYS" {
+				return testEncryptionKeys
+			}
+			return ""
+		}
+		_, err := app.LoadConfig(config.Source{Getenv: getenv, ReadFile: os.ReadFile})
 		return err
 	}
 	tests := []struct {
@@ -110,6 +119,8 @@ func TestEmailConfiguration(t *testing.T) {
 		wantErr string
 	}{
 		{"development uses Mailpit without a key", map[string]string{}, ""},
+		{"development works without encryption keys", map[string]string{"AUTH_ENCRYPTION_KEYS": ""}, ""},
+		{"production needs encryption keys", map[string]string{"APP_ENV": "production", "RESEND_API_KEY": "re_123", "AUTH_ENCRYPTION_KEYS": ""}, "AUTH_ENCRYPTION_KEYS"},
 		{"production needs the Resend key", map[string]string{"APP_ENV": "production"}, "RESEND_API_KEY"},
 		{"production with the key", map[string]string{"APP_ENV": "production", "RESEND_API_KEY": "re_123"}, ""},
 		{"production never uses Mailpit", map[string]string{"APP_ENV": "production", "RESEND_API_KEY": "re_123", "MAIL_DELIVERY": "mailpit"}, "MAIL_DELIVERY"},

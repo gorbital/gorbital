@@ -46,6 +46,6 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
 		return err
 	}
 	w.logger.InfoContext(ctx, "authentication data cleaned up", "job", Name, "job_id", job.ID,
-		"sessions", res.Sessions, "codes", res.Codes, "accounts", res.Users)
+		"sessions", res.Sessions, "codes", res.Codes, "challenges", res.Challenges, "accounts", res.Users)
 	return nil
 }

@@ -33,6 +33,10 @@ type Actor struct {
 	OrgID string
 	// Permissions are the permissions granted for this operation.
 	Permissions []string
+	// StepUp are permissions the actor's roles grant but this operation
+	// doesn't get until the actor signs in more strongly, for example with
+	// two-factor authentication. They are never granted by Can.
+	StepUp []string
 }
 
 // Anonymous is the actor for unauthenticated operations.
@@ -51,9 +55,9 @@ func (a Actor) Can(permission string) bool {
 
 type contextKey struct{}
 
-// With returns a copy of ctx carrying a. The permissions slice is copied.
+// With returns a copy of ctx carrying a. The permission slices are copied.
 func With(ctx context.Context, a Actor) context.Context {
-	a.Permissions = slices.Clone(a.Permissions)
+	a.Permissions, a.StepUp = slices.Clone(a.Permissions), slices.Clone(a.StepUp)
 	return context.WithValue(ctx, contextKey{}, a)
 }
 

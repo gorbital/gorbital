@@ -17,8 +17,14 @@ import (
 type Principal struct {
 	UserID    string
 	SessionID string
-	// Permissions are granted by the user's roles.
+	// Permissions are granted by the user's roles to this session.
 	Permissions []string
+	// StepUp are permissions of roles requiring two-factor authentication,
+	// held back because the session isn't verified with a second factor.
+	StepUp []string
+	// MFAVerified reports whether the session was verified with a second
+	// factor.
+	MFAVerified bool
 }
 
 // An Authenticator resolves a session token, returning [ErrUnauthenticated]
@@ -36,7 +42,7 @@ type (
 // WithPrincipal returns a copy of ctx carrying p and its actor.
 func WithPrincipal(ctx context.Context, p Principal) context.Context {
 	ctx = context.WithValue(ctx, principalKey{}, p)
-	return actor.With(ctx, actor.Actor{Kind: actor.KindUser, ID: p.UserID, Permissions: p.Permissions})
+	return actor.With(ctx, actor.Actor{Kind: actor.KindUser, ID: p.UserID, Permissions: p.Permissions, StepUp: p.StepUp})
 }
 
 // PrincipalFrom returns the authenticated principal in ctx.

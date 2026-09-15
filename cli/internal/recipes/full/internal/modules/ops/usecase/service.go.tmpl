@@ -6,6 +6,7 @@ package usecase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"apistock.dev/actor"
 	"apistock.dev/mail"
@@ -42,15 +43,21 @@ func NewService(d Deps) *Service {
 	return &Service{settings: d.Settings, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail}
 }
 
+// authorize checks the actor's permission. A permission of a role that
+// requires two-factor authentication, held by a session without it, returns
+// ErrMFARequired, so clients can ask the user to sign in with a second
+// factor.
 func authorize(ctx context.Context, permission string) error {
-	a, ok := actor.From(ctx)
-	if !ok || a.Kind == actor.KindAnonymous {
+	switch err := actor.Require(ctx, permission); {
+	case err == nil:
+		return nil
+	case errors.Is(err, actor.ErrUnauthenticated):
 		return opsdomain.ErrUnauthenticated
-	}
-	if !a.Can(permission) {
+	case errors.Is(err, actor.ErrStepUpRequired):
+		return opsdomain.ErrMFARequired
+	default:
 		return opsdomain.ErrForbidden
 	}
-	return nil
 }
 
 // ListSettings returns every runtime setting, or those in group.

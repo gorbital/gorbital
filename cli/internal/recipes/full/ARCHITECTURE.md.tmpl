@@ -18,7 +18,9 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   routes.go              API, health, docs and the middleware chain
   permissions.go         permissions and platform roles (platform_admin, ops_viewer)
   admin.go               grant-role, revoke-role and roles commands (cmd/api)
+  admin_mfa.go           reset-mfa and rotate-auth-keys commands (cmd/api)
   commands.go            database, audit and auth wiring shared by commands
+  keys.go                AUTH_ENCRYPTION_KEYS: the keyring for two-factor authentication secrets
   seed.go                development seed data (cmd/seed)
   mail.go                email delivery: Mailpit in development or the provider
   infra_mail.go          the email provider's configuration (replaced by `aps add mail`)

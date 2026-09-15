@@ -25,8 +25,11 @@ type Config struct {
 	OTLPEndpoint string   // OTEL_EXPORTER_OTLP_ENDPOINT
 
 	DatabaseURL config.Secret // DATABASE_URL
-	DBMaxConns  int32         // APP_DB_MAX_CONNS
-	JobWorkers  int           // APP_JOB_WORKERS
+	// AuthEncryptionKeys encrypt authenticator app secrets
+	// (AUTH_ENCRYPTION_KEYS, ADR-0043).
+	AuthEncryptionKeys config.Secret
+	DBMaxConns         int32 // APP_DB_MAX_CONNS
+	JobWorkers         int   // APP_JOB_WORKERS
 
 	MailDelivery string     // MAIL_DELIVERY: mailpit or provider (mail.go)
 	MailpitAddr  string     // MAILPIT_SMTP_ADDR
@@ -111,6 +114,11 @@ func LoadConfig(src config.Source) (Config, error) {
 	// Required by New and Migrate; exporting the OpenAPI document needs no
 	// database.
 	cfg.DatabaseURL = secret("DATABASE_URL")
+
+	cfg.AuthEncryptionKeys = secret("AUTH_ENCRYPTION_KEYS")
+	if _, err := loadKeyring(cfg.AuthEncryptionKeys, cfg.Production()); err != nil {
+		errs = append(errs, err)
+	}
 
 	if v := get("APP_DB_MAX_CONNS"); v != "" {
 		n, err := strconv.ParseInt(v, 10, 32)

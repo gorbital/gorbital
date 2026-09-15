@@ -32,6 +32,11 @@ type Config struct {
 	// Optional.
 	Logger          *slog.Logger
 	PasswordChecker authlib.PasswordChecker
+	// Keyring encrypts authenticator app secrets (AUTH_ENCRYPTION_KEYS).
+	// Without it, two-factor authentication is unavailable.
+	Keyring *authlib.Keyring
+	// Issuer names the app in authenticator apps. Default: "app".
+	Issuer string
 	// Durations, usually runtime settings. Each is clamped to the auth
 	// module's hard limits.
 	SessionIdleTTL          config.Value[time.Duration]
@@ -54,6 +59,8 @@ type Service struct {
 	emails   authlib.Emails
 	logger   *slog.Logger
 	checker  authlib.PasswordChecker
+	keyring  *authlib.Keyring
+	issuer   string
 	now      func() time.Time
 	hasher   *authlib.Hasher
 	limiter  *ratelimit.Limiter
@@ -77,6 +84,8 @@ func NewService(c Config) (*Service, error) {
 		emails:           c.Emails,
 		logger:           orDefault(c.Logger, slog.New(slog.DiscardHandler)),
 		checker:          c.PasswordChecker,
+		keyring:          c.Keyring,
+		issuer:           orDefault(c.Issuer, "app"),
 		now:              c.Now,
 		sessionIdle:      orDefault(c.SessionIdleTTL, config.Static(authlib.DefaultSessionIdleTTL)),
 		sessionAbsolute:  orDefault(c.SessionAbsoluteTTL, config.Static(authlib.DefaultSessionAbsoluteTTL)),

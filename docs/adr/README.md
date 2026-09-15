@@ -52,3 +52,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0040](0040-release-tracking.md) | Release tracking | Accepted |
 | [0041](0041-full-preset-generation.md) | Full preset generation | Accepted |
 | [0042](0042-development-seed-data.md) | Development seed data | Accepted |
+| [0043](0043-two-factor-authentication.md) | Two-factor authentication | Accepted |

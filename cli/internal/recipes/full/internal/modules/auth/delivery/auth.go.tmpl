@@ -30,27 +30,40 @@ type UserResponse struct {
 
 // SessionResponse is a signed-in device.
 type SessionResponse struct {
-	ID         string    `json:"id" example:"ses_nbswy3dpeb3w64tmmq"`
-	CreatedAt  time.Time `json:"created_at"`
-	LastSeenAt time.Time `json:"last_seen_at"`
-	ExpiresAt  time.Time `json:"expires_at" doc:"When the session ends unless used again"`
-	IP         string    `json:"ip,omitempty"`
-	UserAgent  string    `json:"user_agent,omitempty"`
-	Current    bool      `json:"current" doc:"The session making this request"`
+	ID          string    `json:"id" example:"ses_nbswy3dpeb3w64tmmq"`
+	CreatedAt   time.Time `json:"created_at"`
+	LastSeenAt  time.Time `json:"last_seen_at"`
+	ExpiresAt   time.Time `json:"expires_at" doc:"When the session ends unless used again"`
+	IP          string    `json:"ip,omitempty"`
+	UserAgent   string    `json:"user_agent,omitempty"`
+	Current     bool      `json:"current" doc:"The session making this request"`
+	MFAVerified bool      `json:"mfa_verified" doc:"Signed in or confirmed with a second factor"`
 }
 
-// LoginResponse is a new session.
+// LoginResponse is a new session (200), or a sign-in waiting for a second
+// factor (202).
 type LoginResponse struct {
-	User    UserResponse    `json:"user"`
-	Session SessionResponse `json:"session"`
-	Token   string          `json:"token,omitempty" doc:"Only with transport bearer: send it as Authorization: Bearer <token>. It is shown once."`
+	User    *UserResponse    `json:"user,omitempty" doc:"With a new session"`
+	Session *SessionResponse `json:"session,omitempty" doc:"With a new session"`
+	Token   string           `json:"token,omitempty" doc:"Only with transport bearer: send it as Authorization: Bearer <token>. It is shown once."`
+	MFA     *MFAChallenge    `json:"mfa,omitempty" doc:"With status 202: the account has two-factor authentication; finish with POST /v1/auth/login/mfa"`
+}
+
+// MFAChallenge is a sign-in waiting for a second factor.
+type MFAChallenge struct {
+	ChallengeToken string    `json:"challenge_token" doc:"Send it to POST /v1/auth/login/mfa. It is shown once."`
+	Methods        []string  `json:"methods" doc:"Second factors accepted: totp (a code from the authenticator app) or recovery_code"`
+	ExpiresAt      time.Time `json:"expires_at"`
 }
 
 // MeResponse is the signed-in user.
 type MeResponse struct {
-	User        UserResponse    `json:"user"`
-	Session     SessionResponse `json:"session"`
-	Permissions []string        `json:"permissions" doc:"Granted by the user's roles"`
+	User              UserResponse    `json:"user"`
+	Session           SessionResponse `json:"session"`
+	Permissions       []string        `json:"permissions" doc:"Granted by the user's roles to this session"`
+	StepUpPermissions []string        `json:"step_up_permissions" doc:"Granted by the user's roles after signing in with a second factor"`
+	MFAEnabled        bool            `json:"mfa_enabled" doc:"Two-factor authentication is on"`
+	MFARequired       bool            `json:"mfa_required" doc:"A role of the account requires two-factor authentication"`
 }
 
 // AcceptedResponse confirms a request whose result arrives by email.
@@ -72,6 +85,7 @@ type LogoutAllResponse struct {
 type acceptedOutput struct{ Body AcceptedResponse }
 
 type loginOutput struct {
+	Status    int
 	SetCookie []http.Cookie `header:"Set-Cookie"`
 	Body      LoginResponse
 }
@@ -140,8 +154,10 @@ type changePasswordInput struct {
 
 type deleteAccountInput struct {
 	Body struct {
-		_        struct{} `json:"-" additionalProperties:"true"`
-		Password string   `json:"password" maxLength:"512"`
+		_            struct{} `json:"-" additionalProperties:"true"`
+		Password     string   `json:"password" maxLength:"512"`
+		Code         string   `json:"code,omitempty" maxLength:"16" example:"123456" doc:"With two-factor authentication on: a code from the authenticator app"`
+		RecoveryCode string   `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"With two-factor authentication on, instead of code"`
 	}
 }
 
@@ -186,9 +202,10 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 	}), h.resend)
 	huma.Register(api, public(huma.Operation{
 		OperationID: "auth-login", Method: http.MethodPost, Path: "/v1/auth/login",
-		Summary:     "Sign in",
-		Description: "Starts a session. Browsers get an HttpOnly `__Host-session` cookie; native apps pass `\"transport\": \"bearer\"` and get the token in the response.",
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity, http.StatusTooManyRequests},
+		Summary: "Sign in",
+		Description: "Starts a session (200). Browsers get an HttpOnly `__Host-session` cookie; native apps pass `\"transport\": \"bearer\"` and get the token in the response. " +
+			"For an account with two-factor authentication the response is 202 with `mfa.challenge_token` instead: finish with `POST /v1/auth/login/mfa`.",
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity, http.StatusTooManyRequests, http.StatusServiceUnavailable},
 	}), h.login)
 	huma.Register(api, public(huma.Operation{
 		OperationID: "auth-forgot-password", Method: http.MethodPost, Path: "/v1/auth/password/forgot",
@@ -198,7 +215,7 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 	}), h.forgot)
 	huma.Register(api, public(huma.Operation{
 		OperationID: "auth-reset-password", Method: http.MethodPost, Path: "/v1/auth/password/reset",
-		Summary: "Set a new password with a reset code", Description: "Signs out every device.",
+		Summary: "Set a new password with a reset code", Description: "Signs out every device. Two-factor authentication stays on.",
 		DefaultStatus: http.StatusNoContent, Errors: limited,
 	}), h.reset)
 
@@ -229,9 +246,12 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 	}), h.revokeSession)
 	huma.Register(api, signedIn(huma.Operation{
 		OperationID: "auth-delete-account", Method: http.MethodDelete, Path: "/v1/auth/me",
-		Summary: "Delete the account", Description: "Requires the password. Signs out every device.",
-		DefaultStatus: http.StatusNoContent,
+		Summary:       "Delete the account",
+		Description:   "Requires the password, and a code or recovery code when two-factor authentication is on. Signs out every device.",
+		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusServiceUnavailable},
 	}), h.deleteAccount)
+
+	registerMFA(api, h, public, signedIn)
 }
 
 func (h *handler) register(ctx context.Context, in *registerInput) (*acceptedOutput, error) {
@@ -257,13 +277,25 @@ func (h *handler) login(ctx context.Context, in *loginInput) (*loginOutput, erro
 	if err != nil {
 		return nil, authError(err)
 	}
-	out := &loginOutput{Body: LoginResponse{User: userResponse(res.User), Session: sessionResponse(res.Session, true)}}
-	if in.Body.Transport == authdomain.TransportBearer {
+	if c := res.Challenge; c != nil {
+		return &loginOutput{Status: http.StatusAccepted, Body: LoginResponse{
+			MFA: &MFAChallenge{ChallengeToken: c.Token, Methods: c.Methods, ExpiresAt: c.ExpiresAt},
+		}}, nil
+	}
+	return h.session(res, in.Body.Transport), nil
+}
+
+// session is the response for a new session: the token in a cookie, or in
+// the body for transport bearer.
+func (h *handler) session(res authusecase.LoginResult, transport string) *loginOutput {
+	user, session := userResponse(res.User), sessionResponse(res.Session, true)
+	out := &loginOutput{Status: http.StatusOK, Body: LoginResponse{User: &user, Session: &session}}
+	if transport == authdomain.TransportBearer {
 		out.Body.Token = res.Token
 	} else {
 		out.SetCookie = []http.Cookie{*authlib.SessionCookie(h.cookie, res.Token, res.Session.AbsoluteExpiresAt)}
 	}
-	return out, nil
+	return out
 }
 
 func (h *handler) forgot(ctx context.Context, in *emailInput) (*acceptedOutput, error) {
@@ -282,11 +314,11 @@ func (h *handler) me(ctx context.Context, _ *struct{}) (*meOutput, error) {
 	if err != nil {
 		return nil, err
 	}
-	perms := view.Permissions
-	if perms == nil {
-		perms = []string{}
-	}
-	return &meOutput{Body: MeResponse{User: userResponse(view.User), Session: sessionResponse(view.Session, true), Permissions: perms}}, nil
+	return &meOutput{Body: MeResponse{
+		User: userResponse(view.User), Session: sessionResponse(view.Session, true),
+		Permissions: orEmpty(view.Permissions), StepUpPermissions: orEmpty(view.StepUp),
+		MFAEnabled: view.MFAEnabled, MFARequired: view.MFARequired,
+	}}, nil
 }
 
 func (h *handler) logout(ctx context.Context, _ *struct{}) (*cookieOutput, error) {
@@ -325,8 +357,9 @@ func (h *handler) revokeSession(ctx context.Context, in *sessionIDInput) (*struc
 }
 
 func (h *handler) deleteAccount(ctx context.Context, in *deleteAccountInput) (*cookieOutput, error) {
-	if err := h.svc.DeleteAccount(ctx, in.Body.Password); err != nil {
-		return nil, err
+	factor := authdomain.SecondFactor{Code: in.Body.Code, RecoveryCode: in.Body.RecoveryCode}
+	if err := h.svc.DeleteAccount(ctx, in.Body.Password, factor); err != nil {
+		return nil, authError(err)
 	}
 	return &cookieOutput{SetCookie: []http.Cookie{*authlib.ClearSessionCookie(h.cookie)}}, nil
 }
@@ -347,16 +380,20 @@ func authError(err error) error {
 }
 
 func userResponse(u authdomain.User) UserResponse {
-	roles := u.Roles
-	if roles == nil {
-		roles = []string{}
-	}
-	return UserResponse{ID: u.ID, Email: u.Email, EmailVerified: u.EmailVerified(), CreatedAt: u.CreatedAt, Roles: roles}
+	return UserResponse{ID: u.ID, Email: u.Email, EmailVerified: u.EmailVerified(), CreatedAt: u.CreatedAt, Roles: orEmpty(u.Roles)}
 }
 
 func sessionResponse(s authdomain.Session, current bool) SessionResponse {
 	return SessionResponse{
 		ID: s.ID, CreatedAt: s.CreatedAt, LastSeenAt: s.LastSeenAt, ExpiresAt: s.ExpiresAt(),
-		IP: s.IP, UserAgent: s.UserAgent, Current: current,
+		IP: s.IP, UserAgent: s.UserAgent, Current: current, MFAVerified: s.MFAVerified(),
 	}
+}
+
+// orEmpty returns a non-nil slice, so JSON has [] instead of null.
+func orEmpty(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }

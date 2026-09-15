@@ -71,12 +71,56 @@ type RoleStore interface {
 	SelectUserRoles(ctx context.Context, userID string) ([]string, error)
 }
 
+// MFAStore reads and writes two-factor authentication: authenticator app
+// secrets (encrypted), recovery codes (hashed), sign-in challenges and
+// sessions verified with a second factor.
+type MFAStore interface {
+	// UpsertPendingTOTP stores an unconfirmed secret, replacing an
+	// unconfirmed one, and reports false when the user's secret is already
+	// confirmed.
+	UpsertPendingTOTP(ctx context.Context, t authdomain.TOTP) (bool, error)
+	// SelectTOTP returns a user's secret; lock locks it until the transaction
+	// ends.
+	SelectTOTP(ctx context.Context, userID string, lock bool) (authdomain.TOTP, bool, error)
+	// ConfirmTOTP turns the secret on, recording step as used.
+	ConfirmTOTP(ctx context.Context, userID string, step int64, now time.Time) error
+	// UseTOTPStep records step as used when it is later than the last used
+	// step, and reports whether it was.
+	UseTOTPStep(ctx context.Context, userID string, step int64) (bool, error)
+	// DeleteTOTP removes a user's secret and reports whether there was one.
+	DeleteTOTP(ctx context.Context, userID string) (bool, error)
+	// SelectTOTPsWithOtherKey returns up to limit secrets encrypted with a
+	// key other than keyID.
+	SelectTOTPsWithOtherKey(ctx context.Context, keyID string, limit int) ([]authdomain.TOTP, error)
+	// UpdateTOTPSecret replaces a secret still encrypted with oldKeyID and
+	// reports whether it did.
+	UpdateTOTPSecret(ctx context.Context, userID, oldKeyID, keyID string, ciphertext []byte) (bool, error)
+	// ReplaceRecoveryCodes deletes a user's recovery codes and stores new
+	// hashes. Call it in a transaction.
+	ReplaceRecoveryCodes(ctx context.Context, userID string, ids []string, hashes [][]byte, now time.Time) error
+	// UseRecoveryCode marks an unused code used and reports whether it
+	// matched one.
+	UseRecoveryCode(ctx context.Context, userID string, hash []byte, now time.Time) (bool, error)
+	CountUnusedRecoveryCodes(ctx context.Context, userID string) (int, error)
+	DeleteRecoveryCodes(ctx context.Context, userID string) error
+	InsertMFAChallenge(ctx context.Context, c authdomain.MFAChallenge) error
+	// SelectMFAChallengeByTokenHash locks the challenge with a token's hash.
+	SelectMFAChallengeByTokenHash(ctx context.Context, tokenHash []byte) (authdomain.MFAChallenge, bool, error)
+	// FailMFAChallenge counts a wrong second factor and ends the challenge at
+	// its last attempt.
+	FailMFAChallenge(ctx context.Context, id string, now time.Time) error
+	ConsumeMFAChallenge(ctx context.Context, id string, now time.Time) error
+	DeleteOldMFAChallenges(ctx context.Context, before time.Time) (int64, error)
+	MarkSessionMFAVerified(ctx context.Context, sessionID string, now time.Time) error
+}
+
 // Store is every storage operation the use cases need, plus transactions.
 type Store interface {
 	UserStore
 	SessionStore
 	CodeStore
 	RoleStore
+	MFAStore
 	// InTx runs fn in one transaction: it commits when fn returns nil and
 	// rolls back otherwise.
 	InTx(ctx context.Context, fn func(tx Store) error) error

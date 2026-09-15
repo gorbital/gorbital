@@ -167,6 +167,8 @@ func (a *App) build(ctx context.Context) error {
 		Catalog:                 declarePermissions(),
 		Recorder:                recorder,
 		Emails:                  authlib.NewMailEmails(mailer, ServiceName),
+		Keyring:                 a.cfg.keyring(),
+		Issuer:                  ServiceName,
 		Logger:                  a.logger,
 		SessionIdleTTL:          appSettings.authSessionIdleTTL,
 		SessionAbsoluteTTL:      appSettings.authSessionAbsoluteTTL,

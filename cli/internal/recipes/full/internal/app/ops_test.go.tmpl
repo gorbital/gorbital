@@ -28,6 +28,15 @@ func signIn(t *testing.T, a *app.App, email, role string) ([]string, string) {
 			t.Fatalf("GrantRole(%s) error = %v", role, err)
 		}
 	}
+	// A role requiring two-factor authentication needs a session signed in
+	// with it.
+	if role != "" && a.Auth().Catalog().RequiresMFA(role) {
+		enrollment, _, err := a.Auth().EnrollTOTP(ctx, u.ID)
+		if err != nil {
+			t.Fatalf("EnrollTOTP(%s) error = %v", email, err)
+		}
+		return []string{"Authorization", "Bearer " + signInWithTOTP(t, a.Handler(), email, testPassword, enrollment.Secret)}, u.ID
+	}
 	r := do(t, a.Handler(), "POST", "/v1/auth/login", fmt.Sprintf(`{"email":%q,"password":%q,"transport":"bearer"}`, email, testPassword))
 	token, _ := r.json["token"].(string)
 	if r.code != http.StatusOK || token == "" {

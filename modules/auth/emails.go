@@ -22,6 +22,15 @@ type Emails interface {
 	SendAccountExists(ctx context.Context, to string) error
 	// SendPasswordChanged tells to that their password changed.
 	SendPasswordChanged(ctx context.Context, to string) error
+	// SendTwoFactorEnabled tells to that two-factor authentication was
+	// turned on.
+	SendTwoFactorEnabled(ctx context.Context, to string) error
+	// SendTwoFactorDisabled tells to that two-factor authentication was
+	// turned off.
+	SendTwoFactorDisabled(ctx context.Context, to string) error
+	// SendRecoveryCodeUsed tells to that a recovery code was used to sign in
+	// and how many are left.
+	SendRecoveryCodeUsed(ctx context.Context, to string, remaining int) error
 }
 
 type mailEmails struct {

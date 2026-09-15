@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"apistock.dev/actor"
 
@@ -26,16 +27,21 @@ var seedProjects = []projectsdomain.ProjectFields{
 }
 
 // Seed fills a development database with a platform administrator and
-// example projects (ADR-0042). The administrator's password is random,
-// written to w once and stored nowhere. Seed refuses to run in production and
-// is safe to run again: when the administrator exists, it changes nothing.
+// example projects (ADR-0042). The administrator has two-factor
+// authentication on, because its role requires it (ADR-0043): its random
+// password, authenticator app key and recovery codes are written to w once
+// and stored nowhere in plain text. Seed refuses to run in production and is
+// safe to run again: when the administrator exists, it changes nothing.
 // Everything goes through the modules' use cases, so the password policy,
-// hashing and audit events apply.
+// hashing, encryption and audit events apply.
 //
 //	go run ./cmd/seed
 func Seed(ctx context.Context, cfg Config, email string, w io.Writer) error {
 	if cfg.Production() {
 		return errors.New("seed data is for development only, and APP_ENV is production")
+	}
+	if cfg.keyring() == nil {
+		return errors.New("AUTH_ENCRYPTION_KEYS is required: the administrator's role needs two-factor authentication, whose secrets it encrypts (aps dev sets it in .env)")
 	}
 	deps, err := openCommandDeps(ctx, cfg, "seed")
 	if err != nil {
@@ -66,6 +72,10 @@ func Seed(ctx context.Context, cfg Config, email string, w io.Writer) error {
 	if err := deps.auth.GrantRole(ctx, admin.ID, "platform_admin"); err != nil {
 		return fmt.Errorf("grant platform_admin to the administrator: %w", err)
 	}
+	enrollment, recoveryCodes, err := deps.auth.EnrollTOTP(ctx, admin.ID)
+	if err != nil {
+		return fmt.Errorf("turn on two-factor authentication for the administrator: %w", err)
+	}
 	// The examples belong to the administrator, as if they had created them.
 	asAdmin := actor.With(ctx, actor.Actor{Kind: actor.KindUser, ID: admin.ID, Label: admin.Email})
 	for _, p := range seedProjects {
@@ -74,13 +84,21 @@ func Seed(ctx context.Context, cfg Config, email string, w io.Writer) error {
 		}
 	}
 
+	half := len(recoveryCodes) / 2
 	fmt.Fprintf(w, `✓ Seed data created
-  Administrator:  %s (platform_admin)
-  Password:       %s
-  Projects:       %d examples owned by the administrator
+  Administrator:   %s (platform_admin)
+  Password:        %s
+  2FA key:         %s
+  2FA QR code URI: %s
+  Recovery codes:  %s
+                   %s
+  Projects:        %d examples owned by the administrator
 
-  The password is shown only this once and isn't saved anywhere. Keep it, or
-  reset it later with POST /v1/auth/password/forgot and the code from Mailpit.
-`, admin.Email, password, len(seedProjects))
+  These are shown only this once and aren't saved anywhere. Add the 2FA key to
+  an authenticator app: signing in as the administrator asks for its code, and
+  /ops needs it. Lost the password? POST /v1/auth/password/forgot and the code
+  from Mailpit. Lost the authenticator app? Sign in with a recovery code.
+`, admin.Email, password, enrollment.Secret, enrollment.URI,
+		strings.Join(recoveryCodes[:half], "  "), strings.Join(recoveryCodes[half:], "  "), len(seedProjects))
 	return nil
 }

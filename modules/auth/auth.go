@@ -44,6 +44,12 @@ const (
 	CodeRetention = 24 * time.Hour
 
 	DefaultCookieName = "__Host-session"
+
+	// MFAChallengeTTL is how long a sign-in waits for its second factor.
+	MFAChallengeTTL = 5 * time.Minute
+	// MFAChallengeMaxAttempts is how many wrong second factors one sign-in
+	// allows.
+	MFAChallengeMaxAttempts = 5
 )
 
 // Limits bounds a duration. Apps read durations from runtime settings and

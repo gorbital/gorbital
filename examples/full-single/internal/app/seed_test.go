@@ -14,6 +14,17 @@ import (
 	"example.com/acme-api/internal/app"
 )
 
+// seedOutput returns a value printed by Seed after label, such as
+// "Password:".
+func seedOutput(out, label string) string {
+	for line := range strings.Lines(out) {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), label); ok {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
 func TestSeed(t *testing.T) {
 	ctx := context.Background()
 	cfg := testConfig(t, map[string]string{"DATABASE_URL": pgtest.NewDatabase(t)})
@@ -25,14 +36,10 @@ func TestSeed(t *testing.T) {
 	if err := app.Seed(ctx, cfg, app.DefaultSeedEmail, &out); err != nil {
 		t.Fatalf("Seed() error = %v", err)
 	}
-	var password string
-	for line := range strings.Lines(out.String()) {
-		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "Password:"); ok {
-			password = strings.TrimSpace(v)
-		}
-	}
-	if len(password) < 20 || !strings.Contains(out.String(), "admin@example.com (platform_admin)") {
-		t.Fatalf("Seed() output = %q, want the administrator and a strong password", out.String())
+	password, secret := seedOutput(out.String(), "Password:"), seedOutput(out.String(), "2FA key:")
+	if len(password) < 20 || len(secret) != 32 || !strings.Contains(out.String(), "admin@example.com (platform_admin)") ||
+		!strings.HasPrefix(seedOutput(out.String(), "2FA QR code URI:"), "otpauth://totp/") || len(strings.Fields(seedOutput(out.String(), "Recovery codes:"))) != 5 {
+		t.Fatalf("Seed() output = %q, want the administrator, a strong password, a 2FA key and recovery codes", out.String())
 	}
 
 	a, err := app.New(ctx, cfg)
@@ -42,12 +49,9 @@ func TestSeed(t *testing.T) {
 	t.Cleanup(func() { _ = a.Close(ctx) })
 	h := a.Handler()
 
-	login := do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":%q,"password":%q,"transport":"bearer"}`, app.DefaultSeedEmail, password))
-	token, _ := login.json["token"].(string)
-	if login.code != http.StatusOK || token == "" {
-		t.Fatalf("login with the printed password = %d %s", login.code, login.body)
-	}
-	bearer := []string{"Authorization", "Bearer " + token}
+	// The administrator signs in with the printed password and a code from
+	// the printed key, and the ops role applies.
+	bearer := []string{"Authorization", "Bearer " + signInWithTOTP(t, h, app.DefaultSeedEmail, password, secret)}
 	if r := do(t, h, "GET", "/ops/settings", "", bearer...); r.code != http.StatusOK {
 		t.Errorf("GET /ops/settings as the seeded administrator = %d %s, want 200", r.code, r.body)
 	}
@@ -58,20 +62,20 @@ func TestSeed(t *testing.T) {
 		}
 	}
 
-	// Running it again changes nothing and prints no password.
+	// Running it again changes nothing and prints no secrets.
 	out.Reset()
 	if err := app.Seed(ctx, cfg, app.DefaultSeedEmail, &out); err != nil {
 		t.Fatalf("Seed() again error = %v", err)
 	}
-	if !strings.Contains(out.String(), "left unchanged") || strings.Contains(out.String(), "Password:") {
-		t.Errorf("Seed() again output = %q", out.String())
+	if s := out.String(); !strings.Contains(s, "left unchanged") || strings.Contains(s, "Password:") || strings.Contains(s, "2FA key:") {
+		t.Errorf("Seed() again output = %q", s)
 	}
 	again := do(t, h, "GET", "/v1/projects?limit=50", "", bearer...)
 	if strings.Count(again.body, `"Legacy import"`) != 1 {
 		t.Errorf("GET /v1/projects after seeding twice = %s, want each example once", again.body)
 	}
-	if r := do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":%q,"password":%q,"transport":"bearer"}`, app.DefaultSeedEmail, password)); r.code != http.StatusOK {
-		t.Errorf("login after seeding twice = %d %s, want the password unchanged", r.code, r.body)
+	if r := do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":%q,"password":%q}`, app.DefaultSeedEmail, password)); r.code != http.StatusAccepted {
+		t.Errorf("login after seeding twice = %d %s, want the password and 2FA unchanged", r.code, r.body)
 	}
 }
 
@@ -81,5 +85,13 @@ func TestSeedRefusesProduction(t *testing.T) {
 	err := app.Seed(context.Background(), cfg, app.DefaultSeedEmail, io.Discard)
 	if err == nil || !strings.Contains(err.Error(), "production") {
 		t.Errorf("Seed() in production = %v, want a refusal", err)
+	}
+}
+
+func TestSeedNeedsEncryptionKeys(t *testing.T) {
+	cfg := testConfig(t, map[string]string{"DATABASE_URL": "postgres://unused@127.0.0.1:1/unused", "AUTH_ENCRYPTION_KEYS": ""})
+	err := app.Seed(context.Background(), cfg, app.DefaultSeedEmail, io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "AUTH_ENCRYPTION_KEYS") {
+		t.Errorf("Seed() without encryption keys = %v, want a message naming AUTH_ENCRYPTION_KEYS", err)
 	}
 }

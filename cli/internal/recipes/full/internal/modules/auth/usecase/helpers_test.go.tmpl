@@ -35,6 +35,7 @@ func requestCtx() context.Context {
 type sentEmail struct {
 	kind, to, code string
 	ttl            time.Duration
+	remaining      int
 }
 
 type fakeEmails struct {
@@ -50,11 +51,11 @@ func (f *fakeEmails) add(e sentEmail) error {
 }
 
 func (f *fakeEmails) SendVerificationCode(_ context.Context, to, code string, ttl time.Duration) error {
-	return f.add(sentEmail{"verify", to, code, ttl})
+	return f.add(sentEmail{kind: "verify", to: to, code: code, ttl: ttl})
 }
 
 func (f *fakeEmails) SendPasswordResetCode(_ context.Context, to, code string, ttl time.Duration) error {
-	return f.add(sentEmail{"reset", to, code, ttl})
+	return f.add(sentEmail{kind: "reset", to: to, code: code, ttl: ttl})
 }
 
 func (f *fakeEmails) SendAccountExists(_ context.Context, to string) error {
@@ -63,6 +64,18 @@ func (f *fakeEmails) SendAccountExists(_ context.Context, to string) error {
 
 func (f *fakeEmails) SendPasswordChanged(_ context.Context, to string) error {
 	return f.add(sentEmail{kind: "changed", to: to})
+}
+
+func (f *fakeEmails) SendTwoFactorEnabled(_ context.Context, to string) error {
+	return f.add(sentEmail{kind: "mfa_enabled", to: to})
+}
+
+func (f *fakeEmails) SendTwoFactorDisabled(_ context.Context, to string) error {
+	return f.add(sentEmail{kind: "mfa_disabled", to: to})
+}
+
+func (f *fakeEmails) SendRecoveryCodeUsed(_ context.Context, to string, remaining int) error {
+	return f.add(sentEmail{kind: "recovery_used", to: to, remaining: remaining})
 }
 
 func (f *fakeEmails) last(t *testing.T, kind string) sentEmail {

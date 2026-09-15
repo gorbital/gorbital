@@ -7,6 +7,8 @@
 //	api roles                        list the platform roles
 //	api grant-role <email> <role>    give an account a platform role
 //	api revoke-role <email> <role>   take a platform role away
+//	api reset-mfa <email>            turn off an account's two-factor authentication
+//	api rotate-auth-keys             re-encrypt 2FA secrets with the first AUTH_ENCRYPTION_KEYS key
 package main
 
 import (
@@ -46,6 +48,13 @@ func run(ctx context.Context, args []string) error {
 				return app.GrantRole(ctx, cfg, args[1], args[2], os.Stdout)
 			}
 			return app.RevokeRole(ctx, cfg, args[1], args[2], os.Stdout)
+		case "reset-mfa":
+			if len(args) != 2 {
+				return fmt.Errorf("usage: api reset-mfa <email>")
+			}
+			return app.ResetMFA(ctx, cfg, args[1], os.Stdout)
+		case "rotate-auth-keys":
+			return app.RotateAuthKeys(ctx, cfg, os.Stdout)
 		default:
 			return fmt.Errorf("unknown command %q", args[0])
 		}

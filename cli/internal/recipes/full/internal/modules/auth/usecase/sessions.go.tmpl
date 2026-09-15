@@ -40,7 +40,10 @@ func (s *Service) Authenticate(ctx context.Context, token string) (authlib.Princ
 	if err != nil {
 		return authlib.Principal{}, dbError("authenticate", err)
 	}
-	return authlib.Principal{UserID: user.ID, SessionID: session.ID, Permissions: s.catalog.Permissions(roles...)}, nil
+	// Roles that require two-factor authentication grant their permissions
+	// only to sessions verified with a second factor (ADR-0043).
+	granted, stepUp := s.catalog.PermissionsFor(roles, session.MFAVerified())
+	return authlib.Principal{UserID: user.ID, SessionID: session.ID, Permissions: granted, StepUp: stepUp, MFAVerified: session.MFAVerified()}, nil
 }
 
 // MeView is the signed-in user, their current session and permissions.
@@ -48,6 +51,12 @@ type MeView struct {
 	User        authdomain.User
 	Session     authdomain.Session
 	Permissions []string
+	// StepUp are permissions granted after signing in with a second factor.
+	StepUp []string
+	// MFAEnabled reports whether the user has two-factor authentication on,
+	// and MFARequired whether a role of theirs requires it.
+	MFAEnabled  bool
+	MFARequired bool
 }
 
 // Me returns the signed-in user.
@@ -66,7 +75,17 @@ func (s *Service) Me(ctx context.Context) (MeView, error) {
 			if errors.Is(err, authdomain.ErrUserNotFound) {
 				return MeView{}, authlib.ErrUnauthenticated
 			}
-			return MeView{User: u, Session: view.Session, Permissions: p.Permissions}, err
+			if err != nil {
+				return MeView{}, err
+			}
+			totp, found, err := s.store.SelectTOTP(ctx, u.ID, false)
+			if err != nil {
+				return MeView{}, dbError("get the signed-in user", err)
+			}
+			return MeView{
+				User: u, Session: view.Session, Permissions: p.Permissions, StepUp: p.StepUp,
+				MFAEnabled: found && totp.Confirmed(), MFARequired: s.catalog.RequiresMFA(u.Roles...),
+			}, nil
 		}
 	}
 	return MeView{}, authlib.ErrUnauthenticated
