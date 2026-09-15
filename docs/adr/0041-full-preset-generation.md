@@ -64,7 +64,7 @@ Option 1.
 | Templates | Golden test per preset: rendering with the placeholders reproduces every golden file byte for byte, and nothing else |
 | Generator | Unit tests for the `go.mod` derivation and the leak check |
 | CLI | `aps new --preset full` writes the files, lock recipe and module path, and leaves no placeholder or template syntax |
-| End to end (`APS_E2E=1`) | `aps new --preset full --local`, then `go vet` and `go test` in the new app (database tests run when `APISTOCK_TEST_DATABASE_URL` is set), then `aps gen resource` and `aps gen job` in it, then `go vet` again |
+| End to end (`APS_E2E=1`) | `aps new --preset full --local`, then `go vet` and `go test` in the new app (database tests run when `APISTOCK_TEST_DATABASE_URL` is set), then `aps gen resource`, `aps gen job` and `aps gen migration` in it, with a column added to the generated resource's table in that migration, then `go vet` and `go test` again |
 | CI | Regenerates both template trees and fails on a diff; the end-to-end job gets a PostgreSQL service so the generated app's database tests run |
 
 ## Why

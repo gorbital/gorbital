@@ -245,7 +245,7 @@ func nextMigrationVersion(dir string, now time.Time) (string, error) {
 	version := now.UTC().Format("20060102150405")
 	entries, err := os.ReadDir(filepath.Join(dir, "db", "migrations"))
 	if errors.Is(err, fs.ErrNotExist) {
-		return "", fmt.Errorf("%s has no db/migrations: aps gen resource works in apps created with the Full preset", dir)
+		return "", fmt.Errorf("%s has no db/migrations: migrations and resources are generated in apps created with the Full preset", dir)
 	} else if err != nil {
 		return "", err
 	}

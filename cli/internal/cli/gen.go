@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/charmbracelet/huh"
 
@@ -28,10 +27,12 @@ import (
 const genUsage = `Usage:
   aps gen job <Name> [flags]
   aps gen resource <Name> <field:type>... [flags]
+  aps gen migration <name> [flags]
 
 job generates a background job whose schedule, timeout and retries can be
 changed at runtime through /ops/jobs. resource generates a module, table and
-API for records that belong to the signed-in user. Run them inside an app
+API for records that belong to the signed-in user. migration creates an empty
+database migration that runs after the existing ones. Run them inside an app
 created with the Full preset. In a terminal, missing values are asked
 interactively; pass flags to skip them.
 `
@@ -39,15 +40,17 @@ interactively; pass flags to skip them.
 func runGen(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		fmt.Fprint(stderr, genUsage)
-		return usageError("missing generator: aps gen job <Name> or aps gen resource <Name> <field:type>...")
+		return usageError("missing generator: aps gen job <Name>, aps gen resource <Name> <field:type>... or aps gen migration <name>")
 	}
 	switch args[0] {
 	case "job":
 		return runGenJob(ctx, args[1:], stdin, stdout, stderr)
 	case "resource":
 		return runGenResource(ctx, args[1:], stdin, stdout, stderr)
+	case "migration":
+		return runGenMigration(ctx, args[1:], stdin, stdout, stderr)
 	default:
-		return usageError(fmt.Sprintf("unknown generator %q (want job or resource)", args[0]))
+		return usageError(fmt.Sprintf("unknown generator %q (want job, resource or migration)", args[0]))
 	}
 }
 
@@ -427,30 +430,7 @@ func jobNames(input string) (jobNameSet, error) {
 	if len(input) == 0 || len(input) > 60 || !jobNamePattern.MatchString(input) {
 		return jobNameSet{}, errors.New("job name must start with a letter and use letters, digits, hyphens or underscores (max 60), such as CleanupSessions")
 	}
-	var words []string
-	var word []rune
-	runes := []rune(input)
-	flush := func() {
-		if len(word) > 0 {
-			words = append(words, strings.ToLower(string(word)))
-			word = word[:0]
-		}
-	}
-	for i, r := range runes {
-		switch {
-		case r == '_' || r == '-':
-			flush()
-			continue
-		case unicode.IsUpper(r) && i > 0:
-			prev := runes[i-1]
-			nextLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
-			if unicode.IsLower(prev) || unicode.IsDigit(prev) || (unicode.IsUpper(prev) && nextLower) {
-				flush()
-			}
-		}
-		word = append(word, r)
-	}
-	flush()
+	words := splitWords(input)
 
 	var ident strings.Builder
 	for _, w := range words {

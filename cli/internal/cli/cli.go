@@ -22,6 +22,8 @@ Usage:
   aps gen job [<Name>] [flags]   generate a background job (Full preset apps)
   aps gen resource [<Name> <field:type>...] [flags]
                                  generate a module, table and API for users' records (Full preset apps)
+  aps gen migration [<name>] [flags]
+                                 generate an empty database migration (Full preset apps)
   aps add mail [flags]           set up email with Resend or SMTP (Full preset apps)
   aps dev [flags]                run the application with live reload
   aps version                    print version information

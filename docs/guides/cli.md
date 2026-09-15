@@ -170,6 +170,33 @@ Then run `go run ./cmd/migrate`, `go test ./...` and `go run ./cmd/api openapi >
 
 Safety checks: the app must have `internal/app/modules.go` with the anchor inside `errors.Join`, the auth module and `db/migrations`; existing modules and files are never overwritten; a resource can be registered once; the migration always sorts after the existing ones; the git repository must be clean unless `--allow-dirty`; names and field types come from allowlists and generated Go names are checked for clashes, so no input reaches the code unchecked; generated Go is checked with gofmt.
 
+## `aps gen migration`
+
+Creates an empty SQL migration in an app created with the Full preset, for database changes that aren't a new resource: a column, an index, a data fix. (`aps gen resource` creates its own migration.)
+
+```bash
+aps gen migration add_customer_phone
+aps gen migration AddCustomerPhone --dry-run      # the same file name; writes nothing
+aps gen migration                                  # asks for the name
+```
+
+| Question | Flag | Default |
+|---|---|---|
+| Migration name | `<name>` (positional): `add_customer_phone`, `AddCustomerPhone` or `add-customer-phone` | required |
+
+Other flags: `--dry-run`, `--json`, `--allow-dirty`, `--yes`, `--no-input`, `--plain`.
+
+It creates `db/migrations/<version>_add_customer_phone.sql` with a short comment and an empty `-- +goose Up` section. The version is the current UTC time, such as `20260916083000`, or one more than the newest migration's when that is later, so the new migration always runs last. There is no Down section: migrations only go forward ([ADR-0005](../adr/0005-database-strategy.md)).
+
+Then write the SQL under `-- +goose Up`, run `go run ./cmd/migrate` and `go test ./...` (tests migrate a fresh database with every file).
+
+- **Write the SQL before migrating.** Goose records an empty migration as applied, so SQL added to it afterwards never runs.
+- **Edit it only until it is released.** Locally, `docker compose down -v` resets a database that already ran it; once released, add a new migration instead.
+- A statement that contains semicolons, such as a function body, goes between `-- +goose StatementBegin` and `-- +goose StatementEnd`.
+- Don't write `+goose` in other comments: goose reads any comment line containing it as an annotation and rejects the file.
+
+Safety checks: the app must have `db/migrations`; the name may only use letters, digits, hyphens and underscores (at most 60), so it can't reach a path or the SQL; an existing file is never overwritten; the git repository must be clean unless `--allow-dirty`.
+
 ## `aps add mail`
 
 Sets up email in an app created with the Full preset: Resend or any SMTP server. Run it again to switch provider. Full walkthrough: [email guide](email.md).

@@ -202,7 +202,9 @@ func TestSnapshotDetectsChanges(t *testing.T) {
 // TestNewAppBuildsAndPassesItsTests creates an app of each preset against
 // this checkout, then vets it and runs its own test suite. A Full app's
 // database tests run when APISTOCK_TEST_DATABASE_URL is set; afterwards the
-// generators users run next must leave it building. Set APS_E2E=1 to run it.
+// generators users run next must leave it building and passing its tests,
+// including a generated migration that changes a generated resource's table.
+// Set APS_E2E=1 to run it.
 func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 	if os.Getenv("APS_E2E") == "" {
 		t.Skip("set APS_E2E=1 to run the end-to-end test")
@@ -228,12 +230,31 @@ func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 			for _, args := range [][]string{
 				{"gen", "resource", "Customer", "email:string:unique", "notes:text", "tier:enum(free,pro)", "--yes"},
 				{"gen", "job", "SendDigest", "--every", "1h", "--yes"},
+				{"gen", "migration", "add_customer_phone", "--yes"},
 			} {
 				if code, _, errOut := runAps(t, args...); code != 0 {
 					t.Fatalf("aps %s in a new Full app = %d: %s", strings.Join(args, " "), code, errOut)
 				}
 			}
+			// The migration runs after the resource's, so it can change its table.
+			added, _ := filepath.Glob(filepath.Join("db", "migrations", "*_add_customer_phone.sql"))
+			if len(added) != 1 {
+				t.Fatalf("aps gen migration wrote %v, want one add_customer_phone migration", added)
+			}
+			sql := readFile(t, added[0]) + "ALTER TABLE customers ADD COLUMN phone text NOT NULL DEFAULT '';\n"
+			if err := os.WriteFile(added[0], []byte(sql), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			// As aps gen resource's next steps say: the new endpoints change the spec.
+			spec, err := exec.Command("go", "run", "./cmd/api", "openapi").Output()
+			if err != nil {
+				t.Fatalf("go run ./cmd/api openapi: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join("api", "openapi.json"), spec, 0o644); err != nil {
+				t.Fatal(err)
+			}
 			goIn(t, ".", "vet", "./...")
+			goIn(t, ".", "test", "./...")
 		})
 	}
 }
