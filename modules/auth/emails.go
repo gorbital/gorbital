@@ -31,6 +31,11 @@ type Emails interface {
 	// SendRecoveryCodeUsed tells to that a recovery code was used to sign in
 	// and how many are left.
 	SendRecoveryCodeUsed(ctx context.Context, to string, remaining int) error
+	// SendSignInMethodAdded tells to that a sign-in method such as Google was
+	// linked to their account.
+	SendSignInMethodAdded(ctx context.Context, to, method string) error
+	// SendSignInMethodRemoved tells to that a sign-in method was unlinked.
+	SendSignInMethodRemoved(ctx context.Context, to, method string) error
 	// SendPasskeyAdded tells to that a passkey named name was added.
 	SendPasskeyAdded(ctx context.Context, to, name string) error
 	// SendPasskeyRemoved tells to that a passkey named name was removed.

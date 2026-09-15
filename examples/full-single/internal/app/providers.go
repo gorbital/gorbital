@@ -20,46 +20,41 @@ const providersGuide = "AUTH_PROVIDERS.md"
 // secret values.
 func (c Config) signInMethods() []opsdomain.SignInMethod {
 	web := c.WebAuthn.RPID != ""
-	ios := web && len(c.WebAuthn.AppleAppIDs) > 0
-	android := web && len(c.WebAuthn.AndroidApps) > 0
-	methods := []opsdomain.SignInMethod{
+	g, a := c.Social.Google, c.Social.Apple
+	method := func(key, name string, enabled bool, detail string, missing []string, section string) opsdomain.SignInMethod {
+		if enabled {
+			return opsdomain.SignInMethod{Key: key, Name: name, Enabled: true, Detail: detail}
+		}
+		return opsdomain.SignInMethod{Key: key, Name: name, Missing: missing, Guide: providersGuide + "#" + section}
+	}
+	packages := make([]string, len(c.WebAuthn.AndroidApps))
+	for i, app := range c.WebAuthn.AndroidApps {
+		packages[i] = app.Package
+	}
+	callback := func(provider string) string {
+		return "callback " + c.Social.PublicURL + "/v1/auth/" + provider + "/callback"
+	}
+	return []opsdomain.SignInMethod{
 		{Key: "email_password", Name: "Email and password", Enabled: true},
-		{
-			Key: "authenticator_app", Name: "Authenticator apps (2FA)", Enabled: !c.AuthEncryptionKeys.IsZero(),
-			Missing: []string{"AUTH_ENCRYPTION_KEYS"}, Guide: providersGuide + "#authenticator-apps",
-		},
-		{
-			Key: "passkeys", Name: "Passkeys in browsers", Enabled: web,
-			Missing: []string{"WEBAUTHN_RP_ID", "WEBAUTHN_ORIGINS"}, Guide: providersGuide + "#passkeys",
-		},
-		{
-			Key: "passkeys_ios", Name: "Passkeys in iOS apps", Enabled: ios,
-			Missing: []string{"WEBAUTHN_APPLE_APP_IDS"}, Guide: providersGuide + "#passkeys-in-ios-apps",
-		},
-		{
-			Key: "passkeys_android", Name: "Passkeys in Android apps", Enabled: android,
-			Missing: []string{"WEBAUTHN_ANDROID_APPS"}, Guide: providersGuide + "#passkeys-in-android-apps",
-		},
+		method("authenticator_app", "Authenticator apps (2FA)", !c.AuthEncryptionKeys.IsZero(), "",
+			[]string{"AUTH_ENCRYPTION_KEYS"}, "authenticator-apps"),
+		method("passkeys", "Passkeys in browsers", web, "RP ID "+c.WebAuthn.RPID+"; origins "+strings.Join(c.WebAuthn.Origins, ", "),
+			[]string{"WEBAUTHN_RP_ID", "WEBAUTHN_ORIGINS"}, "passkeys"),
+		method("passkeys_ios", "Passkeys in iOS apps", web && len(c.WebAuthn.AppleAppIDs) > 0, strings.Join(c.WebAuthn.AppleAppIDs, ", "),
+			[]string{"WEBAUTHN_APPLE_APP_IDS"}, "passkeys-in-ios-apps"),
+		method("passkeys_android", "Passkeys in Android apps", web && len(packages) > 0, strings.Join(packages, ", "),
+			[]string{"WEBAUTHN_ANDROID_APPS"}, "passkeys-in-android-apps"),
+		method("google", "Google sign-in", g.enabled(), callback("google"),
+			[]string{"GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"}, "google-sign-in"),
+		method("google_ios", "Google sign-in in iOS apps", g.enabled() && g.IOSClientID != "", g.IOSClientID,
+			[]string{"GOOGLE_IOS_CLIENT_ID"}, "4-ios-app-optional"),
+		method("google_android", "Google sign-in in Android apps", g.enabled() && g.AndroidClientID != "", g.AndroidClientID,
+			[]string{"GOOGLE_ANDROID_CLIENT_ID"}, "5-android-app-optional"),
+		method("apple", "Apple sign-in", a.web(), callback("apple"),
+			[]string{"APPLE_TEAM_ID", "APPLE_SERVICES_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY_FILE"}, "apple-sign-in"),
+		method("apple_ios", "Apple sign-in in iOS apps", a.native(), strings.Join(a.BundleIDs, ", "),
+			[]string{"APPLE_BUNDLE_IDS"}, "apple-sign-in"),
 	}
-	if web {
-		methods[2].Detail = "RP ID " + c.WebAuthn.RPID + "; origins " + strings.Join(c.WebAuthn.Origins, ", ")
-	}
-	if ios {
-		methods[3].Detail = strings.Join(c.WebAuthn.AppleAppIDs, ", ")
-	}
-	if android {
-		packages := make([]string, len(c.WebAuthn.AndroidApps))
-		for i, app := range c.WebAuthn.AndroidApps {
-			packages[i] = app.Package
-		}
-		methods[4].Detail = strings.Join(packages, ", ")
-	}
-	for i := range methods {
-		if methods[i].Enabled {
-			methods[i].Missing, methods[i].Guide = nil, ""
-		}
-	}
-	return methods
 }
 
 // WriteSignInMethods prints which sign-in methods are on and, for the others,

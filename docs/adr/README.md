@@ -33,7 +33,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0021](0021-generator-operation-model.md) | Generator operation model | Accepted |
 | [0022](0022-generated-application-layout.md) | Generated application layout | Accepted, amended by 0032 |
 | [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033 |
-| [0024](0024-authentication-methods.md) | Authentication methods | Accepted, amended by 0038 |
+| [0024](0024-authentication-methods.md) | Authentication methods | Accepted, amended by 0038, 0043, 0044, 0046 |
 | [0025](0025-email-providers.md) | Email providers | Accepted, amended by 0033, 0037 |
 | [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038 |
 | [0027](0027-api-contract-and-docs.md) | API contract and documentation | Accepted |
@@ -52,7 +52,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0040](0040-release-tracking.md) | Release tracking | Accepted |
 | [0041](0041-full-preset-generation.md) | Full preset generation | Accepted |
 | [0042](0042-development-seed-data.md) | Development seed data | Accepted |
-| [0043](0043-two-factor-authentication.md) | Two-factor authentication | Accepted |
+| [0043](0043-two-factor-authentication.md) | Two-factor authentication | Accepted, amended by 0044, 0046 |
 | [0044](0044-passkeys.md) | Passkeys | Accepted |
-| [0045](0045-sign-in-provider-setup.md) | Sign-in provider setup | Accepted |
-| [0046](0046-google-and-apple-sign-in.md) | Google and Apple sign-in | Proposed |
+| [0045](0045-sign-in-provider-setup.md) | Sign-in provider setup | Accepted, amended by 0046 |
+| [0046](0046-google-and-apple-sign-in.md) | Google and Apple sign-in | Accepted |

@@ -29,9 +29,15 @@ type Config struct {
 	// (AUTH_ENCRYPTION_KEYS, ADR-0043).
 	AuthEncryptionKeys config.Secret
 	// WebAuthn is the passkey relying party (WEBAUTHN_*, passkeys.go).
-	WebAuthn   webAuthnConfig
-	DBMaxConns int32 // APP_DB_MAX_CONNS
-	JobWorkers int   // APP_JOB_WORKERS
+	WebAuthn webAuthnConfig
+	// Social is Google and Apple sign-in (GOOGLE_*, APPLE_*, APP_PUBLIC_URL;
+	// social.go).
+	Social socialConfig
+	// ProviderEndpoints point Google and Apple at a fake provider in tests;
+	// never read from the environment.
+	ProviderEndpoints providerEndpoints
+	DBMaxConns        int32 // APP_DB_MAX_CONNS
+	JobWorkers        int   // APP_JOB_WORKERS
 
 	MailDelivery string     // MAIL_DELIVERY: mailpit or provider (mail.go)
 	MailpitAddr  string     // MAILPIT_SMTP_ADDR
@@ -125,6 +131,10 @@ func LoadConfig(src config.Source) (Config, error) {
 	var passkeyErrs []error
 	cfg.WebAuthn, passkeyErrs = loadWebAuthnConfig(get, cfg.Production())
 	errs = append(errs, passkeyErrs...)
+
+	var socialErrs []error
+	cfg.Social, socialErrs = loadSocialConfig(get, secret, cfg.Production())
+	errs = append(errs, socialErrs...)
 
 	if v := get("APP_DB_MAX_CONNS"); v != "" {
 		n, err := strconv.ParseInt(v, 10, 32)

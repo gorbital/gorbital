@@ -41,21 +41,24 @@ func testConfig(t *testing.T, env map[string]string) app.Config {
 
 // newApp creates a migrated database on the Docker PostgreSQL server and
 // builds the app on it. Tests are skipped when the server isn't configured.
-func newApp(t *testing.T, env map[string]string) *app.App {
+func newApp(t *testing.T, env map[string]string, configure ...func(*app.Config)) *app.App {
 	t.Helper()
-	a, _ := newAppWithURL(t, env)
+	a, _ := newAppWithURL(t, env, configure...)
 	return a
 }
 
 // newAppWithURL is newApp that also returns the database URL, for tests that
-// read tables directly.
-func newAppWithURL(t *testing.T, env map[string]string) (*app.App, string) {
+// read tables directly. configure changes the loaded configuration.
+func newAppWithURL(t *testing.T, env map[string]string, configure ...func(*app.Config)) (*app.App, string) {
 	t.Helper()
 	ctx := context.Background()
 	url := pgtest.NewDatabase(t)
 	full := map[string]string{"DATABASE_URL": url}
 	maps.Copy(full, env)
 	cfg := testConfig(t, full)
+	for _, c := range configure {
+		c(&cfg)
+	}
 	if err := app.Migrate(ctx, cfg, io.Discard); err != nil {
 		t.Fatalf("Migrate() error = %v", err)
 	}

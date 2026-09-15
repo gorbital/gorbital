@@ -144,6 +144,34 @@ Confirm:    POST /v1/auth/passkeys/verification → get() → DELETE /v1/auth/me
 
 Errors: `invalid_passkey` (401), `passkey_not_found` (404), `passkey_limit_reached` (409), `invalid_passkey_name` (422), `passkeys_unavailable` (503, `WEBAUTHN_RP_ID` not set).
 
+## Google and Apple sign-in
+
+People sign in with their Google or Apple account, in browsers and in native apps ([ADR-0046](../adr/0046-google-and-apple-sign-in.md)). Each is off until its credentials are set; creating them step by step: [sign-in provider setup](auth-providers.md) and the app's `AUTH_PROVIDERS.md`.
+
+```text
+Browser:    GET /v1/auth/{google,apple}/start?return_to=… → provider → callback → 303 to return_to (session cookie, #mfa_challenge_token=…, or #error=…)
+Native app: POST /v1/auth/{provider}/nonce → SDK sign-in with the nonce → POST /v1/auth/{provider}/token {id_token, nonce}
+```
+
+| Endpoint | Needs a session | Purpose | Success |
+|---|---|---|---|
+| `GET /v1/auth/{provider}/start` | | `?return_to=` an absolute URL on the API's origin or `APP_CORS_ORIGINS`; sets a 10-minute `__Host-oauth` cookie and redirects | 302 |
+| `GET /v1/auth/google/callback`, `POST /v1/auth/apple/callback` | | The provider returns here; redirects to `return_to` | 303 |
+| `POST /v1/auth/{provider}/nonce` | | A single-use nonce for 5 minutes (Apple's iOS SDK takes its SHA-256 in hex) | 200 `{nonce, expires_at}` |
+| `POST /v1/auth/google/token` | | `{id_token, nonce, transport?}` from iOS or Android | 200 session or 202 challenge |
+| `POST /v1/auth/apple/token` | | `{id_token, nonce, authorization_code?, name?, transport?}` from iOS | 200 session or 202 challenge |
+| `GET /v1/auth/identities` | ✓ | Linked Google and Apple accounts | 200 `{identities}` |
+| `DELETE /v1/auth/identities/{id}` | ✓ | `{password}` unless the second factor is under 10 minutes old; accounts without a password sign in again first | 204 |
+| `POST /v1/auth/apple/notifications` | | Apple's server-to-server notifications | 204 |
+
+- **New people** get an account with a verified email and no password (`user.has_password` false); they can set one with "forgot password".
+- **An existing account with the same email** is linked when the provider has verified the email, and the owner gets an email. If that account never verified its email, its password is removed and its sessions end, so whoever registered the address without owning it loses access.
+- **Two-factor authentication** still applies: an account with it on gets a challenge, as with a password.
+- **Accounts without a password** confirm sensitive changes (authenticator app setup, deleting the account, passkeys, unlinking) with a sign-in less than 10 minutes old.
+- The last way to sign in can't be unlinked. Deleting the account unlinks every identity and revokes Apple's tokens; Apple's "consent revoked" notification unlinks Apple too.
+
+Errors: `invalid_social_token` (401), `invalid_state` (401), `social_email_unverified` (403), `identity_not_found` (404), `last_sign_in_method` (409), `invalid_return_to` (422), `social_unavailable` (503). The web flow puts the same codes in `#error=`, plus `access_denied` when the person cancels.
+
 ## Browsers and native apps
 
 | Client | Login body | Result | Later requests |

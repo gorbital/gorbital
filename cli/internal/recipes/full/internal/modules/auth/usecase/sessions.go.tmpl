@@ -43,7 +43,10 @@ func (s *Service) Authenticate(ctx context.Context, token string) (authlib.Princ
 	// Roles that require two-factor authentication grant their permissions
 	// only to sessions verified with a second factor (ADR-0043).
 	granted, stepUp := s.catalog.PermissionsFor(roles, session.MFAVerified())
-	p := authlib.Principal{UserID: user.ID, SessionID: session.ID, Permissions: granted, StepUp: stepUp, MFAVerified: session.MFAVerified()}
+	p := authlib.Principal{
+		UserID: user.ID, SessionID: session.ID, Permissions: granted, StepUp: stepUp,
+		MFAVerified: session.MFAVerified(), SignedInAt: session.CreatedAt,
+	}
 	if session.MFAVerifiedAt != nil {
 		p.MFAVerifiedAt = *session.MFAVerifiedAt
 	}

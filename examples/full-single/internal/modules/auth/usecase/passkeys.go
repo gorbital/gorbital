@@ -478,14 +478,15 @@ func (s *Service) BeginPasskeyVerification(ctx context.Context) (PasskeyCeremony
 // confirmUser checks that the person using the session p is the account's
 // owner before a change to its sign-in methods (ADR-0044). A session that
 // verified a second factor within auth.RecentVerification needs nothing
-// more. Otherwise the password is required, and an account with two-factor
-// authentication on also needs a session verified with a second factor. It
-// returns ErrInvalidCredentials or ErrInvalidMFA as state.
+// more. Otherwise the password is required (for an account without one, a
+// recent sign-in), and an account with two-factor authentication on also
+// needs a session verified with a second factor. It returns
+// ErrInvalidCredentials or ErrInvalidMFA as state.
 func (s *Service) confirmUser(ctx context.Context, tx Store, p authlib.Principal, u authdomain.User, password string) (state, err error) {
 	switch {
 	case p.RecentlyVerified(s.now()):
 		return state, nil
-	case !s.passwordMatches(u, password):
+	case !s.passwordOrRecentSignIn(p, u, password):
 		return authdomain.ErrInvalidCredentials, nil
 	case p.MFAVerified:
 		return state, nil

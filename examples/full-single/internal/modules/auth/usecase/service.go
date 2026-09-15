@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"apistock.dev/actor"
@@ -17,6 +18,7 @@ import (
 	"apistock.dev/config"
 	authlib "apistock.dev/modules/auth"
 	"apistock.dev/modules/auth/passkey"
+	"apistock.dev/modules/auth/social"
 	"apistock.dev/ratelimit"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
@@ -39,6 +41,17 @@ type Config struct {
 	// Passkeys runs passkey ceremonies (WEBAUTHN_RP_ID). Without it,
 	// passkeys are unavailable.
 	Passkeys *passkey.Service
+	// Google and Apple sign people in with those providers (ADR-0046).
+	// Without one, its endpoints answer ErrSocialUnavailable.
+	Google *social.Provider
+	Apple  *social.Provider
+	// PublicURL is the API's public base URL (APP_PUBLIC_URL), which
+	// providers return to at /v1/auth/{provider}/callback.
+	PublicURL string
+	// ReturnOrigins are the origins a web sign-in may return to, such as the
+	// frontend's; DefaultReturnTo is used when a sign-in names none.
+	ReturnOrigins   []string
+	DefaultReturnTo string
 	// Issuer names the app in authenticator apps. Default: "app".
 	Issuer string
 	// Durations, usually runtime settings. Each is clamped to the auth
@@ -65,10 +78,15 @@ type Service struct {
 	checker  authlib.PasswordChecker
 	keyring  *authlib.Keyring
 	passkeys *passkey.Service
-	issuer   string
-	now      func() time.Time
-	hasher   *authlib.Hasher
-	limiter  *ratelimit.Limiter
+	// providers are the configured sign-in providers by name.
+	providers       map[string]*social.Provider
+	publicURL       string
+	returnOrigins   []string
+	defaultReturnTo string
+	issuer          string
+	now             func() time.Time
+	hasher          *authlib.Hasher
+	limiter         *ratelimit.Limiter
 	// notices limits "account exists" emails per address, separately from
 	// logins, so registrations can't lock the owner out.
 	notices *ratelimit.Limiter
@@ -91,6 +109,9 @@ func NewService(c Config) (*Service, error) {
 		checker:          c.PasswordChecker,
 		keyring:          c.Keyring,
 		passkeys:         c.Passkeys,
+		providers:        map[string]*social.Provider{},
+		publicURL:        strings.TrimRight(c.PublicURL, "/"),
+		defaultReturnTo:  c.DefaultReturnTo,
 		issuer:           orDefault(c.Issuer, "app"),
 		now:              c.Now,
 		sessionIdle:      orDefault(c.SessionIdleTTL, config.Static(authlib.DefaultSessionIdleTTL)),
@@ -102,6 +123,14 @@ func NewService(c Config) (*Service, error) {
 	if s.now == nil {
 		s.now = time.Now
 	}
+	for _, p := range []*social.Provider{c.Google, c.Apple} {
+		if p != nil {
+			s.providers[p.Name()] = p
+		}
+	}
+	for _, origin := range c.ReturnOrigins {
+		s.returnOrigins = append(s.returnOrigins, strings.ToLower(strings.TrimRight(origin, "/")))
+	}
 	attempts, window := c.LoginAttempts, c.LoginWindow
 	if attempts == 0 && window == 0 {
 		attempts, window = authlib.DefaultLoginAttempts, authlib.DefaultLoginWindow
@@ -112,6 +141,9 @@ func NewService(c Config) (*Service, error) {
 	}
 	if attempts < 1 || window <= 0 {
 		errs = append(errs, errors.New("login limit needs at least 1 attempt in a positive window"))
+	}
+	if len(s.providers) > 0 && (s.publicURL == "" || s.defaultReturnTo == "") {
+		errs = append(errs, errors.New("sign-in with Google or Apple needs the public URL and a default return address"))
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, fmt.Errorf("auth: invalid service: %w", err)

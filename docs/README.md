@@ -5,6 +5,7 @@
 | [Architecture](architecture.md) | The design overview: products, principles, library layout, generated app, features |
 | [Roadmap](roadmap.md) | Milestones, what each delivers, current status |
 | [Architecture decision records](adr/README.md) | Every decision with its context, options and trade-offs |
+| [Theme](brand/theme.md) | The visual system and voice for docs, landing page, README and CLI output: name, colour, type, layout, the mark, CLI output grammar |
 
 ## Guides
 

@@ -11,23 +11,28 @@ import (
 )
 
 // DeleteAccount deletes the signed-in user's account after checking the
-// password, and a second factor when two-factor authentication is on (a
-// code, a recovery code, or a passkey's response to
-// BeginPasskeyVerification), and ends every session. The address can register again at once; Cleanup
-// removes the account's data after the retention period. It returns
-// ErrInvalidCredentials, ErrInvalidMFA or ErrMFAUnavailable.
+// password (for an account without one, a recent sign-in), and a second
+// factor when two-factor authentication is on (a code, a recovery code, or a
+// passkey's response to BeginPasskeyVerification), and ends every session.
+// It unlinks Google and Apple identities and revokes Apple's tokens. The
+// address can register again at once; Cleanup removes the account's data
+// after the retention period. It returns ErrInvalidCredentials, ErrInvalidMFA
+// or ErrMFAUnavailable.
 func (s *Service) DeleteAccount(ctx context.Context, password string, factor authdomain.SecondFactor) error {
 	p, err := requirePrincipal(ctx)
 	if err != nil {
 		return err
 	}
-	var state error
+	var (
+		state      error
+		identities []authdomain.Identity
+	)
 	err = s.store.InTx(ctx, func(tx Store) error {
 		u, err := tx.SelectUserByID(ctx, p.UserID, true)
 		if err != nil {
 			return err // ErrUserNotFound is handled below
 		}
-		if !s.passwordMatches(u, password) {
+		if !s.passwordOrRecentSignIn(p, u, password) {
 			state = authdomain.ErrInvalidCredentials
 			return nil
 		}
@@ -36,6 +41,9 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 		}
 		now := s.now()
 		if err := tx.MarkUserDeleted(ctx, u.ID, now); err != nil {
+			return err
+		}
+		if identities, err = tx.DeleteIdentities(ctx, u.ID); err != nil {
 			return err
 		}
 		_, err = tx.RevokeUserSessions(ctx, u.ID, "", now, "account_deleted")
@@ -49,6 +57,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 	case state != nil:
 		return state
 	}
+	s.revokeIdentities(ctx, identities...)
 	s.audit(ctx, userEvent("auth.account.deleted", p.UserID, authlib.ClientInfoFromContext(ctx)))
 	return nil
 }
@@ -190,6 +199,11 @@ func (s *Service) Cleanup(ctx context.Context) (authdomain.CleanupResult, error)
 		return res, dbError("clean up passkey ceremonies", err)
 	}
 	res.Challenges += ceremonies
+	socialRequests, err := s.store.DeleteOldSocialRequests(ctx, now)
+	if err != nil {
+		return res, dbError("clean up Google and Apple sign-ins", err)
+	}
+	res.Challenges += socialRequests
 	retention := authlib.DeletedRetentionLimits.Clamp(s.retention.Get(ctx))
 	if res.Users, err = s.store.DeleteDeletedUsers(ctx, now.Add(-retention)); err != nil {
 		return res, dbError("purge deleted accounts", err)

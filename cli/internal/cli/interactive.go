@@ -2,10 +2,12 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
 )
 
@@ -31,11 +33,16 @@ func shouldPrompt(p promptFlags, asJSON bool, stdin io.Reader, stdout io.Writer)
 	return inOK && outOK && term.IsTerminal(int(in.Fd())) && term.IsTerminal(int(out.Fd())) //nolint:gosec // file descriptors fit in int
 }
 
-// runForm shows form on stderr. --plain or ACCESSIBLE=1 selects the
-// screen-reader friendly line-by-line mode.
+// plainPrompts reports whether prompts use the screen-reader friendly
+// line-by-line mode: --plain or ACCESSIBLE=1.
+func plainPrompts(p promptFlags) bool {
+	return p.plain || os.Getenv("ACCESSIBLE") != ""
+}
+
+// runForm shows form on stderr in the apistock theme, or line by line in
+// plain mode.
 func runForm(form *huh.Form, p promptFlags, stdin io.Reader, stderr io.Writer) error {
-	accessible := p.plain || os.Getenv("ACCESSIBLE") != ""
-	err := form.WithAccessible(accessible).WithInput(stdin).WithOutput(stderr).Run()
+	err := form.WithTheme(theme()).WithAccessible(plainPrompts(p)).WithInput(stdin).WithOutput(stderr).Run()
 	if errors.Is(err, huh.ErrUserAborted) {
 		return errAborted
 	}
@@ -53,4 +60,73 @@ func confirm(title, summary string, p promptFlags, stdin io.Reader, stderr io.Wr
 		return false, err
 	}
 	return ok, nil
+}
+
+// asker asks one question at a time. Each answered question folds into a
+// single line, so every answer stays on screen while the next is asked. In
+// plain mode questions are plain lines and nothing is folded: the answers
+// are already printed.
+type asker struct {
+	p      promptFlags
+	stdin  io.Reader
+	stderr io.Writer
+	plain  bool
+	s      styles
+}
+
+func newAsker(p promptFlags, stdin io.Reader, stderr io.Writer) asker {
+	return asker{p: p, stdin: stdin, stderr: stderr, plain: plainPrompts(p), s: newStyles(stderr)}
+}
+
+// title is the title of a text or yes/no question.
+func (a asker) title(label string) string {
+	if a.plain {
+		return label
+	}
+	return a.s.question(label)
+}
+
+// choiceTitle is the title of a question answered by choosing an option.
+func (a asker) choiceTitle(label string) string {
+	if a.plain {
+		return label
+	}
+	return a.s.choice(label)
+}
+
+// ask runs field on its own, then folds it into "✓ label … answer".
+func (a asker) ask(field huh.Field, label string, answer func() string) error {
+	if err := runForm(huh.NewForm(huh.NewGroup(field)).WithShowHelp(false), a.p, a.stdin, a.stderr); err != nil {
+		return err
+	}
+	a.answered(label, answer())
+	return nil
+}
+
+// answered prints the folded line for a value, also for values given by
+// flag, so the whole set of answers is visible before anything is written.
+func (a asker) answered(label, answer string) {
+	if !a.plain {
+		fmt.Fprintln(a.stderr, a.s.answered(label, answer))
+	}
+}
+
+// yesNo is a yes/no question on one line, its answers right after the title.
+func (a asker) yesNo(label string, value *bool) *huh.Confirm {
+	return huh.NewConfirm().Title(a.title(label)).Inline(true).
+		Affirmative("yes").Negative("no").WithButtonAlignment(lipgloss.Left).Value(value)
+}
+
+// confirm asks a yes/no question on one line, defaulting to yes.
+func (a asker) confirm(label string) (bool, error) {
+	ok := true
+	err := a.ask(a.yesNo(label, &ok), label, func() string { return yesNo(ok) })
+	return ok, err
+}
+
+func yesNo(b bool) string {
+	if b {
+		return "yes"
+	}
+	return "no"
 }

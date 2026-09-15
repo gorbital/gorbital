@@ -22,6 +22,7 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   commands.go            database, audit and auth wiring shared by commands
   keys.go                AUTH_ENCRYPTION_KEYS: the keyring for two-factor authentication secrets
   passkeys.go            WEBAUTHN_*: the passkey relying party and the /.well-known files for apps
+  social.go              GOOGLE_*, APPLE_*, APP_PUBLIC_URL: Google and Apple sign-in providers
   providers.go           sign-in method status: printed at start, auth-providers, /ops/auth/providers
   seed.go                development seed data (cmd/seed)
   mail.go                email delivery: Mailpit in development or the provider

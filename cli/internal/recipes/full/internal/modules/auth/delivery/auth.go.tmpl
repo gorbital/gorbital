@@ -26,6 +26,7 @@ type UserResponse struct {
 	EmailVerified bool      `json:"email_verified"`
 	CreatedAt     time.Time `json:"created_at"`
 	Roles         []string  `json:"roles" doc:"Platform roles, such as platform_admin"`
+	HasPassword   bool      `json:"has_password" doc:"The account has a password; accounts created with Google or Apple don't, until they reset one"`
 }
 
 // SessionResponse is a signed-in device.
@@ -49,7 +50,8 @@ type LoginResponse struct {
 	MFA     *MFAChallenge    `json:"mfa,omitempty" doc:"With status 202: the account has two-factor authentication; finish with POST /v1/auth/login/mfa"`
 }
 
-// MFAChallenge is a sign-in waiting for a second factor.
+// MFAChallenge is a sign-in waiting for a second factor. Google and Apple
+// web sign-ins put the same fields in the redirect's fragment.
 type MFAChallenge struct {
 	ChallengeToken string    `json:"challenge_token" doc:"Send it to POST /v1/auth/login/mfa. It is shown once."`
 	Methods        []string  `json:"methods" doc:"Second factors accepted: totp (a code from the authenticator app), passkey or recovery_code"`
@@ -254,6 +256,7 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 
 	registerMFA(api, h, public, signedIn)
 	registerPasskeys(api, h, public, signedIn)
+	registerSocial(api, h, public, signedIn)
 }
 
 func (h *handler) register(ctx context.Context, in *registerInput) (*acceptedOutput, error) {
@@ -279,12 +282,7 @@ func (h *handler) login(ctx context.Context, in *loginInput) (*loginOutput, erro
 	if err != nil {
 		return nil, authError(err)
 	}
-	if c := res.Challenge; c != nil {
-		return &loginOutput{Status: http.StatusAccepted, Body: LoginResponse{
-			MFA: &MFAChallenge{ChallengeToken: c.Token, Methods: c.Methods, ExpiresAt: c.ExpiresAt},
-		}}, nil
-	}
-	return h.session(res, in.Body.Transport), nil
+	return h.signedIn(res, in.Body.Transport), nil
 }
 
 // session is the response for a new session: the token in a cookie, or in
@@ -385,7 +383,7 @@ func authError(err error) error {
 }
 
 func userResponse(u authdomain.User) UserResponse {
-	return UserResponse{ID: u.ID, Email: u.Email, EmailVerified: u.EmailVerified(), CreatedAt: u.CreatedAt, Roles: orEmpty(u.Roles)}
+	return UserResponse{ID: u.ID, Email: u.Email, EmailVerified: u.EmailVerified(), CreatedAt: u.CreatedAt, Roles: orEmpty(u.Roles), HasPassword: u.HasPassword()}
 }
 
 func sessionResponse(s authdomain.Session, current bool) SessionResponse {

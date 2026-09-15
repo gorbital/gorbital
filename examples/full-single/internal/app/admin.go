@@ -100,3 +100,6 @@ func (noEmails) SendPasskeyAdded(context.Context, string, string) error  { retur
 func (noEmails) SendPasskeyRemoved(context.Context, string, string) error {
 	return nil
 }
+
+func (noEmails) SendSignInMethodAdded(context.Context, string, string) error   { return nil }
+func (noEmails) SendSignInMethodRemoved(context.Context, string, string) error { return nil }

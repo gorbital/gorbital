@@ -20,6 +20,58 @@
         ],
         "type": "object"
       },
+      "AppleNotificationInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "payload": {
+            "maxLength": 16384,
+            "type": "string"
+          }
+        },
+        "required": [
+          "payload"
+        ],
+        "type": "object"
+      },
+      "AppleTokenInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "authorization_code": {
+            "description": "authorizationCode, exchanged for a refresh token revoked when the account is deleted",
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "id_token": {
+            "description": "identityToken from ASAuthorizationAppleIDCredential",
+            "maxLength": 16384,
+            "type": "string"
+          },
+          "name": {
+            "description": "fullName, which Apple gives only the first time",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "nonce": {
+            "description": "From POST /v1/auth/apple/nonce, before hashing",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "transport": {
+            "default": "bearer",
+            "description": "bearer (native apps): the token in the response; cookie: an HttpOnly session cookie",
+            "enum": [
+              "cookie",
+              "bearer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id_token",
+          "nonce"
+        ],
+        "type": "object"
+      },
       "AuditEventPage": {
         "additionalProperties": false,
         "properties": {
@@ -380,6 +432,99 @@
         "required": [
           "ceremony_token",
           "credential"
+        ],
+        "type": "object"
+      },
+      "GoogleTokenInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "id_token": {
+            "description": "The ID token from Google's SDK",
+            "maxLength": 16384,
+            "type": "string"
+          },
+          "nonce": {
+            "description": "From POST /v1/auth/google/nonce, as put in the request",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "transport": {
+            "default": "bearer",
+            "description": "bearer (native apps): the token in the response; cookie: an HttpOnly session cookie",
+            "enum": [
+              "cookie",
+              "bearer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id_token",
+          "nonce"
+        ],
+        "type": "object"
+      },
+      "IdentityList": {
+        "additionalProperties": false,
+        "properties": {
+          "identities": {
+            "items": {
+              "$ref": "#/components/schemas/IdentityResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "identities"
+        ],
+        "type": "object"
+      },
+      "IdentityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "email": {
+            "examples": [
+              "ada@example.com"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "idn_nbswy3dpeb3w64tmmq"
+            ],
+            "type": "string"
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "private_email": {
+            "description": "An Apple relay address that forwards to the person's real one",
+            "type": "boolean"
+          },
+          "provider": {
+            "enum": [
+              "google",
+              "apple"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "private_email",
+          "created_at"
         ],
         "type": "object"
       },
@@ -1587,6 +1732,17 @@
         ],
         "type": "object"
       },
+      "RemoveIdentityInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "password": {
+            "description": "Required unless this session verified a second factor in the last 10 minutes; accounts without a password sign in again instead",
+            "maxLength": 512,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "RemovePasskeyInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -1998,6 +2154,24 @@
         ],
         "type": "object"
       },
+      "SocialNonceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "nonce": {
+            "description": "Put it in the SDK's sign-in request (Apple's iOS SDK takes its SHA-256 in hex), then send it with the ID token. It works once.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nonce",
+          "expires_at"
+        ],
+        "type": "object"
+      },
       "TOTPEnrollmentResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2178,6 +2352,10 @@
           "email_verified": {
             "type": "boolean"
           },
+          "has_password": {
+            "description": "The account has a password; accounts created with Google or Apple don't, until they reset one",
+            "type": "boolean"
+          },
           "id": {
             "examples": [
               "usr_mfrggzdfmztwq2lk"
@@ -2200,7 +2378,8 @@
           "email",
           "email_verified",
           "created_at",
-          "roles"
+          "roles",
+          "has_password"
         ],
         "type": "object"
       },
@@ -4766,6 +4945,523 @@
         ]
       }
     },
+    "/v1/auth/apple/callback": {
+      "post": {
+        "description": "Apple posts the result here; the API redirects to the sign-in's `return_to`.",
+        "operationId": "auth-apple-callback",
+        "parameters": [
+          {
+            "description": "Set by the start endpoint",
+            "in": "cookie",
+            "name": "__Host-oauth",
+            "schema": {
+              "description": "Set by the start endpoint",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "303": {
+            "description": "See Other",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Apple's return to the API",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/apple/notifications": {
+      "post": {
+        "description": "Register this URL in the App ID's Sign in with Apple settings. Apple posts consent and email changes signed with its keys.",
+        "operationId": "auth-apple-notifications",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppleNotificationInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Apple's server-to-server notifications",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/apple/token": {
+      "post": {
+        "description": "For iOS apps. Returns a session like `POST /v1/auth/login`, or 202 with a second-factor challenge.",
+        "operationId": "auth-apple-token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppleTokenInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Sign in with an Apple ID token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/google/callback": {
+      "get": {
+        "description": "Google redirects here; the API redirects to the sign-in's `return_to`.",
+        "operationId": "auth-google-callback",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "code",
+            "schema": {
+              "maxLength": 4096,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "error",
+            "schema": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Set by the start endpoint",
+            "in": "cookie",
+            "name": "__Host-oauth",
+            "schema": {
+              "description": "Set by the start endpoint",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "See Other",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Google's return to the API",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/google/token": {
+      "post": {
+        "description": "For iOS and Android apps. Returns a session like `POST /v1/auth/login`, or 202 with a second-factor challenge.",
+        "operationId": "auth-google-token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleTokenInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Sign in with a Google ID token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/identities": {
+      "get": {
+        "operationId": "auth-list-identities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityList"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List linked Google and Apple accounts",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/identities/{id}": {
+      "delete": {
+        "description": "Send the password unless this session verified a second factor in the last 10 minutes. Not allowed for the account's last way to sign in.",
+        "operationId": "auth-remove-identity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "examples": [
+                "idn_nbswy3dpeb3w64tmmq"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveIdentityInputBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Unlink a Google or Apple account",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/v1/auth/login": {
       "post": {
         "description": "Starts a session (200). Browsers get an HttpOnly `__Host-session` cookie; native apps pass `\"transport\": \"bearer\"` and get the token in the response. For an account with two-factor authentication the response is 202 with `mfa.challenge_token` instead: finish with `POST /v1/auth/login/mfa`.",
@@ -6674,6 +7370,154 @@
           }
         },
         "summary": "Send a new verification code",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/{provider}/nonce": {
+      "post": {
+        "description": "Put the nonce in Google's or Apple's SDK request, then send the ID token with it to `POST /v1/auth/{provider}/token`. It works once, for 5 minutes.",
+        "operationId": "auth-social-nonce",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "google",
+                "apple"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocialNonceResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Get a nonce for a native sign-in",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/v1/auth/{provider}/start": {
+      "get": {
+        "description": "Open it in the browser (a link or redirect, not fetch): it sets a short-lived cookie and redirects to the provider. The provider returns to the callback, which redirects to `return_to` signed in, or with `#mfa_challenge_token=…\u0026methods=…` for a second factor, or `#error=\u003ccode\u003e`.",
+        "operationId": "auth-start-social",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "google",
+                "apple"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where to send the browser afterwards: an absolute URL on the API's origin or an APP_CORS_ORIGINS origin. Default: the API docs",
+            "explode": false,
+            "in": "query",
+            "name": "return_to",
+            "schema": {
+              "description": "Where to send the browser afterwards: an absolute URL on the API's origin or an APP_CORS_ORIGINS origin. Default: the API docs",
+              "maxLength": 2048,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Found",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Sign in with Google or Apple in a browser",
         "tags": [
           "Auth"
         ]

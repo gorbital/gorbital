@@ -25,4 +25,9 @@ func TestPrincipalRecentlyVerified(t *testing.T) {
 			t.Errorf("%s: RecentlyVerified() = %v, want %v", tt.name, got, tt.want)
 		}
 	}
+	for signedIn, want := range map[time.Time]bool{{}: false, now.Add(-time.Minute): true, now.Add(-auth.RecentVerification): false} {
+		if got := (auth.Principal{SignedInAt: signedIn}).RecentlySignedIn(now); got != want {
+			t.Errorf("RecentlySignedIn(signed in at %v) = %v, want %v", signedIn, got, want)
+		}
+	}
 }

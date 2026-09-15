@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -19,13 +20,37 @@ import (
 // per client IP address, on top of the auth module's per-account limits.
 const authRequestsPerMinute = 60
 
-// authLimitKey limits changing requests to /v1/auth/ by client IP. Behind a
-// proxy, add trusted-proxy middleware so RemoteAddr is the client.
+// authLimitKey limits changing requests to /v1/auth/, and Google and Apple
+// sign-in redirects, by client IP. Behind a proxy, add trusted-proxy
+// middleware so RemoteAddr is the client.
 func authLimitKey(r *http.Request) string {
-	if r.Method == http.MethodGet || !strings.HasPrefix(r.URL.Path, "/v1/auth/") {
+	if !strings.HasPrefix(r.URL.Path, "/v1/auth/") {
+		return ""
+	}
+	redirect := strings.HasSuffix(r.URL.Path, "/start") || strings.HasSuffix(r.URL.Path, "/callback")
+	if r.Method == http.MethodGet && !redirect {
 		return ""
 	}
 	return ratelimit.ByRemoteIP(r)
+}
+
+// crossSitePosts are the endpoints other sites post to by design: Apple's
+// sign-in result (protected by the single-use state and the __Host-oauth
+// cookie) and Apple's signed notifications (ADR-0046).
+var crossSitePosts = []string{"/v1/auth/apple/callback", "/v1/auth/apple/notifications"}
+
+// exceptCrossSitePosts applies protect to every request but crossSitePosts.
+func exceptCrossSitePosts(protect httpx.Middleware) httpx.Middleware {
+	return func(next http.Handler) http.Handler {
+		protected := protect(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost && slices.Contains(crossSitePosts, r.URL.Path) {
+				next.ServeHTTP(w, r)
+				return
+			}
+			protected.ServeHTTP(w, r)
+		})
+	}
 }
 
 type versionOutput struct {
@@ -98,7 +123,7 @@ func (a *App) buildHTTP(svc services) error {
 		httpx.AccessLog(a.logger),
 		httpx.SecureHeaders(httpx.SecureHeadersOptions{HSTSMaxAge: hsts}),
 		cors,
-		crossOrigin, // protects cookie-authenticated requests from other sites
+		exceptCrossSitePosts(crossOrigin), // protects cookie-authenticated requests from other sites
 		httpx.BodyLimit(a.cfg.MaxBodyBytes),
 	}
 	if svc.auth != nil {

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -115,16 +116,24 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	}
 
 	if ask {
-		ok, err := confirm("Create this app?", newSummary(name, *module, chosen.Name, localPath, !*noGit), p, stdin, stderr)
+		ok, err := newAsker(p, stdin, stderr).confirm(fmt.Sprintf("create %s in ./%s?", name, name))
 		if err != nil {
 			return err
 		}
 		if !ok {
 			return errAborted
 		}
-	} else if detected && !*asJSON {
-		fmt.Fprintf(stderr, "Using the apistock checkout at %s (pass --local to choose another)\n", localPath)
+		fmt.Fprintln(stderr)
 	}
+
+	// The log goes to stdout; --json prints only the result.
+	log := stdout
+	if *asJSON {
+		log = io.Discard
+	}
+	s := newStyles(stdout)
+	step := func(done string) { fmt.Fprintf(log, "%s %s\n", s.muted.Render("✓"), done) }
+	fmt.Fprintf(log, "creating %s in ./%s\n%s\n\n", name, name, s.dim.Render("preset "+chosen.Name+" · "+libraryLine(localPath, detected)))
 
 	if err := os.Mkdir(name, 0o755); err != nil {
 		return err
@@ -134,18 +143,24 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	if err != nil {
 		return errors.Join(err, os.RemoveAll(name)) // we created the directory; remove the partial app
 	}
+	step(fmt.Sprintf("wrote %d files", len(files)))
 
 	if !*skipTidy {
-		if err := runIn(ctx, name, stderr, "go", "mod", "tidy"); err != nil {
-			return fmt.Errorf("created %s, but go mod tidy failed: %w\n"+
-				"  if apistock isn't published yet, create the app with --local <path to apistock checkout>", name, err)
+		var out bytes.Buffer
+		if err := runIn(ctx, name, &out, "go", "mod", "tidy"); err != nil {
+			return fmt.Errorf("created %s, but go mod tidy failed: %w\n%s"+
+				"  if apistock isn't published yet, create the app with --local <path to apistock checkout>", name, err, out.String())
 		}
+		step("ran go mod tidy")
 	}
 	if !*noGit {
 		if _, err := exec.LookPath("git"); err == nil {
 			if err := runIn(ctx, name, stderr, "git", "init", "--quiet"); err != nil {
 				return fmt.Errorf("created %s, but git init failed: %w", name, err)
 			}
+			step("initialised git")
+		} else {
+			fmt.Fprintln(log, s.dim.Render("  git not found, skipped git init"))
 		}
 	}
 
@@ -155,7 +170,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 		enc.SetIndent("", "  ")
 		return enc.Encode(res)
 	}
-	fmt.Fprintf(stdout, "✓ Created %s (%s preset, %d files)\n\n%s", name, chosen.Name, len(files), nextSteps(name, chosen.Name))
+	fmt.Fprintf(stdout, "\n%s\n\n%s", s.strong.Render("created "+name), nextSteps(s, name, chosen.Name))
 	return nil
 }
 
@@ -171,54 +186,79 @@ func lookupPreset(name string) (recipes.Preset, error) {
 	return recipes.Preset{}, usageError(fmt.Sprintf("unknown preset %q (want %s)", name, strings.Join(recipes.PresetNames(), " or ")))
 }
 
-// nextSteps tells how to run a new app of the preset in dir.
-func nextSteps(dir, preset string) string {
-	if preset != "full" {
-		return fmt.Sprintf("  cd %s\n  aps dev\n\n  API docs: http://127.0.0.1:8080/docs\n  Traces and logs: aps dev --observability (needs Docker)\n", dir)
+// nextSteps lists where things are in a new app of the preset in dir, and
+// ends with the commands to run next.
+func nextSteps(s styles, dir, preset string) string {
+	rows := [][2]string{
+		{"api docs", "http://127.0.0.1:8080/docs"},
+		{"traces", "aps dev --observability (needs Docker)"},
 	}
-	return fmt.Sprintf(`  cd %s
-  aps dev      # PostgreSQL and Mailpit in Docker, migrations, seed data, live reload
-
-  API docs:       http://localhost:8080/docs (localhost, not 127.0.0.1, for passkeys)
-  Email inbox:    http://127.0.0.1:8025 (Mailpit catches every email in development)
-  Administrator:  admin@example.com; aps dev prints its password, 2FA key and recovery codes once
-  Sign-in:        AUTH_PROVIDERS.md lists what to set for passkeys in apps, Google and Apple
-
-  Without the apistock CLI: cp .env.example .env, docker compose up -d --wait,
-  then go run ./cmd/migrate, go run ./cmd/seed and go run ./cmd/api.
-  Port 5432 already in use? Set POSTGRES_PORT in .env, and the same port in DATABASE_URL.
-  Email goes through Resend outside development; run aps add mail to use SMTP instead.
-`, dir)
+	if preset == "full" {
+		rows = [][2]string{
+			{"api docs", "http://localhost:8080/docs (localhost, not 127.0.0.1, for passkeys)"},
+			{"emails", "http://127.0.0.1:8025 (Mailpit catches every email in development)"},
+			{"admin", "admin@example.com; aps dev prints its password, 2FA key and recovery codes once"},
+			{"sign-in", "AUTH_PROVIDERS.md lists what to set for passkeys, Google and Apple"},
+			{"email", "Resend outside development; aps add mail switches to SMTP"},
+			{"port 5432", "taken? set POSTGRES_PORT in .env and the same port in DATABASE_URL"},
+			{"without aps", "cp .env.example .env, docker compose up -d --wait,"},
+			{"", "go run ./cmd/migrate, go run ./cmd/seed, go run ./cmd/api"},
+		}
+	}
+	var b strings.Builder
+	for _, row := range rows {
+		fmt.Fprintf(&b, "  %s %s\n", s.dim.Render(fmt.Sprintf("%-12s", row[0])), row[1])
+	}
+	fmt.Fprintf(&b, "\n  %s cd %s\n        %s\n", s.dim.Render("next:"), dir, s.accent.Render("aps dev"))
+	return b.String()
 }
 
-// promptNew asks for every value not given by a flag.
+// promptNew asks, one question at a time, for every value not given by a
+// flag. Values given by flag are shown as answered lines first.
 func promptNew(name, module, preset, local *string, noGit *bool, set map[string]bool, p promptFlags, stdin io.Reader, stderr io.Writer) error {
-	var fields []huh.Field
+	a := newAsker(p, stdin, stderr)
+
 	if *name == "" {
-		fields = append(fields, huh.NewInput().Title("App name").
-			Description("Lowercase letters, digits and hyphens, such as my-api. It becomes the directory name.").
-			Placeholder("my-api").Value(name).Validate(validateName))
+		input := huh.NewInput().Title(a.title("app name")).Inline(true).Prompt("").
+			Placeholder("my-api").Value(name).Validate(validateName)
+		if err := a.ask(input, "app name", func() string { return *name }); err != nil {
+			return err
+		}
+	} else {
+		a.answered("app name", *name)
 	}
+
+	moduleOrName := func() string { return cmp.Or(*module, *name) }
 	if !set["module"] {
-		fields = append(fields, huh.NewInput().Title("Go module path").
-			Description("Where the code will live, such as github.com/you/my-api. Leave empty to use the app name.").
-			Placeholder("github.com/you/my-api").Value(module).
+		input := huh.NewInput().Title(a.title("Go module path")).Inline(true).Prompt("").
+			Placeholder(*name).Value(module).
 			Validate(func(s string) error {
 				if s == "" {
 					return nil
 				}
 				return validateModule(s)
-			}))
+			})
+		if err := a.ask(input, "Go module path", moduleOrName); err != nil {
+			return err
+		}
+	} else {
+		a.answered("Go module path", moduleOrName())
 	}
+
 	if !set["preset"] {
-		fields = append(fields, huh.NewSelect[string]().Title("Preset").Options(
-			huh.NewOption("Minimal: HTTP API with configuration, telemetry, health checks and docs; no database", "minimal"),
-			huh.NewOption("Full: PostgreSQL, authentication, jobs, email, audit and ops APIs; needs Docker", "full"),
-		).Value(preset))
+		sel := huh.NewSelect[string]().Title(a.choiceTitle("preset")).Options(
+			huh.NewOption("minimal  HTTP API, config, telemetry, health checks, docs · no database", "minimal"),
+			huh.NewOption("full     PostgreSQL, auth, jobs, email, audit, ops APIs · needs Docker", "full"),
+		).Value(preset)
+		if err := a.ask(sel, "preset", func() string { return *preset }); err != nil {
+			return err
+		}
+	} else {
+		a.answered("preset", *preset)
 	}
+
 	if !set["local"] {
-		fields = append(fields, huh.NewInput().Title("apistock checkout").
-			Description("The library isn't published yet, so apps use a local copy of the apistock repository.").
+		input := huh.NewInput().Title(a.title("apistock checkout")).Inline(true).Prompt("").
 			Placeholder("/path/to/apistock").Value(local).
 			Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {
@@ -226,36 +266,54 @@ func promptNew(name, module, preset, local *string, noGit *bool, set map[string]
 				}
 				_, err := resolveLocal(s)
 				return err
-			}))
+			})
+		if err := a.ask(input, "apistock checkout", func() string { return *local }); err != nil {
+			return err
+		}
+	} else {
+		a.answered("apistock checkout", *local)
 	}
+
 	gitInit := !*noGit
 	if !set["no-git"] {
-		fields = append(fields, huh.NewConfirm().Title("Initialise a git repository?").
-			Affirmative("Yes").Negative("No").Value(&gitInit))
-	}
-	if len(fields) == 0 {
-		return nil
-	}
-	if err := runForm(huh.NewForm(huh.NewGroup(fields...)), p, stdin, stderr); err != nil {
-		return err
+		if err := a.ask(a.yesNo("initialise a git repository?", &gitInit), "initialise a git repository?", func() string { return yesNo(gitInit) }); err != nil {
+			return err
+		}
+	} else {
+		a.answered("initialise a git repository?", yesNo(gitInit))
 	}
 	*noGit = !gitInit
 	return nil
 }
 
-func newSummary(name, module, preset, local string, git bool) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "  App:     %s (%s preset)\n", name, preset)
-	fmt.Fprintf(&b, "  Module:  %s\n", module)
-	if local != "" {
-		fmt.Fprintf(&b, "  Library: apistock checkout at %s\n", local)
+// libraryLine says which apistock the app is built against.
+func libraryLine(local string, detected bool) string {
+	switch {
+	case local == "":
+		return "library apistock.dev " + recipes.LibraryVersion
+	case detected:
+		return "library " + relPath(local) + " (found above this directory; --local to change)"
+	default:
+		return "library " + relPath(local)
 	}
-	gitLine := "don't initialise"
-	if git {
-		gitLine = "initialise a repository"
+}
+
+// relPath shows path relative to the current directory when that's shorter
+// to read: at most two levels up, otherwise the absolute path.
+func relPath(path string) string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return path
 	}
-	fmt.Fprintf(&b, "  Git:     %s", gitLine)
-	return b.String()
+	rel, err := filepath.Rel(wd, filepath.FromSlash(path))
+	if err != nil {
+		return path
+	}
+	rel = filepath.ToSlash(rel)
+	if strings.HasPrefix(rel, "../../../") {
+		return path
+	}
+	return rel
 }
 
 // findCheckout returns the nearest directory at or above the current one

@@ -23,7 +23,8 @@ type TOTPEnrollment struct {
 }
 
 // StartTOTPEnrollment creates a new authenticator app secret for the
-// signed-in user after checking the password, replacing one that was never
+// signed-in user after checking the password (for an account without one, a
+// recent sign-in), replacing one that was never
 // confirmed. Turn two-factor authentication on with ConfirmTOTP. It returns
 // ErrInvalidCredentials, ErrMFAAlreadyEnabled or ErrMFAUnavailable.
 func (s *Service) StartTOTPEnrollment(ctx context.Context, password string) (TOTPEnrollment, error) {
@@ -48,7 +49,7 @@ func (s *Service) StartTOTPEnrollment(ctx context.Context, password string) (TOT
 		if err != nil {
 			return err // ErrUserNotFound is handled below
 		}
-		if !s.passwordMatches(u, password) {
+		if !s.passwordOrRecentSignIn(p, u, password) {
 			state = authdomain.ErrInvalidCredentials
 			return nil
 		}
@@ -167,7 +168,7 @@ func (s *Service) DisableTOTP(ctx context.Context, password string, factor authd
 		if err != nil {
 			return err // ErrUserNotFound is handled below
 		}
-		if !s.passwordMatches(u, password) {
+		if !s.passwordOrRecentSignIn(p, u, password) {
 			state = authdomain.ErrInvalidCredentials
 			return nil
 		}
@@ -273,6 +274,16 @@ func (s *Service) passwordMatches(u authdomain.User, password string) bool {
 	}
 	ok, _ := s.hasher.Verify(password, u.PasswordHash)
 	return ok
+}
+
+// passwordOrRecentSignIn confirms the account's owner before a sensitive
+// change: the password, or for an account without one (Google or Apple
+// only), a session that started within auth.RecentVerification (ADR-0046).
+func (s *Service) passwordOrRecentSignIn(p authlib.Principal, u authdomain.User, password string) bool {
+	if u.HasPassword() {
+		return s.passwordMatches(u, password)
+	}
+	return p.RecentlySignedIn(s.now())
 }
 
 // hasSecondFactor reports whether the user has two-factor authentication on:

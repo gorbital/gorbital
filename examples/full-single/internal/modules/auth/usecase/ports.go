@@ -145,6 +145,41 @@ type PasskeyStore interface {
 	DeleteOldWebAuthnCeremonies(ctx context.Context, before time.Time) (int64, error)
 }
 
+// SocialStore reads and writes Google and Apple identities, web sign-ins
+// waiting for the provider, and native apps' nonces (ADR-0046).
+type SocialStore interface {
+	// VerifyEmailRemovePassword marks an address verified and removes the
+	// account's password.
+	VerifyEmailRemovePassword(ctx context.Context, userID string, now time.Time) error
+	InsertIdentity(ctx context.Context, i authdomain.Identity) error
+	// SelectIdentity returns a provider subject's identity; lock locks it
+	// until the transaction ends.
+	SelectIdentity(ctx context.Context, provider, subject string, lock bool) (authdomain.Identity, bool, error)
+	// SelectIdentities returns a user's identities, oldest first.
+	SelectIdentities(ctx context.Context, userID string) ([]authdomain.Identity, error)
+	CountIdentities(ctx context.Context, userID string) (int, error)
+	UpdateIdentityUse(ctx context.Context, id, email string, privateEmail bool, now time.Time) error
+	SetIdentityRefreshToken(ctx context.Context, id, keyID string, ciphertext []byte, clientID string) error
+	// DeleteIdentity and DeleteIdentities return what they removed.
+	DeleteIdentity(ctx context.Context, id, userID string) (authdomain.Identity, bool, error)
+	DeleteIdentities(ctx context.Context, userID string) ([]authdomain.Identity, error)
+	// SelectIdentitiesWithOtherKey returns up to limit identities whose
+	// refresh token is encrypted with a key other than keyID.
+	SelectIdentitiesWithOtherKey(ctx context.Context, keyID string, limit int) ([]authdomain.Identity, error)
+	// UpdateIdentityRefreshKey replaces a refresh token still encrypted with
+	// oldKeyID and reports whether it did.
+	UpdateIdentityRefreshKey(ctx context.Context, id, oldKeyID, keyID string, ciphertext []byte) (bool, error)
+	InsertOAuthState(ctx context.Context, s authdomain.OAuthState) error
+	// SelectOAuthStateByTokenHash locks the web sign-in with a state's hash.
+	SelectOAuthStateByTokenHash(ctx context.Context, tokenHash []byte) (authdomain.OAuthState, bool, error)
+	ConsumeOAuthState(ctx context.Context, id string, now time.Time) error
+	InsertSocialNonce(ctx context.Context, n authdomain.SocialNonce) error
+	// UseSocialNonce uses up an unexpired nonce and reports whether it was
+	// usable.
+	UseSocialNonce(ctx context.Context, provider string, tokenHash []byte, now time.Time) (bool, error)
+	DeleteOldSocialRequests(ctx context.Context, before time.Time) (int64, error)
+}
+
 // Store is every storage operation the use cases need, plus transactions.
 type Store interface {
 	UserStore
@@ -153,6 +188,7 @@ type Store interface {
 	RoleStore
 	MFAStore
 	PasskeyStore
+	SocialStore
 	// InTx runs fn in one transaction: it commits when fn returns nil and
 	// rolls back otherwise.
 	InTx(ctx context.Context, fn func(tx Store) error) error

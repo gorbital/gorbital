@@ -1,6 +1,6 @@
 # ADR-0024: Authentication methods
 
-**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0006 · **Amended by:** ADR-0038 (flows, tables and SQL live in the generated app's `internal/modules/auth`; `modules/auth` provides building blocks), ADR-0043 (2FA details; TOTP implemented in `modules/auth` instead of `pquerna/otp`), ADR-0044 (passkeys: sign-in and second factor, configuration in env, native association files)
+**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0006 · **Amended by:** ADR-0038 (flows, tables and SQL live in the generated app's `internal/modules/auth`; `modules/auth` provides building blocks), ADR-0043 (2FA details; TOTP implemented in `modules/auth` instead of `pquerna/otp`), ADR-0044 (passkeys: sign-in and second factor, configuration in env, native association files), ADR-0046 (Google and Apple: API-hosted web flow, native ID tokens with server nonces, automatic linking that removes an unverified account's password, second factor still required)
 
 ## Context
 

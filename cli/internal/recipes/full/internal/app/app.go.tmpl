@@ -163,7 +163,13 @@ func (a *App) build(ctx context.Context) error {
 
 	// Authentication: users, sessions and the platform roles that grant ops
 	// permissions (permissions.go).
+	google, apple := a.cfg.Social.providers(a.cfg.ProviderEndpoints)
 	a.auth, err = authmodule.New(pool, authusecase.Config{
+		Google:                  google,
+		Apple:                   apple,
+		PublicURL:               a.cfg.Social.PublicURL,
+		ReturnOrigins:           a.cfg.returnOrigins(),
+		DefaultReturnTo:         a.cfg.Social.PublicURL + "/docs",
 		Catalog:                 declarePermissions(),
 		Recorder:                recorder,
 		Emails:                  authlib.NewMailEmails(mailer, ServiceName),

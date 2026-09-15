@@ -140,4 +140,24 @@ func TestPromptNewAsksForMissingValues(t *testing.T) {
 	if name != "shop-api" || module != "github.com/acme/shop-api" || preset != "full" || local != checkout || !noGit {
 		t.Errorf("answers = name %q, module %q, preset %q, local %q, noGit %v\noutput:\n%s", name, module, preset, local, noGit, out.String())
 	}
+	// Plain mode prints each answer itself: no folded lines, no colour.
+	if s := out.String(); strings.Contains(s, "✓") || strings.Contains(s, "\x1b[") {
+		t.Errorf("plain prompts printed folded lines or colour:\n%s", s)
+	}
+}
+
+func TestAnsweredQuestionsFoldToOneLine(t *testing.T) {
+	var out bytes.Buffer
+	a := newAsker(promptFlags{}, answers(), &out)
+	a.answered("app name", "shop-api")
+	a.answered("initialise a git repository?", yesNo(false))
+
+	// Output that isn't a terminal gets no colour, so the lines read as plain text.
+	want := "✓ app name … shop-api\n✓ initialise a git repository? … no\n"
+	if out.String() != want {
+		t.Errorf("folded lines = %q, want %q", out.String(), want)
+	}
+	if got := a.title("app name"); got != "? app name … " {
+		t.Errorf("title = %q, want %q", got, "? app name … ")
+	}
 }

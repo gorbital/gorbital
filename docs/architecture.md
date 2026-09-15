@@ -212,7 +212,8 @@ Implemented in v0.3:
 
 - **Two-factor authentication** ([ADR-0043](adr/0043-two-factor-authentication.md)): authenticator apps (TOTP, with the `otpauth://` URI and a scannable QR image), 10 recovery codes, a 202 login challenge completed at `/v1/auth/login/mfa`, secrets encrypted with `AUTH_ENCRYPTION_KEYS`, and required 2FA for `platform_admin` and `ops_viewer`.
 - **Passkeys** ([ADR-0044](adr/0044-passkeys.md)): passwordless sign-in and a second factor through `apistock.dev/modules/auth/passkey` (go-webauthn), up to 10 per account, single-use ceremonies stored server-side, relying party from `WEBAUTHN_*`, and the generated `/.well-known/apple-app-site-association` and `assetlinks.json` for native apps.
-- **Sign-in provider setup** ([ADR-0045](adr/0045-sign-in-provider-setup.md)): what each method needs from the developer, in `.env.example`, `AUTH_PROVIDERS.md`, a status block at start, `go run ./cmd/api auth-providers` and `GET /ops/auth/providers`. Google and Apple sign-in are next, with the variable names fixed there.
+- **Sign-in provider setup** ([ADR-0045](adr/0045-sign-in-provider-setup.md)): what each method needs from the developer, in `.env.example`, `AUTH_PROVIDERS.md`, a status block at start, `go run ./cmd/api auth-providers` and `GET /ops/auth/providers`.
+- **Google and Apple sign-in** ([ADR-0046](adr/0046-google-and-apple-sign-in.md)): `apistock.dev/modules/auth/social` (x/oauth2, go-oidc); the API hosts the web flow (`/v1/auth/{provider}/start` and callbacks, state bound to a `__Host-oauth` cookie) and verifies native apps' ID tokens with single-use nonces; identities link to accounts by provider-verified email; the second factor still applies; Apple tokens are revoked on deletion and Apple's notifications are handled.
 
 ### 7.2 Tenancy ([ADR-0023](adr/0023-tenancy.md))
 

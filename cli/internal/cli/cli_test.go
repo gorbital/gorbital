@@ -139,10 +139,36 @@ func TestNewFullPrintsNextSteps(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("aps new --preset full = %d, stderr %q", code, errOut)
 	}
-	for _, want := range []string{"full preset", "aps dev", "docker compose up -d --wait", "go run ./cmd/migrate", "go run ./cmd/seed", "http://127.0.0.1:8025", "admin@example.com", "AUTH_PROVIDERS.md", "POSTGRES_PORT", "aps add mail"} {
+	for _, want := range []string{
+		"creating shop-api in ./shop-api\n", "preset full · library", "✓ wrote ", "\ncreated shop-api\n",
+		"docker compose up -d --wait", "go run ./cmd/migrate", "go run ./cmd/seed", "http://127.0.0.1:8025", "admin@example.com",
+		"AUTH_PROVIDERS.md", "POSTGRES_PORT", "aps add mail", "next: cd shop-api\n        aps dev\n",
+	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("aps new --preset full output lacks %q:\n%s", want, out)
 		}
+	}
+	// --skip-tidy and --no-git skip their steps; output that isn't a terminal has no colour.
+	for _, unwanted := range []string{"go mod tidy", "initialised git", "\x1b["} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("aps new --skip-tidy --no-git output has %q:\n%s", unwanted, out)
+		}
+	}
+}
+
+func TestNewMinimalLog(t *testing.T) {
+	t.Chdir(t.TempDir())
+	code, out, errOut := runAps(t, "new", "shop-api", "--skip-tidy", "--no-git")
+	if code != 0 {
+		t.Fatalf("aps new = %d, stderr %q", code, errOut)
+	}
+	for _, want := range []string{"creating shop-api in ./shop-api\n", "preset minimal · library", "✓ wrote ", "api docs     http://127.0.0.1:8080/docs", "next: cd shop-api"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("aps new output lacks %q:\n%s", want, out)
+		}
+	}
+	if code, out, _ := runAps(t, "new", "other-api", "--skip-tidy", "--no-git", "--json"); code != 0 || strings.Contains(out, "creating") {
+		t.Errorf("aps new --json = %d, printed the log:\n%s", code, out)
 	}
 }
 

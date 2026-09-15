@@ -40,10 +40,11 @@ You can mix them: flags you pass skip their questions, and you're asked only for
 |---|---|
 | When questions appear | Only when both input and output are a terminal |
 | Never ask | `--yes` (use defaults for anything not given), `--no-input` (fail if a required value is missing), `--json`, or the `CI` environment variable |
-| Keys | ↑/↓ to choose, Enter to confirm, Tab/Shift+Tab to move between fields, Esc or Ctrl+C to cancel |
+| Keys | ↑/↓ to choose, ←/→ or y/n for yes/no, Enter to confirm, Tab/Shift+Tab to move between fields, Esc or Ctrl+C to cancel |
 | Cancel | Exits with code 130 and writes nothing |
 | Validation | Questions check exactly what flags check, as you type |
-| Accessibility | `--plain` or `ACCESSIBLE=1` asks one plain line at a time (screen readers); `NO_COLOR=1` disables colour |
+| Look | The apistock theme ([theme](../brand/theme.md)): no borders, dim hints, lime only on the open question's `?` and the option cursor |
+| Accessibility | `--plain` or `ACCESSIBLE=1` asks one plain line at a time (screen readers); `NO_COLOR=1` disables colour, and the output reads the same without it |
 
 ## `aps new`
 
@@ -64,6 +65,37 @@ aps new my-api --module github.com/you/my-api --local ~/code/apistock --yes
 | Initialise git | `--no-git` | yes |
 
 Other flags: `--skip-tidy` (don't run `go mod tidy`), `--json`, `--yes`, `--no-input`, `--plain`.
+
+Questions come one at a time. Each answered question folds into one line, and values you passed by flag are listed the same way, so every answer is on screen before the last question: create the app, yes or no.
+
+```text
+✓ app name … shop-api
+✓ Go module path … github.com/acme/shop-api
+✓ preset … full
+✓ apistock checkout … /Users/you/code/apistock
+✓ initialise a git repository? … yes
+? create shop-api in ./shop-api? … yes  no
+```
+
+Then `aps new` prints a log: one line per finished step, where things are in the new app, and the commands to run next. `--json` prints only the result.
+
+```text
+creating shop-api in ./shop-api
+preset full · library ../apistock
+
+✓ wrote 214 files
+✓ ran go mod tidy
+✓ initialised git
+
+created shop-api
+
+  api docs     http://localhost:8080/docs (localhost, not 127.0.0.1, for passkeys)
+  emails       http://127.0.0.1:8025 (Mailpit catches every email in development)
+  ...
+
+  next: cd shop-api
+        aps dev
+```
 
 | Preset | What you get | Needs |
 |---|---|---|

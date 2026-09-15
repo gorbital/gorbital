@@ -226,7 +226,7 @@ Which sign-in methods this deployment has configured, and what turns the others 
 
 | Endpoint | Purpose | Success |
 |---|---|---|
-| `GET /ops/auth/providers` | Each method: `key` (`email_password`, `authenticator_app`, `passkeys`, `passkeys_ios`, `passkeys_android`), `name`, `enabled`, `detail` for enabled methods (relying party ID and origins, app IDs, Android packages), `missing` environment variables and the `guide` section for the others | 200 `{methods: [...]}` |
+| `GET /ops/auth/providers` | Each method: `key` (`email_password`, `authenticator_app`, `passkeys`, `passkeys_ios`, `passkeys_android`, `google`, `google_ios`, `google_android`, `apple`, `apple_ios`), `name`, `enabled`, `detail` for enabled methods (relying party ID and origins, app IDs, Android packages), `missing` environment variables and the `guide` section for the others | 200 `{methods: [...]}` |
 
 Values of secrets are never returned; the same report is printed at start in development and by `go run ./cmd/api auth-providers`.
 

@@ -36,6 +36,13 @@ func registerAuth(api huma.API, mapper *httpx.Mapper, m *authmodule.Module) erro
 		httpx.Mapping{Err: authdomain.ErrPasskeyLimitReached, Status: http.StatusConflict, Code: "passkey_limit_reached", Detail: "an account can have at most 10 passkeys"},
 		httpx.Mapping{Err: authdomain.ErrInvalidPasskeyName, Status: http.StatusUnprocessableEntity, Code: "invalid_passkey_name", Detail: "a passkey name must be 1 to 100 characters"},
 		httpx.Mapping{Err: authdomain.ErrPasskeysUnavailable, Status: http.StatusServiceUnavailable, Code: "passkeys_unavailable", Detail: "passkeys aren't configured on this server (WEBAUTHN_RP_ID)"},
+		httpx.Mapping{Err: authdomain.ErrInvalidSocialToken, Status: http.StatusUnauthorized, Code: "invalid_social_token", Detail: "the sign-in with Google or Apple couldn't be verified; start again"},
+		httpx.Mapping{Err: authdomain.ErrInvalidState, Status: http.StatusUnauthorized, Code: "invalid_state", Detail: "the sign-in expired or was started in another browser; start again"},
+		httpx.Mapping{Err: authdomain.ErrSocialEmailUnverified, Status: http.StatusForbidden, Code: "social_email_unverified", Detail: "the provider hasn't verified this email address"},
+		httpx.Mapping{Err: authdomain.ErrInvalidReturnTo, Status: http.StatusUnprocessableEntity, Code: "invalid_return_to", Detail: "return_to must be an absolute URL on the API's origin or APP_CORS_ORIGINS"},
+		httpx.Mapping{Err: authdomain.ErrIdentityNotFound, Status: http.StatusNotFound, Code: "identity_not_found", Detail: "no linked account of yours has this ID"},
+		httpx.Mapping{Err: authdomain.ErrLastSignInMethod, Status: http.StatusConflict, Code: "last_sign_in_method", Detail: "this is the account's last way to sign in; set a password or add a passkey first"},
+		httpx.Mapping{Err: authdomain.ErrSocialUnavailable, Status: http.StatusServiceUnavailable, Code: "social_unavailable", Detail: "this sign-in provider isn't configured on this server (see AUTH_PROVIDERS.md)"},
 	)
 	if err != nil {
 		return fmt.Errorf("auth module: %w", err)

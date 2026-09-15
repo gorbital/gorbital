@@ -14,7 +14,9 @@ import (
 )
 
 // RecentVerification is how long after verifying a second factor a session
-// can change the account's sign-in methods without the password (ADR-0044).
+// can change the account's sign-in methods without the password (ADR-0044),
+// and how long after signing in an account without a password can confirm
+// sensitive changes (ADR-0046).
 const RecentVerification = 10 * time.Minute
 
 // Principal is the authenticated user of a request.
@@ -30,6 +32,14 @@ type Principal struct {
 	// factor, and MFAVerifiedAt when it last was.
 	MFAVerified   bool
 	MFAVerifiedAt time.Time
+	// SignedInAt is when the session started.
+	SignedInAt time.Time
+}
+
+// RecentlySignedIn reports whether the session started less than
+// [RecentVerification] before now.
+func (p Principal) RecentlySignedIn(now time.Time) bool {
+	return !p.SignedInAt.IsZero() && now.Sub(p.SignedInAt) < RecentVerification
 }
 
 // RecentlyVerified reports whether the session verified a second factor

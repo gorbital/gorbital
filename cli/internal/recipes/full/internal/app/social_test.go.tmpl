@@ -1,0 +1,198 @@
+package app_test
+
+import (
+	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"apistock.dev/config"
+	"apistock.dev/modules/auth/social/socialtest"
+
+	"⟦.Module⟧/internal/app"
+)
+
+// appleKeyFile writes a Sign in with Apple .p8 key and returns its path.
+func appleKeyFile(t *testing.T) string {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	der, _ := x509.MarshalPKCS8PrivateKey(key)
+	path := filepath.Join(t.TempDir(), "AuthKey_KEY1234567.p8")
+	if err := os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func socialEnv(t *testing.T) map[string]string {
+	return map[string]string{
+		"GOOGLE_CLIENT_ID": "web-client", "GOOGLE_CLIENT_SECRET": "secret", "GOOGLE_IOS_CLIENT_ID": "ios-client",
+		"APPLE_TEAM_ID": "TEAM123456", "APPLE_KEY_ID": "KEY1234567", "APPLE_PRIVATE_KEY_FILE": appleKeyFile(t),
+		"APPLE_SERVICES_ID": "com.example.web", "APPLE_BUNDLE_IDS": "com.example.app",
+		"APP_CORS_ORIGINS": "https://app.example.com",
+	}
+}
+
+// cookieValue returns the value of the cookie name set by r.
+func cookieValue(r response, name string) string {
+	for _, c := range r.header.Values("Set-Cookie") {
+		if v, ok := strings.CutPrefix(c, name+"="); ok {
+			value, _, _ := strings.Cut(v, ";")
+			return value
+		}
+	}
+	return ""
+}
+
+// TestSocialSignInEndToEnd follows ADR-0046 over HTTP against a fake
+// provider: both web flows, a native sign-in, identities and Apple's
+// notifications.
+func TestSocialSignInEndToEnd(t *testing.T) {
+	srv := socialtest.New(t)
+	h := newApp(t, socialEnv(t), func(c *app.Config) {
+		c.ProviderEndpoints.Google, c.ProviderEndpoints.Apple = srv.Endpoints(), srv.Endpoints()
+	}).Handler()
+
+	// Google in a browser.
+	start := do(t, h, "GET", "/v1/auth/google/start?return_to="+url.QueryEscape("https://app.example.com/after"), "")
+	location, _ := url.Parse(start.header.Get("Location"))
+	browser := cookieValue(start, "__Host-oauth")
+	if start.code != http.StatusFound || !strings.HasPrefix(location.String(), srv.URL) || browser == "" ||
+		!strings.Contains(strings.Join(start.header.Values("Set-Cookie"), ";"), "SameSite=None") {
+		t.Fatalf("GET /v1/auth/google/start = %d %v %v", start.code, start.header, start.body)
+	}
+	q := location.Query()
+	code := srv.Code(socialtest.Claims{Subject: "g-ada", Audience: "web-client", Email: "ada@example.com", EmailVerified: true, Nonce: q.Get("nonce")}, "")
+	callback := do(t, h, "GET", "/v1/auth/google/callback?code="+url.QueryEscape(code)+"&state="+url.QueryEscape(q.Get("state")), "", "Cookie", "__Host-oauth="+browser)
+	if callback.code != http.StatusSeeOther || callback.header.Get("Location") != "https://app.example.com/after" || cookieValue(callback, "__Host-session") == "" {
+		t.Fatalf("GET /v1/auth/google/callback = %d Location %q cookies %v %s", callback.code, callback.header.Get("Location"), callback.header.Values("Set-Cookie"), callback.body)
+	}
+
+	// Without the browser's cookie the frontend gets an error code.
+	start = do(t, h, "GET", "/v1/auth/google/start?return_to="+url.QueryEscape("https://app.example.com/after"), "")
+	location, _ = url.Parse(start.header.Get("Location"))
+	failed := do(t, h, "GET", "/v1/auth/google/callback?code=x&state="+url.QueryEscape(location.Query().Get("state")), "")
+	if failed.code != http.StatusSeeOther || failed.header.Get("Location") != "https://app.example.com/after#error=invalid_state" {
+		t.Errorf("callback without the cookie = %d %q", failed.code, failed.header.Get("Location"))
+	}
+	if r := do(t, h, "GET", "/v1/auth/google/start?return_to="+url.QueryEscape("https://evil.example/"), ""); r.code != http.StatusUnprocessableEntity || r.json["code"] != "invalid_return_to" {
+		t.Errorf("start with another site's return_to = %d %s", r.code, r.body)
+	}
+
+	// Apple posts from its own site, with the name the first time.
+	start = do(t, h, "GET", "/v1/auth/apple/start", "")
+	location, _ = url.Parse(start.header.Get("Location"))
+	q = location.Query()
+	code = srv.Code(socialtest.Claims{Subject: "001.bob", Audience: "com.example.web", Email: "bob@example.com", Extra: map[string]any{"email_verified": "true"}, Nonce: q.Get("nonce")}, "")
+	form := url.Values{"code": {code}, "state": {q.Get("state")}, "user": {`{"name":{"firstName":"Bob","lastName":"Smith"}}`}}
+	apple := do(t, h, "POST", "/v1/auth/apple/callback", form.Encode(),
+		"Content-Type", "application/x-www-form-urlencoded", "Cookie", "__Host-oauth="+cookieValue(start, "__Host-oauth"),
+		"Origin", "https://appleid.apple.com", "Sec-Fetch-Site", "cross-site")
+	session := cookieValue(apple, "__Host-session")
+	if apple.code != http.StatusSeeOther || apple.header.Get("Location") != "http://localhost:8080/docs" || session == "" {
+		t.Fatalf("POST /v1/auth/apple/callback = %d %q %s", apple.code, apple.header.Get("Location"), apple.body)
+	}
+	identities := do(t, h, "GET", "/v1/auth/identities", "", "Cookie", "__Host-session="+session)
+	items, _ := identities.json["identities"].([]any)
+	if identities.code != http.StatusOK || len(items) != 1 || items[0].(map[string]any)["name"] != "Bob Smith" {
+		t.Errorf("GET /v1/auth/identities = %d %s", identities.code, identities.body)
+	}
+
+	// An iOS app signs in with Google's ID token and a nonce.
+	nonce := do(t, h, "POST", "/v1/auth/google/nonce", "")
+	token := srv.IDToken(socialtest.Claims{Subject: "g-carol", Audience: "ios-client", Email: "carol@example.com", EmailVerified: true, Nonce: fmt.Sprint(nonce.json["nonce"])})
+	native := do(t, h, "POST", "/v1/auth/google/token", fmt.Sprintf(`{"id_token":%q,"nonce":%q}`, token, nonce.json["nonce"]))
+	if user, _ := native.json["user"].(map[string]any); native.code != http.StatusOK || native.json["token"] == nil || user["has_password"] != false {
+		t.Fatalf("POST /v1/auth/google/token = %d %s", native.code, native.body)
+	}
+	if r := do(t, h, "POST", "/v1/auth/google/token", fmt.Sprintf(`{"id_token":%q,"nonce":%q}`, token, nonce.json["nonce"])); r.code != http.StatusUnauthorized || r.json["code"] != "invalid_social_token" {
+		t.Errorf("POST /v1/auth/google/token with a used nonce = %d %s", r.code, r.body)
+	}
+
+	// Apple's notifications arrive from Apple's servers.
+	notice := do(t, h, "POST", "/v1/auth/apple/notifications", fmt.Sprintf(`{"payload":%q}`, srv.Notification("com.example.web", "email-disabled", "001.bob")),
+		"Origin", "https://appleid.apple.com", "Sec-Fetch-Site", "cross-site")
+	if notice.code >= 300 {
+		t.Errorf("POST /v1/auth/apple/notifications = %d %s", notice.code, notice.body)
+	}
+	if r := do(t, h, "POST", "/v1/auth/apple/notifications", `{"payload":"forged"}`); r.code != http.StatusUnauthorized {
+		t.Errorf("POST /v1/auth/apple/notifications with a forged payload = %d %s", r.code, r.body)
+	}
+}
+
+func TestSocialConfiguration(t *testing.T) {
+	keyFile := appleKeyFile(t)
+	badKey := filepath.Join(t.TempDir(), "bad.p8")
+	_ = os.WriteFile(badKey, []byte("not a key"), 0o600)
+	load := func(env map[string]string) (app.Config, error) {
+		base := map[string]string{"AUTH_ENCRYPTION_KEYS": testEncryptionKeys}
+		if env["APP_ENV"] == "production" {
+			base["RESEND_API_KEY"] = "re_123"
+		}
+		for k, v := range env {
+			base[k] = v
+		}
+		return app.LoadConfig(config.Source{Getenv: func(k string) string { return base[k] }, ReadFile: os.ReadFile})
+	}
+	apple := map[string]string{"APPLE_TEAM_ID": "TEAM123456", "APPLE_KEY_ID": "KEY1234567", "APPLE_PRIVATE_KEY_FILE": keyFile, "APPLE_SERVICES_ID": "com.example.web"}
+	with := func(extra map[string]string) map[string]string {
+		out := map[string]string{}
+		for k, v := range apple {
+			out[k] = v
+		}
+		for k, v := range extra {
+			out[k] = v
+		}
+		return out
+	}
+	tests := []struct {
+		name    string
+		env     map[string]string
+		wantErr string
+	}{
+		{"nothing", map[string]string{}, ""},
+		{"Google", map[string]string{"GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s"}, ""},
+		{"Google without the secret", map[string]string{"GOOGLE_CLIENT_ID": "web"}, "GOOGLE_CLIENT_SECRET is required"},
+		{"Google iOS without the web client", map[string]string{"GOOGLE_IOS_CLIENT_ID": "ios"}, "GOOGLE_CLIENT_ID is required"},
+		{"Apple", apple, ""},
+		{"Apple without the key", with(map[string]string{"APPLE_PRIVATE_KEY_FILE": ""}), "sign-in with Apple also needs APPLE_PRIVATE_KEY_FILE"},
+		{"Apple without clients", with(map[string]string{"APPLE_SERVICES_ID": ""}), "APPLE_SERVICES_ID or APPLE_BUNDLE_IDS"},
+		{"Apple with a bad key", with(map[string]string{"APPLE_PRIVATE_KEY_FILE": badKey}), "APPLE_PRIVATE_KEY_FILE"},
+		{"production without the public URL", map[string]string{"APP_ENV": "production", "GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s"}, "APP_PUBLIC_URL is required"},
+		{"production over http", map[string]string{"APP_ENV": "production", "APP_PUBLIC_URL": "http://api.example.com", "GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s"}, "must use https"},
+		{"public URL with a path", map[string]string{"APP_PUBLIC_URL": "https://api.example.com/v1", "GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s"}, "must be a scheme and host"},
+	}
+	for _, tt := range tests {
+		_, err := load(tt.env)
+		switch {
+		case tt.wantErr == "" && err != nil:
+			t.Errorf("%s: LoadConfig() error = %v", tt.name, err)
+		case tt.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErr)):
+			t.Errorf("%s: LoadConfig() error = %v, want one containing %q", tt.name, err, tt.wantErr)
+		}
+	}
+
+	cfg, _ := load(map[string]string{"GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s", "APPLE_TEAM_ID": "T", "APPLE_KEY_ID": "K", "APPLE_PRIVATE_KEY_FILE": keyFile, "APPLE_BUNDLE_IDS": "com.example.app"})
+	var out bytes.Buffer
+	app.WriteSignInMethods(&out, cfg)
+	for _, want := range []string{
+		"✓ Google sign-in", "callback http://localhost:8080/v1/auth/google/callback", "– Google sign-in in iOS apps", "set GOOGLE_IOS_CLIENT_ID in .env",
+		"– Apple sign-in ", "AUTH_PROVIDERS.md#apple-sign-in", "✓ Apple sign-in in iOS apps", "com.example.app",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("WriteSignInMethods() lacks %q:\n%s", want, out.String())
+		}
+	}
+}

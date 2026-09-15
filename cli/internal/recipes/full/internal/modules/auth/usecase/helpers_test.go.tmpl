@@ -82,6 +82,14 @@ func (f *fakeEmails) SendPasskeyAdded(_ context.Context, to, name string) error 
 	return f.add(sentEmail{kind: "passkey_added", to: to, code: name})
 }
 
+func (f *fakeEmails) SendSignInMethodAdded(_ context.Context, to, method string) error {
+	return f.add(sentEmail{kind: "sign_in_method_added", to: to, code: method})
+}
+
+func (f *fakeEmails) SendSignInMethodRemoved(_ context.Context, to, method string) error {
+	return f.add(sentEmail{kind: "sign_in_method_removed", to: to, code: method})
+}
+
 func (f *fakeEmails) SendPasskeyRemoved(_ context.Context, to, name string) error {
 	return f.add(sentEmail{kind: "passkey_removed", to: to, code: name})
 }

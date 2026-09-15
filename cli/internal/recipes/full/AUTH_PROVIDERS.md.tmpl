@@ -1,6 +1,6 @@
 # Sign-in methods: what you provide
 
-This app can sign people in with email and password, authenticator apps, passkeys, and (soon) Google and Apple. Each method works once you give the app a few values from **your own** accounts: apistock never owns them. This page walks through every value step by step: what it is, how to create it, where to paste it, and how to check it works.
+This app can sign people in with email and password, authenticator apps, passkeys, Google and Apple. Each method works once you give the app a few values from **your own** accounts: apistock never owns them. This page walks through every value step by step: what it is, how to create it, where to paste it, and how to check it works.
 
 Check what's on at any time:
 
@@ -24,8 +24,8 @@ Rules for every value:
 | [Passkeys](#passkeys) | `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGINS` | No | Your domain | On in development (localhost) |
 | [Passkeys in iOS apps](#passkeys-in-ios-apps) | `WEBAUTHN_APPLE_APP_IDS` | No | Apple Developer Program | Off until set |
 | [Passkeys in Android apps](#passkeys-in-android-apps) | `WEBAUTHN_ANDROID_APPS` | No | Your app's signing keys | Off until set |
-| [Google sign-in](#google-sign-in) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_ANDROID_CLIENT_ID` | Secret: yes | A Google account (free) | Coming in a later version; prepare now |
-| [Apple sign-in](#apple-sign-in) | `APPLE_TEAM_ID`, `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_FILE`, `APPLE_BUNDLE_IDS` | Key: yes | Apple Developer Program (paid) | Coming in a later version; prepare now |
+| [Google sign-in](#google-sign-in) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_ANDROID_CLIENT_ID`, `APP_PUBLIC_URL` | Secret: yes | A Google account (free) | Off until set |
+| [Apple sign-in](#apple-sign-in) | `APPLE_TEAM_ID`, `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_FILE`, `APPLE_BUNDLE_IDS`, `APP_PUBLIC_URL` | Key: yes | Apple Developer Program (paid) | Off until set |
 
 Console menus move from time to time. If a step's wording doesn't match what you see, look for the same item names nearby.
 
@@ -171,10 +171,11 @@ A passkey prompt that never appears on Android usually means a missing fingerpri
 
 ## Google sign-in
 
-Coming in a later version ([ADR-0046](https://github.com/apistockhq/apistock/blob/main/docs/adr/0046-google-and-apple-sign-in.md)); you can create everything now. You need a Google account; it's free.
+Sign in with a Google account, in browsers and in your iOS and Android apps ([ADR-0046](https://github.com/apistockhq/apistock/blob/main/docs/adr/0046-google-and-apple-sign-in.md)). Off until you set the variables below. You need a Google account; it's free.
 
 | Variable | Secret? | What it is |
 |---|---|---|
+| `APP_PUBLIC_URL` | No | The API's public base URL, such as `https://api.example.com`; Google returns to it. Empty in development means `http://localhost:8080` |
 | `GOOGLE_CLIENT_ID` | No | The **Web application** client ID, such as `1234-abc.apps.googleusercontent.com`. Android apps use it too |
 | `GOOGLE_CLIENT_SECRET` | **Yes** (or `GOOGLE_CLIENT_SECRET_FILE`) | The web client's secret |
 | `GOOGLE_IOS_CLIENT_ID` | No | The **iOS** client ID, if you have an iOS app |
@@ -241,10 +242,11 @@ Use one project per app; separate projects for development and production are op
 
 ## Apple sign-in
 
-Coming in a later version ([ADR-0046](https://github.com/apistockhq/apistock/blob/main/docs/adr/0046-google-and-apple-sign-in.md)); you can create everything now. You need a paid [Apple Developer Program](https://developer.apple.com/programs/) membership. Apps on the App Store that offer Google sign-in must generally offer Sign in with Apple too.
+Sign in with an Apple Account, in browsers and in your iOS apps ([ADR-0046](https://github.com/apistockhq/apistock/blob/main/docs/adr/0046-google-and-apple-sign-in.md)). Off until you set the variables below. You need a paid [Apple Developer Program](https://developer.apple.com/programs/) membership. Apps on the App Store that offer Google sign-in must generally offer Sign in with Apple too.
 
 | Variable | Secret? | What it is |
 |---|---|---|
+| `APP_PUBLIC_URL` | No | The API's public base URL, such as `https://api.example.com`; Apple returns to it |
 | `APPLE_TEAM_ID` | No | Your 10-character Team ID |
 | `APPLE_SERVICES_ID` | No | The Services ID for web sign-in, such as `com.example.web` |
 | `APPLE_KEY_ID` | No | The 10-character ID of your Sign in with Apple key |
@@ -257,6 +259,7 @@ URLs to register:
 |---|---|
 | Domains and Subdomains | `api.example.com` (your API's host, no scheme) |
 | Return URLs | `https://api.example.com/v1/auth/apple/callback` |
+| Server-to-Server Notification Endpoint | `https://api.example.com/v1/auth/apple/notifications` (on the App ID) |
 
 Apple doesn't accept `localhost` or plain http. To try the web flow in development, expose the API through an https tunnel (for example `cloudflared tunnel --url http://localhost:8080` or `ngrok http 8080`) and register the tunnel's host and return URL too. Sign-in inside an iOS app works without one.
 
@@ -272,7 +275,7 @@ Apple ties web sign-in to an app, even if you only have a website.
 2. **Description**: your app's name. **Bundle ID**: **Explicit**, such as `com.example.app`.
 3. Under **Capabilities**, tick **Sign in with Apple** (leave it as a primary App ID) → **Continue** → **Register**.
 
-If the App ID exists, open it, tick **Sign in with Apple** and **Save**. Put iOS apps' bundle IDs in `APPLE_BUNDLE_IDS`, and in Xcode add the **Sign in with Apple** capability to the target.
+If the App ID exists, open it, tick **Sign in with Apple** and **Save**. Next to **Sign in with Apple**, click **Edit** (or **Configure**) and set **Server-to-Server Notification Endpoint** to `https://api.example.com/v1/auth/apple/notifications`: Apple then tells the app when someone stops using Sign in with Apple or deletes their Apple Account. Put iOS apps' bundle IDs in `APPLE_BUNDLE_IDS`, and in Xcode add the **Sign in with Apple** capability to the target.
 
 ### 3. Create the Services ID (web)
 
@@ -343,8 +346,9 @@ Not a sign-in method, but every method relies on it in production: verification 
 - [ ] Email provider configured; sender domain verified; registered with Apple's relay if you use Apple sign-in.
 - [ ] `WEBAUTHN_RP_ID` and https `WEBAUTHN_ORIGINS` set; the same origins in `APP_CORS_ORIGINS`.
 - [ ] `/.well-known/apple-app-site-association` and `assetlinks.json` reachable on the RP ID's domain, if you have mobile apps.
+- [ ] `APP_PUBLIC_URL` set to the API's https URL, if you use Google or Apple.
 - [ ] Google: consent screen published; production redirect URI registered; secret stored in the secret store.
-- [ ] Apple: production domain and return URL on the Services ID; `.p8` stored as a secret file; sending domain registered for email relay.
+- [ ] Apple: production domain and return URL on the Services ID; notification endpoint on the App ID; `.p8` stored as a secret file; sending domain registered for email relay.
 - [ ] `go run ./cmd/api auth-providers` in the production environment shows every method you expect as `✓`.
 
 ## When you build the web frontend
@@ -354,18 +358,22 @@ Not a sign-in method, but every method relies on it in production: verification 
 - Second factor: after a 202 from `POST /v1/auth/login`, offer the `methods` it lists; for `passkey`, call `POST /v1/auth/login/mfa/passkey` first.
 - Confirm sensitive changes (delete the account, turn off the authenticator app, replace recovery codes) with a passkey: `POST /v1/auth/passkeys/verification`, `navigator.credentials.get()`, then send the result as `passkey`. Adding or removing a passkey asks for the password once the sign-in is 10 minutes old.
 - Authenticator apps: show `qr_code` from `POST /v1/auth/mfa/totp` as an image, then confirm a code.
-- Add the frontend's origin to `WEBAUTHN_ORIGINS` and `APP_CORS_ORIGINS`.
+- Google and Apple: link or redirect the browser (not `fetch`) to `/v1/auth/google/start?return_to=https://app.example.com/after-login` (or `/apple/start`). The API sends the browser back to `return_to` signed in (session cookie set), with `#mfa_challenge_token=…&methods=…` to finish with `POST /v1/auth/login/mfa`, or with `#error=<code>`. Read the fragment, then clear it from the address bar.
+- Accounts created with Google or Apple have no password (`user.has_password` is false): hide "change password", and let them set one with "forgot password". Linked accounts: `GET /v1/auth/identities`, `DELETE /v1/auth/identities/{id}`.
+- Add the frontend's origin to `WEBAUTHN_ORIGINS` and `APP_CORS_ORIGINS` (the second also allows it as a `return_to`).
 
 ## When you build the iOS app
 
 - Add the **Associated Domains** capability with `webcredentials:<WEBAUTHN_RP_ID>`, and set `WEBAUTHN_APPLE_APP_IDS`.
 - Use `ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier: "<WEBAUTHN_RP_ID>")` with the API's options, and send the results to the same endpoints as the web frontend with `"transport": "bearer"`.
-- For Sign in with Apple and Google, add the **Sign in with Apple** capability and the Google Sign-In URL scheme (see the sections above).
+- Sign in with Apple: add the **Sign in with Apple** capability. Get a nonce from `POST /v1/auth/apple/nonce`, set `request.nonce` to its SHA-256 in hex, and send `identityToken`, `authorizationCode`, the raw nonce and `fullName` (first time only) to `POST /v1/auth/apple/token` with `"transport": "bearer"`.
+- Google: add the Google Sign-In URL scheme, get a nonce from `POST /v1/auth/google/nonce`, pass it to `GIDSignIn.signIn(withPresenting:hint:additionalScopes:nonce:)`, and send `idToken` and the nonce to `POST /v1/auth/google/token`.
+- Both return a session, or 202 with a second-factor challenge like `POST /v1/auth/login`.
 - Store the session token in the Keychain.
 
 ## When you build the Android app
 
 - Set `WEBAUTHN_ANDROID_APPS` with every signing key's SHA-256 fingerprint (debug, upload, Play App Signing).
 - Use Credential Manager (`CreatePublicKeyCredentialRequest`, `GetPublicKeyCredentialOption`) with the API's options as JSON, and send the results with `"transport": "bearer"`.
-- For Google sign-in, use Credential Manager's Sign in with Google with the web client ID as `serverClientId`.
+- For Google sign-in, get a nonce from `POST /v1/auth/google/nonce`, use Credential Manager's `GetGoogleIdOption` with `setServerClientId(<GOOGLE_CLIENT_ID>)` and `setNonce(nonce)`, and send the `idToken` and nonce to `POST /v1/auth/google/token` with `"transport": "bearer"`.
 - Store the session token with the Android Keystore.

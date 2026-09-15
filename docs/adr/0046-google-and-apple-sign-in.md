@@ -1,6 +1,6 @@
 # ADR-0046: Google and Apple sign-in
 
-**Status:** Proposed (2026-09-15) · **Amends:** ADR-0024, ADR-0043, ADR-0045
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0024, ADR-0043, ADR-0045
 
 ## Context
 
@@ -94,7 +94,7 @@ else                                      → 403 social_email_unverified
 |---|---|
 | `GET /v1/auth/identities` | The user's linked providers: provider, email, private email, created, last used |
 | `DELETE /v1/auth/identities/{id}` | Unlinks, after the password or a recent sign-in; 409 `last_sign_in_method` when no password, passkey or other identity remains; revokes Apple's token |
-| `POST /v1/auth/apple/notifications` | Apple's server-to-server events, verified with Apple's keys: `consent-revoked` and `account-delete` unlink and end the account's sessions from Apple; `email-disabled`/`email-enabled` recorded |
+| `POST /v1/auth/apple/notifications` | Apple's server-to-server events, verified with Apple's keys: `consent-revoked` and `account-delete` unlink, and end the account's sessions when no other way to sign in remains; `email-disabled`/`email-enabled` recorded |
 
 Account deletion revokes stored Apple tokens, as App Store rules require.
 
@@ -131,3 +131,20 @@ Errors: `invalid_social_token` (401), `invalid_state` (401), `social_email_unver
 - The Full preset gains a migration, repository files, use cases, endpoints, emails, `.env.example` blocks, status lines and tests for both flows, linking (including the unverified-account case), the second factor, unlinking, deletion revocation and Apple notifications.
 - ADR-0045 gains `APP_PUBLIC_URL`; `AUTH_PROVIDERS.md` loses "coming in a later version".
 - Threat model rows 14–15 are reviewed when this ships.
+
+## Implementation notes (2026-09-15)
+
+- `modules/auth/social` verifies tokens with go-oidc's remote key set and checks the issuer list, audience list, nonce (constant time) and age itself; Apple's ES256 client secret is signed with go-jose, already in the graph through go-oidc. New modules: `golang.org/x/oauth2` v0.37, `github.com/coreos/go-oidc/v3` v3.21, `github.com/go-jose/go-jose/v4`.
+- "A recent sign-in" is the session's start: `auth.Principal.SignedInAt`, from `auth_sessions.created_at`, within `auth.RecentVerification` (10 minutes). No new column. It replaces the password for accounts without one in authenticator app setup, turning it off, account deletion, passkey changes and unlinking.
+- A consent-revoked or account-delete notification unlinks the Apple identity and ends the account's sessions only when no password, passkey or other identity remains: sessions don't record which method started them.
+- Cross-origin protection skips `POST /v1/auth/apple/callback` and `POST /v1/auth/apple/notifications`; the per-IP auth limit covers `GET …/start` and `…/callback`.
+- A web sign-in without the `__Host-oauth` cookie still uses up its state and returns to its `return_to` with `#error=invalid_state`; a person cancelling at the provider returns `#error=access_denied`.
+- Account deletion unlinks identities in its transaction and revokes Apple tokens afterwards (failures logged). `rotate-auth-keys` re-encrypts Apple refresh tokens with the authenticator secrets.
+- User responses gain `has_password`, so clients can hide "change password" for accounts created with Google or Apple.
+- The status block, `auth-providers` and `GET /ops/auth/providers` report `google`, `google_ios`, `google_android`, `apple` and `apple_ios`, with the callback URL.
+
+| Check | Result |
+|---|---|
+| Library (`socialtest` fake provider) | Google authorization URL with PKCE; code exchange with verifier and secret; used codes and other nonces refused; native audiences; string booleans; wrong audience, nonce, issuer, age, expiry, subject, signature and key refused; Apple form_post URL, ES256 client secret claims and key ID, native code exchange, revocation, notifications with audience checks; configuration and `.p8` parsing |
+| Use cases (Docker PostgreSQL) | New account, returning identity, Apple linking by email with an email, verified password account kept, unverified account's password removed; invalid return addresses, other browser, other provider, expired and used states, other nonce, unverified email, cancelled sign-in; second factor asked; native Google and Apple with single-use and hashed nonces, audience and refresh token; last sign-in method kept, unlinking after a recent sign-in, deletion revoking Apple's token and a new account afterwards; Apple notifications |
+| HTTP | Google redirect with the SameSite=None cookie, callback setting the session and redirecting, missing cookie and bad `return_to`; Apple's cross-site form post with the name; identities; native token with nonce reuse refused; notifications accepted and forged ones refused; configuration errors and status lines |
