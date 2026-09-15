@@ -54,6 +54,21 @@ Create two Pages projects connected to this repository, one per site. Both use t
 | Environment variable | `GO_VERSION` = `1.26.0` | `GO_VERSION` = `1.26.0` |
 | Custom domain | `apistock.dev` | `docs.apistock.dev` |
 
-Then, in each project's **Custom domains**, add the domain; with the domain's DNS on Cloudflare the records are created for you. Pages serves `404.html` for missing pages and applies `_headers` (security headers, a Content-Security-Policy, and a year of caching for hashed assets).
+Then, in each project's **Custom domains**, add the domain; with the domain's DNS on Cloudflare the records are created for you. Add the domain from the Pages project, not as a DNS record by hand: an `A` or `CNAME` record pointing anywhere else (such as a registrar's parking or redirect host) makes Cloudflare answer 522 or 525. Delete such records for `apistock.dev`, `www` and `docs` first. For `www.apistock.dev`, add it to the landing project too, or redirect it to `apistock.dev` with a redirect rule.
+
+### Build only when the sites change
+
+Pages builds on every push to `main` unless told otherwise. In each project, open **Settings → Build → Build watch paths**, choose **Include paths** and enter the files the sites are made from (`*` matches any characters, including `/`):
+
+```text
+site/*
+docs/*
+modules/openapi/reference/*
+modules/*/go.mod
+examples/full-multi/api/openapi.json
+examples/full-single/ARCHITECTURE.md
+```
+
+`docs/*` covers the guides, decision records, roadmap and logo files; `modules/*/go.mod` keeps the landing page's module count current. A push that changes nothing on this list, such as a library or CLI change, doesn't start a build. When `content/docs.json` gains a page from another directory, add that path here too. Pages serves `404.html` for missing pages and applies `_headers` (security headers, a Content-Security-Policy, and a year of caching for hashed assets).
 
 Preview deployments link between the two sites through the production addresses. To build for other addresses, pass `-www-url` and `-docs-url`.
