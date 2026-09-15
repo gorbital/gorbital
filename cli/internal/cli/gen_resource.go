@@ -123,7 +123,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 		}
 	}
 	if *scope == recipes.ScopeOrg && orgsErr != nil {
-		return fmt.Errorf("%s has no internal/modules/orgs: --scope org needs organisations; create the app with aps new --tenancy multi (aps add orgs arrives in v0.5)", app.dir)
+		return fmt.Errorf("%s has no internal/modules/orgs: --scope org needs organisations; add them with aps add orgs, or create the app with aps new --tenancy multi", app.dir)
 	}
 
 	ask := shouldPrompt(p, *asJSON, stdin, stdout)

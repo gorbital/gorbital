@@ -25,9 +25,13 @@ import (
 )
 
 const addUsage = `Usage: aps add mail [flags]
+       aps add orgs [flags]
 
-Sets up email in an app created with the Full preset: Resend or any SMTP
-server. Run it again to switch provider.
+aps add mail sets up email in an app created with the Full preset: Resend or
+any SMTP server. Run it again to switch provider.
+
+aps add orgs turns a single-tenant Full app multi-tenant on a branch
+(run "aps add orgs -h").
 
 Secrets (the Resend API key, the SMTP password) go in .env, never in flags.
 The sender name, address and reply-to are runtime settings, changed later in
@@ -39,13 +43,15 @@ In a terminal, missing values are asked interactively; pass flags to skip them.
 func runAdd(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		fmt.Fprint(stderr, addUsage)
-		return usageError("missing feature: aps add mail")
+		return usageError("missing feature: aps add mail or aps add orgs")
 	}
 	switch args[0] {
 	case "mail":
 		return runAddMail(ctx, args[1:], stdin, stdout, stderr)
+	case "orgs":
+		return runAddOrgs(ctx, args[1:], stdout, stderr)
 	default:
-		return usageError(fmt.Sprintf("unknown feature %q (want mail)", args[0]))
+		return usageError(fmt.Sprintf("unknown feature %q (want mail or orgs)", args[0]))
 	}
 }
 

@@ -42,6 +42,12 @@ type upgradeResult struct {
 	Unproven  int  `json:"unproven"`
 	Committed bool `json:"committed"`
 	DryRun    bool `json:"dry_run"`
+	// UserScoped lists modules the developer generated that aps add orgs
+	// leaves owned by users.
+	UserScoped []string `json:"user_scoped_modules,omitempty"`
+
+	title   string // first line of the report
+	message string // commit message
 }
 
 const upgradeUsage = `Usage: aps upgrade [flags]
@@ -138,44 +144,64 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		return err
 	}
 
-	res := upgradeResult{Name: filepath.Base(app.dir), From: ref, To: Version, DryRun: *dryRun, Unproven: len(unproven), Changes: []merge.Change{}, Conflicts: []string{}}
+	res := upgradeResult{
+		Name: filepath.Base(app.dir), From: ref, To: Version, DryRun: *dryRun, Unproven: len(unproven),
+		title:   fmt.Sprintf("upgrade %s from %s to apistock %s", filepath.Base(app.dir), ref, Version),
+		message: "Upgrade apistock to " + Version,
+	}
+	res.setChanges(changes)
+	current, _ := root.ReadFile(lockPath)
+	res.UpToDate = !res.changesFiles() && bytes.Equal(current, next)
+	if res.UpToDate || *dryRun {
+		return reportUpgrade(stdout, *asJSON, res)
+	}
+	res.Branch = upgradeBranchPrefix + Version
+	return applyMove(ctx, app.dir, root, &res, next, theirsGoMod, *skipTidy, *skipBuild, stdout, stderr, *asJSON)
+}
+
+// setChanges keeps the changes worth reporting and lists the conflicts.
+func (r *upgradeResult) setChanges(changes []merge.Change) {
+	r.Changes, r.Conflicts = []merge.Change{}, []string{}
 	for _, c := range changes {
 		if c.Action == merge.Unchanged && c.Note == "" {
 			continue
 		}
-		res.Changes = append(res.Changes, c)
+		r.Changes = append(r.Changes, c)
 		if c.Action == merge.Conflict {
-			res.Conflicts = append(res.Conflicts, c.Path)
+			r.Conflicts = append(r.Conflicts, c.Path)
 		}
 	}
-	current, _ := root.ReadFile(lockPath)
-	res.UpToDate = !slices.ContainsFunc(res.Changes, func(c merge.Change) bool { return c.Action != merge.Unchanged }) && bytes.Equal(current, next)
-	if res.UpToDate || *dryRun {
-		return reportUpgrade(stdout, *asJSON, res)
-	}
+}
 
-	res.Branch = upgradeBranchPrefix + Version
+func (r upgradeResult) changesFiles() bool {
+	return slices.ContainsFunc(r.Changes, func(c merge.Change) bool { return c.Action != merge.Unchanged && c.Action != merge.Kept })
+}
+
+// applyMove carries out a planned move between template trees on branch
+// res.Branch: it writes the changes and the new lock, updates go.mod, and
+// without conflicts builds, regenerates api/openapi.json and commits. It
+// reports the result, and returns errConflicts when conflicts are left.
+func applyMove(ctx context.Context, dir string, root *os.Root, res *upgradeResult, lock, theirsGoMod []byte, skipTidy, skipBuild bool, stdout, stderr io.Writer, asJSON bool) error {
 	var gitErr bytes.Buffer
-	if err := runIn(ctx, app.dir, &gitErr, "git", "switch", "--quiet", "-c", res.Branch); err != nil {
-		return fmt.Errorf("create branch %s: %w: %s (if an earlier upgrade left it, finish or delete it first)", res.Branch, err, strings.TrimSpace(gitErr.String()))
+	if err := runIn(ctx, dir, &gitErr, "git", "switch", "--quiet", "-c", res.Branch); err != nil {
+		return fmt.Errorf("create branch %s: %w: %s (if an earlier run left it, finish or delete it first)", res.Branch, err, strings.TrimSpace(gitErr.String()))
 	}
 	if err := applyChanges(root, res.Changes); err != nil {
 		return err
 	}
-	if err := root.WriteFile(lockPath, next, 0o644); err != nil {
+	if err := root.WriteFile(lockPath, lock, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", lockPath, err)
 	}
-	if err := upgradeGoMod(ctx, app.dir, theirsGoMod, *skipTidy, stderr); err != nil {
+	if err := upgradeGoMod(ctx, dir, theirsGoMod, skipTidy, stderr); err != nil {
 		return err
 	}
-
-	if len(res.Conflicts) == 0 && !*skipBuild {
-		if err := finishUpgrade(ctx, app.dir, root); err != nil {
-			return fmt.Errorf("files are upgraded on branch %s, but: %w", res.Branch, err)
+	if len(res.Conflicts) == 0 && !skipBuild {
+		if err := finishUpgrade(ctx, dir, root, res.message); err != nil {
+			return fmt.Errorf("files are changed on branch %s, but: %w", res.Branch, err)
 		}
 		res.Committed = true
 	}
-	if err := reportUpgrade(stdout, *asJSON, res); err != nil {
+	if err := reportUpgrade(stdout, asJSON, *res); err != nil {
 		return err
 	}
 	if len(res.Conflicts) > 0 {
@@ -397,8 +423,9 @@ func upgradeGoMod(ctx context.Context, dir string, theirsGoMod []byte, skipTidy 
 	return nil
 }
 
-// finishUpgrade builds the app, regenerates api/openapi.json and commits.
-func finishUpgrade(ctx context.Context, dir string, root *os.Root) error {
+// finishUpgrade builds the app, regenerates api/openapi.json and commits
+// with message.
+func finishUpgrade(ctx context.Context, dir string, root *os.Root, message string) error {
 	var out bytes.Buffer
 	if err := runIn(ctx, dir, &out, "go", "build", "./..."); err != nil {
 		return fmt.Errorf("the app doesn't build; fix it, regenerate api/openapi.json and commit:\n%s", out.String())
@@ -420,7 +447,7 @@ func finishUpgrade(ctx context.Context, dir string, root *os.Root) error {
 	if err := runIn(ctx, dir, &out, "git", "add", "-A"); err != nil {
 		return fmt.Errorf("git add: %w\n%s", err, out.String())
 	}
-	if err := runIn(ctx, dir, &out, "git", "commit", "--quiet", "-m", "Upgrade apistock to "+Version); err != nil {
+	if err := runIn(ctx, dir, &out, "git", "commit", "--quiet", "-m", message); err != nil {
 		return fmt.Errorf("git commit: %w\n%s", err, out.String())
 	}
 	return nil
@@ -435,7 +462,7 @@ func reportUpgrade(w io.Writer, asJSON bool, res upgradeResult) error {
 		fmt.Fprintf(w, "%s %s is up to date with apistock %s\n", s.muted.Render("✓"), res.Name, res.To)
 		return nil
 	}
-	title := fmt.Sprintf("upgrade %s from %s to apistock %s", res.Name, res.From, res.To)
+	title := res.title
 	if res.DryRun {
 		title += " (dry run)"
 	}
@@ -456,21 +483,25 @@ func reportUpgrade(w io.Writer, asJSON bool, res upgradeResult) error {
 	if res.Unproven > 0 {
 		fmt.Fprintf(w, "\n%s\n", s.dim.Render(fmt.Sprintf("%d files couldn't be proven against apistock.lock and were compared as yours versus the release", res.Unproven)))
 	}
+	if len(res.UserScoped) > 0 {
+		fmt.Fprintf(w, "\n  modules you generated stay owned by users: %s\n  %s\n", strings.Join(res.UserScoped, ", "),
+			s.dim.Render("they keep working; to move one to organisations, generate it again with aps gen resource --scope org and move its data"))
+	}
 
 	fmt.Fprintln(w)
 	switch {
 	case res.DryRun:
-		fmt.Fprintf(w, "  %s nothing written; run aps upgrade to apply on branch %s\n", s.dim.Render("next:"), upgradeBranchPrefix+res.To)
+		fmt.Fprintf(w, "  %s nothing written; run it without --dry-run to apply on a branch\n", s.dim.Render("next:"))
 	case len(res.Conflicts) > 0:
 		fmt.Fprintf(w, "  on branch %s, not committed. Resolve the markers (<<<<<<< yours … >>>>>>> apistock %s) in:\n", res.Branch, res.To)
 		for _, p := range res.Conflicts {
 			fmt.Fprintf(w, "    %s\n", p)
 		}
-		fmt.Fprintf(w, "\n  %s go build ./...\n        go run ./cmd/api openapi > api/openapi.json\n        go test ./...\n        git add -A && git commit -m 'Upgrade apistock to %s'\n", s.dim.Render("next:"), res.To)
+		fmt.Fprintf(w, "\n  %s go build ./...\n        go run ./cmd/api openapi > api/openapi.json\n        go test ./...\n        git add -A && git commit -m '%s'\n", s.dim.Render("next:"), res.message)
 	case res.Committed:
 		fmt.Fprintf(w, "  committed on branch %s\n\n  %s go test ./...   (database tests need aps dev or docker compose up -d --wait)\n        then merge %s\n", res.Branch, s.dim.Render("next:"), res.Branch)
 	default:
-		fmt.Fprintf(w, "  on branch %s, not committed\n\n  %s go build ./...\n        go run ./cmd/api openapi > api/openapi.json\n        git add -A && git commit -m 'Upgrade apistock to %s'\n", res.Branch, s.dim.Render("next:"), res.To)
+		fmt.Fprintf(w, "  on branch %s, not committed\n\n  %s go build ./...\n        go run ./cmd/api openapi > api/openapi.json\n        git add -A && git commit -m '%s'\n", res.Branch, s.dim.Render("next:"), res.message)
 	}
 	return nil
 }

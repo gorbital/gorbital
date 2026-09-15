@@ -25,6 +25,7 @@ Usage:
   aps gen migration [<name>] [flags]
                                  generate an empty database migration (Full preset apps)
   aps add mail [flags]           set up email with Resend or SMTP (Full preset apps)
+  aps add orgs [flags]           turn a single-tenant app multi-tenant on a branch (Full preset apps)
   aps dev [flags]                run the application with live reload
   aps upgrade [flags]            merge this release's templates into the app on a branch
   aps version                   print version information

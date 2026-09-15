@@ -104,7 +104,7 @@ created shop-api
 | **Minimal** | HTTP API with configuration, telemetry, health checks, security headers and interactive docs | Go |
 | **Full** | Everything in Minimal, plus PostgreSQL, runtime settings, background jobs, email (Resend, or SMTP with `aps add mail`), authentication and platform roles, audit log, release tracking, `/ops/*` APIs, and example code: the `ping` endpoint, the `heartbeat` job and the `projects` resource | Go and Docker |
 
-A Full app is exactly [examples/full-single](../../examples/full-single) with your name and module path ([ADR-0041](../adr/0041-full-preset-generation.md)): its database, Compose project and service name are your app's name. With `--tenancy multi` it is exactly [examples/full-multi](../../examples/full-multi) instead: data belongs to organisations, with members, one role each, invitations, personal workspaces and org-scoped projects under `/v1/orgs/{orgId}/…` ([ADR-0048](../adr/0048-organisations-v0-4.md)). Tenancy is chosen at creation; turning a single-tenant app into a multi-tenant one (`aps add orgs`) arrives in v0.5. After creating one:
+A Full app is exactly [examples/full-single](../../examples/full-single) with your name and module path ([ADR-0041](../adr/0041-full-preset-generation.md)): its database, Compose project and service name are your app's name. With `--tenancy multi` it is exactly [examples/full-multi](../../examples/full-multi) instead: data belongs to organisations, with members, one role each, invitations, personal workspaces and org-scoped projects under `/v1/orgs/{orgId}/…` ([ADR-0048](../adr/0048-organisations-v0-4.md)). Tenancy is chosen at creation; `aps add orgs` turns a single-tenant app into a multi-tenant one later. After creating one:
 
 ```bash
 cd my-api
@@ -274,6 +274,28 @@ What it changes:
 After confirming, it prints numbered next steps: where to get the Resend key and verify your domain (or which SMTP variables are left), how to set the sender with `PUT /ops/settings/mail.from_email`, and how to send a test email with `POST /ops/mail/test`. The sender name, address and reply-to are runtime settings, so they're never asked here.
 
 Safety checks: the app must have `internal/app/mail.go` and the `.env.example` block; the git repository must be clean unless `--allow-dirty`; `.env` must be ignored by git before a secret is saved in it; secret values are never printed or included in `--json` output. Running it with the provider already in place changes nothing.
+
+## `aps add orgs`
+
+Turns a single-tenant Full app into a multi-tenant one, on branch `aps-add-orgs`: organisations with members, one role each, invitations and personal workspaces, and projects under `/v1/orgs/{orgId}/projects` ([ADR-0048](../adr/0048-organisations-v0-4.md), [ADR-0050](../adr/0050-upgrades-and-adding-features.md)).
+
+```bash
+aps add orgs --dry-run     # what would change, per file
+aps add orgs               # apply on branch aps-add-orgs
+```
+
+It merges the multi-tenant app's files into yours the way `aps upgrade` merges a release: files you never edited are replaced, your edits are merged or shown as conflicts. Then it adds two migrations after your existing ones:
+
+| Migration | What it does |
+|---|---|
+| `<version>_orgs.sql` | Creates `orgs`, `org_members` and `org_invitations` |
+| `<version>_orgs_convert.sql` | Gives every account a personal workspace it owns (a deleted account's workspace is deleted too, purged 30 days after the account's deletion), then moves each project into its owner's workspace: `org_id` and `created_by` replace `owner_id`. The table is changed in place, so columns you added stay; this step is skipped if `projects` no longer has `owner_id` |
+
+Without conflicts it updates `go.mod`, builds, regenerates `api/openapi.json` and commits `Add organisations`. Then run `go test ./...`, apply the migrations (`aps dev`, or `go run ./cmd/migrate` in each environment) and merge the branch. Set `orgs.invitation_url` before inviting people.
+
+Resources you generated with `aps gen resource` stay owned by users and keep working; the command lists them. To move one to organisations, generate it again with `--scope org` and move its data.
+
+Other flags: `--json`, `--skip-tidy`, `--skip-build`. Safety checks: the app must be in git with no uncommitted changes, and on this release (run `aps upgrade` first). An app that already has organisations is left alone.
 
 ## `aps upgrade`
 
