@@ -285,6 +285,7 @@ func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, re
 		e := userEvent("auth.user.registered", u.ID, client)
 		e.Metadata = map[string]any{"provider": id.Provider}
 		s.audit(ctx, e)
+		s.accountCreated(ctx, u.ID)
 	}
 	if created || linked {
 		e := userEvent("auth.identity.linked", u.ID, client)

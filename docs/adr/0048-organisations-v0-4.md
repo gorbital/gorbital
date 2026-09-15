@@ -58,7 +58,7 @@ Open questions before code: where org roles are stored, how a request becomes an
 
 ### 5. Personal workspaces
 
-- Created in the same transaction as the account: registration, first Google or Apple sign-in, and `create-user`.
+- Created when the account is: registration, first Google or Apple sign-in, and `create-user`. The auth module calls `AccountHooks` that the composition root wires to the orgs module, because modules don't import each other or share transactions. Creating the workspace is idempotent (one personal workspace per user, enforced by a unique index) and runs again when the user lists their organisations, so a failure between the two steps repairs itself.
 - Named "Personal", `personal = true`, with the user as owner.
 - Can't be left, transferred or deleted on its own, and **doesn't accept invitations**. Teams create an organisation. This keeps "personal" meaning personal and avoids a workspace turning into a shared org with confusing ownership.
 - Deleted with the account.

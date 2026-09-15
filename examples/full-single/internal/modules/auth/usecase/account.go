@@ -23,6 +23,11 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 	if err != nil {
 		return err
 	}
+	// Checked before the password and second factor, so a refusal doesn't
+	// use up a one-time code.
+	if err := s.checkAccountDeletion(ctx, p.UserID); err != nil {
+		return err
+	}
 	var (
 		state      error
 		identities []authdomain.Identity
@@ -59,6 +64,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 	}
 	s.revokeIdentities(ctx, identities...)
 	s.audit(ctx, userEvent("auth.account.deleted", p.UserID, authlib.ClientInfoFromContext(ctx)))
+	s.accountDeleted(ctx, p.UserID)
 	return nil
 }
 
@@ -98,6 +104,7 @@ func (s *Service) CreateUser(ctx context.Context, email, password string, emailV
 	e := userEvent("auth.user.created", u.ID, authlib.ClientInfo{})
 	e.Metadata = map[string]any{"email_verified": emailVerified}
 	s.audit(ctx, e)
+	s.accountCreated(ctx, u.ID)
 	return u, nil
 }
 

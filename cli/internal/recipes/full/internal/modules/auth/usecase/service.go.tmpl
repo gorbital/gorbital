@@ -54,6 +54,8 @@ type Config struct {
 	DefaultReturnTo string
 	// Issuer names the app in authenticator apps. Default: "app".
 	Issuer string
+	// Hooks let other modules take part in creating and deleting accounts.
+	Hooks AccountHooks
 	// Durations, usually runtime settings. Each is clamped to the auth
 	// module's hard limits.
 	SessionIdleTTL          config.Value[time.Duration]
@@ -84,6 +86,7 @@ type Service struct {
 	returnOrigins   []string
 	defaultReturnTo string
 	issuer          string
+	hooks           AccountHooks
 	now             func() time.Time
 	hasher          *authlib.Hasher
 	limiter         *ratelimit.Limiter
@@ -113,6 +116,7 @@ func NewService(c Config) (*Service, error) {
 		publicURL:        strings.TrimRight(c.PublicURL, "/"),
 		defaultReturnTo:  c.DefaultReturnTo,
 		issuer:           orDefault(c.Issuer, "app"),
+		hooks:            c.Hooks,
 		now:              c.Now,
 		sessionIdle:      orDefault(c.SessionIdleTTL, config.Static(authlib.DefaultSessionIdleTTL)),
 		sessionAbsolute:  orDefault(c.SessionAbsoluteTTL, config.Static(authlib.DefaultSessionAbsoluteTTL)),

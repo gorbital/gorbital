@@ -82,6 +82,7 @@ func (s *Service) Register(ctx context.Context, email, password string) error {
 	s.sent(ctx, "verification_code", s.emails.SendVerificationCode(ctx, to, code, ttl))
 	if created {
 		s.audit(ctx, userEvent("auth.user.registered", userID, client))
+		s.accountCreated(ctx, userID)
 	}
 	return nil
 }
