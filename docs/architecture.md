@@ -321,4 +321,5 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `aps add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |
 | Email templates and preview route | Open: owned templates in `internal/emails` with a development preview (ADR-0025) arrive with authentication's emails |
 | Client IP and user agent in audit events | Open: no core middleware carries them in the context yet; `modules/auth` sets them on its events |
+| Organisations design | Open: [ADR-0048](adr/0048-organisations-v0-4.md) proposed; five questions for the maintainer (role per member, staff access, personal workspace invitations, invited-email match, `aps add orgs` in v0.5) |
 | Client templates | Open: [ADR-0047](adr/0047-client-templates.md) proposed; to decide the dashboard and docs stacks, where archives are hosted, and the bundle ID prompt before accepting |

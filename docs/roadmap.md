@@ -48,6 +48,8 @@ apistock ships through pre-release milestones. Each one is usable on its own and
 
 ## v0.4: Organisations
 
+**Status: next.** Design proposed in [ADR-0048](adr/0048-organisations-v0-4.md), awaiting approval before code. It proposes moving `aps add orgs` to v0.5 (it needs the per-feature recipes and 3-way merges that `aps add` and `aps upgrade` bring) and adds a drift check between `full-single` and `full-multi`.
+
 | | |
 |---|---|
 | **Delivers** | `modules/orgs` (personal workspaces, memberships, invitations, org roles, ownership transfer, soft delete), multi-tenant generation, the tenancy prompt and `--tenancy` flag in `aps new` (moved from v0.2: before organisations its only answer is single-tenant), `resource/org` template, `aps add orgs` single → multi path, `examples/full-multi` |
