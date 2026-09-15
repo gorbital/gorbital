@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/riverqueue/river"
@@ -52,6 +53,7 @@ type App struct {
 	releases    *releases.Tracker
 	api         huma.API
 	handler     http.Handler
+	started     time.Time
 }
 
 // New builds the application. Components are constructed in dependency
@@ -95,6 +97,7 @@ func newBase(ctx context.Context, cfg Config) (*App, error) {
 		tel:     tel,
 		health:  health.New(tel.Logger()),
 		cleanup: cleanup,
+		started: time.Now(),
 	}, nil
 }
 
@@ -215,6 +218,8 @@ func (a *App) build(ctx context.Context) error {
 			Mail:     mailInfo(a.cfg, appSettings),
 			// What /ops/auth/providers reports (ADR-0045).
 			SignInMethods: a.cfg.signInMethods,
+			// What /ops/system reports (ADR-0051).
+			System: systemReporter{pool: pool, health: a.health, tracker: a.releases, started: a.started, workers: a.cfg.JobWorkers},
 		},
 	})
 }

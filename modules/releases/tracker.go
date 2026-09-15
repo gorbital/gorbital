@@ -47,6 +47,9 @@ func NewTracker(pool *pgxpool.Pool, info buildinfo.Info, opts ...Option) (*Track
 		modified:  info.Modified,
 		goVersion: cleanText(info.GoVersion, maxGoVersionLen),
 		host:      cleanText(host, maxHostLen),
+		// Chosen once, so the instance keeps its ID if its row is recorded
+		// again.
+		instanceID: newInstanceID(),
 	}
 	if row.version == "" {
 		row.version = "dev"
@@ -57,6 +60,10 @@ func NewTracker(pool *pgxpool.Pool, info buildinfo.Info, opts ...Option) (*Track
 	}
 	return &Tracker{pool: pool, cfg: cfg, row: row}, nil
 }
+
+// InstanceID returns the random ID this instance is recorded under, as
+// listed by the release log's instances.
+func (t *Tracker) InstanceID() string { return t.row.instanceID }
 
 // Run records the instance, sends heartbeats until ctx ends, then marks the
 // instance stopped. It always returns nil: failed writes are logged and
@@ -83,7 +90,6 @@ func (t *Tracker) start(ctx context.Context) {
 	defer cancel()
 	now := t.cfg.now().UTC()
 	row := t.row
-	row.instanceID = newInstanceID()
 	row.startedAt = now
 	id, err := insertInstance(ctx, t.pool, row)
 	if err != nil {

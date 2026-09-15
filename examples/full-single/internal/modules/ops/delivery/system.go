@@ -1,0 +1,140 @@
+package delivery
+
+import (
+	"context"
+	"net/http"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"apistock.dev/modules/openapi"
+
+	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
+)
+
+// SystemResponse describes the instance that answered (ADR-0051).
+type SystemResponse struct {
+	Instance SystemInstanceResponse `json:"instance"`
+	Checks   []SystemCheckResponse  `json:"checks" doc:"Readiness checks, as /readyz runs them"`
+	Database SystemDatabaseResponse `json:"database"`
+	Runtime  SystemRuntimeResponse  `json:"runtime"`
+	Jobs     SystemJobsResponse     `json:"jobs"`
+}
+
+// SystemInstanceResponse is the running process and its build.
+type SystemInstanceResponse struct {
+	ID            string    `json:"id" doc:"Random per process start; matches instance_id in /ops/releases/instances"`
+	Version       string    `json:"version" example:"v1.4.0"`
+	Commit        string    `json:"commit,omitempty" example:"3f9a1c2b7d4e8a90"`
+	BuildTime     string    `json:"build_time,omitempty"`
+	Modified      bool      `json:"modified" doc:"Built with uncommitted changes"`
+	StartedAt     time.Time `json:"started_at"`
+	UptimeSeconds int64     `json:"uptime_seconds"`
+}
+
+// SystemCheckResponse is one readiness check's result.
+type SystemCheckResponse struct {
+	Name       string `json:"name" example:"postgres"`
+	Status     string `json:"status" enum:"ok,error"`
+	DurationMS int64  `json:"duration_ms"`
+}
+
+// SystemDatabaseResponse is the database as this instance sees it.
+type SystemDatabaseResponse struct {
+	Status     string                  `json:"status" enum:"ok,error"`
+	Error      string                  `json:"error,omitempty" doc:"What failed; never the driver's message"`
+	PingMS     int64                   `json:"ping_ms"`
+	Pool       PoolStatsResponse       `json:"pool"`
+	Migrations MigrationStatusResponse `json:"migrations"`
+}
+
+// PoolStatsResponse are the connection pool's counters since the instance
+// started.
+type PoolStatsResponse struct {
+	Total            int32   `json:"total"`
+	Idle             int32   `json:"idle"`
+	InUse            int32   `json:"in_use"`
+	Max              int32   `json:"max"`
+	Acquires         int64   `json:"acquires"`
+	AverageAcquireMS float64 `json:"average_acquire_ms"`
+	EmptyAcquires    int64   `json:"empty_acquires" doc:"Acquires that waited because no connection was idle"`
+	CanceledAcquires int64   `json:"canceled_acquires"`
+}
+
+// MigrationStatusResponse compares the database with the app's migrations.
+type MigrationStatusResponse struct {
+	Current int64 `json:"current" doc:"Highest applied version"`
+	Latest  int64 `json:"latest" doc:"Highest version in the app's migration files"`
+	Pending int   `json:"pending"`
+}
+
+// SystemRuntimeResponse is the Go runtime's state.
+type SystemRuntimeResponse struct {
+	GoVersion      string  `json:"go_version" example:"go1.26.1"`
+	GOMAXPROCS     int     `json:"gomaxprocs"`
+	Goroutines     int     `json:"goroutines"`
+	HeapInUseBytes uint64  `json:"heap_in_use_bytes"`
+	LastGCPauseMS  float64 `json:"last_gc_pause_ms"`
+	GCs            uint32  `json:"gcs"`
+}
+
+// SystemJobsResponse is this instance's background job work.
+type SystemJobsResponse struct {
+	Workers int      `json:"workers" doc:"Job workers this instance runs"`
+	Queues  []string `json:"queues"`
+}
+
+type systemOutput struct{ Body SystemResponse }
+
+type systemHandler struct {
+	svc *opsusecase.Service
+}
+
+// RegisterSystem adds the system health operation to api (ADR-0051).
+func RegisterSystem(api huma.API, svc *opsusecase.Service) {
+	h := &systemHandler{svc: svc}
+	huma.Register(api, huma.Operation{
+		OperationID: "ops-system", Method: http.MethodGet, Path: "/ops/system",
+		Summary:     "Describe this instance",
+		Description: "Readiness checks, database pool and migrations, Go runtime and job workers of the instance that answers. A failing database still returns 200, with the failure in checks and database. Other instances: GET /ops/releases/instances.",
+		Tags:        []string{"Ops: system"}, Security: openapi.Bearer,
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden},
+	}, h.get)
+}
+
+func (h *systemHandler) get(ctx context.Context, _ *struct{}) (*systemOutput, error) {
+	r, err := h.svc.System(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := SystemResponse{
+		Instance: SystemInstanceResponse{
+			ID: r.Instance.ID, Version: r.Instance.Version, Commit: r.Instance.Commit, BuildTime: r.Instance.BuildTime,
+			Modified: r.Instance.Modified, StartedAt: r.Instance.StartedAt, UptimeSeconds: int64(r.Instance.Uptime / time.Second),
+		},
+		Checks: make([]SystemCheckResponse, len(r.Checks)),
+		Database: SystemDatabaseResponse{
+			Status: r.Database.Status, Error: r.Database.Error, PingMS: r.Database.PingDuration.Milliseconds(),
+			Pool: PoolStatsResponse{
+				Total: r.Database.Pool.Total, Idle: r.Database.Pool.Idle, InUse: r.Database.Pool.InUse, Max: r.Database.Pool.Max,
+				Acquires: r.Database.Pool.Acquires, AverageAcquireMS: milliseconds(r.Database.Pool.AverageAcquire),
+				EmptyAcquires: r.Database.Pool.EmptyAcquires, CanceledAcquires: r.Database.Pool.CanceledAcquires,
+			},
+			Migrations: MigrationStatusResponse(r.Database.Migrations),
+		},
+		Runtime: SystemRuntimeResponse{
+			GoVersion: r.Runtime.GoVersion, GOMAXPROCS: r.Runtime.GOMAXPROCS, Goroutines: r.Runtime.Goroutines,
+			HeapInUseBytes: r.Runtime.HeapInUseBytes, LastGCPauseMS: milliseconds(r.Runtime.LastGCPause), GCs: r.Runtime.GCs,
+		},
+		Jobs: SystemJobsResponse{Workers: r.Jobs.Workers, Queues: r.Jobs.Queues},
+	}
+	for i, c := range r.Checks {
+		out.Checks[i] = SystemCheckResponse{Name: c.Name, Status: c.Status, DurationMS: c.Duration.Milliseconds()}
+	}
+	if out.Jobs.Queues == nil {
+		out.Jobs.Queues = []string{}
+	}
+	return &systemOutput{Body: out}, nil
+}
+
+func milliseconds(d time.Duration) float64 { return float64(d.Microseconds()) / 1000 }

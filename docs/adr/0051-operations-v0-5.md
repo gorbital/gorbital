@@ -150,8 +150,8 @@ Read-only; prints each check as `ok`, `warn` or `fail` with the fix; exit 1 on a
 
 | Step | State | Notes |
 |---|---|---|
-| 1. Permission table test, `GET /ops/system` | Next | |
-| 2. Audit stats, jobs overview | | |
+| 1. Permission table test, `GET /ops/system` | Done (2026-09-15) | `ops.system.read` for `platform_admin` and `ops_viewer`; `GET /ops/system` from `internal/app/system.go` (`releases.Tracker.InstanceID`, `health.Checker.Check`, `pgxpool.Stat`, `postgres.Migrations`, `runtime.ReadMemStats`), with 2-second bounds on its database calls and fixed error descriptions. The permission test runs at the use-case layer instead of over HTTP, where input validation answers 422 before any permission check: `TestEveryOperationAuthorizesFirst` calls every exported ops `Service` method by reflection without a session, without permissions and needing 2FA, on a service with no dependencies, so a method that skips `authorize` panics and fails; `TestOpsOperationsDeclareSecurity` checks that every `/ops` operation in the spec declares bearer security and 401 and 403 responses. `TestOpsSystem` checks the report and that it holds no connection string. Both golden apps |
+| 2. Audit stats, jobs overview | Next | |
 | 3. Retention | | |
 | 4. Maintenance mode | | |
 | 5. API exports | | |

@@ -36,6 +36,7 @@ Changes are attributed to the signed-in user in history, job metadata and audit 
 | `ops.mail.read` | See how the app sends email |
 | `ops.mail.test` | Send a test email |
 | `ops.auth.read` | See which sign-in methods are configured |
+| `ops.system.read` | See an instance's health checks, database pool, migrations and runtime |
 
 Missing permission: 403 `forbidden`.
 
@@ -205,6 +206,24 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/releases/curren
 ```
 
 Builds without version control information or a link-time version show `"version": "dev"` and no commit.
+
+## System
+
+`GET /ops/system` describes the instance that answers ([ADR-0051](../adr/0051-operations-v0-5.md)); behind a load balancer, repeat it to reach others, and use `GET /ops/releases/instances` for the whole fleet. It never includes the database URL, dependency host names, environment variables or settings values.
+
+| Section | Fields |
+|---|---|
+| `instance` | `id` (matches `instance_id` in `/ops/releases/instances`), `version`, `commit`, `build_time`, `modified`, `started_at`, `uptime_seconds` |
+| `checks` | Each readiness check (as `/readyz` runs it): `name`, `status` (`ok` or `error`), `duration_ms` |
+| `database` | `status`, `error` (a fixed description, never the driver's message), `ping_ms`; `pool`: `total`, `idle`, `in_use`, `max`, `acquires`, `average_acquire_ms`, `empty_acquires` (waited for a connection), `canceled_acquires`; `migrations`: `current`, `latest`, `pending` |
+| `runtime` | `go_version`, `gomaxprocs`, `goroutines`, `heap_in_use_bytes`, `last_gc_pause_ms`, `gcs` |
+| `jobs` | `workers` this instance runs and its `queues` |
+
+A failing database still returns 200, with `database.status` and the `postgres` check set to `error`. `migrations.pending` above 0 means this build's migrations haven't been applied: run `go run ./cmd/migrate`.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/system
+```
 
 ## Email
 

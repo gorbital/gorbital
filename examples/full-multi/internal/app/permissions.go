@@ -33,10 +33,12 @@ func declarePermissions() *authlib.Catalog {
 	c.Permission(opsdomain.PermMailRead, "See how the app sends email")
 	c.Permission(opsdomain.PermMailTest, "Send a test email")
 	c.Permission(opsdomain.PermAuthRead, "See which sign-in methods are configured")
+	c.Permission(opsdomain.PermSystemRead, "See an instance's health checks, database pool, migrations and runtime")
 
 	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission", opsdomain.AllPermissions()...)
 	c.Role(roleOpsViewer, "Reads operational data without changing anything",
-		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead, opsdomain.PermAuthRead)
+		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead, opsdomain.PermAuthRead,
+		opsdomain.PermSystemRead)
 
 	// Ops roles grant their permissions only to sessions signed in with a
 	// second factor (ADR-0043).

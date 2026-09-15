@@ -1,0 +1,96 @@
+package usecase
+
+import (
+	"context"
+	"time"
+
+	opsdomain "⟦.Module⟧/internal/modules/ops/domain"
+)
+
+// SystemReport describes the instance answering GET /ops/system (ADR-0051).
+// It never holds connection strings, dependency host names, environment
+// variables or settings values.
+type SystemReport struct {
+	Instance SystemInstance
+	Checks   []SystemCheck
+	Database SystemDatabase
+	Runtime  SystemRuntime
+	Jobs     SystemJobs
+}
+
+// SystemInstance is the running process and its build.
+type SystemInstance struct {
+	ID        string
+	Version   string
+	Commit    string
+	BuildTime string
+	Modified  bool
+	StartedAt time.Time
+	Uptime    time.Duration
+}
+
+// SystemCheck is one readiness check's result.
+type SystemCheck struct {
+	Name     string
+	Status   string
+	Duration time.Duration
+}
+
+// SystemDatabase is the database as this instance sees it.
+type SystemDatabase struct {
+	// Status is ok or error.
+	Status string
+	// Error is a fixed description of what failed, never the driver's
+	// message, which can name hosts.
+	Error        string
+	PingDuration time.Duration
+	Pool         PoolStats
+	Migrations   MigrationStatus
+}
+
+// PoolStats are the connection pool's counters since the instance started.
+type PoolStats struct {
+	Total, Idle, InUse, Max int32
+	Acquires                int64
+	// AverageAcquire is the mean time to get a connection.
+	AverageAcquire time.Duration
+	// EmptyAcquires counts acquires that waited because no connection was
+	// idle.
+	EmptyAcquires    int64
+	CanceledAcquires int64
+}
+
+// MigrationStatus compares the database with the app's migration files.
+type MigrationStatus struct {
+	Current, Latest int64
+	Pending         int
+}
+
+// SystemRuntime is the Go runtime's state.
+type SystemRuntime struct {
+	GoVersion      string
+	GOMAXPROCS     int
+	Goroutines     int
+	HeapInUseBytes uint64
+	LastGCPause    time.Duration
+	GCs            uint32
+}
+
+// SystemJobs is this instance's background job work.
+type SystemJobs struct {
+	Workers int
+	Queues  []string
+}
+
+// SystemReporter builds the report. The app implements it (system.go).
+type SystemReporter interface {
+	SystemReport(ctx context.Context) SystemReport
+}
+
+// System returns the report for this instance.
+func (s *Service) System(ctx context.Context) (SystemReport, error) {
+	if err := authorize(ctx, opsdomain.PermSystemRead); err != nil {
+		return SystemReport{}, err
+	}
+	return s.system.SystemReport(ctx), nil
+}

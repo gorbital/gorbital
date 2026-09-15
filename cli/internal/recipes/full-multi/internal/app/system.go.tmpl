@@ -1,0 +1,101 @@
+package app
+
+import (
+	"context"
+	"runtime"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
+
+	"apistock.dev/buildinfo"
+	"apistock.dev/health"
+	"apistock.dev/modules/postgres"
+	"apistock.dev/modules/releases"
+
+	"⟦.Module⟧/db/migrations"
+	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
+)
+
+// systemReporter builds GET /ops/system's report from this instance
+// (ADR-0051). Errors are reported as fixed descriptions: driver messages can
+// name hosts.
+type systemReporter struct {
+	pool    *pgxpool.Pool
+	health  *health.Checker
+	tracker *releases.Tracker
+	started time.Time
+	workers int
+}
+
+// systemTimeout bounds each database call the report makes.
+const systemTimeout = 2 * time.Second
+
+func (r systemReporter) SystemReport(ctx context.Context) opsusecase.SystemReport {
+	info := buildinfo.Read()
+	report := opsusecase.SystemReport{
+		Instance: opsusecase.SystemInstance{
+			ID: r.tracker.InstanceID(), Version: info.Version, Commit: info.Commit, BuildTime: info.BuildTime,
+			Modified: info.Modified, StartedAt: r.started.UTC(), Uptime: time.Since(r.started),
+		},
+		Database: r.database(ctx),
+		Runtime:  goRuntime(),
+		Jobs:     opsusecase.SystemJobs{Workers: r.workers},
+	}
+	if r.workers > 0 {
+		report.Jobs.Queues = []string{river.QueueDefault}
+	}
+
+	status, _ := r.health.Check(ctx)
+	for name, check := range status.Checks {
+		report.Checks = append(report.Checks, opsusecase.SystemCheck{Name: name, Status: check.Status, Duration: time.Duration(check.DurationMS) * time.Millisecond})
+	}
+	slices.SortFunc(report.Checks, func(a, b opsusecase.SystemCheck) int { return strings.Compare(a.Name, b.Name) })
+	return report
+}
+
+func (r systemReporter) database(ctx context.Context) opsusecase.SystemDatabase {
+	db := opsusecase.SystemDatabase{Status: "ok"}
+	stat := r.pool.Stat()
+	db.Pool = opsusecase.PoolStats{
+		Total: stat.TotalConns(), Idle: stat.IdleConns(), InUse: stat.AcquiredConns(), Max: stat.MaxConns(),
+		Acquires: stat.AcquireCount(), EmptyAcquires: stat.EmptyAcquireCount(), CanceledAcquires: stat.CanceledAcquireCount(),
+	}
+	if n := stat.AcquireCount(); n > 0 {
+		db.Pool.AverageAcquire = stat.AcquireDuration() / time.Duration(n)
+	}
+
+	pingCtx, cancel := context.WithTimeout(ctx, systemTimeout)
+	defer cancel()
+	start := time.Now()
+	if err := r.pool.Ping(pingCtx); err != nil {
+		db.Status, db.Error = "error", "the database refused the connection or didn't answer within 2 seconds"
+		return db
+	}
+	db.PingDuration = time.Since(start)
+
+	migrateCtx, cancelMigrations := context.WithTimeout(ctx, systemTimeout)
+	defer cancelMigrations()
+	state, err := postgres.Migrations(migrateCtx, r.pool, migrations.FS)
+	if err != nil {
+		db.Status, db.Error = "error", "couldn't read the migration state"
+		return db
+	}
+	db.Migrations = opsusecase.MigrationStatus{Current: state.Current, Latest: state.Latest, Pending: state.Pending}
+	return db
+}
+
+func goRuntime() opsusecase.SystemRuntime {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	rt := opsusecase.SystemRuntime{
+		GoVersion: runtime.Version(), GOMAXPROCS: runtime.GOMAXPROCS(0), Goroutines: runtime.NumGoroutine(),
+		HeapInUseBytes: m.HeapInuse, GCs: m.NumGC,
+	}
+	if m.NumGC > 0 {
+		rt.LastGCPause = time.Duration(m.PauseNs[(m.NumGC+255)%256])
+	}
+	return rt
+}

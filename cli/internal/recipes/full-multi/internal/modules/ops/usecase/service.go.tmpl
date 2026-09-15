@@ -29,6 +29,8 @@ type Deps struct {
 	// SignInMethods reports which sign-in methods are configured
 	// (ADR-0045).
 	SignInMethods func() []opsdomain.SignInMethod
+	// System describes the instance for GET /ops/system (ADR-0051).
+	System SystemReporter
 }
 
 // Service runs the operations use cases.
@@ -40,13 +42,14 @@ type Service struct {
 	mailer        mail.Sender
 	mail          MailInfo
 	signInMethods func() []opsdomain.SignInMethod
+	system        SystemReporter
 }
 
 // NewService returns a Service.
 func NewService(d Deps) *Service {
 	return &Service{
 		settings: d.Settings, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail,
-		signInMethods: d.SignInMethods,
+		signInMethods: d.SignInMethods, system: d.System,
 	}
 }
 
