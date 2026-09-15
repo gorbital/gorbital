@@ -156,15 +156,21 @@ func (s *Service) Restore(ctx context.Context, orgID orgslib.ID) (orgsdomain.Mem
 // with every org-scoped row, and returns how many it removed. The orgs_purge
 // job runs it.
 func (s *Service) Purge(ctx context.Context) (int, error) {
-	ids, err := s.store.SelectOrgsToPurge(ctx, s.clock(), purgeBatch)
+	now := s.clock()
+	ids, err := s.store.SelectOrgsToPurge(ctx, now, purgeBatch)
 	if err != nil {
 		return 0, storeError("purge", err)
 	}
-	for i, id := range ids {
-		if err := s.store.DeleteOrg(ctx, id); err != nil {
-			return i, storeError("purge", err)
+	purged := 0
+	for _, id := range ids {
+		deleted, err := s.store.DeleteOrg(ctx, id, now)
+		if err != nil {
+			return purged, storeError("purge", err)
 		}
-		s.audit(ctx, ActionOrgPurged, id, "org", string(id), nil)
+		if deleted {
+			purged++
+			s.audit(ctx, ActionOrgPurged, id, "org", string(id), nil)
+		}
 	}
-	return len(ids), nil
+	return purged, nil
 }

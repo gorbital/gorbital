@@ -3,6 +3,7 @@ package orgs_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -119,6 +120,13 @@ func TestRequireMemberPassesStoreErrors(t *testing.T) {
 	_, _, err := orgs.RequireMember(signedIn("usr_1", false), failingMemberships{boom}, catalog(), orgs.NewID(), "orgs.org.read")
 	if !errors.Is(err, boom) {
 		t.Errorf("RequireMember() error = %v, want the store error", err)
+	}
+
+	// A store that wraps ErrNotMember still hides the organisation.
+	wrapped := fmt.Errorf("select member: %w", orgs.ErrNotMember)
+	_, _, err = orgs.RequireMember(signedIn("usr_1", false), failingMemberships{wrapped}, catalog(), orgs.NewID(), "orgs.org.read")
+	if !errors.Is(err, orgs.ErrOrgNotFound) {
+		t.Errorf("RequireMember() with a wrapped ErrNotMember error = %v, want ErrOrgNotFound", err)
 	}
 }
 

@@ -278,6 +278,19 @@ func TestOrganisationLifecycle(t *testing.T) {
 			t.Errorf("audit event %s has org %q, want %s", e.Action, e.OrgID, id)
 		}
 	}
+
+	// An organisation restored and deleted again between a purge listing it
+	// and deleting it has a later purge time, so it stays.
+	later, err := f.svc.Create(ada, "Later")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.Delete(ada, orgslib.ID(later.ID)); err != nil {
+		t.Fatal(err)
+	}
+	if deleted, err := orgsrepository.NewStore(f.pool).DeleteOrg(context.Background(), orgslib.ID(later.ID), f.now); err != nil || deleted {
+		t.Errorf("DeleteOrg(before its purge time) = %v, %v, want false", deleted, err)
+	}
 }
 
 func TestInvitations(t *testing.T) {

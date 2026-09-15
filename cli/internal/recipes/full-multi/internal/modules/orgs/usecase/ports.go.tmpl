@@ -42,9 +42,11 @@ type Store interface {
 	// SelectOrgsToPurge returns up to limit organisations whose purge time
 	// has passed.
 	SelectOrgsToPurge(ctx context.Context, now time.Time, limit int) ([]orgslib.ID, error)
-	// DeleteOrg removes an organisation and, through foreign keys, every
-	// org-scoped row.
-	DeleteOrg(ctx context.Context, id orgslib.ID) error
+	// DeleteOrg removes an organisation whose purge time has passed and,
+	// through foreign keys, every org-scoped row. It reports false when the
+	// organisation was restored, or deleted again with a later purge time,
+	// since it was selected.
+	DeleteOrg(ctx context.Context, id orgslib.ID, now time.Time) (bool, error)
 
 	// InsertMember adds a member, or returns ErrAlreadyMember.
 	InsertMember(ctx context.Context, m orgsdomain.Member) error

@@ -2,6 +2,7 @@ package orgs
 
 import (
 	"context"
+	"errors"
 
 	"apistock.dev/actor"
 	"apistock.dev/modules/auth"
@@ -45,7 +46,7 @@ func RequireMember(ctx context.Context, m Memberships, catalog *auth.Catalog, or
 	}
 	role, err := m.MemberRole(ctx, orgID, a.ID)
 	if err != nil {
-		if err == ErrNotMember { //nolint:errorlint // implementations return the sentinel itself
+		if errors.Is(err, ErrNotMember) {
 			return ctx, Member{}, ErrOrgNotFound
 		}
 		return ctx, Member{}, err

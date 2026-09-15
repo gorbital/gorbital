@@ -100,7 +100,7 @@ Reviewed against the code for v0.2's definition of done (rows 12, 13, 19, 23 and
 | 16 Passkey phishing or origin confusion | Done ([ADR-0044](0044-passkeys.md)): the relying party ID and allowed origins come from the environment (not runtime settings), each origin must be https (http only for localhost in development) on the RP ID or a subdomain; every response's origin, RP ID hash, challenge, signature and user-verification flag are checked by `modules/auth/passkey`; ceremonies are single use and bound to their purpose, user and sign-in challenge; counters that don't increase are refused and audited; Android apps are allowed only by configured certificate fingerprints |
 | 14 OAuth attacks | Done ([ADR-0046](0046-google-and-apple-sign-in.md)): web sign-ins keep a single-use, 10-minute state on the server bound to an HttpOnly `__Host-oauth` cookie (login CSRF), a nonce and a PKCE S256 verifier (Google); ID tokens are checked by `modules/auth/social` for signature against the provider's keys, issuer, an audience among the configured client IDs, expiry, an age under 10 minutes and the nonce; native apps must use a server-issued single-use nonce (hashed for Apple); `return_to` is limited to the API's and `APP_CORS_ORIGINS` origins and results go in the URL fragment; linking requires a provider-verified email and removes the password and sessions of an account that never verified its address (pre-account hijacking); the second factor still applies; Apple tokens are revoked on deletion and Apple's signed notifications are verified |
 
-## v0.4 status (in progress, 2026-09-15)
+## v0.4 status (done, 2026-09-15)
 
 | # | Status |
 |---|---|

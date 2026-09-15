@@ -127,8 +127,9 @@ func TestDevPrepareFullApp(t *testing.T) {
 		t.Errorf("extraEnv = %q, want none without --observability", d.extraEnv)
 	}
 
-	// An existing .env is kept.
-	writeFile(t, ".env", "APP_ADDR=127.0.0.1:"+ports.app+"\n")
+	// An existing .env is kept. It keeps the free ports, so the test passes
+	// next to an app using the default ones.
+	writeFile(t, ".env", ports.env()+"# edited\n")
 	out.Reset()
 	if err := d.prepare(context.Background()); err != nil || strings.Contains(out.String(), "created .env") || readFile(t, ".env") == ports.env() {
 		t.Errorf("prepare() with .env = %v, output %q", err, out.String())
