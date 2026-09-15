@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -124,21 +123,19 @@ func TestDocs(t *testing.T) {
 	}
 }
 
-// TestOpenAPIUpToDate fails when api/openapi.json doesn't match the code.
+// TestOpenAPIUpToDate fails when api/openapi.json, api/postman_collection.json
+// or api/llms.txt doesn't match the code.
 func TestOpenAPIUpToDate(t *testing.T) {
-	var got bytes.Buffer
-	if err := app.WriteOpenAPI(context.Background(), testConfig(t, nil), &got); err != nil {
-		t.Fatalf("WriteOpenAPI() error = %v", err)
+	dir := t.TempDir()
+	if err := app.WriteAPIFiles(context.Background(), testConfig(t, nil), dir); err != nil {
+		t.Fatalf("WriteAPIFiles() error = %v", err)
 	}
-	path := filepath.Join("..", "..", "api", "openapi.json")
-	f, err := os.Open(path)
-	if err != nil {
-		t.Fatalf("open %s: %v (run: go run ./cmd/api openapi > api/openapi.json)", path, err)
-	}
-	defer f.Close()
-	want, _ := io.ReadAll(f)
-	if !bytes.Equal(got.Bytes(), want) {
-		t.Errorf("api/openapi.json is out of date; run: go run ./cmd/api openapi > api/openapi.json")
+	for _, name := range []string{"openapi.json", "postman_collection.json", "llms.txt"} {
+		got, _ := os.ReadFile(filepath.Join(dir, name))
+		want, err := os.ReadFile(filepath.Join("..", "..", "api", name))
+		if err != nil || !bytes.Equal(got, want) {
+			t.Errorf("api/%s is out of date; run: go run ./cmd/api openapi --dir api", name)
+		}
 	}
 }
 

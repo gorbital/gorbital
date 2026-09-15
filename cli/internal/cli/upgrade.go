@@ -24,7 +24,7 @@ const upgradeBranchPrefix = "aps-upgrade/"
 
 // derivedPaths are generated from the app's code, so upgrades regenerate
 // them instead of merging (ADR-0021).
-var derivedPaths = []string{"api/openapi.json"}
+var derivedPaths = []string{"api/openapi.json", "api/postman_collection.json", "api/llms.txt"}
 
 // errConflicts reports an upgrade that left conflicts to resolve.
 var errConflicts = errors.New("the upgrade has conflicts to resolve; see the files listed above")
@@ -432,14 +432,12 @@ func finishUpgrade(ctx context.Context, dir string, root *os.Root, message strin
 	}
 	if _, err := root.Stat(derivedPaths[0]); err == nil {
 		if _, err := root.Stat("cmd/api"); err == nil {
-			var spec, errOut bytes.Buffer
-			cmd := exec.CommandContext(ctx, "go", "run", "./cmd/api", "openapi")
-			cmd.Dir, cmd.Stdout, cmd.Stderr = dir, &spec, &errOut
+			// The API files: openapi.json, the Postman collection and llms.txt.
+			var errOut bytes.Buffer
+			cmd := exec.CommandContext(ctx, "go", "run", "./cmd/api", "openapi", "--dir", "api")
+			cmd.Dir, cmd.Stdout, cmd.Stderr = dir, &errOut, &errOut
 			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("regenerate %s: %w\n%s", derivedPaths[0], err, errOut.String())
-			}
-			if err := root.WriteFile(derivedPaths[0], spec.Bytes(), 0o644); err != nil {
-				return err
+				return fmt.Errorf("regenerate the API files in api/: %w\n%s", err, errOut.String())
 			}
 		}
 	}
@@ -497,11 +495,11 @@ func reportUpgrade(w io.Writer, asJSON bool, res upgradeResult) error {
 		for _, p := range res.Conflicts {
 			fmt.Fprintf(w, "    %s\n", p)
 		}
-		fmt.Fprintf(w, "\n  %s go build ./...\n        go run ./cmd/api openapi > api/openapi.json\n        go test ./...\n        git add -A && git commit -m '%s'\n", s.dim.Render("next:"), res.message)
+		fmt.Fprintf(w, "\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        go test ./...\n        git add -A && git commit -m '%s'\n", s.dim.Render("next:"), res.message)
 	case res.Committed:
 		fmt.Fprintf(w, "  committed on branch %s\n\n  %s go test ./...   (database tests need aps dev or docker compose up -d --wait)\n        then merge %s\n", res.Branch, s.dim.Render("next:"), res.Branch)
 	default:
-		fmt.Fprintf(w, "  on branch %s, not committed\n\n  %s go build ./...\n        go run ./cmd/api openapi > api/openapi.json\n        git add -A && git commit -m '%s'\n", res.Branch, s.dim.Render("next:"), res.message)
+		fmt.Fprintf(w, "  on branch %s, not committed\n\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        git add -A && git commit -m '%s'\n", res.Branch, s.dim.Render("next:"), res.message)
 	}
 	return nil
 }

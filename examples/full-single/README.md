@@ -99,7 +99,7 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 | Task | Command |
 |---|---|
 | Run tests (needs `docker compose up -d --wait`) | `APISTOCK_TEST_DATABASE_URL=postgres://acme-api:acme-api@127.0.0.1:5432/acme-api?sslmode=disable go test ./...` |
-| Export the OpenAPI document | `go run ./cmd/api openapi > api/openapi.json` |
+| Export the OpenAPI document, Postman collection and llms.txt | `go run ./cmd/api openapi --dir api` |
 | Add a background job | `aps gen job <Name>` (asks the rest), or with flags: `aps gen job CleanupSessions --schedule "0 3 * * *" --yes` |
 | Change a job's schedule, timeout or retries | `PUT /ops/jobs/definitions/{name}` (no redeploy) |
 | See who changed a setting or job | `GET /ops/audit?resource_id=<key or name>` |
@@ -121,7 +121,7 @@ The app starts with four examples that show the patterns the rest of the code fo
 | `heartbeat` job | Delete `internal/jobs/heartbeat/` and `internal/app/job_heartbeat.go`, and its line in `internal/app/jobs.go` |
 | `ping` endpoint (`/v1/ping`) | Delete `internal/modules/ping/` and `internal/app/module_ping.go`, its line and the `pingMessage` field in `internal/app/modules.go`, and the `example.ping_message` setting in `internal/app/settings.go`; the tests that call `/v1/ping` or change that setting use it too |
 
-Then run `go run ./cmd/api openapi > api/openapi.json` and `go test ./...`.
+Then run `go run ./cmd/api openapi --dir api` and `go test ./...`.
 
 ## Project layout
 

@@ -28,7 +28,7 @@ go run ./cmd/api
 | Task | Command |
 |---|---|
 | Run tests | `go test ./...` |
-| Export the OpenAPI document | `go run ./cmd/api openapi > api/openapi.json` |
+| Export the OpenAPI document, Postman collection and llms.txt | `go run ./cmd/api openapi --dir api` |
 | Build a container | `docker build -t acme-api .` |
 
 ## Configuration

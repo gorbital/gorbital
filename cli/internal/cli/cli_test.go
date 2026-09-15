@@ -303,12 +303,8 @@ func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 				t.Fatal(err)
 			}
 			// As aps gen resource's next steps say: the new endpoints change the spec.
-			spec, err := exec.Command("go", "run", "./cmd/api", "openapi").Output()
-			if err != nil {
-				t.Fatalf("go run ./cmd/api openapi: %v", err)
-			}
-			if err := os.WriteFile(filepath.Join("api", "openapi.json"), spec, 0o644); err != nil {
-				t.Fatal(err)
+			if out, err := exec.Command("go", "run", "./cmd/api", "openapi", "--dir", "api").CombinedOutput(); err != nil {
+				t.Fatalf("go run ./cmd/api openapi --dir api: %v\n%s", err, out)
 			}
 			goIn(t, ".", "vet", "./...")
 			goIn(t, ".", "test", "./...")

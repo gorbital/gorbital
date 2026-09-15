@@ -83,7 +83,7 @@ GOTOOLCHAIN=go1.26.8 go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 Adjust the `--config` path to reach the repository root's `.golangci.yml`. For an example app, also regenerate its API contract after changing endpoints:
 
 ```bash
-go run ./cmd/api openapi > api/openapi.json
+go run ./cmd/api openapi --dir api
 ```
 
 ## Running the Full preset example

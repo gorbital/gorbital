@@ -1,0 +1,19 @@
+# acme-api
+
+> The acme-api HTTP API.
+
+Every endpoint below links to its reference page as Markdown. The OpenAPI document is at `/openapi.json` and the interactive reference at `/docs`. Errors are `application/problem+json` with a stable `code`.
+
+## Example
+
+- [Echo a message](/docs/example/echo.md): `POST /v1/echo`
+- [Check the API is reachable](/docs/example/ping.md): `GET /v1/ping`
+
+## System
+
+- [Build information](/docs/system/get-version.md): `GET /version`
+
+## Optional
+
+- [OpenAPI document](/openapi.json): every endpoint, parameter and schema
+- [API reference overview](/docs.md)

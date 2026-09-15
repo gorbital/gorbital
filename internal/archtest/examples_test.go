@@ -46,6 +46,8 @@ var multiTenantChanges = []string{
 
 	// Generated or written for each app.
 	"api/openapi.json",
+	"api/postman_collection.json",
+	"api/llms.txt",
 	"README.md",
 	"ARCHITECTURE.md",
 	"AGENTS.md",

@@ -3,7 +3,7 @@
 // Usage:
 //
 //	api                              run the API server
-//	api openapi                      print the OpenAPI document
+//	api openapi [--dir api]          print the OpenAPI document, or write it with the Postman collection and llms.txt
 //	api roles                        list the platform roles
 //	api grant-role <email> <role>    give an account a platform role
 //	api revoke-role <email> <role>   take a platform role away
@@ -40,6 +40,14 @@ func run(ctx context.Context, args []string) error {
 	if len(args) > 0 {
 		switch args[0] {
 		case "openapi":
+			flags := flag.NewFlagSet("openapi", flag.ContinueOnError)
+			dir := flags.String("dir", "", "write openapi.json, postman_collection.json and llms.txt into this directory")
+			if flags.Parse(args[1:]) != nil || flags.NArg() > 0 {
+				return fmt.Errorf("usage: api openapi [--dir <directory>]")
+			}
+			if *dir != "" {
+				return app.WriteAPIFiles(ctx, cfg, *dir)
+			}
 			return app.WriteOpenAPI(ctx, cfg, os.Stdout)
 		case "roles":
 			app.WriteRoles(os.Stdout)

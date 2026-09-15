@@ -102,4 +102,4 @@ Modules record who did what through `audit.Recorder`; `app.go` passes the `audit
 2. Add the use case to `usecase/`.
 3. Add input/output types and a `huma.Register` call in `delivery/`.
 4. Map new domain errors in `internal/app/module_<name>.go`.
-5. Run `go test ./...`, then `go run ./cmd/api openapi > api/openapi.json`.
+5. Run `go test ./...`, then `go run ./cmd/api openapi --dir api`.

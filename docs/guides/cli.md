@@ -214,7 +214,7 @@ What it creates for `Project`:
 | `internal/app/modules.go` | One `registerProjects(api, mapper, svc),` line after `//aps:anchor modules` |
 | `internal/app/permissions.go` (`--scope org` only) | One `projectsPermissions,` line after `//aps:anchor org-permissions` |
 
-Then run `go run ./cmd/migrate`, `go test ./...` and `go run ./cmd/api openapi > api/openapi.json`.
+Then run `go run ./cmd/migrate`, `go test ./...` and `go run ./cmd/api openapi --dir api`.
 
 Safety checks: the app must have `internal/app/modules.go` with the anchor inside `errors.Join`, the auth module and `db/migrations`; existing modules and files are never overwritten; a resource can be registered once; the migration always sorts after the existing ones; the git repository must be clean unless `--allow-dirty`; names and field types come from allowlists and generated Go names are checked for clashes, so no input reaches the code unchecked; generated Go is checked with gofmt.
 

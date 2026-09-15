@@ -2,12 +2,13 @@
 //
 // Usage:
 //
-//	api           run the API server
-//	api openapi   print the OpenAPI document
+//	api                      run the API server
+//	api openapi [--dir api]  print the OpenAPI document, or write it with the Postman collection and llms.txt
 package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 
@@ -31,6 +32,14 @@ func run(ctx context.Context, args []string) error {
 	if len(args) > 0 {
 		switch args[0] {
 		case "openapi":
+			flags := flag.NewFlagSet("openapi", flag.ContinueOnError)
+			dir := flags.String("dir", "", "write openapi.json, postman_collection.json and llms.txt into this directory")
+			if flags.Parse(args[1:]) != nil || flags.NArg() > 0 {
+				return fmt.Errorf("usage: api openapi [--dir <directory>]")
+			}
+			if *dir != "" {
+				return app.WriteAPIFiles(ctx, cfg, *dir)
+			}
 			return app.WriteOpenAPI(ctx, cfg, os.Stdout)
 		default:
 			return fmt.Errorf("unknown command %q", args[0])

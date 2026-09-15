@@ -76,8 +76,11 @@ func TestUpgradeFromV040(t *testing.T) {
 	if got := git(t, "log", "-1", "--format=%s"); got != "Upgrade apistock to "+Version || git(t, "status", "--porcelain") != "" {
 		t.Errorf("last commit = %q with a dirty tree; want the upgrade committed", got)
 	}
-	if readFile(t, "internal/app/routes.go") != routes {
-		t.Error("the edit to routes.go was lost")
+	// The routes.go template changed since v0.4.0 (maintenance mode), so the
+	// upgrade merges: the developer's line and the template's change both
+	// arrive.
+	if got := readFile(t, "internal/app/routes.go"); !strings.Contains(got, "// Acme: an edit to a tracked file") || !strings.Contains(got, "a.maintenance()") {
+		t.Errorf("routes.go after the upgrade lacks the developer's edit or the template's change:\n%s", got)
 	}
 	for _, p := range []string{"internal/modules/customers/module.go", "internal/app/module_customers.go"} {
 		if _, err := os.Stat(p); err != nil {
