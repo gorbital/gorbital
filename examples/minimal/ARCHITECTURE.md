@@ -10,6 +10,7 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   config.go              every setting, read from environment variables
   app.go                 construction order and lifecycle
   routes.go              API, health, docs and the middleware chain
+  metrics.go             METRICS_ADDR: Prometheus /metrics on its own listener, off by default
   modules.go             one line per business module (//orb:anchor modules)
   module_<name>.go       wires one module: its operations and error codes
 internal/modules/<name>/ one bounded context per directory

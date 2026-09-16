@@ -16,7 +16,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0004](0004-dependency-injection.md) | Dependency injection | Superseded by 0017, 0020 |
 | [0005](0005-database-strategy.md) | Database strategy | Accepted, amended by 0032, 0033 |
 | [0006](0006-authentication.md) | Authentication | Superseded by 0024 |
-| [0007](0007-observability.md) | Observability | Accepted, amended by 0019, 0028 |
+| [0007](0007-observability.md) | Observability | Accepted, amended by 0019, 0028, 0063 |
 | [0008](0008-configuration.md) | Configuration | Superseded by 0020 |
 | [0009](0009-repository-strategy.md) | Repository strategy | Accepted, amended by 0019 |
 | [0010](0010-dashboard-architecture.md) | Dashboard architecture | Accepted, amended by 0026, 0028 |
@@ -64,3 +64,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0052](0052-shared-rate-limits.md) | Shared rate limits and trusted proxies | Accepted |
 | [0054](0054-api-freeze-and-scaffold-compatibility.md) | API freeze: stability markers, API listings, public-surface inventory, `/ops` baseline, `--json` schema version, scaffold compatibility check | Accepted |
 | [0055](0055-governance-and-contribution.md) | Governance and contribution: roles, decisions, reviews, supported versions, changelog | Accepted |
+| [0063](0063-prometheus-metrics.md) | Prometheus metrics endpoint: exporter on a separate `METRICS_ADDR` listener, Go runtime and connection pool metrics, route labels through request copies | Accepted |

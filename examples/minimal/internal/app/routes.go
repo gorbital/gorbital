@@ -10,6 +10,7 @@ import (
 	"gorbital.dev/buildinfo"
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/openapi"
+	"gorbital.dev/modules/telemetry"
 )
 
 type versionOutput struct {
@@ -68,7 +69,8 @@ func (a *App) buildHTTP() error {
 	}
 
 	a.api = api
-	a.handler = httpx.Chain(mux,
+	// RecordRoute gives spans and metrics the matched route pattern.
+	a.handler = httpx.Chain(telemetry.RecordRoute(mux),
 		httpx.Recover(a.logger),
 		httpx.TrustedProxies(a.cfg.TrustedProxies), // the client's address behind load balancers (APP_TRUSTED_PROXIES)
 		httpx.RequestIDFrom(a.cfg.TrustedCallers),  // clients' own X-Request-ID only from APP_TRUSTED_CALLERS

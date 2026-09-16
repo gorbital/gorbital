@@ -16,6 +16,7 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   job_<name>.go          declares one job and its default configuration
   app.go                 construction order and lifecycle
   routes.go              API, health, docs and the middleware chain
+  metrics.go             METRICS_ADDR: Prometheus /metrics on its own listener, off by default
   permissions.go         platform roles (platform_admin, ops_viewer), org roles (owner, admin, member) and one line per org-scoped resource (//orb:anchor org-permissions)
   admin.go               grant-role, revoke-role and roles commands (cmd/api)
   admin_mfa.go           reset-mfa and rotate-auth-keys commands (cmd/api)

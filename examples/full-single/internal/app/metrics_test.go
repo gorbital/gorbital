@@ -1,0 +1,142 @@
+package app_test
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"gorbital.dev/config"
+
+	"example.com/acme-api/internal/app"
+)
+
+// runMetrics runs a's metrics listener until the test ends and returns its
+// base URL.
+func runMetrics(t *testing.T, a *app.App) string {
+	t.Helper()
+	srv := a.MetricsServer()
+	if srv == nil {
+		t.Fatal("MetricsServer() = nil with METRICS_ADDR set")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- srv.Run(ctx) }()
+	t.Cleanup(func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Errorf("metrics listener Run() error = %v", err)
+		}
+	})
+	addrCtx, cancelAddr := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelAddr()
+	addr, err := srv.Addr(addrCtx)
+	if err != nil {
+		t.Fatalf("metrics listener Addr() error = %v", err)
+	}
+	return "http://" + addr
+}
+
+// get fetches url and returns the status code and body.
+func get(t *testing.T, url string) (int, string) {
+	t.Helper()
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatalf("GET %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("GET %s: read body: %v", url, err)
+	}
+	return resp.StatusCode, string(body)
+}
+
+// TestMetricsListener scrapes the separate metrics listener (ADR-0063): it
+// serves HTTP, Go runtime and connection pool metrics, and only /metrics,
+// while the API itself doesn't serve them. Values clients choose, such as
+// the Host header or path, never become labels.
+func TestMetricsListener(t *testing.T) {
+	a := newApp(t, map[string]string{"METRICS_ADDR": "127.0.0.1:0"})
+	base := runMetrics(t, a)
+
+	for i := range 20 {
+		req := httptest.NewRequest("GET", "/livez", nil)
+		req.Host = fmt.Sprintf("secret%d.attacker.example", i)
+		req.Header.Set("User-Agent", "secret-agent")
+		a.Handler().ServeHTTP(httptest.NewRecorder(), req)
+		do(t, a.Handler(), "GET", fmt.Sprintf("/no-such-route/secret%d", i), "")
+	}
+	if r := do(t, a.Handler(), "GET", "/metrics", ""); r.code != http.StatusNotFound {
+		t.Errorf("API GET /metrics = %d, want 404: metrics are only on METRICS_ADDR", r.code)
+	}
+
+	code, body := get(t, base+"/metrics")
+	if code != http.StatusOK {
+		t.Fatalf("GET /metrics = %d, want 200:\n%s", code, body)
+	}
+	for _, want := range []string{
+		`http_server_request_duration_seconds_count{http_request_method="GET",http_response_status_code="200",http_route="/livez"`,
+		"go_goroutine_count",
+		"go_memory_used_bytes",
+		`db_client_connection_count{db_client_connection_pool_name="acme-api",db_client_connection_state="idle"`,
+		"db_client_connection_max",
+		"pgxpool_acquires_total",
+		`service_name="acme-api"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("GET /metrics has no %s\n%s", want, body)
+		}
+	}
+	for _, leak := range []string{"secret", "attacker"} {
+		if strings.Contains(body, leak) {
+			t.Errorf("GET /metrics contains the client value %q", leak)
+		}
+	}
+
+	for _, path := range []string{"/", "/livez", "/docs", "/metrics/extra"} {
+		if code, _ := get(t, base+path); code != http.StatusNotFound {
+			t.Errorf("metrics listener GET %s = %d, want 404", path, code)
+		}
+	}
+}
+
+func TestMetricsListenerOffByDefault(t *testing.T) {
+	a := newApp(t, nil)
+	if srv := a.MetricsServer(); srv != nil {
+		t.Error("MetricsServer() != nil without METRICS_ADDR")
+	}
+	if r := do(t, a.Handler(), "GET", "/metrics", ""); r.code != http.StatusNotFound {
+		t.Errorf("API GET /metrics = %d, want 404", r.code)
+	}
+}
+
+// TestLoadConfigMetricsAddr checks that metrics can't share the API's
+// listener.
+func TestLoadConfigMetricsAddr(t *testing.T) {
+	for _, tt := range []struct {
+		apiAddr, metricsAddr string
+		wantErr              bool
+	}{
+		{"127.0.0.1:8080", "", false},
+		{"127.0.0.1:8080", "127.0.0.1:9464", false},
+		{"0.0.0.0:8080", "10.0.0.5:9464", false},
+		{"127.0.0.1:0", "127.0.0.1:0", false},
+		{"127.0.0.1:8080", "127.0.0.1:8080", true},
+		{"127.0.0.1:8080", "0.0.0.0:8080", true},
+		{"0.0.0.0:8080", ":8080", true},
+		{"127.0.0.1:8080", "9464", true},
+		{"127.0.0.1:8080", "127.0.0.1:metrics", true},
+	} {
+		env := map[string]string{"APP_ENV": "development", "APP_ADDR": tt.apiAddr, "METRICS_ADDR": tt.metricsAddr}
+		_, err := app.LoadConfig(config.Source{Getenv: func(k string) string { return env[k] }, ReadFile: os.ReadFile})
+		if gotErr := err != nil && strings.Contains(err.Error(), "METRICS_ADDR"); gotErr != tt.wantErr {
+			t.Errorf("LoadConfig(APP_ADDR=%s, METRICS_ADDR=%s) error = %v, want error: %v", tt.apiAddr, tt.metricsAddr, err, tt.wantErr)
+		}
+	}
+}

@@ -4,7 +4,9 @@
 // Tracing is always on, so every log line written with a request context
 // carries trace and span IDs. Spans and metrics are exported only when OTLP
 // export is enabled; the exporters read the standard OTEL_EXPORTER_OTLP_*
-// environment variables, as OpenTelemetry specifies.
+// environment variables, as OpenTelemetry specifies. Metrics can also be
+// scraped in the Prometheus format from [Telemetry.MetricsHandler]
+// (ADR-0063).
 //
 // By default [Setup] installs its providers and the W3C trace-context
 // propagator as OpenTelemetry globals, which instrumentation libraries use.
@@ -19,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/netip"
 	"os"
 	"slices"
@@ -53,6 +56,7 @@ type Telemetry struct {
 	mp     *sdkmetric.MeterProvider
 
 	traceCallers []netip.Prefix
+	metrics      http.Handler // nil unless WithPrometheus
 }
 
 // Logger returns the correlated structured logger.
@@ -83,6 +87,9 @@ type options struct {
 	sampleRatio  float64
 	setGlobals   bool
 	traceCallers []netip.Prefix
+
+	prometheus     bool
+	runtimeMetrics bool
 }
 
 // An Option configures [Setup].
@@ -164,11 +171,31 @@ func Setup(ctx context.Context, service, version string, opts ...Option) (*Telem
 		return nil, fmt.Errorf("telemetry: resource: %w", err)
 	}
 
+	// The logger is built first: the Prometheus handler logs scrape errors.
+	hopts := &slog.HandlerOptions{Level: o.logLevel}
+	var base slog.Handler
+	if o.logFormat == LogFormatText {
+		base = slog.NewTextHandler(o.logWriter, hopts)
+	} else {
+		base = slog.NewJSONHandler(o.logWriter, hopts)
+	}
+	base = base.WithAttrs([]slog.Attr{slog.String("service", service)})
+	logger := slog.New(NewLogHandler(base))
+
 	tpOpts := []sdktrace.TracerProviderOption{
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(o.sampleRatio))),
 	}
 	mpOpts := []sdkmetric.Option{sdkmetric.WithResource(res), httpMetricsView()}
+	var metrics http.Handler
+	if o.prometheus {
+		reader, h, err := newPrometheus(logger)
+		if err != nil {
+			return nil, err // before the OTLP exporters, so nothing to shut down
+		}
+		mpOpts = append(mpOpts, sdkmetric.WithReader(reader))
+		metrics = h
+	}
 	if o.exportOTLP {
 		traceExp, err := otlptracehttp.New(ctx)
 		if err != nil {
@@ -187,22 +214,19 @@ func Setup(ctx context.Context, service, version string, opts ...Option) (*Telem
 	tp := sdktrace.NewTracerProvider(tpOpts...)
 	mp := sdkmetric.NewMeterProvider(mpOpts...)
 
+	if o.runtimeMetrics {
+		if err := startRuntimeMetrics(mp); err != nil {
+			return nil, errors.Join(err, tp.Shutdown(ctx), mp.Shutdown(ctx))
+		}
+	}
+
 	if o.setGlobals {
 		otel.SetTracerProvider(tp)
 		otel.SetMeterProvider(mp)
 		otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	}
 
-	hopts := &slog.HandlerOptions{Level: o.logLevel}
-	var base slog.Handler
-	if o.logFormat == LogFormatText {
-		base = slog.NewTextHandler(o.logWriter, hopts)
-	} else {
-		base = slog.NewJSONHandler(o.logWriter, hopts)
-	}
-	base = base.WithAttrs([]slog.Attr{slog.String("service", service)})
-
-	return &Telemetry{logger: slog.New(NewLogHandler(base)), tp: tp, mp: mp, traceCallers: o.traceCallers}, nil
+	return &Telemetry{logger: logger, tp: tp, mp: mp, traceCallers: o.traceCallers, metrics: metrics}, nil
 }
 
 // httpMetricsView leaves server.address and server.port out of HTTP server
