@@ -46,12 +46,13 @@ func (f *fakeSupervisor) record(name string) error {
 	return nil
 }
 
-func (f *fakeSupervisor) Restart() error     { return f.record("restart") }
-func (f *fakeSupervisor) Stop() error        { return f.record("stop") }
-func (f *fakeSupervisor) Start() error       { return f.record("start") }
-func (f *fakeSupervisor) Migrate() error     { return f.record("migrate") }
-func (f *fakeSupervisor) MigrateDown() error { return f.record("migrate-down") }
-func (f *fakeSupervisor) MigrateRedo() error { return f.record("migrate-redo") }
+func (f *fakeSupervisor) Restart() error       { return f.record("restart") }
+func (f *fakeSupervisor) Stop() error          { return f.record("stop") }
+func (f *fakeSupervisor) Start() error         { return f.record("start") }
+func (f *fakeSupervisor) Migrate() error       { return f.record("migrate") }
+func (f *fakeSupervisor) MigrateDown() error   { return f.record("migrate-down") }
+func (f *fakeSupervisor) MigrateRedo() error   { return f.record("migrate-redo") }
+func (f *fakeSupervisor) ResetDatabase() error { return f.record("reset-database") }
 
 // newTestServer returns a portal over a fake app and its test server.
 func newTestServer(t *testing.T, mutate func(*Config)) (*Server, *httptest.Server, *fakeSupervisor) {
@@ -813,5 +814,36 @@ func TestEnvEndpoints(t *testing.T) {
 	_, ts2, _ := newTestServer(t, nil)
 	if res := call(t, ts2, http.MethodGet, APIPrefix+"env", "", nil); res.StatusCode != http.StatusNotFound {
 		t.Errorf("without an editor = %d", res.StatusCode)
+	}
+}
+
+func TestProjectEndpoints(t *testing.T) {
+	resets := 0
+	_, ts, sup := newTestServer(t, func(c *Config) {
+		c.ProjectSettings = ProjectConfig{
+			Settings: func(context.Context) (ProjectSettings, error) {
+				ps := ProjectSettings{Project: c.Project, Git: true}
+				ps.App.Addr, ps.App.Key = "127.0.0.1:8080", "APP_ADDR"
+				ps.Danger = []DangerAction{{Name: "Reset the database", Method: http.MethodPost, Path: APIPrefix + "project/reset-database", Loses: "every row", Available: true}}
+				return ps, nil
+			},
+			ResetDatabase: func(context.Context) error { resets++; return c.Supervisor.ResetDatabase() },
+		}
+	})
+	res := call(t, ts, http.MethodGet, APIPrefix+"project", "", nil)
+	raw, _ := io.ReadAll(res.Body)
+	if res.StatusCode != http.StatusOK || !strings.Contains(string(raw), `"key":"APP_ADDR"`) || !strings.Contains(string(raw), `"git":true`) || !strings.Contains(string(raw), `"danger":[{`) {
+		t.Errorf("project = %d %s", res.StatusCode, raw)
+	}
+	res = call(t, ts, http.MethodPost, APIPrefix+"project/reset-database", "", nil)
+	if res.StatusCode != http.StatusAccepted || resets != 1 || !strings.Contains(strings.Join(sup.actions, ","), "reset-database") {
+		t.Errorf("reset = %d, resets %d, actions %v", res.StatusCode, resets, sup.actions)
+	}
+	_, ts2, _ := newTestServer(t, nil)
+	if res := call(t, ts2, http.MethodGet, APIPrefix+"project", "", nil); res.StatusCode != http.StatusNotFound {
+		t.Errorf("without settings = %d", res.StatusCode)
+	}
+	if res := call(t, ts2, http.MethodPost, APIPrefix+"project/reset-database", "", nil); res.StatusCode != http.StatusNotFound {
+		t.Errorf("reset without a database = %d", res.StatusCode)
 	}
 }

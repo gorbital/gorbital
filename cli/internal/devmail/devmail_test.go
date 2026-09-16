@@ -23,6 +23,9 @@ func TestParse(t *testing.T) {
 	if len(sum.Codes) != 1 || sum.Codes[0] != "483920" {
 		t.Errorf("codes = %v", sum.Codes)
 	}
+	if got := codes("Recovery code ABCD-EFGH; invoice INV-2026-0912 due 2026-09-30; pin 123456.", ""); strings.Join(got, ",") != "ABCD-EFGH,123456" {
+		t.Errorf("codes() = %v, want the recovery code and the pin only", got)
+	}
 	if !strings.Contains(detail.Text, "Your code is 483920.") || !strings.Contains(detail.HTML, "<b>483920</b>") || detail.MessageID != "abc@acme.test" {
 		t.Errorf("detail = %+v", detail)
 	}

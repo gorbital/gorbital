@@ -9,14 +9,19 @@ import (
 	"mime/quotedprintable"
 	"net/mail"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode"
 )
 
 var (
-	// codePattern finds verification codes: 6 to 8 digits, or groups such
-	// as ABCD-EFGH, standing alone.
-	codePattern = regexp.MustCompile(`\b(\d{6,8}|[A-Z0-9]{4,6}-[A-Z0-9]{4,6})\b`)
+	// digitCode finds numeric verification codes: 6 to 8 digits standing
+	// alone. groupCode finds grouped codes such as ABCD-EFGH: two groups
+	// of 4 to 6 letters or digits with a dash, not part of a longer
+	// dashed token (an invoice number like INV-2026-0912) and with at
+	// least one letter (checked in codes).
+	digitCode   = regexp.MustCompile(`\b\d{6,8}\b`)
+	groupCode   = regexp.MustCompile(`(?:^|[^A-Za-z0-9-])([A-Z0-9]{4,6}-[A-Z0-9]{4,6})(?:[^A-Za-z0-9-]|$)`)
 	linkPattern = regexp.MustCompile(`https?://[^\s"'<>)\]]+`)
 	hrefPattern = regexp.MustCompile(`(?is)<a[^>]+href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>`)
 	tagPattern  = regexp.MustCompile(`(?s)<[^>]*>`)
@@ -30,7 +35,7 @@ func Parse(raw []byte) (Summary, Detail, error) {
 		// Not a parseable message: keep it whole as text.
 		text := string(raw)
 		sum := Summary{Subject: "(unparseable message)", Snippet: snippet(text), HasText: true, Codes: []string{}}
-		return sum, Detail{Summary: sum, Headers: map[string]string{}, Text: text, Links: []Link{}, Attachment: []Attachment{}}, nil
+		return sum, Detail{Summary: sum, Headers: map[string]string{}, Text: text, Links: []Link{}, Attachment: []Attachment{}}, nil //nolint:nilerr // an unparseable message is kept, not lost
 	}
 	dec := new(mime.WordDecoder)
 	decodeHeader := func(v string) string {
@@ -182,11 +187,30 @@ func snippet(text string) string {
 func codes(text, subject string) []string {
 	seen := map[string]bool{}
 	out := []string{}
-	for _, m := range codePattern.FindAllString(subject+"\n"+text, -1) {
-		if !seen[m] {
-			seen[m] = true
-			out = append(out, m)
+	add := func(c string) {
+		if !seen[c] {
+			seen[c] = true
+			out = append(out, c)
 		}
+	}
+	src := subject + "\n" + text
+	type hit struct {
+		at   int
+		code string
+	}
+	var hits []hit
+	for _, m := range digitCode.FindAllStringIndex(src, -1) {
+		hits = append(hits, hit{m[0], src[m[0]:m[1]]})
+	}
+	for _, m := range groupCode.FindAllStringSubmatchIndex(src, -1) {
+		code := src[m[2]:m[3]]
+		if strings.ContainsFunc(code, unicode.IsLetter) {
+			hits = append(hits, hit{m[2], code})
+		}
+	}
+	sort.Slice(hits, func(i, j int) bool { return hits[i].at < hits[j].at })
+	for _, h := range hits {
+		add(h.code)
 	}
 	return out
 }

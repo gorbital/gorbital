@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -211,26 +212,27 @@ func (d *devRunner) portalConfig() portal.Config {
 		links["grafana"] = "http://127.0.0.1:" + envValue(env, "GRAFANA_PORT", "3000")
 	}
 	return portal.Config{
-		Token:        d.portalToken,
-		Version:      Version,
-		Project:      d.project(),
-		Supervisor:   d,
-		Hub:          d.hub,
-		ConsoleToken: d.consoleToken,
-		Links:        links,
-		Generators:   d.generators(),
-		Jobs:         func() ([]portal.JobSource, error) { return jobSources(d.dir) },
-		Logs:         d.logs,
-		System:       d.system,
-		Mail:         portal.MailConfig{Store: d.mailStore, SMTPAddr: d.mailAddr},
-		Env:          portal.NewEnvEditor(d.dir),
-		Git:          portal.NewGit(d.dir),
-		OpenInEditor: func(path string, line int) error { return openInEditor(d.dir, path, line) },
-		Health:       d.health,
-		Database:     d.databaseConfig(),
-		SQL:          d.sqlStore(),
-		UI:           ui.FS(),
-		Logf:         func(format string, args ...any) { fmt.Fprintf(d.out, format+"\n", args...) },
+		Token:           d.portalToken,
+		Version:         Version,
+		Project:         d.project(),
+		Supervisor:      d,
+		Hub:             d.hub,
+		ConsoleToken:    d.consoleToken,
+		Links:           links,
+		Generators:      d.generators(),
+		Jobs:            func() ([]portal.JobSource, error) { return jobSources(d.dir) },
+		Logs:            d.logs,
+		System:          d.system,
+		Mail:            portal.MailConfig{Store: d.mailStore, SMTPAddr: d.mailAddr},
+		Env:             portal.NewEnvEditor(d.dir),
+		Git:             portal.NewGit(d.dir),
+		ProjectSettings: portal.ProjectConfig{Settings: d.projectSettings, ResetDatabase: d.resetDatabase},
+		OpenInEditor:    func(path string, line int) error { return openInEditor(d.dir, path, line) },
+		Health:          d.health,
+		Database:        d.databaseConfig(),
+		SQL:             d.sqlStore(),
+		UI:              ui.FS(),
+		Logf:            func(format string, args ...any) { fmt.Fprintf(d.out, format+"\n", args...) },
 	}
 }
 
@@ -390,6 +392,10 @@ func (d *devRunner) MigrateDown() error { return d.requestMigration(commandDown)
 // and applies it again.
 func (d *devRunner) MigrateRedo() error { return d.requestMigration(commandRedo) }
 
+// ResetDatabase applies the migrations and the seed data again (the
+// portal drops the schema first).
+func (d *devRunner) ResetDatabase() error { return d.requestMigration(commandReset) }
+
 func (d *devRunner) requestMigration(c devCommand) error {
 	if !d.database {
 		return errors.New("this app has no database: migrations apply to apps created with the Full preset")
@@ -419,7 +425,104 @@ func (d *devRunner) generators() map[string]portal.Generator {
 		}
 		return genplan.Apply(d.dir, plan)
 	}
+	log := func(s string) { fmt.Fprintln(d.out, "orb: "+s) }
 	return map[string]portal.Generator{
+		"add-mail": {
+			Plan: func(ctx context.Context, input json.RawMessage) (genplan.Plan, error) {
+				a, err := app()
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				plan, _, err := planAddMail(ctx, a, input)
+				return plan, err
+			},
+			Apply: func(ctx context.Context, input json.RawMessage, allowDirty bool) (genplan.Plan, error) {
+				a, err := app()
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				plan, mp, err := planAddMail(ctx, a, input)
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				if mp.empty() {
+					return plan, nil
+				}
+				return plan, applyAddMail(ctx, d.dir, mp, allowDirty, log)
+			},
+		},
+		"add-storage": {
+			Plan: func(_ context.Context, input json.RawMessage) (genplan.Plan, error) {
+				a, err := app()
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				plan, _, err := planAddStorage(a, input)
+				return plan, err
+			},
+			Apply: func(ctx context.Context, input json.RawMessage, allowDirty bool) (genplan.Plan, error) {
+				a, err := app()
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				plan, sp, err := planAddStorage(a, input)
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				if !allowDirty {
+					if err := requireCleanGit(ctx, d.dir); err != nil {
+						return genplan.Plan{}, err
+					}
+				}
+				return plan, applyStorage(d.dir, sp)
+			},
+		},
+		"add-rls": {
+			Plan: func(ctx context.Context, _ json.RawMessage) (genplan.Plan, error) {
+				a, err := app()
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				plan, _, err := planAddRLS(ctx, a)
+				return plan, err
+			},
+			Apply: func(ctx context.Context, _ json.RawMessage, allowDirty bool) (genplan.Plan, error) {
+				a, err := app()
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				plan, rp, err := planAddRLS(ctx, a)
+				if err != nil || len(rp.writes) == 0 {
+					return plan, err
+				}
+				if !allowDirty {
+					if err := requireCleanGit(ctx, d.dir); err != nil {
+						return genplan.Plan{}, err
+					}
+				}
+				return plan, applyStorage(d.dir, storagePlan{writes: rp.writes})
+			},
+		},
+		"add-orgs": {
+			Plan: func(ctx context.Context, _ json.RawMessage) (genplan.Plan, error) {
+				a, err := app()
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				return planAddOrgs(ctx, a)
+			},
+			Apply: func(ctx context.Context, _ json.RawMessage, _ bool) (genplan.Plan, error) {
+				a, err := app()
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				plan, err := planAddOrgs(ctx, a)
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				return plan, applyAddOrgs(ctx, a, log)
+			},
+		},
 		"job": {
 			Plan: func(_ context.Context, input json.RawMessage) (genplan.Plan, error) {
 				a, in, err := portalJobInput(app, input)
@@ -814,4 +917,77 @@ func firstEnv(keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// projectSettings describes the app for the Project Settings screen
+// (ADR-0077) from the manifest, go.mod and .env, never with secrets.
+func (d *devRunner) projectSettings(context.Context) (portal.ProjectSettings, error) {
+	env, _ := devEnv(".env")
+	env = withAppEnv(env)
+	ps := portal.ProjectSettings{Project: d.project(), Git: insideGitRepo(context.Background(), d.dir)}
+	ps.App.Addr, ps.App.URL, ps.App.Key = appAddr(env), "http://"+reachableAddr(appAddr(env)), "APP_ADDR"
+	ps.Portal.Port, ps.Portal.Key = d.portalPort, "DEV_PORTAL_PORT"
+	ps.DatabaseSettings.Key, ps.DatabaseSettings.PortKey = "DATABASE_URL", "POSTGRES_PORT"
+	if u := envValue(env, "DATABASE_URL", ""); u != "" {
+		ps.DatabaseSettings.Configured = true
+		ps.DatabaseSettings.Host = databaseHost(u)
+	}
+	ps.Mail.Delivery, ps.Mail.Key = mailDelivery(env), "MAIL_DELIVERY"
+	if ps.Mail.Delivery == "devmail" {
+		ps.Mail.CatcherAddr = devMailAddr(env)
+	}
+	ps.Storage.Driver, ps.Storage.Key = envValue(env, "STORAGE_DRIVER", "local"), "STORAGE_DRIVER"
+	ps.Storage.Bucket = envValue(env, "STORAGE_BUCKET", "")
+	if ps.Storage.Driver == "local" {
+		ps.Storage.LocalDir = envValue(env, "STORAGE_LOCAL_DIR", ".orb/storage")
+	}
+	ps.CORS.Origins, ps.CORS.Key = []string{}, "APP_CORS_ORIGINS"
+	for _, o := range strings.Split(envValue(env, "APP_CORS_ORIGINS", ""), ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			ps.CORS.Origins = append(ps.CORS.Origins, o)
+		}
+	}
+	ps.Logging.Level, ps.Logging.Format, ps.Logging.Keys = envValue(env, "APP_LOG_LEVEL", "info"), envValue(env, "APP_LOG_FORMAT", "json (orb dev)"), []string{"APP_LOG_LEVEL", "APP_LOG_FORMAT"}
+	ps.Docs.Enabled, ps.Docs.Key = envValue(env, "APP_DOCS_ENABLED", "true") != "false", "APP_DOCS_ENABLED"
+	ps.Danger = []portal.DangerAction{
+		{Name: "Reset the database", Method: http.MethodPost, Path: portal.APIPrefix + "project/reset-database", Loses: "every row of every table; the schema is dropped, then migrations and seed data run again", Available: d.database},
+		{Name: "Clear the log store", Method: http.MethodDelete, Path: portal.APIPrefix + "logs", Loses: "every stored log record under .orb/portal/logs", Available: d.logs != nil},
+		{Name: "Clear the inbox", Method: http.MethodDelete, Path: portal.APIPrefix + "mail", Loses: "every caught email under .orb/portal/mail", Available: d.mailStore != nil},
+		{Name: "Clear the SQL history", Method: http.MethodDelete, Path: portal.APIPrefix + "db/sql/history", Loses: "the SQL editor's run history (favourites and snippets stay)", Available: d.database},
+	}
+	return ps, nil
+}
+
+// databaseHost is host:port/name of a database URL, without credentials.
+func databaseHost(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return ""
+	}
+	return u.Host + u.Path
+}
+
+// resetDatabase drops the public schema and asks the supervisor to apply
+// migrations and seed data again.
+func (d *devRunner) resetDatabase(ctx context.Context) error {
+	open := d.databaseConfig().Open
+	if open == nil {
+		return errors.New("this app has no database")
+	}
+	db, err := open(ctx)
+	if err != nil {
+		return err
+	}
+	runner, ok := db.(portal.SQLRunner)
+	if !ok {
+		return errors.New("the database can't run SQL")
+	}
+	res, err := runner.Run(ctx, pgmeta.RunRequest{SQL: "DROP SCHEMA public CASCADE; CREATE SCHEMA public;", Mode: pgmeta.ModeCommit})
+	if err != nil {
+		return err
+	}
+	if res.Error != nil {
+		return errors.New(res.Error.Message)
+	}
+	return d.ResetDatabase()
 }

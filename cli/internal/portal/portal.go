@@ -149,6 +149,8 @@ type Config struct {
 	Env *EnvEditor
 	// Git runs git in the app directory (ADR-0076); nil answers 404.
 	Git *Git
+	// ProjectSettings feeds the Project Settings screen (ADR-0077).
+	ProjectSettings ProjectConfig
 	// OpenInEditor opens a file (at a line, when positive) in the
 	// developer's editor; nil answers 404.
 	OpenInEditor func(path string, line int) error

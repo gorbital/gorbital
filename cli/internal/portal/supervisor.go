@@ -64,6 +64,9 @@ type Supervisor interface {
 	// check that a migration's Down works (ADR-0069).
 	MigrateDown() error
 	MigrateRedo() error
+	// ResetDatabase applies every migration and the seed data again after
+	// the portal dropped the schema (ADR-0077).
+	ResetDatabase() error
 }
 
 // OutputLine is one line the app or orb wrote.

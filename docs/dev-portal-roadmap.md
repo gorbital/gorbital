@@ -18,17 +18,17 @@ Each phase lives on its own branch, `dev-portal/phase-N`, in both repositories (
 |---|---|---|---|
 | [0](#phase-0-foundations) | Foundations | ✅ Done (2026-09-16); items 6 and 7 ship with Phases 2 and 3 | `dev-portal/phase-0` |
 | [1](#phase-1-connect-the-existing-screens) | Connect the existing screens | ✅ Done (2026-09-16); Bootstrap became Requests and Logs, Audit is the audit log | `dev-portal/phase-1` |
-| [2](#phase-2-table-editor) | Table Editor | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-2` |
-| [3](#phase-3-sql-editor) | SQL Editor | 🔨 In progress (2026-09-16): backend done; history is a JSON Lines file, not SQLite | `dev-portal/phase-3` |
-| [4](#phase-4-schema-visualiser-objects-migrations) | Schema visualiser, objects, migrations | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-4` |
-| [5](#phase-5-authentication) | Authentication | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-5` |
-| [6](#phase-6-jobs) | Jobs | 🔨 In progress (2026-09-16): backend done ([ADR-0071](adr/0071-job-kinds-and-ejection.md)) | `dev-portal/phase-6` |
-| [7](#phase-7-logs) | Logs | 🔨 In progress (2026-09-16): backend done ([ADR-0072](adr/0072-local-log-store.md)); the store is JSON Lines under `.orb/portal/logs`, not SQLite | `dev-portal/phase-7` |
-| [8](#phase-8-observability) | Observability | 🔨 In progress (2026-09-16): backend done ([ADR-0073](adr/0073-observability-screen.md)); no OTLP receiver, the screen builds on the request minutes, `/ops/system`, `pgmeta` statistics and a machine sampler | `dev-portal/phase-8` |
+| [2](#phase-2-table-editor) | Table Editor | ✅ Done (2026-09-16) | `dev-portal/phase-2` |
+| [3](#phase-3-sql-editor) | SQL Editor | ✅ Done (2026-09-16); history is a JSON Lines file, not SQLite | `dev-portal/phase-3` |
+| [4](#phase-4-schema-visualiser-objects-migrations) | Schema visualiser, objects, migrations | ✅ Done (2026-09-16) | `dev-portal/phase-4` |
+| [5](#phase-5-authentication) | Authentication | ✅ Done (2026-09-17) | `dev-portal/phase-5` |
+| [6](#phase-6-jobs) | Jobs | ✅ Done (2026-09-17) ([ADR-0071](adr/0071-job-kinds-and-ejection.md)); run-now arguments and enqueue-for-later wait for an ops endpoint that takes them | `dev-portal/phase-6` |
+| [7](#phase-7-logs) | Logs | ✅ Done (2026-09-17) ([ADR-0072](adr/0072-local-log-store.md)); the store is JSON Lines under `.orb/portal/logs`, not SQLite | `dev-portal/phase-7` |
+| [8](#phase-8-observability) | Observability | ✅ Done (2026-09-17) ([ADR-0073](adr/0073-observability-screen.md)); no OTLP receiver, the screen builds on the request minutes, `/ops/system`, `pgmeta` statistics and a machine sampler | `dev-portal/phase-8` |
 | [9](#phase-9-mail-env-configuration) | Mail, env, configuration | 🔨 In progress (2026-09-16): backend done ([ADR-0074](adr/0074-dev-mail-previews-and-env-editor.md)) | `dev-portal/phase-9` |
 | [10](#phase-10-storage) | Storage | 🔨 In progress (2026-09-17): backend done ([ADR-0075](adr/0075-file-storage.md)) | `dev-portal/phase-10` |
 | [11](#phase-11-git) | Git | 🔨 In progress (2026-09-17): backend done ([ADR-0076](adr/0076-git-screen.md)) | `dev-portal/phase-11` |
-| [12](#phase-12-generators-and-scaffolding) | Generators and scaffolding | Planned | `dev-portal/phase-12` |
+| [12](#phase-12-generators-and-scaffolding) | Generators and scaffolding | 🔨 In progress (2026-09-17): backend done ([ADR-0077](adr/0077-generators-hub-first-run-and-project-settings.md)) | `dev-portal/phase-12` |
 | [13](#phase-13-advanced) | Advanced | ⏸ Skipped for now (2026-09-16, by decision): the work stops after Phase 12 | — |
 
 ## Architecture
@@ -262,7 +262,7 @@ Docs: a Git page in the guides, including what the portal never does (rewrite hi
 | 83 | `orb new` creates the project, runs `orb dev` and opens the portal, so the first run ends in the browser | Backend |
 | 84 | Project settings: name, ports, database, CORS origins, mail, storage driver, API and service-account keys; danger zone: reset the database, clear the portal's logs and history | Backend, frontend |
 
-Docs: the [CLI guide](guides/cli.md) and the quickstart updated for the new first run.
+Docs: the [CLI guide](guides/cli.md) and the quickstart updated for the new first run. Decided in [ADR-0077](adr/0077-generators-hub-first-run-and-project-settings.md): `add-mail`, `add-storage` and `add-rls` plan with a diff; `add-orgs` previews its dry run and runs its branch workflow; `orb new --start`/`--no-start`; `GET /_portal/api/project` and the danger zone.
 
 ## Phase 13: Advanced
 

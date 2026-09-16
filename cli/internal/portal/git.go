@@ -60,7 +60,7 @@ func NewGit(dir string) *Git {
 }
 
 func runGit(ctx context.Context, dir string, stdin []byte, args ...string) ([]byte, []byte, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // arguments are validated (paths, branch names) and never pass through a shell
 	cmd.Dir = dir
 	// No prompts: a credential helper or an SSH agent answers, or the
 	// command fails with its message.
@@ -268,7 +268,7 @@ func (g *Git) Diff(ctx context.Context, path string, staged bool) (GitDiff, erro
 		if tracked, _ := g.git(ctx, g.timeout, nil, "ls-files", "--error-unmatch", "--", path); tracked == "" {
 			out, err = g.git(ctx, g.timeout, nil, "diff", "--no-color", "--no-index", "--", "/dev/null", path)
 			var ge *gitError
-			if err != nil && !(errors.As(err, &ge) && ge.code == 1) {
+			if err != nil && (!errors.As(err, &ge) || ge.code != 1) {
 				return GitDiff{}, err
 			}
 			d.Untracked = true
@@ -604,7 +604,7 @@ func (g *Git) MergePreview(ctx context.Context, branch string) (GitMergePreview,
 	}
 	out, err := g.git(ctx, g.timeout, nil, "merge-tree", "--write-tree", "--name-only", "--no-messages", "HEAD", branch)
 	var ge *gitError
-	if err != nil && !(errors.As(err, &ge) && ge.code == 1) {
+	if err != nil && (!errors.As(err, &ge) || ge.code != 1) {
 		return GitMergePreview{}, err
 	}
 	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")

@@ -119,43 +119,11 @@ func runAddStorage(ctx context.Context, args []string, stdin io.Reader, stdout, 
 		return usageError("--bucket is required with --no-input")
 	}
 
-	// What changes: the block in .env.example, the values in .env, and
-	// the MinIO service.
-	block := storageBlock(in)
-	updatedExample, err := recipes.ReplaceBlock(example, "storage", []byte(block))
+	sp, err := planStorage(app.dir, in)
 	if err != nil {
 		return err
 	}
-	var files, envVars []string
-	if string(updatedExample) != string(example) {
-		files = append(files, envExamplePath)
-	}
-	set := map[string]string{"STORAGE_DRIVER": in.driver}
-	for k, v := range map[string]string{"STORAGE_ENDPOINT": in.endpoint, "STORAGE_REGION": in.region, "STORAGE_BUCKET": in.bucket, "STORAGE_ACCESS_KEY": in.accessKey, "STORAGE_PUBLIC_URL": in.publicURL} {
-		if v != "" {
-			set[k] = v
-		}
-	}
-	if in.driver == "minio" {
-		set["STORAGE_SECRET_KEY"] = "minioadmin"
-	}
-	for k := range set {
-		envVars = append(envVars, k)
-	}
-	slices.Sort(envVars)
-	envPath := filepath.Join(app.dir, ".env")
-	if _, err := os.Stat(envPath); err == nil {
-		files = append(files, ".env")
-	}
-	composePath := filepath.Join(app.dir, "compose.yaml")
-	addMinio := false
-	if in.driver == "minio" {
-		compose, err := os.ReadFile(composePath)
-		if err == nil && !strings.Contains(string(compose), "\n  minio:") {
-			addMinio = true
-			files = append(files, "compose.yaml")
-		}
-	}
+	files, envVars := sp.paths(), sp.envVars
 	result := addStorageResult{Driver: in.driver, Files: files, EnvVariables: envVars, DryRun: *dryRun}
 	if !*dryRun {
 		if !*allowDirty {
@@ -163,32 +131,8 @@ func runAddStorage(ctx context.Context, args []string, stdin io.Reader, stdout, 
 				return err
 			}
 		}
-		if err := os.WriteFile(filepath.Join(app.dir, envExamplePath), updatedExample, 0o644); err != nil { //nolint:gosec // the example is committed
+		if err := applyStorage(app.dir, sp); err != nil {
 			return err
-		}
-		if data, err := os.ReadFile(envPath); err == nil {
-			f := portal.ParseEnv(data)
-			keys := make([]string, 0, len(set))
-			for k := range set {
-				keys = append(keys, k)
-			}
-			slices.Sort(keys)
-			for _, k := range keys {
-				f.Set(k, set[k], "")
-			}
-			if err := os.WriteFile(envPath, f.Bytes(), 0o600); err != nil {
-				return err
-			}
-		}
-		if addMinio {
-			compose, _ := os.ReadFile(composePath)
-			updated, err := insertComposeService(string(compose), minioService, "minio-data")
-			if err != nil {
-				return err
-			}
-			if err := os.WriteFile(composePath, []byte(updated), 0o644); err != nil { //nolint:gosec // compose.yaml is committed
-				return err
-			}
 		}
 	}
 	if *asJSON {
@@ -199,15 +143,119 @@ func runAddStorage(ctx context.Context, args []string, stdin io.Reader, stdout, 
 		verb = "Would set up"
 	}
 	fmt.Fprintf(stdout, "%s file storage with %s\n  Files:     %s\n  Variables: %s\n", verb, in.driver, strings.Join(files, ", "), strings.Join(envVars, ", "))
-	switch in.driver {
-	case "local":
-		fmt.Fprintln(stdout, "\nFiles live under STORAGE_LOCAL_DIR (.orb/storage). Nothing else to do.")
-	case "minio":
-		fmt.Fprintln(stdout, "\nNext: orb dev starts MinIO from compose.yaml. Create the bucket once in its console (http://127.0.0.1:9001, minioadmin / minioadmin) or with `mc mb`.")
-	default:
-		fmt.Fprintln(stdout, "\nNext: put STORAGE_SECRET_KEY (and STORAGE_ACCESS_KEY, STORAGE_BUCKET if not given) in .env, then restart the app. See docs/guides/storage.md.")
+	for _, line := range storageNextSteps(in.driver) {
+		fmt.Fprintln(stdout, "\n"+line)
 	}
 	return nil
+}
+
+// storagePlan is what orb add storage writes.
+type storagePlan struct {
+	writes  []fileWrite
+	envVars []string
+}
+
+func (p storagePlan) paths() []string {
+	out := make([]string, 0, len(p.writes))
+	for _, w := range p.writes {
+		out = append(out, w.path)
+	}
+	return out
+}
+
+// planStorage computes the block in .env.example, the values in .env and
+// the MinIO service for a driver.
+func planStorage(dir string, in storageInput) (storagePlan, error) {
+	example, err := os.ReadFile(filepath.Join(dir, envExamplePath))
+	if err != nil {
+		return storagePlan{}, fmt.Errorf("orb add storage needs %s: %w", envExamplePath, err)
+	}
+	if _, err := recipes.Block(example, "storage"); err != nil {
+		return storagePlan{}, fmt.Errorf("%s has no storage block; add these two lines where the storage variables should go, then run orb add storage again:\n  # orb:begin storage\n  # orb:end storage", envExamplePath)
+	}
+	if !contains(storageDrivers, in.driver) {
+		return storagePlan{}, usageError(fmt.Sprintf("--driver must be one of %s, got %q", strings.Join(storageDrivers, ", "), in.driver))
+	}
+	if in.driver == "minio" {
+		if in.endpoint == "" {
+			in.endpoint = "127.0.0.1:9000"
+		}
+		if in.accessKey == "" {
+			in.accessKey = "minioadmin"
+		}
+		if in.bucket == "" {
+			in.bucket = filepath.Base(dir)
+		}
+	}
+	var sp storagePlan
+	updatedExample, err := recipes.ReplaceBlock(example, "storage", []byte(storageBlock(in)))
+	if err != nil {
+		return storagePlan{}, err
+	}
+	if string(updatedExample) != string(example) {
+		sp.writes = append(sp.writes, fileWrite{path: envExamplePath, content: updatedExample, perm: 0o644})
+	}
+	set := map[string]string{"STORAGE_DRIVER": in.driver}
+	for k, v := range map[string]string{"STORAGE_ENDPOINT": in.endpoint, "STORAGE_REGION": in.region, "STORAGE_BUCKET": in.bucket, "STORAGE_ACCESS_KEY": in.accessKey, "STORAGE_PUBLIC_URL": in.publicURL} {
+		if v != "" {
+			set[k] = v
+		}
+	}
+	if in.driver == "minio" {
+		set["STORAGE_SECRET_KEY"] = "minioadmin"
+	}
+	keys := make([]string, 0, len(set))
+	for k := range set {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	sp.envVars = keys
+	if data, err := os.ReadFile(filepath.Join(dir, envPath)); err == nil {
+		f := portal.ParseEnv(data)
+		for _, k := range keys {
+			f.Set(k, set[k], "")
+		}
+		if string(f.Bytes()) != string(data) {
+			sp.writes = append(sp.writes, fileWrite{path: envPath, content: f.Bytes(), perm: 0o600})
+		}
+	}
+	if in.driver == "minio" {
+		if compose, err := os.ReadFile(filepath.Join(dir, "compose.yaml")); err == nil && !strings.Contains(string(compose), "\n  minio:") {
+			updated, err := insertComposeService(string(compose), minioService, "minio-data")
+			if err != nil {
+				return storagePlan{}, err
+			}
+			sp.writes = append(sp.writes, fileWrite{path: "compose.yaml", content: []byte(updated), perm: 0o644})
+		}
+	}
+	return sp, nil
+}
+
+// applyStorage writes the plan.
+func applyStorage(dir string, sp storagePlan) error {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	for _, w := range sp.writes {
+		if err := root.WriteFile(w.path, w.content, w.perm); err != nil {
+			return fmt.Errorf("write %s: %w", w.path, err)
+		}
+	}
+	return nil
+}
+
+// storageNextSteps says what to do after the driver is set.
+func storageNextSteps(driver string) []string {
+	switch driver {
+	case "local":
+		return []string{"Files live under STORAGE_LOCAL_DIR (.orb/storage). Nothing else to do."}
+	case "minio":
+		return []string{"orb dev starts MinIO from compose.yaml. Create the bucket once in its console (http://127.0.0.1:9001, minioadmin / minioadmin) or with `mc mb`."}
+	default:
+		return []string{"Put STORAGE_SECRET_KEY (and STORAGE_ACCESS_KEY, STORAGE_BUCKET if not given) in .env, then restart the app. See docs/guides/storage.md."}
+	}
 }
 
 // storageBlock renders the storage block of .env.example for a driver.

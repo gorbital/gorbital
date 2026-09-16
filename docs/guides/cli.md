@@ -78,6 +78,7 @@ Creates an app.
 orb new                                   # asks for everything
 orb new my-api                            # asks for the rest
 orb new my-api --module github.com/you/my-api --local ~/code/gorbital --yes
+orb new my-api --no-start                 # create it, but don't start orb dev
 ```
 
 | Question | Flag | Default |
@@ -103,7 +104,7 @@ Questions come one at a time. Each answered question folds into one line, and va
 ? create shop-api in ./shop-api? … yes  no
 ```
 
-Then `orb new` prints a log: one line per finished step, where things are in the new app, and the commands to run next. `--json` prints only the result.
+Then `orb new` prints a log: one line per finished step, where things are in the new app, and the commands to run next. In a terminal it then starts `orb dev` in the new app, which opens the Dev Portal, so the first run ends in the browser ([ADR-0077](../adr/0077-generators-hub-first-run-and-project-settings.md)); `--no-start` (and `--yes`, `--no-input`, `--json`) skip that, `--start` forces it. `--json` prints only the result.
 
 ```text
 creating shop-api in ./shop-api

@@ -47,6 +47,8 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	tenancy := flags.String("tenancy", recipes.TenancySingle, "who owns the data (Full preset): single (users) or multi (organisations with members, roles and invitations)")
 	local := flags.String("local", "", "path to an gorbital checkout, used through replace directives (default: the checkout you are in, if any)")
 	noGit := flags.Bool("no-git", false, "don't initialise a git repository")
+	start := flags.Bool("start", false, "run orb dev in the new app and open the Dev Portal when it is created (the default in a terminal; --no-start turns it off)")
+	noStart := flags.Bool("no-start", false, "don't run orb dev afterwards")
 	skipTidy := flags.Bool("skip-tidy", false, "don't run go mod tidy")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	var p promptFlags
@@ -175,6 +177,15 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 		return writeJSON(stdout, res)
 	}
 	fmt.Fprintf(stdout, "\n%s\n\n%s", s.strong.Render("created "+name), nextSteps(s, name, chosen))
+	// The first run ends in the browser: in a terminal, orb dev starts and
+	// opens the Dev Portal unless --no-start (ADR-0077).
+	if *start || (!*noStart && ask) {
+		fmt.Fprintf(stdout, "\n%s\n", s.dim.Render("starting orb dev in "+name+" (Ctrl-C stops it; --no-start skips this)"))
+		if err := os.Chdir(name); err != nil {
+			return err
+		}
+		return runDev(ctx, nil, stderr)
+	}
 	return nil
 }
 

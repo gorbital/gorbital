@@ -162,6 +162,7 @@ const (
 	commandMigrate devCommand = "migrate"
 	commandDown    devCommand = "migrate-down"
 	commandRedo    devCommand = "migrate-redo"
+	commandReset   devCommand = "reset-database"
 )
 
 func newDevRunner(out io.Writer) *devRunner {
@@ -484,12 +485,15 @@ func (d *devRunner) runCommand(ctx context.Context, c devCommand, lastSQL *uint6
 			fmt.Fprintf(d.out, "orb: start failed: %v\n", err)
 			d.setState(portal.StateStopped, err.Error())
 		}
-	case commandMigrate, commandDown, commandRedo:
-		args := map[devCommand][]string{commandMigrate: nil, commandDown: {"--down"}, commandRedo: {"--redo"}}[c]
+	case commandMigrate, commandDown, commandRedo, commandReset:
+		args := map[devCommand][]string{commandMigrate: nil, commandDown: {"--down"}, commandRedo: {"--redo"}, commandReset: nil}[c]
 		fmt.Fprintf(d.out, "orb: %s requested from the Dev Portal\n", c)
 		env, err := devEnv(".env")
 		if err == nil {
 			err = d.migrateWith(ctx, withAppEnv(env), args...)
+		}
+		if err == nil && c == commandReset {
+			err = d.seed(ctx, withAppEnv(env))
 		}
 		if err != nil {
 			d.setStateAfterFailure("migrations failed: " + err.Error())
