@@ -107,6 +107,9 @@ Skip this step if you only need sign-in inside iOS apps.
 
    **Identifiers** → **+** → **Services IDs** → **Continue**. **Description**: shown to people on Apple's sign-in page, so use your app's name. **Identifier**: a reverse-domain name that differs from the App ID, such as `com.example.web`. Click **Continue** → **Register**.
 
+   > [!NOTE]
+   > **Apple doesn't generate this value.** Unlike `APPLE_TEAM_ID` or `APPLE_KEY_ID`, you make the Services ID up yourself, the way you'd pick a username: any reverse-domain string that isn't already taken and differs from your App ID. `com.example.web`, `com.example.signin` and `com.example.app.web` are all equally valid.
+
 2. **Configure Sign in with Apple**
 
    Click the new Services ID, tick **Sign in with Apple**, and click **Configure**.
@@ -241,14 +244,21 @@ Apple needs a public https address, so give your computer one with a tunnel. For
 cloudflared tunnel --url http://localhost:8080
 ```
 
-It prints an address such as `https://random-words.trycloudflare.com`. Then:
+It runs in the foreground and keeps that address only while it's running: this is a free, temporary address Cloudflare hands out so Apple has something https to send people back to, not anything you register or pay for. Leave it running in its own terminal for the rest of this section, and start a new one (with a new address) next time.
 
-1. Add that host to the Services ID's **Domains and Subdomains**, and `https://random-words.trycloudflare.com/v1/auth/apple/callback` to its **Return URLs**.
-2. In `.env`, set `APP_PUBLIC_URL=https://random-words.trycloudflare.com` and restart.
-3. In your browser, open `https://random-words.trycloudflare.com/v1/auth/apple/start`, using the tunnel address throughout rather than localhost.
-4. Sign in at Apple. You come back to `/docs` on the tunnel address, signed in; `/v1/auth/me` shows the account.
+It prints a line such as `https://random-words.trycloudflare.com`. Then:
 
-A quick tunnel's address changes each time you start it, so remove old ones from the Services ID when you're done. `ngrok http 8080` works the same way.
+1. **Go back to the Services ID** (`Identifiers` → `Services IDs` → yours) → **Sign in with Apple** → **Configure**.
+2. Under **Domains and Subdomains**, add the tunnel's host only: `random-words.trycloudflare.com`, no `https://`.
+3. Under **Return URLs**, add the full callback address: `https://random-words.trycloudflare.com/v1/auth/apple/callback`.
+4. Click through **all three** buttons, in order: **Done** (closes the URL editor) → **Continue** (back to the Services ID page) → **Save** (on that page). Adding a row in the previous screen doesn't save anything by itself — skipping the final **Save** is the most common reason this doesn't work.
+5. In `.env`, set `APP_PUBLIC_URL=https://random-words.trycloudflare.com` and restart the app (`set -a; . ./.env; set +a` first, if you're not using `orb dev`).
+6. In your browser, open `https://random-words.trycloudflare.com/v1/auth/apple/start` — the tunnel address, not `localhost`, for this and every step below.
+7. Sign in at Apple. You come back to `/docs` on the tunnel address, signed in; `/v1/auth/me` shows the account.
+
+Don't open `/v1/auth/apple/callback` yourself: Apple reaches it with a form **POST** after you sign in, and your API doesn't answer a plain `GET` there (visiting it directly shows `no route matches GET /v1/auth/apple/callback`, which is expected, not a bug).
+
+A quick tunnel's address changes each time you start it, so remove old ones from the Services ID when you're done, and update `APP_PUBLIC_URL` and the Services ID again if you restart the tunnel later. `ngrok http 8080` works the same way.
 
 ### People who already have an account
 
@@ -271,8 +281,9 @@ Your API accepts each server-to-server notification once, and only within an hou
 | The app won't start: `the Apple key must be a P-256 key` | A different kind of key, such as an APNs certificate | Create a key with **Sign in with Apple** ticked |
 | The app won't start: `read APPLE_PRIVATE_KEY_FILE` | The path is wrong or not readable by the app | Use a full path, and check the file's permissions |
 | The app won't start: `both variable and _FILE variant are set: APPLE_PRIVATE_KEY` | Both ways of giving the key are set | Keep one |
-| Apple shows `invalid_request` or `Invalid redirect_uri` | The return URL isn't registered exactly, or isn't https | Add `<APP_PUBLIC_URL>/v1/auth/apple/callback` to the Services ID exactly |
+| Apple shows `invalid_request` or `Invalid web redirect url` | The return URL isn't registered exactly, isn't https, or the Services ID's edit wasn't saved | Add `<APP_PUBLIC_URL>/v1/auth/apple/callback` to the Services ID exactly, then click through **Done → Continue → Save** — a row added in the URL editor isn't saved until the final **Save** on the Services ID page |
 | Apple's sign-in fails with `invalid_client` | The Services ID, Team ID or Key ID doesn't match, or the key was revoked or belongs to another App ID | Check all three values, and that the key is enabled for Sign in with Apple with the Services ID's primary App ID |
+| `{"code":"not_found", ... "no route matches GET /v1/auth/apple/callback"}` | You (or a browser refresh) opened the callback URL directly | Expected: that route only answers Apple's **POST**. Start again from `/v1/auth/apple/start` instead |
 | People with hidden emails never get codes | Apple doesn't relay from your sender | Do [step 6](#step-6-let-apple-forward-emails) |
 | iOS: sign-in fails at your API | The app's bundle ID isn't in `APPLE_BUNDLE_IDS`, or the nonce wasn't hashed | Add the bundle ID; send the original value, and give Apple its SHA-256 |
 | Sign-in answers `social_link_required` | The address has an account and isn't an iCloud or relay address | Sign in with the password and link Apple with `POST /v1/auth/identities` ([above](#people-who-already-have-an-account)) |

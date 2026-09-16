@@ -17,6 +17,9 @@ You don't generate anything yourself: Google creates every value.
 > [!NOTE]
 > **Words on this page.** A **client** is your app's registration at Google: it says who is asking people to sign in. The **client ID** is the client's public name. The **client secret** is its password: only your server knows it. A **redirect URI** is the address on your API where Google sends people back after they sign in.
 
+> [!WARNING]
+> **This isn't the same as a Firebase service account key.** If your project also uses Firebase, **Project settings → Service accounts** offers a "Generate new private key" button that downloads JSON starting with `"type": "service_account"` and a `private_key` field. That key lets a server call Google APIs as your project; it doesn't let people sign in, and it can't fill `GOOGLE_CLIENT_ID` or `GOOGLE_CLIENT_SECRET`. The credential this page needs comes from **APIs & Services → Credentials** instead ([step 3](#step-3-create-the-web-client)), and looks like a short ID and a `GOCSPX-…` string, not a JSON file. If you generated a service account key by mistake, delete it: **IAM & Admin → Service Accounts** → open it → **Keys** → delete the one you don't need.
+
 ## How it works
 
 1. Your website sends the browser to your API: `/v1/auth/google/start`.

@@ -181,6 +181,9 @@ Sign in with a Google account, in browsers and in your iOS and Android apps ([AD
 | `GOOGLE_IOS_CLIENT_ID` | No | The **iOS** client ID, if you have an iOS app |
 | `GOOGLE_ANDROID_CLIENT_ID` | No | The **Android** client ID, if you have an Android app |
 
+> [!WARNING]
+> **Not the same as a Firebase service account key.** If this project also uses Firebase, **Project settings → Service accounts → Generate new private key** downloads a JSON file with `"type": "service_account"` and a `private_key` field. That key lets a server call Google APIs; it can't fill `GOOGLE_CLIENT_ID` or `GOOGLE_CLIENT_SECRET`, and pasting its contents anywhere won't work. Get the values below from **APIs & Services → Credentials** in the same Cloud project instead.
+
 URLs to register (replace the domain with your API's):
 
 | Environment | Authorized redirect URI |
@@ -280,7 +283,7 @@ If the App ID exists, open it, tick **Sign in with Apple** and **Save**. Next to
 ### 3. Create the Services ID (web)
 
 1. **Identifiers** → **+** → **Services IDs** → **Continue**.
-2. **Description**: shown to users on Apple's sign-in page, such as your app's name. **Identifier**: a reverse-domain name different from the App ID, such as `com.example.web` → **Continue** → **Register**.
+2. **Description**: shown to users on Apple's sign-in page, such as your app's name. **Identifier**: you choose this yourself, like a username — any reverse-domain string that differs from the App ID and isn't already taken, such as `com.example.web` → **Continue** → **Register**.
 3. Open the new Services ID → tick **Sign in with Apple** → **Configure**:
    - **Primary App ID**: the App ID from step 2.
    - **Domains and Subdomains**: `api.example.com` (and your tunnel's host for development).
@@ -315,8 +318,9 @@ Users can hide their address; Apple then gives the app one like `abc123@privater
 
 | Error | Fix |
 |---|---|
-| `invalid_request` / `Invalid redirect_uri` | The return URL isn't registered on the Services ID exactly as the API sends it, or it's http/localhost |
+| `invalid_request` / `Invalid web redirect url` | The return URL isn't registered on the Services ID exactly as the API sends it, it's http/localhost, or step 3's edit was never saved — a row added in the URL editor isn't kept until you click **Done → Continue → Save** |
 | `invalid_client` | `APPLE_SERVICES_ID`, `APPLE_TEAM_ID` or `APPLE_KEY_ID` doesn't match, or the key was revoked or isn't enabled for Sign in with Apple with this primary App ID |
+| `{"code":"not_found", ... "no route matches GET /v1/auth/apple/callback"}` | You opened the callback URL directly in a browser | Expected — that route only answers Apple's **POST**. Start again from `/v1/auth/apple/start` |
 | Users with hidden emails never get codes | Register your sending domain in step 5 and check SPF |
 | The app says the key file can't be read | `APPLE_PRIVATE_KEY_FILE` must be an absolute path readable by the app; the file starts with `-----BEGIN PRIVATE KEY-----` |
 
