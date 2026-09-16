@@ -17,6 +17,24 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 ## Ops: auth
 
 - [List sign-in methods and what they need](/docs/ops-auth/ops-list-sign-in-methods.md): `GET /ops/auth/providers`
+- [List the rate limiters](/docs/ops-auth/ops-list-rate-limits.md): `GET /ops/auth/rate-limits`
+- [Forget a key's budget under a limiter](/docs/ops-auth/ops-reset-rate-limit.md): `POST /ops/auth/rate-limits/reset`
+- [List accounts](/docs/ops-auth/ops-list-users.md): `GET /ops/auth/users`
+- [Create an account](/docs/ops-auth/ops-create-user.md): `POST /ops/auth/users`
+- [Get an account](/docs/ops-auth/ops-get-user.md): `GET /ops/auth/users/{id}`
+- [Delete an account](/docs/ops-auth/ops-delete-user.md): `DELETE /ops/auth/users/{id}`
+- [Ban an account](/docs/ops-auth/ops-ban-user.md): `POST /ops/auth/users/{id}/ban`
+- [Unlink a Google, Apple or GitHub account](/docs/ops-auth/ops-remove-user-identity.md): `DELETE /ops/auth/users/{id}/identities/{identityId}`
+- [Start a session as an account (development only)](/docs/ops-auth/ops-impersonate-user.md): `POST /ops/auth/users/{id}/impersonate`
+- [Turn on an authenticator app for an account](/docs/ops-auth/ops-enroll-user-totp.md): `POST /ops/auth/users/{id}/mfa/enroll`
+- [Reset an account's second factors](/docs/ops-auth/ops-reset-user-mfa.md): `POST /ops/auth/users/{id}/mfa/reset`
+- [Remove a passkey from an account](/docs/ops-auth/ops-remove-user-passkey.md): `DELETE /ops/auth/users/{id}/passkeys/{passkeyId}`
+- [Grant a platform role](/docs/ops-auth/ops-grant-user-role.md): `POST /ops/auth/users/{id}/roles`
+- [Revoke a platform role](/docs/ops-auth/ops-revoke-user-role.md): `DELETE /ops/auth/users/{id}/roles/{role}`
+- [End every session of an account](/docs/ops-auth/ops-revoke-user-sessions.md): `DELETE /ops/auth/users/{id}/sessions`
+- [End one session of an account](/docs/ops-auth/ops-revoke-user-session.md): `DELETE /ops/auth/users/{id}/sessions/{sessionId}`
+- [Lift a ban](/docs/ops-auth/ops-unban-user.md): `POST /ops/auth/users/{id}/unban`
+- [Mark an address verified](/docs/ops-auth/ops-verify-user-email.md): `POST /ops/auth/users/{id}/verify-email`
 
 ## Ops: flags
 

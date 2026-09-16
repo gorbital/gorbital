@@ -248,6 +248,10 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
   Wrong passwords from someone else's network don't lock the owner out; reaching the address-wide limit does, for the rest of the window. A stolen session can't guess the password through the changes that check it. The limits are shared by every instance (PostgreSQL, [ADR-0052](../adr/0052-shared-rate-limits.md)); if the database doesn't answer, each instance applies them on its own until it does. Behind a load balancer, set `APP_TRUSTED_PROXIES` so the per-network limits apply to each client rather than to the balancer.
 - **Two-factor authentication** emails the user when it's turned on or off and when a recovery code is used.
 
+## Operating accounts
+
+Operators manage accounts through `/ops/auth/users…` ([ops API](ops-api.md#accounts), [ADR-0070](../adr/0070-operators-account-apis.md)): list and search, create, verify an address, grant roles, end sessions, remove passkeys and provider links, reset second factors, ban and delete. A banned account can't sign in by any method until the ban is lifted. In development the [Dev Portal](dev-portal.md)'s Authentication screen does all of this, and can act as a user to test the API; that impersonation doesn't exist in production.
+
 ## Sessions
 
 - A session ends after 14 days without use or 90 days in total (runtime settings `auth.session_idle_ttl`, `auth.session_absolute_ttl`), or when signed out.

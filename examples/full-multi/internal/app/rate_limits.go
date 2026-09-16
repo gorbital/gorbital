@@ -1,6 +1,8 @@
 package app
 
 import (
+	opsdomain "example.com/acme-api/internal/modules/ops/domain"
+
 	"context"
 	"log/slog"
 	"time"
@@ -88,4 +90,24 @@ func newRateLimits(pool *pgxpool.Pool, s appSettings, logger *slog.Logger) (rate
 		*l.dst = limiter
 	}
 	return limits, nil
+}
+
+// Limiters implements opsusecase.RateLimitAdmin: every limiter above.
+func (r rateLimits) Limiters() []opsdomain.RateLimiter {
+	return []opsdomain.RateLimiter{
+		{Name: "auth_ip", Keys: "client IP address", Description: "Requests to /v1/auth per address (auth.ip_requests_per_minute)"},
+		{Name: "auth_login", Keys: "normalized email address and client network, joined with a space", Description: "Sign-in attempts per address from one network (auth.login_attempts)"},
+		{Name: "auth_login_address", Keys: "normalized email address", Description: "Sign-in attempts per address across networks"},
+		{Name: "auth_mfa", Keys: "user ID", Description: "Second-factor changes per user"},
+		{Name: "auth_reauth", Keys: "user ID", Description: "Password and second-factor checks behind a session per user"},
+		{Name: "auth_code", Keys: "purpose and normalized email address, joined with a space", Description: "Verification and reset code checks per address (auth.code_attempts)"},
+		{Name: "auth_notice", Keys: "normalized email address", Description: "\"Account exists\" emails per address"},
+		{Name: "ops_test_email", Keys: "actor ID", Description: "Test emails per operator"},
+		{Name: "auth_api_key", Keys: "client network", Description: "Failed API key authentications per network"},
+	}
+}
+
+// Reset implements opsusecase.RateLimitAdmin.
+func (r rateLimits) Reset(ctx context.Context, name, key string) (bool, error) {
+	return r.store.Reset(ctx, name, key)
 }

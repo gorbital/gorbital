@@ -101,6 +101,7 @@ Generator inputs are the flags of `orb gen job`, `orb gen resource` and `orb gen
 | Schema | The tables and their foreign keys as a diagram, by schema; drag to arrange, export as PNG, SVG or Mermaid; click through to the Table Editor | `/_portal/api/db/tables`, `foreign-keys` |
 | Objects | Functions, triggers, enums, extensions, indexes and views, each with create and drop as migrations | `/_portal/api/db/functions`, `enums`, `extensions`, `views`, `tables/{schema}/{table}`, `ddl/…` |
 | Migrations | Every migration file with its SQL and state; apply pending, roll back, redo; create an empty one | `/_portal/api/db/migrations`, `/_portal/api/app/migrate…`, `/_portal/api/generators/migration/…` |
+| Authentication | Accounts with search and paging; an account's sessions, passkeys, linked providers, second factors and pending codes (with the code from the inbox); create, verify, ban, delete, roles, end sessions, reset MFA; act as a user in the route tester; sign-in providers; rate limiters with reset | `/ops/auth/users…`, `/ops/auth/providers`, `/ops/auth/rate-limits`, `/_dev/mail` |
 | Table Editor | Every table of every schema, its rows in a grid with filters, sorts and pages; insert, edit, duplicate and delete rows; new tables and columns as migrations shown before they are written; the table's definition; CSV import and export | `/_portal/api/db/…` |
 | Mail | Captured email, delivery settings, a test email, the suppression list | `/_dev/mail`, `/ops/mail` |
 

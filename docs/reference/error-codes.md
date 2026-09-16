@@ -8,6 +8,7 @@ These are the codes of a Full app as generated, including the example `projects`
 
 | Code | HTTP status | Meaning | Where |
 |---|---|---|---|
+| `account_banned` | 403 | An operator banned the account; it can't sign in until the ban is lifted (ADR-0070). | Every sign-in: password, second factor, passkey, Google, Apple, GitHub, and impersonation. |
 | `already_invited` | 409 | This address already has an open invitation; resend it instead. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `already_member` | 409 | This person is already a member. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `api_key_limit_reached` | 409 | At most 20 usable API keys each; revoke one first. | `/v1/auth` |
@@ -28,6 +29,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `idempotency_key_reused` | 422 | This idempotency key was used for a different request; use a new key for a new request. | Any endpoint |
 | `identity_in_use` | 409 | This Google, Apple or GitHub account is linked to another account. | `/v1/auth` |
 | `identity_not_found` | 404 | No linked account of yours has this ID. | `/v1/auth` |
+| `impersonation_off` | 403 | Impersonation exists only while the app runs with the dev console (`orb dev`), never in production (ADR-0070). | `POST /ops/auth/users/{id}/impersonate` outside development. |
 | `incident_not_found` | 404 | No incident has this ID. | `/ops` |
 | `incident_resolved` | 409 | The incident is resolved and can't change. | `/ops` |
 | `incident_updates_limited` | 409 | The incident has the most updates allowed. | `/ops` |
@@ -97,6 +99,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `project_version_conflict` | 409 | The project changed since you read it; get it again and retry. | `/v1/orgs/{orgId}/projects` (`/v1/projects` in single-tenant apps) |
 | `queue_not_active` | 422 | No worker runs this queue. | `/ops` |
 | `rate_limited` | 429 | Too many requests from this client or for this operation; wait for `Retry-After`. | Any endpoint |
+| `rate_limiter_not_found` | 404 | The app has no rate limiter with this name, or the key was empty (ADR-0070). | `POST /ops/auth/rate-limits/reset`. |
 | `request_too_large` | 413 | The request body is larger than `APP_MAX_BODY_BYTES`. | Any endpoint |
 | `role_not_allowed` | 403 | You can't give, change or remove a role above your own, and only owners manage owners. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `service_account_disabled` | 409 | The service account is disabled; enable it first. | `/v1/auth` |
@@ -118,6 +121,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `unauthorized` | 401 | Authentication failed, when no more specific code applies. | Any endpoint |
 | `unavailable` | 503 | The service or a dependency is temporarily unavailable. | Any endpoint |
 | `unknown_role` | 422 | The role isn't one of the organisation roles. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
+| `user_not_found` | 404 | No account has this ID; deleted accounts are gone to operators too. | `/ops/auth/users/{id}` and its actions. |
 | `validation_failed` | 422 | The request doesn't match the operation's schema, or a resource's fields aren't valid. `errors` lists each field. | Any endpoint |
 | `weak_password` | 422 | The password doesn't meet the password policy; the detail says why. | `/v1/auth` |
 | `webhook_not_found` | 404 | This webhook isn't configured. | `mailevents` module |

@@ -37,6 +37,7 @@ Platform roles are held across the whole app; the ops roles grant access to `/op
 | `ops.observability.read` | See request rates, errors and latency across instances, and stream them. | | yes | yes |
 | `ops.incidents.read` | Read incidents, their timelines and reports. | | yes | yes |
 | `ops.incidents.write` | Open, update and resolve incidents. | | yes | |
+| `ops.auth.write` | Manage accounts: create, ban, delete, end sessions, remove passkeys and links, reset second factors, impersonate in development. | | yes | |
 | `ops.service_accounts.read` | See service accounts and their API keys. | | yes | yes |
 | `ops.service_accounts.write` | Create, change and delete service accounts and their API keys. | | yes | |
 | `orgs.org.create` | Create organisations. *Multi-tenant apps only.* | yes | | |

@@ -41,6 +41,10 @@ type Deps struct {
 	// TestEmailLimiter limits test emails per operator, keyed by actor ID;
 	// nil means no limit.
 	TestEmailLimiter ratelimit.Taker
+	// RateLimits lists the app's limiters and resets a key's budget
+	// (ADR-0070); nil means the endpoints answer an empty list and refuse
+	// resets.
+	RateLimits RateLimitAdmin
 	// Suppressions is the email suppression list (ADR-0062).
 	Suppressions SuppressionList
 	// Observability reads request minutes and Incidents keeps incidents
@@ -76,6 +80,7 @@ type Service struct {
 
 	testEmailLimiter ratelimit.Taker
 	suppressions     SuppressionList
+	rateLimits       RateLimitAdmin
 
 	observability  ObservabilityStore
 	incidents      IncidentStore
@@ -89,7 +94,7 @@ func NewService(d Deps) *Service {
 	return &Service{
 		settings: d.Settings, flags: d.Flags, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail,
 		signInMethods: d.SignInMethods, system: d.System, retention: d.Retention,
-		testEmailLimiter: d.TestEmailLimiter, suppressions: d.Suppressions,
+		testEmailLimiter: d.TestEmailLimiter, suppressions: d.Suppressions, rateLimits: d.RateLimits,
 		observability: d.Observability, incidents: d.Incidents, streams: d.Streams,
 		reauthenticate: d.Reauthenticate, streamInterval: d.StreamInterval,
 	}

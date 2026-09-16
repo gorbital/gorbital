@@ -250,6 +250,7 @@ func (a *App) build(ctx context.Context) error {
 	// permissions (permissions.go).
 	google, apple, gitHub := a.cfg.Social.providers(a.cfg.ProviderEndpoints)
 	a.auth, err = authmodule.New(pool, authusecase.Config{
+		Impersonation:           a.cfg.devConsoleOn(), // operators act as a user only in development (ADR-0070)
 		LoginLimiter:            limits.login,
 		LoginAddressLimiter:     limits.loginAddress,
 		MFALimiter:              limits.mfa,
@@ -330,6 +331,8 @@ func (a *App) build(ctx context.Context) error {
 			SignInMethods: a.cfg.signInMethods,
 			// Test emails each operator may send (rate_limits.go).
 			TestEmailLimiter: limits.testEmail,
+			// The limiters and their resets for /ops/auth/rate-limits (ADR-0070).
+			RateLimits: limits,
 			// Suppressed addresses for /ops/mail/suppressions (ADR-0062).
 			Suppressions: suppressions,
 			// Live observability and incidents (ADR-0064).

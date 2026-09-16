@@ -61,6 +61,12 @@ func registerAuth(api huma.API, mapper *httpx.Mapper, m *authmodule.Module) erro
 		httpx.Mapping{Err: authdomain.ErrInvalidServiceAccountRole, Status: http.StatusUnprocessableEntity, Code: "invalid_service_account_role", Detail: "service accounts can't hold roles that require two-factor authentication or an organisation's owner role, nor a role above your own"},
 		httpx.Mapping{Err: authdomain.ErrServiceAccountLimitReached, Status: http.StatusConflict, Code: "service_account_limit_reached", Detail: "at most 100 service accounts; delete one first"},
 		httpx.Mapping{Err: authdomain.ErrServiceAccountDisabled, Status: http.StatusConflict, Code: "service_account_disabled", Detail: "the service account is disabled; enable it first"},
+
+		// Operators' account APIs (ADR-0070).
+		httpx.Mapping{Err: authdomain.ErrAccountBanned, Status: http.StatusForbidden, Code: "account_banned", Detail: "the account is banned"},
+		httpx.Mapping{Err: authdomain.ErrUserNotFound, Status: http.StatusNotFound, Code: "user_not_found", Detail: "no account has this ID"},
+		httpx.Mapping{Err: authdomain.ErrImpersonationOff, Status: http.StatusForbidden, Code: "impersonation_off", Detail: "impersonation is available only in development, with the dev console on"},
+		httpx.Mapping{Err: authdomain.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
 	)
 	if err != nil {
 		return fmt.Errorf("auth module: %w", err)

@@ -68,6 +68,10 @@ type Config struct {
 	Issuer string
 	// Hooks let other modules take part in creating and deleting accounts.
 	Hooks AccountHooks
+	// Impersonation lets operators start a session as any user
+	// (Impersonate); apps turn it on only with the dev console, so never in
+	// production (ADR-0070).
+	Impersonation bool
 	// Orgs lets organisations manage their own service accounts in a
 	// multi-tenant app (ADR-0058). Without it, only platform service
 	// accounts exist.
@@ -139,6 +143,7 @@ type Service struct {
 	issuer          string
 	hooks           AccountHooks
 	orgs            OrgAccess
+	impersonation   bool
 	now             func() time.Time
 	hasher          *authlib.Hasher
 	loginLimiter    ratelimit.Taker
@@ -182,6 +187,7 @@ func NewService(c Config) (*Service, error) {
 		issuer:           orDefault(c.Issuer, "app"),
 		hooks:            c.Hooks,
 		orgs:             c.Orgs,
+		impersonation:    c.Impersonation,
 		now:              c.Now,
 		sessionIdle:      orDefault(c.SessionIdleTTL, config.Static(authlib.DefaultSessionIdleTTL)),
 		sessionAbsolute:  orDefault(c.SessionAbsoluteTTL, config.Static(authlib.DefaultSessionAbsoluteTTL)),
@@ -345,6 +351,9 @@ func (s *Service) sent(ctx context.Context, kind string, err error) {
 func dbError(op string, err error) error {
 	if errors.Is(err, authlib.ErrHasherBusy) {
 		return authlib.ErrHasherBusy
+	}
+	if errors.Is(err, authdomain.ErrAccountBanned) {
+		return authdomain.ErrAccountBanned // every sign-in path starts a session (ADR-0070)
 	}
 	return fmt.Errorf("auth: %s: %v", op, err) //nolint:errorlint // driver errors aren't API (ADR-0018)
 }

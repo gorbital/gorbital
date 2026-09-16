@@ -192,3 +192,24 @@ func BenchmarkTake(b *testing.B) {
 		}
 	}
 }
+
+func TestReset(t *testing.T) {
+	ctx := context.Background()
+	store, _ := newStore(t)
+	lim, err := store.Limiter("reset_test", func(context.Context) ratelimit.Limit { return ratelimit.Per(1, time.Hour) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d, err := lim.Take(ctx, "10.0.0.1"); err != nil || !d.Allowed {
+		t.Fatalf("first Take() = %+v, %v", d, err)
+	}
+	if reset, err := store.Reset(ctx, "reset_test", "10.0.0.1"); err != nil || !reset {
+		t.Errorf("Reset() = %v, %v; want true", reset, err)
+	}
+	if reset, err := store.Reset(ctx, "reset_test", "10.0.0.1"); err != nil || reset {
+		t.Errorf("second Reset() = %v, %v; want false", reset, err)
+	}
+	if _, err := store.Reset(ctx, "", "x"); err == nil {
+		t.Error("Reset() with no name succeeded")
+	}
+}

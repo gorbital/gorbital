@@ -57,6 +57,7 @@ func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error
 
 		httpx.Mapping{Err: releases.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
 
+		httpx.Mapping{Err: opsusecase.ErrUnknownRateLimiter, Status: http.StatusNotFound, Code: "rate_limiter_not_found", Detail: "no rate limiter has this name, or the key is empty"},
 		httpx.Mapping{Err: opsdomain.ErrInvalidRecipient, Status: http.StatusUnprocessableEntity, Code: "invalid_recipient", Detail: "the recipient is not an email address"},
 		httpx.Mapping{Err: opsdomain.ErrTooManyTestEmails, Status: http.StatusTooManyRequests, Code: "rate_limited", Detail: "too many test emails; try again later"},
 		httpx.Mapping{Err: opsdomain.ErrSuppressionReasonRequired, Status: http.StatusUnprocessableEntity, Code: "mail_suppression_reason_required", Detail: "a reason is required to remove a suppressed address"},

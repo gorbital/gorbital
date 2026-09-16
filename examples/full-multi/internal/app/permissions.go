@@ -43,6 +43,7 @@ func declarePermissions() *authlib.Catalog {
 	c.Permission(opsdomain.PermObservabilityRead, "See request rates, errors and latency across instances, and stream them")
 	c.Permission(opsdomain.PermIncidentsRead, "Read incidents, their timelines and reports")
 	c.Permission(opsdomain.PermIncidentsWrite, "Open, update and resolve incidents")
+	c.Permission(authusecase.PermOpsAuthWrite, "Manage accounts: create, ban, delete, end sessions, remove passkeys and links, reset second factors, impersonate in development")
 	c.Permission(authusecase.PermServiceAccountsRead, "See service accounts and their API keys")
 	c.Permission(authusecase.PermServiceAccountsWrite, "Create, change and delete service accounts and their API keys")
 
@@ -61,7 +62,7 @@ func declarePermissions() *authlib.Catalog {
 	c.Role(authusecase.RoleUser, "Held by every signed-in user without a grant; by API keys only within their scopes", user...)
 
 	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission",
-		append(opsdomain.AllPermissions(), authusecase.PermServiceAccountsRead, authusecase.PermServiceAccountsWrite)...)
+		append(opsdomain.AllPermissions(), authusecase.PermOpsAuthWrite, authusecase.PermServiceAccountsRead, authusecase.PermServiceAccountsWrite)...)
 	c.Role(roleOpsViewer, "Reads operational data without changing anything",
 		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead, opsdomain.PermAuthRead,
 		opsdomain.PermSystemRead, opsdomain.PermFlagsRead, opsdomain.PermObservabilityRead, opsdomain.PermIncidentsRead, authusecase.PermServiceAccountsRead)

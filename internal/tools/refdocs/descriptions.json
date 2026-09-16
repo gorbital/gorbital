@@ -23,13 +23,21 @@
     "unauthorized": "Authentication failed, when no more specific code applies.",
     "unavailable": "The service or a dependency is temporarily unavailable.",
     "validation_failed": "The request doesn't match the operation's schema, or a resource's fields aren't valid. `errors` lists each field.",
-    "weak_password": "The password doesn't meet the password policy; the detail says why."
+    "weak_password": "The password doesn't meet the password policy; the detail says why.",
+    "account_banned": "An operator banned the account; it can't sign in until the ban is lifted (ADR-0070).",
+    "impersonation_off": "Impersonation exists only while the app runs with the dev console (`orb dev`), never in production (ADR-0070).",
+    "user_not_found": "No account has this ID; deleted accounts are gone to operators too.",
+    "rate_limiter_not_found": "The app has no rate limiter with this name, or the key was empty (ADR-0070)."
   },
   "error_code_where": {
     "invalid_cursor": "List endpoints",
     "invalid_limit": "List endpoints",
     "invalid_sort": "List endpoints",
-    "sole_owner": "`DELETE /v1/auth/me`"
+    "sole_owner": "`DELETE /v1/auth/me`",
+    "account_banned": "Every sign-in: password, second factor, passkey, Google, Apple, GitHub, and impersonation.",
+    "impersonation_off": "`POST /ops/auth/users/{id}/impersonate` outside development.",
+    "user_not_found": "`/ops/auth/users/{id}` and its actions.",
+    "rate_limiter_not_found": "`POST /ops/auth/rate-limits/reset`."
   },
   "audit_actions": {
     "auth.account.deleted": "A user deleted their account (`DELETE /v1/auth/me`). The account is kept for `auth.deleted_account_retention`, then purged.",
@@ -103,7 +111,16 @@
     "projects.project.deleted": "A project was deleted.",
     "projects.project.updated": "A project was changed; `fields` lists which.",
     "retention.purged": "The `retention` job deleted data older than its retention setting, one event per kind of data.",
-    "settings.value.changed": "An operator changed or reset a runtime setting through `/ops/settings/{key}`; `reason` is required for security-relevant settings."
+    "settings.value.changed": "An operator changed or reset a runtime setting through `/ops/settings/{key}`; `reason` is required for security-relevant settings.",
+    "auth.email.verified_by_operator": "An operator marked the address verified (ADR-0070).",
+    "auth.user.banned": "An operator banned the account; metadata holds the reason. Its sessions and API keys were revoked (ADR-0070).",
+    "auth.user.unbanned": "An operator lifted the ban (ADR-0070).",
+    "auth.user.deleted_by_operator": "An operator deleted the account: what the owner's own deletion does, without their password (ADR-0070).",
+    "auth.session.revoked_by_operator": "An operator ended one session (metadata `session_id`) or every session (`sessions`) of the account (ADR-0070).",
+    "auth.passkey.removed_by_operator": "An operator removed a passkey from the account (ADR-0070).",
+    "auth.identity.removed_by_operator": "An operator unlinked a Google, Apple or GitHub account (ADR-0070).",
+    "auth.user.impersonated": "An operator started a session as the user, in development only; metadata holds `session_id` and `mfa_verified` (ADR-0070).",
+    "ops.rate_limit.reset": "An operator forgot a key's rate-limit budget; the resource is the limiter's name, never the key (ADR-0070)."
   },
   "jobs": {
     "gorbital.mail.send": "Delivers queued email through the configured provider: up to 8 attempts of 30 seconds each on the `default` queue, and a message the provider rejects is cancelled instead of retried. The app enqueues one for every email it sends; it has no schedule and isn't a job definition, so `/ops/jobs/definitions` doesn't list it, but its runs appear in `/ops/jobs/runs`."

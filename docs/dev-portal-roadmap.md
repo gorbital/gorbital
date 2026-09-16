@@ -21,7 +21,7 @@ Each phase lives on its own branch, `dev-portal/phase-N`, in both repositories (
 | [2](#phase-2-table-editor) | Table Editor | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-2` |
 | [3](#phase-3-sql-editor) | SQL Editor | 🔨 In progress (2026-09-16): backend done; history is a JSON Lines file, not SQLite | `dev-portal/phase-3` |
 | [4](#phase-4-schema-visualiser-objects-migrations) | Schema visualiser, objects, migrations | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-4` |
-| [5](#phase-5-authentication) | Authentication | Planned | `dev-portal/phase-5` |
+| [5](#phase-5-authentication) | Authentication | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-5` |
 | [6](#phase-6-jobs) | Jobs | Planned | `dev-portal/phase-6` |
 | [7](#phase-7-logs) | Logs | Planned | `dev-portal/phase-7` |
 | [8](#phase-8-observability) | Observability | Planned | `dev-portal/phase-8` |
