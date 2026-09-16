@@ -53,6 +53,10 @@ Run by `orb dev` from the app's `compose.yaml`. None of them run in production.
 | **Production** | Refused: `MAIL_DELIVERY=mailpit is for development` |
 | **Setup** | Nothing: `orb dev` starts it. Ports: `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT`. The repository's own `compose.yaml` runs another instance on 51025 and 58025 for library tests |
 
+### MinIO (optional)
+
+`orb add storage --driver minio` adds [MinIO](https://min.io) to `compose.yaml`: an S3-compatible object store on `127.0.0.1:9000` (console on 9001, `minioadmin`/`minioadmin`) for apps that want S3 semantics locally. The default development driver keeps files under `.orb/storage` and needs nothing ([storage guide](storage.md)).
+
 ### Grafana LGTM
 
 | | |

@@ -32,6 +32,8 @@ Platform roles are held across the whole app; the ops roles grant access to `/op
 | `ops.mail.read` | See how the app sends email. | | yes | yes |
 | `ops.mail.test` | Send a test email. | | yes | |
 | `ops.mail.write` | Remove addresses from the email suppression list. | | yes | |
+| `ops.storage.read` | Browse file storage. | | yes | yes |
+| `ops.storage.write` | Upload, move and delete files and create signed URLs. | | yes | |
 | `ops.auth.read` | See which sign-in methods are configured. | | yes | yes |
 | `ops.system.read` | See an instance's health checks, database pool, migrations and runtime. | | yes | yes |
 | `ops.observability.read` | See request rates, errors and latency across instances, and stream them. | | yes | yes |

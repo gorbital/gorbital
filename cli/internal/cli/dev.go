@@ -208,6 +208,7 @@ var (
 	databaseServices = []composeService{
 		{"postgres", []servicePort{{"POSTGRES_PORT", "5432"}}},
 		{"mailpit", []servicePort{{"MAILPIT_SMTP_PORT", "1025"}, {"MAILPIT_WEB_PORT", "8025"}}},
+		{"minio", []servicePort{{"MINIO_PORT", "9000"}, {"MINIO_CONSOLE_PORT", "9001"}}},
 	}
 	grafanaService = composeService{"grafana", []servicePort{{"GRAFANA_PORT", "3000"}, {"OTLP_HTTP_PORT", "4318"}}}
 )
@@ -789,9 +790,9 @@ func manifestFeatures(manifest []byte) []string {
 	return features
 }
 
-// composeServicesIn drops Mailpit when compose.yaml doesn't define it
-// (apps made since ADR-0074 send email to orb dev's catcher instead);
-// PostgreSQL is always expected.
+// composeServicesIn keeps PostgreSQL and the optional services compose.yaml
+// defines: Mailpit (apps made before ADR-0074) and MinIO (orb add storage
+// --driver minio, ADR-0075).
 func composeServicesIn(path string, services []composeService) []composeService {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -799,8 +800,8 @@ func composeServicesIn(path string, services []composeService) []composeService 
 	}
 	var out []composeService
 	for _, s := range services {
-		if s.name == "mailpit" && !strings.Contains(string(data), "\n  mailpit:") {
-			continue
+		if s.name != "postgres" && !strings.Contains(string(data), "\n  "+s.name+":") {
+			continue // optional services: Mailpit (older apps), MinIO (orb add storage)
 		}
 		out = append(out, s)
 	}

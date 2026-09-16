@@ -26,7 +26,7 @@ Each phase lives on its own branch, `dev-portal/phase-N`, in both repositories (
 | [7](#phase-7-logs) | Logs | 🔨 In progress (2026-09-16): backend done ([ADR-0072](adr/0072-local-log-store.md)); the store is JSON Lines under `.orb/portal/logs`, not SQLite | `dev-portal/phase-7` |
 | [8](#phase-8-observability) | Observability | 🔨 In progress (2026-09-16): backend done ([ADR-0073](adr/0073-observability-screen.md)); no OTLP receiver, the screen builds on the request minutes, `/ops/system`, `pgmeta` statistics and a machine sampler | `dev-portal/phase-8` |
 | [9](#phase-9-mail-env-configuration) | Mail, env, configuration | 🔨 In progress (2026-09-16): backend done ([ADR-0074](adr/0074-dev-mail-previews-and-env-editor.md)) | `dev-portal/phase-9` |
-| [10](#phase-10-storage) | Storage | Planned | `dev-portal/phase-10` |
+| [10](#phase-10-storage) | Storage | 🔨 In progress (2026-09-17): backend done ([ADR-0075](adr/0075-file-storage.md)) | `dev-portal/phase-10` |
 | [11](#phase-11-git) | Git | Planned | `dev-portal/phase-11` |
 | [12](#phase-12-generators-and-scaffolding) | Generators and scaffolding | Planned | `dev-portal/phase-12` |
 | [13](#phase-13-advanced) | Advanced | ⏸ Skipped for now (2026-09-16, by decision): the work stops after Phase 12 | — |
@@ -238,7 +238,7 @@ Backend: a new `modules/storage` with local disk, S3, DigitalOcean Spaces, Cloud
 | 75 | Signed URLs with an expiry; object metadata | Backend, frontend |
 | 76 | Production-bucket guard: a red banner and read-only mode when the configured bucket isn't local, until unlocked for the session | Frontend |
 
-Docs: a storage guide and ADR; `api/modules-storage.txt`.
+Docs: a storage guide and ADR; `api/modules-storage.txt`. Decided in [ADR-0075](adr/0075-file-storage.md): two drivers (`local`, `s3` for every S3-compatible service), `/ops/storage…` as the portal's contract, `orb add storage`.
 
 ## Phase 11: Git
 

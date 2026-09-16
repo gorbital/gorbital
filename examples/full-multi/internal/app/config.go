@@ -61,6 +61,8 @@ type Config struct {
 	MailpitAddr  string     // MAILPIT_SMTP_ADDR
 	DevMailAddr  string     // DEV_MAIL_SMTP_ADDR: orb dev's mail catcher (ADR-0074)
 	Mail         mailConfig // the email provider's secrets (infra_mail.go)
+	// Storage is the file storage driver and its settings (storage.go).
+	Storage storageConfig
 
 	// DevConsole turns on the development console's APIs under /_dev/ in
 	// development (DEV_CONSOLE_TOKEN, set by orb dev; devconsole.go).
@@ -260,6 +262,9 @@ func LoadConfig(src config.Source) (Config, error) {
 	var mailErrs []error
 	cfg.Mail, mailErrs = loadMailConfig(get, secret, cfg.MailDelivery == mailDeliveryProvider)
 	errs = append(errs, mailErrs...)
+	var storageErrs []error
+	cfg.Storage, storageErrs = loadStorageConfig(get, secret, cfg.Production())
+	errs = append(errs, storageErrs...)
 
 	var devConsoleErrs []error
 	cfg.DevConsole, devConsoleErrs = loadDevConsoleConfig(get, secret, cfg.Production())

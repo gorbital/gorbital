@@ -117,6 +117,18 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Create an API key for a service account](/docs/ops-service-accounts/ops-create-service-account-key.md): `POST /ops/service-accounts/{id}/keys`
 - [Revoke a service account's API key](/docs/ops-service-accounts/ops-revoke-service-account-key.md): `DELETE /ops/service-accounts/{id}/keys/{keyId}`
 
+## Ops: storage
+
+- [Describe file storage](/docs/ops-storage/ops-get-storage.md): `GET /ops/storage`
+- [Create a directory](/docs/ops-storage/ops-create-storage-directory.md): `POST /ops/storage/directories`
+- [Describe an object](/docs/ops-storage/ops-get-storage-object.md): `GET /ops/storage/object`
+- [Upload an object](/docs/ops-storage/ops-upload-storage-object.md): `PUT /ops/storage/object`
+- [Delete an object](/docs/ops-storage/ops-delete-storage-object.md): `DELETE /ops/storage/object`
+- [Download an object](/docs/ops-storage/ops-download-storage-object.md): `GET /ops/storage/object/content`
+- [Move an object](/docs/ops-storage/ops-move-storage-object.md): `POST /ops/storage/object/move`
+- [List objects](/docs/ops-storage/ops-list-storage-objects.md): `GET /ops/storage/objects`
+- [Create a signed URL](/docs/ops-storage/ops-create-storage-signed-url.md): `POST /ops/storage/signed-url`
+
 ## Ops: system
 
 - [Describe this instance](/docs/ops-system/ops-system.md): `GET /ops/system`

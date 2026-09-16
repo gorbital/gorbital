@@ -100,6 +100,9 @@ func (a *App) buildHTTP(svc services) error {
 
 	mux.Handle("GET /livez", a.health.Liveness())
 	mux.Handle("GET /readyz", a.health.Readiness())
+	if a.storageURLs != nil { // local storage's signed URLs (storage.go, ADR-0075)
+		mux.Handle(storageLocalPath+"/", a.storageURLs)
+	}
 	if a.cfg.DocsEnabled {
 		openapi.MountDocs(mux, openapi.DocsOptions{Title: ServiceName + " API"})
 	}

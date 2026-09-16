@@ -35,7 +35,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `incident_resolved` | 409 | The incident is resolved and can't change. | `/ops` |
 | `incident_updates_limited` | 409 | The incident has the most updates allowed. | `/ops` |
 | `internal_error` | 500, any other 5xx | An unexpected error. The detail never includes the cause; it is logged once with the request ID. | Any endpoint |
-| `invalid_address` | 400 | To must be an email address. | Any endpoint |
+| `invalid_address` | 400 | The recipient isn't an email address. | Any endpoint |
 | `invalid_api_key_expiry` | 422 | expires_at must be at least an hour away and within auth.api_key_max_ttl. | `/v1/auth` |
 | `invalid_api_key_name` | 422 | An API key name must be 1 to 100 characters on one line. | `/v1/auth` |
 | `invalid_api_key_scopes` | 422 | Scopes must be at most 50 permissions the key's owner holds without two-factor authentication. | `/v1/auth` |
@@ -63,6 +63,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `invalid_social_token` | 401 | The sign-in with Google, Apple or GitHub couldn't be verified; start again. | `/v1/auth` |
 | `invalid_sort` | 400 | Sort by one allowed field, with - for descending order. | List endpoints |
 | `invalid_state` | 401 | The sign-in expired or was started in another browser; start again. | `/v1/auth` |
+| `invalid_storage_key` | 422 | Keys are 1 to 1024 characters of path segments without ".", ".." or a leading slash. | `/ops` |
 | `invalid_webhook_payload` | 400 | The webhook body is not an event. | `mailevents` module |
 | `invalid_webhook_signature` | 401 | The webhook signature is missing, invalid or too old. | `mailevents` module |
 | `invitation_for_another_email` | 403 | The invitation was sent to another address; sign in with the invited, verified address. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
@@ -96,7 +97,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `passkey_not_found` | 404 | No passkey of yours has this ID. | `/v1/auth` |
 | `passkeys_unavailable` | 503 | Passkeys aren't configured on this server (WEBAUTHN_RP_ID). | `/v1/auth` |
 | `personal_workspace` | 409 | A personal workspace can't be left, deleted or shared; create an organisation instead. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
-| `preview_not_found` | 404 |  | Any endpoint |
+| `preview_not_found` | 404 | No email preview has this name; `GET /_dev/mail/previews` lists them (ADR-0074). | Any endpoint |
 | `project_name_taken` | 409 | The organisation already has a project with this name. | `/v1/orgs/{orgId}/projects` (`/v1/projects` in single-tenant apps) |
 | `project_not_found` | 404 | The organisation has no project with this ID. | `/v1/orgs/{orgId}/projects` (`/v1/projects` in single-tenant apps) |
 | `project_version_conflict` | 409 | The project changed since you read it; get it again and retry. | `/v1/orgs/{orgId}/projects` (`/v1/projects` in single-tenant apps) |
@@ -117,6 +118,9 @@ These are the codes of a Full app as generated, including the example `projects`
 | `social_link_required` | 403 | An account with this email address exists; sign in to it and link this provider from the account. | `/v1/auth` |
 | `social_unavailable` | 503 | This sign-in provider isn't configured on this server (see AUTH_PROVIDERS.md). | `/v1/auth` |
 | `sole_owner` | 409 | You are the only owner of organisations with other members; make another member an owner, or delete them, first. *Multi-tenant apps only.* | `DELETE /v1/auth/me` |
+| `storage_object_not_found` | 404 | No object has this key. | `/ops` |
+| `storage_off` | 404 | The app has no file storage configured: set STORAGE_DRIVER (ADR-0075). | `/ops` |
+| `storage_unavailable` | 503 | The storage service didn't answer: check the endpoint, bucket and keys. | `/ops` |
 | `too_many_attempts` | 429 | Too many sign-in, code, second-factor or re-authentication attempts within the window; the detail says when to try again. | Any endpoint |
 | `too_many_invitations` | 429 | Too many invitations were sent from this organisation, or by you, in the last hour; try again later. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `too_many_orgs` | 409 | You own as many organisations as allowed; delete one, or hand one over, first. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |

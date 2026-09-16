@@ -25,6 +25,10 @@
     "validation_failed": "The request doesn't match the operation's schema, or a resource's fields aren't valid. `errors` lists each field.",
     "weak_password": "The password doesn't meet the password policy; the detail says why.",
     "account_banned": "An operator banned the account; it can't sign in until the ban is lifted (ADR-0070).",
+    "storage_off": "The app has no file storage configured: set STORAGE_DRIVER (ADR-0075).",
+    "storage_object_not_found": "No object has this key.",
+    "invalid_storage_key": "Keys are 1 to 1024 characters of path segments without \".\", \"..\" or a leading slash.",
+    "storage_unavailable": "The storage service didn't answer: check the endpoint, bucket and keys.",
     "preview_not_found": "No email preview has this name; `GET /_dev/mail/previews` lists them (ADR-0074).",
     "invalid_address": "The recipient isn't an email address.",
     "impersonation_off": "Impersonation exists only while the app runs with the dev console (`orb dev`), never in production (ADR-0070).",
@@ -122,6 +126,11 @@
     "auth.passkey.removed_by_operator": "An operator removed a passkey from the account (ADR-0070).",
     "auth.identity.removed_by_operator": "An operator unlinked a Google, Apple or GitHub account (ADR-0070).",
     "auth.user.impersonated": "An operator started a session as the user, in development only; metadata holds `session_id` and `mfa_verified` (ADR-0070).",
+    "storage.object.uploaded": "An operator uploaded an object through /ops/storage; the resource is the key (ADR-0075).",
+    "storage.object.deleted": "An operator deleted an object through /ops/storage (ADR-0075).",
+    "storage.object.moved": "An operator moved an object; the resource is the new key, `from` the old one (ADR-0075).",
+    "storage.directory.created": "An operator created a directory marker (ADR-0075).",
+    "storage.signed_url.created": "An operator created a signed download or upload link; the metadata says which and until when (ADR-0075).",
     "ops.rate_limit.reset": "An operator forgot a key's rate-limit budget; the resource is the limiter's name, never the key (ADR-0070)."
   },
   "jobs": {

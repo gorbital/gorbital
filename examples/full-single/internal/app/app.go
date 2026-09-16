@@ -32,6 +32,7 @@ import (
 	"gorbital.dev/modules/postgres"
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/modules/settings"
+	"gorbital.dev/modules/storage"
 	"gorbital.dev/modules/telemetry"
 
 	"example.com/acme-api/internal/jobs/authcleanup"
@@ -60,7 +61,9 @@ type App struct {
 	flags       *flags.Store
 	jobs        *jobs.Client
 	jobsManager *jobs.Manager
-	mailer      mail.Sender // sends email; set once jobs exist (jobs.go)
+	mailer      mail.Sender   // sends email; set once jobs exist (jobs.go)
+	storage     storage.Store // file storage (storage.go)
+	storageURLs http.Handler  // serves local signed URLs; nil for other drivers
 	auth        *authmodule.Module
 	releases    *releases.Tracker
 	collector   *observability.Collector
@@ -197,6 +200,11 @@ func (a *App) build(ctx context.Context) error {
 	// Idempotency keys on POST and PATCH requests (idempotency.go, ADR-0060).
 	idempotencyStore, err := newIdempotency(pool, appSettings, a.logger)
 	if err != nil {
+		return err
+	}
+
+	// File storage (storage.go, ADR-0075).
+	if a.storage, a.storageURLs, err = newStorage(a.cfg); err != nil {
 		return err
 	}
 
@@ -345,6 +353,8 @@ func (a *App) build(ctx context.Context) error {
 			RateLimits: limits,
 			// Suppressed addresses for /ops/mail/suppressions (ADR-0062).
 			Suppressions: suppressions,
+			// File storage for /ops/storage (ADR-0075).
+			Storage: a.storage,
 			// Live observability and incidents (ADR-0064).
 			Observability:  observabilityStore,
 			Incidents:      observabilityStore,

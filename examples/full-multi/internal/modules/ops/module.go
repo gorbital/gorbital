@@ -30,6 +30,7 @@ func (m *Module) Register(api huma.API) {
 	opsdelivery.RegisterAudit(api, m.svc)
 	opsdelivery.RegisterReleases(api, m.svc)
 	opsdelivery.RegisterMail(api, m.svc)
+	opsdelivery.RegisterStorage(api, m.svc)
 	opsdelivery.RegisterAuth(api, m.svc)
 	opsdelivery.RegisterRateLimits(api, m.svc)
 	opsdelivery.RegisterSystem(api, m.svc)

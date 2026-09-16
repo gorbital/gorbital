@@ -494,6 +494,22 @@ Non-human principals with platform roles, which call the API with API keys ([ADR
 
 Errors: `service_account_not_found` (404), `api_key_not_found` (404), `invalid_service_account` and `invalid_service_account_role` (422), `invalid_api_key_name`, `invalid_api_key_expiry` and `invalid_api_key_scopes` (422), `api_key_limit_reached`, `service_account_limit_reached` and `service_account_disabled` (409), `session_required` (403, with an API key). Audit: `auth.service_account.created`, `.updated`, `.disabled`, `.deleted`, `auth.api_key.created`, `.revoked`.
 
+## Storage
+
+File storage ([storage guide](storage.md), [ADR-0075](../adr/0075-file-storage.md)), `ops.storage.read` for reads and `ops.storage.write` for the rest:
+
+| Endpoint | What it does |
+|---|---|
+| `GET /ops/storage` | The driver, bucket, endpoint, whether it is `local`, and whether the service answers |
+| `GET /ops/storage/objects?prefix=&recursive=&cursor=&limit=` | One page of objects, directories folded at the next slash unless `recursive` |
+| `GET /ops/storage/object?key=` | Size, content type, ETag, time and metadata |
+| `GET /ops/storage/object/content?key=` | The bytes, as an attachment |
+| `PUT /ops/storage/object?key=` | The body becomes the object; `Content-Type` is kept |
+| `DELETE /ops/storage/object?key=` | Removes it |
+| `POST /ops/storage/object/move` `{from, to}` | Copies and deletes |
+| `POST /ops/storage/directories` `{prefix}` | Stores the hidden `.keep` marker |
+| `POST /ops/storage/signed-url` `{key, method, expiry_seconds}` | A download (GET) or upload (PUT) link |
+
 ## Error codes
 
 | Code | Status | When |

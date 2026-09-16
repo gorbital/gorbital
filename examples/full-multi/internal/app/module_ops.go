@@ -14,6 +14,7 @@ import (
 	"gorbital.dev/modules/observability"
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/modules/settings"
+	"gorbital.dev/modules/storage"
 
 	"example.com/acme-api/internal/modules/ops"
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
@@ -28,6 +29,10 @@ func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error
 	err := mapper.Add(
 		httpx.Mapping{Err: opsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
 		httpx.Mapping{Err: opsdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
+		httpx.Mapping{Err: opsusecase.ErrStorageOff, Status: http.StatusNotFound, Code: "storage_off", Detail: "the app has no file storage configured (STORAGE_DRIVER)"},
+		httpx.Mapping{Err: storage.ErrNotFound, Status: http.StatusNotFound, Code: "storage_object_not_found", Detail: "no object has this key"},
+		httpx.Mapping{Err: storage.ErrInvalidKey, Status: http.StatusUnprocessableEntity, Code: "invalid_storage_key", Detail: "keys are 1 to 1024 characters of path segments without \".\", \"..\" or a leading slash"},
+		httpx.Mapping{Err: storage.ErrUnavailable, Status: http.StatusServiceUnavailable, Code: "storage_unavailable", Detail: "the storage service didn't answer"},
 		httpx.Mapping{Err: opsdomain.ErrMFARequired, Status: http.StatusForbidden, Code: "mfa_required", Detail: "sign in with two-factor authentication to use this operation; turn it on first if needed"},
 
 		httpx.Mapping{Err: settings.ErrUnknownSetting, Status: http.StatusNotFound, Code: "setting_not_found", Detail: "no setting has this key"},

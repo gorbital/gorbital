@@ -52,6 +52,7 @@
     "invalid_social_token",
     "invalid_sort",
     "invalid_state",
+    "invalid_storage_key",
     "invalid_webhook_payload",
     "invalid_webhook_signature",
     "job_definition_disabled",
@@ -97,6 +98,9 @@
     "social_email_unverified",
     "social_link_required",
     "social_unavailable",
+    "storage_object_not_found",
+    "storage_off",
+    "storage_unavailable",
     "too_many_attempts",
     "unauthenticated",
     "unauthorized",
@@ -175,7 +179,12 @@
     "projects.project.deleted",
     "projects.project.updated",
     "retention.purged",
-    "settings.value.changed"
+    "settings.value.changed",
+    "storage.directory.created",
+    "storage.object.deleted",
+    "storage.object.moved",
+    "storage.object.uploaded",
+    "storage.signed_url.created"
   ],
   "permissions": {
     "platform": [
@@ -199,6 +208,8 @@
       "ops.service_accounts.write",
       "ops.settings.read",
       "ops.settings.write",
+      "ops.storage.read",
+      "ops.storage.write",
       "ops.system.read",
       "projects.project.read",
       "projects.project.write"

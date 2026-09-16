@@ -23,7 +23,9 @@ import (
 var (
 	// mailProviderEnv configures the provider well enough to start in
 	// production.
-	mailProviderEnv = map[string]string{"RESEND_API_KEY": "re_123"}
+	mailProviderEnv = map[string]string{"RESEND_API_KEY": "re_123",
+		// and what else production requires: file storage off this machine (ADR-0075).
+		"STORAGE_DRIVER": "s3", "STORAGE_REGION": "eu-west-1", "STORAGE_BUCKET": "files", "STORAGE_ACCESS_KEY": "AKIA", "STORAGE_SECRET_KEY": "secret"}
 	// mailProviderRequired is the variable LoadConfig asks for when email
 	// goes through the provider and mailProviderEnv isn't set.
 	mailProviderRequired = "RESEND_API_KEY"

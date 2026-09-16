@@ -36,6 +36,8 @@ func declarePermissions() *authlib.Catalog {
 	c.Permission(opsdomain.PermMailRead, "See how the app sends email")
 	c.Permission(opsdomain.PermMailTest, "Send a test email")
 	c.Permission(opsdomain.PermMailWrite, "Remove addresses from the email suppression list")
+	c.Permission(opsdomain.PermStorageRead, "Browse file storage")
+	c.Permission(opsdomain.PermStorageWrite, "Upload, move and delete files and create signed URLs")
 	c.Permission(opsdomain.PermAuthRead, "See which sign-in methods are configured")
 	c.Permission(opsdomain.PermSystemRead, "See an instance's health checks, database pool, migrations and runtime")
 	c.Permission(opsdomain.PermObservabilityRead, "See request rates, errors and latency across instances, and stream them")
@@ -60,7 +62,7 @@ func declarePermissions() *authlib.Catalog {
 	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission",
 		append(opsdomain.AllPermissions(), authusecase.PermOpsAuthWrite, authusecase.PermServiceAccountsRead, authusecase.PermServiceAccountsWrite)...)
 	c.Role(roleOpsViewer, "Reads operational data without changing anything",
-		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead, opsdomain.PermAuthRead,
+		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead, opsdomain.PermAuthRead, opsdomain.PermStorageRead,
 		opsdomain.PermSystemRead, opsdomain.PermFlagsRead, opsdomain.PermObservabilityRead, opsdomain.PermIncidentsRead, authusecase.PermServiceAccountsRead)
 
 	// Ops roles grant their permissions only to sessions signed in with a

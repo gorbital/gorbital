@@ -1,6 +1,6 @@
 # ADR-0066: Dev Portal
 
-**Status:** Accepted (2026-09-16) · **Amends:** ADR-0010, ADR-0021, ADR-0028, ADR-0029, ADR-0065 · **Amended by:** ADR-0067 (the Table Editor and `pgmeta`), ADR-0070 (operators' account APIs), ADR-0071 (jobs from the portal), ADR-0072 (the log store), ADR-0073 (the Observability screen), ADR-0074 (dev mail, previews and the env editor)
+**Status:** Accepted (2026-09-16) · **Amends:** ADR-0010, ADR-0021, ADR-0028, ADR-0029, ADR-0065 · **Amended by:** ADR-0067 (the Table Editor and `pgmeta`), ADR-0070 (operators' account APIs), ADR-0071 (jobs from the portal), ADR-0072 (the log store), ADR-0073 (the Observability screen), ADR-0074 (dev mail, previews and the env editor), ADR-0075 (file storage)
 
 ## Context
 

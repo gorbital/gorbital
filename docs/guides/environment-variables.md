@@ -96,6 +96,10 @@ Read in `config.go` and `infra_mail.go`. `infra_mail.go` is replaced by `orb add
 
 | Variable | Required | Default | Example | Secret | Description |
 |---|---|---|---|---|---|
+| `STORAGE_DRIVER` | No | `local` | `s3` | `local`, `s3`, `spaces`, `r2`, `minio` | File storage driver ([storage guide](storage.md)). **Prod**: `local` is refused |
+| `STORAGE_LOCAL_DIR` | No | `.orb/storage` | `/var/lib/acme/files` | path | The local driver's directory |
+| `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` | For the S3 drivers | derived endpoint for `s3` and `spaces` | `s3.eu-west-1.amazonaws.com` | | The service and its credentials; `STORAGE_SECRET_KEY` is a secret |
+| `STORAGE_PUBLIC_URL`, `STORAGE_PATH_STYLE`, `STORAGE_SIGNING_KEY` | No | none, `true` for minio, random | | | A public bucket's URL; bucket in the path; the key signing local links |
 | `DEV_MAIL_SMTP_ADDR` | No | `127.0.0.1:1025` | `127.0.0.1:1035` | host:port | Where `orb dev`'s mail catcher listens and the app sends with `MAIL_DELIVERY=devmail` ([ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)) |
 | `MAIL_DELIVERY` | No | `devmail` in development, `provider` in production | `provider` | No | `devmail`, `mailpit` or `provider`. **Prod**: `devmail` and `mailpit` are refused. Provider credentials are only required when delivery is `provider` |
 | `MAILPIT_SMTP_ADDR` | No | `127.0.0.1:1025` | `127.0.0.1:1035` | No | `host:port` of Mailpit's SMTP server, used when delivery is `mailpit` |

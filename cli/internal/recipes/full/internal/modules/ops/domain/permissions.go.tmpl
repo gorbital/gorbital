@@ -26,14 +26,18 @@ const (
 	PermFlagsWrite = "ops.flags.write"
 
 	PermObservabilityRead = "ops.observability.read"
-	PermIncidentsRead     = "ops.incidents.read"
-	PermIncidentsWrite    = "ops.incidents.write"
+	// PermStorageRead and PermStorageWrite are the file storage APIs
+	// (ADR-0075).
+	PermStorageRead    = "ops.storage.read"
+	PermStorageWrite   = "ops.storage.write"
+	PermIncidentsRead  = "ops.incidents.read"
+	PermIncidentsWrite = "ops.incidents.write"
 )
 
 // AllPermissions returns every operations permission.
 func AllPermissions() []string {
 	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead, PermReleasesRead, PermMailRead, PermMailTest, PermMailWrite, PermAuthRead, PermAuthWrite, PermSystemRead, PermFlagsRead, PermFlagsWrite,
-		PermObservabilityRead, PermIncidentsRead, PermIncidentsWrite}
+		PermObservabilityRead, PermIncidentsRead, PermIncidentsWrite, PermStorageRead, PermStorageWrite}
 }
 
 // Errors returned by operations use cases.

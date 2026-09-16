@@ -3225,6 +3225,378 @@
       ]
     },
     {
+      "name": "Ops: storage",
+      "item": [
+        {
+          "name": "Describe file storage",
+          "request": {
+            "method": "GET",
+            "description": "The driver, bucket and endpoint, and whether the service answers. `local` is the development driver on this machine.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a directory",
+          "request": {
+            "method": "POST",
+            "description": "Object stores have no directories: this stores a hidden `.keep` marker so the prefix appears in listings. Audited as `storage.directory.created`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/directories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "directories"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prefix\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Describe an object",
+          "request": {
+            "method": "GET",
+            "description": "Size, content type, ETag, modification time and metadata of the object named by `key`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string",
+                  "description": "The object's key"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload an object",
+          "request": {
+            "method": "PUT",
+            "description": "Stores the request body under `key`, replacing any object there. The `Content-Type` header is the object's; the key's extension decides otherwise. Audited as `storage.object.uploaded`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "string"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete an object",
+          "request": {
+            "method": "DELETE",
+            "description": "Removes the object named by `key`; a missing key is fine. Audited as `storage.object.deleted`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string",
+                  "description": "The object's key"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Download an object",
+          "request": {
+            "method": "GET",
+            "description": "The object's bytes with its content type, as an attachment.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object/content",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object",
+                "content"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string",
+                  "description": "The object's key"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Move an object",
+          "request": {
+            "method": "POST",
+            "description": "Copies `from` to `to` and deletes `from`. Audited as `storage.object.moved`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object",
+                "move"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from\": \"string\",\n  \"to\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List objects",
+          "request": {
+            "method": "GET",
+            "description": "One page of objects under a prefix, with the directories folded at the next slash unless `recursive`. Continue with `cursor`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/objects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "objects"
+              ],
+              "query": [
+                {
+                  "key": "prefix",
+                  "value": "string",
+                  "description": "List keys under this prefix (a directory ends with a slash)",
+                  "disabled": true
+                },
+                {
+                  "key": "recursive",
+                  "value": "false",
+                  "description": "Every key under the prefix instead of one level",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "1",
+                  "description": "Page size, default 200",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a signed URL",
+          "request": {
+            "method": "POST",
+            "description": "A URL that downloads (GET) or uploads (PUT) the object until it expires, without other credentials. Audited as `storage.signed_url.created`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/signed-url",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "signed-url"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"string\",\n  \"expiry_seconds\": 1,\n  \"method\": \"GET\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Ops: system",
       "item": [
         {

@@ -55,6 +55,7 @@
     "invalid_social_token",
     "invalid_sort",
     "invalid_state",
+    "invalid_storage_key",
     "invalid_webhook_payload",
     "invalid_webhook_signature",
     "invitation_for_another_email",
@@ -109,6 +110,9 @@
     "social_link_required",
     "social_unavailable",
     "sole_owner",
+    "storage_object_not_found",
+    "storage_off",
+    "storage_unavailable",
     "too_many_attempts",
     "too_many_invitations",
     "too_many_orgs",
@@ -202,7 +206,12 @@
     "projects.project.deleted",
     "projects.project.updated",
     "retention.purged",
-    "settings.value.changed"
+    "settings.value.changed",
+    "storage.directory.created",
+    "storage.object.deleted",
+    "storage.object.moved",
+    "storage.object.uploaded",
+    "storage.signed_url.created"
   ],
   "permissions": {
     "org": [
@@ -238,6 +247,8 @@
       "ops.service_accounts.write",
       "ops.settings.read",
       "ops.settings.write",
+      "ops.storage.read",
+      "ops.storage.write",
       "ops.system.read",
       "orgs.org.create",
       "orgs.org.list"

@@ -133,3 +133,13 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | Action | Recorded when | Metadata |
 |---|---|---|
 | `settings.value.changed` | An operator changed or reset a runtime setting through `/ops/settings/{key}`; `reason` is required for security-relevant settings. | `org_id`, `reason`, `reset`, `version` |
+
+## storage
+
+| Action | Recorded when | Metadata |
+|---|---|---|
+| `storage.directory.created` | An operator created a directory marker (ADR-0075). |  |
+| `storage.object.deleted` | An operator deleted an object through /ops/storage (ADR-0075). |  |
+| `storage.object.moved` | An operator moved an object; the resource is the new key, `from` the old one (ADR-0075). | `from` |
+| `storage.object.uploaded` | An operator uploaded an object through /ops/storage; the resource is the key (ADR-0075). | `content_type`, `size` |
+| `storage.signed_url.created` | An operator created a signed download or upload link; the metadata says which and until when (ADR-0075). | `expires_at`, `method` |

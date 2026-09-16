@@ -151,6 +151,15 @@ If port 5432 is taken, set `POSTGRES_PORT` in `.env` and the same port in `DATAB
 
 Commit `gorbital.lock` with the app. It records the `orb` release that created the app, the answers the templates used (name, module, preset, tenancy, email provider) and a SHA-256 of every file `orb` wrote except `go.mod` and `go.sum`. `orb upgrade` uses it to rebuild those files as they were and merge newer templates into your edits ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)). Don't edit it by hand.
 
+## `orb add storage`
+
+Chooses where a Full preset app keeps files ([storage guide](storage.md), [ADR-0075](../adr/0075-file-storage.md)): `--driver local|s3|spaces|r2|minio` with `--endpoint`, `--region`, `--bucket`, `--access-key` and `--public-url`. It rewrites the `storage` block of `.env.example`, sets the values in `.env` (put `STORAGE_SECRET_KEY` there yourself) and, for `minio`, adds the MinIO service to `compose.yaml`, which `orb dev` then starts (`MINIO_PORT`, `MINIO_CONSOLE_PORT`).
+
+```bash
+orb add storage --driver minio
+orb add storage --driver s3 --region eu-west-1 --bucket acme-files --access-key AKIA… --yes
+```
+
 ## `orb gen job`
 
 Generates a background job in an app created with the Full preset. The job's schedule, timeout and retries can be changed later in `/ops/jobs` without a deploy ([background jobs guide](background-jobs.md)).
