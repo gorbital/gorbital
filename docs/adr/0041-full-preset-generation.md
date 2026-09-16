@@ -97,3 +97,10 @@ Option 1.
 | End to end | New Minimal and Full apps pass `go vet` and their tests; `orb gen resource` and `orb gen job` in the new Full app leave it vetting cleanly |
 | Not measured | Cold caches and Docker image pulls, which depend on the network; measured with `orb dev` and Docker |
 | Found while implementing | A `--local` path containing a space produced an invalid `go.mod` for both presets; replace paths are now quoted when needed |
+
+## Security review fixes (2026-09-16)
+
+| Finding | Fix | Check |
+|---|---|---|
+| CLI-1: `go generate` walked the golden app's directory, so git-ignored local files (`.env` with a real `AUTH_ENCRYPTION_KEYS`, keys, coverage output, editor settings) became templates. They were then embedded in every `orb` built from a checkout and written into new apps with mode 0644 | `cli/internal/recipes/gen` templates only the files `git ls-files --cached --others --exclude-standard` lists in each golden app (`generate.GitFiles`, `generate.OnlyFiles`). `generate.Skipped` still leaves `.env*` files other than `.env.example` out, including outside a git work tree, where `gen` warns. `TestGoldenApps` and `TestTemplatesUpToDate` use the same file set. `cli/.gitignore` ignores any `.env*.tmpl` other than `.env.example.tmpl` under the recipes | `TestRunLeavesGitIgnoredFilesOut` (an ignored key, coverage file and `.idea/` never become templates; tracked and new unignored files do), `TestSkippedLocalEnvironmentFiles` |
+| CLI-7: the Minimal preset pinned `google.golang.org/grpc` v1.83.1 (GO-2026-6443, imported but not called) | `examples/minimal` and `modules/telemetry` move to v1.83.2, which the Full presets already use; the Minimal `go.mod` template is regenerated | `TestTemplatesUpToDate`, `TestGoldenApps`; `examples/minimal` and `modules/telemetry` tests |

@@ -12,6 +12,12 @@ permissions: {}
 jobs:
   release:
     runs-on: ubuntu-latest
+    # The release environment requires a maintainer's approval before the job
+    # gets its signing identity. Repository settings, not this file, enforce
+    # it: environment "release" with required reviewers and only cli/v* tags
+    # allowed to deploy, and a tag ruleset that lets only maintainers create
+    # cli/v* tags (ADR-0029, threat 7).
+    environment: release
     permissions:
       contents: write     # create the draft release
       id-token: write     # keyless Sigstore signing
@@ -21,10 +27,23 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: tagged commit is on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "$GITHUB_REF_NAME points at $GITHUB_SHA, which isn't on main: releases are cut from main"
+            exit 1
+          fi
+      # No cache: a module or build cache saved by another workflow run could
+      # otherwise end up in signed binaries. check-latest builds with the
+      # newest patch release, whatever the runner has installed.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26.x"
-          cache-dependency-path: cli/go.sum
+          check-latest: true
+          cache: false
+      - name: test
+        working-directory: cli
+        run: go test ./...
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: version from tag
         run: echo "GORELEASER_CURRENT_TAG=${GITHUB_REF_NAME#cli/}" >> "$GITHUB_ENV"

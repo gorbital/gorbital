@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 
 	"gorbital.dev/cli/internal/recipes"
@@ -38,6 +39,26 @@ Every question has a flag; pass --yes to accept defaults without questions.
 Run "orb <command> -h" for a command's flags.
 `
 
+// minimumGo is the oldest Go release orb should be built with. orb writes
+// apps' files through os.Root so no path or symlink escapes the app (ADR-0029,
+// threat 3); Go 1.26.5 is the first 1.26 release with every os.Root escape
+// fixed (GO-2026-4602, GO-2026-4864, GO-2026-4970). go.mod keeps go 1.26.0
+// (ADR-0015), so go install accepts older toolchains: orb version and orb
+// doctor warn instead.
+const minimumGo = "1.26.5"
+
+// toolchainWarning returns a warning when goVersion, as runtime.Version
+// reports it, is a Go release older than minimumGo, and "" otherwise,
+// including for development toolchains.
+func toolchainWarning(goVersion string) string {
+	release, _, _ := strings.Cut(goVersion, " ")
+	have, ok := strings.CutPrefix(release, "go")
+	if !ok || versionAtLeast(have, minimumGo) {
+		return ""
+	}
+	return fmt.Sprintf("orb was built with %s, which lacks security fixes orb relies on; reinstall it with Go %s or newer (the latest patch release)", release, minimumGo)
+}
+
 // usageError is an error in how orb was invoked (exit code 2).
 type usageError string
 
@@ -59,6 +80,9 @@ func runVersion(args []string, stdout, stderr io.Writer) error {
 	}
 	if flags.NArg() > 0 {
 		return usageError(fmt.Sprintf("unexpected arguments: %s", strings.Join(flags.Args(), " ")))
+	}
+	if warning := toolchainWarning(runtime.Version()); warning != "" {
+		fmt.Fprintf(stderr, "orb: warning: %s\n", warning)
 	}
 	if *asJSON {
 		return writeJSON(stdout, versionResult{Version: Version, Recipe: recipes.MinimalName, Library: recipes.LibraryVersion})

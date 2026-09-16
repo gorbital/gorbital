@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -89,6 +90,13 @@ func TestDoctorOnANewApp(t *testing.T) {
 			t.Errorf("%s = %+v, want %s", name, c, status)
 		}
 	}
+	wantOrb := doctorOK
+	if toolchainWarning(runtime.Version()) != "" {
+		wantOrb = doctorWarn
+	}
+	if c := check(res, "orb"); c.Status != wantOrb {
+		t.Errorf("orb = %+v, want a warning only when orb was built with a Go older than %s", c, minimumGo)
+	}
 	if c := check(res, "gorbital.lock"); !strings.Contains(c.Detail, "0 of") {
 		t.Errorf("lock detail = %q, want no edited files", c.Detail)
 	}
@@ -151,6 +159,19 @@ func TestDoctorOnAMinimalApp(t *testing.T) {
 	res := doctorRun(t, 0)
 	if res.Preset != "minimal" || check(res, "docker").Name != "" || check(res, "database").Name != "" || check(res, "api files").Status != doctorOK {
 		t.Errorf("minimal app checks = %+v, want no Docker or database checks", res.Checks)
+	}
+}
+
+// TestToolchainWarning: orb built with a Go release that lacks the os.Root
+// fixes warns (CLI-7); newer releases and development toolchains don't.
+func TestToolchainWarning(t *testing.T) {
+	for version, warns := range map[string]bool{
+		"go1.26.0": true, "go1.26.4": true, "go1.26rc1": true, "go1.26.5": false, "go1.26.8": false,
+		"go1.27.0": false, "go1.27rc2": false, "go1.26.5 X:boringcrypto": false, "devel go1.27-abcdef": false,
+	} {
+		if got := toolchainWarning(version); (got != "") != warns || warns && !strings.Contains(got, version) {
+			t.Errorf("toolchainWarning(%q) = %q, want a warning: %v", version, got, warns)
+		}
 	}
 }
 

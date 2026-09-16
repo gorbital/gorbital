@@ -25,6 +25,30 @@ orb version
 
 `orb version --json` prints the version, recipe and library version for scripts. Run `go install ./cmd/orb` again after pulling changes.
 
+Build `orb` with the latest Go patch release. `orb` writes every file through `os.Root` so nothing escapes the app, and Go releases before 1.26.5 have `os.Root` escapes that were fixed later. The `go.mod` directive stays at `go 1.26.0` ([ADR-0015](../adr/0015-public-api-and-stability-tiers.md)), so `go install` accepts an older toolchain. When it does, `orb version` prints a warning and `orb doctor` warns in its `orb` check.
+
+### Verifying a release binary
+
+Once `orb` binaries are published, each GitHub release has archives, a `checksums.txt` covering all of them, a Sigstore bundle for that file (`checksums.txt.sigstore.json`) and SLSA build provenance. The release workflow signs with its GitHub identity, so no key is involved. Before you run a downloaded binary, check that the release workflow of `gorbital/gorbital` built it from a `cli/v*` tag:
+
+```bash
+# 1. The checksums were signed by the release workflow at a cli/v* tag.
+cosign verify-blob checksums.txt \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp '^https://github\.com/gorbital/gorbital/\.github/workflows/release-cli\.yml@refs/tags/cli/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+# 2. Your archive matches its signed checksum (on macOS: shasum -a 256 --ignore-missing -c checksums.txt).
+sha256sum --ignore-missing -c checksums.txt
+
+# 3. Optional: GitHub's build provenance for the archive.
+gh attestation verify orb_<version>_<os>_<arch>.tar.gz \
+  --repo gorbital/gorbital \
+  --signer-workflow gorbital/gorbital/.github/workflows/release-cli.yml
+```
+
+Step 1 must print `Verified OK` and step 2 must print `OK` for your archive. If either fails, don't run the binary; report it as described in [SECURITY.md](../../SECURITY.md). Releases are drafts until a maintainer publishes them, and the release job only runs for a tagged commit on `main` after a maintainer approves it in the `release` environment.
+
 ## Interactive or flags: both work
 
 Every command can be used two ways:
@@ -278,7 +302,7 @@ What it changes:
 | `internal/app/infra_mail.go` | Replaced with the provider's configuration and constructor |
 | `internal/app/infra_mail_test.go` | Replaced with the provider's tests and the fixtures the rest of the app's tests use, so `go test ./...` passes with either provider |
 | `.env.example` | The block between `# orb:begin mail` and `# orb:end mail` holds the provider's variables; the `# aps:` markers of apps generated before the rename are read too and rewritten as `# orb:` |
-| `.env` | Updated if it exists, or created from `.env.example` (mode 0600) when there are values to save; values already there are kept |
+| `.env` | Updated if it exists, or created from `.env.example` when there are values to save; values already there are kept. It is always left with mode 0600: an existing `.env` that other users could read (as `cp .env.example .env` makes it) is narrowed, with a warning |
 | `gorbital.yaml` | `mail: resend` or `mail: smtp` |
 | `gorbital.lock` | The provider and the new hashes of the files above that `orb` tracks (apps created before v0.5 keep their lock as it is) |
 | `go.mod` | Requires the provider module (with a `replace` to your gorbital checkout when the app uses one), then `go mod tidy` |
@@ -335,7 +359,9 @@ A file whose rebuilt content doesn't match the lock is compared as yours against
 
 Without conflicts it then updates `go.mod` (new requirements and the new library version, then `go mod tidy`), runs `go build ./...`, regenerates `api/openapi.json` (with the Postman collection and `llms.txt`), records the app's public names in `api/surface.json` (`go test ./internal/app -run TestPublicSurface -update`; review what changed in the commit) and commits `Upgrade gorbital to <version>`. Run your tests (database tests need `orb dev` or `docker compose up -d --wait`) and merge the branch. With conflicts it exits with code 1, commits nothing, and lists the files to resolve and the commands to finish.
 
-Where earlier releases come from: with an gorbital checkout (`--local`, the checkout your `go.mod` replaces the library with, or the one you run in), `git archive` of the release's tag or commit. Otherwise the `gorbital.dev/cli` module from the Go module proxy, verified by the checksum database: `orb upgrade` refuses when `GOSUMDB=off` or `GONOSUMDB`, `GOPRIVATE` or `GOINSECURE` covers it. Templates are only rendered as text; nothing downloaded is run.
+Where earlier releases come from: with an gorbital checkout (`--local`, the checkout your `go.mod` replaces the library with, or the one you run in), `git archive` of the release's tag or commit. Otherwise the `gorbital.dev/cli` module from the Go module proxy, verified by the checksum database: `orb upgrade` refuses when `GOSUMDB` is `off` or names a database other than `sum.golang.org`, or when `GONOSUMDB`, `GOPRIVATE` or `GOINSECURE` covers the module (patterns match as Go matches them, with or without a trailing slash). Templates are only rendered as text; nothing downloaded is run.
+
+A checkout must be the top of its own git repository, outside the app's repository, and the release must be a commit of the gorbital repository (its `go.mod` is `module gorbital.dev`, or `apistock.dev` before the rename). `--local` pointing inside the app is refused. A detected checkout inside the app, such as a `replace` to a copy committed in the app, is passed over, so the release comes from the module proxy instead. Otherwise a commit to the app could supply both the earlier templates and the lock hashes that prove them. The name, module, preset, tenancy and mail provider read from `gorbital.lock` or `gorbital.yaml` are checked with the rules `orb new` uses before anything is rendered.
 
 | Flag | Default |
 |---|---|
@@ -360,8 +386,9 @@ orb doctor --json    # for scripts and agents
 ```text
 orb doctor · shop-api (full, single tenancy)
 
-  ok    go             go1.26.0; go.mod needs 1.26.0
+  ok    go             go1.26.8; go.mod needs 1.26.0
   ok    git            installed
+  ok    orb            v0.5.0 built with go1.26.8
   ok    gorbital.yaml  full preset, single tenancy
   warn  docker         Docker isn't running or isn't installed
                        fix: start Docker Desktop (or Docker Engine with Compose v2): orb dev runs PostgreSQL and Mailpit in it
@@ -379,6 +406,7 @@ orb doctor · shop-api (full, single tenancy)
 | Check | Fails when | Warns when |
 |---|---|---|
 | `go`, `git`, `docker` | Go isn't installed | Go is older than `go.mod` needs; git isn't installed; Docker isn't running (Full preset) |
+| `orb` | | `orb` was built with a Go release older than 1.26.5, which lacks `os.Root` security fixes; reinstall it with the latest Go patch release |
 | `gorbital.yaml`, `gorbital.lock` | Either is unreadable, or the lock was written by a newer `orb` | The lock is missing, from before v0.5, or from an older `orb` (run `orb upgrade`) |
 | `library` | A `replace` directive points at something that isn't an gorbital checkout | `go.mod` doesn't require `gorbital.dev` |
 | `anchor` (Full preset) | A line generators insert after is gone: `//orb:anchor modules`, `//orb:anchor jobs`, `//orb:anchor org-permissions` (multi-tenant), or the mail block in `.env.example` | |

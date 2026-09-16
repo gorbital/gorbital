@@ -546,6 +546,9 @@ func applyMail(ctx context.Context, dir string, plan mailPlan, allowDirty, skipT
 		if err := root.WriteFile(w.path, w.content, w.perm); err != nil {
 			return fmt.Errorf("write %s: %w", w.path, err)
 		}
+		if err := restrictSecretFile(root, w, stderr); err != nil {
+			return err
+		}
 	}
 
 	if len(plan.modules) > 0 {
@@ -566,6 +569,29 @@ func applyMail(ctx context.Context, dir string, plan mailPlan, allowDirty, skipT
 			return fmt.Errorf("files are updated, but go mod tidy failed: %w", err)
 		}
 	}
+	return nil
+}
+
+// restrictSecretFile gives a file written with private permissions, such as
+// .env, those permissions even when it already existed: WriteFile keeps an
+// existing file's mode, and cp .env.example .env makes it readable by
+// everyone. It warns when it narrows them, since the file may have been
+// copied or backed up while readable.
+func restrictSecretFile(root *os.Root, w fileWrite, stderr io.Writer) error {
+	if w.perm&0o077 != 0 {
+		return nil
+	}
+	info, err := root.Stat(w.path)
+	if err != nil {
+		return fmt.Errorf("check the permissions of %s: %w", w.path, err)
+	}
+	if info.Mode().Perm()&^w.perm == 0 {
+		return nil
+	}
+	if err := root.Chmod(w.path, w.perm); err != nil {
+		return fmt.Errorf("make %s private: %w", w.path, err)
+	}
+	fmt.Fprintf(stderr, "orb: %s was readable by other users (mode %04o); it holds secrets, so it is now %04o\n", w.path, info.Mode().Perm(), w.perm)
 	return nil
 }
 

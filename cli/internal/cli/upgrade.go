@@ -277,27 +277,71 @@ func readManifest(dir string) (lockInputs, error) {
 	if in.Name == "" || in.Module == "" || in.Preset == "" {
 		return lockInputs{}, fmt.Errorf("%s needs name, module and preset", manifestPath)
 	}
+	if err := in.validate(manifestPath); err != nil {
+		return lockInputs{}, err
+	}
 	return in, nil
 }
 
 // releaseCheckout returns the gorbital checkout to read releases from: the
 // --local path, the checkout the app's go.mod replaces the library with, or
-// the checkout the command runs in; "" when there is none.
+// the checkout the command runs in; "" when there is none. A checkout inside
+// the app's own git repository is refused for --local and passed over when
+// detected: go.mod and the files in that repository are the app's content,
+// so a commit to the app could otherwise supply the earlier templates and
+// the lock hashes that prove them, and make the upgrade revert or delete
+// files (ADR-0050).
 func releaseCheckout(ctx context.Context, appDir, local string) (string, error) {
 	if local != "" {
-		return resolveLocal(local)
+		dir, err := resolveLocal(local)
+		if err != nil {
+			return "", err
+		}
+		if err := checkoutOutsideApp(ctx, appDir, dir); err != nil {
+			return "", usageError(fmt.Sprintf("--local %s: %v", local, err))
+		}
+		return dir, nil
 	}
+	var candidates []string
 	if info, err := readGoMod(ctx, appDir); err == nil {
 		if _, dir := info.gorbital(); dir != "" {
 			if !filepath.IsAbs(dir) {
 				dir = filepath.Join(appDir, dir)
 			}
-			if p, err := resolveLocal(dir); err == nil {
-				return p, nil
-			}
+			candidates = append(candidates, dir)
 		}
 	}
-	return findCheckout(), nil
+	candidates = append(candidates, findCheckout())
+	for _, dir := range candidates {
+		if dir == "" {
+			continue
+		}
+		if p, err := resolveLocal(dir); err == nil && checkoutOutsideApp(ctx, appDir, p) == nil {
+			return p, nil
+		}
+	}
+	return "", nil
+}
+
+// checkoutOutsideApp returns an error when checkout is inside the git work
+// tree appDir belongs to.
+func checkoutOutsideApp(ctx context.Context, appDir, checkout string) error {
+	appTop, err := gitOutput(ctx, appDir, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return nil // not in git: orb upgrade refuses such apps before this
+	}
+	appTop, err = filepath.EvalSymlinks(appTop)
+	if err != nil {
+		return err
+	}
+	dir, err := filepath.EvalSymlinks(checkout)
+	if err != nil {
+		return err
+	}
+	if rel, err := filepath.Rel(appTop, dir); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("the gorbital checkout %s is inside the app's git repository %s; use a checkout of its own outside the app", checkout, appTop)
+	}
+	return nil
 }
 
 // rebuildBase renders what release wrote into the app and marks the files

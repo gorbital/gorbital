@@ -7,10 +7,13 @@
 package generate
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -55,8 +58,57 @@ func Skipped(rel string) bool {
 	return strings.HasPrefix(base, ".env") && base != ".env.example"
 }
 
+// An Option configures Run.
+type Option func(*options)
+
+type options struct {
+	files map[string]bool
+}
+
+// OnlyFiles makes Run template only the golden app files in files
+// (slash-separated, relative to src), such as the ones GitFiles returns.
+// Skipped files stay skipped.
+func OnlyFiles(files map[string]bool) Option {
+	return func(o *options) { o.files = files }
+}
+
+// GitFiles returns the files git tracks or would track in dir: tracked files
+// and untracked files that no ignore rule matches (git ls-files --cached
+// --others --exclude-standard), slash-separated and relative to dir. Files a
+// developer keeps next to a golden app, such as .env, keys, coverage output
+// or editor settings, are git-ignored, so they never become templates. ok is
+// false when dir isn't in a git work tree, such as a source archive.
+func GitFiles(ctx context.Context, dir string) (files map[string]bool, ok bool, err error) {
+	if _, err := exec.LookPath("git"); err != nil {
+		return nil, false, fmt.Errorf("generate: git is needed to leave git-ignored files out of templates: %w", err)
+	}
+	inside := exec.CommandContext(ctx, "git", "rev-parse", "--is-inside-work-tree")
+	inside.Dir = dir
+	if out, err := inside.Output(); err != nil || strings.TrimSpace(string(out)) != "true" {
+		return nil, false, nil
+	}
+	var stdout, stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, "git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", ".")
+	cmd.Dir, cmd.Stdout, cmd.Stderr = dir, &stdout, &stderr
+	if err := cmd.Run(); err != nil {
+		return nil, false, fmt.Errorf("generate: git ls-files in %s: %w: %s", dir, err, strings.TrimSpace(stderr.String()))
+	}
+	files = map[string]bool{}
+	for name := range strings.SplitSeq(stdout.String(), "\x00") {
+		if name != "" {
+			files[name] = true
+		}
+	}
+	return files, true, nil
+}
+
 // Run writes templates for the golden app at src into dst, replacing dst.
-func Run(src, dst string) error {
+func Run(src, dst string, opts ...Option) error {
+	var o options
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	goMod, err := os.ReadFile(filepath.Join(src, "go.mod"))
 	if err != nil {
 		return err
@@ -72,7 +124,7 @@ func Run(src, dst string) error {
 	}
 	defer os.RemoveAll(tmp)
 
-	if err := writeTemplates(src, tmp, goModTemplate); err != nil {
+	if err := writeTemplates(src, tmp, goModTemplate, o.files); err != nil {
 		return err
 	}
 
@@ -85,8 +137,9 @@ func Run(src, dst string) error {
 }
 
 // writeTemplates reads the golden app and writes templates through os.Root,
-// so symlinks can't redirect reads or writes outside src and dst.
-func writeTemplates(src, dst string, goModTemplate []byte) error {
+// so symlinks can't redirect reads or writes outside src and dst. A non-nil
+// only limits the files read to those in it.
+func writeTemplates(src, dst string, goModTemplate []byte, only map[string]bool) error {
 	srcRoot, err := os.OpenRoot(src)
 	if err != nil {
 		return err
@@ -106,9 +159,9 @@ func writeTemplates(src, dst string, goModTemplate []byte) error {
 			if SkippedDirs[d.Name()] {
 				return fs.SkipDir
 			}
-			return dstRoot.MkdirAll(rel, 0o755)
+			return nil
 		}
-		if Skipped(rel) {
+		if Skipped(rel) || (only != nil && !only[rel]) {
 			return nil
 		}
 		content, err := srcRoot.ReadFile(rel)
@@ -124,6 +177,11 @@ func writeTemplates(src, dst string, goModTemplate []byte) error {
 		}
 		text = strings.ReplaceAll(text, PlaceholderModule, LeftDelim+".Module"+RightDelim)
 		text = strings.ReplaceAll(text, PlaceholderName, LeftDelim+".Name"+RightDelim)
+		if dir := path.Dir(rel); dir != "." {
+			if err := dstRoot.MkdirAll(dir, 0o755); err != nil {
+				return err
+			}
+		}
 		return dstRoot.WriteFile(rel+".tmpl", []byte(text), 0o644)
 	})
 	if err != nil {

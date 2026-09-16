@@ -1,0 +1,4 @@
+# Local environment files never become templates (generate.Skipped and
+# generate.GitFiles); this keeps one that slipped through out of commits.
+/internal/recipes/**/.env*.tmpl
+!/internal/recipes/**/.env.example.tmpl

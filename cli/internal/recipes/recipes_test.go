@@ -21,6 +21,20 @@ var goldenApps = []struct{ templates, preset, tenancy, dir string }{
 	{"full-multi", "full", "multi", "../../../examples/full-multi"},
 }
 
+// goldenFiles returns the files of the golden app at dir that git tracks or
+// would track, as go generate templates them; nil outside a git work tree.
+func goldenFiles(t *testing.T, dir string) map[string]bool {
+	t.Helper()
+	files, ok, err := generate.GitFiles(t.Context(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		return nil
+	}
+	return files
+}
+
 func renderInto(t *testing.T, preset, tenancy string, d recipes.Data) (string, []recipes.File) {
 	t.Helper()
 	p, ok := recipes.LookupPreset(preset, tenancy)
@@ -50,6 +64,7 @@ func TestGoldenApps(t *testing.T) {
 				Module:         generate.PlaceholderModule,
 				LibraryVersion: recipes.LibraryVersion,
 			})
+			tracked := goldenFiles(t, golden.dir)
 			rendered := map[string]bool{}
 			for _, f := range files {
 				rendered[f.Path] = true
@@ -66,7 +81,7 @@ func TestGoldenApps(t *testing.T) {
 					}
 					return nil
 				}
-				if generate.Skipped(rel) {
+				if generate.Skipped(rel) || (tracked != nil && !tracked[rel]) {
 					return nil
 				}
 				want, _ := os.ReadFile(p)
@@ -210,7 +225,11 @@ func TestTemplatesUpToDate(t *testing.T) {
 	for _, golden := range goldenApps {
 		t.Run(golden.templates, func(t *testing.T) {
 			fresh := filepath.Join(t.TempDir(), golden.templates)
-			if err := generate.Run(golden.dir, fresh); err != nil {
+			var opts []generate.Option
+			if tracked := goldenFiles(t, golden.dir); tracked != nil {
+				opts = append(opts, generate.OnlyFiles(tracked))
+			}
+			if err := generate.Run(golden.dir, fresh, opts...); err != nil {
 				t.Fatalf("generate.Run() error = %v", err)
 			}
 			compareTrees(t, fresh, golden.templates)

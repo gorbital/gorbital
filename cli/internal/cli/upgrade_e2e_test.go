@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,14 +11,20 @@ import (
 	"testing"
 )
 
-// TestUpgradeFromV040 is ADR-0050's definition of done: a Full app created
-// by orb at v0.4.0 and edited with the commands developers run (a generated
-// resource, a generated migration, orb add mail smtp, an edit to a tracked
-// file) upgrades with this orb: every edit is kept, the lock becomes v2,
-// the app builds, api/openapi.json is regenerated, the upgrade is committed
-// on its branch, and no test that passed before fails after. Set ORB_E2E=1
-// to run it; it needs the v0.4.0 tag and the Go module cache or network.
-func TestUpgradeFromV040(t *testing.T) {
+// TestUpgradeFromRelease is ADR-0050's definition of done: a Full app
+// created by orb at an earlier release and edited with the commands
+// developers run (a generated resource, a generated migration, orb add mail
+// smtp, an edit to a tracked file) upgrades with this orb: every edit is
+// kept, the lock is v2, the app builds, api/openapi.json is regenerated, the
+// upgrade is committed on its branch, and no test that passed before fails
+// after. Set ORB_E2E=1 to run it; it needs the release tag and the Go module
+// cache or network.
+//
+// The release is ORB_UPGRADE_FROM, or else the newest vX.Y.Z tag made after
+// the rename to gorbital. Earlier tags can't be used: their CLI is in cmd/aps
+// and their module is apistock.dev, so the orb built there writes apps this
+// repository's library doesn't serve. The test skips until such a tag exists.
+func TestUpgradeFromRelease(t *testing.T) {
 	if os.Getenv("ORB_E2E") == "" {
 		t.Skip("set ORB_E2E=1 to run the end-to-end test")
 	}
@@ -25,14 +32,19 @@ func TestUpgradeFromV040(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := gitOutput(t.Context(), repo, "rev-parse", "--verify", "--quiet", "v0.4.0^{commit}"); err != nil {
-		t.Skip("tag v0.4.0 isn't in this checkout (git fetch --tags)")
+	from := os.Getenv("ORB_UPGRADE_FROM")
+	if from == "" {
+		if from = latestRenamedRelease(t, repo); from == "" {
+			t.Skip("no vX.Y.Z tag after the rename to gorbital (earlier ones build apistock.dev apps with cmd/aps); tag a release, git fetch --tags, or set ORB_UPGRADE_FROM")
+		}
+	} else if !renamedRelease(t, repo, from) {
+		t.Fatalf("ORB_UPGRADE_FROM=%s isn't a tag or commit here whose go.mod is module gorbital.dev with cli/cmd/orb (git fetch --tags?)", from)
 	}
 
-	// Build orb as released at v0.4.0.
+	// Build orb as released at from.
 	work := t.TempDir()
-	old := filepath.Join(work, "v0.4.0")
-	if out, err := exec.Command("git", "-C", repo, "worktree", "add", "--detach", "--quiet", old, "v0.4.0").CombinedOutput(); err != nil {
+	old := filepath.Join(work, "release")
+	if out, err := exec.Command("git", "-C", repo, "worktree", "add", "--detach", "--quiet", old, from).CombinedOutput(); err != nil {
 		t.Fatalf("git worktree add: %v\n%s", err, out)
 	}
 	t.Cleanup(func() {
@@ -40,17 +52,17 @@ func TestUpgradeFromV040(t *testing.T) {
 			t.Logf("git worktree remove: %v\n%s", err, out)
 		}
 	})
-	oldOrb := filepath.Join(work, "orb-v0.4.0")
+	oldOrb := filepath.Join(work, "orb-"+filepath.Base(from))
 	build := exec.Command("go", "build", "-o", oldOrb, "./cmd/orb")
 	build.Dir = filepath.Join(old, "cli")
 	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build orb v0.4.0: %v\n%s", err, out)
+		t.Fatalf("build orb %s: %v\n%s", from, err, out)
 	}
 	runOld := func(args ...string) {
 		t.Helper()
 		cmd := exec.Command(oldOrb, args...)
 		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("orb v0.4.0 %s: %v\n%s", strings.Join(args, " "), err, out)
+			t.Fatalf("orb %s %s: %v\n%s", from, strings.Join(args, " "), err, out)
 		}
 	}
 
@@ -70,8 +82,16 @@ func TestUpgradeFromV040(t *testing.T) {
 	commitAll(t, "Edit routes")
 	before := failingTests(t)
 
-	if code, out, errOut := runOrb(t, "upgrade", "--from", "v0.4.0"); code != 0 {
-		t.Fatalf("orb upgrade --from v0.4.0 = %d\n%s\n%s", code, out, errOut)
+	code, out, errOut := runOrb(t, "upgrade", "--from", from, "--json")
+	if code != 0 {
+		t.Fatalf("orb upgrade --from %s = %d\n%s\n%s", from, code, out, errOut)
+	}
+	var res upgradeResult
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		t.Fatalf("orb upgrade --json output %q: %v", out, err)
+	}
+	if res.UpToDate {
+		t.Skipf("orb at %s writes the same files as this orb, so there is nothing to upgrade; set ORB_UPGRADE_FROM to an older release", from)
 	}
 
 	if got := git(t, "branch", "--show-current"); got != upgradeBranchPrefix+Version {
@@ -80,11 +100,9 @@ func TestUpgradeFromV040(t *testing.T) {
 	if got := git(t, "log", "-1", "--format=%s"); got != "Upgrade gorbital to "+Version || git(t, "status", "--porcelain") != "" {
 		t.Errorf("last commit = %q with a dirty tree; want the upgrade committed", got)
 	}
-	// The routes.go template changed since v0.4.0 (maintenance mode), so the
-	// upgrade merges: the developer's line and the template's change both
-	// arrive.
-	if got := readFile(t, "internal/app/routes.go"); !strings.Contains(got, "// Acme: an edit to a tracked file") || !strings.Contains(got, "a.maintenance()") {
-		t.Errorf("routes.go after the upgrade lacks the developer's edit or the template's change:\n%s", got)
+	// The developer's line survives whether or not the template changed.
+	if got := readFile(t, "internal/app/routes.go"); !strings.Contains(got, "// Acme: an edit to a tracked file") || strings.Contains(got, "<<<<<<<") {
+		t.Errorf("routes.go after the upgrade lacks the developer's edit or has conflict markers:\n%s", got)
 	}
 	for _, p := range []string{"internal/modules/customers/module.go", "internal/app/module_customers.go"} {
 		if _, err := os.Stat(p); err != nil {
@@ -109,6 +127,40 @@ func TestUpgradeFromV040(t *testing.T) {
 			t.Errorf("%s passed before the upgrade and fails after", name)
 		}
 	}
+}
+
+// releaseTag matches release tags of the root module, without pre-releases.
+var releaseTag = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+$`)
+
+// latestRenamedRelease returns the newest release tag in repo made after the
+// rename to gorbital, or "" when there is none.
+func latestRenamedRelease(t *testing.T, repo string) string {
+	t.Helper()
+	tags, err := gitOutput(t.Context(), repo, "tag", "--list", "v*", "--sort=-v:refname")
+	if err != nil {
+		t.Fatalf("git tag: %v", err)
+	}
+	for tag := range strings.Lines(tags) {
+		if tag = strings.TrimSpace(tag); releaseTag.MatchString(tag) && renamedRelease(t, repo, tag) {
+			return tag
+		}
+	}
+	return ""
+}
+
+// renamedRelease reports whether ref in repo has the gorbital.dev module and
+// orb's command in cli/cmd/orb.
+func renamedRelease(t *testing.T, repo, ref string) bool {
+	t.Helper()
+	if !refPattern.MatchString(ref) {
+		return false
+	}
+	goMod, err := gitOutput(t.Context(), repo, "cat-file", "blob", ref+":go.mod")
+	if err != nil || modulePath([]byte(goMod)) != "gorbital.dev" {
+		return false
+	}
+	_, err = gitOutput(t.Context(), repo, "cat-file", "-e", ref+":cli/cmd/orb/main.go")
+	return err == nil
 }
 
 var failLine = regexp.MustCompile(`(?m)^\s*--- FAIL: (\S+)`)

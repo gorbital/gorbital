@@ -54,6 +54,28 @@ type lockInputs struct {
 	Mail    string `json:"mail,omitempty"`
 }
 
+// validate checks inputs read from source (gorbital.lock or gorbital.yaml)
+// with the rules orb new applies before rendering. Anyone who can commit to
+// the app can edit those files, and orb upgrade and orb add orgs render the
+// name and module into every template, so a module path carrying Go syntax
+// would become code in a commit reviewers trust (ADR-0029, threat 2).
+func (in lockInputs) validate(source string) error {
+	switch {
+	case validateName(in.Name) != nil:
+		return fmt.Errorf("%s has an invalid app name %q: use lowercase letters, digits and single hyphens, starting with a letter (max %d characters)", source, in.Name, maxNameLength)
+	case validateModule(in.Module) != nil:
+		return fmt.Errorf("%s has an invalid module path %q", source, in.Module)
+	}
+	if _, ok := recipes.LookupPreset(in.Preset, in.Tenancy); !ok {
+		return fmt.Errorf("%s has an unknown preset %q with tenancy %q", source, in.Preset, in.Tenancy)
+	}
+	switch in.Mail {
+	case "", recipes.MailResend, recipes.MailSMTP:
+		return nil
+	}
+	return fmt.Errorf("%s has an unknown mail provider %q", source, in.Mail)
+}
+
 // lockedFile is a tracked file and the SHA-256 of its content as orb wrote it.
 type lockedFile struct {
 	Path   string `json:"path"`
@@ -148,6 +170,9 @@ func readLock(dir string) (lockFile, error) {
 		dec.DisallowUnknownFields()
 		if err := dec.Decode(&l); err != nil {
 			return lockFile{}, fmt.Errorf("read %s: %w", lockPath, err)
+		}
+		if err := l.Inputs.validate(lockPath); err != nil {
+			return lockFile{}, err
 		}
 	case lockAPIVersionV1:
 		var v1 struct {

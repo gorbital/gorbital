@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -64,7 +65,7 @@ var doctorCommand = func(ctx context.Context, dir string, env []string, name str
 const doctorUsage = `Usage: orb doctor [flags]
 
 Checks the app in the current directory and prints what to fix: the Go
-toolchain, git and Docker; gorbital.lock and the library version; the lines
+toolchain, git, Docker and the Go orb was built with; gorbital.lock and the library version; the lines
 generators insert at; .env; whether api/ matches the code; and the
 database's migrations. It changes nothing (ADR-0051).
 `
@@ -138,7 +139,7 @@ func (d *doctor) add(status, name, detail, fix string) {
 
 func (d *doctor) path(rel string) string { return filepath.Join(d.dir, filepath.FromSlash(rel)) }
 
-// toolchain checks Go against go.mod, git and, for Full apps, Docker.
+// toolchain checks Go against go.mod, git, and the Go orb was built with.
 func (d *doctor) toolchain(ctx context.Context) {
 	have, _, err := doctorCommand(ctx, d.dir, nil, "go", "env", "GOVERSION")
 	have = strings.TrimSpace(have)
@@ -158,6 +159,12 @@ func (d *doctor) toolchain(ctx context.Context) {
 		d.add(doctorWarn, "git", "git isn't installed", "install git: orb upgrade, orb add and the generators work on a clean git tree")
 	} else {
 		d.add(doctorOK, "git", "installed", "")
+	}
+
+	if warning := toolchainWarning(runtime.Version()); warning != "" {
+		d.add(doctorWarn, "orb", warning, "install Go "+minimumGo+" or newer, then run go install for orb again")
+	} else {
+		d.add(doctorOK, "orb", Version+" built with "+runtime.Version(), "")
 	}
 }
 

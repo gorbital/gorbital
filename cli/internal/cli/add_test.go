@@ -154,6 +154,33 @@ func TestAddMailSwitchesBackToResend(t *testing.T) {
 	}
 }
 
+// TestAddMailMakesAnExistingEnvPrivate: a .env made with cp .env.example
+// .env is readable by everyone; once orb add mail saves provider settings in
+// it, only the owner can read it, and orb says it changed the mode.
+func TestAddMailMakesAnExistingEnvPrivate(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file modes are Unix permissions")
+	}
+	newMailApp(t)
+	writeFile(t, ".env", readFile(t, ".env.example"))
+	if err := os.Chmod(".env", 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errOut := runOrb(t, "add", "mail", "--json", "--skip-tidy", "--smtp-host", "smtp.example.com", "--smtp-username", "server-token")
+	if code != 0 {
+		t.Fatalf("orb add mail = %d, stderr %q", code, errOut)
+	}
+	if info, err := os.Stat(".env"); err != nil || info.Mode().Perm() != 0o600 {
+		t.Errorf(".env mode = %v, %v; want 0600", info.Mode().Perm(), err)
+	}
+	if !strings.Contains(errOut, ".env was readable by other users (mode 0644)") {
+		t.Errorf("stderr = %q, want a warning about the old mode", errOut)
+	}
+	if !strings.Contains(readFile(t, ".env"), "SMTP_USERNAME=server-token") {
+		t.Error(".env lacks the saved settings")
+	}
+}
+
 func TestAddMailAlreadyConfigured(t *testing.T) {
 	newMailApp(t)
 	files := []string{recipes.InfraMailPath, recipes.InfraMailTestPath, ".env.example", "gorbital.yaml", "go.mod"}

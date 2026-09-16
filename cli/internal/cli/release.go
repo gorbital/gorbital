@@ -11,7 +11,9 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"gorbital.dev/cli/internal/recipes"
@@ -40,11 +42,20 @@ var openRelease = func(ctx context.Context, checkout, ref, version string) (reci
 	return releaseFromProxy(ctx, version)
 }
 
+// repositoryModules are the module paths the gorbital repository's root
+// go.mod has had: gorbital.dev, and apistock.dev before the rename.
+var repositoryModules = []string{"gorbital.dev", "apistock.dev"}
+
 // releaseFromCheckout extracts ref's templates from the checkout with git
-// archive into a temporary directory.
+// archive into a temporary directory. The checkout must be the top of its
+// own git repository, since git run in a subdirectory reads the enclosing
+// repository, and ref must be a commit of the gorbital repository.
 func releaseFromCheckout(ctx context.Context, checkout, ref string) (recipes.Release, func(), error) {
 	if !refPattern.MatchString(ref) || strings.Contains(ref, "..") {
 		return recipes.Release{}, nil, fmt.Errorf("invalid release %q: use a tag such as v0.4.0 or a commit", ref)
+	}
+	if err := checkoutRepository(ctx, checkout); err != nil {
+		return recipes.Release{}, nil, err
 	}
 	// A CLI tag names the release when there is one; the commit is the same.
 	commit, err := gitOutput(ctx, checkout, "rev-parse", "--verify", "--quiet", "cli/"+ref+"^{commit}")
@@ -52,6 +63,11 @@ func releaseFromCheckout(ctx context.Context, checkout, ref string) (recipes.Rel
 		if commit, err = gitOutput(ctx, checkout, "rev-parse", "--verify", "--quiet", ref+"^{commit}"); err != nil {
 			return recipes.Release{}, nil, fmt.Errorf("release %s isn't in the gorbital checkout %s (try git fetch --tags there)", ref, checkout)
 		}
+	}
+
+	goMod, err := gitOutput(ctx, checkout, "cat-file", "blob", commit+":go.mod")
+	if err != nil || !slices.Contains(repositoryModules, modulePath([]byte(goMod))) {
+		return recipes.Release{}, nil, fmt.Errorf("release %s in %s isn't a commit of the gorbital repository (its go.mod isn't module gorbital.dev)", ref, checkout)
 	}
 
 	var archive, stderr bytes.Buffer
@@ -70,6 +86,23 @@ func releaseFromCheckout(ctx context.Context, checkout, ref string) (recipes.Rel
 		return recipes.Release{}, nil, fmt.Errorf("read the templates of %s: %w", ref, err)
 	}
 	return recipes.ReleaseFS(os.DirFS(dir)), cleanup, nil
+}
+
+// checkoutRepository returns an error unless checkout is the top-level
+// directory of a git work tree.
+func checkoutRepository(ctx context.Context, checkout string) error {
+	top, err := gitOutput(ctx, checkout, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return fmt.Errorf("the gorbital checkout %s isn't a git repository", checkout)
+	}
+	want, err := filepath.EvalSymlinks(checkout)
+	if err != nil {
+		return err
+	}
+	if got, err := filepath.EvalSymlinks(top); err != nil || got != want {
+		return fmt.Errorf("the gorbital checkout %s isn't the top of its git repository (%s): releases are read only from a checkout's own repository", checkout, top)
+	}
+	return nil
 }
 
 // extractTemplates writes the regular files under recipesDir in a tar
@@ -141,8 +174,13 @@ func releaseFromProxy(ctx context.Context, version string) (recipes.Release, fun
 // checksumPolicy refuses Go environments that would download gorbital.dev
 // modules without checking them against the checksum database.
 func checksumPolicy(env map[string]string) error {
-	if env["GOSUMDB"] == "off" {
+	switch db, _, _ := strings.Cut(strings.TrimSpace(env["GOSUMDB"]), " "); db {
+	case "off":
 		return errors.New("GOSUMDB=off: orb upgrade only uses releases verified by the Go checksum database")
+	case "", "sum.golang.org", "sum.golang.google.cn":
+		// The checksum database Go knows the key of, possibly through a proxy.
+	default:
+		return fmt.Errorf("GOSUMDB=%s: orb upgrade only uses releases verified by the Go checksum database, sum.golang.org", db)
 	}
 	for _, name := range []string{"GONOSUMDB", "GOPRIVATE", "GOINSECURE"} {
 		if matchesModulePrefix(env[name], cliModule) {
@@ -157,9 +195,13 @@ func checksumPolicy(env map[string]string) error {
 
 // matchesModulePrefix reports whether a comma-separated list of glob
 // patterns, as GOPRIVATE uses, matches module or one of its path prefixes.
+// It follows golang.org/x/mod/module.MatchPrefixPatterns, which the go
+// command uses: a trailing slash is ignored, and a pattern with n elements
+// matches the module path's first n elements. Surrounding spaces are
+// trimmed, which Go doesn't do, so orb refuses in more cases, never fewer.
 func matchesModulePrefix(patterns, module string) bool {
-	for _, pattern := range strings.Split(patterns, ",") {
-		pattern = strings.TrimSpace(pattern)
+	for pattern := range strings.SplitSeq(patterns, ",") {
+		pattern = strings.TrimSuffix(strings.TrimSpace(pattern), "/")
 		if pattern == "" {
 			continue
 		}

@@ -81,6 +81,13 @@ func TestReadLockRejects(t *testing.T) {
 		"repeated path":  `{"apiVersion": "gorbital.dev/v2", "files": [{"path": "a.go", "sha256": "a"}, {"path": "a.go", "sha256": "b"}]}`,
 		"not JSON":       `apiVersion: gorbital.dev/v2`,
 		"v1 bad escapes": `{"apiVersion": "gorbital.dev/v1", "recipes": [{"operations": [{"op": "createFile", "path": "../x", "sha256": "a"}]}]}`,
+		// Inputs are rendered into every template (CLI-4).
+		"injected module": `{"apiVersion": "gorbital.dev/v2", "inputs": {"name": "shop-api", "module": "example.com/shop-api/internal/app\"; _ \"evil.example/pwn", "preset": "full", "tenancy": "single"}, "files": []}`,
+		"newline in name": `{"apiVersion": "gorbital.dev/v2", "inputs": {"name": "shop-api\nimage: evil", "module": "example.com/shop-api", "preset": "full", "tenancy": "single"}, "files": []}`,
+		"unknown preset":  `{"apiVersion": "gorbital.dev/v2", "inputs": {"name": "shop-api", "module": "example.com/shop-api", "preset": "../full", "tenancy": "single"}, "files": []}`,
+		"unknown tenancy": `{"apiVersion": "gorbital.dev/v2", "inputs": {"name": "shop-api", "module": "example.com/shop-api", "preset": "minimal", "tenancy": "multi"}, "files": []}`,
+		"unknown mail":    `{"apiVersion": "gorbital.dev/v2", "inputs": {"name": "shop-api", "module": "example.com/shop-api", "preset": "full", "tenancy": "single", "mail": "sendmail"}, "files": []}`,
+		"no inputs":       `{"apiVersion": "gorbital.dev/v2", "files": []}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -92,6 +99,28 @@ func TestReadLockRejects(t *testing.T) {
 	}
 	if _, err := readLock(t.TempDir()); !errors.Is(err, errNoLock) {
 		t.Errorf("readLock without a lock = %v, want errNoLock", err)
+	}
+}
+
+// TestReadManifestRejectsInvalidInputs: gorbital.yaml, which apps from
+// before v0.5 upgrade from, is checked like gorbital.lock (CLI-4).
+func TestReadManifestRejectsInvalidInputs(t *testing.T) {
+	valid := "apiVersion: gorbital.dev/v1\nname: shop-api\nmodule: example.com/shop-api\npreset: full\n"
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, manifestPath), valid)
+	if in, err := readManifest(dir); err != nil || in.Tenancy != recipes.TenancySingle {
+		t.Fatalf("readManifest(valid) = %+v, %v", in, err)
+	}
+	for name, manifest := range map[string]string{
+		"injected module": strings.Replace(valid, "example.com/shop-api", `example.com/shop-api/internal/app"; _ "evil.example/pwn`, 1),
+		"invalid name":    strings.Replace(valid, "name: shop-api", "name: Shop API", 1),
+		"unknown preset":  strings.Replace(valid, "preset: full", "preset: custom", 1),
+		"unknown mail":    valid + "mail: sendmail\n",
+	} {
+		writeFile(t, filepath.Join(dir, manifestPath), manifest)
+		if _, err := readManifest(dir); err == nil {
+			t.Errorf("%s: readManifest() error = nil", name)
+		}
 	}
 }
 

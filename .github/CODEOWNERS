@@ -11,7 +11,17 @@
 /modules/ratelimitpg/               @gorbital/maintainers @gorbital/security
 /cli/internal/recipes/generate/     @gorbital/maintainers @gorbital/security
 /cli/internal/cli/upgrade.go        @gorbital/maintainers @gorbital/security
+/cli/internal/cli/release.go        @gorbital/maintainers @gorbital/security
+/cli/internal/cli/lock.go           @gorbital/maintainers @gorbital/security
+/cli/internal/cli/add.go            @gorbital/maintainers @gorbital/security
+/cli/internal/cli/dev_keys.go       @gorbital/maintainers @gorbital/security
+/cli/internal/merge/                @gorbital/maintainers @gorbital/security
+/cli/.goreleaser.yaml               @gorbital/maintainers @gorbital/security
+/cli/go.mod                         @gorbital/maintainers @gorbital/security
+/cli/go.sum                         @gorbital/maintainers @gorbital/security
 /.github/workflows/                 @gorbital/maintainers @gorbital/security
+/.github/CODEOWNERS                 @gorbital/maintainers @gorbital/security
+/GOVERNANCE.md                      @gorbital/maintainers @gorbital/security
 /SECURITY.md                        @gorbital/maintainers @gorbital/security
 
 # Public contracts
