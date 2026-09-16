@@ -343,7 +343,7 @@ func TestHealthCheck(t *testing.T) {
 	}
 }
 
-func mustExec(t *testing.T, db postgres.DBTX, sql string) {
+func mustExec(t testing.TB, db postgres.DBTX, sql string) {
 	t.Helper()
 	if _, err := db.Exec(context.Background(), sql); err != nil {
 		t.Fatalf("exec: %v", err)

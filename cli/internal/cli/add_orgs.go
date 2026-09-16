@@ -81,7 +81,7 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
-	theirs, err := recipes.Embedded().Tree(to.Preset, to.Tenancy, to.Mail, d)
+	theirs, err := inputsTree(recipes.Embedded(), to, to.Mail, d)
 	if err != nil {
 		return err
 	}

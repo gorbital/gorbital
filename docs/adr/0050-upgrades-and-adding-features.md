@@ -1,6 +1,6 @@
 # ADR-0050: Upgrading apps and adding features to them (v0.5)
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0014, ADR-0016, ADR-0021, ADR-0041, ADR-0048 · **Amended by:** ADR-0053 (checksum patterns, validated lock inputs, merge base only from a gorbital checkout outside the app)
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0014, ADR-0016, ADR-0021, ADR-0041, ADR-0048 · **Amended by:** ADR-0053 (checksum patterns, validated lock inputs, merge base only from a gorbital checkout outside the app), ADR-0061 (lock input `rls` and `orb add rls`)
 
 ## Context
 

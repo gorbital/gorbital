@@ -59,7 +59,7 @@ WEBAUTHN_RP_ID=example.com
 WEBAUTHN_ORIGINS=https://app.example.com
 ```
 
-Plus `APP_PUBLIC_URL` and the provider variables for Google or Apple. `/docs` and the OpenAPI document are off in production; set `APP_DOCS_ENABLED=true` for a public API reference. The app refuses to start when production requirements aren't met, listing every problem.
+Plus `APP_PUBLIC_URL` and the provider variables for Google or Apple. In a multi-tenant app that ran `orb add rls`, `DATABASE_URL` must connect as a role that isn't a superuser and has no `BYPASSRLS`, and not through a pooler in transaction mode; the app warns at startup otherwise ([row-level security](row-level-security.md)). `/docs` and the OpenAPI document are off in production; set `APP_DOCS_ENABLED=true` for a public API reference. The app refuses to start when production requirements aren't met, listing every problem.
 
 After the first deploy, set runtime settings through the ops API: at least `mail.from_email` (the default `no-reply@example.com` logs a warning at start), and `orgs.invitation_url` in multi-tenant apps.
 

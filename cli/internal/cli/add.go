@@ -26,12 +26,16 @@ import (
 
 const addUsage = `Usage: orb add mail [flags]
        orb add orgs [flags]
+       orb add rls [flags]
 
 orb add mail sets up email in an app created with the Full preset: Resend or
 any SMTP server. Run it again to switch provider.
 
 orb add orgs turns a single-tenant Full app multi-tenant on a branch
 (run "orb add orgs -h").
+
+orb add rls turns on row-level security in a multi-tenant app
+(run "orb add rls -h").
 
 Secrets (the Resend API key, the SMTP password) go in .env, never in flags.
 The sender name, address and reply-to are runtime settings, changed later in
@@ -43,15 +47,17 @@ In a terminal, missing values are asked interactively; pass flags to skip them.
 func runAdd(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		fmt.Fprint(stderr, addUsage)
-		return usageError("missing feature: orb add mail or orb add orgs")
+		return usageError("missing feature: orb add mail, orb add orgs or orb add rls")
 	}
 	switch args[0] {
 	case "mail":
 		return runAddMail(ctx, args[1:], stdin, stdout, stderr)
 	case "orgs":
 		return runAddOrgs(ctx, args[1:], stdout, stderr)
+	case "rls":
+		return runAddRLS(ctx, args[1:], stdout, stderr)
 	default:
-		return usageError(fmt.Sprintf("unknown feature %q (want mail or orgs)", args[0]))
+		return usageError(fmt.Sprintf("unknown feature %q (want mail, orgs or rls)", args[0]))
 	}
 }
 

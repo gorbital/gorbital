@@ -39,6 +39,8 @@ export GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:8025
 | `internal/app/api_compat_test.go` | `/ops/*` doesn't break clients of `api/openapi.baseline.json` | Nothing |
 | `internal/app/architecture_test.go` | Layer import rules: `domain` imports only the standard library, `delivery` never imports `repository`, modules don't import each other, only `internal/app` reads the environment | Nothing |
 
+In multi-tenant apps, `internal/app` tests connect the app as `gorbital_app_test`, a role without `BYPASSRLS` the tests create, so row-level security policies apply to them once `orb add rls` has run. `GORBITAL_TEST_RLS=1 go test ./internal/app` runs them with the policies before that ([row-level security](row-level-security.md#testing)).
+
 Useful flags: `go test -race ./...` (CI always uses it), `go test -run TestProjectsEndToEnd ./internal/app`, `go test -count=1` to bypass the cache after changing migrations.
 
 ## Test helpers

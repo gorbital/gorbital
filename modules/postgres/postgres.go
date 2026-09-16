@@ -1,6 +1,7 @@
 // Package postgres connects gorbital apps to PostgreSQL: a pgx connection
 // pool with OpenTelemetry tracing, transactions, error classification for
-// repositories, a readiness check and goose migrations (ADR-0005, ADR-0032).
+// repositories, a readiness check, goose migrations (ADR-0005, ADR-0032) and
+// the organisation row-level security policies read (ADR-0061).
 //
 // Repositories hold a [DBTX], so the same store runs on the pool or inside a
 // transaction started with [InTx]. Transactions are passed explicitly, never
@@ -17,6 +18,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -54,6 +57,7 @@ type options struct {
 	applicationName string
 	tracerProvider  trace.TracerProvider
 	meterProvider   metric.MeterProvider
+	logger          *slog.Logger
 }
 
 func (o options) validate() error {
@@ -75,6 +79,9 @@ func (o options) validate() error {
 	}
 	if o.tracerProvider == nil {
 		errs = append(errs, errors.New("tracer provider must not be nil"))
+	}
+	if o.logger == nil {
+		errs = append(errs, errors.New("logger must not be nil"))
 	}
 	return errors.Join(errs...)
 }
@@ -139,16 +146,35 @@ func WithMeterProvider(mp metric.MeterProvider) Option {
 	return optionFunc(func(o *options) { o.meterProvider = mp })
 }
 
+// WithLogger sets the logger that records uses of
+// [WithoutRowLevelSecurity]. Default: discard.
+func WithLogger(logger *slog.Logger) Option {
+	return optionFunc(func(o *options) { o.logger = logger })
+}
+
 // Open creates a connection pool for url and pings the database, so a wrong
 // URL or unreachable server fails at startup. Errors never include the URL,
 // which may contain a password.
 //
 // Every query becomes an OpenTelemetry client span carrying the SQL text but
-// never its arguments. Close the pool on shutdown:
+// never its arguments.
+//
+// Every connection carries the organisation of the context that acquired it
+// in [OrgSetting], and [BypassSetting] for a context from
+// [WithoutRowLevelSecurity], for row-level security policies (ADR-0061).
+// Setting them costs one round trip when an acquire changes them, and
+// nothing otherwise. Don't set these settings, or run RESET ALL or DISCARD
+// ALL, yourself; and don't put the pool behind a pooler in transaction mode,
+// which doesn't keep session settings with a client. Close the pool on
+// shutdown:
 //
 //	cleanup.Add("postgres", func(context.Context) error { pool.Close(); return nil })
 func Open(ctx context.Context, url config.Secret, opts ...Option) (*pgxpool.Pool, error) {
-	o := options{connectTimeout: DefaultConnectTimeout, tracerProvider: otel.GetTracerProvider()}
+	o := options{
+		connectTimeout: DefaultConnectTimeout,
+		tracerProvider: otel.GetTracerProvider(),
+		logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
 	for _, opt := range opts {
 		opt.apply(&o)
 	}
@@ -179,6 +205,7 @@ func Open(ctx context.Context, url config.Secret, opts ...Option) (*pgxpool.Pool
 		cfg.ConnConfig.RuntimeParams["application_name"] = o.applicationName
 	}
 	cfg.ConnConfig.Tracer = newTracer(o.tracerProvider)
+	cfg.PrepareConn = prepareConn(o.logger)
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
