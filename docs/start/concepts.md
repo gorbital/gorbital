@@ -22,12 +22,14 @@ When you run `orb new` and choose the **Full** preset, you get a working API wit
 
 | Feature | What it does for you |
 |---|---|
-| Sign-up and sign-in | Accounts with email and password, email codes, sessions, password reset, and optional authenticator apps, passkeys, Google and Apple |
+| Sign-up and sign-in | Accounts with email and password, email codes, sessions, password reset, and optional authenticator apps, passkeys, Google, Apple and GitHub |
+| API keys | Keys with scopes and an expiry for scripts and services, including service accounts that aren't people |
 | Database | PostgreSQL, with migrations that create and change your tables step by step |
 | Example resource | `projects`: a complete example of data people can create, list, update and delete, to copy for your own |
 | Background jobs | Work that runs later or on a schedule, such as sending email or cleaning up expired sessions |
 | Email | Sign-up codes and alerts, sent through Resend or SMTP |
-| Admin endpoints | `/ops/...` endpoints for administrators to change settings, run jobs and read the audit log |
+| Admin endpoints | `/ops/...` endpoints for administrators to change settings and feature flags, run jobs, read the audit log, watch live request and error rates and record incidents |
+| Feature flags | Turn features on for some organisations, users or a percentage of them, without a deploy |
 | API docs | `/docs`: every endpoint with examples and a "Try it" button, generated from your code |
 | Tests | Tests for every part, including the database, so you can change code with confidence |
 
@@ -59,6 +61,7 @@ While it runs, you have:
 |---|---|
 | http://localhost:8080/docs | Your API docs, where you can try every endpoint |
 | http://127.0.0.1:8025 | Mailpit: every email your app sends |
+| http://127.0.0.1:8080/_dev/ | [Dev console APIs](../guides/dev-console.md): recent requests, logs, routes and configuration, with the token `orb dev` prints |
 
 ## Where settings live
 

@@ -89,6 +89,8 @@ orb: seed data (go run ./cmd/seed)
   ✓ API        http://127.0.0.1:8080
   ✓ API docs   http://127.0.0.1:8080/docs
   ✓ Emails     http://127.0.0.1:8025
+  ✓ Dev APIs   http://127.0.0.1:8080/_dev/ (docs/guides/dev-console.md)
+    Token      q3Jt0tBq0Xvqf7i5Tq1hYw2m9x8Zr4Kc6Lp2Nd5Vb3E (Authorization: Bearer; new on every orb dev run)
 
 Sign-in methods
   ✓ Email and password
@@ -107,6 +109,7 @@ What happened:
 4. **Migrations applied.** Migrations are SQL files that create your tables, in order; the job queue has its own.
 5. **Seed data created.** An administrator account and three example projects, so you have something to sign in with.
 6. **API started.** It rebuilds and restarts each time you save a Go file.
+7. **Dev console token printed.** A new random token for this run opens the development-only [dev console APIs](../guides/dev-console.md) under `/_dev/`. It's never written to a file; you can ignore it until you need it.
 
 > [!WARNING]
 > **Save the administrator's password, 2FA key and recovery codes now.** They're printed once and stored nowhere. Your values will differ from the ones above. If you lose them, see [step 6](#6-sign-in-as-the-administrator).

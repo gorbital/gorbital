@@ -2,7 +2,7 @@
 
 **Production-ready Go APIs in minutes, as code you own.**
 
-> **Status: pre-release, v1.0 in progress.** v0.1 to v0.5 are done and tagged: the core library, Minimal and Full presets, PostgreSQL, runtime settings, background jobs, audit log, email, authentication with 2FA, passkeys, Google and Apple, platform roles, multi-tenant organisations, the ops APIs, `orb upgrade` and `orb add orgs`. The library isn't published at `gorbital.dev` yet, so apps are created against a local checkout with `--local`. Docs: [docs.gorbital.dev](https://docs.gorbital.dev).
+> **Status: pre-release: v1.0 built and awaiting an external security review; v1.1 done, not tagged.** v0.1 to v0.5 are done and tagged: the core library, Minimal and Full presets, PostgreSQL, runtime settings, background jobs, audit log, email, authentication with 2FA, passkeys, Google and Apple, platform roles, multi-tenant organisations, the ops APIs, `orb upgrade` and `orb add orgs`. The library isn't published at `gorbital.dev` yet, so apps are created against a local checkout with `--local`. Docs: [docs.gorbital.dev](https://docs.gorbital.dev).
 
 ## Try it
 
@@ -49,8 +49,8 @@ orb dev                 # API at :8080, docs at /docs, local email inbox
 
 | Preset | What you get |
 |---|---|
-| **Minimal** | HTTP server, config, logging, tracing, health checks, security defaults, OpenAPI docs. No database. |
-| **Full** | Everything: PostgreSQL, jobs, email (Resend or SMTP), email/password + Google + Apple + GitHub sign-in, 2FA, passkeys, users and roles, API keys and service accounts, optional multi-tenant organisations, feature flags, audit logs, operations APIs with live observability and incidents. |
+| **Minimal** | HTTP server, config, logging, tracing, health checks, security defaults, OpenAPI docs, development-only dev console APIs. No database. |
+| **Full** | Everything: PostgreSQL, jobs, email (Resend or SMTP), email/password + Google + Apple + GitHub sign-in, 2FA, passkeys, users and roles, API keys and service accounts, optional multi-tenant organisations with optional row-level security, feature flags, audit logs, operations APIs with live observability and incidents, development-only dev console APIs. |
 
 ## Documentation
 
@@ -69,8 +69,8 @@ orb dev                 # API at :8080, docs at /docs, local email inbox
 | v0.3 Google and Apple sign-in, TOTP, passkeys | Done, tagged |
 | v0.4 Multi-tenant organisations | Done, tagged |
 | v0.5 `orb upgrade`, `orb add orgs`, `orb doctor`, system health, audit stats, retention, maintenance mode, Postman collection and `llms.txt` | Done, tagged |
-| v1.0 Security review, API freeze, governance, reference docs | In progress |
-| v1.1 Feature flags, per-organisation settings, API keys, GitHub login, idempotency keys, row-level security, email webhooks, Prometheus, live observability, dev console APIs | In progress |
+| v1.0 Security review, API freeze, governance, reference docs | Built; awaiting external security review |
+| v1.1 Feature flags, per-organisation settings, API keys, GitHub login, idempotency keys, row-level security, email webhooks, Prometheus, live observability, dev console APIs | Done, not tagged |
 
 What changed in each release: [CHANGELOG.md](CHANGELOG.md).
 

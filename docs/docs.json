@@ -1,7 +1,7 @@
 {
   "name": "gorbital",
   "version": "v1.0",
-  "announcement": "pre-release · v1.0 in progress: security review done, API frozen",
+  "announcement": "pre-release · v1.0 built, awaiting external review · v1.1 done",
   "github": "https://github.com/gorbital/gorbital",
   "www": "https://gorbital.dev",
   "url": "https://docs.gorbital.dev",
@@ -82,6 +82,7 @@
           "name": "Subsystems",
           "pages": [
             { "title": "Database", "slug": "technical/database", "source": "docs/guides/database.md" },
+            { "title": "Row-level security", "slug": "technical/row-level-security", "source": "docs/guides/row-level-security.md" },
             { "title": "Runtime settings", "slug": "technical/runtime-settings", "source": "docs/guides/runtime-settings.md" },
             { "title": "Feature flags", "slug": "technical/feature-flags", "source": "docs/guides/feature-flags.md" },
             { "title": "Background jobs", "slug": "technical/background-jobs", "source": "docs/guides/background-jobs.md" },
@@ -93,7 +94,8 @@
             { "title": "Email", "slug": "technical/email", "source": "docs/guides/email.md" },
             { "title": "Error handling", "slug": "technical/error-handling", "source": "docs/guides/error-handling.md" },
             { "title": "Ops API", "slug": "technical/ops-api", "source": "docs/guides/ops-api.md" },
-            { "title": "Local development", "slug": "technical/local-development", "source": "docs/guides/local-development.md" }
+            { "title": "Local development", "slug": "technical/local-development", "source": "docs/guides/local-development.md" },
+            { "title": "Dev console APIs", "slug": "technical/dev-console", "source": "docs/guides/dev-console.md" }
           ]
         },
         {

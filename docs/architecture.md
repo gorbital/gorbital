@@ -84,7 +84,7 @@ DEVELOPER MACHINE / CI (never in production)        PRODUCTION (any host)
 |---|---|---|
 | Core library, official modules, CLI, recipes | v1 | This repository |
 | Community modules | After 1.0 | Same contracts, authors' own repositories |
-| Local dev console (custom UI) | v1.1 | v1 uses Mailpit and Grafana containers ([ADR-0028](adr/0028-local-development-environment.md)) |
+| Local dev console APIs | v1.1, built | Development-only `/_dev/` JSON APIs in `modules/devconsole` for local tools ([ADR-0065](adr/0065-local-dev-console-apis.md)); no console UI is built, so Mailpit and Grafana containers stay the local viewers ([ADR-0028](adr/0028-local-development-environment.md)) |
 | Admin web UI | Not in v1 | v1 ships `/ops/*` APIs only ([ADR-0026](adr/0026-operations-apis.md)); a dashboard client template is proposed for v1.2 |
 | Hosted control plane | Not planned | Separate product if ever built; standard protocols only |
 | Client templates: docs site, dashboard, Expo | v1.2, proposed | Separate template repositories, pinned and verified archives filled in by `orb new` ([ADR-0047](adr/0047-client-templates.md)) |
@@ -130,13 +130,14 @@ gorbital/
 ├── modules/
 │   ├── openapi/             Huma integration, problem errors, /docs API reference (reference/)   (v0.1)
 │   ├── telemetry/           OpenTelemetry SDK + OTLP and Prometheus exporters, runtime metrics, correlated logs   (v0.1, Prometheus v1.1)
-│   ├── postgres/            pool, transactions, migrations runner, pgtest (against Docker PostgreSQL)   (v0.2)
+│   ├── postgres/            pool, transactions, migrations runner, pgtest (against Docker PostgreSQL)   (v0.2); pool metrics, organisation on every connection for row-level security   (v1.1)
 │   ├── settings/            runtime settings: typed declarations, PostgreSQL store, LISTEN/NOTIFY reload, per-organisation values   (v0.2, v1.1)
 │   ├── flags/               feature flags: declared in code, organisation and user targeting, stable percentage rollouts, LISTEN/NOTIFY reload   (v1.1)
 │   ├── jobs/                River, job definitions and Manager (Lambda-style config), AsyncSender   (v0.2)
 │   ├── mail/resend/ · mail/smtp/   Resend HTTP API and standard-library SMTP senders (v0.2); Resend webhook verification (v1.1)
 │   ├── mail/suppressionpg/  email suppression list: bounced and complained addresses, once-per-delivery webhook adds   (v1.1)
 │   ├── observability/       request counts per minute and route shared by every instance, incidents, detection, stream limits   (v1.1)
+│   ├── devconsole/          development-only /_dev/ APIs: Host, loopback and token checks, request and log ring buffers with SSE streams, configuration without secrets, Mailpit reader   (v1.1)
 │   ├── auditpg/             append-only audit store with redaction, filtered query API   (v0.2)
 │   ├── auth/                building blocks: argon2id, tokens, codes, session middleware, permission catalog (v0.2); oidc, totp, passkey (v0.3); API keys, GitHub in social (v1.1)
 │   ├── orgs/                building blocks: organisation IDs, RequireMember/Authorize, invitation emails   (v0.4)
@@ -167,7 +168,7 @@ gorbital/
 
 ### 5.4 Public API and versioning ([ADR-0015](adr/0015-public-api-and-stability-tiers.md), [ADR-0016](adr/0016-scaffold-compatibility-and-upgrades.md))
 
-- **Tiers:** stable, experimental (`gorbital.dev/x`, always v0), internal.
+- **Tiers:** stable, experimental (`gorbital.dev/x`, always v0; also `modules/devconsole`, [ADR-0065](adr/0065-local-dev-console-apis.md)), internal.
 - **Also public API:** CLI commands, flags and `--json` output; manifest and lock formats; anchor syntax; error codes; audit action names; module table ID columns.
 - **Everything is v0 until 1.0;** breaking changes in v0 ship with upgrade notes.
 - **From 1.0:** scaffold code from template vX.Y works with library vX.Z for every Z ≥ Y. Minor upgrades are a plain `go get`; majors use bridge releases and `orb upgrade --major`.
@@ -246,7 +247,8 @@ Implemented in v1.1:
 
 - **Single-tenant** (default) or **multi-tenant**, chosen at creation and stored in `gorbital.yaml`.
 - Multi-tenant: shared schema with `org_id`; a personal workspace per user; memberships; invitations; org roles separate from platform roles; `/v1/orgs/{orgId}/...` routes.
-- Isolation at four layers: membership middleware, repositories that require `OrgID`, composite foreign keys including `org_id`, generated cross-org tests. Row-level security in v1.1.
+- Isolation at four layers: membership middleware, repositories that require `OrgID`, composite foreign keys including `org_id`, generated cross-org tests.
+- A fifth, optional layer from v1.1: row-level security ([ADR-0061](adr/0061-row-level-security.md), [guide](guides/row-level-security.md)). Every connection carries the organisation of its context in `gorbital.org_id`, and `orb add rls` adds a migration forcing an `org_isolation` policy on every table with `org_id NOT NULL` (memberships and invitations aside), so a query that forgets its organisation filter sees only its own organisation's rows. System paths bypass with `postgres.WithoutRowLevelSecurity`, which is logged; migrations do. The app's database role must not be a superuser or have `BYPASSRLS`; the app warns at startup otherwise.
 - `orb add orgs` gives a guided single → multi path. Multi → single is not supported.
 
 ### 7.3 Email ([ADR-0025](adr/0025-email-providers.md))
@@ -271,6 +273,8 @@ Code-first with Huma v2, confined to `delivery/`: developers write Go input/outp
 
 `modules/telemetry` keeps OpenTelemetry always on in the app (traces, metrics, slog logs carrying `request_id`, `trace_id` and `span_id`); export is enabled by setting `OTEL_EXPORTER_OTLP_ENDPOINT`. The Minimal preset needs no Docker. From v0.2, `orb dev` starts PostgreSQL and Mailpit, and `orb dev --observability` also starts Grafana (`grafana/otel-lgtm`). PostgreSQL always runs in Docker (the official image, through `compose.yaml` locally and a service container in CI); gorbital never downloads PostgreSQL binaries.
 
+From v1.1, `orb dev` also turns on the development-only dev console APIs under `/_dev/` (`modules/devconsole`, [ADR-0065](adr/0065-local-dev-console-apis.md), [guide](guides/dev-console.md)): recent requests and log records with live streams, routes, wiring, configuration without secrets, captured email, migrations and job runs, behind a localhost `Host` check, a loopback peer check and a token `orb dev` prints for each run. They are APIs for local tools; no console UI is built.
+
 From v1.1, setting `METRICS_ADDR` also serves the same metrics in the Prometheus format on a separate listener that answers only `GET /metrics`, off by default and refused on the API's port ([ADR-0063](adr/0063-prometheus-metrics.md)); apps record Go runtime and connection pool metrics, and `telemetry.RecordRoute` around the mux labels HTTP metrics and spans with the matched route pattern.
 
 **Live observability and incidents** (`modules/observability`, from v1.1, [ADR-0064](adr/0064-live-observability-and-incidents.md), [guide](guides/observability.md)). Each instance's collector middleware counts requests per minute, method and route pattern, with a latency histogram, and writes them to `observability_minutes` every 15 seconds; `/ops/observability/overview` and `/routes` add up every instance (rates, error rate, estimated percentiles, per instance and route) and `/stream` sends the overview as Server-Sent Events, rechecking the session before each event. Incidents have a severity, a status and a timeline, are audited, and have a report (JSON or Markdown) with the window's requests, audit events and releases. The `incidents_detect` job opens one automatic incident across instances when the server error rate stays above a threshold.
@@ -287,7 +291,7 @@ Jobs run on PostgreSQL with River, in the API process: every instance serves HTT
 
 ### 7.9 Database ([ADR-0005](adr/0005-database-strategy.md), [ADR-0028](adr/0028-local-development-environment.md), [ADR-0032](adr/0032-repository-sql.md))
 
-PostgreSQL only, always from Docker in development, tests and CI. `modules/postgres` opens a traced pgx pool and provides `DBTX`, `InTx`, error classification, goose migrations and `pgtest` (a fresh database per test). Repositories use hand-written SQL with one file per operation. Guide: [database](guides/database.md).
+PostgreSQL only, always from Docker in development, tests and CI. `modules/postgres` opens a traced pgx pool and provides `DBTX`, `InTx`, error classification, goose migrations and `pgtest` (a fresh database per test). From v1.1 every pool sets the context's organisation on its connections, which row-level security policies read (section 7.2). Repositories use hand-written SQL with one file per operation. Guide: [database](guides/database.md).
 
 ### 7.10 Idempotency keys ([ADR-0060](adr/0060-idempotency-keys.md))
 
@@ -300,11 +304,11 @@ Full apps accept `Idempotency-Key` on signed-in POST and PATCH requests (`module
 | Command | Purpose |
 |---|---|
 | `orb new <name>` | Create an app (presets and prompts) |
-| `orb add <feature>` | Add a feature: `mail` switches the email provider; `orgs` turns a single-tenant app multi-tenant |
+| `orb add <feature>` | Add a feature: `mail` switches the email provider; `orgs` turns a single-tenant app multi-tenant; `rls` turns on row-level security in a multi-tenant app ([ADR-0061](adr/0061-row-level-security.md)) |
 | `orb gen resource <Name> <field:type>... [--scope=user]` | One-shot layered module owned by the signed-in user or, with `--scope org`, by an organisation, with table, API and tests ([ADR-0039](adr/0039-resource-module-template.md)) |
 | `orb gen job <Name> [--schedule CRON\|--every D\|--on-demand]` | Job args, worker, test and definition; config editable in `/ops/jobs` ([ADR-0033](adr/0033-background-jobs.md)) |
 | `orb gen migration <name>` | Empty forward-only goose migration that runs after the existing ones |
-| `orb dev [--observability] [--no-services] [--no-reload]` | Run locally with reload and Docker services |
+| `orb dev [--observability] [--no-services] [--no-reload]` | Run locally with reload and Docker services; prints a dev console token per run (v1.1) |
 | `orb upgrade [--from <version>] [--dry-run]` | Merge template changes and upgrade the library on branch `orb-upgrade/<version>`; `--major` arrives with the first v2 bridge release |
 | `orb doctor` | Check the app's tools, versions, lock file, configuration and migrations |
 
@@ -313,6 +317,8 @@ Full apps accept `Idempotency-Key` on signed-in POST and PATCH requests (`module
 **Implemented in v0.2 so far:** `orb gen job` (interactive or flags), `orb gen resource` (string, text and enum fields; golden-tested against `examples/full-single`'s projects module), `orb gen migration`, `orb dev` with Docker services, migrations, seed data and `--observability` ([ADR-0042](adr/0042-development-seed-data.md)), interactive `orb new`, `orb new --preset=full` (generated from `examples/full-single`, [ADR-0041](adr/0041-full-preset-generation.md)), `orb add mail`. Guide: [CLI](guides/cli.md).
 
 **Implemented in v0.5:** `gorbital.lock` v2, `orb upgrade` and `orb add orgs` ([ADR-0050](adr/0050-upgrades-and-adding-features.md)); `orb doctor`, `go run ./cmd/api openapi --dir api` exporting the Postman collection and `llms.txt`, and the operations work above ([ADR-0051](adr/0051-operations-v0-5.md)).
+
+**Implemented in v1.1:** `orb add rls`, the row-level security policy in `orb gen resource --scope org` and the `row-level security` check in `orb doctor` ([ADR-0061](adr/0061-row-level-security.md)); the dev console token in `orb dev` ([ADR-0065](adr/0065-local-dev-console-apis.md)).
 
 **Interaction ([ADR-0035](adr/0035-interactive-cli.md)):** in a terminal, commands ask for missing values with arrow-key selects, checkboxes, validated inputs and a final summary; every prompt has a flag, flags skip their prompts, and `--yes`, `--json`, `--no-input` or `CI` never prompt. Prompts and flags share validators.
 
@@ -338,9 +344,9 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | v0.3 ✅ done, tagged | Google, Apple, TOTP, passkeys |
 | v0.4 ✅ done, tagged | Multi-tenant organisations, tenancy prompt |
 | v0.5 ✅ done, tagged | `gorbital.lock` v2, `orb upgrade`, `orb add orgs`, `orb doctor`, system health, audit stats, retention, maintenance mode, Postman collection and `llms.txt` |
-| v1.0 (in progress) | Rate limits shared across instances, internal security review (done), API freeze and compatibility checks (done), governance (done), documentation content with generated reference pages (done); external security review open |
+| v1.0 ✅ built, awaiting external review | Rate limits shared across instances, internal security review, API freeze and compatibility checks, governance, documentation content with generated reference pages; open: external security review sign-off and maintainer actions (GitHub teams, branch protection, release environment, tag rulesets, conduct contact, domain hardening) |
 | v1.3 (built early) | Public website and docs at gorbital.dev and docs.gorbital.dev ([ADR-0049](adr/0049-public-docs-and-website.md)) |
-| v1.1 (in progress) | Per-organisation settings, feature flags, API keys and service accounts, GitHub sign-in, idempotency keys, Resend bounce and complaint webhooks with a suppression list, Prometheus `/metrics` option, live observability and incidents (done); row-level security option and local dev console APIs to come |
+| v1.1 ✅ done, not tagged | Per-organisation settings, feature flags, API keys and service accounts, GitHub sign-in, idempotency keys, row-level security option, Resend bounce and complaint webhooks with a suppression list, Prometheus `/metrics` option, live observability and incidents, local dev console APIs |
 | v1.2 (proposed) | Client templates: docs site, dashboard and Expo app created by `orb new` from separate template repositories ([ADR-0047](adr/0047-client-templates.md)) |
 
 ---
@@ -355,6 +361,9 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Minimal first run under 60 seconds~~ | Resolved: 12.0 s cold, 1.6 s warm in the spike; 25.0 s cold, 4.8 s warm with the real v0.1 CLI (`scripts/first-run.sh`) |
 | ~~Scalar docs visual check in a real browser~~ | Resolved: Scalar replaced by the gorbital reference, checked in a browser in a generated app and on the site ([ADR-0049](adr/0049-public-docs-and-website.md)) |
 | Publish the library at `gorbital.dev` | Open: domain hardening, public repository, first tags (until then apps use `--local`) |
+| External security review | Open: v1.0 is built and awaits a third party's sign-off; maintainer actions (GitHub teams and branch protection, `release` environment, tag rulesets, code of conduct contact) are listed in [ADR-0053](adr/0053-internal-security-review.md) |
+| ~~Row-level security~~ | Resolved: optional fifth isolation layer, `orb add rls` ([ADR-0061](adr/0061-row-level-security.md)) |
+| Local dev console | APIs resolved: `/_dev/` in `modules/devconsole` ([ADR-0065](adr/0065-local-dev-console-apis.md)). Open: no console UI is built; the Dev Portal in gorbital-dashboards stays on mock data |
 | ~~`/ops/*` protection before authentication~~ | Resolved: sessions and platform roles replaced the interim `OPS_TOKEN` ([ADR-0038](adr/0038-authentication-v0-2.md)); ops roles require two-factor authentication ([ADR-0043](adr/0043-two-factor-authentication.md)) |
 | ~~Example business module with its own repository~~ | Resolved: `examples/full-single/internal/modules/projects` owns the `projects` table with all four layers, user ownership and cross-owner tests ([ADR-0039](adr/0039-resource-module-template.md)); `orb gen resource` reproduces it exactly |
 | ~~`orb new --preset=full`~~ | Resolved: templates generated from `examples/full-single`, reproduced byte for byte, with `go.mod` derived from the golden `go.mod` ([ADR-0041](adr/0041-full-preset-generation.md)) |

@@ -20,9 +20,9 @@ Every public package says which tier it's in on a `Stability:` line of its packa
 
 | Marker | Meaning |
 |---|---|
-| `Stability: stable` | Go 1-style compatibility within the major version. All packages today |
+| `Stability: stable` | Go 1-style compatibility within the major version. Every package except the one below |
 | `Stability: stable, for tests only` | `pgtest`, `passkeytest`, `socialtest`: their API is stable; what they do inside a test may change |
-| `Stability: experimental` | May change in any release. Reserved for a future `gorbital.dev/x` module; none exist |
+| `Stability: experimental` | May change in any release. `gorbital.dev/modules/devconsole`, the development-only dev console APIs ([ADR-0065](../adr/0065-local-dev-console-apis.md)); otherwise reserved for a future `gorbital.dev/x` module |
 
 `internal/archtest` fails when a package has no marker.
 

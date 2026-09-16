@@ -176,7 +176,7 @@ The design choices that shape every gorbital app, each with what was chosen, the
 
 **Alternatives.** Single-tenant only; always multi-tenant.
 
-**Trade-offs.** Apps that don't need organisations don't carry their complexity, and apps that do get isolation at four layers (membership checks, repositories that require `OrgID`, composite foreign keys, cross-organisation tests). Multi to single isn't supported.
+**Trade-offs.** Apps that don't need organisations don't carry their complexity, and apps that do get isolation at four layers (membership checks, repositories that require `OrgID`, composite foreign keys, cross-organisation tests), plus an optional fifth, row-level security in PostgreSQL (`orb add rls`, [ADR-0061](../adr/0061-row-level-security.md)). Multi to single isn't supported.
 
 ## 17. Golden apps are the templates
 

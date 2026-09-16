@@ -14,13 +14,14 @@ gorbital builds the backend of your app: the API your website or mobile app talk
 
 ## What you get
 
-- **Sign-in:** email and password, codes by email, authenticator apps, passkeys, Google and Apple.
+- **Sign-in:** email and password, codes by email, authenticator apps, passkeys, Google, Apple and GitHub, and API keys for scripts and services.
 - **A database:** PostgreSQL, with your tables and migrations in your repository.
 - **Email:** Resend or any SMTP server, with a local inbox while you develop.
 - **Background jobs:** work that runs later or on a schedule, such as cleanups and emails.
-- **Organisations**, if different companies or teams will use your app with their own separate data.
-- **Admin endpoints** to change settings and run jobs without a deploy, and an audit log of who did what.
-- **API docs** at `/docs` in every app, generated from your code.
+- **Organisations**, if different companies or teams will use your app with their own separate data, with optional row-level security in PostgreSQL.
+- **Admin endpoints** to change settings and feature flags and run jobs without a deploy, watch live request and error rates, record incidents, and an audit log of who did what.
+- **Safe retries:** clients can send an `Idempotency-Key` so a repeated request doesn't run twice.
+- **API docs** at `/docs` in every app, generated from your code, and development-only APIs under `/_dev/` showing recent requests, logs and configuration while you build.
 
 ## What it decides for you
 

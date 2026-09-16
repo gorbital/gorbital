@@ -47,6 +47,7 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Environment variables](guides/environment-variables.md) | Every variable: reader, default, validation, secret or not |
 | [Secrets and keys](guides/secrets-and-keys.md) | Every secret, token and code: creation, storage, rotation, compromise |
 | [Database](guides/database.md) | `modules/postgres`, repositories, transactions, migrations, schema, relationships, indexes, pgtest |
+| [Row-level security](guides/row-level-security.md) | `orb add rls`: the optional fifth isolation layer in multi-tenant apps, the database role, bypass for system paths, limits |
 | [Runtime settings](guides/runtime-settings.md) | `modules/settings`: environment vs runtime settings, per-organisation values |
 | [Feature flags](guides/feature-flags.md) | `modules/flags`: declaring flags, targeting, percentage rollouts, `/ops/flags`, client flags |
 | [Background jobs](guides/background-jobs.md) | `modules/jobs`: definitions, schedules, email, the manager |
@@ -64,6 +65,7 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Running in production](guides/production.md) | Image, configuration, migrations, scaling, observability (including Prometheus), operations, what never to do |
 | [Upgrade notes](guides/upgrade-notes.md) | What changes for existing apps in each release, and what to do before deploying |
 | [Local development](guides/local-development.md) | Working on the gorbital repository |
+| [Dev console APIs](guides/dev-console.md) | `modules/devconsole`: development-only `/_dev/` APIs for local tools, the token `orb dev` prints, endpoints, streams, security checks |
 | [Security overview](security/README.md) | How security is reviewed and reported; the [internal review of September 2026](security/2026-09-internal-review.md) |
 | [Roadmap](roadmap.md) | Milestones and status |
 | [Changelog](../CHANGELOG.md) | Notable changes in each release |
@@ -95,15 +97,15 @@ Generated from the golden apps by `go run -C internal/tools/refdocs . -write` an
 | Document | Covers |
 |---|---|
 | [Theme](brand/theme.md) | The visual system and voice for docs, landing page, README and CLI output |
-| [Logo files](brand/logo/README.txt) | The mark, lockups, avatars and favicon |
+| [Logo files](brand/logo/README.md) | The mark, lockups, avatars and favicon |
 | [Website](https://github.com/gorbital/gorbital-web) | gorbital.dev and docs.gorbital.dev: a separate Next.js repository that renders these files; `docs/docs.json` lists the pages |
 
 ## Examples
 
 | App | Shows |
 |---|---|
-| [examples/minimal](../examples/minimal) | Minimal preset: HTTP, config, telemetry, health, docs; no database |
-| [examples/full-single](../examples/full-single) | Full preset: PostgreSQL, runtime settings, jobs, audit log, email, authentication with 2FA, passkeys, Google and Apple, roles, ops APIs, the `projects` example |
-| [examples/full-multi](../examples/full-multi) | Full preset with `--tenancy multi`: everything above plus organisations, members, invitations and org-scoped projects |
+| [examples/minimal](../examples/minimal) | Minimal preset: HTTP, config, telemetry, health, docs, dev console APIs; no database |
+| [examples/full-single](../examples/full-single) | Full preset: PostgreSQL, runtime settings, feature flags, jobs, audit log, email with the suppression list, authentication with 2FA, passkeys, Google, Apple and GitHub, API keys and service accounts, roles, idempotency keys, ops APIs with live observability and incidents, dev console APIs, the `projects` example |
+| [examples/full-multi](../examples/full-multi) | Full preset with `--tenancy multi`: everything above plus organisations, members, invitations, organisation settings, flags and service accounts, org-scoped projects and the row-level security policies that `orb add rls` applies |
 
 Library packages document their API in Go doc comments, rendered in the package reference on the website and by `go doc gorbital.dev/modules/jobs`.

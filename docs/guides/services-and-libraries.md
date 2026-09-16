@@ -14,7 +14,7 @@ What a Full app talks to while it runs.
 |---|---|
 | **What** | The relational database |
 | **Why** | The only required service ([ADR-0005](../adr/0005-database-strategy.md)). It stores application data, users and sessions, runtime settings, feature flags, the job queue (River), the audit log and release records, so a production app needs nothing else: no Redis, no message broker |
-| **Where** | `modules/postgres` (pool, transactions, migrations), every repository, `modules/settings`, `modules/flags` (feature flags), `modules/jobs`, `modules/auditpg`, `modules/releases`, `modules/ratelimitpg` (rate limits shared by every instance, in an unlogged table), `modules/idempotency` (responses to retried POST and PATCH requests), `modules/mail/suppressionpg` (the email suppression list), `modules/observability` (request counts per minute shared by every instance, incidents) |
+| **Where** | `modules/postgres` (pool, transactions, migrations, the organisation on every connection for [row-level security](row-level-security.md)), every repository, `modules/settings`, `modules/flags` (feature flags), `modules/jobs`, `modules/auditpg`, `modules/releases`, `modules/ratelimitpg` (rate limits shared by every instance, in an unlogged table), `modules/idempotency` (responses to retried POST and PATCH requests), `modules/mail/suppressionpg` (the email suppression list), `modules/observability` (request counts per minute shared by every instance, incidents) |
 | **Version** | `postgres:18` in `compose.yaml`; CI tests against the same image |
 | **Without it** | A Full app doesn't start: `DATABASE_URL is required` |
 | **Setup** | Development: `orb dev` or `docker compose up -d --wait`. Production: any managed PostgreSQL; set `DATABASE_URL` and run `cmd/migrate` before each release. Always in Docker locally, never installed on the machine ([ADR-0028](../adr/0028-local-development-environment.md)) |
@@ -29,9 +29,9 @@ What a Full app talks to while it runs.
 | **Without it** | Production refuses to start without credentials; users can't verify their email or reset passwords |
 | **Setup** | `orb add mail`; [email guide](email.md) |
 
-### Google and Apple
+### Google, Apple and GitHub
 
-External identity providers for sign-in, used only when configured. Endpoints: Google `accounts.google.com` (authorization), `oauth2.googleapis.com` (token) and Google's JWKS; Apple `appleid.apple.com` (`/auth/authorize`, `/auth/token`, `/auth/keys`, `/auth/revoke`). See [authentication](authentication.md#google-and-apple-sign-in).
+External identity providers for sign-in, used only when configured. Endpoints: Google `accounts.google.com` (authorization), `oauth2.googleapis.com` (token) and Google's JWKS; Apple `appleid.apple.com` (`/auth/authorize`, `/auth/token`, `/auth/keys`, `/auth/revoke`); GitHub `github.com` (`/login/oauth/authorize`, `/login/oauth/access_token`) and `api.github.com` (`/user`, `/user/emails`). See [authentication](authentication.md#google-apple-and-github-sign-in).
 
 ### An OTLP backend (optional)
 
@@ -48,7 +48,7 @@ Run by `orb dev` from the app's `compose.yaml`. None of them run in production.
 | **What** | A fake email server with a web inbox ([mailpit.axllent.org](https://mailpit.axllent.org)) |
 | **Why** | Every flow that sends email (sign-up, reset, alerts) must be testable locally without a provider account and without emailing real people by mistake |
 | **Where** | `compose.yaml` service `mailpit` (`axllent/mailpit:v1.27`), SMTP on `127.0.0.1:1025`, inbox on `http://127.0.0.1:8025`. The app sends to it when `MAIL_DELIVERY` is `mailpit` (the development default), through `MAILPIT_SMTP_ADDR` |
-| **How it works** | It accepts any message over SMTP without authentication and stores it; the web UI and its HTTP API (`/api/v1/messages`, `/api/v1/search`) show them. Tests read codes from that API |
+| **How it works** | It accepts any message over SMTP without authentication and stores it; the web UI and its HTTP API (`/api/v1/messages`, `/api/v1/search`) show them. Tests read codes from that API, and Full apps' [dev console](dev-console.md) `/_dev/mail` reads it through `MAILPIT_WEB_PORT` |
 | **Without it** | Development email sends fail and retry; nobody can finish sign-up locally. The app still starts |
 | **Production** | Refused: `MAIL_DELIVERY=mailpit is for development` |
 | **Setup** | Nothing: `orb dev` starts it. Ports: `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT`. The repository's own `compose.yaml` runs another instance on 51025 and 58025 for library tests |

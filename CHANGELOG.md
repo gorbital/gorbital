@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Eve
 
 ## Unreleased
 
-Nothing here is tagged yet. v1.0 (stable) and the v1.1 features built so far are both on the development branch; each keeps its own section so the v1.0 release notes stay separate.
+Nothing here is tagged yet. v1.0 (stable, awaiting the external security review) and v1.1 (done) are both on the development branch; each keeps its own section so the v1.0 release notes stay separate.
 
 ### v1.1: Operations and integrations
 
@@ -29,6 +29,13 @@ Nothing here is tagged yet. v1.0 (stable) and the v1.1 features built so far are
 - Full apps: `GET /v1/auth/github/start`, `GET /v1/auth/github/callback`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`; linking GitHub while signed in (`POST /v1/auth/{provider}/link`, `github` only); `github` in the sign-in methods status; migration `20260918000030_auth_github.sql`; `flow` metadata on `auth.identity.linked`.
 - `modules/observability` ([ADR-0064](docs/adr/0064-live-observability-and-incidents.md), [guide](docs/guides/observability.md)): per-instance request collector (`Collector`, `Middleware`, `RecordRoute`, `Subscribe`) writing per-minute counts and latency histograms to PostgreSQL, `Store.Summary` across instances with `Stats.Quantile`, incidents with timelines (`OpenIncident`, `UpdateIncident`, `ResolveIncident`, `Incidents`), `DetectIncident` (one open automatic incident across instances) and `Streams` limits for long-lived responses.
 - Full apps: `GET /ops/observability/overview`, `/ops/observability/routes`, `/ops/observability/stream` (Server-Sent Events); `POST|GET /ops/incidents`, `GET /ops/incidents/{id}`, `POST /ops/incidents/{id}/updates`, `POST /ops/incidents/{id}/resolve`, `GET /ops/incidents/{id}/report` (JSON or Markdown); permissions `ops.observability.read`, `ops.incidents.read`, `ops.incidents.write`; settings `observability.retention`, `incidents.detection_window`, `incidents.error_rate_threshold`, `incidents.min_requests`; jobs `observability_cleanup`, `incidents_detect`; audit actions `ops.incident.opened`, `ops.incident.updated`, `ops.incident.resolved`; migrations `20260918000060_observability_minutes.sql`, `20260918000061_incidents.sql`.
+- `modules/postgres` row-level security support ([ADR-0061](docs/adr/0061-row-level-security.md), [guide](docs/guides/row-level-security.md)): `OrgSetting`, `BypassSetting`, `WithOrg`, `WithoutRowLevelSecurity`, `WithLogger`, `CheckRowLevelSecurity`, `RowLevelSecurityReport`; every pool sets the organisation on its connections; `Migrate` bypasses policies.
+- `orb add rls`: row-level security for multi-tenant apps; `orb gen resource --scope org` adds the policy in apps that ran it; `--json` of `orb gen resource` gains `row_level_security`; `orb doctor` gains a `row-level security` check.
+- Full apps warn at startup, and `go run ./cmd/migrate --status` reports (`row_level_security`), when row-level security is on and the database role bypasses it, a table isn't forced, or an organisation table has no policy.
+- `modules/devconsole` ([ADR-0065](docs/adr/0065-local-dev-console-apis.md), [guide](docs/guides/dev-console.md)): development-only `/_dev/` APIs (app wiring, routes, configuration without secrets, recent requests and logs with streams, Mailpit email, migrations, job runs) behind Host, loopback and bearer token checks, with its own OpenAPI document.
+- `telemetry.WithLogTee` sends log records to a second handler with its own level.
+- All golden apps serve the dev console APIs in development when `DEV_CONSOLE_TOKEN` is set; production refuses the variable.
+- `orb dev` generates a dev console token per run, passes it to the app without writing it to disk, and prints the `/_dev/` address and token.
 
 #### Changed
 
@@ -42,6 +49,8 @@ Nothing here is tagged yet. v1.0 (stable) and the v1.1 features built so far are
 - `orb gen resource --scope user`: generated use cases check `<module>.<resource>.read|write`, granted by the `user` role through a line after `//orb:anchor user-permissions` in `internal/app/permissions.go`; `orb doctor` checks that anchor.
 - Full apps: `AUTH_DEFAULT_RETURN_TO` sets where browser sign-ins without `return_to` end; required in production with Google, Apple web or GitHub sign-in (and in development with `APP_DOCS_ENABLED=false`), validated against `APP_PUBLIC_URL` and `APP_CORS_ORIGINS`.
 - Full apps: the observability collector middleware runs after tracing, and `routes.go` wraps the mux as `telemetry.RecordRoute(observability.RecordRoute(mux))`.
+- Multi-tenant apps' `internal/app` tests connect the app as the `gorbital_app_test` role (no superuser, no `BYPASSRLS`), created and granted by the tests.
+- Full apps read `MAILPIT_WEB_PORT` (before, only `compose.yaml` and `orb dev` did) for the dev console's `/_dev/mail`.
 
 #### Fixed
 
