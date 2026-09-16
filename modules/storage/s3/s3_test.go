@@ -36,7 +36,7 @@ func TestS3Store(t *testing.T) {
 	if _, err := s.Put(ctx, key, strings.NewReader("hello"), 5, storage.PutOptions{Metadata: map[string]string{"owner": "ada"}}); err != nil {
 		t.Fatal(err)
 	}
-	defer s.Delete(ctx, key)
+	defer func() { _ = s.Delete(ctx, key) }()
 	o, err := s.Stat(ctx, key)
 	if err != nil || o.Size != 5 || o.Metadata["owner"] != "ada" {
 		t.Errorf("stat = %+v, %v", o, err)
@@ -61,7 +61,7 @@ func TestS3Store(t *testing.T) {
 	if err != nil || moved.Size != 5 {
 		t.Errorf("move = %+v, %v", moved, err)
 	}
-	defer s.Delete(ctx, prefix+"moved.txt")
+	defer func() { _ = s.Delete(ctx, prefix+"moved.txt") }()
 	if _, err := s.Stat(ctx, key); !errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("after move = %v", err)
 	}

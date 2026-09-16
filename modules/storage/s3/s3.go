@@ -85,7 +85,7 @@ func (s *Store) Info() storage.Info {
 func (s *Store) Ping(ctx context.Context) error {
 	ok, err := s.client.BucketExists(ctx, s.cfg.Bucket)
 	if err != nil {
-		return fmt.Errorf("%w: %v", storage.ErrUnavailable, err)
+		return fmt.Errorf("%w: %w", storage.ErrUnavailable, err)
 	}
 	if !ok {
 		return fmt.Errorf("%w: bucket %q doesn't exist", storage.ErrUnavailable, s.cfg.Bucket)
@@ -213,11 +213,8 @@ func (s *Store) List(ctx context.Context, opts storage.ListOptions) (storage.Pag
 			count++
 			continue
 		}
-		if storage.IsDirectoryMarker(info.Key) {
-			if !opts.Recursive {
-				continue
-			}
-			continue
+		if storage.IsDirectoryMarker(info.Key) && !opts.Recursive {
+			continue // recursive listings show markers, so a folder can be emptied
 		}
 		page.Objects = append(page.Objects, object(info.Key, info))
 		count++

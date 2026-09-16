@@ -117,6 +117,9 @@ func newStorage(cfg Config) (storage.Store, http.Handler, error) {
 		}
 	}
 	base := cfg.Social.PublicURL
+	if base == devPublicURL { // the sign-in default, not where the app listens
+		base = ""
+	}
 	if base == "" {
 		host, port, err := net.SplitHostPort(cfg.Addr)
 		if err != nil || host == "" || host == "0.0.0.0" || host == "::" {

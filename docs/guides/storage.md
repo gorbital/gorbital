@@ -33,7 +33,7 @@ page, err := a.storage.List(ctx, storage.ListOptions{Prefix: "invoices/2026/"})
 url, err := a.storage.SignedURL(ctx, key, http.MethodGet, time.Hour)
 ```
 
-Keys are paths: 1 to 1024 characters, segments without `.` or `..`, no leading slash (`storage.ValidKey`). Object stores have no directories: `List` folds keys at the next slash into `Prefixes`, and an empty directory exists through the hidden marker `<prefix>/.keep` (`storage.DirectoryMarker`). `storage.Move` copies and deletes, since stores have no rename.
+Keys are paths: 1 to 1024 characters, segments without `.` or `..`, no leading slash (`storage.ValidKey`). Object stores have no directories: `List` folds keys at the next slash into `Prefixes`, and an empty directory exists through the marker `<prefix>/.keep` (`storage.DirectoryMarker`), hidden in one-level listings and shown in recursive ones so a folder can be emptied. `storage.Move` copies and deletes, since stores have no rename.
 
 Signed URLs let a browser download (GET) or upload (PUT) one object until they expire (a second to 7 days, an hour by default) without the app in the middle. With the local driver the app serves them itself at `/storage/<key>?exp=&method=&sig=`, signed with `STORAGE_SIGNING_KEY` (random at each start when empty, so set it for links that must survive a restart); the S3 drivers return the service's presigned URLs.
 

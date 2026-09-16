@@ -84,8 +84,10 @@ func TestLocalStore(t *testing.T) {
 	if len(page.Objects) != 2 || page.NextCursor == "" {
 		t.Errorf("recursive page 1 = %+v", page)
 	}
+	// Recursive listings include directory markers, so a folder can be
+	// emptied from the API.
 	page2, _ := s.List(ctx, storage.ListOptions{Recursive: true, Limit: 2, Cursor: page.NextCursor})
-	if len(page2.Objects) != 1 || page2.Objects[0].Key != "img/a.png" || page2.NextCursor != "" {
+	if len(page2.Objects) != 2 || page2.Objects[0].Key != "empty/.keep" || page2.Objects[1].Key != "img/a.png" || page2.NextCursor != "" {
 		t.Errorf("recursive page 2 = %+v", page2)
 	}
 

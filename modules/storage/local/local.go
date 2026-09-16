@@ -75,7 +75,7 @@ func (s *Store) Info() storage.Info {
 // Ping implements [storage.Store].
 func (s *Store) Ping(context.Context) error {
 	if _, err := os.Stat(filepath.Join(s.root, "objects")); err != nil {
-		return fmt.Errorf("%w: %v", storage.ErrUnavailable, err)
+		return fmt.Errorf("%w: %w", storage.ErrUnavailable, err)
 	}
 	return nil
 }
@@ -157,7 +157,7 @@ func (s *Store) Stat(_ context.Context, key string) (storage.Object, error) {
 		return storage.Object{}, err
 	}
 	m := meta{ContentType: storage.ContentTypeFor(key)}
-	if data, err := os.ReadFile(mt); err == nil {
+	if data, err := os.ReadFile(mt); err == nil { //nolint:gosec // under the store's root, from a validated key
 		_ = json.Unmarshal(data, &m)
 	}
 	return storage.Object{Key: key, Size: info.Size(), ContentType: m.ContentType, ETag: m.ETag, LastModified: info.ModTime().UTC(), Metadata: m.Metadata}, nil
@@ -170,7 +170,7 @@ func (s *Store) Get(ctx context.Context, key string) (io.ReadCloser, storage.Obj
 		return nil, storage.Object{}, err
 	}
 	obj, _, _ := s.paths(key)
-	f, err := os.Open(obj)
+	f, err := os.Open(obj) //nolint:gosec // under the store's root, from a validated key
 	if err != nil {
 		return nil, storage.Object{}, err
 	}
@@ -246,6 +246,7 @@ func (s *Store) List(ctx context.Context, opts storage.ListOptions) (storage.Pag
 	page := storage.Page{Objects: []storage.Object{}, Prefixes: []string{}}
 	seen := map[string]bool{}
 	count := 0
+	last := ""
 	for _, key := range keys {
 		if opts.Cursor != "" && key <= opts.Cursor {
 			continue
@@ -254,23 +255,26 @@ func (s *Store) List(ctx context.Context, opts storage.ListOptions) (storage.Pag
 			rest := strings.TrimPrefix(key, opts.Prefix)
 			if i := strings.IndexByte(rest, '/'); i >= 0 {
 				dir := opts.Prefix + rest[:i+1]
-				if !seen[dir] {
-					seen[dir] = true
-					page.Prefixes = append(page.Prefixes, dir)
-					count++
+				if seen[dir] {
+					continue
 				}
-				if count >= limit {
-					page.NextCursor = key
+				if count >= limit { // a page is full and more remains
+					page.NextCursor = last
 					break
 				}
+				seen[dir] = true
+				page.Prefixes = append(page.Prefixes, dir)
+				count++
+				last = key
 				continue
+			}
+			if storage.IsDirectoryMarker(key) {
+				continue // folded into Prefixes below
 			}
 		}
-		if storage.IsDirectoryMarker(key) {
-			if opts.Recursive {
-				continue
-			}
-			continue
+		if count >= limit {
+			page.NextCursor = last
+			break
 		}
 		o, err := s.Stat(ctx, key)
 		if err != nil {
@@ -278,10 +282,7 @@ func (s *Store) List(ctx context.Context, opts storage.ListOptions) (storage.Pag
 		}
 		page.Objects = append(page.Objects, o)
 		count++
-		if count >= limit {
-			page.NextCursor = key
-			break
-		}
+		last = key
 	}
 	// Directories that only hold a marker still appear.
 	if !opts.Recursive {
