@@ -12,6 +12,7 @@ db/migrations/           one ordered goose history, including gorbital module ta
 internal/app/            composition root: builds, wires, runs and shuts down the app
   config.go              boot configuration: secrets and infrastructure from environment variables
   settings.go            runtime settings: tunables edited through /ops/settings, some also per organisation
+  flags.go               feature flags: features turned on per organisation, per user or by percentage through /ops/flags
   jobs.go                one line per background job (//orb:anchor jobs)
   job_<name>.go          declares one job and its default configuration
   app.go                 construction order and lifecycle
@@ -42,12 +43,13 @@ internal/modules/<name>/ one bounded context per directory
   repository/            storage adapters implementing ports (hand-written SQL)
   delivery/              HTTP adapter: Huma operations ↔ use cases
 internal/modules/auth/   sign-up, sign-in, sessions, passwords and roles: domain, usecase, repository (SQL), delivery
+internal/modules/flags/  GET /v1/flags: the client feature flags evaluated for the signed-in caller
 internal/modules/mailevents/ the email provider's bounce and complaint webhook, feeding the suppression list
-internal/modules/ops/    admin APIs for runtime settings, jobs, the audit log and email
+internal/modules/ops/    admin APIs for runtime settings, feature flags, jobs, the audit log and email
 internal/modules/orgs/   organisations, members, invitations, personal workspaces and organisation settings: domain, usecase, repository (SQL), delivery
 internal/modules/projects/ example business resource that belongs to an organisation: copy it for your own
 api/openapi.json         exported API contract (committed; review changes in pull requests)
-api/surface.json         error codes, audit actions, permissions, settings and jobs: public names that may only grow
+api/surface.json         error codes, audit actions, permissions, settings, jobs and feature flags: public names that may only grow
 api/openapi.baseline.json the released /ops contract that TestOpsAPICompatible checks against
 compose.yaml             PostgreSQL and Mailpit for development and tests
 ```
@@ -64,6 +66,7 @@ HTTP → middleware (recover, trusted proxies, request ID, tracing, access log, 
 
 - **Environment** (`config.go`): secrets and infrastructure. Changing them needs a restart.
 - **Runtime settings** (`settings.go`): non-secret tunables stored in PostgreSQL, changed with `PUT /ops/settings/{key}`, applied on every instance within moments. Modules receive them as `config.Value[T]` and call `Get` each time. Settings declared `settings.OrgOverridable()` (such as `orgs.invitation_ttl`) also take a value per organisation, changed by its owners and admins with `PUT /v1/orgs/{orgId}/settings/{key}`; `Get` returns it when called with the context `orgs.RequireMember` returns.
+- **Feature flags** (`flags.go`): features declared in code, turned on for organisations, users or a stable percentage with `PUT /ops/flags/{key}` (always with a reason), applied on every instance within moments. Check one with `flag.Enabled(ctx)`, or pass it to a module as a `config.Value[bool]`; flags declared `flags.Client()` are listed to signed-in clients by `GET /v1/flags`. In an organisation route (after `orgs.RequireMember`), the organisation's lists apply and it is the rollout subject; members read their organisation's client flags with `GET /v1/orgs/{orgId}/flags`.
 - **Job definitions** (`job_<name>.go`): each job's code defaults (enabled, schedule, timeout, retries, queue), overridable with `PUT /ops/jobs/definitions/{name}`. Changing a job's code still needs a deploy.
 
 A value is never in more than one layer, and secrets are never runtime settings.

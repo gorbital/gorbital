@@ -18,7 +18,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/settings
 | No or invalid session | 401 `unauthenticated` |
 | Signed in without the operation's permission | 403 `forbidden` |
 | Role `platform_admin` | Every ops permission |
-| Role `ops_viewer` | `ops.settings.read`, `ops.jobs.read`, `ops.audit.read`, `ops.releases.read`, `ops.mail.read`, `ops.auth.read`, `ops.system.read` |
+| Role `ops_viewer` | `ops.settings.read`, `ops.jobs.read`, `ops.audit.read`, `ops.releases.read`, `ops.mail.read`, `ops.auth.read`, `ops.system.read`, `ops.flags.read` |
 
 Changes are attributed to the signed-in user in history, job metadata and audit events.
 
@@ -38,6 +38,8 @@ Changes are attributed to the signed-in user in history, job metadata and audit 
 | `ops.mail.write` | Remove addresses from the email suppression list |
 | `ops.auth.read` | See which sign-in methods are configured |
 | `ops.system.read` | See an instance's health checks, database pool, migrations and runtime |
+| `ops.flags.read` | List and read feature flags and their history |
+| `ops.flags.write` | Change and reset feature flags |
 
 Missing permission: 403 `forbidden`.
 
@@ -119,6 +121,48 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 }
 ```
 
+## Feature flags
+
+Flags are declared in code (`internal/app/flags.go`; keys recorded in `api/surface.json`) and changed here without a redeploy ([ADR-0057](../adr/0057-feature-flags.md), [guide](feature-flags.md)). A change replaces the flag's whole state and always needs a `reason`.
+
+| Endpoint | Purpose | Response |
+|---|---|---|
+| `GET /ops/flags?group=` | List flags | 200 `{flags: [...]}` |
+| `GET /ops/flags/{key}` | One flag | 200 |
+| `PUT /ops/flags/{key}` | Change: `{state, version, reason}` | 200 |
+| `DELETE /ops/flags/{key}` | Back to the state declared in code: `{version, reason}` | 200 |
+| `GET /ops/flags/{key}/history?before=&limit=` | Changes with old and new states, newest first | 200 `{changes: [...]}` |
+
+A state decides, first rule that applies: `enabled: false` turns the flag off for everyone; `orgs.deny`/`orgs.allow` for a caller acting in an organisation; `users.deny`/`users.allow` for a signed-in caller; `percentage` (0–100, `null` for none) for the organisation, else the caller; then `default`. Each list holds at most 1,000 IDs, and an ID can't be in both lists of a rule.
+
+| Flag | Declared | Client | What it controls |
+|---|---|---|---|
+| `example.ping_time` | off | yes | Adds `server_time` to `GET /v1/ping` replies |
+
+```bash
+curl -X PUT http://127.0.0.1:8080/ops/flags/example.ping_time \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"version":0,"reason":"try the new reply with 10% of users","state":{"enabled":true,"default":false,"users":{"allow":["usr_mfrggzdfmztwq2lk"]},"percentage":10}}'
+```
+
+```json
+{
+  "key": "example.ping_time",
+  "group": "example",
+  "description": "Adds the server's time to GET /v1/ping replies. …",
+  "client": true,
+  "state": {"enabled": true, "default": false, "orgs": {"allow": [], "deny": []}, "users": {"allow": ["usr_mfrggzdfmztwq2lk"], "deny": []}, "percentage": 10},
+  "declared_state": {"enabled": false, "default": false, "orgs": {"allow": [], "deny": []}, "users": {"allow": [], "deny": []}, "percentage": null},
+  "modified": true,
+  "invalid_stored_value": false,
+  "version": 1,
+  "updated_at": "2026-09-16T12:00:00Z",
+  "updated_by": "usr_ops"
+}
+```
+
+Signed-in clients read the flags declared `flags.Client()` with `GET /v1/flags` (`{"flags": {"example.ping_time": true}}`), and in multi-tenant apps members read them as their organisation with `GET /v1/orgs/{orgId}/flags`.
+
 ## Retention
 
 How long data is kept is a runtime setting per kind of data ([ADR-0051](../adr/0051-operations-v0-5.md)), so changes need the setting's reason, appear in its history and audit log, and apply on every instance without a restart. `GET /ops/retention` (`ops.settings.read`) lists them:
@@ -126,7 +170,7 @@ How long data is kept is a runtime setting per kind of data ([ADR-0051](../adr/0
 | Data | Setting | Default | Deleted by |
 |---|---|---|---|
 | `audit_events` | `audit.retention` | 365 days (30 days to 10 years) | `retention` job, daily at 04:15 |
-| `settings_history`, `job_definition_history` | `ops.history_retention` | 365 days (30 days to 10 years) | `retention` job |
+| `settings_history`, `flags_history`, `job_definition_history` | `ops.history_retention` | 365 days (30 days to 10 years) | `retention` job |
 | `release_instances` | `releases.instance_retention` | 90 days (1 day to 3 years) | each instance, when it starts |
 | `deleted_accounts` | `auth.deleted_account_retention` | 30 days | `auth_cleanup` job |
 | `idempotency_keys` | `idempotency.retention` | 24 hours (1 hour to 7 days) | `idempotency_cleanup` job, hourly ([idempotency](idempotency.md)) |
@@ -371,6 +415,10 @@ Values of secrets are never returned; the same report is printed at start in dev
 | `setting_version_conflict` | 409 | Setting changed since it was read |
 | `setting_reason_required` | 422 | Reason missing for a setting that requires one |
 | `invalid_setting_value` | 422 | Value fails the setting's type or validation; `detail` says why |
+| `flag_not_found` | 404 | Unknown feature flag key |
+| `flag_version_conflict` | 409 | Stale `version` for a feature flag |
+| `flag_reason_required` | 422 | Feature flag change or reset without `reason` |
+| `invalid_flag_state` | 422 | An ID that isn't 1 to 100 visible ASCII characters, or in both lists of a rule; `detail` names the field. Out-of-range percentages and lists over 1,000 IDs answer `validation_failed` |
 | `job_definition_not_found` | 404 | Unknown job name |
 | `job_definition_version_conflict` | 409 | Definition changed since it was read |
 | `job_reason_required` | 422 | Reason missing to disable or reschedule a job, change its timeout, attempts or queue, or pause a queue |
@@ -398,6 +446,8 @@ The ops APIs record these. Every action a Full app records, with its metadata: [
 | Action | Resource |
 |---|---|
 | `settings.value.changed` | `setting` |
+| `flags.flag.changed` | `flag` (metadata: `version`, `reason`, `enabled`, `default`, `percentage`, `org_targets`, `user_targets`) |
+| `flags.flag.reset` | `flag` (metadata: `version`, `reason`) |
 | `jobs.definition.changed` | `job_definition` |
 | `jobs.definition.run_requested` | `job_definition` |
 | `jobs.run.retried` | `job` |

@@ -18,6 +18,14 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 
 - [List sign-in methods and what they need](/docs/ops-auth/ops-list-sign-in-methods.md): `GET /ops/auth/providers`
 
+## Ops: flags
+
+- [List feature flags](/docs/ops-flags/ops-list-flags.md): `GET /ops/flags`
+- [Get a feature flag](/docs/ops-flags/ops-get-flag.md): `GET /ops/flags/{key}`
+- [Change a feature flag](/docs/ops-flags/ops-set-flag.md): `PUT /ops/flags/{key}`
+- [Reset a feature flag to its declared state](/docs/ops-flags/ops-reset-flag.md): `DELETE /ops/flags/{key}`
+- [List a feature flag's changes](/docs/ops-flags/ops-flag-history.md): `GET /ops/flags/{key}/history`
+
 ## Ops: job definitions
 
 - [List job definitions](/docs/ops-job-definitions/ops-list-job-definitions.md): `GET /ops/jobs/definitions`
@@ -113,6 +121,10 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 
 - [Echo a message](/docs/example/echo.md): `POST /v1/echo`
 - [Check the API is reachable](/docs/example/ping.md): `GET /v1/ping`
+
+## Feature flags
+
+- [List your feature flags](/docs/feature-flags/flags-list.md): `GET /v1/flags`
 
 ## Projects
 

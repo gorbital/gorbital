@@ -8,6 +8,7 @@ import (
 
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/auditpg"
+	"gorbital.dev/modules/flags"
 	"gorbital.dev/modules/jobs"
 	"gorbital.dev/modules/mail/suppressionpg"
 	"gorbital.dev/modules/releases"
@@ -31,6 +32,11 @@ func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error
 		httpx.Mapping{Err: settings.ErrVersionConflict, Status: http.StatusConflict, Code: "setting_version_conflict", Detail: "the setting changed since it was read; read it again"},
 		httpx.Mapping{Err: settings.ErrReasonRequired, Status: http.StatusUnprocessableEntity, Code: "setting_reason_required", Detail: "a reason is required to change this setting"},
 		httpx.Mapping{Err: settings.ErrInvalidValue, Status: http.StatusUnprocessableEntity, Code: "invalid_setting_value", Detail: "the value is not valid for this setting"},
+
+		httpx.Mapping{Err: flags.ErrUnknownFlag, Status: http.StatusNotFound, Code: "flag_not_found", Detail: "no feature flag has this key"},
+		httpx.Mapping{Err: flags.ErrVersionConflict, Status: http.StatusConflict, Code: "flag_version_conflict", Detail: "the feature flag changed since it was read; read it again"},
+		httpx.Mapping{Err: flags.ErrReasonRequired, Status: http.StatusUnprocessableEntity, Code: "flag_reason_required", Detail: "a reason is required to change a feature flag"},
+		httpx.Mapping{Err: flags.ErrInvalidState, Status: http.StatusUnprocessableEntity, Code: "invalid_flag_state", Detail: "the state is not valid for a feature flag"},
 
 		httpx.Mapping{Err: jobs.ErrUnknownDefinition, Status: http.StatusNotFound, Code: "job_definition_not_found", Detail: "no job definition has this name"},
 		httpx.Mapping{Err: jobs.ErrVersionConflict, Status: http.StatusConflict, Code: "job_definition_version_conflict", Detail: "the job definition changed since it was read; read it again"},

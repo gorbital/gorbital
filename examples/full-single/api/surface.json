@@ -8,6 +8,9 @@
     "cross_origin_request_denied",
     "email_not_verified",
     "error",
+    "flag_not_found",
+    "flag_reason_required",
+    "flag_version_conflict",
     "forbidden",
     "idempotency_in_progress",
     "idempotency_key_reused",
@@ -19,6 +22,7 @@
     "invalid_credentials",
     "invalid_cursor",
     "invalid_email",
+    "invalid_flag_state",
     "invalid_idempotency_key",
     "invalid_job_config",
     "invalid_job_state",
@@ -111,6 +115,8 @@
     "auth.sessions.revoked",
     "auth.user.created",
     "auth.user.registered",
+    "flags.flag.changed",
+    "flags.flag.reset",
     "jobs.definition.changed",
     "jobs.definition.run_requested",
     "jobs.queue.paused",
@@ -130,6 +136,8 @@
     "platform": [
       "ops.audit.read",
       "ops.auth.read",
+      "ops.flags.read",
+      "ops.flags.write",
       "ops.jobs.read",
       "ops.jobs.run",
       "ops.jobs.write",
@@ -183,5 +191,8 @@
     "idempotency_cleanup",
     "ratelimit_cleanup",
     "retention"
+  ],
+  "flags": [
+    "example.ping_time"
   ]
 }

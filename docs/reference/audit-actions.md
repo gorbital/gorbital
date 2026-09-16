@@ -44,6 +44,13 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | `auth.user.created` | An operator or seed data created an account (`CreateUser`), not through sign-up. | `email_verified` |
 | `auth.user.registered` | Someone signed up, with a password or through Google or Apple. | `provider` |
 
+## flags
+
+| Action | Recorded when | Metadata |
+|---|---|---|
+| `flags.flag.changed` | An operator changed a feature flag's state through `PUT /ops/flags/{key}`, with a reason. The metadata summarises the new state (enabled, default, percentage, how many organisations and users are targeted); the IDs themselves are in the flag's history. | `default`, `enabled`, `org_targets`, `percentage`, `reason`, `user_targets`, `version` |
+| `flags.flag.reset` | An operator reset a feature flag to the state declared in code through `DELETE /ops/flags/{key}`, with a reason. | `reason`, `version` |
+
 ## Background jobs
 
 | Action | Recorded when | Metadata |

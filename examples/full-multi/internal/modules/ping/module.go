@@ -17,9 +17,10 @@ type Module struct {
 }
 
 // New builds the module. message is the ping reply, usually a runtime
-// setting.
-func New(message config.Value[string]) *Module {
-	return &Module{svc: pingusecase.NewService(message)}
+// setting, and serverTime whether replies include the server's time, usually
+// a feature flag.
+func New(message config.Value[string], serverTime config.Value[bool]) *Module {
+	return &Module{svc: pingusecase.NewService(message, serverTime)}
 }
 
 // Register adds the module's HTTP operations to api.

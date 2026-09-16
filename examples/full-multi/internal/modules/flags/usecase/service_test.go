@@ -1,0 +1,34 @@
+package usecase_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"gorbital.dev/actor"
+	"gorbital.dev/modules/flags"
+
+	flagsdomain "example.com/acme-api/internal/modules/flags/domain"
+	flagsusecase "example.com/acme-api/internal/modules/flags/usecase"
+)
+
+type fakeStore []flags.Evaluation
+
+func (f fakeStore) ClientFlags(context.Context) []flags.Evaluation { return f }
+
+func TestClientFlags(t *testing.T) {
+	svc := flagsusecase.NewService(fakeStore{{Key: "example.ping_time", Enabled: true, Reason: flags.ReasonRollout}})
+
+	for name, ctx := range map[string]context.Context{
+		"without an actor": context.Background(),
+		"anonymous":        actor.With(context.Background(), actor.Anonymous),
+	} {
+		if _, err := svc.ClientFlags(ctx); !errors.Is(err, flagsdomain.ErrUnauthenticated) {
+			t.Errorf("ClientFlags() %s error = %v, want ErrUnauthenticated", name, err)
+		}
+	}
+	got, err := svc.ClientFlags(actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_1"}))
+	if err != nil || len(got) != 1 || !got["example.ping_time"] {
+		t.Errorf("ClientFlags() = %v, %v; want the flag on", got, err)
+	}
+}

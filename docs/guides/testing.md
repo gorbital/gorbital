@@ -35,7 +35,7 @@ export GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:8025
 | `internal/modules/<m>/repository` | Every SQL operation, constraint mapping, ordering and pagination | PostgreSQL |
 | `internal/modules/<m>/usecase` | Flows, authorization, ownership, audit events, transactions | PostgreSQL |
 | `internal/app` | Whole-app HTTP tests through `App.Handler()` with `httptest`: sign-up and email codes, sessions, 2FA, passkeys (`passkeytest`), Google and Apple (`socialtest`), ops endpoints, settings across two app instances, jobs through `/ops/jobs`, seed data, OpenAPI export, docs, configuration errors | PostgreSQL; Mailpit for delivery checks |
-| `internal/app/surface_test.go` | Error codes, audit actions, permissions, roles, settings and jobs match `api/surface.json`: nothing recorded may disappear, and new names must be recorded with `go test ./internal/app -run TestPublicSurface -update` ([stability](stability.md)) | Nothing |
+| `internal/app/surface_test.go` | Error codes, audit actions, permissions, roles, settings, jobs and feature flags match `api/surface.json`: nothing recorded may disappear, and new names must be recorded with `go test ./internal/app -run TestPublicSurface -update` ([stability](stability.md)) | Nothing |
 | `internal/app/api_compat_test.go` | `/ops/*` doesn't break clients of `api/openapi.baseline.json` | Nothing |
 | `internal/app/architecture_test.go` | Layer import rules: `domain` imports only the standard library, `delivery` never imports `repository`, modules don't import each other, only `internal/app` reads the environment | Nothing |
 

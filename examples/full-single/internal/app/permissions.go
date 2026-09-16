@@ -23,6 +23,8 @@ func declarePermissions() *authlib.Catalog {
 	c := authlib.NewCatalog()
 	c.Permission(opsdomain.PermSettingsRead, "Read runtime settings and their history")
 	c.Permission(opsdomain.PermSettingsWrite, "Change and reset runtime settings")
+	c.Permission(opsdomain.PermFlagsRead, "Read feature flags and their history")
+	c.Permission(opsdomain.PermFlagsWrite, "Change and reset feature flags")
 	c.Permission(opsdomain.PermJobsRead, "Read job definitions, runs and queues")
 	c.Permission(opsdomain.PermJobsWrite, "Change job configuration; pause and resume queues")
 	c.Permission(opsdomain.PermJobsRun, "Run, retry and cancel jobs")
@@ -37,7 +39,7 @@ func declarePermissions() *authlib.Catalog {
 	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission", opsdomain.AllPermissions()...)
 	c.Role(roleOpsViewer, "Reads operational data without changing anything",
 		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead, opsdomain.PermAuthRead,
-		opsdomain.PermSystemRead)
+		opsdomain.PermSystemRead, opsdomain.PermFlagsRead)
 
 	// Ops roles grant their permissions only to sessions signed in with a
 	// second factor (ADR-0043).

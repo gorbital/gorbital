@@ -220,6 +220,7 @@ func Register(api huma.API, svc *orgsusecase.Service) {
 	}), h.accept)
 
 	registerSettings(api, h, inOrg)
+	registerFlags(api, h, inOrg)
 }
 
 func (h *handler) list(ctx context.Context, _ *struct{}) (*orgListOutput, error) {

@@ -4,6 +4,7 @@ package delivery
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -13,6 +14,8 @@ import (
 // MessageResponse is a message returned by the API.
 type MessageResponse struct {
 	Message string `json:"message" doc:"Message text" example:"pong"`
+	// ServerTime shows a feature rolled out with a flag (ADR-0057).
+	ServerTime *time.Time `json:"server_time,omitempty" doc:"The server's time: only in GET /v1/ping replies, while the example.ping_time feature flag is on for the caller"`
 }
 
 // PingOutput is the ping response.
@@ -56,7 +59,11 @@ func Register(api huma.API, svc *pingusecase.Service) {
 }
 
 func (h *handler) ping(ctx context.Context, _ *struct{}) (*PingOutput, error) {
-	return &PingOutput{Body: MessageResponse{Message: h.svc.Ping(ctx)}}, nil
+	out := &PingOutput{Body: MessageResponse{Message: h.svc.Ping(ctx)}}
+	if now, ok := h.svc.ServerTime(ctx); ok {
+		out.Body.ServerTime = &now
+	}
+	return out, nil
 }
 
 func (h *handler) echo(ctx context.Context, in *EchoInput) (*PingOutput, error) {

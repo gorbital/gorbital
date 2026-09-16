@@ -271,6 +271,220 @@
       ]
     },
     {
+      "name": "Ops: flags",
+      "item": [
+        {
+          "name": "List feature flags",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/flags",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "flags"
+              ],
+              "query": [
+                {
+                  "key": "group",
+                  "value": "string",
+                  "description": "Only flags in this group",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get a feature flag",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/flags/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "flags",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_time"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change a feature flag",
+          "request": {
+            "method": "PUT",
+            "description": "Replaces the flag's whole state; applies to every instance within moments. Send the `version` you read (a newer one returns `flag_version_conflict`) and a `reason`. Lists hold at most 1000 IDs of 1 to 100 visible ASCII characters each, and an ID can't be in both lists of a rule.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/flags/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "flags",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_time"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\",\n  \"state\": {\n    \"default\": false,\n    \"enabled\": false,\n    \"orgs\": {\n      \"allow\": [\n        \"string\"\n      ],\n      \"deny\": [\n        \"string\"\n      ]\n    },\n    \"percentage\": 0,\n    \"users\": {\n      \"allow\": [\n        \"string\"\n      ],\n      \"deny\": [\n        \"string\"\n      ]\n    }\n  },\n  \"version\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reset a feature flag to its declared state",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/flags/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "flags",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_time"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\",\n  \"version\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List a feature flag's changes",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/flags/:key/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "flags",
+                ":key",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "before",
+                  "value": "0",
+                  "description": "Return changes older than this change ID",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_time"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Ops: job definitions",
       "item": [
         {
@@ -2933,6 +3147,38 @@
               "path": [
                 "v1",
                 "ping"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Feature flags",
+      "item": [
+        {
+          "name": "List your feature flags",
+          "request": {
+            "method": "GET",
+            "description": "Whether each feature flag clients may read is on for you. Answers depend on who asks, so responses aren't cached. Unknown keys may appear as flags are added: ignore them.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/flags",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "flags"
               ]
             }
           }

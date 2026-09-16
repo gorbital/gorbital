@@ -62,7 +62,8 @@ Full apps (the golden apps and every app generated from them) record the names c
   "permissions": {"platform": ["ops.jobs.run", "…"], "org": ["projects.project.read", "…"]},
   "roles": {"platform": ["ops_viewer", "platform_admin"], "org": ["admin", "member", "owner"]},
   "settings": ["auth.login_attempts", "…"],
-  "jobs": ["gorbital.mail.send", "heartbeat", "…"]
+  "jobs": ["gorbital.mail.send", "heartbeat", "…"],
+  "flags": ["example.ping_time", "…"]
 }
 ```
 
@@ -71,7 +72,7 @@ Full apps (the golden apps and every app generated from them) record the names c
 | Failure | Means | Do |
 |---|---|---|
 | `… is recorded in api/surface.json but no longer exists` | A client, dashboard, stored override or queued job may depend on it | Restore it. If it really must go (you deleted your own resource before anyone used it), record with `-update` and say so in the pull request |
-| `new … isn't recorded` | You added a code, action, permission, setting or job | `go test ./internal/app -run TestPublicSurface -update`, then commit `api/surface.json` |
+| `new … isn't recorded` | You added a code, action, permission, setting, job or feature flag | `go test ./internal/app -run TestPublicSurface -update`, then commit `api/surface.json` |
 
 How names are found:
 

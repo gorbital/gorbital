@@ -13,10 +13,16 @@ import (
 
 func TestService(t *testing.T) {
 	ctx := context.Background()
-	svc := pingusecase.NewService(config.Static("pong"))
+	svc := pingusecase.NewService(config.Static("pong"), config.Static(false))
 
 	if got := svc.Ping(ctx); got != "pong" {
 		t.Errorf("Ping() = %q, want pong", got)
+	}
+	if _, ok := svc.ServerTime(ctx); ok {
+		t.Error("ServerTime() with the flag off = true")
+	}
+	if now, ok := pingusecase.NewService(config.Static("pong"), config.Static(true)).ServerTime(ctx); !ok || now.IsZero() {
+		t.Errorf("ServerTime() with the flag on = %v, %v", now, ok)
 	}
 	if m, err := svc.Echo(ctx, " hi "); err != nil || m.Text() != "hi" {
 		t.Errorf("Echo(%q) = %q, %v; want hi, nil", " hi ", m.Text(), err)
