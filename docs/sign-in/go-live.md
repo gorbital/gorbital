@@ -7,12 +7,12 @@ Work through this list before real people use your app. Each line names the valu
 
 ## 1. The basics
 
-- [ ] `APP_ENV=production`. It turns on JSON logs and HSTS, refuses Mailpit, and makes the settings below required. The Docker image sets it for you.
+- [ ] `APP_ENV=production`. It turns on JSON logs and HSTS, refuses Mailpit, turns docs off by default, and makes the settings below required. The Docker image sets it for you; without `APP_ENV` the app refuses to start.
 - [ ] `APP_ADDR=0.0.0.0:8080` when the app runs in a container behind a load balancer. The Docker image sets it for you. The default `127.0.0.1:8080` only accepts connections from the same machine.
 - [ ] `DATABASE_URL` points at your production PostgreSQL, with `sslmode=require` (or stricter) and a strong password. Store it as a secret, or mount it as a file and set `DATABASE_URL_FILE`.
 - [ ] Migrations run **before** each new version starts: `docker run --entrypoint /migrate <image>` with the same environment, or `go run ./cmd/migrate`. The app never migrates itself.
-- [ ] `APP_CORS_ORIGINS` lists your web frontends, such as `https://app.example.com`. Empty means browsers on other sites can't call the API.
-- [ ] Decide on `APP_DOCS_ENABLED`. `/docs` is useful for your frontend team; set it to `false` if your API isn't meant to be public.
+- [ ] `APP_CORS_ORIGINS` lists your web frontends, such as `https://app.example.com`, all https. Empty means browsers on other sites can't call the API.
+- [ ] Decide on `APP_DOCS_ENABLED`. `/docs` and `/openapi.json` are off in production; set it to `true` if your API reference is meant to be public.
 
 ## 2. Encryption key
 

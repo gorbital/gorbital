@@ -17,7 +17,8 @@ Three groups of programs read the environment, and each has its own variables:
 - **Every error is reported at once.** `LoadConfig` collects all problems and fails with `invalid configuration:` followed by one line per variable, so one start shows everything to fix.
 - **Secrets can come from files.** For variables marked **Secret** below, `NAME_FILE=/path` reads the value from the file (`config.Source.Secret`, trailing newline trimmed). Setting both `NAME` and `NAME_FILE` fails with `config: both variable and _FILE variant are set: NAME`. Secrets are held as `config.Secret`, whose `String` and `LogValue` print `[redacted]`.
 - **Empty means off; half-filled means stop.** An optional feature with all its variables empty is off. Setting some of a feature's variables but not the rest fails at start with the missing names ([ADR-0045](../adr/0045-sign-in-provider-setup.md)).
-- **`APP_ENV=production` tightens rules.** Marked **Prod** below: required values, https-only URLs, Mailpit refused.
+- **`APP_ENV` is required.** Without it the app refuses to start, so a deployment that forgets it can't run with development's relaxed checks. `orb dev` sets `development` when neither your shell nor `.env` sets it. `api openapi` reads no variables: the OpenAPI document describes the code, not a deployment.
+- **`APP_ENV=production` tightens rules.** Marked **Prod** below: required values, https-only URLs, Mailpit refused, docs off by default.
 - **Environment holds secrets and infrastructure only.** Tunables such as code lifetimes and the email sender are runtime settings in PostgreSQL, changed through `/ops/settings` ([runtime settings](runtime-settings.md)). A value is never in both.
 
 ## App server
@@ -26,12 +27,13 @@ Read in `config.go` by both presets.
 
 | Variable | Required | Default | Example | Validation | Description |
 |---|---|---|---|---|---|
-| `APP_ENV` | No | `development` | `production` | `development` or `production` | Production switches logs to JSON, sends HSTS (365 days), enables a 5 s drain delay on shutdown, and applies every **Prod** rule on this page. The Dockerfile sets `production` |
+| `APP_ENV` | **Yes** | none | `production` | `development` or `production`; missing fails with `APP_ENV is required` | Production switches logs to JSON, sends HSTS (365 days), enables a 5 s drain delay on shutdown, and applies every **Prod** rule on this page. The Dockerfile sets `production` |
 | `APP_ADDR` | No | `127.0.0.1:8080` | `0.0.0.0:8080` | `host:port` | Listen address. Loopback by default so a development API isn't exposed on the network; containers need `0.0.0.0` (the Dockerfile sets it) |
 | `APP_LOG_LEVEL` | No | `info` | `debug` | `debug`, `info`, `warn`, `error` | Minimum `slog` level |
-| `APP_DOCS_ENABLED` | No | `true` | `false` | `true` or `false` | Serves `/docs` and `/openapi.json` |
-| `APP_CORS_ORIGINS` | No | empty | `https://app.example.com,http://localhost:3000` | Comma-separated origins (scheme, host, optional port) | Browser origins allowed by CORS, trusted by the cross-origin protection, and accepted as `return_to` for Google and Apple web sign-in. Empty disables CORS |
+| `APP_DOCS_ENABLED` | No | `true` in development, `false` in production | `true` | `true` or `false` | Serves `/docs` and the OpenAPI document (`/openapi.json`, `/openapi.yaml`). Off, both answer 404; `api openapi` still exports the document. Set `true` in production for a public API reference |
+| `APP_CORS_ORIGINS` | No | empty | `https://app.example.com,http://localhost:3000` | Comma-separated origins (scheme, host, optional port; no user, path, query or trailing slash). **Prod:** https only | Browser origins allowed by CORS, trusted by the cross-origin protection, and accepted as `return_to` for Google and Apple web sign-in. Empty disables CORS |
 | `APP_TRUSTED_PROXIES` | No | empty | `10.0.0.0/8,192.0.2.10` | Comma-separated CIDR ranges or IP addresses; ranges covering every address (`0.0.0.0/0`, `::/0`) are refused | Load balancers and reverse proxies whose `X-Forwarded-For` names the client, for rate limits, logs and audit events ([ADR-0052](../adr/0052-shared-rate-limits.md)). Requests from other addresses keep their own address and their forwarding headers are ignored. Empty trusts no header: correct only when clients connect directly |
+| `APP_TRUSTED_CALLERS` | No | empty | `10.1.0.0/16` | Same as `APP_TRUSTED_PROXIES` | Gateways and internal services whose `X-Request-ID` and W3C trace context (`traceparent`, `tracestate`, `baggage`) the app keeps. Other clients get a generated request ID and a new trace linked to theirs, so they can't hide from tracing, force sampling or reuse another request's IDs. Matched against the client address after `APP_TRUSTED_PROXIES`: list your load balancer only if it sets those headers itself and drops clients' values |
 | `APP_MAX_BODY_BYTES` | No | `1048576` | `5242880` | Positive integer | Request body limit; larger bodies get 413 `request_too_large` |
 
 ## Database

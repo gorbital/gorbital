@@ -33,7 +33,11 @@ func main() {
 }
 
 func run(ctx context.Context, args []string) error {
-	cfg, err := app.LoadConfig(config.OS)
+	src := config.OS
+	if len(args) > 0 && args[0] == "openapi" {
+		src = app.ExportSource // the same document everywhere, without APP_ENV
+	}
+	cfg, err := app.LoadConfig(src)
 	if err != nil {
 		return err
 	}

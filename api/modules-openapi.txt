@@ -6,6 +6,7 @@ pkg gorbital.dev/modules/openapi, func MountDocs(*http.ServeMux, DocsOptions)
 pkg gorbital.dev/modules/openapi, func New(*http.ServeMux, string, string, ...Option) huma.API
 pkg gorbital.dev/modules/openapi, func WithBearerAuth(string) Option
 pkg gorbital.dev/modules/openapi, func WithDescription(string) Option
+pkg gorbital.dev/modules/openapi, func WithoutSpecEndpoints() Option
 pkg gorbital.dev/modules/openapi, func WriteSpec(io.Writer, huma.API) error
 pkg gorbital.dev/modules/openapi, method (Incompatibility) String() string
 pkg gorbital.dev/modules/openapi, type DocsOptions struct

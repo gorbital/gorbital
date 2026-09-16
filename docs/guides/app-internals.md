@@ -104,7 +104,7 @@ Accessors for tests and commands: the auth use case service, the full middleware
 
 ### `(*App).buildHTTP(svc services) error`
 
-Creates the error mapper and installs Huma's error hooks and pagination mappings; creates the Huma API on a `ServeMux` with bearer auth documented; registers `GET /version` and every module (`registerModules`); mounts `/livez`, `/readyz`, `/docs` (when enabled), the `.well-known` files and the problem 404; then builds the middleware chain. Returns mapping and CORS configuration errors. Order and each middleware: [life of a request](request-lifecycle.md#2-middleware).
+Creates the error mapper and installs Huma's error hooks and pagination mappings; creates the Huma API on a `ServeMux` with bearer auth documented, serving the OpenAPI document only when docs are enabled (`openapi.WithoutSpecEndpoints` otherwise); registers `GET /version` and every module (`registerModules`); mounts `/livez`, `/readyz`, `/docs` (when enabled), the `.well-known` files and the problem 404; then builds the middleware chain. Returns mapping and CORS configuration errors. Order and each middleware: [life of a request](request-lifecycle.md#2-middleware).
 
 ### `authLimitKey(r) string`
 

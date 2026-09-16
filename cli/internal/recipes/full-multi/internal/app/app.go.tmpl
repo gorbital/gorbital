@@ -93,6 +93,7 @@ func newBase(ctx context.Context, cfg Config) (*App, error) {
 		telemetry.WithOTLPExport(cfg.OTLPEndpoint != ""),
 		telemetry.WithLogFormat(format),
 		telemetry.WithLogLevel(cfg.LogLevel),
+		telemetry.WithTraceContextFrom(cfg.TrustedCallers), // other clients start a new trace
 	)
 	if err != nil {
 		return nil, err

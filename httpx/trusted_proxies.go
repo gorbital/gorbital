@@ -86,6 +86,12 @@ func forwardedClient(r *http.Request, trusted []netip.Prefix) (netip.Addr, bool)
 	return netip.Addr{}, false
 }
 
+// fromTrusted reports whether r's client address is in trusted.
+func fromTrusted(r *http.Request, trusted []netip.Prefix) bool {
+	addr, ok := remoteAddr(r.RemoteAddr)
+	return ok && isTrusted(addr, trusted)
+}
+
 func remoteAddr(s string) (netip.Addr, bool) {
 	if ap, err := netip.ParseAddrPort(s); err == nil {
 		return ap.Addr().Unmap(), true

@@ -151,6 +151,7 @@ pkg gorbital.dev/httpx, func NewServer(string, http.Handler, ...ServerOption) *S
 pkg gorbital.dev/httpx, func ParseTrustedProxies(string) ([]netip.Prefix, error)
 pkg gorbital.dev/httpx, func Recover(*slog.Logger) Middleware
 pkg gorbital.dev/httpx, func RequestID() Middleware
+pkg gorbital.dev/httpx, func RequestIDFrom([]netip.Prefix) Middleware
 pkg gorbital.dev/httpx, func SecureHeaders(SecureHeadersOptions) Middleware
 pkg gorbital.dev/httpx, func TrustedProxies([]netip.Prefix) Middleware
 pkg gorbital.dev/httpx, func WithErrorLogger(*slog.Logger) ServerOption

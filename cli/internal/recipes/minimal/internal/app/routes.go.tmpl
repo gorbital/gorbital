@@ -25,7 +25,11 @@ func (a *App) buildHTTP() error {
 	openapi.InstallErrors(mapper)
 
 	mux := http.NewServeMux()
-	api := openapi.New(mux, ServiceName, buildinfo.Read().Version)
+	var apiOpts []openapi.Option
+	if !a.cfg.DocsEnabled {
+		apiOpts = append(apiOpts, openapi.WithoutSpecEndpoints()) // APP_DOCS_ENABLED=false hides the contract too
+	}
+	api := openapi.New(mux, ServiceName, buildinfo.Read().Version, apiOpts...)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "get-version",
@@ -67,7 +71,7 @@ func (a *App) buildHTTP() error {
 	a.handler = httpx.Chain(mux,
 		httpx.Recover(a.logger),
 		httpx.TrustedProxies(a.cfg.TrustedProxies), // the client's address behind load balancers (APP_TRUSTED_PROXIES)
-		httpx.RequestID(),
+		httpx.RequestIDFrom(a.cfg.TrustedCallers),  // clients' own X-Request-ID only from APP_TRUSTED_CALLERS
 		a.tel.HTTPMiddleware(),
 		httpx.AccessLog(a.logger),
 		httpx.SecureHeaders(httpx.SecureHeadersOptions{HSTSMaxAge: hsts}),

@@ -62,3 +62,18 @@ Not supported: YAML/TOML per-environment overlays, and secrets or infrastructure
 
 - `orb doctor` runs the app's config validation without starting it.
 - `.env.example` is generated from the app's config structs and kept in sync by recipes.
+
+## Security review fixes (2026-09-16)
+
+HTTP-6: golden apps defaulted `APP_ENV` to `development`, so a deployment that built its own image, ran the binary under systemd or overrode `ENV` without it silently skipped every production requirement (encryption keys, https-only URLs and origins, the Mailpit refusal), sent no HSTS and let `cmd/seed` run.
+
+- `LoadConfig` now fails with `APP_ENV is required: development or production` when it is unset, in all three golden apps. `cmd/api`, `cmd/migrate` and `cmd/seed` share it.
+- Everything that starts an app sets it: `.env.example` (`development`), the Dockerfile (`production`), `orb dev` (`development` when neither the shell nor `.env` sets it, including Minimal apps without `.env`), and the apps' test helpers.
+- `api openapi` is the exception, deliberately: it loads `app.ExportSource`, development defaults with no environment variables, because the document describes the code and must be identical on every machine and in CI (ADR-0027).
+- Other defaults now depend on it: `APP_DOCS_ENABLED` is off in production (ADR-0027), and `APP_CORS_ORIGINS` must be https in production (ADR-0052).
+
+| Check | Result |
+|---|---|
+| Apps `TestLoadConfigSecureDefaults` | No `APP_ENV` fails with `APP_ENV is required`; `staging` still fails in `TestLoadConfigReportsAllErrors` |
+| `cli` `TestDevSetsAppEnv` | `orb dev` adds `APP_ENV=development` when it is missing or empty, and keeps `production` from `.env` |
+| Commands | Without `APP_ENV`, `go run ./cmd/api` stops with the message in all three apps; `go run ./cmd/api openapi --dir api` leaves `api/` unchanged |

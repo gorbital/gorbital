@@ -43,3 +43,12 @@ Core package `gorbital.dev/app` provides `Runner`, the cleanup stack and the run
 
 - Every official module states whether its types are `Runner`, `io.Closer`, both or neither.
 - Jobs and HTTP must respect context cancellation; tests cover graceful shutdown.
+
+## Security review fixes (2026-09-16)
+
+HTTP-7: `/readyz` is public and ran every check, a PostgreSQL ping holding a pooled connection, on every request, so a flood of readiness requests could starve the pool and make the load balancer's own probes fail on every instance. `health.Checker.Readiness` now shares one run of the checks among concurrent requests and reuses its result for one second; `Checker.Check` still runs them on every call, and `Add` discards a cached result. A run started by a request isn't canceled with it: each check keeps its own timeout. `/version` exposing the build version, Go version and commit is accepted as documented behaviour; the production guide says to block `/livez`, `/readyz` and `/version` at the load balancer for internet clients where possible.
+
+| Check | Result |
+|---|---|
+| `health` `TestReadinessSharesChecks` (race detector) | 51 readiness requests during a slow check run it once and all answer 200 (51 runs without the fix) |
+| `health` `TestReadiness` | A check added after a passing result is run on the next request; shutdown still answers 503 at once |

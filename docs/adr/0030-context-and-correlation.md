@@ -46,3 +46,12 @@ Jobs need a small amount of metadata handling (provided by the jobs module).
 ## Consequences
 
 The e2e test suite asserts that a request's `request_id` appears in its log lines, audit event and any jobs it enqueued.
+
+## Security review fixes (2026-09-16)
+
+HTTP-5: `httpx.RequestID` accepted any client's valid `X-Request-ID`, which was then logged, stored in `audit_events.request_id` and restored into jobs, so a client could give its requests another request's ID. `RequestID` now always generates the ID, and the new `httpx.RequestIDFrom(trusted)` keeps an incoming one only from client addresses in `trusted` (after `httpx.TrustedProxies`). Golden apps pass `APP_TRUSTED_CALLERS`, which also decides whose W3C trace context is continued (ADR-0007), so a gateway's request ID and trace stay together.
+
+| Check | Result |
+|---|---|
+| `httpx` `TestRequestID` | A trusted caller's ID is kept; `RequestID` and `RequestIDFrom` with another range replace `req_victim` with a generated ID |
+| Apps `TestRequestIDFromTrustedCallers` | Empty and non-matching `APP_TRUSTED_CALLERS` generate the ID; a matching range keeps the client's |

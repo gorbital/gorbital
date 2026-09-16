@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
@@ -56,15 +57,31 @@ func TestChainOrder(t *testing.T) {
 
 func TestRequestID(t *testing.T) {
 	var seen string
-	h := httpx.RequestID()(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		seen = requestid.From(r.Context())
-	}))
+	})
+	// httptest requests come from 192.0.2.1.
+	h := httpx.RequestIDFrom([]netip.Prefix{netip.MustParsePrefix("192.0.2.0/24")})(handler)
 
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set(requestid.Header, "client-abc-123")
 	rec := serve(h, req)
 	if seen != "client-abc-123" || rec.Header().Get(requestid.Header) != "client-abc-123" {
-		t.Errorf("valid incoming ID: context %q, header %q; want client-abc-123", seen, rec.Header().Get(requestid.Header))
+		t.Errorf("valid incoming ID from a trusted caller: context %q, header %q; want client-abc-123", seen, rec.Header().Get(requestid.Header))
+	}
+
+	// HTTP-5: other clients can't choose the ID stored in logs, audit events
+	// and jobs.
+	for name, mw := range map[string]httpx.Middleware{
+		"RequestID":                 httpx.RequestID(),
+		"RequestIDFrom(other peer)": httpx.RequestIDFrom([]netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}),
+	} {
+		req = httptest.NewRequest("GET", "/", nil)
+		req.Header.Set(requestid.Header, "req_victim")
+		rec = serve(mw(handler), req)
+		if !strings.HasPrefix(seen, "req_") || seen == "req_victim" || rec.Header().Get(requestid.Header) != seen {
+			t.Errorf("%s with a client's ID: context %q, header %q; want a generated req_ ID", name, seen, rec.Header().Get(requestid.Header))
+		}
 	}
 
 	req = httptest.NewRequest("GET", "/", nil)
@@ -124,6 +141,14 @@ func TestCORS(t *testing.T) {
 	}
 	if _, err := httpx.CORS(httpx.CORSOptions{AllowedOrigins: []string{"https://app.example.com/"}}); err == nil {
 		t.Error("CORS(origin with trailing slash) error = nil, want error")
+	}
+	for _, origin := range []string{"https://a@evil.example", "https://app.example.com/path", "https://app.example.com?x=1", "https://app.example.com#x", "ftp://app.example.com", "https://", "null"} {
+		if _, err := httpx.CORS(httpx.CORSOptions{AllowedOrigins: []string{origin}}); err == nil {
+			t.Errorf("CORS(%q) error = nil, want error", origin)
+		}
+	}
+	if _, err := httpx.CORS(httpx.CORSOptions{AllowedOrigins: []string{"https://app.example.com", "http://localhost:3000", "https://[::1]:8443"}}); err != nil {
+		t.Errorf("CORS(valid origins) error = %v", err)
 	}
 
 	mw, err := httpx.CORS(httpx.CORSOptions{AllowedOrigins: []string{"https://app.example.com"}, AllowCredentials: true})

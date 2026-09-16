@@ -183,3 +183,23 @@ func TestDocs(t *testing.T) {
 		t.Errorf("GET /docs/nope = %d, want 404", rec.Code)
 	}
 }
+
+// TestWithoutSpecEndpoints checks that an API whose docs are off doesn't
+// serve its OpenAPI document either (HTTP-3), while WriteSpec still exports it.
+func TestWithoutSpecEndpoints(t *testing.T) {
+	mux := http.NewServeMux()
+	api := openapi.New(mux, "Private API", "0.1.0", openapi.WithoutSpecEndpoints())
+	huma.Register(api, huma.Operation{OperationID: "get-thing", Method: http.MethodGet, Path: "/v1/thing"},
+		func(context.Context, *struct{}) (*struct{}, error) { return &struct{}{}, nil })
+	for _, path := range []string{"/openapi.json", "/openapi.yaml", "/openapi-3.0.json", "/openapi-3.0.yaml"} {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("GET %s = %d, want 404", path, rec.Code)
+		}
+	}
+	var spec bytes.Buffer
+	if err := openapi.WriteSpec(&spec, api); err != nil || !strings.Contains(spec.String(), "get-thing") {
+		t.Errorf("WriteSpec() = %v, %.80s; want the document", err, spec.String())
+	}
+}
