@@ -141,6 +141,7 @@ func (d *devRunner) portalConfig() portal.Config {
 		Links:        links,
 		Generators:   d.generators(),
 		Database:     d.databaseConfig(),
+		SQL:          d.sqlStore(),
 		UI:           ui.FS(),
 		Logf:         func(format string, args ...any) { fmt.Fprintf(d.out, format+"\n", args...) },
 	}
@@ -192,6 +193,14 @@ func (d *devRunner) databaseConfig() portal.DatabaseConfig {
 			return d.Migrate()
 		},
 	}
+}
+
+// sqlStore returns the SQL editor's store, or nil without a database.
+func (d *devRunner) sqlStore() *portal.SQLStore {
+	if !d.database {
+		return nil
+	}
+	return portal.NewSQLStore(d.dir)
 }
 
 // closeDatabase releases the portal's database connection.

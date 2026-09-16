@@ -136,6 +136,9 @@ type Config struct {
 	// Database connects the Table Editor and Schema pages to the app's
 	// database; an empty Open means the app has none.
 	Database DatabaseConfig
+	// SQL keeps the SQL editor's snippets and history; nil in an app
+	// without a database.
+	SQL *SQLStore
 	// UI is the built portal UI (a Next.js static export) to serve at /.
 	// Nil, or a UI without index.html, serves a placeholder page saying how
 	// to get it.
@@ -208,6 +211,7 @@ func (s *Server) Close() {
 func (s *Server) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+AuthPath, s.serveAuth)
+	mux.Handle(APIPrefix+"db/sql/", s.guard(s.sqlHandler()))
 	mux.Handle(APIPrefix+"db/", s.guard(s.dbHandler()))
 	mux.Handle(APIPrefix, s.guard(s.apiHandler()))
 	mux.Handle(AppPrefix, s.guard(http.StripPrefix(strings.TrimSuffix(AppPrefix, "/"), s.proxy)))
