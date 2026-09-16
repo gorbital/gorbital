@@ -177,7 +177,7 @@ func TestDevPortalServesStatusAndOutput(t *testing.T) {
 	if status.Project.Name != "shop" || status.Project.Module != "example.com/shop" || status.Project.Preset != "minimal" || status.Project.Database ||
 		status.App.State != portal.StatePreparing || status.App.Addr != "127.0.0.1:"+ports.app || status.App.URL != "http://127.0.0.1:"+ports.app ||
 		status.Links["api"] != "http://127.0.0.1:"+ports.app || status.Links["docs"] != "http://127.0.0.1:"+ports.app+"/docs" ||
-		status.Portal.Version != Version || status.Portal.UI != "placeholder" || strings.Join(status.Generators, ",") != "job,migration,resource" {
+		status.Portal.Version != Version || (status.Portal.UI != "placeholder" && status.Portal.UI != "bundled") || strings.Join(status.Generators, ",") != "job,migration,resource" {
 		t.Errorf("status = %+v", status)
 	}
 	if _, ok := status.Links["mail"]; ok {
@@ -218,7 +218,7 @@ func TestDevPortalServesStatusAndOutput(t *testing.T) {
 	if res, err := http.DefaultClient.Do(req); err != nil || res.StatusCode != http.StatusUnauthorized {
 		t.Errorf("status without token = %v %v", res, err)
 	}
-	// The UI placeholder is served at /.
+	// The UI (a placeholder in a checkout without the synced export) is served at /.
 	if res, err := http.Get(d.portalURL() + "/"); err != nil || res.StatusCode != http.StatusOK {
 		t.Errorf("GET / = %v %v", res, err)
 	}

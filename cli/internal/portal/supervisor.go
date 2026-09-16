@@ -56,6 +56,9 @@ type Supervisor interface {
 	Stop() error
 	// Start starts the app when it is stopped, without rebuilding.
 	Start() error
+	// Migrate applies the app's pending migrations (go run ./cmd/migrate)
+	// without restarting it; apps without a database refuse.
+	Migrate() error
 }
 
 // OutputLine is one line the app or orb wrote.

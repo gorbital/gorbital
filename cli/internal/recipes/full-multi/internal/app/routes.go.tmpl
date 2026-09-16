@@ -141,6 +141,10 @@ func (a *App) buildHTTP(svc services) error {
 	if svc.auth != nil {
 		middlewares = append(middlewares,
 			svc.auth.Middleware(a.logger),
+			// In development, the dev console's token acts as a platform
+			// administrator on /ops/ for the Dev Portal (ADR-0066); a nil
+			// console adds nothing (devconsole.go).
+			a.console.Operator(opsPrefix, devOperator(svc.auth.Service().Catalog()), a.logger),
 			// auth.ip_requests_per_minute, shared by every instance (ADR-0052).
 			ratelimit.Middleware(svc.ipLimiter, authLimitKey, nil),
 			// Retried POST and PATCH requests with an Idempotency-Key (ADR-0060).

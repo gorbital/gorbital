@@ -10,9 +10,9 @@ import (
 
 // newProxy returns the reverse proxy behind AppPrefix. The app's address
 // comes from the supervisor on every request, since APP_ADDR can change
-// between restarts. Requests to /_dev/ get the dev console token when they
-// carry no Authorization of their own; the portal's own cookie and header
-// never reach the app.
+// between restarts. Requests to /_dev/ and /ops/ get the dev console token
+// when they carry no Authorization of their own; the portal's own cookie
+// and header never reach the app.
 func (s *Server) newProxy() http.Handler {
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
@@ -30,7 +30,9 @@ func (s *Server) newProxy() http.Handler {
 			if scheme, token, ok := strings.Cut(pr.Out.Header.Get("Authorization"), " "); ok && strings.EqualFold(scheme, "Bearer") && s.tokenMatches(strings.TrimSpace(token)) {
 				pr.Out.Header.Del("Authorization")
 			}
-			if s.cfg.ConsoleToken != "" && pr.Out.Header.Get("Authorization") == "" && strings.HasPrefix(pr.Out.URL.Path, "/_dev") {
+			// The console token opens /_dev/ and, as the development operator
+			// (ADR-0066), /ops/; a caller's own Authorization wins.
+			if s.cfg.ConsoleToken != "" && pr.Out.Header.Get("Authorization") == "" && (strings.HasPrefix(pr.Out.URL.Path, "/_dev") || strings.HasPrefix(pr.Out.URL.Path, "/ops/")) {
 				pr.Out.Header.Set("Authorization", "Bearer "+s.cfg.ConsoleToken)
 			}
 		},

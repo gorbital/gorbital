@@ -132,6 +132,19 @@ The portal proxies `/ops/` too, but those endpoints need a signed-in `platform_a
 - Upgrade notes: nothing for existing apps; `DEV_PORTAL_PORT` is optional.
 - The [Dev Portal roadmap](../dev-portal-roadmap.md) tracks the remaining phases; each phase that adds a public surface (an `/ops` principal, new app endpoints, new modules) amends this record or adds its own.
 
+## Development operator on `/ops/` (2026-09-16)
+
+Phase 1 decides how the portal reaches the operations APIs, which need a signed-in `platform_admin` with two-factor authentication (ADR-0043, threat model row 18).
+
+| Option | Verdict |
+|---|---|
+| The portal signs in as the seeded administrator | Rejected: the seed prints the password and authenticator key once and stores nothing; the portal would have to keep them |
+| An API key with every `/ops` scope | Rejected: ops roles require two-factor authentication, which keys can't have (ADR-0058); loosening that for development would be a production rule with a development exception |
+| **`devconsole.(*Console).Operator(prefix, actor, logger)`: middleware, mounted after the app's authentication in both Full apps, that makes a request under `/ops/` carrying the console token as `Authorization: Bearer` act as a system actor `dev-console` ("dev console (orb dev)") holding the platform administrator's permissions, after the console's own Host, loopback and constant-time token checks; anything else passes through unchanged. orb dev's proxy adds the token to `/ops/` requests as it does for `/_dev/`** | **Chosen**: the console token already means "this is the developer, on this machine, in this run"; the same three checks apply; a nil console (no token, or production, which refuses the token at startup) mounts nothing; audit events record the operator as `system`/`dev-console`, so changes made from the portal are told apart from an administrator's |
+| Granting the operator outside `/ops/` too | Rejected: user data belongs to signed-in users; the route tester sends a real session or API key for `/v1/` |
+
+The token in a cookie is never accepted (the console checks the header only), so a session cookie can't carry it, and a cross-origin page can't send the header without a preflight. Row 18 of the threat model gains this as a development-only exception, gated on the same `devConsoleOn()` as the console itself. Idempotency keys ignore system actors, so portal requests carry none.
+
 ## Implementation notes (2026-09-16)
 
 Phase 0 of the roadmap, on the branches `dev-portal/phase-0` of both repositories:
@@ -141,3 +154,9 @@ Phase 0 of the roadmap, on the branches `dev-portal/phase-0` of both repositorie
 - `cli/internal/cli`: `planJob`, `planResource`, `planMigration` (`gen_plan.go`) used by both `orb gen` and the portal; `dev.go` as a supervisor; `dev_portal.go` for the token, port, project, links, generator wiring and the browser; tests that the portal's plan lists the same files as `orb gen job --dry-run --json` and that `apply` writes them.
 - `scripts/sync-portal.sh` and a step in `release-cli.yml`; `cli/internal/portal/ui` embeds `dist/`.
 - gorbital-dashboards: the data layer, mock transport, primitives, shell changes, the Overview page and the Routes page moved to `/routes`.
+
+Phase 1, on the branches `dev-portal/phase-1`:
+
+- `modules/devconsole`: `Operator`, with tests for the grant, other paths, wrong tokens and Hosts, remote peers, the cookie and a nil console; both Full apps mount it in `routes.go` with `devOperator` in `devconsole.go`, and `TestDevOperator` covers the grant, the audit record, and every refusal; recipe templates regenerated.
+- `orb dev`: the proxy adds the console token to `/ops/` requests; `POST /_portal/api/app/migrate` applies pending migrations through the supervisor.
+- gorbital-dashboards: every screen on live data: Routes with a request builder, Requests and Logs with live streams, Modules from `/_dev/app`, Audit from `/ops/audit`, Jobs, Settings, Database, Mail and the Overview's health from `/ops/system`.

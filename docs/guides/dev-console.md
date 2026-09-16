@@ -46,6 +46,17 @@ Every request must pass three checks, in this order:
 
 Responses are JSON (errors are problem+json like the rest of the API), say `Cache-Control: no-store`, and never carry CORS headers. Only GET (and HEAD) is accepted. The token is never accepted in a query string or cookie.
 
+### Acting on `/ops/` with the token
+
+In Full apps the token also opens the [operations APIs](ops-api.md) in development ([ADR-0066](../adr/0066-dev-portal.md)): a request under `/ops/` with `Authorization: Bearer <token>` that passes the same Host and loopback checks runs as the system actor `dev-console` with the platform administrator's permissions, and audit events record it that way. The Dev Portal uses this through `orb dev`'s proxy; scripts can too:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/jobs/definitions
+curl -X POST -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/jobs/definitions/heartbeat/run
+```
+
+Nothing outside `/ops/` accepts the token, a cookie never carries it, and without the console (no token, or production, which refuses it) `/ops/` needs a signed-in administrator as always.
+
 ### Why these checks
 
 A page on any website you visit can make your browser send requests to `http://127.0.0.1:8080`. Without CORS headers it can't read the answers, but with **DNS rebinding** it can: the attacker's name `evil.example` first resolves to their server, then to `127.0.0.1`, so the page is "same-origin" with your app. The browser still sends `Host: evil.example:8080`, which the console refuses. The bearer token covers what the Host check can't: other programs on your machine, and pages served from localhost itself. And because the token travels in a header, a cross-origin page can't even send a request with it: the browser asks first (CORS preflight), and the console never says yes.

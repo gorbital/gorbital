@@ -147,6 +147,7 @@ const (
 	commandRestart devCommand = "restart"
 	commandStop    devCommand = "stop"
 	commandStart   devCommand = "start"
+	commandMigrate devCommand = "migrate"
 )
 
 func newDevRunner(out io.Writer) *devRunner {
@@ -453,6 +454,20 @@ func (d *devRunner) runCommand(ctx context.Context, c devCommand, lastSQL *uint6
 			fmt.Fprintf(d.out, "orb: start failed: %v\n", err)
 			d.setState(portal.StateStopped, err.Error())
 		}
+	case commandMigrate:
+		fmt.Fprintln(d.out, "orb: migrations requested from the Dev Portal")
+		env, err := devEnv(".env")
+		if err == nil {
+			err = d.migrate(ctx, withAppEnv(env))
+		}
+		if err != nil {
+			d.setStateAfterFailure("migrations failed: " + err.Error())
+			return
+		}
+		if sql, err := snapshot(migrationsDir, isSQL); err == nil {
+			*lastSQL = sql
+		}
+		d.setStateAfterFailure("")
 	}
 }
 

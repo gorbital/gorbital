@@ -12,8 +12,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"gorbital.dev/actor"
 	"gorbital.dev/buildinfo"
 	"gorbital.dev/config"
+	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/devconsole"
 	"gorbital.dev/modules/jobs"
 	"gorbital.dev/modules/observability"
@@ -32,6 +34,20 @@ import (
 
 // devConsoleJobRuns is how many recent job runs GET /_dev/jobs lists.
 const devConsoleJobRuns = 50
+
+// opsPrefix is where the dev console's token acts as the development
+// operator (ADR-0066): the operations APIs, and nothing else.
+const opsPrefix = "/ops/"
+
+// devOperator is the actor a request carrying the dev console token becomes
+// on /ops/ in development: a system actor named after the console, with the
+// platform administrator's permissions, so the Dev Portal can operate the
+// app without a signed-in administrator. Audit events record it as
+// system/dev-console. It exists only while the console does (devConsoleOn),
+// which production refuses.
+func devOperator(catalog *authlib.Catalog) actor.Actor {
+	return actor.Actor{Kind: actor.KindSystem, ID: "dev-console", Label: "dev console (orb dev)", Permissions: catalog.Permissions(rolePlatformAdmin)}
+}
 
 // devConsoleConfig is the dev console's configuration.
 type devConsoleConfig struct {

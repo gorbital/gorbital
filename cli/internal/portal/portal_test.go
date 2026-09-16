@@ -46,6 +46,7 @@ func (f *fakeSupervisor) record(name string) error {
 func (f *fakeSupervisor) Restart() error { return f.record("restart") }
 func (f *fakeSupervisor) Stop() error    { return f.record("stop") }
 func (f *fakeSupervisor) Start() error   { return f.record("start") }
+func (f *fakeSupervisor) Migrate() error { return f.record("migrate") }
 
 // newTestServer returns a portal over a fake app and its test server.
 func newTestServer(t *testing.T, mutate func(*Config)) (*Server, *httptest.Server, *fakeSupervisor) {
@@ -271,7 +272,7 @@ func TestStatusOutputAndActions(t *testing.T) {
 		t.Errorf("bad limit = %d", res.StatusCode)
 	}
 
-	for _, action := range []string{"restart", "stop", "start"} {
+	for _, action := range []string{"restart", "stop", "start", "migrate"} {
 		res := call(t, ts, http.MethodPost, APIPrefix+"app/"+action, "", nil)
 		if res.StatusCode != http.StatusAccepted {
 			t.Errorf("%s = %d", action, res.StatusCode)
@@ -280,7 +281,7 @@ func TestStatusOutputAndActions(t *testing.T) {
 			t.Errorf("%s answer = %+v", action, a)
 		}
 	}
-	if strings.Join(sup.actions, ",") != "restart,stop,start" {
+	if strings.Join(sup.actions, ",") != "restart,stop,start,migrate" {
 		t.Errorf("actions = %q", sup.actions)
 	}
 	sup.fail = true
@@ -384,10 +385,14 @@ func TestProxyReachesTheApp(t *testing.T) {
 		t.Errorf("app saw cookies %v, want only app_session", cookies)
 	}
 
-	// Outside /_dev the token isn't added; a caller's own Authorization wins.
+	// Outside /_dev and /ops the token isn't added; a caller's own Authorization wins.
 	call(t, ts, http.MethodGet, AppPrefix+"v1/ping", "", nil)
 	if got.Header.Get("Authorization") != "" {
 		t.Errorf("/v1/ping got Authorization %q", got.Header.Get("Authorization"))
+	}
+	call(t, ts, http.MethodGet, AppPrefix+"ops/settings", "", nil)
+	if got.Header.Get("Authorization") != "Bearer console-token-0123456789abcdefghijklmnopqrstuv" {
+		t.Errorf("/ops/settings got Authorization %q, want the console token", got.Header.Get("Authorization"))
 	}
 	call(t, ts, http.MethodGet, AppPrefix+"_dev/app", "", func(r *http.Request) { r.Header.Set("Authorization", "Bearer mine") })
 	if got.Header.Get("Authorization") != "Bearer mine" {

@@ -36,7 +36,7 @@ A taken port stops `orb dev` before anything starts, naming the port and the way
 | `/` and every page | The portal's UI, a Next.js static export embedded in `orb` (built from [gorbital-dashboards](https://github.com/gorbital/gorbital-dashboards)). Pages are open to any local reader and hold nothing secret; every request for data needs the token |
 | `/_portal/auth?t=<token>` | Signs the browser in: sets the `orb_portal` cookie and goes to `/` |
 | `/_portal/api/…` | The portal's own API: the app's state and output, restarts, generators (below) |
-| `/_portal/app/…` | A proxy to the app: `/_portal/app/v1/ping` is the app's `/v1/ping`. Requests to `/_portal/app/_dev/…` get the [dev console](dev-console.md) token added by `orb dev`, so the UI never sees it; other requests go through with the headers and cookies you send, minus the portal's own |
+| `/_portal/app/…` | A proxy to the app: `/_portal/app/v1/ping` is the app's `/v1/ping`. Requests to `/_portal/app/_dev/…` and `/_portal/app/ops/…` that carry no `Authorization` get the [dev console](dev-console.md) token added by `orb dev`, so the UI never sees it: in Full apps the token acts as the development operator on `/ops/` ([ADR-0066](../adr/0066-dev-portal.md)). Other requests go through with the headers and cookies you send, minus the portal's own |
 
 Every API and proxy request must pass, in order: a `Host` header naming `localhost`, `127.0.0.1` or `[::1]` (403 otherwise: this defeats DNS rebinding, since a page on another site that points its own name at `127.0.0.1` still sends its own name); a connection from this machine (403); the token, as the cookie or as `Authorization: Bearer <token>` (401); and, for anything but GET and HEAD, an `X-Orb-Portal` header (403), which a browser sends only after a CORS preflight the portal never answers. Responses never carry CORS headers.
 
@@ -56,7 +56,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:3100/_portal/app/_dev/ro
 | `GET /_portal/api/status` | `portal` (orb version, whether a UI is bundled, start time), `project` (name, module, preset, tenancy, features, mail provider, directory, whether it has a database), `app` (below), `links` (`api`, `docs`, and `mail`, `console`, `grafana` when they apply), `generators` (names) |
 | `GET /_portal/api/output?limit=200` | The most recent lines the app and `orb dev` wrote, oldest first: `{"time", "stream": "app"\|"orb", "text"}`. `orb dev` keeps 2,000 |
 | `GET /_portal/api/events` | Server-Sent Events: a `state` event first, then `state` and `output` events as they happen, `: keep-alive` every 15 seconds, `dropped` with a count when the client fell behind, and a final `end` after 30 minutes or when `orb dev` stops. At most 8 streams at once |
-| `POST /_portal/api/app/restart` | Rebuilds and restarts the app; 202 with the status. `stop` ends the process and leaves it stopped until `start` or a file change; `start` starts a stopped app without rebuilding. 409 while an earlier request is still being handled |
+| `POST /_portal/api/app/restart` | Rebuilds and restarts the app; 202 with the status. `stop` ends the process and leaves it stopped until `start` or a file change; `start` starts a stopped app without rebuilding; `migrate` applies pending migrations (`go run ./cmd/migrate`) without a restart, 409 in an app without a database. 409 while an earlier request is still being handled |
 | `POST /_portal/api/generators/{job\|resource\|migration}/plan` | Body `{"input": {…}}`. Answers the plan: every file the generator would write, with its content (and the current content of files it changes), the summary `orb gen` shows, and the next steps. Nothing is written |
 | `POST /_portal/api/generators/{name}/apply` | The same body, plus `"allow_dirty": true` to skip the clean-git check. Plans again and writes; 409 `plan_conflict` if a file changed since the plan |
 
@@ -70,6 +70,23 @@ The app's status:
 `state` is `preparing` (services, migrations, seed data), `building`, `running` or `stopped`; `problem` holds the last build or migration failure until the next success (the previous version keeps running meanwhile, as it does in the terminal); `console` says whether the app serves `/_dev/`.
 
 Generator inputs are the flags of `orb gen job`, `orb gen resource` and `orb gen migration` with underscores: `{"name": "CleanupSessions", "schedule": "30 2 * * *", "timeout": "5m", "max_attempts": 8, "queue": "maintenance"}`, `{"name": "Project", "fields": ["name:string:unique", "status:enum(active,archived)"], "scope": "user"}`, `{"name": "add_customer_phone"}`. Defaults and validation are the CLI's; unknown fields are refused. `orb gen … --dry-run` is the same plan printed.
+
+## Screens
+
+| Screen | Shows | From |
+|---|---|---|
+| Overview | The app's state, uptime, restarts, readiness, health checks, project, links, output as it happens; restart, stop, start | `/_portal/api/status`, `/_portal/api/events`, `/readyz`, `/ops/system` |
+| Routes | Every route with its method, path, summary, tags and security, and a request builder that sends through the proxy | `/_dev/routes` |
+| Requests | Recent requests and a live tail, with the log records of a request | `/_dev/requests`, `/_dev/requests/stream`, `/_dev/logs` |
+| Logs | Recent log records and a live tail, by level and text | `/_dev/logs`, `/_dev/logs/stream` |
+| Modules | What the app wired: libraries, API modules, jobs, settings, flags, permission catalogs | `/_dev/app` |
+| Audit | The audit log with filters and statistics | `/ops/audit`, `/ops/audit/stats` |
+| Jobs | Definitions, runs, queues; run now, retry, cancel, enable, disable, reschedule, pause and resume | `/ops/jobs/…`, `/ops/queues` |
+| Settings | Runtime settings by group with history; change and reset | `/ops/settings` |
+| Database | Migration state, pool, health checks; apply pending migrations | `/_dev/migrations`, `/ops/system`, `/_portal/api/app/migrate` |
+| Mail | Captured email, delivery settings, a test email, the suppression list | `/_dev/mail`, `/ops/mail` |
+
+Screens that need `/ops/` show an explanation in an app whose `orb` predates the development operator, and Minimal apps show what they have.
 
 ## Building `orb` with the UI
 
