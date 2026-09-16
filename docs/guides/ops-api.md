@@ -56,6 +56,40 @@ Missing permission: 403 `forbidden`.
 | `DELETE /ops/settings/{key}` | Reset to default: `{version, reason?}` | 200 |
 | `GET /ops/settings/{key}/history?before=&limit=` | Changes, newest first | 200 `{changes: [...]}` |
 
+Settings in the Full apps (`internal/app/settings.go`; the list is recorded in `api/surface.json`). Keys are public API. A change to a setting marked **Required** without `reason` answers 422 `setting_reason_required`.
+
+| Key | Default | Bounds | Reason | What it controls |
+|---|---|---|---|---|
+| `example.ping_message` | `pong` | up to 100 characters | Optional | Reply of `GET /v1/ping` |
+| `mail.from_name` | the app's name | up to 100 characters, one line | Required | Sender name on every email |
+| `mail.from_email` | `no-reply@example.com` | email address | Required | Sender address on every email |
+| `mail.reply_to` | empty | empty or email address | Required | Where replies go |
+| `auth.session_idle_ttl` | 14 days | 1 hour to 90 days | Required | Session lifetime without use |
+| `auth.session_absolute_ttl` | 90 days | 1 to 365 days | Required | Longest session lifetime |
+| `auth.verification_code_ttl` | 15 minutes | 5 minutes to 1 hour | Required | Email verification code lifetime |
+| `auth.reset_code_ttl` | 30 minutes | 10 minutes to 2 hours | Required | Password reset code lifetime |
+| `auth.deleted_account_retention` | 30 days | 1 to 365 days | Required | Deleted accounts kept before `auth_cleanup` removes them |
+| `auth.unverified_account_ttl` | 7 days | 1 hour to 90 days | Required | Never-verified accounts kept before `auth_cleanup` deletes them (Google and Apple accounts kept) |
+| `auth.ip_requests_per_minute` | 60 | 10 to 10,000 | Required | Changing `/v1/auth/` requests per client IP (IPv6 /64) |
+| `auth.login_attempts` | 10 | 3 to 100 | Required | Sign-in attempts per address per client network |
+| `auth.login_address_attempts` | 50 | 10 to 1,000 | Required | Sign-in attempts per address from all networks |
+| `auth.login_window` | 15 minutes | 1 minute to 24 hours | Required | Window of the sign-in, 2FA change and re-authentication limits |
+| `auth.mfa_change_attempts` | 10 | 3 to 100 | Required | Two-factor changes per user |
+| `auth.reauth_attempts` | 10 | 3 to 100 | Required | Password or second-factor checks per signed-in user (password change, 2FA setup, passkeys, linking, deletion) |
+| `auth.code_attempts` | 20 | 5 to 100 | Required | Verification and reset code checks per address, across codes |
+| `auth.code_window` | 24 hours | 1 hour to 7 days | Required | Window of `auth.code_attempts` |
+| `audit.retention` | 365 days | 30 days to 10 years | Required | Audit events kept |
+| `ops.history_retention` | 365 days | 30 days to 10 years | Required | Setting and job configuration history kept |
+| `releases.instance_retention` | 90 days | 1 day to 3 years | Optional | Instances listed after last seen |
+| `maintenance.enabled` | `false` | — | Required | Maintenance mode |
+| `maintenance.message` | empty | up to 500 characters | Optional | Message during maintenance |
+| `maintenance.retry_after` | 5 minutes | 1 minute to 24 hours | Optional | `Retry-After` during maintenance |
+| `orgs.invitation_url` (multi-tenant) | `http://localhost:3000/invitations` | http(s) URL without fragment, up to 500 characters | Required | Frontend page invitation links open |
+| `orgs.invitation_ttl` (multi-tenant) | 7 days | 1 to 30 days | Required | Invitation link lifetime |
+| `orgs.deleted_org_retention` (multi-tenant) | 30 days | 1 to 365 days | Required | Deleted organisations restorable before `orgs_purge` |
+| `orgs.max_owned` (multi-tenant) | 20 | 1 to 10,000 | Required | Organisations one user may own, personal workspace aside |
+| `orgs.user_invitations_per_hour` (multi-tenant) | 50 | 1 to 10,000 | Required | Invitations per user per hour across organisations |
+
 ```bash
 curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \

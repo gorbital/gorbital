@@ -1,6 +1,6 @@
 # ADR-0043: Two-factor authentication
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0024, ADR-0038, ADR-0042 · **Amended by:** ADR-0044 (a passkey also turns two-factor authentication on), ADR-0046 (Google and Apple sign-ins also ask for the second factor; accounts without a password confirm with a recent sign-in)
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0024, ADR-0038, ADR-0042 · **Amended by:** ADR-0044 (a passkey also turns two-factor authentication on), ADR-0046 (Google and Apple sign-ins also ask for the second factor; accounts without a password confirm with a recent sign-in), ADR-0053 (per-user limit on checks behind a session, 80-bit recovery codes)
 
 ## Context
 

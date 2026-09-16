@@ -1,6 +1,6 @@
 # ADR-0052: Shared rate limits and trusted proxies
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0019, ADR-0031, ADR-0038
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0019, ADR-0031, ADR-0038 · **Amended by:** ADR-0053 (IPv6 /64 keys, new authentication limiters, https CORS origins in production)
 
 ## Context
 

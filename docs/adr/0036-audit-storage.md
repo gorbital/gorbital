@@ -1,6 +1,6 @@
 # ADR-0036: Audit storage
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0026, ADR-0029
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0026, ADR-0029 · **Amended by:** ADR-0053 (key normalisation in redaction, client IP and user agent on request events, query timeout)
 
 ## Context
 

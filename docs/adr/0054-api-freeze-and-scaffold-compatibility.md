@@ -13,7 +13,7 @@ v1.0 turns ADR-0015's stability tiers and ADR-0016's scaffold compatibility prom
 | Error codes, audit actions, permissions and roles, setting keys, job names (stable, additive only) | Declared across the app and the library: `httpx.Mapping{Code: …}` and `httpx.NewProblem` literals, `Action:` literals, `Action…` constants and `userEvent("…")` helpers, two permission catalogs, a settings registry and job definitions; neither the registry nor the definitions can list their names | `internal/app/*.go`, `internal/modules/*/usecase`, `modules/settings`, `modules/jobs` |
 | `/ops/*` paths and response fields (stable from 1.0) | `api/openapi.json` is regenerated and checked for drift, so any change passes as long as the file is regenerated | `TestOpenAPIUpToDate`, CI drift step |
 | `orb --json` (stable from CLI 1.0, "with `schemaVersion`") | Eight commands print JSON through two encoders; no `schemaVersion`; `orb version` has no `--json`; tests unmarshal a few fields | `cli/internal/cli/*.go` |
-| Scaffold compatibility promise (from 1.0) | `TestUpgradeFromV040` checks upgrades, not old scaffolds against a new library; no v1 tag exists yet | `cli/internal/cli/upgrade_e2e_test.go` |
+| Scaffold compatibility promise (from 1.0) | `TestUpgradeFromRelease` checks upgrades, not old scaffolds against a new library; no v1 tag exists yet | `cli/internal/cli/upgrade_e2e_test.go` |
 | Release checks | `release-cli.yml` builds and signs `orb`; library tags run nothing | `.github/workflows` |
 
 Constraints: core keeps its dependency budget (ADR-0019), so tooling that needs `golang.org/x/tools` lives in its own module; generated apps own their code and receive changes through `orb upgrade` (ADR-0050); a check must say what to run to fix it.

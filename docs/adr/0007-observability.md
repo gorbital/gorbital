@@ -1,6 +1,6 @@
 # ADR-007: Observability
 
-**Status:** Accepted (2026-09-14), amended by ADR-0019 (SDK in its own module) and ADR-0028 (Grafana opt-in)
+**Status:** Accepted (2026-09-14), amended by ADR-0019 (SDK in its own module), ADR-0028 (Grafana opt-in) and ADR-0053 (incoming trace context untrusted unless from trusted callers; HTTP metrics without Host attributes)
 
 **Context:** Telemetry must be on by default without vendor lock-in or cognitive load.
 

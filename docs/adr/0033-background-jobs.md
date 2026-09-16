@@ -1,6 +1,6 @@
 # ADR-0033: Background jobs
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0005, ADR-0019, ADR-0023, ADR-0025, ADR-0026
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0005, ADR-0019, ADR-0023, ADR-0025, ADR-0026 · **Amended by:** ADR-0053 (reasons for limit and queue changes, run-now and retry limits, redacted mail errors)
 
 ## Context
 

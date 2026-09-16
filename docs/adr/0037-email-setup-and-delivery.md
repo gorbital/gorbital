@@ -1,6 +1,6 @@
 # ADR-0037: Email setup and delivery
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0025, ADR-0035
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0025, ADR-0035 · **Amended by:** ADR-0053 (reasons for sender settings, redacted provider errors, test email limit)
 
 ## Context
 

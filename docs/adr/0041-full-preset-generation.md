@@ -1,6 +1,6 @@
 # ADR-0041: Full preset generation
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0014, ADR-0021, ADR-0028 · **Amended by:** ADR-0050 (`gorbital.lock` v2 records the release, template inputs and file hashes)
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0014, ADR-0021, ADR-0028 · **Amended by:** ADR-0050 (`gorbital.lock` v2 records the release, template inputs and file hashes), ADR-0053 (templates only from git-tracked files, toolchain warning)
 
 ## Context
 

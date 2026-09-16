@@ -71,6 +71,13 @@
           ]
         },
         {
+          "name": "Security",
+          "pages": [
+            { "title": "Security overview", "slug": "technical/security", "source": "docs/security/README.md" },
+            { "title": "Internal review, September 2026", "slug": "technical/security/2026-09-internal-review", "source": "docs/security/2026-09-internal-review.md" }
+          ]
+        },
+        {
           "name": "Subsystems",
           "pages": [
             { "title": "Database", "slug": "technical/database", "source": "docs/guides/database.md" },

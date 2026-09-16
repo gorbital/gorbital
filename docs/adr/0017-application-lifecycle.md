@@ -1,6 +1,6 @@
 # ADR-0017: Application lifecycle
 
-**Status:** Accepted (2026-09-14) · **Supersedes (with ADR-0020):** ADR-0004
+**Status:** Accepted (2026-09-14) · **Supersedes (with ADR-0020):** ADR-0004 · **Amended by:** ADR-0053 (readiness checks shared and cached for 1 s)
 
 ## Context
 

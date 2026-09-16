@@ -108,7 +108,7 @@ Creates the error mapper and installs Huma's error hooks and pagination mappings
 
 ### `authLimitKey(r) string`
 
-Returns the client IP for requests the sign-in rate limit applies to (non-GET under `/v1/auth/`, plus provider `start` and `callback`), and `""` for everything else, which the rate limiter skips. Keyed on `RemoteAddr`; see [production](production.md#tls-proxies-and-client-ips).
+Returns the client IP for requests the sign-in rate limit applies to (non-GET under `/v1/auth/`, plus provider `start` and `callback`), and `""` for everything else, which the rate limiter skips. Keyed by `ratelimit.ByRemoteIP`: the IPv4 address or IPv6 /64 of `RemoteAddr`, which `httpx.TrustedProxies` has already set to the client behind `APP_TRUSTED_PROXIES`; see [production](production.md#tls-proxies-and-client-ips).
 
 ### `exceptCrossSitePosts(protect) Middleware`
 
@@ -153,8 +153,23 @@ Declares every runtime setting with type, default, bounds and description, and r
 | `auth.verification_code_ttl` | duration | 15 minutes |
 | `auth.reset_code_ttl` | duration | 30 minutes |
 | `auth.deleted_account_retention` | duration | 30 days |
+| `auth.unverified_account_ttl` | duration | 7 days |
+| `auth.ip_requests_per_minute` | int | 60 |
+| `auth.login_attempts` | int | 10 |
+| `auth.login_address_attempts` | int | 50 |
+| `auth.login_window` | duration | 15 minutes |
+| `auth.mfa_change_attempts` | int | 10 |
+| `auth.reauth_attempts` | int | 10 |
+| `auth.code_attempts` | int | 20 |
+| `auth.code_window` | duration | 24 hours |
+| `audit.retention` | duration | 365 days |
+| `ops.history_retention` | duration | 365 days |
+| `releases.instance_retention` | duration | 90 days |
+| `maintenance.enabled` | bool | `false` |
+| `maintenance.message` | string | empty |
+| `maintenance.retry_after` | duration | 5 minutes |
 
-Multi-tenant apps add `orgs.invitation_url`, `orgs.invitation_ttl`, `orgs.deleted_org_retention`, `orgs.max_owned` and `orgs.user_invitations_per_hour`.
+Multi-tenant apps add `orgs.invitation_url`, `orgs.invitation_ttl`, `orgs.deleted_org_retention`, `orgs.max_owned` and `orgs.user_invitations_per_hour`. Bounds and which changes need a reason: [ops API](ops-api.md#runtime-settings).
 
 `appSettings.mailDefaults()` turns the `mail.*` values into `mail.Defaults` for `mail.WithDefaults`.
 

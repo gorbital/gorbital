@@ -1,6 +1,6 @@
 # ADR-0020: Constructors and configuration
 
-**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0008 · **Supersedes (with ADR-0017):** ADR-0004 · **Amended by:** ADR-0031
+**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0008 · **Supersedes (with ADR-0017):** ADR-0004 · **Amended by:** ADR-0031, ADR-0053 (`APP_ENV` required)
 
 ## Context
 

@@ -49,8 +49,9 @@ Seed data only exists in development: `cmd/seed` refuses to run in production. C
 ## 7. Behind a load balancer or proxy
 
 - [ ] The load balancer checks `GET /readyz` (ready to receive traffic) and `GET /livez` (the process is alive).
-- [ ] Sign-in requests are rate-limited per client IP address (60 a minute), read from the connection. Behind a proxy every request comes from the proxy's address, so all users share one limit: add middleware that trusts your proxy's forwarded address before the rate limiter in `internal/app/routes.go` (the comment on `authLimitKey` marks the spot). A generated app doesn't include one, because which header to trust depends on your proxy.
-- [ ] Rate limits are per instance: with 3 instances, one address can make up to 3 × 60 requests a minute.
+- [ ] `APP_TRUSTED_PROXIES` lists your load balancers' address ranges, such as `10.0.0.0/8`. Sign-in requests are rate-limited per client IP address (60 a minute, `auth.ip_requests_per_minute`); without this setting every request seems to come from the load balancer, so all users share one limit and logs show the balancer's address. Don't add your own `X-Forwarded-For` middleware. [Running in production](../guides/production.md#tls-proxies-and-client-ips).
+- [ ] `APP_TRUSTED_CALLERS` stays empty unless a gateway or internal service sets request IDs or traces you want kept.
+- [ ] Rate limits are stored in PostgreSQL and shared by every instance, so adding instances doesn't raise them. Raise the `auth.*` limit settings through `/ops/settings` if real traffic needs it.
 - [ ] Deploys allow about 30 seconds for a clean stop: the app waits 5 seconds for the load balancer to notice, then up to 25 seconds for requests and jobs to finish.
 
 ## 8. Final check

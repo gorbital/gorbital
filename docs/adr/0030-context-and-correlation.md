@@ -1,6 +1,6 @@
 # ADR-0030: Context and correlation propagation
 
-**Status:** Accepted (2026-09-14)
+**Status:** Accepted (2026-09-14) · **Amended by:** ADR-0053 (incoming request IDs kept only from trusted callers)
 
 ## Context
 
