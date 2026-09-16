@@ -657,3 +657,49 @@ func TestLogEndpoints(t *testing.T) {
 		t.Errorf("without a store = %d", res.StatusCode)
 	}
 }
+
+func TestObservabilityEndpoints(t *testing.T) {
+	sampler := NewSystemSampler(t.TempDir(), func() int { return 0 })
+	sampler.sample(context.Background(), 0)
+	_, ts, _ := newTestServer(t, func(c *Config) {
+		c.Database = DatabaseConfig{Open: func(context.Context) (Database, error) { return &fakeDB{}, nil }}
+		c.System = sampler
+		c.Health = func(context.Context) []ServiceHealth {
+			return []ServiceHealth{{Name: "app", Status: HealthOK, Detail: "ready"}, {Name: "postgres", Status: HealthDegraded, Detail: "2 sessions wait on locks", Version: "PostgreSQL 18.0"}}
+		}
+	})
+	get := func(path string) (int, string) {
+		res := call(t, ts, http.MethodGet, APIPrefix+path, "", nil)
+		raw, _ := io.ReadAll(res.Body)
+		return res.StatusCode, string(raw)
+	}
+	if code, body := get("health"); code != http.StatusOK || !strings.Contains(body, `"name":"postgres","status":"degraded"`) {
+		t.Errorf("health = %d %s", code, body)
+	}
+	if code, body := get("system"); code != http.StatusOK || !strings.Contains(body, `"cores":`) || !strings.Contains(body, `"orb":{"pid":`) || strings.Contains(body, `"app":{`) {
+		t.Errorf("system = %d %s", code, body)
+	}
+	if code, body := get("db/stats"); code != http.StatusOK || !strings.Contains(body, `"max_connections":100`) {
+		t.Errorf("db/stats = %d %s", code, body)
+	}
+	if code, body := get("db/statements?sort=calls&limit=5"); code != http.StatusOK || !strings.Contains(body, `"query":"SELECT $1"`) {
+		t.Errorf("db/statements = %d %s", code, body)
+	}
+	if code, body := get("db/advice"); code != http.StatusOK || !strings.Contains(body, `"missing_fk_indexes":[{`) {
+		t.Errorf("db/advice = %d %s", code, body)
+	}
+	if res := call(t, ts, http.MethodPost, APIPrefix+"db/statements/reset", "", nil); res.StatusCode != http.StatusConflict {
+		t.Errorf("reset without the extension = %d", res.StatusCode)
+	}
+	// Without a sampler or health checks the endpoints degrade politely.
+	_, ts2, _ := newTestServer(t, nil)
+	if code, _ := get("system"); code != http.StatusOK {
+		t.Errorf("system with a sampler = %d", code)
+	}
+	if res := call(t, ts2, http.MethodGet, APIPrefix+"system", "", nil); res.StatusCode != http.StatusNotFound {
+		t.Errorf("system without a sampler = %d", res.StatusCode)
+	}
+	if res := call(t, ts2, http.MethodGet, APIPrefix+"health", "", nil); res.StatusCode != http.StatusOK {
+		t.Errorf("health without checks = %d", res.StatusCode)
+	}
+}

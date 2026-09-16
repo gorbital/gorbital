@@ -138,6 +138,11 @@ type Config struct {
 	Jobs func() ([]JobSource, error)
 	// Logs is the local log store (ADR-0072); nil serves no log endpoints.
 	Logs *LogStore
+	// System samples the machine and the app process (ADR-0073); nil
+	// answers 404.
+	System *SystemSampler
+	// Health checks every service the app depends on; nil reports none.
+	Health func(ctx context.Context) []ServiceHealth
 	// Database connects the Table Editor and Schema pages to the app's
 	// database; an empty Open means the app has none.
 	Database DatabaseConfig

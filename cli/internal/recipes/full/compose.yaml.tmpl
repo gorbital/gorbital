@@ -12,6 +12,9 @@ name: ⟦.Name⟧
 services:
   postgres:
     image: postgres:18
+    # pg_stat_statements feeds the Dev Portal's query performance view
+    # (ADR-0073); the extension itself is created on first use.
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     environment:
       POSTGRES_USER: ⟦.Name⟧
       POSTGRES_PASSWORD: ⟦.Name⟧

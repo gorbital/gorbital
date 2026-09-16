@@ -24,7 +24,7 @@ Each phase lives on its own branch, `dev-portal/phase-N`, in both repositories (
 | [5](#phase-5-authentication) | Authentication | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-5` |
 | [6](#phase-6-jobs) | Jobs | 🔨 In progress (2026-09-16): backend done ([ADR-0071](adr/0071-job-kinds-and-ejection.md)) | `dev-portal/phase-6` |
 | [7](#phase-7-logs) | Logs | 🔨 In progress (2026-09-16): backend done ([ADR-0072](adr/0072-local-log-store.md)); the store is JSON Lines under `.orb/portal/logs`, not SQLite | `dev-portal/phase-7` |
-| [8](#phase-8-observability) | Observability | Planned | `dev-portal/phase-8` |
+| [8](#phase-8-observability) | Observability | 🔨 In progress (2026-09-16): backend done ([ADR-0073](adr/0073-observability-screen.md)); no OTLP receiver, the screen builds on the request minutes, `/ops/system`, `pgmeta` statistics and a machine sampler | `dev-portal/phase-8` |
 | [9](#phase-9-mail-env-configuration) | Mail, env, configuration | Planned | `dev-portal/phase-9` |
 | [10](#phase-10-storage) | Storage | Planned | `dev-portal/phase-10` |
 | [11](#phase-11-git) | Git | Planned | `dev-portal/phase-11` |
@@ -203,7 +203,7 @@ Docs: the [observability guide](guides/observability.md) explains the local log 
 
 ## Phase 8: Observability
 
-Backend: an OTLP receiver inside `orb dev` and a local store in `.orb/portal.db`, so the app's existing OpenTelemetry output is visible without Grafana. This replaces `orb dev --observability` for local viewing ([ADR-0028](adr/0028-local-development-environment.md), amended in [ADR-0066](adr/0066-dev-portal.md)); Grafana stays available for people who want it.
+Backend ([ADR-0073](adr/0073-observability-screen.md)): the screen builds on the app's request minutes (`/ops/observability`), `/ops/system`, the jobs overview and the audit statistics, plus what only `orb dev` can see: `pgmeta` statistics (`GET /_portal/api/db/stats`, `db/statements` from `pg_stat_statements`, which the development `compose.yaml` now preloads, `db/advice`), a `gopsutil` sampler (`GET /_portal/api/system`) and a health table across services (`GET /_portal/api/health`). The OTLP receiver inside `orb dev` sketched here was deferred: the request minutes and the log store answer the questions, and `orb dev --observability` (Grafana) stays for traces ([ADR-0028](adr/0028-local-development-environment.md)).
 
 | # | Item | Piece |
 |---|---|---|

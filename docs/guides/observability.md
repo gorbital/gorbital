@@ -63,6 +63,18 @@ In development, `orb dev` keeps the app's log records for the Dev Portal's Logs 
 
 The store is development only: production logs go wherever `APP_LOG_FORMAT=json` output is shipped.
 
+## The Observability screen
+
+The Dev Portal's Observability screen ([Dev Portal guide](dev-portal.md), [ADR-0073](../adr/0073-observability-screen.md)) shows the overview above for the running app, and what only the developer's machine can see:
+
+- **Health**: the app's readiness, PostgreSQL (connections against `max_connections`, sessions waiting on locks), Mailpit, and every other Compose service's state.
+- **Database**: `GET /_portal/api/db/stats` reads `pg_stat_database`, `pg_stat_activity`, `pg_locks` and the relation sizes: cache and index hit ratios, transactions and deadlocks, the largest tables with their scans and dead rows, lock waits with the blocking sessions, and statements running for over a second. The pool's counters come from `/ops/system`.
+- **Queries**: `GET /_portal/api/db/statements` reads `pg_stat_statements`, sorted by total time, mean time, calls, rows or max time, with each statement's share of the total and its buffer hit ratio; Explain runs the SQL editor's `EXPLAIN` on the normalised text; Reset forgets the counters. The development `compose.yaml` preloads the extension (`command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]`); `orb dev` creates it on first use. Without the preload the view says what to add.
+- **Advice**: `GET /_portal/api/db/advice` lists foreign keys without an index, indexes never scanned since the statistics reset, tables read mostly by sequential scans, and tables waiting for a vacuum, each with its numbers and the SQL to run in the SQL editor. They are suggestions: check them against real traffic before a migration.
+- **System**: `GET /_portal/api/system` is `orb dev`'s sample (every 2 seconds, `gopsutil`) of the host's CPU, load, memory and the app directory's volume, and of the app process and `orb` themselves (CPU, resident memory, threads, open files); the Go runtime (goroutines, heap, GC) comes from `/ops/system`.
+
+Traces stay in Grafana: `orb dev --observability` ([local development](local-development.md)).
+
 ## Streaming it
 
 `GET /ops/observability/stream` sends the overview as [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html) every 5 seconds:

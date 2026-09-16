@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -84,6 +85,7 @@ func (d *devRunner) servePortal(ctx context.Context) (func(), error) {
 	if !d.portal {
 		return func() {}, nil
 	}
+	d.system = portal.NewSystemSampler(d.dir, func() int { return d.Status().PID })
 	logs, err := portal.NewLogStore(d.dir)
 	if err != nil {
 		return nil, fmt.Errorf("the Dev Portal's log store: %w", err)
@@ -104,6 +106,7 @@ func (d *devRunner) servePortal(ctx context.Context) (func(), error) {
 	stopLogs := make(chan struct{})
 	go logs.Follow(d.hub, stopLogs)
 	logsCtx, cancelLogs := context.WithCancel(ctx)
+	go d.system.Run(logsCtx)
 	if d.database && d.services {
 		go d.followPostgresLogs(logsCtx, logs)
 	}
@@ -184,6 +187,8 @@ func (d *devRunner) portalConfig() portal.Config {
 		Generators:   d.generators(),
 		Jobs:         func() ([]portal.JobSource, error) { return jobSources(d.dir) },
 		Logs:         d.logs,
+		System:       d.system,
+		Health:       d.health,
 		Database:     d.databaseConfig(),
 		SQL:          d.sqlStore(),
 		UI:           ui.FS(),
@@ -612,4 +617,122 @@ func (d *devRunner) nextMigrationVersion() (string, error) {
 		version = strconv.FormatInt(n+1, 10)
 	}
 	return version, nil
+}
+
+// health checks what the app depends on for the portal's Observability
+// screen (ADR-0073): the app's readiness, the database, the local mail
+// catcher and the Docker Compose services.
+func (d *devRunner) health(ctx context.Context) []portal.ServiceHealth {
+	var out []portal.ServiceHealth
+	now := func() time.Time { return time.Now().UTC() }
+	timed := func(name string, fn func() (string, string, string)) {
+		start := time.Now()
+		status, detail, version := fn()
+		out = append(out, portal.ServiceHealth{Name: name, Status: status, Detail: detail, Version: version, CheckedAt: now(), LatencyMS: float64(time.Since(start)) / float64(time.Millisecond)})
+	}
+	client := &http.Client{Timeout: 3 * time.Second}
+	timed("app", func() (string, string, string) {
+		st := d.Status()
+		if st.State != portal.StateRunning {
+			return portal.HealthDown, "the app is " + string(st.State), ""
+		}
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, st.URL+"/readyz", nil)
+		res, err := client.Do(req)
+		if err != nil {
+			return portal.HealthDown, "readiness check failed: " + err.Error(), ""
+		}
+		defer res.Body.Close()
+		_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 4096))
+		if res.StatusCode != http.StatusOK {
+			return portal.HealthDegraded, fmt.Sprintf("/readyz answered %d", res.StatusCode), ""
+		}
+		return portal.HealthOK, "ready", ""
+	})
+	if open := d.databaseConfig().Open; open != nil {
+		timed("postgres", func() (string, string, string) {
+			db, err := open(ctx)
+			if err != nil {
+				return portal.HealthDown, err.Error(), ""
+			}
+			st, err := db.Stats(ctx)
+			if err != nil {
+				return portal.HealthDown, err.Error(), ""
+			}
+			detail := fmt.Sprintf("%d of %d connections", st.Connections, st.MaxConnections)
+			if len(st.Locks) > 0 {
+				return portal.HealthDegraded, fmt.Sprintf("%s; %d sessions wait on locks", detail, len(st.Locks)), st.Version
+			}
+			return portal.HealthOK, detail, st.Version
+		})
+	}
+	env, _ := devEnv(".env")
+	if d.database && d.services {
+		timed("mail", func() (string, string, string) {
+			url := "http://127.0.0.1:" + envValue(env, "MAILPIT_WEB_PORT", "8025") + "/api/v1/info"
+			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			res, err := client.Do(req)
+			if err != nil {
+				return portal.HealthDown, "Mailpit isn't answering: " + err.Error(), ""
+			}
+			defer res.Body.Close()
+			var info struct {
+				Version  string `json:"Version"`
+				Messages int    `json:"Messages"`
+			}
+			if err := json.NewDecoder(io.LimitReader(res.Body, 64<<10)).Decode(&info); err != nil || res.StatusCode != http.StatusOK {
+				return portal.HealthDegraded, fmt.Sprintf("Mailpit answered %d", res.StatusCode), ""
+			}
+			return portal.HealthOK, fmt.Sprintf("%d messages in the inbox", info.Messages), info.Version
+		})
+		for _, svc := range d.composeServices(ctx, env) {
+			out = append(out, svc)
+		}
+	}
+	return out
+}
+
+// composeServices reads docker compose ps for every service's state.
+func (d *devRunner) composeServices(ctx context.Context, env []string) []portal.ServiceHealth {
+	raw, err := d.output(ctx, withAppEnv(env), "docker", "compose", "ps", "--all", "--format", "json")
+	if err != nil {
+		return nil
+	}
+	var out []portal.ServiceHealth
+	// Docker prints one JSON object per line (or an array, in older versions).
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	for {
+		var v any
+		if err := dec.Decode(&v); err != nil {
+			break
+		}
+		items, ok := v.([]any)
+		if !ok {
+			items = []any{v}
+		}
+		for _, it := range items {
+			m, _ := it.(map[string]any)
+			name, _ := m["Service"].(string)
+			state, _ := m["State"].(string)
+			health, _ := m["Health"].(string)
+			image, _ := m["Image"].(string)
+			if name == "" || name == "postgres" || name == "mailpit" {
+				continue // reported above with more detail
+			}
+			status := portal.HealthUnknown
+			switch {
+			case state == "running" && (health == "" || health == "healthy"):
+				status = portal.HealthOK
+			case state == "running":
+				status = portal.HealthDegraded
+			case state != "":
+				status = portal.HealthDown
+			}
+			detail := state
+			if health != "" {
+				detail += ", " + health
+			}
+			out = append(out, portal.ServiceHealth{Name: name, Status: status, Detail: detail, Version: image, CheckedAt: time.Now().UTC()})
+		}
+	}
+	return out
 }

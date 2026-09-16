@@ -67,6 +67,8 @@ func registerAuth(api huma.API, mapper *httpx.Mapper, m *authmodule.Module) erro
 		httpx.Mapping{Err: authdomain.ErrUserNotFound, Status: http.StatusNotFound, Code: "user_not_found", Detail: "no account has this ID"},
 		httpx.Mapping{Err: authdomain.ErrImpersonationOff, Status: http.StatusForbidden, Code: "impersonation_off", Detail: "impersonation is available only in development, with the dev console on"},
 		httpx.Mapping{Err: authdomain.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
+		httpx.Mapping{Err: authdomain.ErrEmailTaken, Status: http.StatusConflict, Code: "email_taken", Detail: "an account already has this email address"},
+		httpx.Mapping{Err: authdomain.ErrUnknownRole, Status: http.StatusUnprocessableEntity, Code: "unknown_role", Detail: "no such role in the permission catalog"},
 	)
 	if err != nil {
 		return fmt.Errorf("auth module: %w", err)

@@ -247,3 +247,22 @@ func TestDatabaseUnavailableOrAbsent(t *testing.T) {
 		t.Error("status reports a database for an app without one")
 	}
 }
+
+func (f *fakeDB) Stats(context.Context) (pgmeta.DatabaseStats, error) {
+	return pgmeta.DatabaseStats{Database: "acme", Version: "PostgreSQL 18.0", Connections: 3, MaxConnections: 100, Clients: []pgmeta.ClientUse{}, Tables: []pgmeta.RelationSize{}, Locks: []pgmeta.LockWait{}, LongRunning: []pgmeta.Activity{}}, nil
+}
+
+func (f *fakeDB) Statements(_ context.Context, sort string, _ int) (pgmeta.Statements, error) {
+	if sort == "nope" {
+		return pgmeta.Statements{}, errors.New("unknown sort")
+	}
+	return pgmeta.Statements{Available: true, Sort: "total_time", Statements: []pgmeta.Statement{{QueryID: 1, Query: "SELECT $1", Calls: 2, TotalMS: 3}}}, nil
+}
+
+func (f *fakeDB) ResetStatements(context.Context) error {
+	return errors.New("pg_stat_statements isn't loaded")
+}
+
+func (f *fakeDB) Advise(context.Context) (pgmeta.Advice, error) {
+	return pgmeta.Advice{MissingFKIndexes: []pgmeta.IndexAdvice{{Schema: "public", Table: "t", Columns: []string{"a"}, SQL: "CREATE INDEX t_a_idx ON public.t (a);"}}, UnusedIndexes: []pgmeta.IndexAdvice{}, SeqScanned: []pgmeta.IndexAdvice{}, DeadRows: []pgmeta.IndexAdvice{}}, nil
+}

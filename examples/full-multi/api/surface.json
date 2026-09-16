@@ -12,6 +12,7 @@
     "conflict",
     "cross_origin_request_denied",
     "email_not_verified",
+    "email_taken",
     "error",
     "flag_not_found",
     "flag_reason_required",

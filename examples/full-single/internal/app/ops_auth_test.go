@@ -71,6 +71,14 @@ func TestOpsUsers(t *testing.T) {
 		t.Errorf("bad cursor = %d %s", code, body)
 	}
 
+	// A taken address and an unknown role are the caller's mistakes.
+	if code, body := devDo(t, base, http.MethodPost, "/ops/auth/users", `{"email":"ada@example.com","password":"correct horse battery staple"}`); code != http.StatusConflict || !strings.Contains(body, "email_taken") {
+		t.Errorf("create twice = %d %s", code, body)
+	}
+	if code, body := devDo(t, base, http.MethodPost, "/ops/auth/users/"+id+"/roles", `{"role":"nope"}`); code != http.StatusUnprocessableEntity || !strings.Contains(body, "unknown_role") {
+		t.Errorf("unknown role = %d %s", code, body)
+	}
+
 	// Paging: with a second user and limit 1, a cursor continues.
 	devDo(t, base, http.MethodPost, "/ops/auth/users", `{"email":"bob@example.com","password":"correct horse battery staple"}`)
 	code, body = devDo(t, base, http.MethodGet, "/ops/auth/users?limit=1", "")

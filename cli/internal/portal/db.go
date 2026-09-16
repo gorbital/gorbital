@@ -34,6 +34,11 @@ type Database interface {
 	Delete(ctx context.Context, e pgmeta.RowEdit) (int64, error)
 	Plan(ctx context.Context, ch pgmeta.Change) (pgmeta.Plan, error)
 	Migrations(ctx context.Context, dir string) ([]pgmeta.Migration, error)
+	// Observability (ADR-0073).
+	Stats(ctx context.Context) (pgmeta.DatabaseStats, error)
+	Statements(ctx context.Context, sort string, limit int) (pgmeta.Statements, error)
+	ResetStatements(ctx context.Context) error
+	Advise(ctx context.Context) (pgmeta.Advice, error)
 }
 
 // DatabaseConfig connects the portal to the app's database.
@@ -206,6 +211,11 @@ func (s *Server) dbHandler() http.Handler {
 	post("ddl/apply", func(ctx context.Context, db Database, r *http.Request) (any, error) {
 		return s.ddl(ctx, db, r, true)
 	})
+	// Observability (ADR-0073, observe.go).
+	mux.HandleFunc("GET "+APIPrefix+"db/stats", s.serveDBStats)
+	mux.HandleFunc("GET "+APIPrefix+"db/statements", s.serveDBStatements)
+	mux.HandleFunc("POST "+APIPrefix+"db/statements/reset", s.serveDBStatementsReset)
+	mux.HandleFunc("GET "+APIPrefix+"db/advice", s.serveDBAdvice)
 	mux.HandleFunc(APIPrefix+"db/", func(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, http.StatusNotFound, "not_found", "no portal endpoint "+r.Method+" "+r.URL.Path)
 	})

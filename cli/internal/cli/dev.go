@@ -117,7 +117,8 @@ type devRunner struct {
 	portalTokenFromEnv bool
 	openBrowser        bool
 	hub                *portal.Hub
-	logs               *portal.LogStore // the local log store while the portal runs (ADR-0072)
+	logs               *portal.LogStore      // the local log store while the portal runs (ADR-0072)
+	system             *portal.SystemSampler // the machine and the app process (ADR-0073)
 	server             *portal.Server
 	open               func(url string) error // opens a URL in the browser; tests replace it
 	// db is the portal's connection to the app's database, opened on the
