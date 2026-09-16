@@ -1,6 +1,6 @@
 # Dev Portal roadmap
 
-**Status:** In progress (2026-09-16) · **Decision record:** [ADR-0066](adr/0066-dev-portal.md) · **Builds on:** [ADR-0065](adr/0065-local-dev-console-apis.md), [ADR-0028](adr/0028-local-development-environment.md)
+**Status:** In progress (phase 0 done 2026-09-16) · **Decision record:** [ADR-0066](adr/0066-dev-portal.md) · **Builds on:** [ADR-0065](adr/0065-local-dev-console-apis.md), [ADR-0028](adr/0028-local-development-environment.md)
 
 The Dev Portal is the local development UI that `orb dev` serves at `http://127.0.0.1:3100`. It shows what the running app is doing (routes, requests, logs, jobs, mail, database) and lets the developer change the project (tables, migrations, jobs, configuration) from the browser. The UI is built in `gorbital-dashboards/apps/devtools` (a Next.js static export), copied into the `orb` binary by `scripts/sync-portal.sh`, and backed by a portal server inside `orb dev` (`cli/internal/portal`), the app's development-only `/_dev/*` APIs ([ADR-0065](adr/0065-local-dev-console-apis.md)) and the app's `/ops/*` APIs ([ADR-0026](adr/0026-operations-apis.md)). Three rules hold for every phase:
 
@@ -16,7 +16,7 @@ Each phase lives on its own branch, `dev-portal/phase-N`, in both repositories (
 
 | Phase | Name | Status | Branch |
 |---|---|---|---|
-| [0](#phase-0-foundations) | Foundations | 🔨 In progress (2026-09-16) | `dev-portal/phase-0` |
+| [0](#phase-0-foundations) | Foundations | ✅ Done (2026-09-16); items 6 and 7 ship with Phases 2 and 3 | `dev-portal/phase-0` |
 | [1](#phase-1-connect-the-existing-screens) | Connect the existing screens | Planned | `dev-portal/phase-1` |
 | [2](#phase-2-table-editor) | Table Editor | Planned | `dev-portal/phase-2` |
 | [3](#phase-3-sql-editor) | SQL Editor | Planned | `dev-portal/phase-3` |
