@@ -128,6 +128,7 @@ How long data is kept is a runtime setting per kind of data ([ADR-0051](../adr/0
 | `settings_history`, `job_definition_history` | `ops.history_retention` | 365 days (30 days to 10 years) | `retention` job |
 | `release_instances` | `releases.instance_retention` | 90 days (1 day to 3 years) | each instance, when it starts |
 | `deleted_accounts` | `auth.deleted_account_retention` | 30 days | `auth_cleanup` job |
+| `idempotency_keys` | `idempotency.retention` | 24 hours (1 hour to 7 days) | `idempotency_cleanup` job, hourly ([idempotency](idempotency.md)) |
 | `deleted_organisations` (multi-tenant apps) | `orgs.deleted_org_retention` | 30 days | `orgs_purge` job |
 
 Each policy shows `retention` (a Go duration) and `retention_seconds`, the enforcing `job` with its `last_run` and `next_run_at`, and `oldest_at` for the data the `retention` job deletes. The job deletes 5,000 rows per statement until nothing is older, and records a `retention.purged` audit event with the row count and cutoff for each kind of data, so a shortened retention stays visible after the rows are gone.

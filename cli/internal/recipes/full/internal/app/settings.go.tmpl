@@ -8,6 +8,7 @@ import (
 
 	"gorbital.dev/mail"
 	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/idempotency"
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/modules/settings"
 )
@@ -44,6 +45,7 @@ type appSettings struct {
 	auditRetention            *settings.Setting[time.Duration]
 	historyRetention          *settings.Setting[time.Duration]
 	releasesInstanceRetention *settings.Setting[time.Duration]
+	idempotencyRetention      *settings.Setting[time.Duration]
 
 	maintenanceEnabled    *settings.Setting[bool]
 	maintenanceMessage    *settings.Setting[string]
@@ -197,6 +199,12 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.Describe("How long instances are listed in /ops/releases after they were last seen. Applied when an instance starts."),
 			settings.Group("retention"),
 			settings.Range(24*time.Hour, 3*365*24*time.Hour),
+		),
+		idempotencyRetention: settings.Duration(reg, "idempotency.retention", idempotency.DefaultRetention,
+			settings.Describe("How long responses to requests with an Idempotency-Key are kept for retries before the idempotency_cleanup job deletes them. They can hold personal data. Shortening it applies to stored responses at once."),
+			settings.Group("retention"),
+			settings.Range(time.Hour, 7*24*time.Hour),
+			settings.ReasonRequired(),
 		),
 
 		// Maintenance mode (ADR-0051): 503 everywhere but health checks,

@@ -311,3 +311,10 @@ func TestMigrateIsIdempotent(t *testing.T) {
 		t.Errorf("second Migrate() = %q, %v; want nothing applied", second.String(), err)
 	}
 }
+
+// projectsOf returns the collection of the projects in the signed-in user's
+// personal workspace.
+func projectsOf(t *testing.T, h http.Handler, headers []string) string {
+	t.Helper()
+	return "/v1/orgs/" + personalWorkspace(t, h, headers) + "/projects"
+}

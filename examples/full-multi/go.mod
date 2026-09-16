@@ -6,6 +6,7 @@ require (
 	gorbital.dev v0.0.0
 	gorbital.dev/modules/auditpg v0.0.0
 	gorbital.dev/modules/auth v0.0.0
+	gorbital.dev/modules/idempotency v0.0.0
 	gorbital.dev/modules/jobs v0.0.0
 	gorbital.dev/modules/mail/resend v0.0.0
 	gorbital.dev/modules/mail/smtp v0.0.0
@@ -88,6 +89,7 @@ replace (
 	gorbital.dev => ../..
 	gorbital.dev/modules/auditpg => ../../modules/auditpg
 	gorbital.dev/modules/auth => ../../modules/auth
+	gorbital.dev/modules/idempotency => ../../modules/idempotency
 	gorbital.dev/modules/jobs => ../../modules/jobs
 	gorbital.dev/modules/mail/resend => ../../modules/mail/resend
 	gorbital.dev/modules/mail/smtp => ../../modules/mail/smtp

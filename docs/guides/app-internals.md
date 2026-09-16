@@ -114,6 +114,12 @@ Returns the client IP for requests the sign-in rate limit applies to (non-GET un
 
 Applies cross-origin protection to every request except `POST /v1/auth/apple/callback` and `POST /v1/auth/apple/notifications`, which Apple posts from its own origin by design. They're protected instead by the single-use state and `__Host-oauth` cookie, and by Apple's signature.
 
+## `idempotency.go`
+
+### `newIdempotency(pool, settings, logger)`, `idempotencyMiddleware(store)`, `documentIdempotencyKey(api)`
+
+Builds the `modules/idempotency` store with `idempotency.retention`, the middleware that replays retried POST and PATCH requests with an `Idempotency-Key` for the signed-in caller (skipping `/v1/auth/`), and adds the optional header to those operations in the OpenAPI document. See the [idempotency guide](idempotency.md) and [ADR-0060](../adr/0060-idempotency-keys.md).
+
 ## `modules.go`
 
 ### `registerModules(api, mapper, svc) error`
@@ -132,6 +138,7 @@ Declares every job with its code defaults; `orb gen job` adds a line after `//or
 | `auth_cleanup` | `job_auth_cleanup.go` | Daily at 03:30 UTC: deletes expired sessions, codes and second-factor challenges, and purges accounts deleted longer ago than `auth.deleted_account_retention` (audit action `auth.accounts.purged`). Returns the counts as `authdomain.CleanupResult` |
 | `auth_revoke_tokens` | `job_auth_revoke_tokens.go` | Every minute: revokes up to 20 Apple refresh tokens queued in `auth_token_revocations` by unlinking or account deletion; failures back off from 1 minute to 6 hours and are abandoned after 10 attempts (audit action `auth.identity.revocation_abandoned`). Returns the counts as `authdomain.RevocationResult` |
 | `ratelimit_cleanup` | `job_ratelimit_cleanup.go` | Hourly: deletes shared rate limit buckets whose keys are back to a full budget (`ratelimitpg.Store.DeleteExpired`, in batches of 10 000) |
+| `idempotency_cleanup` | `job_idempotency_cleanup.go` | Hourly: deletes idempotency keys and their stored responses older than `idempotency.retention` (`idempotency.Store.DeleteExpired`, in batches of 1 000) |
 | `gorbital.mail.send` | `jobs.AddMailWorker` in `app.go` | Delivers queued email; 8 attempts; `mail.ErrRejected` cancels |
 
 `jobDeps` holds what workers may use. Add a store or client there when a job needs one.

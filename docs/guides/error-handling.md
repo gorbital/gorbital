@@ -110,6 +110,7 @@ Every code with its status, meaning and where it's returned, generated from the 
 | Where | Codes | Reference |
 |---|---|---|
 | Middleware | `cross_origin_request_denied` (403), `request_too_large` (413), `auth_unavailable` (503), `rate_limited` (429), `internal_error` (500 from a panic), `not_found` (404, no route) | [Life of a request](request-lifecycle.md) |
+| Idempotency keys | `invalid_idempotency_key` (400), `idempotency_in_progress` (409), `idempotency_key_reused` (422), `unavailable` (503) | [Idempotency](idempotency.md) |
 | Pagination (`gorbital.dev/page`) | `invalid_cursor`, `invalid_sort`, `invalid_limit` (400) | `routes.go` |
 | Authentication | `unauthenticated`, `forbidden`, `mfa_required`, `mfa_unavailable`, `passkeys_unavailable`, and each flow's codes | [Authentication](authentication.md#error-codes) |
 | Ops APIs | `setting_not_found`, `setting_version_conflict`, `job_definition_disabled`, `invalid_recipient`, … | [Ops API](ops-api.md#error-codes) |

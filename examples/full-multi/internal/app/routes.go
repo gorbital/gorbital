@@ -11,9 +11,11 @@ import (
 
 	"gorbital.dev/buildinfo"
 	"gorbital.dev/httpx"
+	"gorbital.dev/modules/idempotency"
 	"gorbital.dev/modules/openapi"
 	"gorbital.dev/page"
 	"gorbital.dev/ratelimit"
+	"gorbital.dev/requestid"
 )
 
 // authLimitKey limits changing requests to /v1/auth/, and Google and Apple
@@ -92,6 +94,7 @@ func (a *App) buildHTTP(svc services) error {
 	if err := registerModules(api, mapper, svc); err != nil {
 		return err
 	}
+	documentIdempotencyKey(api)
 
 	mux.Handle("GET /livez", a.health.Liveness())
 	mux.Handle("GET /readyz", a.health.Readiness())
@@ -103,7 +106,11 @@ func (a *App) buildHTTP(svc services) error {
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, "not_found", "no route matches "+r.Method+" "+r.URL.Path))
 	})
 
-	cors, err := httpx.CORS(httpx.CORSOptions{AllowedOrigins: a.cfg.CORSOrigins})
+	cors, err := httpx.CORS(httpx.CORSOptions{
+		AllowedOrigins: a.cfg.CORSOrigins,
+		AllowedHeaders: []string{"Authorization", "Content-Type", requestid.Header, idempotency.Header},
+		ExposedHeaders: []string{requestid.Header, "Retry-After", idempotency.ReplayedHeader},
+	})
 	if err != nil {
 		return err
 	}
@@ -133,6 +140,8 @@ func (a *App) buildHTTP(svc services) error {
 			svc.auth.Middleware(a.logger),
 			// auth.ip_requests_per_minute, shared by every instance (ADR-0052).
 			ratelimit.Middleware(svc.ipLimiter, authLimitKey, nil),
+			// Retried POST and PATCH requests with an Idempotency-Key (ADR-0060).
+			idempotencyMiddleware(svc.idempotency),
 		)
 	}
 	a.api = api
