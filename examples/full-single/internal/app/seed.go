@@ -11,6 +11,7 @@ import (
 	"gorbital.dev/actor"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 	projectsmodule "example.com/acme-api/internal/modules/projects"
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
 	projectsusecase "example.com/acme-api/internal/modules/projects/usecase"
@@ -76,8 +77,11 @@ func Seed(ctx context.Context, cfg Config, email string, w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("turn on two-factor authentication for the administrator: %w", err)
 	}
-	// The examples belong to the administrator, as if they had created them.
-	asAdmin := actor.With(ctx, actor.Actor{Kind: actor.KindUser, ID: admin.ID, Label: admin.Email})
+	// The examples belong to the administrator, as if they had created them
+	// with the permissions every user holds (ADR-0058).
+	asAdmin := actor.With(ctx, actor.Actor{
+		Kind: actor.KindUser, ID: admin.ID, Label: admin.Email, Permissions: deps.auth.Catalog().Permissions(authusecase.RoleUser),
+	})
 	for _, p := range seedProjects {
 		if _, err := projects.Service().Create(asAdmin, p); err != nil {
 			return fmt.Errorf("create the example project %q: %w", p.Name, err)

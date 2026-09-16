@@ -237,6 +237,7 @@ func (d *doctor) generatorAnchors() {
 	anchors := []struct{ file, anchor, generator string }{
 		{"internal/app/modules.go", recipes.ModulesAnchor, "orb gen resource"},
 		{"internal/app/jobs.go", recipes.JobAnchor, "orb gen job"},
+		{"internal/app/permissions.go", recipes.UserPermissionsAnchor, "orb gen resource --scope user"},
 	}
 	if d.res.Tenancy == recipes.TenancyMulti {
 		anchors = append(anchors, struct{ file, anchor, generator string }{"internal/app/permissions.go", recipes.OrgPermissionsAnchor, "orb gen resource --scope org"})

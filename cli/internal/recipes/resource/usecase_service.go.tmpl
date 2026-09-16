@@ -6,8 +6,8 @@
 // (ADR-0039, ADR-0048). Change it freely.
 ⟦- else⟧
 // operation finds the signed-in user, who owns the ⟦.PluralHuman⟧ it reads or
-// changes, applies the domain rules, stores the result and records an audit
-// event (ADR-0039). Change it freely.
+// changes, checks the permission (ADR-0058), applies the domain rules, stores
+// the result and records an audit event (ADR-0039). Change it freely.
 ⟦- end⟧
 package usecase
 
@@ -108,12 +108,18 @@ func (s *Service) member(ctx context.Context, orgID orgslib.ID, permission strin
 	return orgslib.RequireMember(ctx, s.members, s.catalog, orgID, permission)
 }
 ⟦- else -⟧
-// ownerID returns the signed-in user's ID. Only users own ⟦.PluralHuman⟧;
-// system and anonymous actors get ErrUnauthenticated.
-func ownerID(ctx context.Context) (string, error) {
+// ownerID returns the signed-in user's ID when they hold permission. Only
+// users own ⟦.PluralHuman⟧; system and anonymous actors get
+// ErrUnauthenticated. Every user holds the permissions through the user
+// role, but an API key only when its scopes include them, so a key limited
+// to reading can't change anything (ADR-0058); it gets ErrForbidden.
+func ownerID(ctx context.Context, permission string) (string, error) {
 	a, ok := actor.From(ctx)
 	if !ok || a.Kind != actor.KindUser || a.ID == "" {
 		return "", ⟦.Package⟧domain.ErrUnauthenticated
+	}
+	if err := actor.Require(ctx, permission); err != nil {
+		return "", ⟦.Package⟧domain.ErrForbidden
 	}
 	return a.ID, nil
 }

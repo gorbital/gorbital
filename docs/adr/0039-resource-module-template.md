@@ -1,6 +1,6 @@
 # ADR-0039: Resource module template
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0022, ADR-0023 · **Amended by:** ADR-0048 (org-scoped resources: `--scope org`, the default in multi-tenant apps)
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0022, ADR-0023 · **Amended by:** ADR-0048 (org-scoped resources: `--scope org`, the default in multi-tenant apps), ADR-0058 (user-scoped resources check `<module>.<resource>.read`/`.write`, granted by the `user` role)
 
 ## Context
 
@@ -65,7 +65,7 @@ Isolation for `--scope=user` mirrors the org isolation layers (ADR-0023):
 | `PATCH /v1/projects/{id}` | 200; body carries the `version` it read |
 | `DELETE /v1/projects/{id}` | 204 |
 
-Error codes: `unauthenticated` (401), `validation_failed` (422 with `errors[]` of `{location, message}`, as `httpx.FieldError`), `project_not_found` (404), `project_name_taken` (409), `project_version_conflict` (409), `invalid_cursor`, `invalid_sort` (400).
+Error codes: `unauthenticated` (401), `forbidden` (403, an API key scoped without the permission; ADR-0058), `validation_failed` (422 with `errors[]` of `{location, message}`, as `httpx.FieldError`), `project_not_found` (404), `project_name_taken` (409), `project_version_conflict` (409), `invalid_cursor`, `invalid_sort` (400).
 
 | Topic | Decision |
 |---|---|
@@ -135,3 +135,18 @@ Soft delete, search, bulk operations, nested resources, sharing between users, f
 - `orb gen resource` is golden-tested against it; ADR-0022's example aliases (`projectdomain`, `projectusecase`) become real.
 - Error codes and audit actions above are public API for the example app (ADR-0015); generated apps get their own names.
 - Architecture open item "Example business module with its own repository" is resolved when the module lands.
+
+## Permissions for user-scoped resources (2026-09-16, ADR-0058)
+
+Owner isolation alone left API key scopes without effect on user-scoped resources: a key limited to reading could create, change and delete. The template now also checks a permission, as org-scoped resources always did:
+
+| Part | Change |
+|---|---|
+| `usecase/<names>.go` | `PermRead` and `PermWrite` (`<module>.<resource>.read`/`.write`) for both scopes; every use case calls `ownerID(ctx, PermRead)` or `ownerID(ctx, PermWrite)` |
+| `usecase/service.go` | `ownerID` checks `actor.Require` after the user and returns `ErrForbidden` |
+| `domain/errors.go` | `ErrForbidden`, mapped to 403 `forbidden` in `internal/app/module_<names>.go` |
+| `internal/app/module_<names>.go` | `<names>Permissions`, like org-scoped resources |
+| `internal/app/permissions.go` | `orb gen resource --scope user` adds `<names>Permissions,` after `//orb:anchor user-permissions` in `userResourcePermissions`; `declarePermissions` gives them to the `user` role (`authusecase.RoleUser`), which every user holds, so sessions are unaffected |
+| Tests | `TestRequiresPermission` (use cases: read-only actor reads, gets `ErrForbidden` on writes; no permissions, `ErrForbidden` on reads); the end-to-end test creates a read-scoped API key and checks 200 on reads and 403 `forbidden` on create, update and delete (both scopes) |
+
+`TestResourceMatchesGoldenApp` reproduces both golden apps' projects modules and the permissions line for each scope; `TestGeneratedResourcesPass` generates a user-scoped resource into both golden apps, so a multi-tenant app's user role is exercised too.

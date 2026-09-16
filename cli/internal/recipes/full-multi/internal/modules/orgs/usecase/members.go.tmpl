@@ -100,8 +100,12 @@ func (s *Service) RemoveMember(ctx context.Context, orgID orgslib.ID, memberID s
 }
 
 // Leave removes the signed-in user from an organisation. The last owner
-// can't leave, and nobody leaves their personal workspace.
+// can't leave, nobody leaves their personal workspace, and an API key can't
+// (ErrSessionRequired).
 func (s *Service) Leave(ctx context.Context, orgID orgslib.ID) error {
+	if _, err := requireSession(ctx); err != nil {
+		return err
+	}
 	ctx, me, err := orgslib.RequireMember(ctx, s.store, s.catalog, orgID, PermOrgRead)
 	if err != nil {
 		return storeError("leave", err)

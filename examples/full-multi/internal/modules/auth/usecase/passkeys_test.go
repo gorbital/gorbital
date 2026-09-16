@@ -215,7 +215,7 @@ func TestPasskeysAndRolesRequiringMFA(t *testing.T) {
 	ctx, res := f.login(t, "admin@example.com")
 	reg := f.addPasskey(t, ctx, password, passkeytest.New(passkeyOrigin))
 	verified := f.principalCtx(t, res.Token)
-	if p, _ := authlib.PrincipalFrom(verified); len(p.Permissions) != 2 {
+	if p, _ := authlib.PrincipalFrom(verified); len(p.Permissions) != 4 {
 		t.Errorf("principal after adding a passkey = %+v, want the role's permissions", p)
 	}
 

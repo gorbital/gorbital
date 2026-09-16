@@ -2,11 +2,13 @@ package app_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -50,6 +52,25 @@ func TestProjectsEndToEnd(t *testing.T) {
 	if invalid.code != http.StatusUnprocessableEntity || invalid.json["code"] != "validation_failed" || len(fieldErrors) != 1 ||
 		fieldErrors[0].(map[string]any)["location"] != "body.name" {
 		t.Errorf("create with a blank name = %d %s", invalid.code, invalid.body)
+	}
+
+	// An API key reaches the projects only within its scopes (ADR-0058).
+	expires := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
+	readKey, _ := createKey(t, h, "/v1/auth/api-keys", fmt.Sprintf(`{"name":"reader","expires_at":%q,"password":%q,"scopes":[%q]}`, expires, testPassword, "projects.project.read"), ada)
+	reader := []string{"Authorization", "Bearer " + readKey}
+	for _, path := range []string{collection, item} {
+		if r := do(t, h, "GET", path, "", reader...); r.code != http.StatusOK {
+			t.Errorf("GET %s with a read-only key = %d %s, want 200", path, r.code, r.body)
+		}
+	}
+	for _, r := range []response{
+		do(t, h, "POST", collection, `{"name":"By a key","description":"Example description"}`, reader...),
+		do(t, h, "PATCH", item, `{"version":1,"name":"By a key"}`, reader...),
+		do(t, h, "DELETE", item, "", reader...),
+	} {
+		if r.code != http.StatusForbidden || r.json["code"] != "forbidden" {
+			t.Errorf("change with a read-only key = %d %s, want 403 forbidden", r.code, r.body)
+		}
 	}
 
 	// Another organisation doesn't exist for someone who isn't a member...

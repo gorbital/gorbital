@@ -110,13 +110,17 @@ func TestSentence(t *testing.T) {
 func TestPagesMarkMultiTenantOnlyNames(t *testing.T) {
 	multi := dump{
 		ServiceName: "acme-api",
-		Catalogs:    []catalog{{Name: "platform"}, {Name: "org", Roles: []role{{Name: "owner", Permissions: []string{"orgs.org.read"}}}, Permissions: []permission{{Name: "orgs.org.read", Description: "see the organisation"}}}},
+		Catalogs:    []catalog{{Name: "platform", Roles: []role{{Name: "user", Permissions: []string{"orgs.org.create"}}}, Permissions: []permission{{Name: "orgs.org.create", Description: "create organisations"}}}, {Name: "org", Roles: []role{{Name: "owner", Permissions: []string{"orgs.org.read"}}}, Permissions: []permission{{Name: "orgs.org.read", Description: "see the organisation"}}}},
 		Settings:    []setting{{Key: "mail.from_name", Kind: "string", Group: "mail", Default: []byte(`"acme-api"`)}, {Key: "orgs.max_owned", Kind: "int", Group: "orgs", Default: []byte(`20`)}},
 		Jobs:        []job{{Name: "orgs_purge", Definition: true, Description: "Purges.", Schedule: "45 3 * * *", Timeout: "10m0s"}},
 		Codes:       []code{{Code: "org_not_found", Status: 404, Detail: "no organisation", Location: "internal/app/module_orgs.go"}},
 		Actions:     []action{{Action: "orgs.org.created", Metadata: []string{"personal"}}},
 	}
-	single := dump{ServiceName: "acme-api", Catalogs: []catalog{{Name: "platform"}}, Settings: multi.Settings[:1]}
+	single := dump{
+		ServiceName: "acme-api",
+		Catalogs:    []catalog{{Name: "platform", Roles: []role{{Name: "user", Permissions: []string{"notes.note.read"}}}, Permissions: []permission{{Name: "notes.note.read", Description: "see your notes"}}}},
+		Settings:    multi.Settings[:1],
+	}
 	r := newReference(multi, single, descriptions{AuditActions: map[string]string{"orgs.org.created": "An organisation was created."}})
 	pages := map[string]string{}
 	for _, p := range r.pages() {
@@ -132,6 +136,10 @@ func TestPagesMarkMultiTenantOnlyNames(t *testing.T) {
 		if !strings.Contains(pages[file], want) {
 			t.Errorf("%s doesn't contain %q:\n%s", file, want, pages[file])
 		}
+	}
+	// A platform permission only one app declares is marked.
+	if want := "| `orgs.org.create` | Create organisations. *Multi-tenant apps only.* | yes |\n| `notes.note.read` | See your notes. *Single-tenant apps only.* | yes |"; !strings.Contains(pages["permissions.md"], want) {
+		t.Errorf("permissions.md doesn't contain %q:\n%s", want, pages["permissions.md"])
 	}
 	if w := r.warnings(); len(w) != 0 {
 		t.Errorf("warnings = %q, want none", w)

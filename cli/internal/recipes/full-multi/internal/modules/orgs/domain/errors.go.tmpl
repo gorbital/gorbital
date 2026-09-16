@@ -8,6 +8,12 @@ import "errors"
 var (
 	// ErrUnauthenticated reports an operation without a signed-in user.
 	ErrUnauthenticated = errors.New("authentication is required")
+	// ErrForbidden reports a signed-in user without a platform permission
+	// the orgs module checks: an API key whose scopes don't include it.
+	ErrForbidden = errors.New("missing permission")
+	// ErrSessionRequired reports an API key used to join or leave an
+	// organisation, which needs the person's session.
+	ErrSessionRequired = errors.New("a session is required")
 	// ErrInvalidName reports a blank, too long or multi-line name.
 	ErrInvalidName = errors.New("invalid organisation name")
 	// ErrOrgVersionConflict reports a change to a version that is no longer

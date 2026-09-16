@@ -47,6 +47,7 @@ Quote the enum field: shells treat parentheses specially. Leave the fields out t
     …
     db/migrations/20260915140945_invoices.sql
     internal/app/modules.go
+    internal/app/permissions.go
 
 Next:
   1. go run ./cmd/migrate
@@ -87,7 +88,7 @@ Keeping them apart means you can change the rules without touching SQL, or the S
 | `internal/modules/invoices/domain/invoice_test.go` | Tests for the rules; no database needed |
 | `internal/modules/invoices/usecase/ports.go` | What the use cases need from the outside, as small interfaces: a store, a transaction runner, an audit recorder |
 | `internal/modules/invoices/usecase/service.go` | The `Service` that holds those dependencies |
-| `internal/modules/invoices/usecase/invoices.go` | Create, get, list, update and delete, each for the signed-in owner, each recording an audit event |
+| `internal/modules/invoices/usecase/invoices.go` | Create, get, list, update and delete, each for the signed-in owner, each checking the `invoices.invoice.read` or `.write` permission and recording an audit event |
 | `internal/modules/invoices/usecase/invoices_test.go` | Tests for the use cases against a real PostgreSQL |
 | `internal/modules/invoices/repository/store.go` | The `Store`, which works on the database pool or inside a transaction |
 | `internal/modules/invoices/repository/insert_invoice.go`, `select_invoice.go`, `select_invoices.go`, `update_invoice.go`, `delete_invoice.go` | One SQL statement per file, next to the Go that runs it |
@@ -95,9 +96,10 @@ Keeping them apart means you can change the rules without touching SQL, or the S
 | `internal/modules/invoices/repository/store_test.go` | Tests for every query against a real PostgreSQL |
 | `internal/modules/invoices/delivery/invoices.go` | The endpoints: request and response shapes, documentation for `/docs`, status codes |
 | `internal/modules/invoices/module.go` | Connects the four layers |
-| `internal/app/module_invoices.go` | Builds the module when the app starts, and maps each domain error to an HTTP status and code |
-| `internal/app/invoices_test.go` | A full HTTP test: sign up, create, list, update, delete, and proof that another user gets 404 for your invoices |
+| `internal/app/module_invoices.go` | Builds the module when the app starts, declares its permissions, and maps each domain error to an HTTP status and code |
+| `internal/app/invoices_test.go` | A full HTTP test: sign up, create, list, update, delete, proof that another user gets 404 for your invoices, and that a read-only API key can't change them |
 | `internal/app/modules.go` | Changed by one line, `registerInvoices(…)`, so the app includes the module |
+| `internal/app/permissions.go` | Changed by one line, `invoicesPermissions,`, so the `user` role every user holds grants `invoices.invoice.read` and `.write`. Signed-in sessions always have them; an [API key](../guides/api-keys.md) only when its scopes include them |
 | `db/migrations/20260915140945_invoices.sql` | Creates the table |
 
 ## 4. The table

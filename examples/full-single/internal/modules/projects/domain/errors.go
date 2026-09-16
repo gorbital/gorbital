@@ -11,6 +11,10 @@ var (
 	// ErrUnauthenticated reports an operation without a signed-in user.
 	ErrUnauthenticated = errors.New("authentication is required")
 
+	// ErrForbidden reports a signed-in user without the permission: an API
+	// key whose scopes don't include it.
+	ErrForbidden = errors.New("missing permission")
+
 	// ErrInvalidProject reports invalid fields. The error is a
 	// *ValidationError.
 	ErrInvalidProject = errors.New("invalid project")

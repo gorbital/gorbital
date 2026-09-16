@@ -144,8 +144,69 @@ func newFixture(t *testing.T, opts ...func(*orgsusecase.Config)) *fixture {
 	return f
 }
 
+// as returns a request signed in as userID with the platform permissions
+// every user holds through the user role.
 func as(userID string) context.Context {
-	return actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: userID})
+	return actor.With(context.Background(), actor.Actor{
+		Kind: actor.KindUser, ID: userID, Permissions: []string{orgsusecase.PermOrgCreate, orgsusecase.PermOrgList},
+	})
+}
+
+// withKey returns a request made with an API key of userID limited to
+// scopes, as the auth middleware prepares it.
+func withKey(userID string, scopes ...string) context.Context {
+	p := authlib.Principal{
+		UserID: userID, APIKeyID: "key_test", Scopes: scopes,
+		Permissions: []string{orgsusecase.PermOrgCreate, orgsusecase.PermOrgList},
+	}
+	return authlib.WithPrincipal(context.Background(), p)
+}
+
+// TestAPIKeysNeedScopesOrASession checks the orgs module's limits on API
+// keys (ADR-0058): creating and listing organisations need the user role's
+// permissions in the key's scopes, organisation permissions are limited to
+// them too, and joining or leaving needs the person's session.
+func TestAPIKeysNeedScopesOrASession(t *testing.T) {
+	f := newFixture(t)
+	id := f.team(t, orgslib.RoleAdmin)
+
+	readOnly := withKey("usr_ada", orgsusecase.PermOrgRead)
+	if _, err := f.svc.Create(readOnly, "By a key"); !errors.Is(err, orgsdomain.ErrForbidden) {
+		t.Errorf("Create() with a key scoped without orgs.org.create error = %v, want ErrForbidden", err)
+	}
+	if _, err := f.svc.List(readOnly); !errors.Is(err, orgsdomain.ErrForbidden) {
+		t.Errorf("List() with a key scoped without orgs.org.list error = %v, want ErrForbidden", err)
+	}
+	if _, err := f.svc.Get(readOnly, id); err != nil {
+		t.Errorf("Get() with orgs.org.read error = %v", err)
+	}
+	if _, err := f.svc.Rename(readOnly, id, "Renamed", 1); !errors.Is(err, actor.ErrForbidden) {
+		t.Errorf("Rename() with orgs.org.read only error = %v, want actor.ErrForbidden", err)
+	}
+	if _, err := f.svc.Create(withKey("usr_ada", orgsusecase.PermOrgCreate), "By a key"); err != nil {
+		t.Errorf("Create() with orgs.org.create error = %v", err)
+	}
+	if list, err := f.svc.List(withKey("usr_ada")); err != nil || len(list) != 3 {
+		t.Errorf("List() with an unscoped key = %+v, %v, want 3 organisations", list, err)
+	}
+
+	unscoped := withKey("usr_carol")
+	if err := f.svc.Leave(unscoped, id); !errors.Is(err, orgsdomain.ErrSessionRequired) {
+		t.Errorf("Leave() with a key error = %v, want ErrSessionRequired", err)
+	}
+	if err := f.svc.RemoveMember(unscoped, id, "usr_carol"); !errors.Is(err, orgsdomain.ErrSessionRequired) {
+		t.Errorf("RemoveMember(yourself) with a key error = %v, want ErrSessionRequired", err)
+	}
+	if _, err := f.svc.Invite(as("usr_ada"), id, "bob@example.com", orgslib.RoleMember); err != nil {
+		t.Fatal(err)
+	}
+	token := f.emails.token(t, "bob@example.com")
+	if _, err := f.svc.AcceptInvitation(withKey("usr_bob"), token); !errors.Is(err, orgsdomain.ErrSessionRequired) {
+		t.Errorf("AcceptInvitation() with a key error = %v, want ErrSessionRequired", err)
+	}
+	if _, err := f.svc.AcceptInvitation(as("usr_bob"), token); err != nil {
+		t.Errorf("AcceptInvitation() with a session after a key's refusal error = %v", err)
+	}
 }
 
 // team creates an organisation owned by ada, with carol invited and accepted

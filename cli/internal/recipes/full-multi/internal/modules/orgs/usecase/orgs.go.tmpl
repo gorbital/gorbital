@@ -11,10 +11,10 @@ import (
 )
 
 // Create adds an organisation with the signed-in user as its owner. The
-// user's email address must be verified, and they may own at most
-// MaxOwnedOrgs live organisations.
+// user needs PermOrgCreate, their email address must be verified, and they
+// may own at most MaxOwnedOrgs live organisations.
 func (s *Service) Create(ctx context.Context, name string) (orgsdomain.Membership, error) {
-	uid, err := userID(ctx)
+	uid, err := requireUser(ctx, PermOrgCreate)
 	if err != nil {
 		return orgsdomain.Membership{}, err
 	}
@@ -43,10 +43,10 @@ func (s *Service) Create(ctx context.Context, name string) (orgsdomain.Membershi
 }
 
 // List returns the signed-in user's organisations, personal workspace
-// first. It creates the personal workspace if an earlier failure left the
-// account without one.
+// first; the user needs PermOrgList. It creates the personal workspace if an
+// earlier failure left the account without one.
 func (s *Service) List(ctx context.Context) ([]orgsdomain.Membership, error) {
-	uid, err := userID(ctx)
+	uid, err := requireUser(ctx, PermOrgList)
 	if err != nil {
 		return nil, err
 	}

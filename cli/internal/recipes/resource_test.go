@@ -87,11 +87,8 @@ func TestResourceMatchesGoldenApp(t *testing.T) {
 			if got, err := InsertAfterAnchor([]byte(without), ModulesAnchor, d.ModulesLine()); err != nil || string(got) != string(modules) {
 				t.Errorf("inserting %q into modules.go = %v; want the golden modules.go:\n%s", d.ModulesLine(), err, got)
 			}
-			if !d.Org {
-				return
-			}
-
-			// So is the line in permissions.go that gives org roles its permissions.
+			// So is the line in permissions.go that gives the org roles, or the
+			// user role, its permissions.
 			permissionsGo := filepath.Join(golden.dir, "internal", "app", "permissions.go")
 			permissions, err := os.ReadFile(permissionsGo)
 			if err != nil {
@@ -101,7 +98,7 @@ func TestResourceMatchesGoldenApp(t *testing.T) {
 			if without == string(permissions) {
 				t.Fatalf("permissions.go has no %q line", d.PermissionsLine())
 			}
-			if got, err := InsertAfterAnchor([]byte(without), OrgPermissionsAnchor, d.PermissionsLine()); err != nil || string(got) != string(permissions) {
+			if got, err := InsertAfterAnchor([]byte(without), d.PermissionsAnchor(), d.PermissionsLine()); err != nil || string(got) != string(permissions) {
 				t.Errorf("inserting %q into permissions.go = %v; want the golden permissions.go:\n%s", d.PermissionsLine(), err, got)
 			}
 		})
@@ -109,8 +106,9 @@ func TestResourceMatchesGoldenApp(t *testing.T) {
 }
 
 // TestGeneratedResourcesPass generates two more resources into a copy of
-// each golden app, one with several unique and enum fields and one with
-// neither, in the golden app's scope, then vets the app and runs their tests.
+// each golden app, one with several unique and enum fields in the golden
+// app's scope and one with neither that belongs to users, then vets the app
+// and runs their tests.
 func TestGeneratedResourcesPass(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds and tests copies of the golden apps")
@@ -156,16 +154,19 @@ func generatedResourcesPass(t *testing.T, goldenDir, scope string) {
 		name      string
 		fields    []string
 		migration string
+		scope     string
 	}{
 		// Versions far in the future sort after every golden app migration.
-		{"Customer", []string{"email:string:unique", "full_name:string", "account_code:string:unique", "notes:text", "tier:enum(free,pro,enterprise)", "region:enum(eu,us)"}, "20990101000001"},
-		{"Note", []string{"title:string", "body:text"}, "20990101000002"},
+		{"Customer", []string{"email:string:unique", "full_name:string", "account_code:string:unique", "notes:text", "tier:enum(free,pro,enterprise)", "region:enum(eu,us)"}, "20990101000001", scope},
+		// Notes belong to users in both apps, so a multi-tenant app's user
+		// role gets their permissions too (ADR-0058).
+		{"Note", []string{"title:string", "body:text"}, "20990101000002", ScopeUser},
 	} {
 		fields, err := ParseFields(r.fields)
 		if err != nil {
 			t.Fatal(err)
 		}
-		d, err := NewResourceData("example.com/acme-api", r.name, fields, ResourceOptions{Migration: r.migration, Scope: scope})
+		d, err := NewResourceData("example.com/acme-api", r.name, fields, ResourceOptions{Migration: r.migration, Scope: r.scope})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -185,10 +186,8 @@ func generatedResourcesPass(t *testing.T, goldenDir, scope string) {
 		if modules, err = InsertAfterAnchor(modules, ModulesAnchor, d.ModulesLine()); err != nil {
 			t.Fatal(err)
 		}
-		if d.Org {
-			if permissions, err = InsertAfterAnchor(permissions, OrgPermissionsAnchor, d.PermissionsLine()); err != nil {
-				t.Fatal(err)
-			}
+		if permissions, err = InsertAfterAnchor(permissions, d.PermissionsAnchor(), d.PermissionsLine()); err != nil {
+			t.Fatal(err)
 		}
 	}
 	if err := os.WriteFile(modulesGo, modules, 0o644); err != nil {

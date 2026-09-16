@@ -1,6 +1,6 @@
 # ADR-0058: API keys and service accounts
 
-**Status:** Accepted (2026-09-16) · **Amends:** ADR-0024, ADR-0038, ADR-0043, ADR-0048
+**Status:** Accepted (2026-09-16) · **Amends:** ADR-0024, ADR-0038, ADR-0039, ADR-0043, ADR-0048
 
 ## Context
 
@@ -128,7 +128,7 @@ Revoking a key, disabling a service account (revokes every key; enabling doesn't
 ## Trade-offs
 
 - `/ops` can't be automated with keys in v1.1; operators script with sessions until a stronger machine credential exists.
-- Operations that need only a signed-in user, with no permission (a single-tenant user's projects, creating an organisation, accepting an invitation, listing one's organisations), aren't limited by scopes. Modules that need that declare a permission.
+- ~~Operations that need only a signed-in user, with no permission, aren't limited by scopes.~~ Closed by "Scopes cover every operation (2026-09-16)" below.
 - Personal keys act in every organisation the user belongs to; per-organisation personal keys are a later option.
 - Keys survive a password change made while signed in.
 - The failure limit counts per client network, so many clients behind one NAT share it; valid keys aren't affected.
@@ -165,3 +165,67 @@ Revoking a key, disabling a service account (revokes every key; enabling doesn't
 | `go run -C internal/tools/apicheck .` | additions only, recorded |
 | `TestPublicSurface`, `TestOpsAPICompatible`, `TestOpenAPIUpToDate`, `TestGoldenAppsDontDrift` | pass after recording; `/ops` changes are additions |
 | golangci-lint | not installed locally; not run |
+
+## Scopes cover every operation (2026-09-16)
+
+### Context
+
+Scopes were intersected with the owner's permissions, so they limited only operations that check a permission. A security review of the merged feature found operations that check none:
+
+| Operation | Check before | A key scoped to `projects.project.read` could |
+|---|---|---|
+| Single-tenant projects, and every `orb gen resource --scope user` resource | Ownership only (`ownerID`) | Create, change and delete the user's projects |
+| `POST /v1/orgs`, `GET /v1/orgs` (multi-tenant) | A signed-in user (`userID`) | Create organisations, list them |
+| `POST /v1/invitations/accept` | A signed-in user; the verified address must match | Join organisations, widening what every key of the account reaches |
+| `POST /v1/orgs/{orgId}/leave`, removing yourself | `orgs.org.read` through `RequireMember` | Take the person out of an organisation (needs an invitation to undo) |
+| Account, session, key and service account management | `requirePrincipal` answers `session_required` | Nothing (already closed) |
+| Other organisation operations (rename, delete, restore, members, invitations, settings, projects) | An org permission through `orgs.RequireMember`/`Authorize`, which applies `Restrict` | Nothing beyond its scopes (already closed) |
+
+### Options
+
+| | 1. A user role every user holds, with a permission for each signed-in operation | 2. Deny by default: a scoped key may only call operations that check one of its scopes | 3. Document it (the original trade-off) |
+|---|---|---|---|
+| Mechanism | `authusecase.RoleUser` (`user`) declared in `permissions.go`; `Authenticate` and `AuthenticateAPIKey` add it to a user's roles; use cases call `actor.Require` | The request would have to know, before the handler runs, which permission the operation will check, or record the checks made and refuse afterwards |
+| Enforceable for every operation | By convention and tests: a new signed-in operation without a check is a bug the guide and template prevent, not something the framework can detect | Not mechanically: a check is made inside the use case, after routing; refusing after the handler ran is too late for writes, and a per-operation declaration (OpenAPI extension) could drift from the use case. Public endpoints (ping, sign-in) check nothing and must keep working for everyone | — |
+| Sessions | Unchanged: the role always grants its permissions | Unchanged | — |
+| Empty scopes | Everything the owner holds without 2FA, the user role included | Would need a special case | — |
+| Verdict | **Chosen** | Rejected: can't be enforced mechanically | Rejected: a read-only key must be read-only |
+
+For joining and leaving organisations a scope isn't enough: accepting an invitation widens what every key of the account reaches (personal keys act in all the user's organisations), and leaving can't be undone without a new invitation. They follow account management: sessions only.
+
+### Decision
+
+| Operation | A key may | Check |
+|---|---|---|
+| User-scoped resources (example projects in full-single, generated `--scope user`) | Within scopes | `ownerID(ctx, PermRead/PermWrite)` → `actor.Require`; `ErrForbidden` → 403 `forbidden`. Permissions `<module>.<resource>.read`/`.write` listed in `userResourcePermissions` (anchor `//orb:anchor user-permissions`), granted by `user` |
+| Create and list organisations | Within scopes | `orgs.org.create`, `orgs.org.list` (platform permissions of `user`); `orgsdomain.ErrForbidden` → 403 `forbidden` |
+| Accept an invitation, leave an organisation, remove yourself | Never | `requireSession`: a principal with `APIKey()` → `orgsdomain.ErrSessionRequired` → 403 `session_required` |
+| Rename, delete, restore an organisation; manage other members and invitations; organisation settings and resources | Within scopes and the owner's org role | Unchanged: `orgs.RequireMember`/`Authorize` with `Restrict`. Deleting is a soft delete an owner can undo, and an unscoped key can already delete every resource, so a separate session rule would add little |
+| Account, sessions, 2FA, passkeys, identities, API keys, service accounts (platform and organisation) | Never | Unchanged: `requirePrincipal` → `session_required` |
+| `/ops` | Never | Unchanged: ops roles require 2FA |
+
+The `user` role: declared by the app (both Full apps), required by `authusecase.NewService` (declared, never `RequireMFA`), added to a user's roles for sessions, user keys and scope validation (`userPermissions`), never to service accounts (refused as a service account role), and not grantable (`GrantRole` answers `ErrUnknownRole`; `grant-role` says every account holds it). Its permissions are ordinary scopes: `POST /v1/auth/api-keys` accepts them.
+
+### Trade-offs
+
+- The property holds by convention: an operation added by hand without a permission check isn't limited by scopes. The guide says every signed-in operation must check one, and the resource template does.
+- Apps must declare the `user` role; an app without it fails at startup with a clear error (upgrade notes).
+- Sessions' permission lists (and `/v1/auth/me`) now include the user role's permissions.
+- Personal keys can't accept invitations or leave organisations even when unscoped; automation that did that needs a session.
+- A resource can be user-scoped in one app and org-scoped in another under the same permission name (`projects.project.read`), in different catalogs; the reference marks which apps declare each.
+
+### Implementation notes
+
+| Check | Result |
+|---|---|
+| Use cases (both apps): `TestUserRoleIsScopedLikeAnyRole` | Session without granted roles holds the user role's permissions; read-scoped key refused writes; unscoped key allowed; `GrantRole(user)` and a service account with `user` refused; `NewService` refuses a catalog without the role or with it requiring 2FA |
+| `TestAPIKeyScopesCantEscalate`, `TestAPIKeysNeverCarryTwoFactorPermissions` and session tests updated for the user role | pass |
+| projects use cases: `TestRequiresPermission` (generated for every user-scoped resource) | pass |
+| full-multi orgs use cases: `TestAPIKeysNeedScopesOrASession` | Create/List `ErrForbidden` without the scopes, allowed with them; rename refused outside scopes; Leave, RemoveMember(self), AcceptInvitation `ErrSessionRequired` for an unscoped key; the session then accepts |
+| Both apps: `TestAPIKeyScopesCoverOwnData` (shared `apikeys_test.go`) | Read-only key: GET list and item 200; POST, PATCH, DELETE 403 `forbidden`; write-only key can't list; session updates and an unscoped key deletes; undeclared scope 422 |
+| Both apps: `TestProjectsEndToEnd` (generated) | Read-scoped key 200 on reads, 403 `forbidden` on writes (user-scoped and org-scoped) |
+| full-multi `TestAPIKeysAndOrganisations` | Projects-only key 403 on `GET`/`POST /v1/orgs`; `orgs.org.create`/`list`/`read` key creates, lists, reads, 403 on rename, members, invitations and projects; unscoped key 403 `session_required` on accept, leave and removing itself, still reaches the organisation; the session accepts and leaves |
+| Mutations: no `actor.Require` in the projects `ownerID`; no permission check in orgs `requireUser`; no key check in `requireSession` | Each makes the tests above fail |
+| `TestResourceMatchesGoldenApp`, `TestGeneratedResourcesPass` (a user-scoped Note generated into both golden apps), `TestGenResource*` | pass |
+| `TestPublicSurface` (recorded: role `user`; full-single `projects.project.read|write`, full-multi `orgs.org.create|list`), `TestOpsAPICompatible`, `TestOpenAPIUpToDate`, `TestGoldenAppsDontDrift` | pass |
+

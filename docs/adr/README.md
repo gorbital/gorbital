@@ -48,7 +48,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0036](0036-audit-storage.md) | Audit storage | Accepted, amended by 0053 |
 | [0037](0037-email-setup-and-delivery.md) | Email setup and delivery | Accepted, amended by 0053, 0062 |
 | [0038](0038-authentication-v0-2.md) | Authentication in v0.2 | Accepted, amended by 0048, 0053, 0058 |
-| [0039](0039-resource-module-template.md) | Resource module template | Accepted, amended by 0048 |
+| [0039](0039-resource-module-template.md) | Resource module template | Accepted, amended by 0048, 0058 |
 | [0040](0040-release-tracking.md) | Release tracking | Accepted |
 | [0041](0041-full-preset-generation.md) | Full preset generation | Accepted, amended by 0050, 0053 |
 | [0042](0042-development-seed-data.md) | Development seed data | Accepted |

@@ -223,7 +223,7 @@ Flags may come before, between or after the name and fields. Other flags: `--dry
 
 Field names are snake_case (up to 20 characters). A resource needs at least one string field; the first one is its title. Names every resource already has (`id`, `owner_id`, `org_id`, `created_by`, `version`, `created_at`, `updated_at`, `limit`, `cursor`, `sort`, …) and PostgreSQL reserved words (`order`, `user`, …) are refused.
 
-An org-scoped resource declares its `<module>.<resource>.read` and `.write` permissions in its `internal/app/module_<names>.go`, and the generator adds one line after `//orb:anchor org-permissions` in `internal/app/permissions.go`, so every organisation role gets them. Change which roles hold them in `declareOrgPermissions`.
+A resource declares its `<module>.<resource>.read` and `.write` permissions in its `internal/app/module_<names>.go`, and the generator adds one line to `internal/app/permissions.go`. For an org-scoped resource the line goes after `//orb:anchor org-permissions`, so every organisation role gets them; change which roles hold them in `declareOrgPermissions`. For a user-scoped resource it goes after `//orb:anchor user-permissions`, so the `user` role every user holds gets them and every use case checks them: sessions always pass, and an [API key](api-keys.md) only within its scopes (ADR-0058). A key scoped to `.read` gets 403 `forbidden` on create, update and delete.
 
 What it creates for `Project`:
 
@@ -238,7 +238,7 @@ What it creates for `Project`:
 | `internal/app/projects_test.go` | An end-to-end HTTP test, including another user's requests getting 404 |
 | `db/migrations/<version>_projects.sql` | The table, a unique index per unique field and one index per sort |
 | `internal/app/modules.go` | One `registerProjects(api, mapper, svc),` line after `//orb:anchor modules` |
-| `internal/app/permissions.go` (`--scope org` only) | One `projectsPermissions,` line after `//orb:anchor org-permissions` |
+| `internal/app/permissions.go` | One `projectsPermissions,` line after `//orb:anchor org-permissions` (`--scope org`) or `//orb:anchor user-permissions` (`--scope user`) |
 
 Then run `go run ./cmd/migrate`, `go run ./cmd/api openapi --dir api`, `go test ./internal/app -run TestPublicSurface -update` (records the resource's error codes, audit actions and permissions in `api/surface.json`, [stability](stability.md)) and `go test ./...`.
 
@@ -409,7 +409,7 @@ orb doctor · shop-api (full, single tenancy)
 | `orb` | | `orb` was built with a Go release older than 1.26.5, which lacks `os.Root` security fixes; reinstall it with the latest Go patch release |
 | `gorbital.yaml`, `gorbital.lock` | Either is unreadable, or the lock was written by a newer `orb` | The lock is missing, from before v0.5, or from an older `orb` (run `orb upgrade`) |
 | `library` | A `replace` directive points at something that isn't an gorbital checkout | `go.mod` doesn't require `gorbital.dev` |
-| `anchor` (Full preset) | A line generators insert after is gone: `//orb:anchor modules`, `//orb:anchor jobs`, `//orb:anchor org-permissions` (multi-tenant), or the mail block in `.env.example` | |
+| `anchor` (Full preset) | A line generators insert after is gone: `//orb:anchor modules`, `//orb:anchor jobs`, `//orb:anchor user-permissions`, `//orb:anchor org-permissions` (multi-tenant), or the mail block in `.env.example` | |
 | `.env` (Full preset) | It holds secrets and git doesn't ignore it | It's missing, git doesn't ignore it, or it lacks variables `.env.example` has |
 | `api files` | | `api/openapi.json`, `postman_collection.json` or `llms.txt` doesn't match the code |
 | `configuration`, `database` (Full preset) | The app's configuration doesn't load; the database ran migrations the code doesn't have | The database is unreachable, or migrations are pending |

@@ -13,11 +13,19 @@ import (
 	projectsusecase "⟦.Module⟧/internal/modules/projects/usecase"
 )
 
+// projectsPermissions are the projects module's permissions.
+// declarePermissions in permissions.go gives them to the user role, which
+// every user holds.
+var projectsPermissions = resourcePermissions{
+	read: projectsusecase.PermRead, write: projectsusecase.PermWrite, name: "projects",
+}
+
 // registerProjects builds and wires the projects module. Error codes are
 // public API: add new ones, never change existing ones.
 func registerProjects(api huma.API, mapper *httpx.Mapper, svc services) error {
 	err := mapper.Add(
 		httpx.Mapping{Err: projectsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+		httpx.Mapping{Err: projectsdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
 		httpx.Mapping{Err: projectsdomain.ErrInvalidProject, Status: http.StatusUnprocessableEntity, Code: "validation_failed", Detail: "the project is not valid"},
 		httpx.Mapping{Err: projectsdomain.ErrProjectNotFound, Status: http.StatusNotFound, Code: "project_not_found", Detail: "no project of yours has this ID"},
 		httpx.Mapping{Err: projectsdomain.ErrProjectNameTaken, Status: http.StatusConflict, Code: "project_name_taken", Detail: "you already have a project with this name"},

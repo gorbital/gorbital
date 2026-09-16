@@ -24,13 +24,14 @@ A key looks like `gbk_mfrggzdfmztwq2lknnwg23tpob_<52 characters>`. The part befo
 | | Personal key | Platform service account's key | Organisation service account's key (multi-tenant apps) |
 |---|---|---|---|
 | Acts as | The user (`actor.KindUser`) | The service account (`actor.KindService`) | The service account, in its organisation only |
-| Permissions | The user's current roles | The service account's platform roles | Its organisation role, through `orgs.RequireMember` |
-| Never | Permissions of roles that require two-factor authentication, so never `/ops` | The same | The same; organisation management (members, invitations, renaming, deleting) |
+| Permissions | The user's current roles and the `user` role every user holds | The service account's platform roles | Its organisation role, through `orgs.RequireMember` |
+| Never | Permissions of roles that require two-factor authentication, so never `/ops`; joining or leaving organisations | The same | The same; organisation management (members, invitations, renaming, deleting) |
 | Limited to | Its scopes, when it has any | Its scopes | Its scopes |
 | Stops working when | Revoked, expired, the account is deleted, or the password is reset | Revoked, expired, the service account is disabled or deleted | The same, or the organisation is deleted |
 
-- **Scopes** are permission names. A key without scopes gets every permission its owner holds (without two-factor authentication), now and later; a key with scopes never gets more than them. Scopes must be permissions the owner holds when the key is created: a user's platform permissions, or any organisation permission (a user's role differs between organisations and is checked on every request); for a service account, what its roles grant. Operations that need only a signed-in user and no permission, such as a single-tenant app's own projects or creating an organisation, aren't limited by scopes.
-- **Keys can't manage accounts.** A request with a key gets 403 `session_required` from `/v1/auth/me`, sessions, passwords, two-factor authentication, passkeys, linked sign-ins, account deletion, API keys and service accounts. A leaked key can't make itself permanent or take the account over.
+- **Scopes** are permission names. A key without scopes gets every permission its owner holds (without two-factor authentication), now and later; a key with scopes never gets more than them. Scopes must be permissions the owner holds when the key is created: a user's platform permissions, or any organisation permission (a user's role differs between organisations and is checked on every request); for a service account, what its roles grant.
+- **Scopes cover every operation a key can reach.** What any signed-in user may do without a granted role is a permission of the `user` role, which every user holds and sessions always have: a user's own resources (`projects.project.read` and `.write` in a single-tenant app, and every `orb gen resource --scope user` resource), and in multi-tenant apps creating and listing organisations (`orgs.org.create`, `orgs.org.list`). A key scoped to `projects.project.read` lists and reads projects, and gets 403 `forbidden` creating, changing or deleting one, or creating an organisation. Operations a key may never do answer `session_required` whatever its scopes (next point).
+- **Keys can't manage accounts or memberships.** A request with a key gets 403 `session_required` from `/v1/auth/me`, sessions, passwords, two-factor authentication, passkeys, linked sign-ins, account deletion, API keys and service accounts, and, in multi-tenant apps, from accepting an invitation and leaving an organisation (also removing yourself). A leaked key can't make itself permanent, take the account over, widen what it reaches by joining organisations, or take the person out of one. Managing *other* members, renaming, deleting and restoring an organisation are organisation permissions, so a key does them only when its owner's role and its scopes allow.
 - **Permissions are read on every request**, so removing a role, disabling a service account or revoking a key applies to the next request.
 - **Two-factor authentication:** a key can't sign in with a second factor, so a role that requires it grants a key nothing, and such roles can't be given to service accounts. In the Full apps the ops roles require it, so `/ops` stays for people in v1.1. The reasoning is in ADR-0058.
 
@@ -101,7 +102,7 @@ An organisation service account's key acts in its organisation's org-scoped modu
 
 ## In your own code
 
-A use case can't tell a key from a session unless it asks, and usually shouldn't: check permissions with `actor.Require`. When an operation must need a person, refuse keys explicitly:
+A use case can't tell a key from a session unless it asks, and usually shouldn't: check permissions with `actor.Require`. **Every operation a signed-in user can call must check a permission**, or a key's scopes don't limit it: for something any user may do, declare a permission, give it to the `user` role in `internal/app/permissions.go` (`authusecase.RoleUser`), and check it; generated user-scoped resources do this through `userResourcePermissions`. When an operation must need a person, refuse keys explicitly:
 
 ```go
 if p, ok := authlib.PrincipalFrom(ctx); ok && p.APIKey() {
@@ -115,7 +116,7 @@ An org-scoped module gets service accounts for free by passing `orgs.Service().M
 
 | Code | Status | When |
 |---|---|---|
-| `session_required` | 403 | An API key used for account, session, key or service account management |
+| `session_required` | 403 | An API key used for account, session, key or service account management, or to accept an invitation or leave an organisation |
 | `api_key_not_found` | 404 | Revoking a key that isn't yours, or the service account's |
 | `invalid_api_key_name` | 422 | Name empty, over 100 characters or on several lines |
 | `invalid_api_key_expiry` | 422 | `expires_at` missing, within an hour or beyond `auth.api_key_max_ttl` |
@@ -127,6 +128,7 @@ An org-scoped module gets service accounts for free by passing `orgs.Service().M
 | `service_account_limit_reached` | 409 | 100 service accounts already (per organisation, or on the platform) |
 | `service_account_disabled` | 409 | Creating a key for a disabled service account |
 | `too_many_attempts` | 429 | Too many wrong keys from this network |
+| `forbidden` | 403 | A key used for an operation outside its scopes |
 | `forbidden`, `mfa_required` | 403 | Managing platform service accounts without the permission, or without two-factor authentication |
 
 ## Audit events

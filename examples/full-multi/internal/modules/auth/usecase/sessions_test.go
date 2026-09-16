@@ -179,8 +179,8 @@ func TestRolesGrantPermissions(t *testing.T) {
 	if err := f.svc.GrantRole(operator(), userID, "platform_admin"); err != nil {
 		t.Fatal(err)
 	}
-	if p, _ := f.svc.Authenticate(ctx, res.Token); !hasAll(p.Permissions, "ops.settings.read", "ops.settings.write") || len(p.Permissions) != 2 {
-		t.Errorf("permissions as admin = %v, want both, once each", p.Permissions)
+	if p, _ := f.svc.Authenticate(ctx, res.Token); !hasAll(p.Permissions, "ops.settings.read", "ops.settings.write") || len(p.Permissions) != 4 {
+		t.Errorf("permissions as admin = %v, want both and the user role's, once each", p.Permissions)
 	}
 	if err := f.svc.RevokeRole(operator(), userID, "platform_admin"); err != nil {
 		t.Fatal(err)
@@ -193,7 +193,7 @@ func TestRolesGrantPermissions(t *testing.T) {
 	if _, err := f.pool.Exec(ctx, "INSERT INTO auth_user_roles (user_id, role, granted_at, granted_by) VALUES ($1, 'retired_role', now(), 'test')", userID); err != nil {
 		t.Fatal(err)
 	}
-	if p, _ := f.svc.Authenticate(ctx, res.Token); len(p.Permissions) != 1 {
+	if p, _ := f.svc.Authenticate(ctx, res.Token); len(p.Permissions) != 3 {
 		t.Errorf("permissions with an unknown stored role = %v", p.Permissions)
 	}
 }

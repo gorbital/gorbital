@@ -20,7 +20,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `cross_origin_request_denied` | 403 | A cookie-authenticated, state-changing request came from an origin that isn't allowed (cross-site request forgery protection). | Any endpoint |
 | `email_not_verified` | 403 | The account's email address must be verified first: to sign in, or to create organisations and send invitations. | `/v1/auth`; `/v1/orgs`, `/v1/invitations` |
 | `error` | any other 4xx | Any other 4xx status without its own code. | Any endpoint |
-| `forbidden` | 403 | The caller is signed in but lacks the permission: a platform role for `/ops`, or an organisation role for org-scoped endpoints. | Any endpoint |
+| `forbidden` | 403 | The caller is signed in but lacks the permission: a platform role for `/ops`, an organisation role for org-scoped endpoints, or, for an API key, a scope. | Any endpoint |
 | `idempotency_in_progress` | 409 | A request with this idempotency key is still in progress; retry later. | Any endpoint |
 | `idempotency_key_reused` | 422 | This idempotency key was used for a different request; use a new key for a new request. | Any endpoint |
 | `identity_in_use` | 409 | This Google or Apple account is linked to another account. | `/v1/auth` |
@@ -92,7 +92,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `service_account_limit_reached` | 409 | At most 100 service accounts; delete one first. | `/v1/auth` |
 | `service_account_not_found` | 404 | No service account here has this ID. | `/v1/auth` |
 | `session_not_found` | 404 | No active session of yours has this ID. | `/v1/auth` |
-| `session_required` | 403 | Sign in to do this: an API key can't manage accounts, sessions or API keys. | `/v1/auth` |
+| `session_required` | 403 | The operation needs the person's signed-in session, not an API key: managing the account, sessions, API keys and service accounts, and joining or leaving organisations. | `/v1/auth`; `/v1/orgs`, `/v1/invitations` |
 | `setting_not_found` | 404 | No setting has this key. Organisations can't set a setting with this key. | `/ops`; `/v1/orgs`, `/v1/invitations` |
 | `setting_reason_required` | 422 | A reason is required to change this setting. | `/ops` |
 | `setting_version_conflict` | 409 | The setting changed since it was read; read it again. | `/ops` |

@@ -24,6 +24,14 @@ import (
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 )
 
+// RoleUser is the platform role every user holds without a grant
+// (ADR-0058). internal/app/permissions.go declares it with the permissions
+// any signed-in user has over their own data, such as their user-scoped
+// resources, so an API key's scopes limit those operations too. It can't
+// require two-factor authentication, and it is never granted or given to a
+// service account. The name is public API.
+const RoleUser = "user"
+
 // Config holds the Service's dependencies and tunables.
 type Config struct {
 	// Required.
@@ -152,7 +160,8 @@ type Service struct {
 	apiKeyMaxTTL     config.Value[time.Duration]
 }
 
-// NewService returns a Service. It freezes the catalog.
+// NewService returns a Service. It freezes the catalog, which must declare
+// RoleUser.
 func NewService(c Config) (*Service, error) {
 	s := &Service{
 		store:            c.Store,
@@ -197,6 +206,9 @@ func NewService(c Config) (*Service, error) {
 	var errs []error
 	if c.Store == nil || c.Catalog == nil || c.Recorder == nil || c.Emails == nil {
 		errs = append(errs, errors.New("store, catalog, audit recorder and emails are required"))
+	}
+	if c.Catalog != nil && (!c.Catalog.HasRole(RoleUser) || c.Catalog.RequiresMFA(RoleUser)) {
+		errs = append(errs, fmt.Errorf("the catalog must declare the %s role, without two-factor authentication", RoleUser))
 	}
 	if attempts < 1 || window <= 0 {
 		errs = append(errs, errors.New("login limit needs at least 1 attempt in a positive window"))

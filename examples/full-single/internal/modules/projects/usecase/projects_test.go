@@ -80,9 +80,16 @@ func newFixture(t *testing.T) *fixture {
 	return f
 }
 
-// as returns a request context signed in as userID.
+// as returns a request context signed in as userID, with the permissions
+// every user holds through the user role.
 func as(userID string) context.Context {
-	return actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: userID})
+	return asWith(userID, projectsusecase.PermRead, projectsusecase.PermWrite)
+}
+
+// asWith returns a request context signed in as userID with permissions
+// only, as for an API key limited to them.
+func asWith(userID string, permissions ...string) context.Context {
+	return actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: userID, Permissions: permissions})
 }
 
 // validFields returns fields that pass every rule.
@@ -118,6 +125,39 @@ func TestRequiresSignedInUser(t *testing.T) {
 				t.Errorf("%s with %s error = %v, want ErrUnauthenticated", op, name, err)
 			}
 		}
+	}
+}
+
+// TestRequiresPermission checks that the owner needs the permission of each
+// operation, as an API key scoped without it lacks it (ADR-0058).
+func TestRequiresPermission(t *testing.T) {
+	f := newFixture(t)
+	p := f.create(t, "usr_ada", "Website")
+	reader := asWith("usr_ada", projectsusecase.PermRead)
+	if got, err := f.svc.Get(reader, p.ID); err != nil || got != p {
+		t.Errorf("Get() with read permission = %+v, %v", got, err)
+	}
+	if res, err := f.svc.List(reader, projectsusecase.ListInput{}); err != nil || len(res.Items) != 1 {
+		t.Errorf("List() with read permission = %+v, %v", res, err)
+	}
+	_, createErr := f.svc.Create(reader, validFields())
+	_, updateErr := f.svc.Update(reader, p.ID, projectsusecase.UpdateInput{Version: p.Version})
+	deleteErr := f.svc.Delete(reader, p.ID)
+	for op, err := range map[string]error{"Create": createErr, "Update": updateErr, "Delete": deleteErr} {
+		if !errors.Is(err, projectsdomain.ErrForbidden) {
+			t.Errorf("%s with read permission only error = %v, want ErrForbidden", op, err)
+		}
+	}
+	none := asWith("usr_ada")
+	_, getErr := f.svc.Get(none, p.ID)
+	_, listErr := f.svc.List(none, projectsusecase.ListInput{})
+	for op, err := range map[string]error{"Get": getErr, "List": listErr} {
+		if !errors.Is(err, projectsdomain.ErrForbidden) {
+			t.Errorf("%s without permissions error = %v, want ErrForbidden", op, err)
+		}
+	}
+	if got, err := f.svc.Get(as("usr_ada"), p.ID); err != nil || got != p {
+		t.Errorf("project changed without permission: %+v, %v", got, err)
 	}
 }
 
