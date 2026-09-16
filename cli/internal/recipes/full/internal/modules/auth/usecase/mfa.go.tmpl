@@ -318,8 +318,9 @@ func (s *Service) passwordMatches(ctx context.Context, u authdomain.User, passwo
 }
 
 // passwordOrRecentSignIn confirms the account's owner before a sensitive
-// change: the password, or for an account without one (Google or Apple
-// only), a session that started within auth.RecentVerification (ADR-0046).
+// change: the password, or for an account without one (Google, Apple or
+// GitHub only), a session that started within auth.RecentVerification
+// (ADR-0046).
 func (s *Service) passwordOrRecentSignIn(ctx context.Context, p authlib.Principal, u authdomain.User, password string) (bool, error) {
 	if u.HasPassword() {
 		return s.passwordMatches(ctx, u, password)

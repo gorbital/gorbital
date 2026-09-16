@@ -2049,6 +2049,46 @@
           }
         },
         {
+          "name": "GitHub's return to the API",
+          "request": {
+            "method": "GET",
+            "description": "GitHub redirects here; the API redirects to the sign-in's or link's `return_to`.",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/github/callback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "github",
+                "callback"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "state",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "error",
+                  "value": "string",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "Google's return to the API",
           "request": {
             "method": "GET",
@@ -2126,7 +2166,7 @@
           }
         },
         {
-          "name": "List linked Google and Apple accounts",
+          "name": "List linked Google, Apple and GitHub accounts",
           "request": {
             "method": "GET",
             "auth": {
@@ -2195,7 +2235,7 @@
           }
         },
         {
-          "name": "Unlink a Google or Apple account",
+          "name": "Unlink a Google, Apple or GitHub account",
           "request": {
             "method": "DELETE",
             "description": "Send the password unless this session verified a second factor in the last 10 minutes. Not allowed for the account's last way to sign in.",
@@ -3166,7 +3206,7 @@
           "name": "Verify an email address with its code",
           "request": {
             "method": "POST",
-            "description": "Each code allows 5 attempts, and each address `auth.code_attempts` a day across codes (429). Verifying signs out every device and removes any passkey, authenticator app or Google or Apple link added before the address was proven.",
+            "description": "Each code allows 5 attempts, and each address `auth.code_attempts` a day across codes (429). Verifying signs out every device and removes any passkey, authenticator app or Google, Apple or GitHub link added before the address was proven.",
             "auth": {
               "type": "noauth"
             },
@@ -3236,6 +3276,55 @@
           }
         },
         {
+          "name": "Start linking a GitHub account",
+          "request": {
+            "method": "POST",
+            "description": "GitHub has no ID token for `POST /v1/auth/identities`, so a signed-in user links it through GitHub's page. Call this with the browser's credentials (fetch with `credentials: \"include\"`); it sets a short-lived cookie in that browser and returns the GitHub URL to open in it. Send the password unless this session verified a second factor in the last 10 minutes. GitHub returns to the callback, which links the GitHub account to this user, only while this session is active, and redirects to `return_to`, or to `return_to#error=\u003ccode\u003e` (`identity_in_use`, `unauthenticated`, `invalid_state`, `access_denied`). Nobody is signed in by it.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/:provider/link",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                ":provider",
+                "link"
+              ],
+              "variable": [
+                {
+                  "key": "provider",
+                  "value": "github"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"string\",\n  \"return_to\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "Get a nonce for a native sign-in",
           "request": {
             "method": "POST",
@@ -3265,7 +3354,7 @@
           }
         },
         {
-          "name": "Sign in with Google or Apple in a browser",
+          "name": "Sign in with Google, Apple or GitHub in a browser",
           "request": {
             "method": "GET",
             "description": "Open it in the browser (a link or redirect, not fetch): it sets a short-lived cookie and redirects to the provider. The provider returns to the callback, which redirects to `return_to` signed in, or with `#mfa_challenge_token=…\u0026methods=…` for a second factor, or `#error=\u003ccode\u003e`.",
@@ -3288,7 +3377,7 @@
                 {
                   "key": "return_to",
                   "value": "string",
-                  "description": "Where to send the browser afterwards: an absolute URL on the API's origin or an APP_CORS_ORIGINS origin. Default: the API docs",
+                  "description": "Where to send the browser afterwards: an absolute URL on the API's origin or an APP_CORS_ORIGINS origin. Default: AUTH_DEFAULT_RETURN_TO (in development, the API docs)",
                   "disabled": true
                 }
               ],

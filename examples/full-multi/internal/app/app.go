@@ -243,7 +243,7 @@ func (a *App) build(ctx context.Context) error {
 
 	// Authentication: users, sessions and the platform roles that grant ops
 	// permissions (permissions.go).
-	google, apple := a.cfg.Social.providers(a.cfg.ProviderEndpoints)
+	google, apple, gitHub := a.cfg.Social.providers(a.cfg.ProviderEndpoints)
 	a.auth, err = authmodule.New(pool, authusecase.Config{
 		LoginLimiter:            limits.login,
 		LoginAddressLimiter:     limits.loginAddress,
@@ -255,9 +255,10 @@ func (a *App) build(ctx context.Context) error {
 		APIKeyMaxTTL:            appSettings.authAPIKeyMaxTTL,
 		Google:                  google,
 		Apple:                   apple,
+		GitHub:                  gitHub,
 		PublicURL:               a.cfg.Social.PublicURL,
 		ReturnOrigins:           a.cfg.returnOrigins(),
-		DefaultReturnTo:         a.cfg.Social.PublicURL + "/docs",
+		DefaultReturnTo:         a.cfg.Social.DefaultReturnTo,
 		Catalog:                 declarePermissions(),
 		Recorder:                recorder,
 		Emails:                  authlib.NewMailEmails(mailer, ServiceName),

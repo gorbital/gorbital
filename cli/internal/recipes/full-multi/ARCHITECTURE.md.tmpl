@@ -25,7 +25,7 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   orgs_service_accounts.go organisation service accounts: OrgAccess for the auth module and their routes
   keys.go                AUTH_ENCRYPTION_KEYS: the keyring for two-factor authentication secrets
   passkeys.go            WEBAUTHN_*: the passkey relying party and the /.well-known files for apps
-  social.go              GOOGLE_*, APPLE_*, APP_PUBLIC_URL: Google and Apple sign-in providers
+  social.go              GOOGLE_*, APPLE_*, GITHUB_*, APP_PUBLIC_URL, AUTH_DEFAULT_RETURN_TO: Google, Apple and GitHub sign-in providers
   providers.go           sign-in method status: printed at start, auth-providers, /ops/auth/providers
   rate_limits.go         rate limits every instance shares (ratelimitpg), read from runtime settings
   idempotency.go         Idempotency-Key on POST and PATCH: stored responses replayed per caller (modules/idempotency)

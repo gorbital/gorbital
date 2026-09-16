@@ -144,29 +144,31 @@ Confirm:    POST /v1/auth/passkeys/verification → get() → DELETE /v1/auth/me
 
 Errors: `invalid_passkey` (401), `passkey_not_found` (404), `passkey_limit_reached` (409), `invalid_passkey_name` (422), `passkeys_unavailable` (503, `WEBAUTHN_RP_ID` not set).
 
-## Google and Apple sign-in
+## Google, Apple and GitHub sign-in
 
-People sign in with their Google or Apple account, in browsers and in native apps ([ADR-0046](../adr/0046-google-and-apple-sign-in.md)). Each is off until its credentials are set; creating them step by step: [sign-in provider setup](auth-providers.md) and the app's `AUTH_PROVIDERS.md`.
+People sign in with their Google or Apple account, in browsers and in native apps ([ADR-0046](../adr/0046-google-and-apple-sign-in.md)), or with GitHub in browsers ([ADR-0059](../adr/0059-github-sign-in.md)). Each is off until its credentials are set; creating them step by step: [sign-in provider setup](auth-providers.md), [GitHub sign-in](../sign-in/github.md) and the app's `AUTH_PROVIDERS.md`.
 
 ```text
-Browser:    GET /v1/auth/{google,apple}/start?return_to=… → provider → callback → 303 to return_to (session cookie, #mfa_challenge_token=…, or #error=…)
+Browser:    GET /v1/auth/{google,apple,github}/start?return_to=… → provider → callback → 303 to return_to (session cookie, #mfa_challenge_token=…, or #error=…)
 Native app: POST /v1/auth/{provider}/nonce → SDK sign-in with the nonce → POST /v1/auth/{provider}/token {id_token, nonce}
 ```
 
 | Endpoint | Needs a session | Purpose | Success |
 |---|---|---|---|
-| `GET /v1/auth/{provider}/start` | | `?return_to=` an absolute URL on the API's origin or `APP_CORS_ORIGINS`; sets a 10-minute `__Host-oauth` cookie and redirects | 302 |
-| `GET /v1/auth/google/callback`, `POST /v1/auth/apple/callback` | | The provider returns here; redirects to `return_to` | 303 |
+| `GET /v1/auth/{provider}/start` | | `?return_to=` an absolute URL on the API's origin or `APP_CORS_ORIGINS` (default: `AUTH_DEFAULT_RETURN_TO`, the API docs in development); sets a 10-minute `__Host-oauth` cookie and redirects | 302 |
+| `GET /v1/auth/google/callback`, `POST /v1/auth/apple/callback`, `GET /v1/auth/github/callback` | | The provider returns here; redirects to `return_to` | 303 |
 | `POST /v1/auth/{provider}/nonce` | | A single-use nonce for 5 minutes (Apple's iOS SDK takes its SHA-256 in hex) | 200 `{nonce, expires_at}` |
 | `POST /v1/auth/google/token` | | `{id_token, nonce, transport?}` from iOS or Android | 200 session or 202 challenge |
 | `POST /v1/auth/apple/token` | | `{id_token, nonce, authorization_code?, name?, transport?}` from iOS | 200 session or 202 challenge |
-| `GET /v1/auth/identities` | ✓ | Linked Google and Apple accounts | 200 `{identities}` |
+| `GET /v1/auth/identities` | ✓ | Linked Google, Apple and GitHub accounts | 200 `{identities}` |
 | `POST /v1/auth/identities` | ✓ | `{provider, id_token, nonce, authorization_code?, name?, password}`: link the provider account of an ID token (nonce from `POST /v1/auth/{provider}/nonce`); `password` unless the second factor is under 10 minutes old | 201 `{identity}`, 200 when already linked |
+| `POST /v1/auth/github/link` | ✓ | `{return_to?, password}`: start linking GitHub, which has no ID token; sets the `__Host-oauth` cookie in this browser and returns GitHub's URL to open in it. The callback links GitHub to this account while this session is active and redirects to `return_to` (or `#error=identity_in_use`, `unauthenticated`, `invalid_state`), signing nobody in | 200 `{url, expires_at}` |
 | `DELETE /v1/auth/identities/{id}` | ✓ | `{password}` unless the second factor is under 10 minutes old; accounts without a password sign in again first | 204 |
 | `POST /v1/auth/apple/notifications` | | Apple's server-to-server notifications | 204 |
 
 - **New people** get an account with no password (`user.has_password` false); they can set one with "forgot password". The address counts as verified (`user.email_verified`) only when the provider manages it (below). Otherwise the account works for signing in with that provider, but whoever proves the address by email later (a verification code or password reset) takes the account over: its sessions end and the provider link is removed. The person themselves verifies while signed in (`POST /v1/auth/verify-email/resend`, then `POST /v1/auth/verify-email` with their session) and keeps the link.
 - **An existing account with the same email** is linked by signing in only when the provider manages the address: Google for `gmail.com`, `googlemail.com` and the account's own Google Workspace domain (the `hd` claim), Apple for iCloud (`icloud.com`, `me.com`, `mac.com`) and its private relay addresses. The owner gets an email. For any other address a provider's "verified" only means the person controlled it when they added it, maybe years ago, so sign-in answers `social_link_required` (403): the owner signs in and links the provider with `POST /v1/auth/identities`, sending an ID token from Google's or Apple's SDK in a native app, or from Google Identity Services or Sign in with Apple JS in a browser.
+- **GitHub** is never authoritative: it doesn't host anyone's mail. Its accounts start unverified, it never links an existing account by signing in (`social_link_required`, for a Gmail address too), and it uses the GitHub account's primary address only when GitHub verified it (otherwise `social_email_unverified`). The owner of an existing account links it with `POST /v1/auth/github/link` from a frontend on the API's site (`app.example.com` with `api.example.com`): the request's cookie binds the link to that browser.
 - If that account never verified its email, linking by sign-in removes its password, ends its sessions, and removes any passkey, authenticator app or other identity, so whoever registered the address without owning it loses access.
 - **Two-factor authentication** still applies: an account with it on gets a challenge, as with a password.
 - **Accounts without a password** confirm sensitive changes (authenticator app setup, deleting the account, passkeys, unlinking) with a sign-in less than 10 minutes old.
@@ -224,8 +226,8 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 
 - **Registration** always answers "check your email", even if the address already has an account, and takes the same time (at least 300 ms) either way; the owner of an existing account gets an email saying someone tried to sign up. Resending a code and forgot password take the same time too.
 - **Registering again before verifying** sends a new code (at most once a minute) and keeps the password only when it's the same one. With a different password the account is left without one: nobody has proven they own the address yet, so neither the first nor the last registrant gets to choose the password of the account the owner verifies. After verifying, the owner sets a password with forgot password. Show that option when sign-in answers `invalid_credentials` right after verification.
-- **Verifying an address**, with its code or with a password reset code, signs out every session and removes any passkey, authenticator app, recovery codes and Google or Apple link the account got before its address was proven, unless the request is signed in to that account.
-- **Unverified accounts expire**: the `auth_cleanup` job deletes accounts still unverified after `auth.unverified_account_ttl` (7 days), freeing the address. Accounts with a Google or Apple link, and accounts sent a code within that time, are kept.
+- **Verifying an address**, with its code or with a password reset code, signs out every session and removes any passkey, authenticator app, recovery codes and Google, Apple or GitHub link the account got before its address was proven, unless the request is signed in to that account.
+- **Unverified accounts expire**: the `auth_cleanup` job deletes accounts still unverified after `auth.unverified_account_ttl` (7 days), freeing the address. Accounts with a Google, Apple or GitHub link, and accounts sent a code within that time, are kept.
 - **Roles** go only to verified accounts: `grant-role` refuses an unverified one.
 - **Wrong email or password** is one answer: `invalid_credentials`. `email_not_verified` appears only after the right password.
 - **Forgot password** always answers "check your email".
@@ -315,8 +317,8 @@ func (s *Service) CreateProject(ctx context.Context, name string) (Project, erro
 | `mfa_unavailable` | 503 | `AUTH_ENCRYPTION_KEYS` isn't set on this server |
 | `too_many_attempts` | 429 | Rate limited; `detail` says how long to wait |
 | `session_not_found` | 404 | Revoking a session that isn't yours or has ended |
-| `social_link_required` | 403 | Signing in with Google or Apple for the address of an existing account that provider doesn't manage; sign in and link it with `POST /v1/auth/identities` |
-| `identity_in_use` | 409 | Linking a Google or Apple account that another account has |
+| `social_link_required` | 403 | Signing in with Google, Apple or GitHub for the address of an existing account that provider doesn't manage; sign in and link it with `POST /v1/auth/identities` (GitHub: `POST /v1/auth/github/link`) |
+| `identity_in_use` | 409 | Linking a Google, Apple or GitHub account that another account has |
 | `session_required` | 403 | An API key used where a signed-in session is needed; other API key and service account codes are in the [API keys guide](api-keys.md#error-codes) |
 | `auth_unavailable` | 503 | The session store couldn't be reached, or too many passwords are being checked at once (each waits up to 5 seconds for its turn) |
 

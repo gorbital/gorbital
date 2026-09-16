@@ -32,11 +32,13 @@ Work through this list before real people use your app. Each line names the valu
 - [ ] `WEBAUTHN_ORIGINS` lists your https frontends, and the same addresses are in `APP_CORS_ORIGINS`.
 - [ ] If you have mobile apps: `WEBAUTHN_APPLE_APP_IDS` and `WEBAUTHN_ANDROID_APPS` set, and `https://<your domain>/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json` reachable. [Passkeys in mobile apps](passkeys-mobile.md).
 
-## 5. Google and Apple
+## 5. Google, Apple and GitHub
 
-- [ ] `APP_PUBLIC_URL` is your API's https address, such as `https://api.example.com`, if you use either.
+- [ ] `APP_PUBLIC_URL` is your API's https address, such as `https://api.example.com`, if you use any of them.
+- [ ] `AUTH_DEFAULT_RETURN_TO` is a page of your website that reads `#error=…`, such as `https://app.example.com/signed-in`, if you use any of them on the web: the app won't start without it in production. [After signing in](github.md#after-signing-in).
 - [ ] Google: production redirect URI `https://api.example.com/v1/auth/google/callback` added to the web client; consent screen **published** (in Testing, only listed test users can sign in); `GOOGLE_CLIENT_SECRET` stored as a secret. [Google sign-in](google.md).
 - [ ] Apple: production domain and return URL `https://api.example.com/v1/auth/apple/callback` on the Services ID; notification endpoint `https://api.example.com/v1/auth/apple/notifications` on the App ID; the `.p8` key stored as a secret file; your sending domain registered for Apple's private email relay. [Apple sign-in](apple.md).
+- [ ] GitHub: a production OAuth app whose callback URL is `https://api.example.com/v1/auth/github/callback`; `GITHUB_CLIENT_SECRET` stored as a secret. [GitHub sign-in](github.md).
 
 ## 6. Your first administrator
 

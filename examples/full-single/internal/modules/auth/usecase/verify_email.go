@@ -56,12 +56,12 @@ func (s *Service) VerifyEmail(ctx context.Context, email, code string) error {
 
 // claimAddress is called in the transaction that first proves who owns an
 // account's address. It ends the account's sessions and removes its
-// passkeys, authenticator app, recovery codes and Google and Apple
+// passkeys, authenticator app, recovery codes and Google, Apple and GitHub
 // identities (queuing Apple's tokens for revocation): whoever registered the
 // address before it was proven keeps nothing (security review AUTH-S-1).
 // Password sign-in needs a verified address, so such an account has these
-// only from a Google or Apple identity whose provider isn't authoritative
-// for the address, which is removed too.
+// only from an identity whose provider isn't authoritative for the address
+// (GitHub never is), which is removed too.
 //
 // A request signed in to the account itself removes nothing: whoever holds
 // that session got it from the account's own identity, and now proved the

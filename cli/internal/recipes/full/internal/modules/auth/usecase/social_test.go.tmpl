@@ -29,7 +29,8 @@ type socialFixture struct {
 	srv *socialtest.Server
 }
 
-// newSocialFixture configures Google and Apple against a fake provider.
+// newSocialFixture configures Google, Apple and GitHub against a fake
+// provider.
 func newSocialFixture(t *testing.T, configure ...func(*authusecase.Config)) *socialFixture {
 	t.Helper()
 	srv := socialtest.New(t)
@@ -50,8 +51,12 @@ func newSocialFixture(t *testing.T, configure ...func(*authusecase.Config)) *soc
 	if err != nil {
 		t.Fatal(err)
 	}
+	gitHub, err := social.NewGitHub(social.GitHubConfig{ClientID: "github-client", ClientSecret: "github-secret", Endpoints: srv.GitHubEndpoints()})
+	if err != nil {
+		t.Fatal(err)
+	}
 	withSocial := func(c *authusecase.Config) {
-		c.Google, c.Apple = google, apple
+		c.Google, c.Apple, c.GitHub = google, apple, gitHub
 		c.PublicURL, c.DefaultReturnTo = "http://localhost:8080", "http://localhost:8080/docs"
 		c.ReturnOrigins = []string{"http://localhost:8080", "https://app.example.com"}
 	}

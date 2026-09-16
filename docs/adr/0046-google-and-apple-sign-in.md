@@ -1,6 +1,6 @@
 # ADR-0046: Google and Apple sign-in
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0024, ADR-0043, ADR-0045 · **Amended by:** ADR-0053 (automatic linking only for provider-authoritative emails, explicit linking, Apple notification replay)
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0024, ADR-0043, ADR-0045 · **Amended by:** ADR-0053 (automatic linking only for provider-authoritative emails, explicit linking, Apple notification replay), ADR-0059 (default `return_to` from `AUTH_DEFAULT_RETURN_TO`, required in production; a redirect-based link for providers without ID tokens)
 
 ## Context
 

@@ -14,7 +14,7 @@ import (
 // what an earlier failure left behind.
 type AccountHooks interface {
 	// AccountCreated runs after an account is created: registration, a first
-	// Google or Apple sign-in, or CreateUser. Its error is logged, not
+	// Google, Apple or GitHub sign-in, or CreateUser. Its error is logged, not
 	// returned, because the account exists either way.
 	AccountCreated(ctx context.Context, userID string) error
 	// CheckAccountDeletion runs before the signed-in user's account is

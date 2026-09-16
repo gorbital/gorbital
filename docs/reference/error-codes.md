@@ -23,7 +23,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `forbidden` | 403 | The caller is signed in but lacks the permission: a platform role for `/ops`, or an organisation role for org-scoped endpoints. | Any endpoint |
 | `idempotency_in_progress` | 409 | A request with this idempotency key is still in progress; retry later. | Any endpoint |
 | `idempotency_key_reused` | 422 | This idempotency key was used for a different request; use a new key for a new request. | Any endpoint |
-| `identity_in_use` | 409 | This Google or Apple account is linked to another account. | `/v1/auth` |
+| `identity_in_use` | 409 | This Google, Apple or GitHub account is linked to another account. | `/v1/auth` |
 | `identity_not_found` | 404 | No linked account of yours has this ID. | `/v1/auth` |
 | `internal_error` | 500, any other 5xx | An unexpected error. The detail never includes the cause; it is logged once with the request ID. | Any endpoint |
 | `invalid_api_key_expiry` | 422 | expires_at must be at least an hour away and within auth.api_key_max_ttl. | `/v1/auth` |
@@ -47,7 +47,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `invalid_service_account` | 422 | A service account name must be 1 to 100 characters on one line, and its description at most 500. | `/v1/auth` |
 | `invalid_service_account_role` | 422 | Service accounts can't hold roles that require two-factor authentication or an organisation's owner role, nor a role above your own. | `/v1/auth` |
 | `invalid_setting_value` | 422 | The value isn't valid JSON, or fails the setting's type or constraints. | `/ops`; `/v1/orgs`, `/v1/invitations` |
-| `invalid_social_token` | 401 | The sign-in with Google or Apple couldn't be verified; start again. | `/v1/auth` |
+| `invalid_social_token` | 401 | The sign-in with Google, Apple or GitHub couldn't be verified; start again. | `/v1/auth` |
 | `invalid_sort` | 400 | Sort by one allowed field, with - for descending order. | List endpoints |
 | `invalid_state` | 401 | The sign-in expired or was started in another browser; start again. | `/v1/auth` |
 | `invalid_webhook_payload` | 400 | The webhook body is not an event. | `mailevents` module |

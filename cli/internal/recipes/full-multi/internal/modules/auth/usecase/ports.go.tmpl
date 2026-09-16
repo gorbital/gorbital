@@ -29,7 +29,7 @@ type UserStore interface {
 	MarkUserDeleted(ctx context.Context, userID string, now time.Time) error
 	// MarkUnverifiedUsersDeleted soft-deletes up to limit accounts created
 	// before createdBefore whose address was never verified, without a
-	// Google or Apple identity or a code sent since, and returns their IDs.
+	// Google, Apple or GitHub identity or a code sent since, and returns their IDs.
 	MarkUnverifiedUsersDeleted(ctx context.Context, createdBefore, now time.Time, limit int) ([]string, error)
 	// DeleteDeletedUsers removes accounts deleted before before, with their
 	// sessions, codes and roles.

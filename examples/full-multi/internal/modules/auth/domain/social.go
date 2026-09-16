@@ -5,10 +5,11 @@ import (
 	"time"
 )
 
-// Sign-in providers (ADR-0046).
+// Sign-in providers (ADR-0046, ADR-0059).
 const (
 	ProviderGoogle = "google"
 	ProviderApple  = "apple"
+	ProviderGitHub = "github"
 )
 
 const (
@@ -18,7 +19,7 @@ const (
 	SocialNonceTTL = 5 * time.Minute
 )
 
-// Errors returned by the Google and Apple sign-in use cases.
+// Errors returned by the Google, Apple and GitHub sign-in use cases.
 var (
 	// ErrSocialUnavailable reports a provider, or a flow of one, that isn't
 	// configured on this server.
@@ -52,7 +53,7 @@ var (
 	ErrIdentityInUse = errors.New("this provider account is linked to another account")
 )
 
-// Identity is a Google or Apple account linked to a user.
+// Identity is a Google, Apple or GitHub account linked to a user.
 type Identity struct {
 	ID       string
 	UserID   string
@@ -82,9 +83,15 @@ type OAuthState struct {
 	Nonce       string
 	Verifier    string
 	ReturnTo    string
-	ExpiresAt   time.Time
-	ConsumedAt  *time.Time
-	CreatedAt   time.Time
+	// LinkUserID and LinkSessionID are set when a signed-in user started the
+	// flow to link the provider to their account (ADR-0059): the callback
+	// links to that account, only while that session is active, and signs
+	// no one in.
+	LinkUserID    string
+	LinkSessionID string
+	ExpiresAt     time.Time
+	ConsumedAt    *time.Time
+	CreatedAt     time.Time
 }
 
 // UsableAt reports whether the sign-in can still finish at now.

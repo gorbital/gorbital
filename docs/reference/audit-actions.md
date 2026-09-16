@@ -18,9 +18,9 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | `auth.api_key.revoked` | An API key was revoked: by its owner, by an operator or organisation admin, or because its user reset their password, deleted their account or its service account was disabled. | `count`, `reason` |
 | `auth.email.verified` | A user verified their email address with the emailed code. |  |
 | `auth.identity.apple_notification` | Apple sent a server-to-server notification about a linked Apple account, such as consent revoked or the account deleted. | `before_link`, `known`, `replayed`, `sessions_ended`, `type` |
-| `auth.identity.linked` | A Google or Apple account was linked: at sign-up through the provider, or by a signed-in user. | `identity_id`, `new_account`, `provider`, `signed_in` |
+| `auth.identity.linked` | A Google, Apple or GitHub account was linked: at sign-up through the provider, or by a signed-in user (`flow`: `id_token`, or `web` for a link through the provider's page). | `flow`, `identity_id`, `new_account`, `provider`, `signed_in` |
 | `auth.identity.revocation_abandoned` | The `auth_revoke_tokens` job gave up revoking a provider's tokens after its attempts. | `attempts`, `provider`, `revocation_id` |
-| `auth.identity.unlinked` | A user unlinked a Google or Apple account. | `identity_id`, `provider` |
+| `auth.identity.unlinked` | A user unlinked a Google, Apple or GitHub account. | `identity_id`, `provider` |
 | `auth.keys.rotated` | `rotate-auth-keys` re-encrypted two-factor secrets with the first `AUTH_ENCRYPTION_KEYS` key. | `key_id`, `secrets` |
 | `auth.login.failed` | A sign-in failed: wrong password, unknown account, unverified provider email, invalid passkey and so on. `reason` says which. | `provider`, `reason` |
 | `auth.login.succeeded` | A user signed in and a session was created. | `method`, `mfa_method`, `session_id` |
@@ -49,7 +49,7 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | `auth.session.revoked` | One session ended: logout, or the user revoked it from their session list. | `reason`, `user_id` |
 | `auth.sessions.revoked` | A user signed out everywhere (logout-all). | `count`, `reason` |
 | `auth.user.created` | An operator or seed data created an account (`CreateUser`), not through sign-up. | `email_verified` |
-| `auth.user.registered` | Someone signed up, with a password or through Google or Apple. | `provider` |
+| `auth.user.registered` | Someone signed up, with a password or through Google, Apple or GitHub. | `provider` |
 
 ## Background jobs
 

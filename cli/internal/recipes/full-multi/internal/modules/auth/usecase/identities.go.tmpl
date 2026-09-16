@@ -23,7 +23,7 @@ const (
 	revocationLease = 10 * time.Minute
 )
 
-// ListIdentities returns the Google and Apple accounts linked to the
+// ListIdentities returns the Google, Apple and GitHub accounts linked to the
 // signed-in user, oldest first.
 func (s *Service) ListIdentities(ctx context.Context) ([]authdomain.Identity, error) {
 	p, err := requirePrincipal(ctx)
@@ -37,7 +37,7 @@ func (s *Service) ListIdentities(ctx context.Context) ([]authdomain.Identity, er
 	return identities, nil
 }
 
-// RemoveIdentity unlinks one of the signed-in user's Google or Apple
+// RemoveIdentity unlinks one of the signed-in user's Google, Apple or GitHub
 // accounts. It checks the user as confirmUser does, refuses to remove the
 // account's last way to sign in (no password, passkey or other identity
 // left), and queues Apple's token for revocation. It returns

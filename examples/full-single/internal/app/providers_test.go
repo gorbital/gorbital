@@ -31,6 +31,10 @@ func TestSignInMethodsThroughOps(t *testing.T) {
 		m["guide"] != "AUTH_PROVIDERS.md#passkeys-in-ios-apps" {
 		t.Errorf("passkeys_ios = %v, want disabled with what to set", m)
 	}
+	if m := methods["github"]; m["enabled"] != false || !slices.Equal(m["missing"].([]any), []any{"GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"}) ||
+		m["guide"] != "AUTH_PROVIDERS.md#github-sign-in" {
+		t.Errorf("github = %v, want disabled with what to set", m)
+	}
 	if m := methods["authenticator_app"]; m["enabled"] != true {
 		t.Errorf("authenticator_app = %v, want enabled with encryption keys", m)
 	}
