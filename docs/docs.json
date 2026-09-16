@@ -95,7 +95,8 @@
             { "title": "Error handling", "slug": "technical/error-handling", "source": "docs/guides/error-handling.md" },
             { "title": "Ops API", "slug": "technical/ops-api", "source": "docs/guides/ops-api.md" },
             { "title": "Local development", "slug": "technical/local-development", "source": "docs/guides/local-development.md" },
-            { "title": "Dev console APIs", "slug": "technical/dev-console", "source": "docs/guides/dev-console.md" }
+            { "title": "Dev console APIs", "slug": "technical/dev-console", "source": "docs/guides/dev-console.md" },
+            { "title": "Dev Portal", "slug": "technical/dev-portal", "source": "docs/guides/dev-portal.md" }
           ]
         },
         {

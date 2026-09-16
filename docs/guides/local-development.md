@@ -21,6 +21,18 @@ orb version
 
 If `orb` isn't found, add `$(go env GOPATH)/bin` to your `PATH`. Reinstall after pulling changes. See the [CLI guide](cli.md).
 
+## The Dev Portal UI
+
+`orb dev` serves the [Dev Portal](dev-portal.md), whose UI is built in [gorbital-dashboards](https://github.com/gorbital/gorbital-dashboards) and embedded in `orb` at build time. A plain checkout builds an `orb` that serves a placeholder page instead; the API and proxy still work, and every Go test passes without Node. To embed the UI:
+
+```bash
+git clone https://github.com/gorbital/gorbital-dashboards.git ../gorbital-dashboards   # next to this checkout
+scripts/sync-portal.sh               # needs Node 22 and pnpm 10; copies the export into cli/internal/portal/ui/dist (ignored by git)
+cd cli && go install ./cmd/orb
+```
+
+The release workflow runs the same script at a pinned gorbital-dashboards ref, so released binaries carry the UI.
+
 ## Repository layout
 
 Each directory with a `go.mod` is its own Go module: the core library at the root, `modules/*`, `cli`, and each `examples/*` app. Run Go commands inside the module you are working on; `replace` directives point modules at the local checkout.

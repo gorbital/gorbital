@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Eve
 
 Nothing here is tagged yet. v1.0 (stable, awaiting the external security review) and v1.1 (done) are both on the development branch; each keeps its own section so the v1.0 release notes stay separate.
 
+### Dev Portal, phase 0 ([ADR-0066](docs/adr/0066-dev-portal.md), [roadmap](docs/dev-portal-roadmap.md))
+
+#### Added
+
+- `orb dev` serves the Dev Portal at http://127.0.0.1:3100 and opens it in the browser: the portal UI (a static export of gorbital-dashboards' `apps/devtools`, embedded in `orb` by `scripts/sync-portal.sh`; a plain checkout serves a placeholder page), `GET /_portal/api/status`, `GET /_portal/api/output`, `GET /_portal/api/events` (Server-Sent Events with the app's state and output), `POST /_portal/api/app/restart`, `stop` and `start`, `POST /_portal/api/generators/{job|resource|migration}/plan` and `/apply`, and a proxy under `/_portal/app/` that adds the dev console token to `/_dev/` requests. A per-run token in the printed link sets an `HttpOnly`, `SameSite=Strict` cookie; every API request needs a loopback `Host`, a loopback peer, the token and, for writes, an `X-Orb-Portal` header. Flags `--portal-port`, `--no-portal`, `--no-open`; `DEV_PORTAL_PORT` in `.env`; `DEV_PORTAL_TOKEN` in `orb dev`'s environment ([guide](docs/guides/dev-portal.md)).
+- `orb dev` is a supervisor: it keeps the app's state (preparing, building, running, stopped, with the last build or migration problem), copies the app's and its own output for the portal, and takes restart, stop and start requests.
+- `cli/internal/genplan`: generators plan before they write. `orb gen job`, `orb gen resource` and `orb gen migration` build a plan of file changes and apply it; a plan is refused when a file it changes was edited since (`ErrStale`) or a file it creates exists (`ErrExists`). Output, `--dry-run` and `--json` are unchanged.
+
 ### v1.1: Operations and integrations
 
 #### Added

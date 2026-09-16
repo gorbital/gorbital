@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"go/token"
 	"io"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 
+	"gorbital.dev/cli/internal/genplan"
 	"gorbital.dev/cli/internal/recipes"
 )
 
@@ -155,46 +155,15 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		in.schedule = "0 3 * * *"
 	}
 
-	data, err := jobData(app.module, in)
+	plan, err := planJob(app, in)
 	if err != nil {
 		return err
 	}
-	files, err := recipes.RenderJob(data)
-	if err != nil {
-		return err
-	}
-	jobsGo := filepath.Join("internal", "app", "jobs.go")
-	src, err := os.ReadFile(filepath.Join(app.dir, jobsGo))
-	if errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("%s has no %s: orb gen job works in apps created with the Full preset", app.dir, jobsGo)
-	} else if err != nil {
-		return err
-	}
-	callLine := "define" + data.Ident + "Job(defs, deps)"
-	updated, err := recipes.InsertAfterAnchor(src, recipes.JobAnchor, callLine)
-	if errors.Is(err, recipes.ErrAnchorMissing) {
-		return fmt.Errorf("%s has no %q line; add it inside defineJobs, then run orb gen job again", jobsGo, recipes.JobAnchor)
-	} else if err != nil {
-		return fmt.Errorf("%s: job %s is already registered: %w", jobsGo, data.Name, err)
-	}
+	result := plan.Result.(genJobResult)
+	result.DryRun = *dryRun
 
-	root, err := os.OpenRoot(app.dir)
-	if err != nil {
-		return err
-	}
-	defer root.Close()
-	result := genJobResult{Name: data.Ident, Definition: data.Name, DryRun: *dryRun}
-	for _, f := range files {
-		if _, err := root.Stat(f.Path); err == nil {
-			return fmt.Errorf("%s already exists; choose another job name", f.Path)
-		}
-		result.Files = append(result.Files, f.Path)
-	}
-	result.Files = append(result.Files, filepath.ToSlash(jobsGo))
-
-	summary := jobSummary(data, result.Files)
 	if !*dryRun && shouldPrompt(p, *asJSON, stdin, stdout) {
-		ok, err := confirm("Generate this job?", summary, p, stdin, stderr)
+		ok, err := confirm("Generate this job?", plan.Summary, p, stdin, stderr)
 		if err != nil {
 			return err
 		}
@@ -209,15 +178,7 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 				return err
 			}
 		}
-		for _, f := range files {
-			if err := root.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
-				return err
-			}
-			if err := root.WriteFile(f.Path, f.Content, 0o644); err != nil {
-				return err
-			}
-		}
-		if err := root.WriteFile(jobsGo, updated, 0o644); err != nil {
+		if err := genplan.Apply(app.dir, plan); err != nil {
 			return err
 		}
 	}
@@ -229,12 +190,21 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 	if *dryRun {
 		verb = "Would create (dry run)"
 	}
-	fmt.Fprintf(stdout, "✓ %s job %s\n\n%s\n", verb, data.Name, summary)
+	fmt.Fprintf(stdout, "✓ %s job %s\n\n%s\n", verb, result.Definition, plan.Summary)
 	if !*dryRun {
-		fmt.Fprintf(stdout, "\nNext:\n  1. Write the job in internal/jobs/%s/%s.go (Work)\n  2. go test ./internal/app -run TestPublicSurface -update (records the job name)\n  3. go test ./...\n  4. go run ./cmd/api\n\n"+
-			"Change its schedule, timeout or retries any time, without a deploy:\n  PUT /ops/jobs/definitions/%s\n", data.Package, data.Package, data.Name)
+		fmt.Fprintf(stdout, "\nNext:\n%s\n"+
+			"Change its schedule, timeout or retries any time, without a deploy:\n  PUT /ops/jobs/definitions/%s\n", numbered(plan.Next), result.Definition)
 	}
 	return nil
+}
+
+// numbered formats steps as an indented, numbered list.
+func numbered(steps []string) string {
+	var b strings.Builder
+	for i, step := range steps {
+		fmt.Fprintf(&b, "  %d. %s\n", i+1, step)
+	}
+	return b.String()
 }
 
 // promptJob asks for every value not given by a flag. It asks in short
