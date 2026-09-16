@@ -214,7 +214,10 @@ func (a *App) build(ctx context.Context) error {
 	google, apple := a.cfg.Social.providers(a.cfg.ProviderEndpoints)
 	a.auth, err = authmodule.New(pool, authusecase.Config{
 		LoginLimiter:            limits.login,
+		LoginAddressLimiter:     limits.loginAddress,
 		MFALimiter:              limits.mfa,
+		ReauthLimiter:           limits.reauth,
+		CodeLimiter:             limits.code,
 		NoticeLimiter:           limits.notice,
 		Google:                  google,
 		Apple:                   apple,

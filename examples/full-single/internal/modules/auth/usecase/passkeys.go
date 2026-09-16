@@ -34,9 +34,10 @@ type PasskeyRegistration struct {
 
 // BeginPasskeyRegistration starts adding a passkey for the signed-in user.
 // It checks the user as confirmUser does. It returns ErrInvalidCredentials,
-// ErrInvalidMFA, ErrPasskeyLimitReached or ErrPasskeysUnavailable.
+// ErrInvalidMFA, ErrPasskeyLimitReached, ErrPasskeysUnavailable or a
+// *RateLimitError when the user's re-authentication budget is spent.
 func (s *Service) BeginPasskeyRegistration(ctx context.Context, password string) (PasskeyCeremony, error) {
-	p, err := requirePrincipal(ctx)
+	p, err := s.reauthPrincipal(ctx)
 	if err != nil {
 		return PasskeyCeremony{}, err
 	}
@@ -80,7 +81,7 @@ func (s *Service) BeginPasskeyRegistration(ctx context.Context, password string)
 	case err != nil:
 		return PasskeyCeremony{}, dbError("start passkey registration", err)
 	case state != nil:
-		return PasskeyCeremony{}, state
+		return PasskeyCeremony{}, s.reauthFailed(ctx, p.UserID, state)
 	}
 	return out, nil
 }
@@ -217,9 +218,9 @@ func (s *Service) RenamePasskey(ctx context.Context, id, name string) error {
 // user as confirmUser does, and refuses to remove the last second factor
 // while a role requires one. Removing the last second factor also deletes
 // the recovery codes. It returns ErrInvalidCredentials, ErrInvalidMFA,
-// ErrPasskeyNotFound or ErrMFARequiredByRole.
+// ErrPasskeyNotFound, ErrMFARequiredByRole or a *RateLimitError.
 func (s *Service) RemovePasskey(ctx context.Context, id, password string) error {
-	p, err := requirePrincipal(ctx)
+	p, err := s.reauthPrincipal(ctx)
 	if err != nil {
 		return err
 	}
@@ -274,7 +275,7 @@ func (s *Service) RemovePasskey(ctx context.Context, id, password string) error 
 	case err != nil:
 		return dbError("remove passkey", err)
 	case state != nil:
-		return state
+		return s.reauthFailed(ctx, p.UserID, state)
 	}
 	s.sent(ctx, "passkey_removed", s.emails.SendPasskeyRemoved(ctx, to, name))
 	e := userEvent("auth.passkey.removed", p.UserID, authlib.ClientInfoFromContext(ctx))
@@ -483,10 +484,13 @@ func (s *Service) BeginPasskeyVerification(ctx context.Context) (PasskeyCeremony
 // needs a session verified with a second factor. It returns
 // ErrInvalidCredentials or ErrInvalidMFA as state.
 func (s *Service) confirmUser(ctx context.Context, tx Store, p authlib.Principal, u authdomain.User, password string) (state, err error) {
-	switch {
-	case p.RecentlyVerified(s.now()):
+	if p.RecentlyVerified(s.now()) {
 		return state, nil
-	case !s.passwordOrRecentSignIn(p, u, password):
+	}
+	switch ok, err := s.passwordOrRecentSignIn(ctx, p, u, password); {
+	case err != nil:
+		return state, err
+	case !ok:
 		return authdomain.ErrInvalidCredentials, nil
 	case p.MFAVerified:
 		return state, nil

@@ -42,6 +42,14 @@ var (
 	// ErrIdentityTaken reports an identity linked at the same moment by
 	// another request.
 	ErrIdentityTaken = errors.New("identity already linked")
+	// ErrSocialLinkRequired reports a new identity whose email address has an
+	// account, from a provider that isn't authoritative for the address: the
+	// account's owner signs in and links it with LinkIdentity (security
+	// review AUTH-M-1).
+	ErrSocialLinkRequired = errors.New("an account with this email address exists; sign in and link the provider from the account")
+	// ErrIdentityInUse reports linking an identity that is linked to another
+	// account.
+	ErrIdentityInUse = errors.New("this provider account is linked to another account")
 )
 
 // Identity is a Google or Apple account linked to a user.

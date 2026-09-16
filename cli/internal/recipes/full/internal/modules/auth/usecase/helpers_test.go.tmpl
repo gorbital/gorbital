@@ -200,6 +200,8 @@ func newFixture(t *testing.T, configure ...func(*authusecase.Config)) *fixture {
 		Recorder: f.audit,
 		Emails:   f.emails,
 		Now:      f.clock.now,
+		// Timing is tested on its own (TestAnonymousFlowsTakeTheSameTime).
+		MinResponseTime: -1,
 	}
 	for _, c := range configure {
 		c(&cfg)

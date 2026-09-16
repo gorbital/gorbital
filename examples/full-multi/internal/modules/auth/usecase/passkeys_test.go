@@ -10,6 +10,7 @@ import (
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/auth/passkey"
 	"gorbital.dev/modules/auth/passkey/passkeytest"
+	"gorbital.dev/ratelimit"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"
@@ -141,7 +142,9 @@ func TestPasskeyRegistrationAndSignIn(t *testing.T) {
 }
 
 func TestPasskeyRejections(t *testing.T) {
-	f := newFixture(t, withPasskeys)
+	// Registering the most passkeys needs more checks of the password than
+	// the re-authentication limit allows.
+	f := newFixture(t, withPasskeys, func(c *authusecase.Config) { c.ReauthLimiter = ratelimit.New(1, 100) })
 	f.signUp(t, "ada@example.com")
 	ctx, res := f.login(t, "ada@example.com")
 	laptop := passkeytest.New(passkeyOrigin)

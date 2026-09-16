@@ -43,6 +43,9 @@ func registerAuth(api huma.API, mapper *httpx.Mapper, m *authmodule.Module) erro
 		httpx.Mapping{Err: authdomain.ErrIdentityNotFound, Status: http.StatusNotFound, Code: "identity_not_found", Detail: "no linked account of yours has this ID"},
 		httpx.Mapping{Err: authdomain.ErrLastSignInMethod, Status: http.StatusConflict, Code: "last_sign_in_method", Detail: "this is the account's last way to sign in; set a password or add a passkey first"},
 		httpx.Mapping{Err: authdomain.ErrSocialUnavailable, Status: http.StatusServiceUnavailable, Code: "social_unavailable", Detail: "this sign-in provider isn't configured on this server (see AUTH_PROVIDERS.md)"},
+		httpx.Mapping{Err: authdomain.ErrSocialLinkRequired, Status: http.StatusForbidden, Code: "social_link_required", Detail: "an account with this email address exists; sign in to it and link this provider from the account"},
+		httpx.Mapping{Err: authdomain.ErrIdentityInUse, Status: http.StatusConflict, Code: "identity_in_use", Detail: "this Google or Apple account is linked to another account"},
+		httpx.Mapping{Err: authlib.ErrHasherBusy, Status: http.StatusServiceUnavailable, Code: "auth_unavailable", Detail: "authentication is temporarily unavailable; try again shortly"},
 	)
 	if err != nil {
 		return fmt.Errorf("auth module: %w", err)

@@ -18,7 +18,7 @@ import (
 // response to BeginPasskeySecondFactor, and starts a session verified with a
 // second factor. An unknown, expired, used or exhausted challenge and a wrong
 // factor all return ErrInvalidMFA. Each challenge allows 5 attempts in 5
-// minutes, and the attempts count toward the address's login limit
+// minutes, and the attempts count toward the address's login limits
 // (*RateLimitError).
 func (s *Service) LoginMFA(ctx context.Context, challengeToken string, factor authdomain.SecondFactor) (LoginResult, error) {
 	client := authlib.ClientInfoFromContext(ctx)
@@ -50,7 +50,7 @@ func (s *Service) LoginMFA(ctx context.Context, challengeToken string, factor au
 		if err != nil {
 			return err
 		}
-		if ok, wait := s.allow(ctx, s.loginLimiter, u.NormalizedEmail); !ok {
+		if ok, wait := s.allowLogin(ctx, u.NormalizedEmail, client); !ok {
 			limited, retry = true, wait
 			return nil
 		}

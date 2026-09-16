@@ -37,7 +37,7 @@ type loginMFAInput struct {
 		_              struct{}       `json:"-" additionalProperties:"true"`
 		ChallengeToken string         `json:"challenge_token" maxLength:"256" doc:"From the 202 response of POST /v1/auth/login"`
 		Code           string         `json:"code,omitempty" maxLength:"16" example:"123456" doc:"A code from the authenticator app"`
-		RecoveryCode   string         `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"A recovery code, instead of code"`
+		RecoveryCode   string         `json:"recovery_code,omitempty" maxLength:"32" example:"abcd-efgh-ijkl-mnop" doc:"A recovery code, instead of code"`
 		Passkey        *PasskeyFactor `json:"passkey,omitempty" doc:"A passkey's response, instead of code"`
 		Transport      string         `json:"transport,omitempty" enum:"cookie,bearer" default:"cookie" doc:"cookie (browsers): an HttpOnly session cookie; bearer (native apps): the token in the response"`
 	}
@@ -70,7 +70,7 @@ type disableTOTPInput struct {
 		_            struct{}       `json:"-" additionalProperties:"true"`
 		Password     string         `json:"password" maxLength:"512"`
 		Code         string         `json:"code,omitempty" maxLength:"16" example:"123456" doc:"A code from the authenticator app"`
-		RecoveryCode string         `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"A recovery code, instead of code"`
+		RecoveryCode string         `json:"recovery_code,omitempty" maxLength:"32" example:"abcd-efgh-ijkl-mnop" doc:"A recovery code, instead of code"`
 		Passkey      *PasskeyFactor `json:"passkey,omitempty" doc:"A passkey's response, instead of code"`
 	}
 }

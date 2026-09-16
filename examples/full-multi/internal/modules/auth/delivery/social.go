@@ -93,6 +93,23 @@ type appleTokenInput struct {
 	}
 }
 
+type identityOutput struct {
+	Status int
+	Body   IdentityResponse
+}
+
+type linkIdentityInput struct {
+	Body struct {
+		_                 struct{} `json:"-" additionalProperties:"true"`
+		Provider          string   `json:"provider" enum:"google,apple"`
+		IDToken           string   `json:"id_token" maxLength:"16384" doc:"The ID token from Google's or Apple's SDK, or from Google Identity Services or Sign in with Apple JS in a browser"`
+		Nonce             string   `json:"nonce" maxLength:"256" doc:"From POST /v1/auth/{provider}/nonce, as put in the request (for Apple, before hashing)"`
+		AuthorizationCode string   `json:"authorization_code,omitempty" maxLength:"4096" doc:"Apple only: exchanged for a refresh token revoked when the account is deleted"`
+		Name              string   `json:"name,omitempty" maxLength:"200" doc:"Apple only: the name Apple gives the first time"`
+		Password          string   `json:"password,omitempty" maxLength:"512" doc:"Required unless this session verified a second factor in the last 10 minutes; accounts without a password sign in again instead"`
+	}
+}
+
 // removeIdentityInput's body is optional, like removePasskeyInput's.
 type removeIdentityInput struct {
 	ID   string `path:"id" maxLength:"64" example:"idn_nbswy3dpeb3w64tmmq"`
@@ -153,6 +170,17 @@ func registerSocial(api huma.API, h *handler, public, signedIn func(huma.Operati
 		OperationID: "auth-list-identities", Method: http.MethodGet, Path: "/v1/auth/identities",
 		Summary: "List linked Google and Apple accounts",
 	}), h.listIdentities)
+	huma.Register(api, signedIn(huma.Operation{
+		OperationID: "auth-link-identity", Method: http.MethodPost, Path: "/v1/auth/identities",
+		Summary: "Link a Google or Apple account",
+		Description: "Links the provider account of an ID token to the signed-in user: get a nonce from `POST /v1/auth/{provider}/nonce`, put it in the SDK's " +
+			"(or Google Identity Services' or Sign in with Apple JS's) request, then send the ID token here. Send the password unless this session verified " +
+			"a second factor in the last 10 minutes. Signing in with a provider links an existing account by itself only when the provider manages the " +
+			"address (Gmail, Google Workspace, iCloud, Apple relay); otherwise sign-in answers `social_link_required` and the user links here. " +
+			"201 with the identity; 200 when it was already linked.",
+		DefaultStatus: http.StatusCreated,
+		Errors:        []int{http.StatusForbidden, http.StatusConflict, http.StatusTooManyRequests, http.StatusServiceUnavailable},
+	}), h.linkIdentity)
 	huma.Register(api, signedIn(huma.Operation{
 		OperationID: "auth-remove-identity", Method: http.MethodDelete, Path: "/v1/auth/identities/{id}",
 		Summary:       "Unlink a Google or Apple account",
@@ -227,6 +255,7 @@ func socialErrorCode(err error) string {
 		authdomain.ErrInvalidState:          "invalid_state",
 		authdomain.ErrInvalidSocialToken:    "invalid_social_token",
 		authdomain.ErrSocialEmailUnverified: "social_email_unverified",
+		authdomain.ErrSocialLinkRequired:    "social_link_required",
 		authdomain.ErrSocialUnavailable:     "social_unavailable",
 		authdomain.ErrMFAUnavailable:        "mfa_unavailable",
 	} {
@@ -282,11 +311,27 @@ func (h *handler) listIdentities(ctx context.Context, _ *struct{}) (*identityLis
 	}
 	out := &identityListOutput{Body: IdentityList{Identities: make([]IdentityResponse, len(identities))}}
 	for i, id := range identities {
-		out.Body.Identities[i] = IdentityResponse{
-			ID: id.ID, Provider: id.Provider, Email: id.Email, PrivateEmail: id.PrivateEmail, Name: id.Name, CreatedAt: id.CreatedAt, LastUsedAt: id.LastUsedAt,
-		}
+		out.Body.Identities[i] = identityResponse(id)
 	}
 	return out, nil
+}
+
+func identityResponse(id authdomain.Identity) IdentityResponse {
+	return IdentityResponse{
+		ID: id.ID, Provider: id.Provider, Email: id.Email, PrivateEmail: id.PrivateEmail, Name: id.Name, CreatedAt: id.CreatedAt, LastUsedAt: id.LastUsedAt,
+	}
+}
+
+func (h *handler) linkIdentity(ctx context.Context, in *linkIdentityInput) (*identityOutput, error) {
+	id, added, err := h.svc.LinkIdentity(ctx, in.Body.Provider, in.Body.IDToken, in.Body.Nonce, in.Body.AuthorizationCode, in.Body.Name, in.Body.Password)
+	if err != nil {
+		return nil, authError(err)
+	}
+	status := http.StatusCreated
+	if !added {
+		status = http.StatusOK
+	}
+	return &identityOutput{Status: status, Body: identityResponse(id)}, nil
 }
 
 func (h *handler) removeIdentity(ctx context.Context, in *removeIdentityInput) (*struct{}, error) {

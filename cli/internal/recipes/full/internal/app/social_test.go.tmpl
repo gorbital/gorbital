@@ -2,10 +2,13 @@ package app_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"maps"
@@ -15,7 +18,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"gorbital.dev/actor"
 	"gorbital.dev/config"
 	"gorbital.dev/modules/auth/social/socialtest"
 
@@ -130,6 +135,113 @@ func TestSocialSignInEndToEnd(t *testing.T) {
 	}
 	if r := do(t, h, "POST", "/v1/auth/apple/notifications", `{"payload":"forged"}`); r.code != http.StatusUnauthorized {
 		t.Errorf("POST /v1/auth/apple/notifications with a forged payload = %d %s", r.code, r.body)
+	}
+}
+
+// TestSocialLinkingEndToEnd: Google sign-in with an address Google doesn't
+// manage doesn't sign in to the existing account of that address; its owner
+// links Google while signed in (security review AUTH-M-1). This was the
+// reviewers' proof of concept.
+func TestSocialLinkingEndToEnd(t *testing.T) {
+	srv := socialtest.New(t)
+	a := newApp(t, socialEnv(t), func(c *app.Config) {
+		c.ProviderEndpoints.Google, c.ProviderEndpoints.Apple = srv.Endpoints(), srv.Endpoints()
+	})
+	h := a.Handler()
+	ctx := actor.With(context.Background(), actor.System("test"))
+	const email = "victim@corp.example"
+	owner, err := a.Auth().CreateUser(ctx, email, testPassword, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	google := socialtest.Claims{Subject: "g-victim", Audience: "web-client", Email: email, EmailVerified: true}
+	webSignIn := func() response {
+		t.Helper()
+		start := do(t, h, "GET", "/v1/auth/google/start?return_to="+url.QueryEscape("https://app.example.com/after"), "")
+		location, _ := url.Parse(start.header.Get("Location"))
+		c := google
+		c.Nonce = location.Query().Get("nonce")
+		return do(t, h, "GET", "/v1/auth/google/callback?code="+url.QueryEscape(srv.Code(c, ""))+"&state="+url.QueryEscape(location.Query().Get("state")), "",
+			"Cookie", "__Host-oauth="+cookieValue(start, "__Host-oauth"))
+	}
+	if r := webSignIn(); r.header.Get("Location") != "https://app.example.com/after#error=social_link_required" || cookieValue(r, "__Host-session") != "" {
+		t.Fatalf("Google sign-in with the address of an account = %d %q %v, want #error=social_link_required and no session", r.code, r.header.Get("Location"), r.header.Values("Set-Cookie"))
+	}
+
+	session := cookieHeader(t, do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":%q,"password":%q}`, email, testPassword)))
+	link := func(headers ...string) response {
+		t.Helper()
+		nonce := fmt.Sprint(do(t, h, "POST", "/v1/auth/google/nonce", "").json["nonce"])
+		c := google
+		c.Nonce = nonce
+		return do(t, h, "POST", "/v1/auth/identities", fmt.Sprintf(`{"provider":"google","id_token":%q,"nonce":%q,"password":%q}`, srv.IDToken(c), nonce, testPassword), headers...)
+	}
+	if r := link(session...); r.code != http.StatusCreated || r.json["provider"] != "google" || r.json["email"] != email {
+		t.Fatalf("POST /v1/auth/identities = %d %s, want 201", r.code, r.body)
+	}
+	if r := link(session...); r.code != http.StatusOK {
+		t.Errorf("POST /v1/auth/identities again = %d %s, want 200", r.code, r.body)
+	}
+	signedIn := webSignIn()
+	me := do(t, h, "GET", "/v1/auth/me", "", "Cookie", "__Host-session="+cookieValue(signedIn, "__Host-session"))
+	if user, _ := me.json["user"].(map[string]any); me.code != http.StatusOK || user["id"] != owner.ID {
+		t.Errorf("Google sign-in after linking = %d %s, want the owner's account", me.code, me.body)
+	}
+
+	if _, err := a.Auth().CreateUser(ctx, "other@corp.example", testPassword, true); err != nil {
+		t.Fatal(err)
+	}
+	other := cookieHeader(t, do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":"other@corp.example","password":%q}`, testPassword)))
+	if r := link(other...); r.code != http.StatusConflict || r.json["code"] != "identity_in_use" {
+		t.Errorf("POST /v1/auth/identities with another account's Google = %d %s, want 409 identity_in_use", r.code, r.body)
+	}
+	if r := link(); r.code != http.StatusUnauthorized {
+		t.Errorf("POST /v1/auth/identities signed out = %d %s, want 401", r.code, r.body)
+	}
+}
+
+// TestAppleNotificationReplayEndToEnd is the reviewers' proof of concept: a
+// year-old notification is refused, and a leaked one can't sign the person
+// out again after they sign in with Apple once more (security review
+// AUTH-M-3).
+func TestAppleNotificationReplayEndToEnd(t *testing.T) {
+	srv := socialtest.New(t)
+	h := newApp(t, socialEnv(t), func(c *app.Config) {
+		c.ProviderEndpoints.Google, c.ProviderEndpoints.Apple = srv.Endpoints(), srv.Endpoints()
+	}).Handler()
+	signIn := func() []string {
+		t.Helper()
+		nonce := fmt.Sprint(do(t, h, "POST", "/v1/auth/apple/nonce", "").json["nonce"])
+		sum := sha256.Sum256([]byte(nonce))
+		token := srv.IDToken(socialtest.Claims{Subject: "001.bob", Audience: "com.example.app", Email: "bob@icloud.com", Extra: map[string]any{"email_verified": "true"}, Nonce: hex.EncodeToString(sum[:])})
+		r := do(t, h, "POST", "/v1/auth/apple/token", fmt.Sprintf(`{"id_token":%q,"nonce":%q}`, token, nonce))
+		if r.code != http.StatusOK {
+			t.Fatalf("POST /v1/auth/apple/token = %d %s", r.code, r.body)
+		}
+		return []string{"Authorization", "Bearer " + fmt.Sprint(r.json["token"])}
+	}
+	notify := func(payload string) response {
+		return do(t, h, "POST", "/v1/auth/apple/notifications", fmt.Sprintf(`{"payload":%q}`, payload), "Origin", "https://appleid.apple.com", "Sec-Fetch-Site", "cross-site")
+	}
+
+	session := signIn()
+	revoked := srv.Notification("com.example.web", "consent-revoked", "001.bob")
+	if r := notify(revoked); r.code != http.StatusNoContent || do(t, h, "GET", "/v1/auth/me", "", session...).code != http.StatusUnauthorized {
+		t.Fatalf("consent-revoked = %d %s, want 204 and the session ended", r.code, r.body)
+	}
+	session = signIn()
+	if r := notify(revoked); r.code != http.StatusNoContent {
+		t.Errorf("replayed notification = %d %s, want 204", r.code, r.body)
+	}
+	if r := do(t, h, "GET", "/v1/auth/me", "", session...); r.code != http.StatusOK {
+		t.Errorf("session after a replayed notification = %d %s, want 200", r.code, r.body)
+	}
+	srv.Now = func() time.Time { return time.Now().AddDate(-1, 0, 0) }
+	if r := notify(srv.Notification("com.example.web", "consent-revoked", "001.bob")); r.code != http.StatusUnauthorized || r.json["code"] != "invalid_social_token" {
+		t.Errorf("year-old notification = %d %s, want 401 invalid_social_token", r.code, r.body)
+	}
+	if r := do(t, h, "GET", "/v1/auth/me", "", session...); r.code != http.StatusOK {
+		t.Errorf("session after a year-old notification = %d %s, want 200", r.code, r.body)
 	}
 }
 
