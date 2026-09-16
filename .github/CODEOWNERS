@@ -10,6 +10,7 @@
 /ratelimit/                         @gorbital/maintainers @gorbital/security
 /modules/ratelimitpg/               @gorbital/maintainers @gorbital/security
 /modules/idempotency/               @gorbital/maintainers @gorbital/security
+/modules/mail/resend/webhook.go     @gorbital/maintainers @gorbital/security
 /cli/internal/recipes/generate/     @gorbital/maintainers @gorbital/security
 /cli/internal/cli/upgrade.go        @gorbital/maintainers @gorbital/security
 /cli/internal/cli/release.go        @gorbital/maintainers @gorbital/security

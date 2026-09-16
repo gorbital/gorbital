@@ -24,6 +24,7 @@ import (
 	"gorbital.dev/modules/auditpg"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/mail/suppressionpg"
 	"gorbital.dev/modules/openapi"
 	"gorbital.dev/modules/postgres"
 	"gorbital.dev/modules/releases"
@@ -36,6 +37,7 @@ import (
 	authmodule "example.com/acme-api/internal/modules/auth"
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"
+	maileventsusecase "example.com/acme-api/internal/modules/mailevents/usecase"
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 )
 
@@ -140,13 +142,18 @@ func (a *App) build(ctx context.Context) error {
 	}
 
 	// The mail worker delivers queued email through Mailpit in development,
-	// or the provider in infra_mail.go.
+	// or the provider in infra_mail.go, skipping addresses on the suppression
+	// list: permanent bounces and complaints (ADR-0062).
 	sender, err := newMailSender(a.cfg)
 	if err != nil {
 		return err
 	}
+	suppressions, err := suppressionpg.NewStore(pool)
+	if err != nil {
+		return err
+	}
 	workers := river.NewWorkers()
-	if err := jobs.AddMailWorker(workers, sender); err != nil {
+	if err := jobs.AddMailWorker(workers, mail.WithSuppressionList(sender, suppressions)); err != nil {
 		return err
 	}
 
@@ -267,6 +274,8 @@ func (a *App) build(ctx context.Context) error {
 			SignInMethods: a.cfg.signInMethods,
 			// Test emails each operator may send (rate_limits.go).
 			TestEmailLimiter: limits.testEmail,
+			// Suppressed addresses for /ops/mail/suppressions (ADR-0062).
+			Suppressions: suppressions,
 			// What /ops/system reports (ADR-0051).
 			System: systemReporter{pool: pool, health: a.health, tracker: a.releases, started: a.started, workers: a.cfg.JobWorkers},
 			// What /ops/retention reports (ADR-0051).
@@ -280,6 +289,8 @@ func (a *App) build(ctx context.Context) error {
 				{data: "unverified_accounts", setting: appSettings.authUnverifiedAccountTTL.Key(), retention: appSettings.authUnverifiedAccountTTL.Get, job: authcleanup.Name},
 			}},
 		},
+		// The provider's bounce and complaint webhook (infra_mail.go).
+		mailEvents: maileventsusecase.Deps{Reader: a.cfg.Mail.webhookReader(), Suppressions: suppressions, Recorder: recorder, Logger: a.logger},
 	})
 }
 

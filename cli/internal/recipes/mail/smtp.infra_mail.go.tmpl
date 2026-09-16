@@ -9,6 +9,8 @@ import (
 	"gorbital.dev/config"
 	"gorbital.dev/mail"
 	"gorbital.dev/modules/mail/smtp"
+
+	maileventsusecase "⟦.Module⟧/internal/modules/mailevents/usecase"
 )
 
 // mailProvider is the email provider, chosen with `orb add mail`. To switch
@@ -84,4 +86,11 @@ func (c mailConfig) details() map[string]string {
 		auth = "username and password"
 	}
 	return map[string]string{"host": host, "port": strconv.Itoa(c.SMTPPort), "tls": string(c.SMTPTLS), "auth": auth}
+}
+
+// webhookReader is nil: SMTP servers report bounces by email, not webhooks,
+// so POST /v1/webhooks/resend answers 404. The suppression list still
+// applies (ADR-0062).
+func (mailConfig) webhookReader() maileventsusecase.WebhookReader {
+	return nil
 }

@@ -145,7 +145,8 @@ func TestAddMailSwitchesBackToResend(t *testing.T) {
 		}
 	}
 	env := readFile(t, ".env")
-	if strings.Count(env, "RESEND_API_KEY=") != 1 || !strings.Contains(env, "RESEND_API_KEY=re_saved_key\n# orb:end mail") || strings.Contains(env, "SMTP_HOST") {
+	block, err := recipes.Block([]byte(env), recipes.MailBlock)
+	if strings.Count(env, "RESEND_API_KEY=") != 1 || err != nil || !strings.Contains(string(block), "RESEND_API_KEY=re_saved_key\n") || strings.Contains(env, "SMTP_HOST") {
 		t.Errorf(".env should keep the saved key once, inside the Resend block:\n%s", env)
 	}
 	resend, _ := recipes.RenderMail(recipes.MailResend, "example.com/acme-api")

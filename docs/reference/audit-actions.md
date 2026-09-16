@@ -59,6 +59,8 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 
 | Action | Recorded when | Metadata |
 |---|---|---|
+| `mail.suppression.added` |  | `delivery_id`, `detail`, `reason`, `source` |
+| `mail.suppression.removed` |  | `reason`, `source`, `suppression_reason` |
 | `mail.test.requested` | An operator sent a test email through `POST /ops/mail/test`. | `delivery`, `provider` |
 
 ## Organisations

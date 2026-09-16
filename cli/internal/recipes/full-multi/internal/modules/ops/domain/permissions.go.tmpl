@@ -15,13 +15,14 @@ const (
 	PermReleasesRead  = "ops.releases.read"
 	PermMailRead      = "ops.mail.read"
 	PermMailTest      = "ops.mail.test"
+	PermMailWrite     = "ops.mail.write"
 	PermAuthRead      = "ops.auth.read"
 	PermSystemRead    = "ops.system.read"
 )
 
 // AllPermissions returns every operations permission.
 func AllPermissions() []string {
-	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead, PermReleasesRead, PermMailRead, PermMailTest, PermAuthRead, PermSystemRead}
+	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead, PermReleasesRead, PermMailRead, PermMailTest, PermMailWrite, PermAuthRead, PermSystemRead}
 }
 
 // Errors returned by operations use cases.
@@ -31,4 +32,7 @@ var (
 	ErrMFARequired       = errors.New("the permission needs a session signed in with two-factor authentication")
 	ErrInvalidRecipient  = errors.New("recipient is not an email address")
 	ErrTooManyTestEmails = errors.New("too many test emails")
+	// ErrSuppressionReasonRequired reports removing an address from the
+	// suppression list without saying why.
+	ErrSuppressionReasonRequired = errors.New("a reason is required to remove a suppression")
 )

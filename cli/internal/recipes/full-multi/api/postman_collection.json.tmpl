@@ -787,6 +787,102 @@
           }
         },
         {
+          "name": "List suppressed addresses",
+          "request": {
+            "method": "GET",
+            "description": "Addresses that bounced permanently or marked an email as spam, most recently added first. The app sends them no email: such jobs are cancelled. The provider's webhook adds them (`POST /v1/webhooks/resend`).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/mail/suppressions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "mail",
+                "suppressions"
+              ],
+              "query": [
+                {
+                  "key": "reason",
+                  "value": "bounce",
+                  "description": "Only suppressions with this reason",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "next_cursor from the previous page",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove a suppressed address",
+          "request": {
+            "method": "DELETE",
+            "description": "The address receives email again until its next permanent bounce or complaint. A reason is required and recorded in the audit event `mail.suppression.removed`. Returns the removed suppression.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/mail/suppressions/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "mail",
+                "suppressions",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"The mailbox exists again (support ticket 4821)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "Send a test email",
           "request": {
             "method": "POST",
@@ -3961,6 +4057,49 @@
                   "key": "id",
                   "value": "prj_mfrggzdfmztwq2lkmfrggzdfmy"
                 }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Resend's email events",
+          "request": {
+            "method": "POST",
+            "description": "Register this URL as a webhook in Resend for `email.bounced` and `email.complained`, and set `RESEND_WEBHOOK_SECRET` to its signing secret. Requests are signed (Svix) and refused when the signature doesn't match or is more than 5 minutes old. Hard bounces and complaints put the recipients on the suppression list (`GET /ops/mail/suppressions`); soft bounces and other events are accepted and ignored. 404 when the app doesn't send with Resend or the secret isn't set.",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "svix-id",
+                "value": "string",
+                "description": "The delivery's ID, the same for every retry"
+              },
+              {
+                "key": "svix-timestamp",
+                "value": "string",
+                "description": "When the attempt was signed, in Unix seconds"
+              },
+              {
+                "key": "svix-signature",
+                "value": "string",
+                "description": "Space-separated v1,\u003cbase64 HMAC-SHA256\u003e signatures"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "resend"
               ]
             }
           }

@@ -36,7 +36,7 @@ func TestMailMatchesGoldenApp(t *testing.T) {
 			t.Errorf("resend .env.example block differs from examples/%s (%v):\n--- recipe\n%s\n--- golden\n%s", app, err, r.EnvBlock, block)
 		}
 	}
-	if !slices.Equal(r.EnvKeys, []string{"RESEND_API_KEY"}) || len(r.Modules) != 2 {
+	if !slices.Equal(r.EnvKeys, []string{"RESEND_API_KEY", "RESEND_WEBHOOK_SECRET"}) || len(r.Modules) != 2 {
 		t.Errorf("EnvKeys, Modules = %v, %v", r.EnvKeys, r.Modules)
 	}
 }

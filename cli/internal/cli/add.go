@@ -759,7 +759,10 @@ func mailNextSteps(in mailInput, plan mailPlan) string {
 		} else {
 			steps = append(steps, "Create an API key at https://resend.com/api-keys and add it to .env:\n       RESEND_API_KEY=re_…")
 		}
-		steps = append(steps, "Verify the domain you send from at https://resend.com/domains")
+		steps = append(steps, "Verify the domain you send from at https://resend.com/domains",
+			"Optional, so addresses that bounce or complain stop receiving email: add a webhook at https://resend.com/webhooks\n"+
+				"       for email.bounced and email.complained, pointing at https://<your API>/v1/webhooks/resend,\n"+
+				"       and put its signing secret in .env: RESEND_WEBHOOK_SECRET=whsec_…")
 	case recipes.MailSMTP:
 		switch {
 		case !saved["SMTP_HOST"]:

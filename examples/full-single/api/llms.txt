@@ -39,6 +39,8 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 ## Ops: email
 
 - [Show how the app sends email](/docs/ops-email/ops-get-mail.md): `GET /ops/mail`
+- [List suppressed addresses](/docs/ops-email/ops-list-mail-suppressions.md): `GET /ops/mail/suppressions`
+- [Remove a suppressed address](/docs/ops-email/ops-remove-mail-suppression.md): `DELETE /ops/mail/suppressions/{id}`
 - [Send a test email](/docs/ops-email/ops-send-test-email.md): `POST /ops/mail/test`
 
 ## Ops: job queues
@@ -119,6 +121,10 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Get a project](/docs/projects/projects-get.md): `GET /v1/projects/{id}`
 - [Update a project](/docs/projects/projects-update.md): `PATCH /v1/projects/{id}`
 - [Delete a project](/docs/projects/projects-delete.md): `DELETE /v1/projects/{id}`
+
+## Webhooks
+
+- [Resend's email events](/docs/webhooks/mail-resend-webhook.md): `POST /v1/webhooks/resend`
 
 ## System
 

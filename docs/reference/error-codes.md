@@ -43,6 +43,8 @@ These are the codes of a Full app as generated, including the example `projects`
 | `invalid_social_token` | 401 | The sign-in with Google or Apple couldn't be verified; start again. | `/v1/auth` |
 | `invalid_sort` | 400 | Sort by one allowed field, with - for descending order. | List endpoints |
 | `invalid_state` | 401 | The sign-in expired or was started in another browser; start again. | `/v1/auth` |
+| `invalid_webhook_payload` | 400 | The webhook body is not an event. | `mailevents` module |
+| `invalid_webhook_signature` | 401 | The webhook signature is missing, invalid or too old. | `mailevents` module |
 | `invitation_for_another_email` | 403 | The invitation was sent to another address; sign in with the invited, verified address. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `invitation_not_found` | 404 | The invitation doesn't exist, was used or revoked, or expired. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `job_definition_disabled` | 409 | The job is disabled. | `/ops` |
@@ -54,6 +56,8 @@ These are the codes of a Full app as generated, including the example `projects`
 | `job_run_limited` | 429 | The job is queued or running, or ran less than a minute ago. | `/ops` |
 | `last_owner` | 409 | An organisation needs at least one owner; make another member an owner first. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `last_sign_in_method` | 409 | This is the account's last way to sign in; set a password or add a passkey first. | `/v1/auth` |
+| `mail_suppression_not_found` | 404 | No suppression has this ID. | `/ops` |
+| `mail_suppression_reason_required` | 422 | A reason is required to remove a suppressed address. | `/ops` |
 | `maintenance` | 503 | Maintenance mode is on (`maintenance.enabled`). The detail is `maintenance.message`; `Retry-After` is `maintenance.retry_after`. | Any endpoint |
 | `member_not_found` | 404 | The organisation has no member with this ID. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `message_required` | 422 | The example echo endpoint got a blank message. | `/v1/ping`, `/v1/echo` |
@@ -94,3 +98,4 @@ These are the codes of a Full app as generated, including the example `projects`
 | `unknown_role` | 422 | The role isn't one of the organisation roles. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `validation_failed` | 422 | The request doesn't match the operation's schema, or a resource's fields aren't valid. `errors` lists each field. | Any endpoint |
 | `weak_password` | 422 | The password doesn't meet the password policy; the detail says why. | `/v1/auth` |
+| `webhook_not_found` | 404 | This webhook isn't configured. | `mailevents` module |

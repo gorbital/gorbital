@@ -1,11 +1,47 @@
+pkg gorbital.dev/modules/mail/resend, const BouncePermanent = "Permanent"
+pkg gorbital.dev/modules/mail/resend, const BouncePermanent ideal-string
+pkg gorbital.dev/modules/mail/resend, const BounceTransient = "Transient"
+pkg gorbital.dev/modules/mail/resend, const BounceTransient ideal-string
+pkg gorbital.dev/modules/mail/resend, const BounceUndetermined = "Undetermined"
+pkg gorbital.dev/modules/mail/resend, const BounceUndetermined ideal-string
 pkg gorbital.dev/modules/mail/resend, const DefaultBaseURL = "https://api.resend.com"
 pkg gorbital.dev/modules/mail/resend, const DefaultBaseURL ideal-string
 pkg gorbital.dev/modules/mail/resend, const DefaultTimeout = 30000000000
 pkg gorbital.dev/modules/mail/resend, const DefaultTimeout time.Duration
+pkg gorbital.dev/modules/mail/resend, const EventEmailBounced = "email.bounced"
+pkg gorbital.dev/modules/mail/resend, const EventEmailBounced ideal-string
+pkg gorbital.dev/modules/mail/resend, const EventEmailComplained = "email.complained"
+pkg gorbital.dev/modules/mail/resend, const EventEmailComplained ideal-string
+pkg gorbital.dev/modules/mail/resend, const EventEmailDelivered = "email.delivered"
+pkg gorbital.dev/modules/mail/resend, const EventEmailDelivered ideal-string
+pkg gorbital.dev/modules/mail/resend, const HeaderWebhookID = "svix-id"
+pkg gorbital.dev/modules/mail/resend, const HeaderWebhookID ideal-string
+pkg gorbital.dev/modules/mail/resend, const HeaderWebhookSignature = "svix-signature"
+pkg gorbital.dev/modules/mail/resend, const HeaderWebhookSignature ideal-string
+pkg gorbital.dev/modules/mail/resend, const HeaderWebhookTimestamp = "svix-timestamp"
+pkg gorbital.dev/modules/mail/resend, const HeaderWebhookTimestamp ideal-string
+pkg gorbital.dev/modules/mail/resend, const WebhookTolerance = 300000000000
+pkg gorbital.dev/modules/mail/resend, const WebhookTolerance time.Duration
+pkg gorbital.dev/modules/mail/resend, func CheckWebhookSecret(config.Secret) error
 pkg gorbital.dev/modules/mail/resend, func New(config.Secret, ...Option) (*Sender, error)
+pkg gorbital.dev/modules/mail/resend, func ParseWebhookEvent([]byte) (WebhookEvent, error)
+pkg gorbital.dev/modules/mail/resend, func VerifyWebhook(config.Secret, http.Header, []byte, time.Time) error
 pkg gorbital.dev/modules/mail/resend, func WithBaseURL(string) Option
 pkg gorbital.dev/modules/mail/resend, func WithHTTPClient(*http.Client) Option
 pkg gorbital.dev/modules/mail/resend, func WithTimeout(time.Duration) Option
 pkg gorbital.dev/modules/mail/resend, method (*Sender) Send(context.Context, mail.Message) error
+pkg gorbital.dev/modules/mail/resend, method (Bounce) Permanent() bool
+pkg gorbital.dev/modules/mail/resend, type Bounce struct
+pkg gorbital.dev/modules/mail/resend, type Bounce struct, Message string
+pkg gorbital.dev/modules/mail/resend, type Bounce struct, SubType string
+pkg gorbital.dev/modules/mail/resend, type Bounce struct, Type string
 pkg gorbital.dev/modules/mail/resend, type Option interface { apply }
 pkg gorbital.dev/modules/mail/resend, type Sender struct
+pkg gorbital.dev/modules/mail/resend, type WebhookEvent struct
+pkg gorbital.dev/modules/mail/resend, type WebhookEvent struct, Bounce *Bounce
+pkg gorbital.dev/modules/mail/resend, type WebhookEvent struct, CreatedAt time.Time
+pkg gorbital.dev/modules/mail/resend, type WebhookEvent struct, EmailID string
+pkg gorbital.dev/modules/mail/resend, type WebhookEvent struct, To []string
+pkg gorbital.dev/modules/mail/resend, type WebhookEvent struct, Type string
+pkg gorbital.dev/modules/mail/resend, var ErrInvalidWebhook error
+pkg gorbital.dev/modules/mail/resend, var ErrWebhookTimestamp error

@@ -28,6 +28,7 @@ Platform roles are held across the whole app and grant access to `/ops`. Give an
 | `ops.releases.read` | Read releases and the instances running them. | yes | yes |
 | `ops.mail.read` | See how the app sends email. | yes | yes |
 | `ops.mail.test` | Send a test email. | yes | |
+| `ops.mail.write` | Remove addresses from the email suppression list. | yes | |
 | `ops.auth.read` | See which sign-in methods are configured. | yes | yes |
 | `ops.system.read` | See an instance's health checks, database pool, migrations and runtime. | yes | yes |
 

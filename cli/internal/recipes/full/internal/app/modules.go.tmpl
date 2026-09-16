@@ -14,6 +14,7 @@ import (
 	"gorbital.dev/ratelimit"
 
 	authmodule "⟦.Module⟧/internal/modules/auth"
+	maileventsusecase "⟦.Module⟧/internal/modules/mailevents/usecase"
 	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
 )
 
@@ -32,6 +33,8 @@ type services struct {
 	// idempotency stores responses to requests with an Idempotency-Key
 	// (idempotency.go).
 	idempotency *idempotency.Store
+	// mailEvents receives the email provider's webhooks (ADR-0062).
+	mailEvents maileventsusecase.Deps
 }
 
 // registerModules wires every business module: its HTTP operations and its
@@ -43,6 +46,7 @@ func registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {
 		registerProjects(api, mapper, svc),
 		registerPing(api, mapper, svc.pingMessage),
 		registerOps(api, mapper, svc.ops),
+		registerMailEvents(api, mapper, svc.mailEvents),
 		registerAuth(api, mapper, svc.auth),
 	)
 }

@@ -9,6 +9,7 @@ import (
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/auditpg"
 	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/mail/suppressionpg"
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/modules/settings"
 
@@ -18,7 +19,7 @@ import (
 )
 
 // registerOps wires the operations module: runtime settings, jobs, audit log,
-// releases and email admin APIs. Error codes are public API: add new ones, never
+// releases and email admin APIs, including the email suppression list. Error codes are public API: add new ones, never
 // change existing ones.
 func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error {
 	err := mapper.Add(
@@ -50,6 +51,9 @@ func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error
 
 		httpx.Mapping{Err: opsdomain.ErrInvalidRecipient, Status: http.StatusUnprocessableEntity, Code: "invalid_recipient", Detail: "the recipient is not an email address"},
 		httpx.Mapping{Err: opsdomain.ErrTooManyTestEmails, Status: http.StatusTooManyRequests, Code: "rate_limited", Detail: "too many test emails; try again later"},
+		httpx.Mapping{Err: opsdomain.ErrSuppressionReasonRequired, Status: http.StatusUnprocessableEntity, Code: "mail_suppression_reason_required", Detail: "a reason is required to remove a suppressed address"},
+		httpx.Mapping{Err: suppressionpg.ErrNotFound, Status: http.StatusNotFound, Code: "mail_suppression_not_found", Detail: "no suppression has this ID"},
+		httpx.Mapping{Err: suppressionpg.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
 	)
 	if err != nil {
 		return fmt.Errorf("ops module: %w", err)

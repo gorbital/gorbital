@@ -1,0 +1,30 @@
+package app
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"gorbital.dev/httpx"
+
+	"⟦.Module⟧/internal/modules/mailevents"
+	maileventsdomain "⟦.Module⟧/internal/modules/mailevents/domain"
+	maileventsusecase "⟦.Module⟧/internal/modules/mailevents/usecase"
+)
+
+// registerMailEvents wires the mail events module: the email provider's
+// bounce and complaint webhook (ADR-0062). Error codes are public API: add
+// new ones, never change existing ones.
+func registerMailEvents(api huma.API, mapper *httpx.Mapper, deps maileventsusecase.Deps) error {
+	err := mapper.Add(
+		httpx.Mapping{Err: maileventsdomain.ErrWebhookNotConfigured, Status: http.StatusNotFound, Code: "webhook_not_found", Detail: "this webhook isn't configured"},
+		httpx.Mapping{Err: maileventsdomain.ErrInvalidSignature, Status: http.StatusUnauthorized, Code: "invalid_webhook_signature", Detail: "the webhook signature is missing, invalid or too old"},
+		httpx.Mapping{Err: maileventsdomain.ErrInvalidPayload, Status: http.StatusBadRequest, Code: "invalid_webhook_payload", Detail: "the webhook body is not an event"},
+	)
+	if err != nil {
+		return fmt.Errorf("mail events module: %w", err)
+	}
+	mailevents.New(deps).Register(api)
+	return nil
+}

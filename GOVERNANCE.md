@@ -18,7 +18,7 @@ Maintainers are listed in the `@gorbital/maintainers` team on GitHub. A contribu
 |---|---|
 | Bug fixes, docs, tests, internal refactors | Pull request with one approving review from a reviewer or maintainer of the area |
 | Anything that changes a public surface ([stability tiers](docs/adr/0015-public-api-and-stability-tiers.md)): exported Go API, error codes, audit actions, permissions, setting keys, job names, `/ops` responses, CLI commands, flags and `--json` output, file formats | A decision record (ADR) accepted before the code is merged |
-| Security-sensitive code: `modules/auth`, `modules/orgs`, `httpx`, `ratelimit`, `modules/ratelimitpg`, the generator and `orb upgrade`, release workflows | Two approving reviews, at least one from a maintainer ([threat model row 7](docs/adr/0029-threat-model.md)) |
+| Security-sensitive code: `modules/auth`, `modules/orgs`, `httpx`, `ratelimit`, `modules/ratelimitpg`, webhook verification in `modules/mail/resend`, the generator and `orb upgrade`, release workflows | Two approving reviews, at least one from a maintainer ([threat model row 7](docs/adr/0029-threat-model.md)) |
 | Scope: what a milestone contains, new modules, new required services | A decision record and a roadmap change, accepted by the maintainers |
 | This document and the licence | All active maintainers |
 

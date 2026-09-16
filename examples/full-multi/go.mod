@@ -10,6 +10,7 @@ require (
 	gorbital.dev/modules/jobs v0.0.0
 	gorbital.dev/modules/mail/resend v0.0.0
 	gorbital.dev/modules/mail/smtp v0.0.0
+	gorbital.dev/modules/mail/suppressionpg v0.0.0
 	gorbital.dev/modules/openapi v0.0.0
 	gorbital.dev/modules/orgs v0.0.0
 	gorbital.dev/modules/postgres v0.0.0
@@ -102,6 +103,7 @@ replace (
 	gorbital.dev/modules/jobs => ../../modules/jobs
 	gorbital.dev/modules/mail/resend => ../../modules/mail/resend
 	gorbital.dev/modules/mail/smtp => ../../modules/mail/smtp
+	gorbital.dev/modules/mail/suppressionpg => ../../modules/mail/suppressionpg
 	gorbital.dev/modules/openapi => ../../modules/openapi
 	gorbital.dev/modules/orgs => ../../modules/orgs
 	gorbital.dev/modules/postgres => ../../modules/postgres

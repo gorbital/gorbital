@@ -95,6 +95,7 @@ Read in `config.go` and `infra_mail.go`. `infra_mail.go` is replaced by `orb add
 | `MAIL_DELIVERY` | No | `mailpit` in development, `provider` in production | `provider` | No | `mailpit` or `provider`. **Prod**: `mailpit` is refused. Provider credentials are only required when delivery is `provider` |
 | `MAILPIT_SMTP_ADDR` | No | `127.0.0.1:1025` | `127.0.0.1:1035` | No | `host:port` of Mailpit's SMTP server, used when delivery is `mailpit` |
 | `RESEND_API_KEY` | Resend, with delivery `provider` | empty | `re_…` | **Secret** | Resend API key, "Sending access" is enough |
+| `RESEND_WEBHOOK_SECRET` | No | empty | `whsec_…` | **Secret** | Signing secret of the Resend webhook for bounces and complaints; empty turns `POST /v1/webhooks/resend` off (404). Must be `whsec_` and base64 (`RESEND_WEBHOOK_SECRET: resend: the webhook signing secret must be …`). [Email guide](email.md#connect-resends-webhook) |
 | `SMTP_HOST` | SMTP, with delivery `provider` | empty | `smtp.postmarkapp.com` | No | SMTP server |
 | `SMTP_PORT` | No | `587` | `465` | No | A port number (`SMTP_PORT must be a port number such as 587`) |
 | `SMTP_TLS` | No | `starttls` | `tls` | No | `starttls`, `tls` (implicit TLS, usually 465) or `none` (local servers only; `SMTP_TLS must be starttls, tls or none`) |

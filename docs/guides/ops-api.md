@@ -35,6 +35,7 @@ Changes are attributed to the signed-in user in history, job metadata and audit 
 | `ops.releases.read` | List releases and the instances running them |
 | `ops.mail.read` | See how the app sends email |
 | `ops.mail.test` | Send a test email |
+| `ops.mail.write` | Remove addresses from the email suppression list |
 | `ops.auth.read` | See which sign-in methods are configured |
 | `ops.system.read` | See an instance's health checks, database pool, migrations and runtime |
 
@@ -338,13 +339,15 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/system
 |---|---|---|
 | `GET /ops/mail` | Provider (`resend` or `smtp`), delivery (`mailpit` or `provider`), non-secret `details` from the environment, and the current `from_name`, `from_email`, `reply_to` | 200 |
 | `POST /ops/mail/test` | Queue a test email: `{to}`. Each operator can send 5 an hour (429 `rate_limited`) | 202 `{status: "queued", to, delivery}` |
+| `GET /ops/mail/suppressions` | Suppressed addresses, most recently added first: `id`, `email`, `reason` (`bounce` or `complaint`), `source`, `detail`, `created_at`, `updated_at`. Query `reason`, `limit` (1–100, default 50), `cursor` (400 `invalid_cursor`). Needs `ops.mail.read` | 200 `{suppressions, next_cursor}` |
+| `DELETE /ops/mail/suppressions/{id}` | Remove a suppressed address: `{reason}` (required, 422 `mail_suppression_reason_required`; 404 `mail_suppression_not_found`). Audit event `mail.suppression.removed` with the reason, without the address. Needs `ops.mail.write` | 200 with the removed suppression |
 
 ```json
 {"provider": "smtp", "delivery": "provider", "details": {"host": "smtp.postmarkapp.com", "port": "587", "tls": "starttls", "auth": "username and password"},
  "from_name": "Acme", "from_email": "hello@acme.com", "reply_to": "support@acme.com"}
 ```
 
-Resend details are `{"api_key": "configured"}` or `"missing"`. Change the sender with `PUT /ops/settings/mail.from_email` (and `mail.from_name`, `mail.reply_to`), with a reason. The test email's delivery appears in `GET /ops/jobs/runs?kind=gorbital.mail.send`. Setup: [email guide](email.md).
+Resend details are `{"api_key": "configured", "webhook_secret": "missing"}` (each `configured` or `missing`). Change the sender with `PUT /ops/settings/mail.from_email` (and `mail.from_name`, `mail.reply_to`), with a reason. The test email's delivery appears in `GET /ops/jobs/runs?kind=gorbital.mail.send`. Suppressions come from Resend's signed webhook `POST /v1/webhooks/resend` (hard bounces and complaints); an email to a suppressed address is cancelled. Setup: [email guide](email.md).
 
 ## Sign-in methods
 
