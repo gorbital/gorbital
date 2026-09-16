@@ -10,6 +10,7 @@ import (
 	"gorbital.dev/actor"
 
 	"⟦.Module⟧/internal/app"
+	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
 )
 
 const testPassword = "correct horse battery"
@@ -117,8 +118,15 @@ func TestOpsRoutesRequirePermissions(t *testing.T) {
 		t.Errorf("PUT /ops/settings as ops_viewer = %d %s, want 403", r.code, r.body)
 	}
 	admin, _ := signIn(t, a, "admin@example.com", "platform_admin")
-	if r := do(t, h, "POST", "/ops/mail/test", `{"to":"ops@example.com"}`, admin...); r.code != http.StatusAccepted {
+	if r := do(t, h, "POST", "/ops/mail/test", `{"to":"ops@example.com"}`, admin...); r.code != http.StatusAccepted || r.json["delivery"] != "mailpit" {
 		t.Errorf("POST /ops/mail/test as platform_admin = %d %s, want 202", r.code, r.body)
+	}
+	// Test emails are limited per operator (security review OPS-8).
+	for range opsusecase.TestEmailsPerHour - 1 {
+		do(t, h, "POST", "/ops/mail/test", `{"to":"ops@example.com"}`, admin...)
+	}
+	if r := do(t, h, "POST", "/ops/mail/test", `{"to":"ops@example.com"}`, admin...); r.code != http.StatusTooManyRequests || r.json["code"] != "rate_limited" {
+		t.Errorf("POST /ops/mail/test over the hourly limit = %d %s, want 429 rate_limited", r.code, r.body)
 	}
 	if r := do(t, h, "GET", "/v1/ping", ""); r.code != http.StatusOK {
 		t.Errorf("GET /v1/ping without a session = %d, want public routes unaffected", r.code)
@@ -137,9 +145,16 @@ func TestRuntimeSettingsThroughOps(t *testing.T) {
 		t.Fatalf("GET /ops/settings = %s", list.body)
 	}
 
-	r := do(t, h, "PUT", path, `{"value":"hello","version":0,"reason":"demo"}`, bearer...)
+	r := do(t, h, "PUT", path, `{"value":"hello","version":0,"reason":"demo"}`, append(bearer, "User-Agent", "ops-console/1")...)
 	if r.code != http.StatusOK || r.json["value"] != "hello" || r.json["version"] != float64(1) || r.json["modified"] != true || r.json["updated_by"] != adminID {
 		t.Fatalf("PUT %s = %d %s", path, r.code, r.body)
+	}
+	// Audit events of ops changes say where the request came from (security
+	// review OPS-7).
+	changed := do(t, h, "GET", "/ops/audit?action=settings.value.changed", "", bearer...)
+	if events, _ := changed.json["events"].([]any); len(events) != 1 ||
+		events[0].(map[string]any)["ip"] != "192.0.2.1" || events[0].(map[string]any)["user_agent"] != "ops-console/1" {
+		t.Errorf("GET /ops/audit?action=settings.value.changed = %s, want the client's IP and user agent", changed.body)
 	}
 	if ping := do(t, h, "GET", "/v1/ping", ""); ping.json["message"] != "hello" {
 		t.Errorf("GET /v1/ping after the change = %s, want hello", ping.body)
@@ -204,6 +219,11 @@ func TestJobsThroughOps(t *testing.T) {
 	if r := do(t, h, "PUT", def, `{"max_attempts":500,"version":0}`, bearer...); r.code != 422 {
 		t.Errorf("max_attempts above schema maximum = %d %s", r.code, r.body)
 	}
+	// A 1-second timeout stops a job as surely as disabling it (security
+	// review OPS-2).
+	if r := do(t, h, "PUT", def, `{"timeout":"1s","version":0}`, bearer...); r.code != 422 || r.json["code"] != "job_reason_required" {
+		t.Errorf("timeout without reason = %d %s", r.code, r.body)
+	}
 	r := do(t, h, "PUT", def, `{"schedule":"@every 2h","timeout":"30s","version":0,"reason":"less noise"}`, bearer...)
 	if cfg, _ := r.json["config"].(map[string]any); r.code != 200 || cfg["schedule"] != "@every 2h" || cfg["timeout"] != "30s" || r.json["version"] != float64(1) {
 		t.Fatalf("PUT %s = %d %s", def, r.code, r.body)
@@ -217,6 +237,14 @@ func TestJobsThroughOps(t *testing.T) {
 	waitFor(t, "the heartbeat job to complete", func() bool {
 		return do(t, h, "GET", runPath, "", bearer...).json["state"] == "completed"
 	})
+	// On-demand runs can't pile up, and a completed run never runs again
+	// (security review OPS-2, OPS-3).
+	if r := do(t, h, "POST", def+"/run", "", bearer...); r.code != http.StatusTooManyRequests || r.json["code"] != "job_run_limited" {
+		t.Errorf("second run within a minute = %d %s, want 429 job_run_limited", r.code, r.body)
+	}
+	if r := do(t, h, "POST", runPath+"/retry", "", bearer...); r.code != http.StatusConflict || r.json["code"] != "job_not_retryable" {
+		t.Errorf("retry a completed run = %d %s, want 409 job_not_retryable", r.code, r.body)
+	}
 
 	runs := do(t, h, "GET", "/ops/jobs/runs?kind=heartbeat&state=completed", "", bearer...)
 	if jobs, _ := runs.json["jobs"].([]any); runs.code != 200 || len(jobs) != 1 {
@@ -247,7 +275,12 @@ func TestJobsThroughOps(t *testing.T) {
 		queues, _ := do(t, h, "GET", "/ops/queues", "", bearer...).json["queues"].([]any)
 		return len(queues) == 1
 	})
-	if r := do(t, h, "POST", "/ops/queues/default/pause", "", bearer...); r.code != http.StatusNoContent {
+	// Pausing stops email delivery among everything else (security review
+	// OPS-2).
+	if r := do(t, h, "POST", "/ops/queues/default/pause", "", bearer...); r.code != 422 || r.json["code"] != "job_reason_required" {
+		t.Errorf("pause without reason = %d %s, want 422 job_reason_required", r.code, r.body)
+	}
+	if r := do(t, h, "POST", "/ops/queues/default/pause", `{"reason":"provider outage"}`, bearer...); r.code != http.StatusNoContent {
 		t.Errorf("pause = %d %s", r.code, r.body)
 	}
 	queues := do(t, h, "GET", "/ops/queues", "", bearer...).json["queues"].([]any)
@@ -257,7 +290,11 @@ func TestJobsThroughOps(t *testing.T) {
 	if r := do(t, h, "POST", "/ops/queues/default/resume", "", bearer...); r.code != http.StatusNoContent {
 		t.Errorf("resume = %d %s", r.code, r.body)
 	}
-	if r := do(t, h, "POST", "/ops/queues/reports/pause", "", bearer...); r.code != 422 || r.json["code"] != "queue_not_active" {
+	paused := do(t, h, "GET", "/ops/audit?action=jobs.queue.paused", "", bearer...)
+	if events, _ := paused.json["events"].([]any); len(events) != 1 || events[0].(map[string]any)["metadata"].(map[string]any)["reason"] != "provider outage" {
+		t.Errorf("GET /ops/audit?action=jobs.queue.paused = %s, want the reason", paused.body)
+	}
+	if r := do(t, h, "POST", "/ops/queues/reports/pause", `{"reason":"test"}`, bearer...); r.code != 422 || r.json["code"] != "queue_not_active" {
 		t.Errorf("pause inactive queue = %d %s", r.code, r.body)
 	}
 }

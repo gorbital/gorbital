@@ -1,3 +1,5 @@
+pkg gorbital.dev/modules/settings, const DefaultMaxItems = 100
+pkg gorbital.dev/modules/settings, const DefaultMaxItems ideal-int
 pkg gorbital.dev/modules/settings, const DefaultResyncInterval = 300000000000
 pkg gorbital.dev/modules/settings, const DefaultResyncInterval time.Duration
 pkg gorbital.dev/modules/settings, const KindBool = "bool"

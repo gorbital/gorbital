@@ -338,16 +338,18 @@ func TestSendRequiresStartTLSWhenAsked(t *testing.T) {
 }
 
 func TestSendClassifiesRefusals(t *testing.T) {
-	permanent := startServer(t, &fakeServer{rcptReply: "550 5.1.1 no such user"})
+	// Servers echo the recipient; errors are shown in job runs and logged,
+	// so the address is redacted (security review OPS-5).
+	permanent := startServer(t, &fakeServer{rcptReply: "550 5.1.1 <ada@example.com>: Recipient address rejected"})
 	err := newSender(t, permanent.addr, smtp.WithTLS(smtp.TLSNone)).Send(context.Background(), message())
-	if !errors.Is(err, mail.ErrRejected) || !strings.Contains(err.Error(), "550") {
-		t.Errorf("Send() with a 550 reply error = %v, want ErrRejected", err)
+	if !errors.Is(err, mail.ErrRejected) || !strings.Contains(err.Error(), "550 5.1.1 <[email]>: Recipient address rejected") {
+		t.Errorf("Send() with a 550 reply error = %v, want ErrRejected with the address redacted", err)
 	}
 
-	temporary := startServer(t, &fakeServer{rcptReply: "451 4.3.0 try again later"})
+	temporary := startServer(t, &fakeServer{rcptReply: "451 4.3.0 <ada@example.com> try again later"})
 	err = newSender(t, temporary.addr, smtp.WithTLS(smtp.TLSNone)).Send(context.Background(), message())
-	if err == nil || errors.Is(err, mail.ErrRejected) {
-		t.Errorf("Send() with a 451 reply error = %v, want a temporary error", err)
+	if err == nil || errors.Is(err, mail.ErrRejected) || !strings.Contains(err.Error(), "451 4.3.0 <[email]> try again later") {
+		t.Errorf("Send() with a 451 reply error = %v, want a temporary error with the address redacted", err)
 	}
 
 	invalid := message()

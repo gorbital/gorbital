@@ -15,4 +15,9 @@ var (
 	// malformed action prefix or an empty time range. The wrapping error
 	// says which.
 	ErrInvalidFilter = errors.New("auditpg: invalid filter")
+
+	// ErrQueryTimeout reports a list or stats query that ran longer than
+	// the store's query timeout, usually because no index serves its
+	// filters. Narrow the filters or the time range.
+	ErrQueryTimeout = errors.New("auditpg: audit query timed out")
 )

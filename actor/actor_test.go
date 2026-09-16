@@ -35,3 +35,13 @@ func TestSystem(t *testing.T) {
 		t.Errorf("System(retention_cleanup) = %+v, want system actor", a)
 	}
 }
+
+func TestClientRoundTrip(t *testing.T) {
+	if _, ok := actor.ClientFrom(context.Background()); ok {
+		t.Error("ClientFrom(empty context) ok = true")
+	}
+	ctx := actor.WithClient(context.Background(), actor.Client{IP: "203.0.113.7", UserAgent: "curl/8"})
+	if c, ok := actor.ClientFrom(ctx); !ok || c.IP != "203.0.113.7" || c.UserAgent != "curl/8" {
+		t.Errorf("ClientFrom() = %+v, %t", c, ok)
+	}
+}

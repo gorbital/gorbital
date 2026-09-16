@@ -6,11 +6,13 @@ pkg gorbital.dev/actor, const KindSystem = "system"
 pkg gorbital.dev/actor, const KindSystem Kind
 pkg gorbital.dev/actor, const KindUser = "user"
 pkg gorbital.dev/actor, const KindUser Kind
+pkg gorbital.dev/actor, func ClientFrom(context.Context) (Client, bool)
 pkg gorbital.dev/actor, func From(context.Context) (Actor, bool)
 pkg gorbital.dev/actor, func FromOrAnonymous(context.Context) Actor
 pkg gorbital.dev/actor, func Require(context.Context, string) error
 pkg gorbital.dev/actor, func System(string) Actor
 pkg gorbital.dev/actor, func With(context.Context, Actor) context.Context
+pkg gorbital.dev/actor, func WithClient(context.Context, Client) context.Context
 pkg gorbital.dev/actor, method (Actor) Can(string) bool
 pkg gorbital.dev/actor, type Actor struct
 pkg gorbital.dev/actor, type Actor struct, ID string
@@ -19,6 +21,9 @@ pkg gorbital.dev/actor, type Actor struct, Label string
 pkg gorbital.dev/actor, type Actor struct, OrgID string
 pkg gorbital.dev/actor, type Actor struct, Permissions []string
 pkg gorbital.dev/actor, type Actor struct, StepUp []string
+pkg gorbital.dev/actor, type Client struct
+pkg gorbital.dev/actor, type Client struct, IP string
+pkg gorbital.dev/actor, type Client struct, UserAgent string
 pkg gorbital.dev/actor, type Kind string
 pkg gorbital.dev/actor, var Anonymous Actor
 pkg gorbital.dev/actor, var ErrForbidden error
@@ -197,6 +202,9 @@ pkg gorbital.dev/httpx, type SecureHeadersOptions struct, HSTSMaxAge time.Durati
 pkg gorbital.dev/httpx, type Server struct
 pkg gorbital.dev/httpx, type ServerOption interface { apply }
 pkg gorbital.dev/httpx, var ErrTrustAll error
+pkg gorbital.dev/mail, const RedactedAddress = "[email]"
+pkg gorbital.dev/mail, const RedactedAddress ideal-string
+pkg gorbital.dev/mail, func RedactAddresses(string) string
 pkg gorbital.dev/mail, func WithDefaults(Sender, Defaults) Sender
 pkg gorbital.dev/mail, method (Address) String() string
 pkg gorbital.dev/mail, method (Message) Validate() error

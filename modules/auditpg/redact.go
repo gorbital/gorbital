@@ -10,10 +10,14 @@ import (
 const redactedValue = "[REDACTED]"
 
 // defaultRedactedKeys are snake_case names whose values are never stored.
+// Keys match in singular or plural and in any case style (see sensitive).
+// A bare "code" is not among them: it usually names an error or status code,
+// so secret codes need a qualifier such as recovery_code.
 var defaultRedactedKeys = []string{
-	"password", "passwd", "passphrase", "secret", "token", "cookie", "authorization",
-	"api_key", "apikey", "private_key", "otp", "credential", "credentials",
-	"recovery_code", "verification_code",
+	"password", "passwd", "passphrase", "passcode", "secret", "token", "cookie", "authorization", "bearer",
+	"api_key", "apikey", "private_key", "signing_key", "encryption_key", "credential", "jwt", "pin",
+	"otp", "totp", "recovery_code", "verification_code", "reset_code", "login_code", "sign_in_code",
+	"mfa_code", "backup_code", "security_code", "access_code", "magic_link",
 }
 
 // encodeMetadata returns metadata as JSON with sensitive values redacted and
@@ -70,15 +74,36 @@ func (s *Store) redact(v any) any {
 }
 
 // sensitive reports whether key contains a redacted name as whole
-// snake_case segments.
+// snake_case segments, ignoring a plural "s" on each segment: "token"
+// matches "refresh_tokens" and "sessionTokens", "api_key" matches "apiKeys",
+// but "token" doesn't match "tokenizer".
 func (s *Store) sensitive(key string) bool {
-	padded := "_" + snakeCase(key) + "_"
+	padded := "_" + normalizeKey(key) + "_"
 	for _, name := range s.redacted {
 		if strings.Contains(padded, "_"+name+"_") {
 			return true
 		}
 	}
 	return false
+}
+
+func normalizedKeys(names []string) []string {
+	out := make([]string, len(names))
+	for i, name := range names {
+		out[i] = normalizeKey(name)
+	}
+	return out
+}
+
+// normalizeKey returns key in snake_case with each segment singular.
+func normalizeKey(key string) string {
+	segments := strings.Split(snakeCase(key), "_")
+	for i, seg := range segments {
+		if len(seg) > 2 && strings.HasSuffix(seg, "s") && !strings.HasSuffix(seg, "ss") {
+			segments[i] = seg[:len(seg)-1]
+		}
+	}
+	return strings.Join(segments, "_")
 }
 
 // snakeCase lowercases key and separates words with underscores:

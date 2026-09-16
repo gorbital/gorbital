@@ -73,9 +73,13 @@ func PrincipalFrom(ctx context.Context) (Principal, bool) {
 	return p, ok
 }
 
-// WithClientInfo returns a copy of ctx carrying c.
+// WithClientInfo returns a copy of ctx carrying c. It also sets c as the
+// context's [actor.Client], so audit events any module records for the
+// request carry the client's IP address and user agent.
 func WithClientInfo(ctx context.Context, c ClientInfo) context.Context {
-	return context.WithValue(ctx, clientKey{}, c.Clean())
+	c = c.Clean()
+	ctx = actor.WithClient(ctx, actor.Client{IP: c.IP, UserAgent: c.UserAgent})
+	return context.WithValue(ctx, clientKey{}, c)
 }
 
 // ClientInfoFromContext returns the client details [Middleware] stored for

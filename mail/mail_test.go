@@ -1,6 +1,7 @@
 package mail_test
 
 import (
+	"strings"
 	"testing"
 
 	"gorbital.dev/mail"
@@ -47,5 +48,28 @@ func TestAddressString(t *testing.T) {
 	a := mail.Address{Name: "Ada, Lovelace", Email: "ada@example.com"}
 	if got, want := a.String(), `"Ada, Lovelace" <ada@example.com>`; got != want {
 		t.Errorf("Address.String() = %q, want %q", got, want)
+	}
+}
+
+// Provider replies and validation errors become job errors and log lines,
+// which must not carry recipients' addresses (security review OPS-5).
+func TestRedactAddresses(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"550 5.1.1 <jane.doe+tag@example.co.uk>: Recipient address rejected", "550 5.1.1 <[email]>: Recipient address rejected"},
+		{"bad recipients ada@example.com, bob_o'neil@mail.example", "bad recipients [email], [email]"},
+		{"josé@exämple.de and root@[192.0.2.1]", "[email] and [email]"},
+		{"smtp.example.com:587 refused DATA: 554 no", "smtp.example.com:587 refused DATA: 554 no"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := mail.RedactAddresses(tt.in); got != tt.want {
+			t.Errorf("RedactAddresses(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+
+	m := valid()
+	m.To = []mail.Address{{Email: "not an address jane@example.com"}}
+	if err := m.Validate(); err == nil || strings.Contains(err.Error(), "jane@example.com") {
+		t.Errorf("Validate() error = %v, want an error without the address", err)
 	}
 }

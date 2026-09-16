@@ -243,7 +243,8 @@ type ConfigPatch struct {
 type Change struct {
 	// Version is the DefinitionView.Version the caller last read.
 	Version int64
-	// Reason explains the change; required to disable or reschedule a job.
+	// Reason explains the change; required to disable or reschedule a job,
+	// or to change its timeout, max attempts or queue.
 	Reason string
 }
 
@@ -308,10 +309,8 @@ func (m *Manager) write(ctx context.Context, d *definition, action string, next 
 				return err
 			}
 		}
-		if (before.Enabled && !after.Enabled) || (after.Enabled && before.Schedule != after.Schedule) {
-			if reason == "" {
-				return ErrReasonRequired
-			}
+		if needsReason(before, after) && reason == "" {
+			return ErrReasonRequired
 		}
 
 		result, err = writeDefinition(ctx, tx, d.name, updated, exists, a.ID)
@@ -355,6 +354,18 @@ func (m *Manager) write(ctx context.Context, d *definition, action string, next 
 		})
 	}
 	return m.view(ctx, d)
+}
+
+// needsReason reports a change that can stop a job doing its work, so it
+// needs a reason in the history (threat 24): disabling or rescheduling it,
+// or changing its timeout (a 1-second timeout fails every run), max attempts
+// or queue. Enabling a job and changing its priority don't.
+func needsReason(before, after Config) bool {
+	return (before.Enabled && !after.Enabled) ||
+		(after.Enabled && before.Schedule != after.Schedule) ||
+		before.Timeout != after.Timeout ||
+		before.MaxAttempts != after.MaxAttempts ||
+		before.Queue != after.Queue
 }
 
 // patched applies patch, dropping fields equal to the code default.

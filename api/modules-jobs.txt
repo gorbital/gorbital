@@ -60,10 +60,12 @@ pkg gorbital.dev/modules/jobs, method (*Manager) Jobs(context.Context, JobFilter
 pkg gorbital.dev/modules/jobs, method (*Manager) OldestHistory(context.Context) (time.Time, bool, error)
 pkg gorbital.dev/modules/jobs, method (*Manager) Overview(context.Context) (Overview, error)
 pkg gorbital.dev/modules/jobs, method (*Manager) PauseQueue(context.Context, string) error
+pkg gorbital.dev/modules/jobs, method (*Manager) PauseQueueWithReason(context.Context, string, string) error
 pkg gorbital.dev/modules/jobs, method (*Manager) Queues(context.Context) ([]Queue, error)
 pkg gorbital.dev/modules/jobs, method (*Manager) Reload(context.Context) error
 pkg gorbital.dev/modules/jobs, method (*Manager) Reset(context.Context, string, Change) (DefinitionView, error)
 pkg gorbital.dev/modules/jobs, method (*Manager) ResumeQueue(context.Context, string) error
+pkg gorbital.dev/modules/jobs, method (*Manager) ResumeQueueWithReason(context.Context, string, string) error
 pkg gorbital.dev/modules/jobs, method (*Manager) Retry(context.Context, int64) (JobRun, error)
 pkg gorbital.dev/modules/jobs, method (*Manager) Run(context.Context) error
 pkg gorbital.dev/modules/jobs, method (*Manager) RunNow(context.Context, string) (JobRun, error)
@@ -182,7 +184,9 @@ pkg gorbital.dev/modules/jobs, var ErrDefinitionDisabled error
 pkg gorbital.dev/modules/jobs, var ErrInvalidConfig error
 pkg gorbital.dev/modules/jobs, var ErrInvalidCursor error
 pkg gorbital.dev/modules/jobs, var ErrJobNotFound error
+pkg gorbital.dev/modules/jobs, var ErrJobNotRetryable error
 pkg gorbital.dev/modules/jobs, var ErrReasonRequired error
+pkg gorbital.dev/modules/jobs, var ErrRunLimited error
 pkg gorbital.dev/modules/jobs, var ErrUnknownDefinition error
 pkg gorbital.dev/modules/jobs, var ErrUnknownQueue error
 pkg gorbital.dev/modules/jobs, var ErrVersionConflict error

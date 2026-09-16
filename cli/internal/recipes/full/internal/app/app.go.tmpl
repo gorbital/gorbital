@@ -247,6 +247,8 @@ func (a *App) build(ctx context.Context) error {
 			Mail:     mailInfo(a.cfg, appSettings),
 			// What /ops/auth/providers reports (ADR-0045).
 			SignInMethods: a.cfg.signInMethods,
+			// Test emails each operator may send (rate_limits.go).
+			TestEmailLimiter: limits.testEmail,
 			// What /ops/system reports (ADR-0051).
 			System: systemReporter{pool: pool, health: a.health, tracker: a.releases, started: a.started, workers: a.cfg.JobWorkers},
 			// What /ops/retention reports (ADR-0051).

@@ -116,6 +116,8 @@ func TestSendClassifiesErrors(t *testing.T) {
 		wantText     string
 	}{
 		{422, `{"statusCode":422,"name":"validation_error","message":"Invalid to field."}`, true, "validation_error: Invalid to field."},
+		// Recipients are redacted: the error is shown in job runs and logged (security review OPS-5).
+		{422, `{"statusCode":422,"name":"validation_error","message":"Invalid ` + "`to`" + ` field: ada@example.com"}`, true, "field: [email]"},
 		{403, `{"statusCode":403,"name":"validation_error","message":"The acme.test domain is not verified."}`, true, "mail.from_email"},
 		{409, `{"statusCode":409,"name":"invalid_idempotent_request","message":"Same key, different payload."}`, true, "invalid_idempotent_request"},
 		{409, `{"statusCode":409,"name":"concurrent_idempotent_requests","message":"In progress."}`, false, "concurrent_idempotent_requests"},

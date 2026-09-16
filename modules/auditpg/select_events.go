@@ -2,6 +2,7 @@ package auditpg
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -47,7 +48,10 @@ type Page struct {
 var actionPrefixPattern = regexp.MustCompile(`^[a-z][a-z0-9_.]*$`)
 
 // List returns events matching f, newest first. It returns an error wrapping
-// [ErrInvalidFilter], or [ErrInvalidCursor].
+// [ErrInvalidFilter] or [ErrQueryTimeout], or [ErrInvalidCursor]. Filters
+// on actor ID, action, resource, organisation and request use an index;
+// others, such as outcome or an action prefix alone, scan events newest
+// first until the page fills or the query timeout expires.
 func (s *Store) List(ctx context.Context, f Filter) (Page, error) {
 	if err := f.validate(); err != nil {
 		return Page{}, err
@@ -66,9 +70,11 @@ func (s *Store) List(ctx context.Context, f Filter) (Page, error) {
 		before = id
 	}
 
-	events, err := selectEvents(ctx, s.pool, f, before, limit+1)
+	qctx, cancel := context.WithTimeout(ctx, s.queryTimeout)
+	defer cancel()
+	events, err := selectEvents(qctx, s.pool, f, before, limit+1)
 	if err != nil {
-		return Page{}, fmt.Errorf("auditpg: list events: %v", err) //nolint:errorlint // driver errors aren't API (ADR-0018)
+		return Page{}, queryError(ctx, qctx, "list events", err)
 	}
 	page := Page{Events: events}
 	if len(events) > limit {
@@ -76,6 +82,15 @@ func (s *Store) List(ctx context.Context, f Filter) (Page, error) {
 		page.NextCursor = strconv.FormatInt(page.Events[limit-1].ID, 10)
 	}
 	return page, nil
+}
+
+// queryError wraps [ErrQueryTimeout] when the query timeout, not the
+// caller, ended the query.
+func queryError(ctx, qctx context.Context, what string, err error) error {
+	if ctx.Err() == nil && errors.Is(qctx.Err(), context.DeadlineExceeded) {
+		return fmt.Errorf("auditpg: %s: %w", what, ErrQueryTimeout)
+	}
+	return fmt.Errorf("auditpg: %s: %v", what, err) //nolint:errorlint // driver errors aren't API (ADR-0018)
 }
 
 func (f Filter) validate() error {

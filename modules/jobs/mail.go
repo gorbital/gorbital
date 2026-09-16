@@ -93,7 +93,7 @@ func (w *mailWorker) Work(ctx context.Context, job *river.Job[mailArgs]) error {
 	m := job.Args.Message.toMail()
 	if err := m.Validate(); err != nil {
 		// A stored message that no longer validates will never succeed.
-		return river.JobCancel(err)
+		return river.JobCancel(redacted(err))
 	}
 	if m.IdempotencyKey == "" {
 		m.IdempotencyKey = fmt.Sprintf("job-%d", job.ID)
@@ -101,12 +101,28 @@ func (w *mailWorker) Work(ctx context.Context, job *river.Job[mailArgs]) error {
 	if err := w.sender.Send(ctx, m); err != nil {
 		if errors.Is(err, mail.ErrRejected) {
 			// Retrying the same message can't succeed; the run shows why.
-			return river.JobCancel(fmt.Errorf("send email: %w", err))
+			return river.JobCancel(redacted(fmt.Errorf("send email: %w", err)))
 		}
-		return fmt.Errorf("send email: %w", err)
+		return redacted(fmt.Errorf("send email: %w", err))
 	}
 	return nil
 }
+
+// redactedError is an error whose message has email addresses removed. The
+// message is stored with the job, shown by /ops/jobs/runs and logged, where
+// recipients' addresses must not appear, whatever a provider's reply says.
+type redactedError struct {
+	err error
+	msg string
+}
+
+func redacted(err error) error {
+	return &redactedError{err: err, msg: mail.RedactAddresses(err.Error())}
+}
+
+func (e *redactedError) Error() string { return e.msg }
+
+func (e *redactedError) Unwrap() error { return e.err }
 
 func (w *mailWorker) Timeout(*river.Job[mailArgs]) time.Duration { return mailTimeout }
 

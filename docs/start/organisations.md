@@ -119,6 +119,8 @@ One mistake in one layer shouldn't leak data. Each layer is checked by a test in
 | `orgs.max_owned` | 20 | 1 to 10,000 organisations a user may own, personal workspace aside |
 | `orgs.user_invitations_per_hour` | 50 | 1 to 10,000 invitations a user may send or resend an hour, shared across instances |
 
+Changing any of them needs a reason, kept in the setting's history: the invitation page receives every invitation token.
+
 ## Error codes
 
 | Code | Status | When |

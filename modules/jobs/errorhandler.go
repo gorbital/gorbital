@@ -7,10 +7,13 @@ import (
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
+
+	"gorbital.dev/mail"
 )
 
 // errorHandler logs each failed attempt once, at the edge (ADR-0018):
-// a warning while retries remain, an error on the last attempt.
+// a warning while retries remain, an error on the last attempt. Email
+// addresses in error messages are redacted: logs carry IDs, not addresses.
 type errorHandler struct {
 	logger *slog.Logger
 }
@@ -18,13 +21,13 @@ type errorHandler struct {
 var _ river.ErrorHandler = (*errorHandler)(nil)
 
 func (h *errorHandler) HandleError(ctx context.Context, job *rivertype.JobRow, err error) *river.ErrorHandlerResult {
-	h.logger.Log(ctx, level(job), "job failed", jobAttrs(job, slog.Any("err", err))...)
+	h.logger.Log(ctx, level(job), "job failed", jobAttrs(job, slog.String("err", mail.RedactAddresses(err.Error())))...)
 	return nil
 }
 
 func (h *errorHandler) HandlePanic(ctx context.Context, job *rivertype.JobRow, panicVal any, trace string) *river.ErrorHandlerResult {
 	h.logger.Log(ctx, level(job), "job panicked", jobAttrs(job,
-		slog.String("panic", fmt.Sprint(panicVal)),
+		slog.String("panic", mail.RedactAddresses(fmt.Sprint(panicVal))),
 		slog.String("stack", trace),
 	)...)
 	return nil

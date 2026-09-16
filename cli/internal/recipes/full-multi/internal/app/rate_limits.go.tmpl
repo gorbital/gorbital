@@ -10,6 +10,8 @@ import (
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/ratelimitpg"
 	"gorbital.dev/ratelimit"
+
+	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
 )
 
 // rateLimits are the request limits every instance shares through PostgreSQL
@@ -25,6 +27,8 @@ type rateLimits struct {
 	mfa ratelimit.Taker
 	// notice limits "account exists" emails to one a minute per address.
 	notice ratelimit.Taker
+	// testEmail limits POST /ops/mail/test per operator.
+	testEmail ratelimit.Taker
 }
 
 // newRateLimits builds the shared limiters on pool.
@@ -50,6 +54,9 @@ func newRateLimits(pool *pgxpool.Pool, s appSettings, logger *slog.Logger) (rate
 		}},
 		{"auth_notice", &limits.notice, func(context.Context) ratelimit.Limit {
 			return ratelimit.Per(1, authlib.CodeResendInterval)
+		}},
+		{"ops_test_email", &limits.testEmail, func(context.Context) ratelimit.Limit {
+			return ratelimit.Per(opsusecase.TestEmailsPerHour, time.Hour)
 		}},
 	} {
 		limiter, err := store.Limiter(l.name, l.limit)

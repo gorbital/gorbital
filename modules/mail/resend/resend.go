@@ -212,7 +212,9 @@ func responseError(resp *http.Response) error {
 	data, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBody))
 	var e apiError
 	_ = json.Unmarshal(data, &e)
-	detail := strings.TrimSpace(e.Message)
+	// Resend's messages can quote the recipient, and the error is shown in
+	// job runs and logged.
+	detail := mail.RedactAddresses(strings.TrimSpace(e.Message))
 	if detail == "" {
 		detail = http.StatusText(resp.StatusCode)
 	}

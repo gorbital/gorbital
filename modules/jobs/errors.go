@@ -14,9 +14,10 @@ var (
 	// caller read it. Read it again and retry.
 	ErrVersionConflict = errors.New("jobs: job definition changed since it was read")
 
-	// ErrReasonRequired reports disabling or rescheduling a job without a
-	// reason.
-	ErrReasonRequired = errors.New("jobs: a reason is required to disable or reschedule a job")
+	// ErrReasonRequired reports a change that needs a reason without one:
+	// disabling or rescheduling a job, changing its timeout, attempts or
+	// queue, or pausing a queue.
+	ErrReasonRequired = errors.New("jobs: a reason is required for this change")
 
 	// ErrActorRequired reports a change without an authenticated actor in
 	// the context.
@@ -24,6 +25,14 @@ var (
 
 	// ErrDefinitionDisabled reports running a disabled job on demand.
 	ErrDefinitionDisabled = errors.New("jobs: job definition is disabled")
+
+	// ErrRunLimited reports running a job on demand while a run of it is
+	// queued or running, or within [MinScheduleInterval] of its last run.
+	ErrRunLimited = errors.New("jobs: the job is queued or running, or ran less than a minute ago")
+
+	// ErrJobNotRetryable reports retrying a job that isn't waiting to retry,
+	// discarded or cancelled: a completed job never runs again.
+	ErrJobNotRetryable = errors.New("jobs: only jobs waiting to retry, discarded or cancelled can be retried")
 
 	// ErrJobNotFound reports a job ID that doesn't exist, for example
 	// because retention removed it.

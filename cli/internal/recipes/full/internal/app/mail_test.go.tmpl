@@ -41,8 +41,12 @@ func TestEmailThroughOps(t *testing.T) {
 		t.Fatalf("GET /ops/mail = %d %s", status.code, status.body)
 	}
 
+	// Who emails appear to come from needs a reason (security review OPS-9).
+	if r := do(t, h, "PUT", "/ops/settings/mail.reply_to", `{"value":"attacker@evil.test","version":0}`, bearer...); r.code != 422 || r.json["code"] != "setting_reason_required" {
+		t.Errorf("PUT mail.reply_to without reason = %d %s, want 422 setting_reason_required", r.code, r.body)
+	}
 	for key, value := range map[string]string{"mail.from_email": "hello@acme.test", "mail.from_name": "Acme", "mail.reply_to": "support@acme.test"} {
-		if r := do(t, h, "PUT", "/ops/settings/"+key, fmt.Sprintf(`{"value":%q,"version":0}`, value), bearer...); r.code != http.StatusOK {
+		if r := do(t, h, "PUT", "/ops/settings/"+key, fmt.Sprintf(`{"value":%q,"version":0,"reason":"our sender"}`, value), bearer...); r.code != http.StatusOK {
 			t.Fatalf("PUT /ops/settings/%s = %d %s", key, r.code, r.body)
 		}
 	}

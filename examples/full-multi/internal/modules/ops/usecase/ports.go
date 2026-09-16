@@ -35,8 +35,8 @@ type JobsManager interface {
 	Retry(ctx context.Context, id int64) (jobs.JobRun, error)
 	Cancel(ctx context.Context, id int64) (jobs.JobRun, error)
 	Queues(ctx context.Context) ([]jobs.Queue, error)
-	PauseQueue(ctx context.Context, name string) error
-	ResumeQueue(ctx context.Context, name string) error
+	PauseQueueWithReason(ctx context.Context, name, reason string) error
+	ResumeQueueWithReason(ctx context.Context, name, reason string) error
 	Overview(ctx context.Context) (jobs.Overview, error)
 }
 

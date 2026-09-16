@@ -33,19 +33,23 @@ func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error
 
 		httpx.Mapping{Err: jobs.ErrUnknownDefinition, Status: http.StatusNotFound, Code: "job_definition_not_found", Detail: "no job definition has this name"},
 		httpx.Mapping{Err: jobs.ErrVersionConflict, Status: http.StatusConflict, Code: "job_definition_version_conflict", Detail: "the job definition changed since it was read; read it again"},
-		httpx.Mapping{Err: jobs.ErrReasonRequired, Status: http.StatusUnprocessableEntity, Code: "job_reason_required", Detail: "a reason is required to disable or reschedule a job"},
+		httpx.Mapping{Err: jobs.ErrReasonRequired, Status: http.StatusUnprocessableEntity, Code: "job_reason_required", Detail: "a reason is required to disable or reschedule a job, change its timeout, attempts or queue, or pause a queue"},
 		httpx.Mapping{Err: jobs.ErrInvalidConfig, Status: http.StatusUnprocessableEntity, Code: "invalid_job_config", Detail: "the job configuration is not valid"},
 		httpx.Mapping{Err: jobs.ErrDefinitionDisabled, Status: http.StatusConflict, Code: "job_definition_disabled", Detail: "the job is disabled"},
+		httpx.Mapping{Err: jobs.ErrRunLimited, Status: http.StatusTooManyRequests, Code: "job_run_limited", Detail: "the job is queued or running, or ran less than a minute ago"},
+		httpx.Mapping{Err: jobs.ErrJobNotRetryable, Status: http.StatusConflict, Code: "job_not_retryable", Detail: "only runs waiting to retry, discarded or cancelled can be retried"},
 		httpx.Mapping{Err: jobs.ErrJobNotFound, Status: http.StatusNotFound, Code: "job_not_found", Detail: "no job has this ID"},
 		httpx.Mapping{Err: jobs.ErrUnknownQueue, Status: http.StatusUnprocessableEntity, Code: "queue_not_active", Detail: "no worker runs this queue"},
 		httpx.Mapping{Err: jobs.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
 
 		httpx.Mapping{Err: auditpg.ErrEventNotFound, Status: http.StatusNotFound, Code: "audit_event_not_found", Detail: "no audit event has this ID"},
 		httpx.Mapping{Err: auditpg.ErrInvalidFilter, Status: http.StatusUnprocessableEntity, Code: "invalid_audit_filter", Detail: "the audit filter is not valid"},
+		httpx.Mapping{Err: auditpg.ErrQueryTimeout, Status: http.StatusServiceUnavailable, Code: "audit_query_timeout", Detail: "the audit query took too long; narrow the filters or the time range"},
 
 		httpx.Mapping{Err: releases.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
 
 		httpx.Mapping{Err: opsdomain.ErrInvalidRecipient, Status: http.StatusUnprocessableEntity, Code: "invalid_recipient", Detail: "the recipient is not an email address"},
+		httpx.Mapping{Err: opsdomain.ErrTooManyTestEmails, Status: http.StatusTooManyRequests, Code: "rate_limited", Detail: "too many test emails; try again later"},
 	)
 	if err != nil {
 		return fmt.Errorf("ops module: %w", err)

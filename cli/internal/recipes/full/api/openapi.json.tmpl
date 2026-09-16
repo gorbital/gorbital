@@ -1729,6 +1729,17 @@
         ],
         "type": "object"
       },
+      "QueueControlInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "reason": {
+            "description": "Why; required to pause a queue",
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "QueueList": {
         "additionalProperties": false,
         "properties": {
@@ -2813,7 +2824,7 @@
             "type": "string"
           },
           "reason": {
-            "description": "Required to disable or reschedule a job",
+            "description": "Required to disable or reschedule a job, or to change its timeout, max attempts or queue",
             "maxLength": 500,
             "type": "string"
           },
@@ -3750,7 +3761,7 @@
         ]
       },
       "put": {
-        "description": "Send only the fields to change. Applies to every instance within moments. Disabling or rescheduling requires a reason.",
+        "description": "Send only the fields to change. Applies to every instance within moments. Disabling or rescheduling a job, or changing its timeout, max attempts or queue, requires a reason.",
         "operationId": "ops-update-job-definition",
         "parameters": [
           {
@@ -3973,6 +3984,7 @@
     },
     "/ops/jobs/definitions/{name}/run": {
       "post": {
+        "description": "Refused while a run of the job is queued or running, or within a minute of its last run.",
         "operationId": "ops-run-job",
         "parameters": [
           {
@@ -4048,6 +4060,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           },
           "500": {
             "content": {
@@ -4443,6 +4465,7 @@
     },
     "/ops/jobs/runs/{id}/retry": {
       "post": {
+        "description": "Only runs waiting to retry, discarded or cancelled, of enabled jobs: a completed run never runs again.",
         "operationId": "ops-retry-job-run",
         "parameters": [
           {
@@ -4496,6 +4519,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -4644,7 +4677,7 @@
     },
     "/ops/mail/test": {
       "post": {
-        "description": "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`.",
+        "description": "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`. Each operator can send 5 an hour.",
         "operationId": "ops-send-test-email",
         "requestBody": {
           "content": {
@@ -4696,6 +4729,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           },
           "500": {
             "content": {
@@ -4777,6 +4820,7 @@
     },
     "/ops/queues/{name}/pause": {
       "post": {
+        "description": "Every job in the queue stops, email delivery included, so pausing requires a reason.",
         "operationId": "ops-pause-job-queue",
         "parameters": [
           {
@@ -4792,6 +4836,15 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueControlInputBody"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "No Content"
@@ -4865,6 +4918,15 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueueControlInputBody"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "No Content"

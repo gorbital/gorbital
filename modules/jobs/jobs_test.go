@@ -261,7 +261,7 @@ type flakyWorker struct {
 }
 
 func (flakyWorker) Work(context.Context, *river.Job[flakyArgs]) error {
-	return errors.New("provider unavailable")
+	return errors.New("provider unavailable for <ada@example.com>")
 }
 
 func TestFailedAttemptsAreLoggedOnce(t *testing.T) {
@@ -290,10 +290,14 @@ func TestFailedAttemptsAreLoggedOnce(t *testing.T) {
 			break
 		}
 	}
-	for _, want := range []string{`"level":"WARN"`, `"job_kind":"flaky"`, `"attempt":1`, `"max_attempts":3`, `provider unavailable`} {
+	for _, want := range []string{`"level":"WARN"`, `"job_kind":"flaky"`, `"attempt":1`, `"max_attempts":3`, `provider unavailable for <[email]>`} {
 		if !strings.Contains(line, want) {
 			t.Errorf("failure log %s lacks %s", line, want)
 		}
+	}
+	// Logs carry IDs, not email addresses (security review OPS-5).
+	if strings.Contains(logs.String(), "ada@example.com") {
+		t.Errorf("failure log reveals an email address: %s", logs.String())
 	}
 	if n := strings.Count(logs.String(), `"msg":"job failed"`); n != 1 {
 		t.Errorf("logged the first failed attempt %d times, want once", n)

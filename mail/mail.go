@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	netmail "net/mail"
+	"regexp"
 	"strings"
 )
 
@@ -76,9 +77,31 @@ func validAddress(a Address) error {
 	}
 	parsed, err := netmail.ParseAddress(a.Email)
 	if err != nil || parsed.Address != a.Email {
-		return fmt.Errorf("invalid email %q", a.Email)
+		// The address is personal data: errors end up in job runs and logs.
+		return errors.New("invalid email address")
 	}
 	return nil
+}
+
+// addressPattern matches text shaped like an email address, including a
+// domain literal such as user@[192.0.2.1].
+var addressPattern = regexp.MustCompile("[\\p{L}\\p{N}!#$%&'*+/=?^_`{|}~.-]+@(?:[\\p{L}\\p{N}-]+(?:\\.[\\p{L}\\p{N}-]+)*|\\[[^\\]\\s]*\\])")
+
+// RedactedAddress replaces email addresses in text redacted by
+// [RedactAddresses].
+const RedactedAddress = "[email]"
+
+// RedactAddresses returns text with everything shaped like an email address
+// replaced by [RedactedAddress]. Providers and senders apply it to server
+// replies before they become errors: SMTP servers and APIs often echo the
+// recipient ("550 5.1.1 <jane@example.com>: Recipient address rejected"),
+// and errors are shown in job runs and logged, where addresses must not
+// appear.
+func RedactAddresses(text string) string {
+	if !strings.Contains(text, "@") {
+		return text
+	}
+	return addressPattern.ReplaceAllLiteralString(text, RedactedAddress)
 }
 
 // A Sender delivers email. Implementations must be safe for concurrent use,

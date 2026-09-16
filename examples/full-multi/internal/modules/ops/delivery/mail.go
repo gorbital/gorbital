@@ -58,9 +58,9 @@ func RegisterMail(api huma.API, svc *opsusecase.Service) {
 	huma.Register(api, huma.Operation{
 		OperationID: "ops-send-test-email", Method: http.MethodPost, Path: "/ops/mail/test",
 		Summary:     "Send a test email",
-		Description: "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`.",
+		Description: "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`. Each operator can send 5 an hour.",
 		Tags:        tags, Security: openapi.Bearer, DefaultStatus: http.StatusAccepted,
-		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity},
+		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity, http.StatusTooManyRequests},
 	}, h.sendTest)
 }
 
@@ -80,12 +80,9 @@ func (h *mailHandler) status(ctx context.Context, _ *struct{}) (*mailStatusOutpu
 }
 
 func (h *mailHandler) sendTest(ctx context.Context, in *testEmailInput) (*testEmailOutput, error) {
-	if err := h.svc.SendTestEmail(ctx, in.Body.To); err != nil {
-		return nil, err
-	}
-	st, err := h.svc.MailStatus(ctx)
+	delivery, err := h.svc.SendTestEmail(ctx, in.Body.To)
 	if err != nil {
 		return nil, err
 	}
-	return &testEmailOutput{Body: TestEmailResponse{Status: "queued", To: in.Body.To, Delivery: st.Delivery}}, nil
+	return &testEmailOutput{Body: TestEmailResponse{Status: "queued", To: in.Body.To, Delivery: delivery}}, nil
 }

@@ -152,9 +152,26 @@ func TestRecordRedactsAndSanitizes(t *testing.T) {
 			"tokenizer":     "kept",
 			"footprint":     "kept",
 			"customer_ssn":  "123",
-			"nested":        map[string]any{"client_secret": "s", "note": "a\x00b"},
-			"list":          []any{map[string]any{"api_key": "k"}},
-			"login":         credentials{Username: "ada", Password: "hunter2"},
+			// Plural, camelCase and newer names (security review OPS-4).
+			"tokens":         []any{"a", "b"},
+			"refresh_tokens": "tok",
+			"sessionTokens":  "tok",
+			"secrets":        "s",
+			"client_secrets": "s",
+			"passwords":      "p",
+			"recovery_codes": []any{"c1"},
+			"apiKeys":        "k",
+			"totp":           "123456",
+			"totp_code":      123456,
+			"reset_code":     "123456",
+			"jwt":            "eyJ",
+			"bearer":         "b",
+			"code":           "invalid_credentials",
+			"status":         "kept",
+			"secretary_note": "kept",
+			"nested":         map[string]any{"client_secret": "s", "note": "a\x00b"},
+			"list":           []any{map[string]any{"api_key": "k"}},
+			"login":          credentials{Username: "ada", Password: "hunter2"},
 		},
 	})
 	if err != nil {
@@ -162,12 +179,14 @@ func TestRecordRedactsAndSanitizes(t *testing.T) {
 	}
 	got := only(t, store)
 	m := got.Metadata
-	for _, key := range []string{"password", "accessToken", "Refresh-Token", "customer_ssn"} {
+	for _, key := range []string{"password", "accessToken", "Refresh-Token", "customer_ssn",
+		"tokens", "refresh_tokens", "sessionTokens", "secrets", "client_secrets", "passwords", "recovery_codes",
+		"apiKeys", "totp", "totp_code", "reset_code", "jwt", "bearer"} {
 		if m[key] != "[REDACTED]" {
 			t.Errorf("Metadata[%q] = %v, want redacted", key, m[key])
 		}
 	}
-	if m["tokenizer"] != "kept" || m["footprint"] != "kept" {
+	if m["tokenizer"] != "kept" || m["footprint"] != "kept" || m["status"] != "kept" || m["secretary_note"] != "kept" || m["code"] != "invalid_credentials" {
 		t.Errorf("keys only resembling sensitive names were redacted: %v", m)
 	}
 	nested := m["nested"].(map[string]any)
@@ -369,5 +388,46 @@ func TestRecordConcurrently(t *testing.T) {
 	page, err := store.List(ctx, auditpg.Filter{Limit: 100})
 	if err != nil || len(page.Events) != 20 {
 		t.Errorf("List() = %d events, %v, want 20", len(page.Events), err)
+	}
+}
+
+// A listing no index serves can't hold a connection indefinitely (security
+// review OPS-6): the query timeout cancels it.
+func TestListAndStatsTimeOut(t *testing.T) {
+	store, pool := newStore(t, auditpg.WithQueryTimeout(200*time.Millisecond))
+	ctx := context.Background()
+
+	// A lock held by another transaction stands in for a slow scan.
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, "LOCK TABLE audit_events IN ACCESS EXCLUSIVE MODE"); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan error, 2)
+	go func() {
+		_, err := store.List(ctx, auditpg.Filter{Outcome: audit.OutcomeDenied, ActionPrefix: "zzz"})
+		done <- err
+	}()
+	go func() {
+		_, err := store.Stats(ctx, auditpg.StatsFilter{GroupBy: auditpg.StatsByOutcome})
+		done <- err
+	}()
+	for range 2 {
+		select {
+		case err := <-done:
+			if !errors.Is(err, auditpg.ErrQueryTimeout) {
+				t.Errorf("List()/Stats() on a locked table error = %v, want ErrQueryTimeout", err)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatal("List()/Stats() still running after 10s, want the query timeout to cancel it")
+		}
+	}
+
+	if _, err := auditpg.NewStore(pool, auditpg.WithQueryTimeout(0)); err == nil {
+		t.Error("NewStore(WithQueryTimeout(0)) error = nil")
 	}
 }

@@ -55,6 +55,21 @@ func TestFromContext(t *testing.T) {
 	}
 }
 
+// Events recorded while handling a request carry the client's address and
+// user agent, whichever module records them (security review OPS-7).
+func TestFromContextFillsClient(t *testing.T) {
+	ctx := actor.WithClient(context.Background(), actor.Client{IP: "203.0.113.7", UserAgent: "curl/8"})
+
+	got := audit.FromContext(ctx, audit.Event{Action: "settings.value.changed", Outcome: audit.OutcomeSuccess})
+	if got.IP != "203.0.113.7" || got.UserAgent != "curl/8" {
+		t.Errorf("FromContext() IP, UserAgent = %q, %q; want the client's", got.IP, got.UserAgent)
+	}
+	explicit := audit.FromContext(ctx, audit.Event{IP: "198.51.100.1", UserAgent: "app"})
+	if explicit.IP != "198.51.100.1" || explicit.UserAgent != "app" {
+		t.Errorf("FromContext() overwrote explicit client fields: %+v", explicit)
+	}
+}
+
 func TestLogRecorder(t *testing.T) {
 	var buf bytes.Buffer
 	r := audit.NewLogRecorder(slog.New(slog.NewJSONHandler(&buf, nil)))

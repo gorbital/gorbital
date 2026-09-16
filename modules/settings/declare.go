@@ -43,7 +43,8 @@ func Duration(r *Registry, key string, def time.Duration, opts ...Option) *Setti
 }
 
 // StringList declares a list-of-text setting, such as allowed origins.
-// Get returns a copy the caller may modify.
+// Get returns a copy the caller may modify. Combine with [MaxItems]; the
+// default limit is [DefaultMaxItems].
 func StringList(r *Registry, key string, def []string, opts ...Option) *Setting[[]string] {
 	if def == nil {
 		def = []string{}

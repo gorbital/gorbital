@@ -233,7 +233,7 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 |---|---|---|---|
 | `auth.session_idle_ttl` | 14 days | 1 hour – 90 days | Yes |
 | `auth.session_absolute_ttl` | 90 days | 1 – 365 days | Yes |
-| `auth.verification_code_ttl` | 15 minutes | 5 minutes – 1 hour | No |
+| `auth.verification_code_ttl` | 15 minutes | 5 minutes – 1 hour | Yes |
 | `auth.reset_code_ttl` | 30 minutes | 10 minutes – 2 hours | Yes |
 | `auth.deleted_account_retention` | 30 days | 1 – 365 days | Yes |
 

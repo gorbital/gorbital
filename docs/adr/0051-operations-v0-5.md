@@ -158,6 +158,21 @@ Read-only; prints each check as `ok`, `warn` or `fail` with the fix; exit 1 on a
 | 6. `orb doctor` | Done (2026-09-15) | `cli/internal/cli/doctor.go`: checks `go` (against `go.mod`'s go directive; pre-releases count as older), `git`, `docker` (Full), `gorbital.yaml`, `gorbital.lock` (version, v1, release against this `orb`, edited tracked files by hash), `library` (`replace` pointing at a checkout), `anchor` (`//orb:anchor modules`, `jobs`, `org-permissions` in multi-tenant apps, the mail block), `.env` (missing variables by name, secrets not ignored by git; values never printed), `api files` (exported to a temporary directory with `go run ./cmd/api openapi --dir` and compared), and `configuration`/`database` through the app's new `go run ./cmd/migrate --status --json` (`app.WriteMigrationStatus`: configuration error, database error, current, latest, pending). Configuration problems such as a malformed `AUTH_ENCRYPTION_KEYS` come from the app's own `LoadConfig` there, not from a second copy of its validation in the CLI. `--fast` skips the checks that build the app; exit 1 when any check fails. Not done: the port check, since a taken port is usually the app's own running services and `orb dev` already reports ports it can't use. Tests: `TestDoctorOnANewApp`, `TestDoctorFindsProblems` (anchor, secret `.env` not ignored and never printed, stale `llms.txt`, pending, configuration error, database ahead of the code), `TestDoctorOnAMinimalApp`, `TestVersionAtLeast`, `TestMigrationStatus` (both Full golden apps) |
 | 7. Upgrade note, docs, threat model, done-when | Done (2026-09-15) | [Upgrade notes](../guides/upgrade-notes.md) for v0.5, rendered on the docs site, lead with the one behaviour change existing apps must act on before deploying: audit events older than 365 days are deleted. Threat model rows 29–31 added and done, row 18 checked by the authorisation tests. Roadmap v0.5 marked done with results; architecture, README and site updated. `docs/guides/ops-api.md` documents every new endpoint, setting, error code and command, and renders on the site |
 
+## Security review fixes (2026-09-16)
+
+The internal security review of September 2026 (findings OPS-2 to OPS-10) changed several v0.5 operations; the library side is recorded in ADR-0033, ADR-0036 and ADR-0037.
+
+| Finding | Change in both golden apps |
+|---|---|
+| OPS-2, OPS-3 | `/ops/queues/{name}/pause` takes `{reason}` (required), resume an optional one; run-now answers 429 `job_run_limited`, retry 409 `job_not_retryable`; `job_reason_required` covers timeout, attempts and queue changes |
+| OPS-6 | 503 `audit_query_timeout` when an audit listing or stats query runs over 5 seconds |
+| OPS-7 | Ops changes over HTTP record the client's IP address and user agent, through `auth.Middleware` and `audit.FromContext` |
+| OPS-8 | `POST /ops/mail/test` authorises fully before queueing and allows 5 test emails an hour per operator |
+| OPS-9 | Reason required for `mail.from_name`, `mail.from_email`, `mail.reply_to`, `auth.verification_code_ttl`, and in multi-tenant apps `orgs.invitation_url` and `orgs.invitation_ttl`. Reviewed and left without: `example.ping_message`, `maintenance.message`, `maintenance.retry_after` and `releases.instance_retention`, which change neither access, lifetimes of secrets nor where emails and links go |
+| OPS-10 | `settings.StringList` without `MaxItems` is limited to `settings.DefaultMaxItems` (100). Accepted: `/ops/releases` returns instance host names to `ops.releases.read`; they identify pods for operators, while threat 31's promise covers `/ops/system`'s infrastructure details (connection strings, environment). Accepted: when an audit write fails after a settings or job change, the history table still records it, and run-now, retry, cancel, pause and resume have only the logged error; making the audit write part of the change would let an audit outage block incident response |
+
+New error codes `job_run_limited`, `job_not_retryable` and `audit_query_timeout` are recorded in `api/surface.json`; `TestOpsAPICompatible` passes against the unchanged baseline.
+
 ## Maintainer's answers (2026-09-15)
 
 1. Retention is changed through `/ops/settings`, with a read-only `GET /ops/retention` summary (section 4).

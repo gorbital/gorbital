@@ -147,7 +147,7 @@ client, err := jobs.New(pool, workers, jobs.WithQueues(jobs.DefaultQueues()))
 mailer := mail.WithDefaults(jobs.AsyncSender(client), senderSettings) // validates, fills the sender, enqueues
 ```
 
-Delivery is retried up to 8 times; each job's ID becomes the provider idempotency key (`job-<id>`) unless the message sets one, so retries never send twice. A send that fails with `mail.ErrRejected` (an unverified domain, a refused address) is cancelled at once instead of retried, and the run keeps the reason. Choosing the provider and the sender settings: [email guide](email.md).
+Delivery is retried up to 8 times; each job's ID becomes the provider idempotency key (`job-<id>`) unless the message sets one, so retries never send twice. A send that fails with `mail.ErrRejected` (an unverified domain, a refused address) is cancelled at once instead of retried, and the run keeps the reason. Email addresses in the error are replaced with `[email]` (`mail.RedactAddresses`) before it is stored with the run or logged, since providers often quote the recipient; River's own log lines through `WithLogger` are redacted the same way. Choosing the provider and the sender settings: [email guide](email.md).
 
 ## Managing jobs in Go
 
@@ -157,12 +157,12 @@ Delivery is retried up to 8 times; each job's ID becomes the provider idempotenc
 | `Update(ctx, name, ConfigPatch, Change)` | Change fields; setting a field to its default removes that override |
 | `Reset(ctx, name, Change)` | Back to code defaults |
 | `History(ctx, name, before, limit)` | Changes, newest first |
-| `RunNow(ctx, name)` | Enqueue an enabled job now |
+| `RunNow(ctx, name)` | Enqueue an enabled job now; `ErrRunLimited` while a run is queued or running, or within `MinScheduleInterval` (1 minute) of its last run |
 | `Jobs(ctx, JobFilter)`, `Job(ctx, id)` | Runs without arguments, cursor pagination |
-| `Retry`, `Cancel` | Control one run |
-| `Queues`, `PauseQueue`, `ResumeQueue` | Queues across all instances |
+| `Retry`, `Cancel` | Control one run. `Retry` accepts runs waiting to retry, discarded or cancelled (`ErrJobNotRetryable` otherwise, so a completed run never runs twice) of enabled definitions (`ErrDefinitionDisabled`) |
+| `Queues`, `PauseQueueWithReason`, `ResumeQueueWithReason` | Queues across all instances; pausing needs a reason, recorded in the audit event. `PauseQueue` is deprecated and returns `ErrReasonRequired` |
 
-Rules: writes need an authenticated actor; `Update` and `Reset` need the current version; disabling a job or changing an enabled job's schedule needs a reason; moving a job to a queue requires that queue to be active. Audit actions: `jobs.definition.changed`, `jobs.definition.run_requested`, `jobs.run.retried`, `jobs.run.cancelled`, `jobs.queue.paused`, `jobs.queue.resumed`.
+Rules: writes need an authenticated actor; `Update` and `Reset` need the current version; disabling a job, changing an enabled job's schedule, or changing its timeout, max attempts or queue needs a reason (each can stop the job working while it looks enabled); moving a job to a queue requires that queue to be active. Audit actions: `jobs.definition.changed`, `jobs.definition.run_requested`, `jobs.run.retried`, `jobs.run.cancelled`, `jobs.queue.paused`, `jobs.queue.resumed`.
 
 ## Migrations and storage
 
