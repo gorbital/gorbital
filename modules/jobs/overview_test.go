@@ -40,7 +40,7 @@ func TestOverview(t *testing.T) {
 		t.Errorf("failing = %+v, want rebuild_index with its last run", o.Failing)
 	}
 
-	if err := s.manager.PauseQueue(operator(), river.QueueDefault); err != nil {
+	if err := s.manager.PauseQueueWithReason(operator(), river.QueueDefault, "test"); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, "the queue to show as paused", func() bool {

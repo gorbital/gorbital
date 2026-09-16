@@ -70,6 +70,10 @@ func TestInvalidDeclarationsPanic(t *testing.T) {
 		{"enum default not allowed", func(r *settings.Registry) { settings.Enum(r, "a.b", "x", []string{"y"}) }, "default is invalid"},
 		{"OneOf on int", func(r *settings.Registry) { settings.Int(r, "a.b", 1, settings.OneOf("1")) }, "not int"},
 		{"MaxItems on string", func(r *settings.Registry) { settings.String(r, "a.b", "", settings.MaxItems(2)) }, "string list settings"},
+		// A list without MaxItems is still bounded (security review OPS-10).
+		{"list default over the default item limit", func(r *settings.Registry) {
+			settings.StringList(r, "a.b", make([]string, settings.DefaultMaxItems+1))
+		}, "must have at most 100 items"},
 		{"Validate type mismatch", func(r *settings.Registry) {
 			settings.Int(r, "a.b", 1, settings.Validate(func(string) error { return nil }))
 		}, "doesn't match a int setting"},

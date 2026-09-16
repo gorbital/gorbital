@@ -26,8 +26,9 @@ func AllPermissions() []string {
 
 // Errors returned by operations use cases.
 var (
-	ErrUnauthenticated  = errors.New("authentication is required")
-	ErrForbidden        = errors.New("missing permission")
-	ErrMFARequired      = errors.New("the permission needs a session signed in with two-factor authentication")
-	ErrInvalidRecipient = errors.New("recipient is not an email address")
+	ErrUnauthenticated   = errors.New("authentication is required")
+	ErrForbidden         = errors.New("missing permission")
+	ErrMFARequired       = errors.New("the permission needs a session signed in with two-factor authentication")
+	ErrInvalidRecipient  = errors.New("recipient is not an email address")
+	ErrTooManyTestEmails = errors.New("too many test emails")
 )

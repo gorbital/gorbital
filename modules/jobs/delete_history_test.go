@@ -14,7 +14,7 @@ func TestDeleteHistoryBeforeAndOldest(t *testing.T) {
 		t.Errorf("OldestHistory() without changes = %v, %v; want none", ok, err)
 	}
 	for i := range 3 {
-		if _, err := s.manager.Update(ctx, "rebuild_index", jobs.ConfigPatch{MaxAttempts: ptr(4 + i)}, jobs.Change{Version: int64(i)}); err != nil {
+		if _, err := s.manager.Update(ctx, "rebuild_index", jobs.ConfigPatch{MaxAttempts: ptr(4 + i)}, jobs.Change{Version: int64(i), Reason: "test"}); err != nil {
 			t.Fatalf("Update() error = %v", err)
 		}
 	}

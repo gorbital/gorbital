@@ -63,6 +63,7 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.Describe("Sender name on every email, such as Acme."),
 			settings.Group("mail"),
 			settings.MaxLen(100),
+			settings.ReasonRequired(), // who emails appear to come from
 			settings.Validate(func(s string) error {
 				if strings.ContainsAny(s, "\r\n") {
 					return errors.New("must be a single line")
@@ -74,11 +75,13 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.Describe("Sender address on every email. With Resend, its domain must be verified in your Resend account."),
 			settings.Group("mail"),
 			settings.Email(),
+			settings.ReasonRequired(), // who emails appear to come from
 		),
 		mailReplyTo: settings.String(reg, "mail.reply_to", "",
 			settings.Describe("Address replies go to. Empty: replies go to the sender address."),
 			settings.Group("mail"),
 			settings.MaxLen(254),
+			settings.ReasonRequired(), // where replies to password reset and invitation emails go
 			settings.Validate(func(s string) error {
 				if s == "" {
 					return nil
@@ -103,6 +106,7 @@ func declareSettings(reg *settings.Registry) appSettings {
 		authVerificationCodeTTL: settings.Duration(reg, "auth.verification_code_ttl", authlib.DefaultVerificationCodeTTL,
 			settings.Describe("How long email verification codes stay valid."),
 			settings.Range(5*time.Minute, time.Hour),
+			settings.ReasonRequired(),
 		),
 		authResetCodeTTL: settings.Duration(reg, "auth.reset_code_ttl", authlib.DefaultResetCodeTTL,
 			settings.Describe("How long password reset codes stay valid."),

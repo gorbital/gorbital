@@ -214,7 +214,7 @@ func (s *Sender) deliver(conn net.Conn, m mail.Message, msg []byte) error {
 		}
 		// Not ErrRejected: fixing the credentials lets a retry succeed.
 		if err := c.Auth(smtp.PlainAuth("", s.username, s.password.Reveal(), s.host)); err != nil {
-			return fmt.Errorf("smtp: authenticate with %s (check the SMTP username and password): %v", s.addr, err) //nolint:errorlint // server replies aren't API
+			return fmt.Errorf("smtp: authenticate with %s (check the SMTP username and password): %s", s.addr, mail.RedactAddresses(err.Error()))
 		}
 	}
 	if err := c.Mail(m.From.Email); err != nil {
@@ -242,11 +242,16 @@ func (s *Sender) deliver(conn net.Conn, m mail.Message, msg []byte) error {
 }
 
 // fail describes err at stage. Permanent SMTP replies (5xx) wrap
-// mail.ErrRejected.
+// mail.ErrRejected. Email addresses in server replies are redacted: the
+// error is shown in job runs and logged.
 func (s *Sender) fail(stage string, err error) error {
 	var reply *textproto.Error
 	if errors.As(err, &reply) && reply.Code >= 500 {
-		return fmt.Errorf("%w: %s refused %s: %d %s", mail.ErrRejected, s.addr, stage, reply.Code, reply.Msg)
+		return fmt.Errorf("%w: %s refused %s: %d %s", mail.ErrRejected, s.addr, stage, reply.Code, mail.RedactAddresses(reply.Msg))
+	}
+	if errors.As(err, &reply) {
+		// Temporary replies echo recipients too ("450 <jane@example.com>: mailbox busy").
+		return fmt.Errorf("smtp: %s with %s: %d %s", stage, s.addr, reply.Code, mail.RedactAddresses(reply.Msg))
 	}
 	return fmt.Errorf("smtp: %s with %s: %w", stage, s.addr, err)
 }

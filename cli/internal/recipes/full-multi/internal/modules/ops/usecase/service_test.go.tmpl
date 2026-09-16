@@ -33,11 +33,11 @@ func TestServiceRequiresPermissions(t *testing.T) {
 	_, checks["SetSetting"] = svc.SetSetting(reader, "a.b", nil, settings.Change{})
 	_, checks["RunJob"] = svc.RunJob(reader, "heartbeat")
 	_, checks["CancelJobRun"] = svc.CancelJobRun(reader, 1)
-	checks["PauseQueue"] = svc.PauseQueue(reader, "default")
+	checks["PauseQueue"] = svc.PauseQueue(reader, "default", "incident")
 	_, checks["ListAuditEvents"] = svc.ListAuditEvents(reader, auditpg.Filter{})
 	_, checks["GetAuditEvent"] = svc.GetAuditEvent(reader, 1)
 	_, checks["MailStatus"] = svc.MailStatus(reader)
-	checks["SendTestEmail"] = svc.SendTestEmail(reader, "ada@example.com")
+	_, checks["SendTestEmail"] = svc.SendTestEmail(reader, "ada@example.com")
 	for op, err := range checks {
 		if !errors.Is(err, opsdomain.ErrForbidden) {
 			t.Errorf("%s() with read-only permissions error = %v, want ErrForbidden", op, err)

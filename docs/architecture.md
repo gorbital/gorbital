@@ -115,7 +115,7 @@ gorbital/
 ├── app/                     lifecycle: Runner, cleanup stack, shutdown sequence
 ├── httpx/                   server, middleware, security headers, CORS, CSRF, problem+json
 ├── health/                  /livez, /readyz, named checks
-├── actor/                   who is acting (context)
+├── actor/                   who is acting, and from which client (context)
 ├── requestid/               request ID generation, validation, context
 ├── audit/                   Event, Recorder
 ├── mail/                    Message, Sender
@@ -338,6 +338,6 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Audit storage~~ | Resolved: `modules/auditpg` stores events in an append-only `audit_events` table, listed by `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)) |
 | ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `orb add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |
 | Email templates and preview route | Open: owned templates in `internal/emails` with a development preview (ADR-0025) arrive with authentication's emails |
-| Client IP and user agent in audit events | Open: no core middleware carries them in the context yet; `modules/auth` sets them on its events |
+| ~~Client IP and user agent in audit events~~ | Resolved: `actor.WithClient` carries them in the context, `auth.Middleware` sets them after trusted-proxy handling, and `audit.FromContext` fills every event recorded during a request ([ADR-0036](adr/0036-audit-storage.md#security-review-fixes-2026-09-16)) |
 | ~~Organisations design~~ | Resolved: [ADR-0048](adr/0048-organisations-v0-4.md) accepted and built in v0.4; `orb add orgs` converts existing apps in v0.5 ([ADR-0050](adr/0050-upgrades-and-adding-features.md)) |
 | Client templates | Open: [ADR-0047](adr/0047-client-templates.md) proposed; to decide the dashboard and docs stacks, where archives are hosted, and the bundle ID prompt before accepting |

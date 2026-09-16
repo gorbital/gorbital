@@ -154,6 +154,35 @@ func TestUpdateResetAndHistory(t *testing.T) {
 	}
 }
 
+// Changes that stop a job doing its work, without disabling it, need a
+// reason too (security review OPS-2).
+func TestUpdateRequiresReasonForLimits(t *testing.T) {
+	ctx := operator()
+	s := newManager(t, newPool(t))
+
+	for _, patch := range []jobs.ConfigPatch{
+		{Timeout: ptr(time.Second)},
+		{MaxAttempts: ptr(1)},
+		{Schedule: ptr("0 4 * * *")},
+		{Enabled: ptr(false)},
+	} {
+		if _, err := s.manager.Update(ctx, "cleanup_sessions", patch, jobs.Change{Reason: "  "}); !errors.Is(err, jobs.ErrReasonRequired) {
+			t.Errorf("Update(%+v) without reason error = %v, want ErrReasonRequired", patch, err)
+		}
+	}
+	v, err := s.manager.Update(ctx, "cleanup_sessions", jobs.ConfigPatch{Priority: ptr(2)}, jobs.Change{})
+	if err != nil || v.Version != 1 {
+		t.Fatalf("Update(priority) without reason = %+v, %v; want it saved", v, err)
+	}
+	if _, err := s.manager.Update(ctx, "cleanup_sessions", jobs.ConfigPatch{Timeout: ptr(time.Second)}, jobs.Change{Version: 1, Reason: "testing timeouts"}); err != nil {
+		t.Errorf("Update(timeout) with reason error = %v", err)
+	}
+	// Resetting a limit restores behaviour, but is a change like any other.
+	if _, err := s.manager.Reset(ctx, "cleanup_sessions", jobs.Change{Version: 2}); !errors.Is(err, jobs.ErrReasonRequired) {
+		t.Errorf("Reset() of a timeout without reason error = %v, want ErrReasonRequired", err)
+	}
+}
+
 func TestUpdateRejectsInvalidChanges(t *testing.T) {
 	ctx := operator()
 	s := newManager(t, newPool(t))
@@ -193,7 +222,7 @@ func TestRunNowUsesLiveConfiguration(t *testing.T) {
 	ctx := operator()
 	s := newManager(t, newPool(t))
 
-	if _, err := s.manager.Update(ctx, "rebuild_index", jobs.ConfigPatch{MaxAttempts: ptr(3), Priority: ptr(2), Timeout: ptr(10 * time.Minute)}, jobs.Change{}); err != nil {
+	if _, err := s.manager.Update(ctx, "rebuild_index", jobs.ConfigPatch{MaxAttempts: ptr(3), Priority: ptr(2), Timeout: ptr(10 * time.Minute)}, jobs.Change{Reason: "slow index"}); err != nil {
 		t.Fatal(err)
 	}
 	run, err := s.manager.RunNow(ctx, "rebuild_index")
@@ -220,6 +249,99 @@ func TestRunNowUsesLiveConfiguration(t *testing.T) {
 	})
 	if !slices.Contains(s.rec.actions(), "jobs.definition.run_requested") {
 		t.Errorf("audit actions = %v, want jobs.definition.run_requested", s.rec.actions())
+	}
+}
+
+// On-demand runs can't pile up (security review OPS-2).
+func TestRunNowIsLimited(t *testing.T) {
+	ctx := operator()
+	s := newManager(t, newPool(t))
+
+	run, err := s.manager.RunNow(ctx, "rebuild_index")
+	if err != nil {
+		t.Fatalf("RunNow() error = %v", err)
+	}
+	if _, err := s.manager.RunNow(ctx, "rebuild_index"); !errors.Is(err, jobs.ErrRunLimited) {
+		t.Errorf("RunNow() while queued error = %v, want ErrRunLimited", err)
+	}
+	receive(t, s.seen, "the job to run")
+	waitFor(t, "the run to complete", func() bool {
+		j, err := s.manager.Job(ctx, run.ID)
+		return err == nil && j.State == rivertype.JobStateCompleted
+	})
+	if _, err := s.manager.RunNow(ctx, "rebuild_index"); !errors.Is(err, jobs.ErrRunLimited) {
+		t.Errorf("RunNow() within a minute of the last run error = %v, want ErrRunLimited", err)
+	}
+
+	// Concurrent requests queue one run.
+	errs := make(chan error, 10)
+	for range 10 {
+		go func() {
+			_, err := s.manager.RunNow(ctx, "cleanup_sessions")
+			errs <- err
+		}()
+	}
+	queued := 0
+	for range 10 {
+		switch err := <-errs; {
+		case err == nil:
+			queued++
+		case !errors.Is(err, jobs.ErrRunLimited):
+			t.Errorf("concurrent RunNow() error = %v", err)
+		}
+	}
+	if queued != 1 {
+		t.Errorf("concurrent RunNow() queued %d runs, want 1", queued)
+	}
+	if n := strings.Count(strings.Join(s.rec.actions(), " "), "jobs.definition.run_requested"); n != 2 {
+		t.Errorf("recorded %d run_requested events, want 2", n)
+	}
+}
+
+// Retry never re-runs a finished job or a disabled definition (security
+// review OPS-3).
+func TestRetryRefusesCompletedJobsAndDisabledDefinitions(t *testing.T) {
+	ctx := operator()
+	s := newManager(t, newPool(t))
+
+	done, err := s.manager.RunNow(ctx, "rebuild_index")
+	if err != nil {
+		t.Fatal(err)
+	}
+	receive(t, s.seen, "the job to run")
+	waitFor(t, "the run to complete", func() bool {
+		j, err := s.manager.Job(ctx, done.ID)
+		return err == nil && j.State == rivertype.JobStateCompleted
+	})
+	if _, err := s.manager.Retry(ctx, done.ID); !errors.Is(err, jobs.ErrJobNotRetryable) {
+		t.Errorf("Retry(completed) error = %v, want ErrJobNotRetryable", err)
+	}
+
+	later := &river.InsertOpts{ScheduledAt: time.Now().Add(time.Hour)}
+	res, err := s.client.Insert(context.Background(), cleanupArgs{}, later)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.manager.Retry(ctx, res.Job.ID); !errors.Is(err, jobs.ErrJobNotRetryable) {
+		t.Errorf("Retry(scheduled) error = %v, want ErrJobNotRetryable", err)
+	}
+	if _, err := s.manager.Cancel(ctx, res.Job.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.manager.Update(ctx, "cleanup_sessions", jobs.ConfigPatch{Enabled: ptr(false)}, jobs.Change{Reason: "incident"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.manager.Retry(ctx, res.Job.ID); !errors.Is(err, jobs.ErrDefinitionDisabled) {
+		t.Errorf("Retry(cancelled job of a disabled definition) error = %v, want ErrDefinitionDisabled", err)
+	}
+	if j, _ := s.manager.Job(ctx, res.Job.ID); j.State != rivertype.JobStateCancelled {
+		t.Errorf("refused retry changed the job to %s", j.State)
+	}
+	if _, err := s.manager.Retry(ctx, 999_999_999); !errors.Is(err, jobs.ErrJobNotFound) {
+		t.Errorf("Retry(missing) error = %v, want ErrJobNotFound", err)
+	}
+	if slices.Contains(s.rec.actions(), "jobs.run.retried") {
+		t.Errorf("audit actions = %v, want no retries recorded", s.rec.actions())
 	}
 }
 
@@ -277,24 +399,38 @@ func TestPauseAndResumeQueue(t *testing.T) {
 	ctx := operator()
 	s := newManager(t, newPool(t))
 
-	if err := s.manager.PauseQueue(ctx, "default"); err != nil {
-		t.Fatalf("PauseQueue() error = %v", err)
+	// Pausing stops every job in the queue, so it needs a reason (security
+	// review OPS-2).
+	if err := s.manager.PauseQueue(ctx, "default"); !errors.Is(err, jobs.ErrReasonRequired) {
+		t.Errorf("PauseQueue() error = %v, want ErrReasonRequired", err)
+	}
+	if err := s.manager.PauseQueueWithReason(ctx, "default", " "); !errors.Is(err, jobs.ErrReasonRequired) {
+		t.Errorf("PauseQueueWithReason(blank) error = %v, want ErrReasonRequired", err)
+	}
+	if err := s.manager.PauseQueueWithReason(context.Background(), "default", "incident"); !errors.Is(err, jobs.ErrActorRequired) {
+		t.Errorf("PauseQueueWithReason() without actor error = %v, want ErrActorRequired", err)
+	}
+	if err := s.manager.PauseQueueWithReason(ctx, "default", "provider outage"); err != nil {
+		t.Fatalf("PauseQueueWithReason() error = %v", err)
 	}
 	queues, err := s.manager.Queues(ctx)
 	if err != nil || len(queues) != 1 || !queues[0].Paused || queues[0].PausedAt == nil {
 		t.Errorf("Queues() after pause = %+v, %v", queues, err)
 	}
-	if err := s.manager.ResumeQueue(ctx, "default"); err != nil {
-		t.Fatalf("ResumeQueue() error = %v", err)
+	if err := s.manager.ResumeQueueWithReason(ctx, "default", "provider back"); err != nil {
+		t.Fatalf("ResumeQueueWithReason() error = %v", err)
 	}
 	if queues, _ := s.manager.Queues(ctx); queues[0].Paused {
 		t.Error("queue still paused after ResumeQueue")
 	}
-	if err := s.manager.PauseQueue(ctx, "reports"); !errors.Is(err, jobs.ErrUnknownQueue) {
+	if err := s.manager.PauseQueueWithReason(ctx, "reports", "test"); !errors.Is(err, jobs.ErrUnknownQueue) {
 		t.Errorf("PauseQueue(inactive) error = %v, want ErrUnknownQueue", err)
 	}
 	if got := s.rec.actions(); !slices.Equal(got, []string{"jobs.queue.paused", "jobs.queue.resumed"}) {
 		t.Errorf("audit actions = %v", got)
+	}
+	if reason := s.rec.events[0].Metadata["reason"]; reason != "provider outage" {
+		t.Errorf("jobs.queue.paused reason = %v, want the operator's reason", reason)
 	}
 }
 

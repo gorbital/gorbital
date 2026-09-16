@@ -102,7 +102,8 @@ func WithDefinitions(defs *Definitions) Option {
 }
 
 // WithLogger sets the logger for job failures and River's own messages.
-// Default: discard.
+// Email addresses in their messages and attributes are redacted. Default:
+// discard.
 func WithLogger(logger *slog.Logger) Option {
 	return optionFunc(func(o *options) { o.logger = logger })
 }
@@ -215,7 +216,7 @@ func New(pool *pgxpool.Pool, workers *river.Workers, opts ...Option) (*Client, e
 	cfg := &river.Config{
 		Queues:                      o.queues,
 		Workers:                     workers,
-		Logger:                      o.logger,
+		Logger:                      slog.New(redactingHandler{inner: o.logger.Handler()}),
 		Middleware:                  middleware,
 		ErrorHandler:                &errorHandler{logger: o.logger},
 		SoftStopTimeout:             o.stopTimeout,

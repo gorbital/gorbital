@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 
@@ -151,9 +153,18 @@ func (m *Manager) lastRun(ctx context.Context, kind string) (*JobRun, error) {
 	return &page.Jobs[0], nil
 }
 
+// runNowStates are the states in which an on-demand run blocks another:
+// River refuses the insert atomically, so concurrent requests queue one run.
+var runNowStates = []rivertype.JobState{
+	rivertype.JobStateAvailable, rivertype.JobStatePending, rivertype.JobStateRetryable,
+	rivertype.JobStateRunning, rivertype.JobStateScheduled,
+}
+
 // RunNow enqueues a job for an enabled definition immediately, with its
-// current configuration. It returns [ErrUnknownDefinition],
-// [ErrDefinitionDisabled] or [ErrActorRequired].
+// current configuration. A definition runs on demand at most once at a
+// time and once per [MinScheduleInterval], the same floor as schedules. It
+// returns [ErrUnknownDefinition], [ErrDefinitionDisabled], [ErrRunLimited]
+// or [ErrActorRequired].
 func (m *Manager) RunNow(ctx context.Context, name string) (JobRun, error) {
 	d, ok := m.defs.lookup(name)
 	if !ok {
@@ -165,9 +176,19 @@ func (m *Manager) RunNow(ctx context.Context, name string) (JobRun, error) {
 	if !m.defs.effective(d).Enabled {
 		return JobRun{}, ErrDefinitionDisabled
 	}
-	res, err := m.client.Insert(ctx, d.newArgs(), nil)
+	last, err := m.lastRun(ctx, name)
 	if err != nil {
 		return JobRun{}, err
+	}
+	if last != nil && (inProgress(last.State) || m.now().Sub(last.CreatedAt) < MinScheduleInterval) {
+		return JobRun{}, ErrRunLimited
+	}
+	res, err := m.client.Insert(ctx, d.newArgs(), &river.InsertOpts{UniqueOpts: river.UniqueOpts{ByState: runNowStates}})
+	if err != nil {
+		return JobRun{}, err
+	}
+	if res.UniqueSkippedAsDuplicate {
+		return JobRun{}, ErrRunLimited
 	}
 	m.audit(ctx, audit.Event{
 		Action:       "jobs.definition.run_requested",
@@ -178,31 +199,76 @@ func (m *Manager) RunNow(ctx context.Context, name string) (JobRun, error) {
 	return newJobRun(res.Job), nil
 }
 
-// Retry makes a job available to run again immediately. Running jobs are
-// left alone. It returns [ErrJobNotFound] or [ErrActorRequired].
+// inProgress reports a job that is queued to run now or running.
+func inProgress(state rivertype.JobState) bool {
+	switch state {
+	case rivertype.JobStateAvailable, rivertype.JobStatePending, rivertype.JobStateRetryable, rivertype.JobStateRunning:
+		return true
+	}
+	return false
+}
+
+// retryableStates are the states [Manager.Retry] accepts.
+var retryableStates = []rivertype.JobState{
+	rivertype.JobStateRetryable, rivertype.JobStateDiscarded, rivertype.JobStateCancelled,
+}
+
+// Retry makes a job waiting to retry, discarded or cancelled available to
+// run again immediately. Completed, queued and running jobs are refused, so
+// a delivered email or a finished purge never runs twice, and so are jobs of
+// a disabled definition. It returns [ErrJobNotFound], [ErrJobNotRetryable],
+// [ErrDefinitionDisabled] or [ErrActorRequired].
 func (m *Manager) Retry(ctx context.Context, id int64) (JobRun, error) {
-	return m.control(ctx, id, "jobs.run.retried", m.client.river.JobRetry)
+	if _, err := requireActor(ctx); err != nil {
+		return JobRun{}, err
+	}
+	var row *rivertype.JobRow
+	err := pgx.BeginFunc(ctx, m.pool, func(tx pgx.Tx) error {
+		kind, state, err := selectJobForRetry(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if !slices.Contains(retryableStates, state) {
+			return ErrJobNotRetryable
+		}
+		if d, ok := m.defs.lookup(kind); ok && !m.defs.effective(d).Enabled {
+			return ErrDefinitionDisabled
+		}
+		row, err = m.client.river.JobRetryTx(ctx, tx, id)
+		return err
+	})
+	switch {
+	case errors.Is(err, ErrJobNotFound), errors.Is(err, river.ErrNotFound):
+		return JobRun{}, ErrJobNotFound
+	case errors.Is(err, ErrJobNotRetryable), errors.Is(err, ErrDefinitionDisabled):
+		return JobRun{}, err
+	case err != nil:
+		return JobRun{}, fmt.Errorf("jobs: retry %d: %v", id, err) //nolint:errorlint // driver errors aren't API (ADR-0018)
+	}
+	m.audit(ctx, audit.Event{
+		Action:       "jobs.run.retried",
+		ResourceType: "job",
+		ResourceID:   strconv.FormatInt(id, 10),
+		Metadata:     map[string]any{"kind": row.Kind, "state": string(row.State)},
+	})
+	return newJobRun(row), nil
 }
 
 // Cancel cancels a job: queued jobs never run, and a running job's context is
 // cancelled. It returns [ErrJobNotFound] or [ErrActorRequired].
 func (m *Manager) Cancel(ctx context.Context, id int64) (JobRun, error) {
-	return m.control(ctx, id, "jobs.run.cancelled", m.client.river.JobCancel)
-}
-
-func (m *Manager) control(ctx context.Context, id int64, action string, op func(context.Context, int64) (*rivertype.JobRow, error)) (JobRun, error) {
 	if _, err := requireActor(ctx); err != nil {
 		return JobRun{}, err
 	}
-	row, err := op(ctx, id)
+	row, err := m.client.river.JobCancel(ctx, id)
 	if errors.Is(err, river.ErrNotFound) {
 		return JobRun{}, ErrJobNotFound
 	}
 	if err != nil {
-		return JobRun{}, fmt.Errorf("jobs: %s %d: %w", action, id, err)
+		return JobRun{}, fmt.Errorf("jobs: cancel %d: %w", id, err)
 	}
 	m.audit(ctx, audit.Event{
-		Action:       action,
+		Action:       "jobs.run.cancelled",
 		ResourceType: "job",
 		ResourceID:   strconv.FormatInt(id, 10),
 		Metadata:     map[string]any{"kind": row.Kind, "state": string(row.State)},
@@ -233,18 +299,41 @@ func (m *Manager) Queues(ctx context.Context) ([]Queue, error) {
 	return queues, nil
 }
 
-// PauseQueue stops every instance fetching jobs from name. Running jobs
-// finish. It returns [ErrUnknownQueue] or [ErrActorRequired].
+// PauseQueue always returns [ErrReasonRequired]: pausing a queue needs a
+// reason.
+//
+// Deprecated: Use [Manager.PauseQueueWithReason].
 func (m *Manager) PauseQueue(ctx context.Context, name string) error {
-	return m.queueControl(ctx, name, "jobs.queue.paused", m.client.river.QueuePause)
+	return m.PauseQueueWithReason(ctx, name, "")
+}
+
+// PauseQueueWithReason stops every instance fetching jobs from name, and
+// records reason in the audit event. Running jobs finish. Pausing stops
+// every job in the queue, email delivery included, so it needs a reason. It
+// returns [ErrReasonRequired], [ErrUnknownQueue] or [ErrActorRequired].
+func (m *Manager) PauseQueueWithReason(ctx context.Context, name, reason string) error {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		if _, err := requireActor(ctx); err != nil {
+			return err
+		}
+		return ErrReasonRequired
+	}
+	return m.queueControl(ctx, name, reason, "jobs.queue.paused", m.client.river.QueuePause)
 }
 
 // ResumeQueue resumes a paused queue on every instance.
 func (m *Manager) ResumeQueue(ctx context.Context, name string) error {
-	return m.queueControl(ctx, name, "jobs.queue.resumed", m.client.river.QueueResume)
+	return m.ResumeQueueWithReason(ctx, name, "")
 }
 
-func (m *Manager) queueControl(ctx context.Context, name, action string, op func(context.Context, string, *river.QueuePauseOpts) error) error {
+// ResumeQueueWithReason resumes a paused queue on every instance, recording
+// reason, which may be empty, in the audit event.
+func (m *Manager) ResumeQueueWithReason(ctx context.Context, name, reason string) error {
+	return m.queueControl(ctx, name, strings.TrimSpace(reason), "jobs.queue.resumed", m.client.river.QueueResume)
+}
+
+func (m *Manager) queueControl(ctx context.Context, name, reason, action string, op func(context.Context, string, *river.QueuePauseOpts) error) error {
 	if _, err := requireActor(ctx); err != nil {
 		return err
 	}
@@ -257,7 +346,11 @@ func (m *Manager) queueControl(ctx context.Context, name, action string, op func
 		}
 		return fmt.Errorf("jobs: %s %s: %w", action, name, err)
 	}
-	m.audit(ctx, audit.Event{Action: action, ResourceType: "job_queue", ResourceID: name})
+	e := audit.Event{Action: action, ResourceType: "job_queue", ResourceID: name}
+	if reason != "" {
+		e.Metadata = map[string]any{"reason": reason}
+	}
+	m.audit(ctx, e)
 	return nil
 }
 

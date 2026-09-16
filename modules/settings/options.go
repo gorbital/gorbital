@@ -108,7 +108,12 @@ func MaxLen(n int) Option {
 	})
 }
 
-// MaxItems limits a StringList setting to n items.
+// DefaultMaxItems limits a StringList setting declared without [MaxItems],
+// so a list is never bounded only by the request body limit.
+const DefaultMaxItems = 100
+
+// MaxItems limits a StringList setting to n items. Without it, a StringList
+// setting is limited to [DefaultMaxItems].
 func MaxItems(n int) Option {
 	return optionFunc(func(d *definition) error {
 		if d.kind != KindStringList {

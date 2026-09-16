@@ -174,6 +174,9 @@ func declare[T any](r *Registry, key string, kind Kind, def T,
 			panic(fmt.Sprintf("settings: %s: %v", key, err))
 		}
 	}
+	if _, bounded := d.constraints["max_items"]; kind == KindStringList && !bounded {
+		_ = MaxItems(DefaultMaxItems).apply(d) // a positive bound on a string list never fails
+	}
 	if _, err := d.parse(encode(def)); err != nil {
 		panic(fmt.Sprintf("settings: %s: default is invalid: %v", key, err))
 	}

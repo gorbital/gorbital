@@ -112,3 +112,18 @@ Other flags: `--dry-run`, `--json`, `--allow-dirty`, `--skip-tidy`, `--yes`, `--
 - `modules/mail/smtp` and `modules/mail/resend` are new modules with their own CI rows; CI runs Mailpit as a service container.
 - Setting keys `mail.from_name`, `mail.from_email`, `mail.reply_to`, permissions `ops.mail.read` and `ops.mail.test`, error code `invalid_recipient`, audit action `mail.test.requested`, the `orb add mail` flags and the `# orb:begin mail` markers are public API (ADR-0015).
 - Guide: [email](../guides/email.md).
+
+## Security review fixes (2026-09-16)
+
+The internal security review of September 2026 found that recipients' addresses could reach job errors and logs (OPS-5), that `POST /ops/mail/test` queued an email and then answered 403 to callers without `ops.mail.read`, with no limit (OPS-8), and that the sender settings could change without a reason (OPS-9).
+
+| Finding | Change | Why this shape |
+|---|---|---|
+| OPS-5 | `mail.RedactAddresses(text)` replaces anything shaped like an address, domain literals and non-ASCII included, with `mail.RedactedAddress` (`[email]`). The SMTP sender redacts server replies in permanent and temporary refusals and in authentication failures; the Resend sender redacts the API's `message`; `Message.Validate` no longer quotes an invalid address. The jobs mail worker and logger redact again (ADR-0033) | Providers word their replies freely, so the text is scrubbed instead of replaced with fixed categories: operators keep the SMTP code and the reason ("Recipient address rejected") that make a run actionable |
+| OPS-8 | `SendTestEmail` returns the delivery mode itself, so the handler no longer calls the permission-checked `MailStatus` after queueing; each operator (actor ID) may send `TestEmailsPerHour` (5) an hour through the shared `ops_test_email` limiter in `rate_limits.go`, answering 429 `rate_limited` | The use case authorises, validates and limits before it records or queues anything. The limit is a constant rather than a setting: test emails are a diagnostic, and a limit shared by every instance (ADR-0052) keeps a session from sending mail from the verified domain in bulk |
+| OPS-9 | `mail.from_name`, `mail.from_email` and `mail.reply_to` require a reason | They decide who password reset and invitation emails appear to come from and where replies go |
+
+| Check | Result |
+|---|---|
+| `TestRedactAddresses`, `TestSendClassifiesRefusals` (SMTP 550 and 451 replies quoting the recipient), `TestSendClassifiesErrors` (Resend message with an address) | Pass |
+| `TestSendTestEmailNeedsOnlyItsPermissionAndIsLimited` (a role with only `ops.mail.test`, 6th email refused, separate budgets), `TestOpsRoutesRequirePermissions` (429 after 5 emails, `delivery` in the response), `TestEmailThroughOps` (sender changes with a reason) in both golden apps | Pass |

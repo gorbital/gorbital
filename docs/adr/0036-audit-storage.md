@@ -77,3 +77,20 @@ Option 3. Metadata keys are chosen in module code and reviewed there; a registry
 - `examples/full-single` records every audit event in `audit_events` instead of logging it, and serves `/ops/audit`.
 - Audit action names, permission `ops.audit.read`, and the new error codes are public API (ADR-0015).
 - Threat model row 19 gains the audit metadata controls.
+
+## Security review fixes (2026-09-16)
+
+The internal security review of September 2026 found three gaps in audit storage: redaction missed plural and newer key names (OPS-4), listings had no time limit (OPS-6), and events of ops changes had no client IP or user agent (OPS-7). The last one also resolves the architecture open item "Client IP and user agent in audit events".
+
+| Finding | Change | Why this shape |
+|---|---|---|
+| OPS-4: `tokens`, `secrets`, `recovery_codes`, `apiKeys`, `totp`, `jwt` stored in clear | Keys and names are normalised the same way: snake_case, then a trailing `s` dropped from each segment (not `ss`). A key is sensitive when a name appears in it as whole segments. Defaults add `passcode`, `bearer`, `signing_key`, `encryption_key`, `jwt`, `pin`, `totp`, `magic_link` and codes qualified as `reset`, `login`, `sign_in`, `mfa`, `backup`, `security` or `access` codes | Segment matching keeps `tokenizer`, `footprint` and `secretary_note` readable, which substring matching of stems would redact. A bare `code` is not redacted by default: it usually names an error or status code; apps that store secret codes under it add it with `WithRedactedKeys("code")`. Count values under matching keys (`auth.keys.rotated`'s `secrets`) are now redacted too, the trade-off already recorded above for `token_count`. The mechanism remains a name denylist in the recorder, as decided above, not an allowlist |
+| OPS-6: `GET /ops/audit` ran without a time limit | `Store.List` and `Store.Stats` run under `WithQueryTimeout` (default `DefaultQueryTimeout`, 5 seconds, which Stats already used) and return `ErrQueryTimeout` when the timeout, not the caller, ended the query; apps map it to 503 `audit_query_timeout` | No new index: outcome, actor kind and prefix-only filters stay unindexed scans of recent events and are documented as such in the ops guide; the timeout bounds the connection time any filter can hold |
+| OPS-7: no client IP or user agent on settings, jobs, queue and test-email events | Core `actor` carries the client: `actor.WithClient(ctx, actor.Client{IP, UserAgent})` and `actor.ClientFrom(ctx)`. `audit.FromContext` fills empty `IP` and `UserAgent` from it, so every recorder that uses it gets them and auditpg stores them. `modules/auth`'s `WithClientInfo`, which `auth.Middleware` calls for every request after trusted-proxy handling, also sets the actor client | `audit` can't be imported by `modules/auth` without adding OpenTelemetry to its dependencies, and core may not import modules (ADR-0019); `actor` is stdlib-only and already the request-scoped "who" that audit and jobs read (ADR-0030). Auth keeps `ClientInfo` and its context key unchanged, one added line. Apps without `modules/auth` set the client in their own middleware. Values are stored as given; auditpg already canonicalises IPs and bounds user agents |
+
+| Check | Result |
+|---|---|
+| `TestRecordRedactsAndSanitizes` with plural, camelCase and new names redacted, and `tokenizer`, `footprint`, `status`, `secretary_note`, `code` kept | Pass |
+| `TestListAndStatsTimeOut`: a table lock stands in for a slow scan; both calls return `ErrQueryTimeout` within the 200 ms timeout | Pass |
+| `TestFromContextFillsClient` (audit), `TestClientRoundTrip` (actor), `TestMiddlewareSetsTheActorClient` (auth), `TestRuntimeSettingsThroughOps` in both golden apps (`settings.value.changed` lists `ip` 192.0.2.1 and the request's user agent) | Pass |
+| `go run -C internal/tools/apicheck .` | Additions only: `actor.Client`, `WithClient`, `ClientFrom`, `auditpg.WithQueryTimeout`, `DefaultQueryTimeout`, `ErrQueryTimeout` |

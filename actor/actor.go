@@ -74,3 +74,27 @@ func FromOrAnonymous(ctx context.Context) Actor {
 	}
 	return Anonymous
 }
+
+// Client is the network client an operation arrived from: its IP address
+// and user agent. Audit events recorded during the operation carry them
+// (audit.FromContext).
+type Client struct {
+	IP        string
+	UserAgent string
+}
+
+type clientKey struct{}
+
+// WithClient returns a copy of ctx carrying c. HTTP middleware that knows
+// the client's address, after trusted-proxy handling, sets it once per
+// request; modules/auth's Middleware does. Values are stored as given:
+// recorders bound and canonicalise them.
+func WithClient(ctx context.Context, c Client) context.Context {
+	return context.WithValue(ctx, clientKey{}, c)
+}
+
+// ClientFrom returns the client stored in ctx and whether one was set.
+func ClientFrom(ctx context.Context) (Client, bool) {
+	c, ok := ctx.Value(clientKey{}).(Client)
+	return c, ok
+}

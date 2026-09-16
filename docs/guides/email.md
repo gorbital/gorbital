@@ -82,14 +82,14 @@ Start the app, sign in as an account with `platform_admin` and keep the token in
 ```bash
 curl -X PUT http://127.0.0.1:8080/ops/settings/mail.from_email \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"value":"hello@yourdomain.com","version":0}'
+  -d '{"value":"hello@yourdomain.com","version":0,"reason":"our verified domain"}'
 
 curl -X PUT http://127.0.0.1:8080/ops/settings/mail.from_name \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"value":"Your App","version":0}'
+  -d '{"value":"Your App","version":0,"reason":"our name"}'
 ```
 
-Send `version` from `GET /ops/settings/mail.from_email` when the setting was changed before. In production, the app logs a warning at startup while the sender is still `no-reply@example.com`.
+The sender settings (`mail.from_email`, `mail.from_name`, `mail.reply_to`) need a reason, kept in their history: they decide who password reset and invitation emails appear to come from and where replies go. Send `version` from `GET /ops/settings/mail.from_email` when the setting was changed before. In production, the app logs a warning at startup while the sender is still `no-reply@example.com`.
 
 ## Send a test email
 
@@ -146,7 +146,7 @@ err := mailer.Send(ctx, mail.Message{
 | Run cancelled with `550` | Job runs | The SMTP server refused the sender or recipient; check the address and your provider's sending rules |
 | Run retrying with `authenticate … check the SMTP username and password` | Job runs | Fix `SMTP_USERNAME` / `SMTP_PASSWORD` and restart |
 
-Retried and cancelled runs keep their error messages; message contents and recipients are never shown by the ops APIs.
+Retried and cancelled runs keep their error messages; message contents and recipients are never shown by the ops APIs. Providers' replies often quote the recipient, so the SMTP and Resend senders and the mail worker replace email addresses in error text with `[email]` before it reaches the run or the logs. `POST /ops/mail/test` allows 5 test emails an hour per operator.
 
 ## Environment reference
 

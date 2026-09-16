@@ -57,25 +57,33 @@ func (s *Service) MailStatus(ctx context.Context) (MailStatus, error) {
 }
 
 // SendTestEmail queues a test email to the address to, through the same
-// path as every other email, and records who asked for it.
-func (s *Service) SendTestEmail(ctx context.Context, to string) error {
+// path as every other email, records who asked for it and returns the
+// delivery mode (mailpit or provider). Each operator may send
+// TestEmailsPerHour test emails an hour.
+func (s *Service) SendTestEmail(ctx context.Context, to string) (delivery string, err error) {
 	if err := authorize(ctx, opsdomain.PermMailTest); err != nil {
-		return err
+		return "", err
 	}
 	to = strings.TrimSpace(to)
 	if addr, err := netmail.ParseAddress(to); err != nil || addr.Address != to {
-		return opsdomain.ErrInvalidRecipient
+		return "", opsdomain.ErrInvalidRecipient
 	}
-	requester := "an operator"
-	if a, ok := actor.From(ctx); ok {
-		requester = a.ID
-		if a.Label != "" {
-			requester = a.Label
+	a, _ := actor.From(ctx)
+	requester := a.ID
+	if a.Label != "" {
+		requester = a.Label
+	}
+	// Any address can receive one, so a session could otherwise send mail
+	// from the app's domain without limit. A limiter that can't decide lets
+	// the email through (ratelimit.Taker).
+	if s.testEmailLimiter != nil {
+		if d, err := s.testEmailLimiter.Take(ctx, a.ID); err == nil && !d.Allowed {
+			return "", opsdomain.ErrTooManyTestEmails
 		}
 	}
 
 	// The recipient is personal data, so the audit event leaves it out.
-	err := s.audit.Record(ctx, audit.Event{
+	err = s.audit.Record(ctx, audit.Event{
 		Action:       "mail.test.requested",
 		ResourceType: "mail",
 		ResourceID:   s.mail.Provider,
@@ -83,9 +91,9 @@ func (s *Service) SendTestEmail(ctx context.Context, to string) error {
 		Metadata:     map[string]any{"provider": s.mail.Provider, "delivery": s.mail.Delivery},
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
-	return s.mailer.Send(ctx, mail.Message{
+	err = s.mailer.Send(ctx, mail.Message{
 		To:      []mail.Address{{Email: to}},
 		Subject: "Test email from " + s.mail.AppName,
 		Text: fmt.Sprintf("This is a test email from %s, requested by %s.\n\n"+
@@ -93,4 +101,8 @@ func (s *Service) SendTestEmail(ctx context.Context, to string) error {
 			s.mail.AppName, requester, s.mail.Provider, s.mail.Delivery),
 		Tags: map[string]string{"category": "ops_test"},
 	})
+	if err != nil {
+		return "", err
+	}
+	return s.mail.Delivery, nil
 }

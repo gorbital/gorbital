@@ -78,8 +78,9 @@ func (e Event) Validate() error {
 	return nil
 }
 
-// FromContext returns e with empty actor, organisation, request and trace
-// fields filled from ctx.
+// FromContext returns e with empty actor, organisation, request, trace, IP
+// and user agent fields filled from ctx. The IP address and user agent come
+// from [actor.WithClient].
 func FromContext(ctx context.Context, e Event) Event {
 	if a, ok := actor.From(ctx); ok {
 		if e.ActorKind == "" {
@@ -98,6 +99,14 @@ func FromContext(ctx context.Context, e Event) Event {
 	if e.TraceID == "" {
 		if sc := trace.SpanContextFromContext(ctx); sc.HasTraceID() {
 			e.TraceID = sc.TraceID().String()
+		}
+	}
+	if c, ok := actor.ClientFrom(ctx); ok {
+		if e.IP == "" {
+			e.IP = c.IP
+		}
+		if e.UserAgent == "" {
+			e.UserAgent = c.UserAgent
 		}
 	}
 	return e

@@ -338,7 +338,7 @@
           "name": "Change a job's configuration",
           "request": {
             "method": "PUT",
-            "description": "Send only the fields to change. Applies to every instance within moments. Disabling or rescheduling requires a reason.",
+            "description": "Send only the fields to change. Applies to every instance within moments. Disabling or rescheduling a job, or changing its timeout, max attempts or queue, requires a reason.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -482,6 +482,7 @@
           "name": "Run a job now",
           "request": {
             "method": "POST",
+            "description": "Refused while a run of the job is queued or running, or within a minute of its last run.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -703,6 +704,7 @@
           "name": "Retry a job run now",
           "request": {
             "method": "POST",
+            "description": "Only runs waiting to retry, discarded or cancelled, of enabled jobs: a completed run never runs again.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -770,7 +772,7 @@
           "name": "Send a test email",
           "request": {
             "method": "POST",
-            "description": "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`.",
+            "description": "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`. Each operator can send 5 an hour.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -843,6 +845,7 @@
           "name": "Pause a queue on every instance",
           "request": {
             "method": "POST",
+            "description": "Every job in the queue stops, email delivery included, so pausing requires a reason.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -852,7 +855,12 @@
                 }
               ]
             },
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/ops/queues/:name/pause",
               "host": [
@@ -870,6 +878,15 @@
                   "value": "default"
                 }
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         },
@@ -886,7 +903,12 @@
                 }
               ]
             },
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/ops/queues/:name/resume",
               "host": [
@@ -904,6 +926,15 @@
                   "value": "default"
                 }
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         }

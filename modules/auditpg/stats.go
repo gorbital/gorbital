@@ -29,9 +29,6 @@ const (
 	MaxStatsGroups = 50
 )
 
-// statsTimeout bounds the query, so a broad window can't hold a connection.
-const statsTimeout = 5 * time.Second
-
 var statsKeys = map[StatsGroup]string{
 	StatsByAction:       "action",
 	StatsByOutcome:      "outcome",
@@ -69,7 +66,7 @@ type StatsCount struct {
 
 // Stats counts events matching f by f.GroupBy. It returns an error wrapping
 // [ErrInvalidFilter] for an unknown grouping or a window over
-// MaxStatsWindow.
+// MaxStatsWindow, or [ErrQueryTimeout].
 func (s *Store) Stats(ctx context.Context, f StatsFilter) (Stats, error) {
 	key, ok := statsKeys[f.GroupBy]
 	if !ok {
@@ -99,11 +96,13 @@ func (s *Store) Stats(ctx context.Context, f StatsFilter) (Stats, error) {
 		SELECT %s AS key, count(*) AS n FROM audit_events WHERE %s GROUP BY 1
 	) g ORDER BY %s LIMIT %d`, key, strings.Join(where, " AND "), order, limit)
 
-	ctx, cancel := context.WithTimeout(ctx, statsTimeout)
+	// The query timeout bounds the query, so a broad window can't hold a
+	// connection.
+	qctx, cancel := context.WithTimeout(ctx, s.queryTimeout)
 	defer cancel()
-	rows, err := s.pool.Query(ctx, sql, args...)
+	rows, err := s.pool.Query(qctx, sql, args...)
 	if err != nil {
-		return Stats{}, fmt.Errorf("auditpg: count events: %v", err) //nolint:errorlint // driver errors aren't API (ADR-0018)
+		return Stats{}, queryError(ctx, qctx, "count events", err)
 	}
 	defer rows.Close()
 	stats := Stats{From: f.From.UTC(), To: f.To.UTC(), GroupBy: f.GroupBy, Groups: []StatsCount{}}
@@ -117,7 +116,7 @@ func (s *Store) Stats(ctx context.Context, f StatsFilter) (Stats, error) {
 		shown += c.Count
 	}
 	if err := rows.Err(); err != nil {
-		return Stats{}, fmt.Errorf("auditpg: count events: %v", err) //nolint:errorlint // driver errors aren't API (ADR-0018)
+		return Stats{}, queryError(ctx, qctx, "count events", err)
 	}
 	stats.Other = stats.Total - shown
 	return stats, nil

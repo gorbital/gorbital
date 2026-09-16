@@ -1,0 +1,59 @@
+package usecase_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/mail"
+	"gorbital.dev/ratelimit"
+
+	opsdomain "⟦.Module⟧/internal/modules/ops/domain"
+	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
+)
+
+type auditLog struct {
+	opsusecase.AuditLog
+	actions []string
+}
+
+func (l *auditLog) Record(_ context.Context, e audit.Event) error {
+	l.actions = append(l.actions, e.Action)
+	return nil
+}
+
+// A role holding ops.mail.test but not ops.mail.read gets a truthful answer,
+// and each operator's test emails are limited (security review OPS-8).
+func TestSendTestEmailNeedsOnlyItsPermissionAndIsLimited(t *testing.T) {
+	var sent []mail.Message
+	log := &auditLog{}
+	svc := opsusecase.NewService(opsusecase.Deps{
+		Audit: log,
+		Mailer: mail.SenderFunc(func(_ context.Context, m mail.Message) error {
+			sent = append(sent, m)
+			return nil
+		}),
+		Mail:             opsusecase.MailInfo{AppName: "acme", Provider: "smtp", Delivery: "provider"},
+		TestEmailLimiter: ratelimit.New(float64(opsusecase.TestEmailsPerHour)/3600, opsusecase.TestEmailsPerHour),
+	})
+	tester := actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_1", Permissions: []string{opsdomain.PermMailTest}})
+
+	for i := range opsusecase.TestEmailsPerHour {
+		delivery, err := svc.SendTestEmail(tester, "ada@example.com")
+		if err != nil || delivery != "provider" {
+			t.Fatalf("SendTestEmail() #%d = %q, %v; want provider", i+1, delivery, err)
+		}
+	}
+	if _, err := svc.SendTestEmail(tester, "ada@example.com"); !errors.Is(err, opsdomain.ErrTooManyTestEmails) {
+		t.Errorf("SendTestEmail() over the limit error = %v, want ErrTooManyTestEmails", err)
+	}
+	other := actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_2", Permissions: []string{opsdomain.PermMailTest}})
+	if _, err := svc.SendTestEmail(other, "bob@example.com"); err != nil {
+		t.Errorf("SendTestEmail() by another operator error = %v, want its own budget", err)
+	}
+	if len(sent) != opsusecase.TestEmailsPerHour+1 || len(log.actions) != len(sent) {
+		t.Errorf("sent %d emails and recorded %d events, want %d each", len(sent), len(log.actions), opsusecase.TestEmailsPerHour+1)
+	}
+}

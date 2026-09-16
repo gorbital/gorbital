@@ -116,6 +116,8 @@ One mistake in one layer shouldn't leak data. Each layer is checked by a test in
 | `orgs.invitation_ttl` | 7 days | 1 to 30 days |
 | `orgs.deleted_org_retention` | 30 days | 1 to 365 days |
 
+Changing any of them needs a reason, kept in the setting's history: the invitation page receives every invitation token.
+
 ## Error codes
 
 | Code | Status | When |

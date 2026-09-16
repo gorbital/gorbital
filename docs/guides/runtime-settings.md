@@ -43,12 +43,12 @@ Keys are dotted lowercase, namespaced by feature (`module.name`). Keys are publi
 |---|---|---|
 | `Describe(text)` | all | Help text shown to operators |
 | `Group(name)` | all | Listing group (default: the key's first segment) |
-| `ReasonRequired()` | all | Every change needs a reason |
+| `ReasonRequired()` | all | Every change needs a reason. Use it for every security-relevant setting: lifetimes of sessions and codes, rate limits, retention, maintenance, and anything that decides where emails and links go or who emails come from |
 | `RestartRequired()` | all | `Get` keeps the startup value; changes apply after restart |
 | `Range(lo, hi)` | Int, Float, Duration | Bounds; types must match (`Range(0.0, 1.0)` for Float) |
 | `OneOf(values...)` | String, StringList items | Allowed values |
 | `MaxLen(n)` | String, StringList items | Maximum characters |
-| `MaxItems(n)` | StringList | Maximum items |
+| `MaxItems(n)` | StringList | Maximum items; without it, `DefaultMaxItems` (100) |
 | `URL()` | String, StringList items | Absolute http(s) URL |
 | `Email()` | String, StringList items | Bare email address |
 | `Validate(func(T) error)` | all | Custom check; messages must not include the value |
@@ -98,7 +98,7 @@ view, err := store.Set(ctx, "auth.verification_code_ttl", json.RawMessage(`"30m"
 | Validation | `*InvalidValueError` with a reason that never includes the value |
 | No-op | Setting the current value again, or resetting a default, changes nothing |
 | History | Old value, new value, reason, actor and request ID per change (`Store.History`) |
-| Audit | One `settings.value.changed` event per change, with `version`, `reset` and `reason` metadata |
+| Audit | One `settings.value.changed` event per change, with `version`, `reset` and `reason` metadata, and the client's IP address and user agent for changes made over HTTP |
 | Propagation | This instance immediately; others through `NOTIFY` within moments |
 | Reset | `Store.Reset` stores NULL, so versions never repeat |
 

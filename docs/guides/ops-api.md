@@ -136,7 +136,7 @@ The command writes the same settings as `system:cli`, recorded in their history 
 | `PUT /ops/jobs/definitions/{name}` | Change only the sent fields: `{enabled?, schedule?, timeout?, max_attempts?, queue?, priority?, version, reason?}` | 200 |
 | `DELETE /ops/jobs/definitions/{name}` | Reset to code defaults: `{version, reason?}` | 200 |
 | `GET /ops/jobs/definitions/{name}/history?before=&limit=` | Changes: `action`, `old_config`, `new_config`, reason, actor | 200 `{changes: [...]}` |
-| `POST /ops/jobs/definitions/{name}/run` | Run now | 202 with the run |
+| `POST /ops/jobs/definitions/{name}/run` | Run now; refused (429 `job_run_limited`) while a run of the job is queued or running, or within a minute of its last run | 202 with the run |
 
 ```bash
 curl -X PUT http://127.0.0.1:8080/ops/jobs/definitions/heartbeat \
@@ -159,7 +159,7 @@ curl -X PUT http://127.0.0.1:8080/ops/jobs/definitions/heartbeat \
 }
 ```
 
-A reason is required to disable a job or change an enabled job's schedule.
+A reason is required to disable a job, change an enabled job's schedule, or change its `timeout`, `max_attempts` or `queue`: each can stop the job doing its work while it still looks enabled. Enabling a job and changing its priority don't need one.
 
 ## Job runs
 
@@ -167,7 +167,7 @@ A reason is required to disable a job or change an enabled job's schedule.
 |---|---|---|
 | `GET /ops/jobs/runs?kind=&queue=&state=&limit=&cursor=` | Runs, newest first; `state` is comma-separated: available, cancelled, completed, discarded, pending, retryable, running, scheduled | 200 `{jobs: [...], next_cursor?}` |
 | `GET /ops/jobs/runs/{id}` | One run with attempt errors | 200 |
-| `POST /ops/jobs/runs/{id}/retry` | Make it run again now | 200 |
+| `POST /ops/jobs/runs/{id}/retry` | Make a run that is waiting to retry, discarded or cancelled run again now. Completed, queued and running runs return 409 `job_not_retryable`, so a delivered email or finished purge never runs twice; runs of a disabled job return 409 `job_definition_disabled` | 200 |
 | `POST /ops/jobs/runs/{id}/cancel` | Cancel; a running job's context is cancelled | 200 |
 
 Run fields: `id`, `kind`, `queue`, `state`, `attempt`, `max_attempts`, `priority`, `created_at`, `scheduled_at`, `attempted_at`, `finalized_at`, `errors[{at, attempt, message}]`, `request_id`, `actor_kind`, `actor_id`. Arguments are never returned.
@@ -191,8 +191,10 @@ Run fields: `id`, `kind`, `queue`, `state`, `attempt`, `max_attempts`, `priority
 | Method and path | Purpose | Success |
 |---|---|---|
 | `GET /ops/queues` | Active queues: `name`, `paused`, `paused_at`, `created_at`, `updated_at` | 200 `{queues: [...]}` |
-| `POST /ops/queues/{name}/pause` | Stop every instance fetching from the queue | 204 |
-| `POST /ops/queues/{name}/resume` | Resume it | 204 |
+| `POST /ops/queues/{name}/pause` | Stop every instance fetching from the queue: `{reason}`, required | 204 |
+| `POST /ops/queues/{name}/resume` | Resume it: `{reason?}` | 204 |
+
+Pausing a queue stops every job in it, email delivery included, so it needs a reason; the reason is recorded in the `jobs.queue.paused` audit event.
 
 ## Audit log
 
@@ -203,6 +205,8 @@ Run fields: `id`, `kind`, `queue`, `state`, `attempt`, `max_attempts`, `priority
 | `GET /ops/audit/stats?group_by=&from=&to=&actor_kind=&actor_id=&action=&action_prefix=&resource_type=&org_id=&outcome=` | Counts in a window of at most 90 days (default the last 7), grouped by `action`, `outcome`, `actor_kind`, `resource_type` or `day` (UTC) | 200 `{from, to, group_by, total, groups: [{key, count}], other}` |
 
 Stats return the 50 largest groups, with the rest counted in `other`; `group_by=day` returns every day with events, in order. A wider window or an unknown grouping returns 422 `invalid_audit_filter`.
+
+Listings and stats stop after 5 seconds with 503 `audit_query_timeout`. Filters on `actor_id`, `action`, `resource_type`/`resource_id`, `org_id` and `request_id` use an index; `outcome`, `actor_kind` or `action_prefix` alone scan events newest first, so on a large table add one of the indexed filters or a `from`/`to` window.
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
@@ -237,8 +241,8 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```
 
 - `request_id` links an event to its access log line, trace and any jobs the request enqueued.
-- `ip` and `user_agent` appear on events recorded during a request, such as sign-ins.
-- Metadata values under sensitive keys such as `password` or `token` are stored as `"[REDACTED]"`; oversized metadata is replaced with `{"metadata_dropped": "too_large"}`.
+- `ip` and `user_agent` appear on every event recorded during a request, such as sign-ins and ops changes, and are empty for events recorded by jobs and commands.
+- Metadata values under sensitive keys such as `password`, `tokens`, `apiKeys` or `recovery_codes` are stored as `"[REDACTED]"` (singular or plural, any case style); oversized metadata is replaced with `{"metadata_dropped": "too_large"}`.
 - Events can't be changed. The `retention` job deletes events older than `audit.retention` (365 days by default) and records a `retention.purged` event for each deletion: see [Retention](#retention).
 
 ## Releases
@@ -296,14 +300,14 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/system
 | Method and path | Purpose | Success |
 |---|---|---|
 | `GET /ops/mail` | Provider (`resend` or `smtp`), delivery (`mailpit` or `provider`), non-secret `details` from the environment, and the current `from_name`, `from_email`, `reply_to` | 200 |
-| `POST /ops/mail/test` | Queue a test email: `{to}` | 202 `{status: "queued", to, delivery}` |
+| `POST /ops/mail/test` | Queue a test email: `{to}`. Each operator can send 5 an hour (429 `rate_limited`) | 202 `{status: "queued", to, delivery}` |
 
 ```json
 {"provider": "smtp", "delivery": "provider", "details": {"host": "smtp.postmarkapp.com", "port": "587", "tls": "starttls", "auth": "username and password"},
  "from_name": "Acme", "from_email": "hello@acme.com", "reply_to": "support@acme.com"}
 ```
 
-Resend details are `{"api_key": "configured"}` or `"missing"`. Change the sender with `PUT /ops/settings/mail.from_email` (and `mail.from_name`, `mail.reply_to`). The test email's delivery appears in `GET /ops/jobs/runs?kind=gorbital.mail.send`. Setup: [email guide](email.md).
+Resend details are `{"api_key": "configured"}` or `"missing"`. Change the sender with `PUT /ops/settings/mail.from_email` (and `mail.from_name`, `mail.reply_to`), with a reason. The test email's delivery appears in `GET /ops/jobs/runs?kind=gorbital.mail.send`. Setup: [email guide](email.md).
 
 ## Sign-in methods
 
@@ -329,16 +333,20 @@ Values of secrets are never returned; the same report is printed at start in dev
 | `invalid_setting_value` | 422 | Value fails the setting's type or validation; `detail` says why |
 | `job_definition_not_found` | 404 | Unknown job name |
 | `job_definition_version_conflict` | 409 | Definition changed since it was read |
-| `job_reason_required` | 422 | Reason missing to disable or reschedule |
+| `job_reason_required` | 422 | Reason missing to disable or reschedule a job, change its timeout, attempts or queue, or pause a queue |
 | `invalid_job_config` | 422 | Schedule, timeout, attempts or priority out of bounds; `detail` says why |
-| `job_definition_disabled` | 409 | Run now on a disabled job |
+| `job_definition_disabled` | 409 | Run now, or retry a run, of a disabled job |
+| `job_run_limited` | 429 | Run now while a run is queued or running, or within a minute of the last run |
+| `job_not_retryable` | 409 | Retry of a run that isn't waiting to retry, discarded or cancelled |
 | `job_not_found` | 404 | Unknown run ID (or removed by retention) |
 | `queue_not_active` | 422 | No worker runs that queue |
 | `invalid_cursor` | 400 | Malformed `cursor` |
 | `invalid_job_state` | 422 | Unknown `state` filter |
 | `audit_event_not_found` | 404 | Unknown audit event ID (or removed by retention) |
 | `invalid_audit_filter` | 422 | Unknown `outcome`, malformed `action_prefix`, or `from` not before `to` |
+| `audit_query_timeout` | 503 | An audit listing or stats query took longer than 5 seconds; narrow the filters or the window |
 | `invalid_recipient` | 422 | The test email recipient isn't an email address |
+| `rate_limited` | 429 | More than 5 test emails an hour from one operator |
 | `maintenance` | 503 | Maintenance mode is on; `detail` is `maintenance.message` and `Retry-After` is set. Any route but health checks, docs, sign-in and `/ops` |
 
 Error codes are public API: new ones are added, existing ones never change.
@@ -352,7 +360,7 @@ Error codes are public API: new ones are added, existing ones never change.
 | `jobs.definition.run_requested` | `job_definition` |
 | `jobs.run.retried` | `job` |
 | `jobs.run.cancelled` | `job` |
-| `jobs.queue.paused` | `job_queue` |
+| `jobs.queue.paused` | `job_queue` (metadata: `reason`) |
 | `jobs.queue.resumed` | `job_queue` |
 | `mail.test.requested` | `mail` (ID: the provider; the recipient is not recorded) |
 

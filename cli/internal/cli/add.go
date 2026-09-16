@@ -748,8 +748,8 @@ func mailNextSteps(in mailInput, plan mailPlan) string {
 	steps = append(steps,
 		"Start the app: docker compose up -d --wait, go run ./cmd/migrate, go run ./cmd/api",
 		"Set the sender in the admin API; it applies at once, without a restart:\n"+
-			`       PUT /ops/settings/mail.from_email  {"value": "hello@yourdomain.com", "version": 0}`+"\n"+
-			`       PUT /ops/settings/mail.from_name   {"value": "Your App", "version": 0}`+"\n"+
+			`       PUT /ops/settings/mail.from_email  {"value": "hello@yourdomain.com", "version": 0, "reason": "our domain"}`+"\n"+
+			`       PUT /ops/settings/mail.from_name   {"value": "Your App", "version": 0, "reason": "our name"}`+"\n"+
 			`       PUT /ops/settings/mail.reply_to    (optional)`,
 		"Send yourself a test email:\n"+
 			`       POST /ops/mail/test  {"to": "you@example.com"}`,

@@ -31,6 +31,10 @@ import (
 // DefaultMaxMetadataBytes bounds an event's metadata after redaction.
 const DefaultMaxMetadataBytes = 16 << 10
 
+// DefaultQueryTimeout bounds each [Store.List] and [Store.Stats] query, so
+// a filter no index serves can't hold a connection while it scans the table.
+const DefaultQueryTimeout = 5 * time.Second
+
 // Text column limits, in characters. Longer values are truncated.
 const (
 	maxActionLen    = 200
@@ -49,6 +53,7 @@ type Store struct {
 	pool             *pgxpool.Pool
 	redacted         []string
 	maxMetadataBytes int
+	queryTimeout     time.Duration
 	now              func() time.Time
 }
 
@@ -62,15 +67,19 @@ type optionFunc func(*Store)
 func (f optionFunc) apply(s *Store) { f(s) }
 
 // WithRedactedKeys adds metadata keys whose values are replaced with
-// "[REDACTED]", on top of the defaults (password, secret, token, cookie,
-// authorization, api_key, private_key, otp, credential, recovery_code,
-// verification_code). A key matches when it equals a name or contains it as
-// a whole snake_case segment: "token" matches "refresh_token" and
-// "accessToken" but not "tokenizer".
+// "[REDACTED]", on top of the defaults (password, passcode, secret, token,
+// cookie, authorization, bearer, api_key, private_key, signing_key,
+// encryption_key, credential, jwt, pin, otp, totp, magic_link, and codes
+// qualified as recovery, verification, reset, login, sign_in, mfa, backup,
+// security or access codes). A key matches when it equals a name or
+// contains it as whole snake_case segments, in any case style and singular
+// or plural: "token" matches "refresh_tokens" and "accessToken" but not
+// "tokenizer". A bare "code" isn't redacted by default, since it usually
+// names an error code; add it here if your metadata uses it for secrets.
 func WithRedactedKeys(names ...string) Option {
 	return optionFunc(func(s *Store) {
 		for _, name := range names {
-			s.redacted = append(s.redacted, snakeCase(name))
+			s.redacted = append(s.redacted, normalizeKey(name))
 		}
 	})
 }
@@ -82,13 +91,21 @@ func WithMaxMetadataBytes(n int) Option {
 	return optionFunc(func(s *Store) { s.maxMetadataBytes = n })
 }
 
+// WithQueryTimeout sets how long a [Store.List] or [Store.Stats] query may
+// run before it is cancelled with [ErrQueryTimeout]. Default:
+// [DefaultQueryTimeout].
+func WithQueryTimeout(d time.Duration) Option {
+	return optionFunc(func(s *Store) { s.queryTimeout = d })
+}
+
 // NewStore returns a store on pool. The audit_events table comes from
 // [Migrations]; apply them first.
 func NewStore(pool *pgxpool.Pool, opts ...Option) (*Store, error) {
 	s := &Store{
 		pool:             pool,
-		redacted:         append([]string(nil), defaultRedactedKeys...),
+		redacted:         normalizedKeys(defaultRedactedKeys),
 		maxMetadataBytes: DefaultMaxMetadataBytes,
+		queryTimeout:     DefaultQueryTimeout,
 		now:              time.Now,
 	}
 	for _, opt := range opts {
@@ -100,6 +117,9 @@ func NewStore(pool *pgxpool.Pool, opts ...Option) (*Store, error) {
 	}
 	if s.maxMetadataBytes < 64 {
 		errs = append(errs, fmt.Errorf("max metadata bytes %d must be at least 64", s.maxMetadataBytes))
+	}
+	if s.queryTimeout <= 0 {
+		errs = append(errs, fmt.Errorf("query timeout %v must be positive", s.queryTimeout))
 	}
 	for _, name := range s.redacted {
 		if name == "" {

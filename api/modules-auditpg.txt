@@ -1,5 +1,7 @@
 pkg gorbital.dev/modules/auditpg, const DefaultMaxMetadataBytes = 16384
 pkg gorbital.dev/modules/auditpg, const DefaultMaxMetadataBytes ideal-int
+pkg gorbital.dev/modules/auditpg, const DefaultQueryTimeout = 5000000000
+pkg gorbital.dev/modules/auditpg, const DefaultQueryTimeout time.Duration
 pkg gorbital.dev/modules/auditpg, const DefaultStatsWindow = 604800000000000
 pkg gorbital.dev/modules/auditpg, const DefaultStatsWindow time.Duration
 pkg gorbital.dev/modules/auditpg, const MaxStatsGroups = 50
@@ -18,6 +20,7 @@ pkg gorbital.dev/modules/auditpg, const StatsByResourceType = "resource_type"
 pkg gorbital.dev/modules/auditpg, const StatsByResourceType StatsGroup
 pkg gorbital.dev/modules/auditpg, func NewStore(*pgxpool.Pool, ...Option) (*Store, error)
 pkg gorbital.dev/modules/auditpg, func WithMaxMetadataBytes(int) Option
+pkg gorbital.dev/modules/auditpg, func WithQueryTimeout(time.Duration) Option
 pkg gorbital.dev/modules/auditpg, func WithRedactedKeys(...string) Option
 pkg gorbital.dev/modules/auditpg, method (*Store) DeleteBefore(context.Context, time.Time, int) (int64, error)
 pkg gorbital.dev/modules/auditpg, method (*Store) Get(context.Context, int64) (StoredEvent, error)
@@ -67,4 +70,5 @@ pkg gorbital.dev/modules/auditpg, type StoredEvent struct, embedded audit.Event
 pkg gorbital.dev/modules/auditpg, var ErrEventNotFound error
 pkg gorbital.dev/modules/auditpg, var ErrInvalidCursor error
 pkg gorbital.dev/modules/auditpg, var ErrInvalidFilter error
+pkg gorbital.dev/modules/auditpg, var ErrQueryTimeout error
 pkg gorbital.dev/modules/auditpg, var Migrations fs.FS

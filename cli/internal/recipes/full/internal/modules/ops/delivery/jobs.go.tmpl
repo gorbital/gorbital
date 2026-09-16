@@ -140,7 +140,7 @@ type updateDefinitionInput struct {
 		Queue       *string  `json:"queue,omitempty" maxLength:"100"`
 		Priority    *int     `json:"priority,omitempty" minimum:"1" maximum:"4"`
 		Version     int64    `json:"version" minimum:"0" doc:"Version last read"`
-		Reason      string   `json:"reason,omitempty" maxLength:"500" doc:"Required to disable or reschedule a job"`
+		Reason      string   `json:"reason,omitempty" maxLength:"500" doc:"Required to disable or reschedule a job, or to change its timeout, max attempts or queue"`
 	}
 }
 
@@ -171,8 +171,20 @@ type runIDInput struct {
 	ID int64 `path:"id" minimum:"1"`
 }
 
-type queueNameInput struct {
+type queueControlInput struct {
 	Name string `path:"name" maxLength:"100" example:"default"`
+	Body *struct {
+		_      struct{} `json:"-" additionalProperties:"true"`
+		Reason string   `json:"reason,omitempty" maxLength:"500" doc:"Why; required to pause a queue"`
+	}
+}
+
+// reason returns the body's reason, if a body was sent.
+func (in *queueControlInput) reason() string {
+	if in.Body == nil {
+		return ""
+	}
+	return in.Body.Reason
 }
 
 type jobsHandler struct {
@@ -210,7 +222,7 @@ func RegisterJobs(api huma.API, svc *opsusecase.Service) {
 	huma.Register(api, reg(definitions, huma.Operation{
 		OperationID: "ops-update-job-definition", Method: http.MethodPut, Path: "/ops/jobs/definitions/{name}",
 		Summary:     "Change a job's configuration",
-		Description: "Send only the fields to change. Applies to every instance within moments. Disabling or rescheduling requires a reason.",
+		Description: "Send only the fields to change. Applies to every instance within moments. Disabling or rescheduling a job, or changing its timeout, max attempts or queue, requires a reason.",
 		Errors:      []int{http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity},
 	}), h.updateDefinition)
 	huma.Register(api, reg(definitions, huma.Operation{
@@ -224,8 +236,10 @@ func RegisterJobs(api huma.API, svc *opsusecase.Service) {
 	}), h.definitionHistory)
 	huma.Register(api, reg(definitions, huma.Operation{
 		OperationID: "ops-run-job", Method: http.MethodPost, Path: "/ops/jobs/definitions/{name}/run",
-		Summary: "Run a job now", DefaultStatus: http.StatusAccepted,
-		Errors: []int{http.StatusNotFound, http.StatusConflict},
+		Summary:       "Run a job now",
+		Description:   "Refused while a run of the job is queued or running, or within a minute of its last run.",
+		DefaultStatus: http.StatusAccepted,
+		Errors:        []int{http.StatusNotFound, http.StatusConflict, http.StatusTooManyRequests},
 	}), h.runNow)
 
 	huma.Register(api, reg(runs, huma.Operation{
@@ -238,7 +252,9 @@ func RegisterJobs(api huma.API, svc *opsusecase.Service) {
 	}), h.getRun)
 	huma.Register(api, reg(runs, huma.Operation{
 		OperationID: "ops-retry-job-run", Method: http.MethodPost, Path: "/ops/jobs/runs/{id}/retry",
-		Summary: "Retry a job run now", Errors: []int{http.StatusNotFound},
+		Summary:     "Retry a job run now",
+		Description: "Only runs waiting to retry, discarded or cancelled, of enabled jobs: a completed run never runs again.",
+		Errors:      []int{http.StatusNotFound, http.StatusConflict},
 	}), h.retryRun)
 	huma.Register(api, reg(runs, huma.Operation{
 		OperationID: "ops-cancel-job-run", Method: http.MethodPost, Path: "/ops/jobs/runs/{id}/cancel",
@@ -251,8 +267,10 @@ func RegisterJobs(api huma.API, svc *opsusecase.Service) {
 	}), h.listQueues)
 	huma.Register(api, reg(queues, huma.Operation{
 		OperationID: "ops-pause-job-queue", Method: http.MethodPost, Path: "/ops/queues/{name}/pause",
-		Summary: "Pause a queue on every instance", DefaultStatus: http.StatusNoContent,
-		Errors: []int{http.StatusUnprocessableEntity},
+		Summary:       "Pause a queue on every instance",
+		Description:   "Every job in the queue stops, email delivery included, so pausing requires a reason.",
+		DefaultStatus: http.StatusNoContent,
+		Errors:        []int{http.StatusUnprocessableEntity},
 	}), h.pauseQueue)
 	huma.Register(api, reg(queues, huma.Operation{
 		OperationID: "ops-resume-job-queue", Method: http.MethodPost, Path: "/ops/queues/{name}/resume",
@@ -402,12 +420,12 @@ func (h *jobsHandler) listQueues(ctx context.Context, _ *struct{}) (*queueListOu
 	return out, nil
 }
 
-func (h *jobsHandler) pauseQueue(ctx context.Context, in *queueNameInput) (*struct{}, error) {
-	return nil, h.svc.PauseQueue(ctx, in.Name)
+func (h *jobsHandler) pauseQueue(ctx context.Context, in *queueControlInput) (*struct{}, error) {
+	return nil, h.svc.PauseQueue(ctx, in.Name, in.reason())
 }
 
-func (h *jobsHandler) resumeQueue(ctx context.Context, in *queueNameInput) (*struct{}, error) {
-	return nil, h.svc.ResumeQueue(ctx, in.Name)
+func (h *jobsHandler) resumeQueue(ctx context.Context, in *queueControlInput) (*struct{}, error) {
+	return nil, h.svc.ResumeQueue(ctx, in.Name, in.reason())
 }
 
 // jobError turns a rejected configuration into a problem carrying the reason.
