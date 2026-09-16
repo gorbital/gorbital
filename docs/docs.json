@@ -1,7 +1,7 @@
 {
   "name": "gorbital",
-  "version": "v0.5",
-  "announcement": "pre-release · v0.5: upgrades and ops are in",
+  "version": "v1.0",
+  "announcement": "pre-release · v1.0 in progress: security review done, API frozen",
   "github": "https://github.com/gorbital/gorbital",
   "www": "https://gorbital.dev",
   "url": "https://docs.gorbital.dev",
@@ -103,11 +103,21 @@
       ]
     },
     {
-      "name": "CLI",
+      "name": "Reference",
       "groups": [
         {
-          "name": "Reference",
+          "name": "CLI",
           "pages": [{ "title": "CLI reference", "slug": "cli", "source": "docs/guides/cli.md" }]
+        },
+        {
+          "name": "App reference",
+          "pages": [
+            { "title": "Error codes", "slug": "reference/error-codes", "source": "docs/reference/error-codes.md" },
+            { "title": "Audit actions", "slug": "reference/audit-actions", "source": "docs/reference/audit-actions.md" },
+            { "title": "Permissions and roles", "slug": "reference/permissions", "source": "docs/reference/permissions.md" },
+            { "title": "Runtime settings", "slug": "reference/settings", "source": "docs/reference/settings.md" },
+            { "title": "Jobs", "slug": "reference/jobs", "source": "docs/reference/jobs.md" }
+          ]
         }
       ]
     },
@@ -116,7 +126,13 @@
     {
       "name": "Roadmap",
       "groups": [
-        { "name": "Roadmap", "pages": [{ "title": "Roadmap", "slug": "roadmap", "source": "docs/roadmap.md" }] }
+        {
+          "name": "Roadmap",
+          "pages": [
+            { "title": "Roadmap", "slug": "roadmap", "source": "docs/roadmap.md" },
+            { "title": "Changelog", "slug": "changelog", "source": "CHANGELOG.md" }
+          ]
+        }
       ]
     }
   ]

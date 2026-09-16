@@ -311,7 +311,7 @@ func (s *Service) CreateProject(ctx context.Context, name string) (Project, erro
 
 ## Audit events
 
-Every sign-in (successful or not), second factor (`auth.mfa.challenge_succeeded`, `auth.mfa.challenge_failed`, `auth.mfa.recovery_code_used`), verification, password change or reset, two-factor change (`auth.mfa.totp_enabled`, `auth.mfa.totp_disabled`, `auth.mfa.recovery_codes_regenerated`, `auth.mfa.reset`, `auth.keys.rotated`), sign-out, account deletion and role change is recorded, as is every wrong password or second factor given behind a session (`auth.reauth.failed`, `reason` `invalid_credentials`, `invalid_mfa` or `rate_limited`), with the client's IP address and user agent. See them with `GET /ops/audit?action_prefix=auth.`. Email addresses, secrets, codes and recovery codes are never stored in event metadata.
+Every sign-in (successful or not), second factor (`auth.mfa.challenge_succeeded`, `auth.mfa.challenge_failed`, `auth.mfa.recovery_code_used`), verification, password change or reset, two-factor change (`auth.mfa.totp_enabled`, `auth.mfa.totp_disabled`, `auth.mfa.recovery_codes_regenerated`, `auth.mfa.reset`, `auth.keys.rotated`), sign-out, account deletion and role change is recorded, as is every wrong password or second factor given behind a session (`auth.reauth.failed`, `reason` `invalid_credentials`, `invalid_mfa` or `rate_limited`), with the client's IP address and user agent. See them with `GET /ops/audit?action_prefix=auth.`. Email addresses, secrets, codes and recovery codes are never stored in event metadata. Every action with its metadata keys: [audit actions reference](../reference/audit-actions.md); roles and permissions: [permissions reference](../reference/permissions.md).
 
 ## Troubleshooting
 

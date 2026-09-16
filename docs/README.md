@@ -28,6 +28,7 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [How gorbital works](start/concepts.md) | The three parts, what an app contains, where settings live, glossary |
 | [Add your first resource](start/first-resource.md) | `orb gen resource`, every generated file, the table, testing |
 | [Organisations](start/organisations.md) | Multi-tenant apps |
+| [Upgrading apps](start/upgrading.md) | `orb upgrade`: newer templates and library into an existing app |
 | [Set up sign-in](sign-in/overview.md) | Overview of sign-in methods and where values go |
 | [Every key and credential](sign-in/all-keys.md) | Every value, how it's obtained, complete development and production environments |
 | [Encryption key](sign-in/encryption-key.md), [Email sending](sign-in/email.md), [Passkeys](sign-in/passkeys.md), [Passkeys in mobile apps](sign-in/passkeys-mobile.md), [Google](sign-in/google.md), [Apple](sign-in/apple.md) | Step-by-step setup of each |
@@ -55,11 +56,35 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Ops API reference](guides/ops-api.md) | `/ops/*` endpoints, permissions, error codes, audit actions |
 | [CLI](guides/cli.md) | Every `orb` command and flag |
 | [Testing](guides/testing.md) | What's tested, helpers, commands, drift checks, CI |
+| [Stability and compatibility](guides/stability.md) | What 1.0 promises not to break and the checks that enforce it: API listings, `api/surface.json`, the `/ops` baseline, `--json` schemas, scaffold compatibility, reference pages |
 | [Running in production](guides/production.md) | Image, configuration, migrations, scaling, observability, operations, what never to do |
 | [Upgrade notes](guides/upgrade-notes.md) | What changes for existing apps in each release, and what to do before deploying |
 | [Local development](guides/local-development.md) | Working on the gorbital repository |
+| [Security overview](security/README.md) | How security is reviewed and reported; the [internal review of September 2026](security/2026-09-internal-review.md) |
 | [Roadmap](roadmap.md) | Milestones and status |
+| [Changelog](../CHANGELOG.md) | Notable changes in each release |
 | [Architecture decision records](adr/README.md) | Every decision with context, options and trade-offs |
+
+## Reference
+
+Generated from the golden apps by `go run -C internal/tools/refdocs . -write` and checked in CI ([stability](guides/stability.md#reference-pages-docsreference)); don't edit them by hand.
+
+| Page | Lists |
+|---|---|
+| [Error codes](reference/error-codes.md) | Every problem+json code: HTTP status, meaning, where it's returned |
+| [Audit actions](reference/audit-actions.md) | Every audit action: when it's recorded, metadata keys |
+| [Permissions and roles](reference/permissions.md) | Platform and organisation catalogs: which roles hold which permissions, required two-factor authentication |
+| [Runtime settings](reference/settings.md) | Every setting: type, default, bounds, reason and restart required |
+| [Jobs](reference/jobs.md) | Every job: default schedule, timeout, attempts, what it does |
+
+## Project
+
+| Document | Covers |
+|---|---|
+| [Contributing](../CONTRIBUTING.md) | Proposing a change, setting up the repository, pull requests |
+| [Governance](../GOVERNANCE.md) | Roles and how decisions are made |
+| [Security policy](../SECURITY.md) | Supported versions and reporting a vulnerability |
+| [Code of conduct](../CODE_OF_CONDUCT.md) | How we work together |
 
 ## Brand and website
 

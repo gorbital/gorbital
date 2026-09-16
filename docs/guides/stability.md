@@ -85,6 +85,19 @@ How names are found:
 
 Write codes and actions in one of those forms, not built with `fmt.Sprintf`, so the inventory sees them. `orb gen resource` and `orb gen job` print the record step in their next steps; `orb upgrade` and `orb add orgs` record the file themselves after building, so the upgrade commit shows what changed. Minimal apps have no inventory.
 
+## Reference pages: `docs/reference`
+
+The [error codes](../reference/error-codes.md), [audit actions](../reference/audit-actions.md), [permissions and roles](../reference/permissions.md), [runtime settings](../reference/settings.md) and [jobs](../reference/jobs.md) pages are generated from the golden apps, so the documented surface is the real one. `internal/tools/refdocs` adds a test file to `examples/full-multi/internal/app` and `examples/full-single/internal/app` for one `go test -overlay` run (nothing is written into the apps, and generated apps carry no documentation code): it builds each app on a migrated test database and reads the permission catalogs, the settings store, the job definitions and, from the source, the error mappings and audit actions. Names only `full-multi` has are marked *multi-tenant apps only*.
+
+Descriptions the code doesn't carry are in `internal/tools/refdocs/descriptions.json`: when each audit action is recorded, and the meaning of error codes whose mappings have no single detail. The tool warns about a name without one; add it there.
+
+It needs the test database (`docker compose up -d --wait` and `GORBITAL_TEST_DATABASE_URL`). CI checks the pages in the `generated` job:
+
+```bash
+go run -C internal/tools/refdocs .          # check: fails with "stale: docs/reference/…"
+go run -C internal/tools/refdocs . -write   # regenerate after adding or changing a code, action, permission, setting or job
+```
+
 ## `/ops` API: `api/openapi.baseline.json`
 
 Full apps carry `api/openapi.baseline.json`, the OpenAPI document of gorbital's 1.0 templates. `TestOpsAPICompatible` exports the current document and reports, for every operation under `/ops/`:
@@ -131,7 +144,7 @@ A failure means a library change broke code that apps already have. Fix the libr
 | You changed | Run |
 |---|---|
 | Exported Go API | `go run -C internal/tools/apicheck .` (`-write` to record additions) |
-| A golden Full app's error codes, audit actions, permissions, settings or jobs | `go test ./internal/app -run TestPublicSurface -update` in both Full apps, then `cd cli && go generate ./internal/recipes/` |
+| A golden Full app's error codes, audit actions, permissions, settings or jobs | `go test ./internal/app -run TestPublicSurface -update` in both Full apps, `go run -C internal/tools/refdocs . -write` (with a description in its `descriptions.json` for a new audit action), then `cd cli && go generate ./internal/recipes/` |
 | `/ops` endpoints | `go test ./internal/app -run TestOpsAPICompatible` in both Full apps |
 | `orb` JSON output | `cd cli && go test ./internal/cli -run TestJSONOutputs` (`-update` for additions) |
 | The library in a way old scaffolds might notice | The scaffold compatibility check above |

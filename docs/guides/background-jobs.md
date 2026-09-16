@@ -1,6 +1,6 @@
 # Background jobs guide
 
-`gorbital.dev/modules/jobs` runs background jobs on PostgreSQL with [River](https://riverqueue.com). Decision: [ADR-0033](../adr/0033-background-jobs.md). Admin endpoints: [ops API reference](ops-api.md#job-definitions).
+`gorbital.dev/modules/jobs` runs background jobs on PostgreSQL with [River](https://riverqueue.com). Decision: [ADR-0033](../adr/0033-background-jobs.md). Admin endpoints: [ops API reference](ops-api.md#job-definitions). Every job a Full app defines, with its default schedule: [jobs reference](../reference/jobs.md).
 
 ## Concepts
 

@@ -62,7 +62,7 @@ The email provider isn't asked at creation: new Full apps use Resend, and `orb a
 |---|---|
 | **Minimal** | HTTP server, config, logging, tracing, health, security defaults, OpenAPI + `/docs`, Dockerfile. No database; Docker not required. |
 | **Full** | Minimal + PostgreSQL, runtime settings, jobs, email, full authentication, users/roles/permissions, tenancy choice, audit logs, operations APIs, seed data, tests, CI option. |
-A Custom preset (a feature checklist) isn't planned for v0.5: every offered combination would need its own tested golden app ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
+A Custom preset (a feature checklist) isn't planned: every offered combination would need its own tested golden app ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
 
 Every prompt has a flag (`--module`, `--preset`, `--tenancy`, `--local`, `--no-git`, `--yes`) for CI and AI agents. Each preset is a whole template tree generated from a golden app; `orb add` and `orb upgrade` move an app from one tree to another with the same 3-way merge ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
 
@@ -125,6 +125,7 @@ gorbital/
 ├── buildinfo/               version, commit, build time
 ├── internal/archtest/       dependency budget, stability markers, golden apps don't drift
 ├── internal/tools/apicheck/  module: records and checks the exported API in api/*.txt (ADR-0054)
+├── internal/tools/refdocs/   module: generates and checks docs/reference from the golden apps
 ├── api/                     exported Go API listings per library module (gorbital.dev.txt, modules-auth.txt, …)
 ├── modules/
 │   ├── openapi/             Huma integration, problem errors, /docs API reference (reference/)   (v0.1)
@@ -202,7 +203,7 @@ my-api/
 └── go.mod · go.sum
 ```
 
-A multi-tenant app adds `internal/modules/orgs/` and the `orgs_purge` job. The `.well-known` files are served by `mountWellKnown` in `internal/app/passkeys.go`. There's no separate worker command: jobs run in the API process. Email templates are plain-text and HTML strings in `modules/auth` (`authlib.NewMailEmails`); owned email templates with a development preview are still open (section 11). A Postman collection and `llms.txt` are planned for v0.5.
+A multi-tenant app adds `internal/modules/orgs/` and the `orgs_purge` job. The `.well-known` files are served by `mountWellKnown` in `internal/app/passkeys.go`. There's no separate worker command: jobs run in the API process. Email templates are plain-text and HTML strings in `modules/auth` (`authlib.NewMailEmails`); owned email templates with a development preview are still open (section 11). `go run ./cmd/api openapi --dir api` writes `api/openapi.json`, a Postman collection and `llms.txt`; `api/surface.json` and `api/openapi.baseline.json` record the public surface ([ADR-0054](adr/0054-api-freeze-and-scaffold-compatibility.md)).
 
 Rules enforced by `architecture_test.go`:
 
@@ -277,13 +278,13 @@ PostgreSQL only, always from Docker in development, tests and CI. `modules/postg
 | Command | Purpose |
 |---|---|
 | `orb new <name>` | Create an app (presets and prompts) |
-| `orb add <feature>` | Add a feature: `mail` switches the email provider; `orgs` (v0.5) turns a single-tenant app multi-tenant |
-| `orb gen resource <Name> <field:type>... [--scope=user]` | One-shot layered module owned by the signed-in user, with table, API and tests ([ADR-0039](adr/0039-resource-module-template.md)); `org` and `global` scopes later |
+| `orb add <feature>` | Add a feature: `mail` switches the email provider; `orgs` turns a single-tenant app multi-tenant |
+| `orb gen resource <Name> <field:type>... [--scope=user]` | One-shot layered module owned by the signed-in user or, with `--scope org`, by an organisation, with table, API and tests ([ADR-0039](adr/0039-resource-module-template.md)) |
 | `orb gen job <Name> [--schedule CRON\|--every D\|--on-demand]` | Job args, worker, test and definition; config editable in `/ops/jobs` ([ADR-0033](adr/0033-background-jobs.md)) |
 | `orb gen migration <name>` | Empty forward-only goose migration that runs after the existing ones |
 | `orb dev [--observability] [--no-services] [--no-reload]` | Run locally with reload and Docker services |
-| `orb upgrade [--from <version>] [--dry-run]` | Merge template changes and upgrade the library on branch `orb-upgrade/<version>` (v0.5); `--major` arrives with 1.0 |
-| `orb doctor` | Planned (v0.5): check configuration, versions and migrations |
+| `orb upgrade [--from <version>] [--dry-run]` | Merge template changes and upgrade the library on branch `orb-upgrade/<version>`; `--major` arrives with the first v2 bridge release |
+| `orb doctor` | Check the app's tools, versions, lock file, configuration and migrations |
 
 **Implemented in v0.1:** `orb new` (Minimal preset; `--module`, `--local`, `--json`, `--no-git`), `orb dev` (build, run, reload, `.env`, port check), `orb version`.
 
@@ -302,7 +303,7 @@ PostgreSQL only, always from Docker in development, tests and CI. `modules/postg
 
 ## 9. Security ([ADR-0029](adr/0029-threat-model.md))
 
-The threat model covers the framework, CLI and ecosystem, not only generated apps. Highest priorities: `gorbital.dev` domain and DNS hardening, template injection, malicious recipes, OAuth and ID-token validation, passkey origin checks, cross-tenant access, ops endpoint protection, release signing and maintainer account security.
+The threat model covers the framework, CLI and ecosystem, not only generated apps. Highest priorities: `gorbital.dev` domain and DNS hardening, template injection, malicious recipes, OAuth and ID-token validation, passkey origin checks, cross-tenant access, ops endpoint protection, release signing and maintainer account security. The internal security review of September 2026 found 43 issues, all fixed or accepted in writing ([report](security/2026-09-internal-review.md), [ADR-0053](adr/0053-internal-security-review.md)); the external review is open.
 
 ---
 
@@ -314,8 +315,8 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | v0.2 ✅ done, tagged | PostgreSQL, runtime settings, jobs, email (Resend/SMTP), email/password auth, users and roles, audit, Full preset, single-tenant, `orb dev` with Docker, seed data |
 | v0.3 ✅ done, tagged | Google, Apple, TOTP, passkeys |
 | v0.4 ✅ done, tagged | Multi-tenant organisations, tenancy prompt |
-| v0.5 (in progress) | `gorbital.lock` v2, `orb upgrade`, `orb add orgs` (done); operations APIs, Postman, `llms.txt`, `orb doctor` (next) |
-| v1.0 | External security review, API freeze, documentation content |
+| v0.5 ✅ done, tagged | `gorbital.lock` v2, `orb upgrade`, `orb add orgs`, `orb doctor`, system health, audit stats, retention, maintenance mode, Postman collection and `llms.txt` |
+| v1.0 (in progress) | Rate limits shared across instances, internal security review (done), API freeze and compatibility checks (done), governance (done), documentation content with generated reference pages (done); external security review open |
 | v1.3 (built early) | Public website and docs at gorbital.dev and docs.gorbital.dev ([ADR-0049](adr/0049-public-docs-and-website.md)) |
 | v1.1 | Feature flags, live observability, API keys, GitHub login, row-level security option, local dev console |
 | v1.2 (proposed) | Client templates: docs site, dashboard and Expo app created by `orb new` from separate template repositories ([ADR-0047](adr/0047-client-templates.md)) |

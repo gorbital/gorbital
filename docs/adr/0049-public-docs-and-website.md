@@ -94,3 +94,28 @@ Why not Mintlify: its components can be recoloured but not reshaped, it charges 
 - `site/` module: `cmd/site` (build and serve), `internal/build` (pages, Markdown, outputs, and the build and link test), `templates/`, `assets/`, `content/`. See [site/README.md](../../site/README.md) for writing pages and the Cloudflare Pages settings.
 - First build: 152 pages, including every decision record and every operation of `examples/full-multi`.
 - Decision numbers come from file names, since early records title themselves `ADR-001`.
+
+## Implementation notes (2026-09-16): reference pages and changelog
+
+Roadmap v1.0 item 5. Error codes, audit actions, permissions, settings and job names became stable API with the API freeze ([ADR-0054](0054-api-freeze-and-scaffold-compatibility.md)), but they were only listed by name in `api/surface.json` and by hand in several guides. The site now has a Reference tab with a page for each, generated from the golden apps:
+
+| Option | Verdict |
+|---|---|
+| A `reference` subcommand in the golden apps' `cmd/api` | Rejected: every generated app would carry documentation code for this repository |
+| A test in the golden apps with `-update` writing into `../../docs` | Rejected: generated apps get the test too, with a path that doesn't exist there |
+| A tool importing the apps' packages | Impossible: they are `internal` to the app module |
+| **`internal/tools/refdocs` adding a test file to `examples/<app>/internal/app` for one `go test -overlay` run** | **Chosen**: the test runs inside the app's package, so it reads the real declarations (permission catalogs, the settings store's views, the job manager's definitions) and the source (error mappings, audit actions, as `TestPublicSurface` does); nothing is written into the apps |
+
+- `internal/tools/refdocs` (own module, no dependencies): runs the overlay test in `examples/full-multi` and `examples/full-single` on a migrated test database, renders `docs/reference/{error-codes,audit-actions,permissions,settings,jobs}.md`, and marks names only the multi-tenant app has. Without flags it checks the pages; `-write` rewrites them. CI runs the check in the `generated` job; the tool is in the test, lint and govulncheck lists.
+- What the code doesn't say is in `internal/tools/refdocs/descriptions.json`: when each audit action is recorded, the meaning of codes without a single detail, and where a few codes are returned. A missing description is a warning, not a failure, so new names never block a change; the page shows what the code has.
+- Metadata keys are read from map literals next to the action and from `e.Metadata[...]` assignments after it, so they are the keys the code sets, not a schema.
+- `CHANGELOG.md` is the `/changelog/` page the landing page links to; gorbital-web's `sync-docs` copies it with the other files outside `docs/`.
+- `docs.json`: the CLI tab became "Reference" (CLI, App reference); `version` is `v1.0` because the badge means "documentation for this version" and the pages describe v1.0 behaviour, with the announcement saying it's pre-release.
+- The trade-off above that endpoint pages don't show each error code stands; the error codes page lists where each is returned instead.
+
+| Check | Result |
+|---|---|
+| `go run -C internal/tools/refdocs .` | Pass; 83 error codes, 58 audit actions, 18 permissions and 5 roles, 29 settings, 7 jobs, matching `api/surface.json` |
+| `go run -C internal/tools/refdocs .` after editing a page | Fails with `stale: docs/reference/jobs.md` |
+| `go test ./...`, `go vet`, `gofmt -l` in `internal/tools/refdocs` | Pass |
+| `pnpm sync-docs && pnpm --filter docs build` in gorbital-web | Pass: 200 static pages, including `/changelog/` and `/reference/*` |

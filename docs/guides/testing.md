@@ -105,6 +105,7 @@ Generated artifacts are committed, and tests fail when they're stale:
 | CLI templates in `cli/internal/recipes` | `cd cli && go generate ./internal/recipes` | `cli/internal/recipes` tests compare them with `examples/*` |
 | `examples/*/api/openapi.json` | `go run ./cmd/api openapi > api/openapi.json` in the app | CI's OpenAPI drift job |
 | `full-multi` vs `full-single` | Edit both | A drift test keeps them identical outside the files organisations change |
+| `docs/reference/*.md` | `go run -C internal/tools/refdocs . -write` (needs the test database) | `go run -C internal/tools/refdocs .` in CI ([Stability](stability.md#reference-pages-docsreference)) |
 | Generated resources | `orb gen resource` | CLI tests generate `projects` and compare it with each golden app's module |
 | `api/*.txt` (exported Go API) | `go run -C internal/tools/apicheck . -write` | CI's API listing step; missing lines are breaking changes |
 | `examples/full-*/api/surface.json` | `go test ./internal/app -run TestPublicSurface -update` in the app | `TestPublicSurface`; removals fail even after regenerating the file, in review |
@@ -123,4 +124,4 @@ GOTOOLCHAIN=go1.26.8 go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
 ## CI
 
-`.github/workflows/ci.yml` runs the jobs above on Go 1.26 and 1.27 with PostgreSQL and Mailpit service containers and `GORBITAL_REQUIRE_DB=1`: tests with `-race` for every module, golangci-lint, recipe and OpenAPI drift, API listings, end-to-end generation, govulncheck, the scaffold compatibility check and gitleaks. Library tags run `gorelease` in `release-library.yml`. The workflows are currently disabled on GitHub during active development, so run the commands locally ([local development](local-development.md#ci)).
+`.github/workflows/ci.yml` runs the jobs above on Go 1.26 and 1.27 with PostgreSQL and Mailpit service containers and `GORBITAL_REQUIRE_DB=1`: tests with `-race` for every module, golangci-lint, recipe and OpenAPI drift, API listings, reference pages, end-to-end generation, govulncheck, the scaffold compatibility check and gitleaks. Library tags run `gorelease` in `release-library.yml`. The workflows are currently disabled on GitHub during active development, so run the commands locally ([local development](local-development.md#ci)).

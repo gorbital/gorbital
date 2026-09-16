@@ -18,7 +18,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/settings
 | No or invalid session | 401 `unauthenticated` |
 | Signed in without the operation's permission | 403 `forbidden` |
 | Role `platform_admin` | Every ops permission |
-| Role `ops_viewer` | `ops.settings.read`, `ops.jobs.read`, `ops.audit.read`, `ops.releases.read`, `ops.mail.read` |
+| Role `ops_viewer` | `ops.settings.read`, `ops.jobs.read`, `ops.audit.read`, `ops.releases.read`, `ops.mail.read`, `ops.auth.read`, `ops.system.read` |
 
 Changes are attributed to the signed-in user in history, job metadata and audit events.
 
@@ -386,6 +386,8 @@ Values of secrets are never returned; the same report is printed at start in dev
 Error codes are public API: new ones are added, existing ones never change.
 
 ## Audit actions
+
+The ops APIs record these. Every action a Full app records, with its metadata: [audit actions reference](../reference/audit-actions.md).
 
 | Action | Resource |
 |---|---|

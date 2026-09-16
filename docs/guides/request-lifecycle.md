@@ -53,7 +53,7 @@ AccessLog writes one line; the span ends
 | 8 | `exceptCrossSitePosts(httpx.CrossOrigin)` | core `httpx`, app `routes.go` | `http.CrossOriginProtection`: refuses state-changing browser requests from other origins, using `Sec-Fetch-Site` and `Origin`, unless the origin is in `APP_CORS_ORIGINS`. Non-browser clients send neither header and pass. Skipped for Apple's two cross-site POSTs (callback and notifications), which carry their own proof | 403 `cross_origin_request_denied` |
 | 9 | `httpx.BodyLimit` | core `httpx` | Refuses a declared `Content-Length` above `APP_MAX_BODY_BYTES`; cuts off undeclared bodies at the limit | 413 `request_too_large` |
 | 10 | `auth.Middleware` | `internal/modules/auth`, `modules/auth` | Resolves the session: see below | 503 `auth_unavailable` |
-| 11 | `ratelimit.Middleware` | core `ratelimit` | 60 requests a minute (burst 60) per client IP for non-GET requests under `/v1/auth/`, and Google and Apple `start` and `callback` redirects. Other requests have no key and pass | 429 `rate_limited` |
+| 11 | `ratelimit.Middleware` | core `ratelimit` | `auth.ip_requests_per_minute` requests a minute (default 60) per client IP, counted in PostgreSQL across instances, for non-GET requests under `/v1/auth/`, and Google and Apple `start` and `callback` redirects. Other requests have no key and pass | 429 `rate_limited` |
 
 Order matters: a panic anywhere is caught; the client's address is resolved before anything records it; the request ID and span exist before anything logs; CORS answers preflights before the cross-origin check; the body limit applies before anything reads the body. The auth middleware and rate limiter are added only when the auth module exists, which is always in a Full app.
 

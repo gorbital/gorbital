@@ -35,6 +35,7 @@ More in [Testing](docs/guides/testing.md).
 |---|---|
 | A library package or module | Doc comments on every exported identifier; tests; update the API listing if you added API (see [Stability](docs/guides/stability.md)) |
 | A golden app (`examples/full-single`, `examples/full-multi`, `examples/minimal`) | Make non-organisation changes in both Full apps; after endpoint changes run `go run ./cmd/api openapi --dir api` in the app; then `cd cli && go generate ./internal/recipes/`. Never edit `cli/internal/recipes/{minimal,full,full-multi}` by hand |
+| Error codes, audit actions, permissions, settings or jobs in a Full app | Record them in `api/surface.json` (`go test ./internal/app -run TestPublicSurface -update` in both Full apps) and regenerate the reference pages with `go run -C internal/tools/refdocs . -write` (it needs the test database; describe a new audit action in `internal/tools/refdocs/descriptions.json`). See [Stability](docs/guides/stability.md) |
 | A migration | Add a new file; released migrations never change |
 | Anything a generated app receives | A row in [upgrade notes](docs/guides/upgrade-notes.md) saying what existing apps must do, and a [changelog](CHANGELOG.md) entry |
 | Behaviour users see | The guide that describes it, under `docs/` |
@@ -43,7 +44,7 @@ More in [Testing](docs/guides/testing.md).
 
 - One change per pull request; explain the why in the description and fill in the template.
 - Commit subjects are imperative and specific ("Share rate limits across instances"), with the reason in the body.
-- All checks must pass: formatting, vet, tests with the race detector, lint, `govulncheck`, gitleaks, generated templates and API files up to date, API and surface checks.
+- All checks must pass: formatting, vet, tests with the race detector, lint, `govulncheck`, gitleaks, generated templates, API files and reference pages up to date, API and surface checks.
 - Security-sensitive areas need two approvals ([GOVERNANCE.md](GOVERNANCE.md)).
 - By contributing you agree your work is licensed under the [Apache License 2.0](LICENSE), the project's licence.
 

@@ -105,6 +105,8 @@ When Huma or middleware produces a status with no specific code, `httpx.DefaultC
 
 ## Codes in a Full app
 
+Every code with its status, meaning and where it's returned, generated from the golden apps: [error codes reference](../reference/error-codes.md).
+
 | Where | Codes | Reference |
 |---|---|---|
 | Middleware | `cross_origin_request_denied` (403), `request_too_large` (413), `auth_unavailable` (503), `rate_limited` (429), `internal_error` (500 from a panic), `not_found` (404, no route) | [Life of a request](request-lifecycle.md) |
