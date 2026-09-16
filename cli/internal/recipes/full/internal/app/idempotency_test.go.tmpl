@@ -1,0 +1,144 @@
+package app_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"slices"
+	"sync"
+	"testing"
+
+	"⟦.Module⟧/internal/app"
+)
+
+// withKey returns headers with an Idempotency-Key.
+func withKey(headers []string, key string) []string {
+	return append(slices.Clone(headers), "Idempotency-Key", key)
+}
+
+// TestIdempotencyKeys creates projects with Idempotency-Key over HTTP
+// (ADR-0060): a retry replays the first response without creating another
+// project, a different request with the key is refused, callers never share
+// keys, racing retries create one project, and sign-in routes and anonymous
+// requests ignore the header.
+func TestIdempotencyKeys(t *testing.T) {
+	a := newApp(t, nil)
+	h := a.Handler()
+	ada, _ := signIn(t, a, "ada@example.com", "")
+	bob, _ := signIn(t, a, "bob@example.com", "")
+	adaProjects, bobProjects := projectsOf(t, h, ada), projectsOf(t, h, bob)
+	count := func(headers []string, collection string) int {
+		t.Helper()
+		items, _ := do(t, h, "GET", collection, "", headers...).json["items"].([]any)
+		return len(items)
+	}
+
+	body := `{"name":"Website"}`
+	first := do(t, h, "POST", adaProjects, body, withKey(ada, "create-website")...)
+	if first.code != http.StatusCreated || first.header.Get("Idempotent-Replayed") != "" {
+		t.Fatalf("create with a key = %d %s", first.code, first.body)
+	}
+	again := do(t, h, "POST", adaProjects, body, withKey(ada, "create-website")...)
+	if again.code != http.StatusCreated || again.body != first.body || again.header.Get("Idempotent-Replayed") != "true" ||
+		again.header.Get("Content-Type") != first.header.Get("Content-Type") {
+		t.Errorf("retry = %d %s %v, want the first response replayed", again.code, again.body, again.header)
+	}
+	if n := count(ada, adaProjects); n != 1 {
+		t.Errorf("projects after a retry = %d, want 1", n)
+	}
+
+	if r := do(t, h, "POST", adaProjects, `{"name":"Blog"}`, withKey(ada, "create-website")...); r.code != http.StatusUnprocessableEntity || r.json["code"] != "idempotency_key_reused" {
+		t.Errorf("same key, another body = %d %s, want 422 idempotency_key_reused", r.code, r.body)
+	}
+	if r := do(t, h, "POST", adaProjects, body, withKey(ada, "has space")...); r.code != http.StatusBadRequest || r.json["code"] != "invalid_idempotency_key" {
+		t.Errorf("invalid key = %d %s, want 400 invalid_idempotency_key", r.code, r.body)
+	}
+
+	// Bob's key is his own: the same key and body create his project.
+	bobs := do(t, h, "POST", bobProjects, body, withKey(bob, "create-website")...)
+	if bobs.code != http.StatusCreated || bobs.header.Get("Idempotent-Replayed") != "" || bobs.json["id"] == first.json["id"] {
+		t.Errorf("another user with the same key = %d %s, want their own project", bobs.code, bobs.body)
+	}
+
+	// A final client error is replayed too.
+	for i := range 2 {
+		r := do(t, h, "POST", adaProjects, body, withKey(ada, "duplicate-name")...)
+		if r.code != http.StatusConflict || r.json["code"] != "project_name_taken" || (r.header.Get("Idempotent-Replayed") == "true") != (i == 1) {
+			t.Errorf("duplicate name, attempt %d = %d %s %v", i+1, r.code, r.body, r.header)
+		}
+	}
+
+	// Racing retries create one project.
+	var created, waited int
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for range 10 {
+		wg.Go(func() {
+			r := do(t, h, "POST", adaProjects, `{"name":"Docs"}`, withKey(ada, "race")...)
+			mu.Lock()
+			defer mu.Unlock()
+			switch {
+			case r.code == http.StatusCreated && r.header.Get("Idempotent-Replayed") == "":
+				created++
+			case r.code == http.StatusCreated || (r.code == http.StatusConflict && r.json["code"] == "idempotency_in_progress"):
+				waited++
+			default:
+				t.Errorf("racing request = %d %s", r.code, r.body)
+			}
+		})
+	}
+	wg.Wait()
+	if created != 1 || waited != 9 || count(ada, adaProjects) != 2 {
+		t.Errorf("racing requests created %d and waited %d, %d projects; want one project created", created, waited, count(ada, adaProjects))
+	}
+
+	// Anonymous requests and sign-in routes ignore the header: sign-in
+	// starts a new session every time, whether its token is in a cookie or
+	// in the body.
+	tokens := map[string]bool{}
+	for range 2 {
+		if r := do(t, h, "POST", "/v1/echo", `{"message":"hi"}`, "Idempotency-Key", "anonymous"); r.code != http.StatusOK || r.header.Get("Idempotent-Replayed") != "" {
+			t.Errorf("anonymous request with a key = %d %v, want it ignored", r.code, r.header)
+		}
+		cookie := do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":"ada@example.com","password":%q}`, testPassword), withKey(ada, "sign-in")...)
+		if cookie.code != http.StatusOK || cookie.header.Get("Set-Cookie") == "" || cookie.header.Get("Idempotent-Replayed") != "" {
+			t.Errorf("cookie sign-in with a key = %d %v, want a new session", cookie.code, cookie.header)
+		}
+		bearer := do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":"ada@example.com","password":%q,"transport":"bearer"}`, testPassword), withKey(ada, "bearer-sign-in")...)
+		token, _ := bearer.json["token"].(string)
+		if bearer.code != http.StatusOK || token == "" || tokens[token] || bearer.header.Get("Idempotent-Replayed") != "" {
+			t.Errorf("bearer sign-in with a key = %d %v, want a new token", bearer.code, bearer.header)
+		}
+		tokens[token] = true
+	}
+}
+
+// TestIdempotencyKeyDocumented checks that the OpenAPI document offers the
+// header on POST and PATCH operations, but not on sign-in routes.
+func TestIdempotencyKeyDocumented(t *testing.T) {
+	var buf bytes.Buffer
+	if err := app.WriteOpenAPI(context.Background(), testConfig(t, nil), &buf); err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Paths map[string]map[string]struct {
+			Parameters []struct{ Name, In string }
+		}
+	}
+	if err := json.Unmarshal(buf.Bytes(), &doc); err != nil {
+		t.Fatal(err)
+	}
+	documented := func(path, method string) bool {
+		return slices.ContainsFunc(doc.Paths[path][method].Parameters, func(p struct{ Name, In string }) bool {
+			return p.Name == "Idempotency-Key" && p.In == "header"
+		})
+	}
+	if !documented("/v1/echo", "post") || !documented("/ops/mail/test", "post") {
+		t.Error("POST /v1/echo and POST /ops/mail/test don't document Idempotency-Key")
+	}
+	if documented("/v1/auth/login", "post") || documented("/v1/ping", "get") {
+		t.Error("sign-in or GET operations document Idempotency-Key")
+	}
+}

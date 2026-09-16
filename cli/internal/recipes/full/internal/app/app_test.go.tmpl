@@ -299,3 +299,6 @@ func TestMigrateIsIdempotent(t *testing.T) {
 		t.Errorf("second Migrate() = %q, %v; want nothing applied", second.String(), err)
 	}
 }
+
+// projectsOf returns the collection of the signed-in user's projects.
+func projectsOf(*testing.T, http.Handler, []string) string { return "/v1/projects" }

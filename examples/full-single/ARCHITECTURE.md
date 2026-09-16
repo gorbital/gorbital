@@ -25,6 +25,7 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   social.go              GOOGLE_*, APPLE_*, APP_PUBLIC_URL: Google and Apple sign-in providers
   providers.go           sign-in method status: printed at start, auth-providers, /ops/auth/providers
   rate_limits.go         rate limits every instance shares (ratelimitpg), read from runtime settings
+  idempotency.go         Idempotency-Key on POST and PATCH: stored responses replayed per caller (modules/idempotency)
   seed.go                development seed data (cmd/seed)
   mail.go                email delivery: Mailpit in development or the provider
   infra_mail.go          the email provider's configuration (replaced by `orb add mail`)
@@ -51,7 +52,7 @@ compose.yaml             PostgreSQL and Mailpit for development and tests
 
 ```text
 HTTP → middleware (recover, trusted proxies, request ID, tracing, access log, security headers, CORS,
-       cross-origin protection, body limit, session authentication, shared auth rate limit) → delivery → usecase → domain
+       cross-origin protection, body limit, session authentication, shared auth rate limit, idempotency keys) → delivery → usecase → domain
      ← domain errors mapped to problem+json in internal/app/module_<name>.go
 ```
 

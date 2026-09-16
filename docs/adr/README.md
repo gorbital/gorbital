@@ -64,3 +64,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0052](0052-shared-rate-limits.md) | Shared rate limits and trusted proxies | Accepted |
 | [0054](0054-api-freeze-and-scaffold-compatibility.md) | API freeze: stability markers, API listings, public-surface inventory, `/ops` baseline, `--json` schema version, scaffold compatibility check | Accepted |
 | [0055](0055-governance-and-contribution.md) | Governance and contribution: roles, decisions, reviews, supported versions, changelog | Accepted |
+| [0060](0060-idempotency-keys.md) | Idempotency keys: `modules/idempotency`, stored and replayed POST and PATCH responses per caller | Accepted |

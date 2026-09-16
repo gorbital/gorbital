@@ -158,3 +158,29 @@ func TestOrganisationsEndToEnd(t *testing.T) {
 		}
 	}
 }
+
+// TestIdempotencyKeysStayInTheirOrganisation sends one key with the same
+// body to two organisations of the same member: the second is refused rather
+// than replaying the first organisation's project (ADR-0060).
+func TestIdempotencyKeysStayInTheirOrganisation(t *testing.T) {
+	a := newApp(t, nil)
+	h := a.Handler()
+	ada, _ := signIn(t, a, "ada@example.com", "")
+	personal := projectsOf(t, h, ada)
+	team := do(t, h, "POST", "/v1/orgs", `{"name":"Road Runners"}`, ada...)
+	if team.code != http.StatusCreated {
+		t.Fatalf("create organisation = %d %s", team.code, team.body)
+	}
+	teamProjects := "/v1/orgs/" + team.json["id"].(string) + "/projects"
+
+	body := `{"name":"Website"}`
+	if r := do(t, h, "POST", personal, body, withKey(ada, "website")...); r.code != http.StatusCreated {
+		t.Fatalf("create in the personal workspace = %d %s", r.code, r.body)
+	}
+	if r := do(t, h, "POST", teamProjects, body, withKey(ada, "website")...); r.code != http.StatusUnprocessableEntity || r.json["code"] != "idempotency_key_reused" {
+		t.Errorf("same key in another organisation = %d %s, want 422 idempotency_key_reused", r.code, r.body)
+	}
+	if items, _ := do(t, h, "GET", teamProjects, "", ada...).json["items"].([]any); len(items) != 0 {
+		t.Errorf("the other organisation has %d projects, want none", len(items))
+	}
+}

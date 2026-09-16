@@ -33,6 +33,7 @@ import (
 	"gorbital.dev/ratelimit"
 
 	"example.com/acme-api/internal/jobs/authcleanup"
+	"example.com/acme-api/internal/jobs/idempotencycleanup"
 	"example.com/acme-api/internal/jobs/orgspurge"
 	"example.com/acme-api/internal/jobs/retention"
 	authmodule "example.com/acme-api/internal/modules/auth"
@@ -156,11 +157,18 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
+	// Idempotency keys on POST and PATCH requests (idempotency.go, ADR-0060).
+	idempotencyStore, err := newIdempotency(pool, appSettings, a.logger)
+	if err != nil {
+		return err
+	}
+
 	defs := jobs.NewDefinitions()
 	defineJobs(defs, jobDeps{
-		logger:           a.logger,
-		recorder:         recorder,
-		rateLimitCleanup: limits.store.DeleteExpired,
+		logger:             a.logger,
+		recorder:           recorder,
+		rateLimitCleanup:   limits.store.DeleteExpired,
+		idempotencyCleanup: idempotencyStore.DeleteExpired,
 		// a.auth, a.orgs and a.jobsManager are built below, before any job runs.
 		authCleanup: func(ctx context.Context) (authdomain.CleanupResult, error) { return a.auth.Service().Cleanup(ctx) },
 		authRevokeTokens: func(ctx context.Context) (authdomain.RevocationResult, error) {
@@ -275,6 +283,7 @@ func (a *App) build(ctx context.Context) error {
 		pingMessage: appSettings.pingMessage,
 		auth:        a.auth,
 		ipLimiter:   limits.ip,
+		idempotency: idempotencyStore,
 		orgs:        a.orgs,
 		ops: opsusecase.Deps{
 			Settings: a.settings,
@@ -294,6 +303,7 @@ func (a *App) build(ctx context.Context) error {
 				{data: "audit_events", setting: appSettings.auditRetention.Key(), retention: appSettings.auditRetention.Get, job: retention.Name, oldest: recorder.Oldest},
 				{data: "settings_history", setting: appSettings.historyRetention.Key(), retention: appSettings.historyRetention.Get, job: retention.Name, oldest: a.settings.OldestHistory},
 				{data: "job_definition_history", setting: appSettings.historyRetention.Key(), retention: appSettings.historyRetention.Get, job: retention.Name, oldest: a.jobsManager.OldestHistory},
+				{data: "idempotency_keys", setting: appSettings.idempotencyRetention.Key(), retention: appSettings.idempotencyRetention.Get, job: idempotencycleanup.Name, oldest: idempotencyStore.Oldest},
 				{data: "release_instances", setting: appSettings.releasesInstanceRetention.Key(), retention: appSettings.releasesInstanceRetention.Get, enforcedBy: "each instance, when it starts"},
 				{data: "deleted_accounts", setting: appSettings.authDeletedAccountRetention.Key(), retention: appSettings.authDeletedAccountRetention.Get, job: authcleanup.Name},
 				{data: "unverified_accounts", setting: appSettings.authUnverifiedAccountTTL.Key(), retention: appSettings.authUnverifiedAccountTTL.Get, job: authcleanup.Name},

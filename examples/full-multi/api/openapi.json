@@ -4311,6 +4311,18 @@
               "maxLength": 63,
               "type": "string"
             }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -4701,6 +4713,18 @@
               "minimum": 1,
               "type": "integer"
             }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -4789,6 +4813,18 @@
               "format": "int64",
               "minimum": 1,
               "type": "integer"
+            }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
             }
           }
         ],
@@ -4992,6 +5028,20 @@
       "post": {
         "description": "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`. Each operator can send 5 an hour.",
         "operationId": "ops-send-test-email",
+        "parameters": [
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -5147,6 +5197,18 @@
               "maxLength": 100,
               "type": "string"
             }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -5227,6 +5289,18 @@
                 "default"
               ],
               "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
               "type": "string"
             }
           }
@@ -8909,6 +8983,20 @@
       "post": {
         "description": "Returns the trimmed message. Blank messages are rejected with the `message_required` error code.",
         "operationId": "echo",
+        "parameters": [
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -8960,6 +9048,20 @@
     "/v1/invitations/accept": {
       "post": {
         "operationId": "invitations-accept",
+        "parameters": [
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -9102,6 +9204,20 @@
       "post": {
         "description": "You become its owner. Your email address must be verified, and you can own up to `orgs.max_owned` organisations.",
         "operationId": "orgs-create",
+        "parameters": [
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -9377,6 +9493,18 @@
               "maxLength": 64,
               "type": "string"
             }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -9572,6 +9700,18 @@
             "required": true,
             "schema": {
               "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
               "type": "string"
             }
           }
@@ -9790,6 +9930,18 @@
               "maxLength": 64,
               "type": "string"
             }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -9899,6 +10051,18 @@
                 "org_mfrggzdfmztwq2lkmfrggzdfmy"
               ],
               "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
               "type": "string"
             }
           }
@@ -10189,6 +10353,18 @@
               "maxLength": 64,
               "type": "string"
             }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -10448,6 +10624,18 @@
                 "org_mfrggzdfmztwq2lkmfrggzdfmy"
               ],
               "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
               "type": "string"
             }
           }
@@ -10766,6 +10954,18 @@
               "maxLength": 64,
               "type": "string"
             }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -10875,6 +11075,18 @@
                 "org_mfrggzdfmztwq2lkmfrggzdfmy"
               ],
               "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
               "type": "string"
             }
           }

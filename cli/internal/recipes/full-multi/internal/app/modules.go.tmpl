@@ -10,6 +10,7 @@ import (
 	"gorbital.dev/audit"
 	"gorbital.dev/config"
 	"gorbital.dev/httpx"
+	"gorbital.dev/modules/idempotency"
 	"gorbital.dev/ratelimit"
 
 	authmodule "⟦.Module⟧/internal/modules/auth"
@@ -29,6 +30,9 @@ type services struct {
 	auth        *authmodule.Module
 	// ipLimiter limits /v1/auth/ requests per client IP (rate_limits.go).
 	ipLimiter ratelimit.Taker
+	// idempotency stores responses to requests with an Idempotency-Key
+	// (idempotency.go).
+	idempotency *idempotency.Store
 	// orgs gives org-scoped modules the org catalog and memberships.
 	orgs *orgsmodule.Module
 }

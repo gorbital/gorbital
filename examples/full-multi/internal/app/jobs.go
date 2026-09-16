@@ -8,6 +8,7 @@ import (
 
 	"example.com/acme-api/internal/jobs/authcleanup"
 	"example.com/acme-api/internal/jobs/authrevoke"
+	"example.com/acme-api/internal/jobs/idempotencycleanup"
 	"example.com/acme-api/internal/jobs/orgspurge"
 	"example.com/acme-api/internal/jobs/ratelimitcleanup"
 	"example.com/acme-api/internal/jobs/retention"
@@ -21,7 +22,9 @@ type jobDeps struct {
 	authCleanup      authcleanup.Cleanup
 	authRevokeTokens authrevoke.Revoke
 	rateLimitCleanup ratelimitcleanup.DeleteExpired
-	orgsPurge        orgspurge.Purge
+	// idempotencyCleanup deletes expired idempotency keys (ADR-0060).
+	idempotencyCleanup idempotencycleanup.DeleteExpired
+	orgsPurge          orgspurge.Purge
 	// retentionTargets are the data the retention job deletes (ADR-0051).
 	retentionTargets []retention.Target
 }
@@ -36,5 +39,6 @@ func defineJobs(defs *jobs.Definitions, deps jobDeps) {
 	defineAuthRevokeTokensJob(defs, deps)
 	defineOrgsPurgeJob(defs, deps)
 	defineRateLimitCleanupJob(defs, deps)
+	defineIdempotencyCleanupJob(defs, deps)
 	defineRetentionJob(defs, deps)
 }

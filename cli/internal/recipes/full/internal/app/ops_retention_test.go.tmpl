@@ -33,6 +33,7 @@ func TestOpsRetention(t *testing.T) {
 		"settings_history":       "ops.history_retention",
 		"job_definition_history": "ops.history_retention",
 		"release_instances":      "releases.instance_retention",
+		"idempotency_keys":       "idempotency.retention",
 		"deleted_accounts":       "auth.deleted_account_retention",
 		"unverified_accounts":    "auth.unverified_account_ttl",
 	} {
