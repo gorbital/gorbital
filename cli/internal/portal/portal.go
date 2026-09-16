@@ -133,6 +133,9 @@ type Config struct {
 	Links map[string]string
 	// Generators by name: job, resource, migration.
 	Generators map[string]Generator
+	// Jobs lists the app's jobs as they are in code (ADR-0071); nil when
+	// the app has none.
+	Jobs func() ([]JobSource, error)
 	// Database connects the Table Editor and Schema pages to the app's
 	// database; an empty Open means the app has none.
 	Database DatabaseConfig

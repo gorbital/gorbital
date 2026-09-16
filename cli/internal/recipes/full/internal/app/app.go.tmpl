@@ -60,6 +60,7 @@ type App struct {
 	flags       *flags.Store
 	jobs        *jobs.Client
 	jobsManager *jobs.Manager
+	mailer      mail.Sender // sends email; set once jobs exist (jobs.go)
 	auth        *authmodule.Module
 	releases    *releases.Tracker
 	collector   *observability.Collector
@@ -204,8 +205,13 @@ func (a *App) build(ctx context.Context) error {
 
 	defs := jobs.NewDefinitions()
 	defineJobs(defs, jobDeps{
-		logger:             a.logger,
-		recorder:           recorder,
+		logger:     a.logger,
+		recorder:   recorder,
+		pool:       pool,
+		httpClient: &http.Client{Timeout: 30 * time.Second},
+		// a.mailer and a.jobsManager are built below, before any job runs.
+		mailer:             mail.SenderFunc(func(ctx context.Context, m mail.Message) error { return a.mailer.Send(ctx, m) }),
+		runJob:             func(ctx context.Context, name string) error { _, err := a.jobsManager.RunNow(ctx, name); return err },
 		rateLimitCleanup:   limits.store.DeleteExpired,
 		idempotencyCleanup: idempotencyStore.DeleteExpired,
 		// Request minutes and automatic incidents (ADR-0064).
@@ -244,6 +250,7 @@ func (a *App) build(ctx context.Context) error {
 	// Modules send email through mailer: it fills the sender from the mail.*
 	// runtime settings and queues the message for the mail worker.
 	mailer := mail.WithDefaults(jobs.AsyncSender(a.jobs), appSettings.mailDefaults())
+	a.mailer = mailer
 	warnDefaultSender(ctx, a.logger, a.cfg, appSettings)
 
 	// Authentication: users, sessions and the platform roles that grant ops

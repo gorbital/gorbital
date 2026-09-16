@@ -140,6 +140,7 @@ func (d *devRunner) portalConfig() portal.Config {
 		ConsoleToken: d.consoleToken,
 		Links:        links,
 		Generators:   d.generators(),
+		Jobs:         func() ([]portal.JobSource, error) { return jobSources(d.dir) },
 		Database:     d.databaseConfig(),
 		SQL:          d.sqlStore(),
 		UI:           ui.FS(),
@@ -412,6 +413,16 @@ type jobInputJSON struct {
 	Queue       string `json:"queue"`
 	Priority    int    `json:"priority"`
 	Disabled    bool   `json:"disabled"`
+	// The kind and its fields (ADR-0071); kind defaults to custom.
+	Kind     string `json:"kind"`
+	Method   string `json:"method"`
+	URL      string `json:"url"`
+	Body     string `json:"body"`
+	SQL      string `json:"sql"`
+	To       string `json:"to"`
+	Subject  string `json:"subject"`
+	Text     string `json:"text"`
+	Dispatch string `json:"dispatch"`
 }
 
 func decodeInput[T any](input json.RawMessage, v *T) error {
@@ -450,6 +461,8 @@ func portalJobInput(app func() (appInfo, error), input json.RawMessage) (appInfo
 	return a, jobInput{
 		name: in.Name, description: in.Description, trigger: trigger, schedule: in.Schedule, every: in.Every,
 		timeout: in.Timeout, maxAttempts: in.MaxAttempts, queue: in.Queue, priority: in.Priority, enabled: !in.Disabled,
+		kind: in.Kind, httpMethod: in.Method, httpURL: in.URL, httpBody: in.Body, sql: in.SQL,
+		emailTo: in.To, emailSubject: in.Subject, emailText: in.Text, dispatchTarget: in.Dispatch,
 	}, nil
 }
 

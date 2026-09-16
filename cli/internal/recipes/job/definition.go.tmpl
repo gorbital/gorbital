@@ -10,11 +10,16 @@ import (
 
 // define⟦.Ident⟧Job declares the ⟦.Name⟧ job with its code defaults.
 // Operators can override them in /ops/jobs/definitions/⟦.Name⟧.
+//
+// The orb:job line records how the job was generated, so the Dev Portal
+// can show it as a form until the worker is edited by hand (ADR-0071).
+//
+//orb:job ⟦.Marker⟧
 func define⟦.Ident⟧Job(defs *jobs.Definitions, deps jobDeps) {
 	jobs.Define(defs, jobs.Definition[⟦.Package⟧.Args]{
 		Name:        ⟦.Package⟧.Name,
 		Description: ⟦printf "%q" .Description⟧,
-		Worker:      ⟦.Package⟧.NewWorker(deps.logger),
+		Worker:      ⟦.Package⟧.NewWorker(⟦.WorkerArgs⟧),
 		NewArgs:     func() ⟦.Package⟧.Args { return ⟦.Package⟧.Args{} },
 		Enabled:     ⟦.Enabled⟧,
 		Schedule:    ⟦printf "%q" .Schedule⟧,

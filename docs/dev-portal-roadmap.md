@@ -22,7 +22,7 @@ Each phase lives on its own branch, `dev-portal/phase-N`, in both repositories (
 | [3](#phase-3-sql-editor) | SQL Editor | 🔨 In progress (2026-09-16): backend done; history is a JSON Lines file, not SQLite | `dev-portal/phase-3` |
 | [4](#phase-4-schema-visualiser-objects-migrations) | Schema visualiser, objects, migrations | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-4` |
 | [5](#phase-5-authentication) | Authentication | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-5` |
-| [6](#phase-6-jobs) | Jobs | Planned | `dev-portal/phase-6` |
+| [6](#phase-6-jobs) | Jobs | 🔨 In progress (2026-09-16): backend done ([ADR-0071](adr/0071-job-kinds-and-ejection.md)) | `dev-portal/phase-6` |
 | [7](#phase-7-logs) | Logs | Planned | `dev-portal/phase-7` |
 | [8](#phase-8-observability) | Observability | Planned | `dev-portal/phase-8` |
 | [9](#phase-9-mail-env-configuration) | Mail, env, configuration | Planned | `dev-portal/phase-9` |
@@ -185,7 +185,7 @@ Jobs made in the portal are ordinary Go files produced by the generator, so they
 | 56 | Run now with JSON arguments, enqueue for later, and a scheduled view of upcoming runs | Backend, frontend |
 | 57 | Queues: pause, resume, depth, throughput | Frontend |
 
-Docs: the [background jobs guide](guides/background-jobs.md) gains "Jobs from the portal" and the ejection rule.
+Docs: the [background jobs guide](guides/background-jobs.md) gains "Jobs from the portal" and the ejection rule. Decided in [ADR-0071](adr/0071-job-kinds-and-ejection.md): kinds are rendered as ordinary Go by `orb gen job --kind`, the definition carries an `//orb:job` marker with the worker file's hash, and `GET /_portal/api/jobs` reports each job's kind and whether it is ejected.
 
 ## Phase 7: Logs
 

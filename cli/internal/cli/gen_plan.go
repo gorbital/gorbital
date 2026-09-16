@@ -59,7 +59,7 @@ func planJob(app appInfo, in jobInput) (genplan.Plan, error) {
 	plan.Changes = append(plan.Changes, genplan.Change{Path: filepath.ToSlash(jobsGo), Kind: genplan.Modify, Before: src, Content: updated})
 	plan.Summary = jobSummary(data, plan.Paths())
 	plan.Next = []string{
-		fmt.Sprintf("Write the job in internal/jobs/%s/%s.go (Work)", data.Package, data.Package),
+		jobNextStep(data),
 		"go test ./internal/app -run TestPublicSurface -update (records the job name)",
 		"go test ./...",
 		"go run ./cmd/api",
@@ -256,4 +256,13 @@ func findAppIn(dir string) (appInfo, error) {
 		return appInfo{}, fmt.Errorf("%s/go.mod has no module line", dir)
 	}
 	return appInfo{dir: dir, module: module}, nil
+}
+
+// jobNextStep is the first thing to do after generating a job: for a
+// custom job, write it; for the other kinds, review what was written.
+func jobNextStep(data recipes.JobData) string {
+	if data.Kind == "" || data.Kind == recipes.KindCustom {
+		return fmt.Sprintf("Write the job in internal/jobs/%s/%s.go (Work)", data.Package, data.Package)
+	}
+	return fmt.Sprintf("Review the %s job in internal/jobs/%s/%s.go; editing it makes it a custom job", data.Kind, data.Package, data.Package)
 }

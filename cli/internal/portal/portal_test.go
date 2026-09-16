@@ -561,3 +561,25 @@ func TestHubKeepsRecentLines(t *testing.T) {
 		t.Errorf("long line kept %d bytes", len(last))
 	}
 }
+
+func TestJobsListsTheAppsJobs(t *testing.T) {
+	_, ts, _ := newTestServer(t, func(c *Config) {
+		c.Jobs = func() ([]JobSource, error) {
+			return []JobSource{{Name: "ping_hook", Ident: "PingHook", Package: "pinghook", Definition: "internal/app/job_ping_hook.go", Worker: "internal/jobs/pinghook/pinghook.go", Generated: true, Kind: "http", Form: json.RawMessage(`{"kind":"http"}`)}}, nil
+		}
+	})
+	res := call(t, ts, http.MethodGet, APIPrefix+"jobs", "", nil)
+	raw, _ := io.ReadAll(res.Body)
+	body := string(raw)
+	if res.StatusCode != http.StatusOK || !strings.Contains(body, `"name":"ping_hook"`) || !strings.Contains(body, `"form":{"kind":"http"}`) || !strings.Contains(body, `"ejected":false`) {
+		t.Errorf("jobs = %d %s", res.StatusCode, body)
+	}
+
+	// Without a source (an app without jobs) the list is empty, not null.
+	_, ts, _ = newTestServer(t, nil)
+	res = call(t, ts, http.MethodGet, APIPrefix+"jobs", "", nil)
+	raw, _ = io.ReadAll(res.Body)
+	if body := string(raw); res.StatusCode != http.StatusOK || body != `{"jobs":[]}`+"\n" {
+		t.Errorf("jobs without a source = %d %q", res.StatusCode, body)
+	}
+}

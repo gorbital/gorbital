@@ -4,15 +4,20 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"go/token"
 	"io"
+	"net/http"
+	"net/mail"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -65,6 +70,17 @@ type jobInput struct {
 	queue       string
 	priority    int
 	enabled     bool
+	// What the job does (ADR-0071): kind custom, http, sql, email or
+	// dispatch, with that kind's fields.
+	kind           string
+	httpMethod     string
+	httpURL        string
+	httpBody       string
+	sql            string
+	emailTo        string
+	emailSubject   string
+	emailText      string
+	dispatchTarget string
 }
 
 type genJobResult struct {
@@ -94,6 +110,15 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 	flags.StringVar(&in.queue, "queue", "default", "queue the job runs on")
 	flags.IntVar(&in.priority, "priority", 1, "priority within the queue, 1 (highest) to 4")
 	disabled := flags.Bool("disabled", false, "create the job disabled")
+	flags.StringVar(&in.kind, "kind", "custom", "what the job does: custom (a Work method to write), http, sql, email or dispatch")
+	flags.StringVar(&in.httpMethod, "method", "POST", "kind http: the request method")
+	flags.StringVar(&in.httpURL, "url", "", "kind http: the URL to request")
+	flags.StringVar(&in.httpBody, "body", "", "kind http: the JSON body to send")
+	flags.StringVar(&in.sql, "sql", "", "kind sql: the statement to run")
+	flags.StringVar(&in.emailTo, "to", "", "kind email: the recipient")
+	flags.StringVar(&in.emailSubject, "subject", "", "kind email: the subject")
+	flags.StringVar(&in.emailText, "text", "", "kind email: the plain-text body")
+	flags.StringVar(&in.dispatchTarget, "dispatch", "", "kind dispatch: the name of the job to start")
 	dryRun := flags.Bool("dry-run", false, "show what would be generated without writing")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	allowDirty := flags.Bool("allow-dirty", false, "allow uncommitted changes in the git repository")
@@ -363,6 +388,10 @@ func jobData(module string, in jobInput) (recipes.JobData, error) {
 	if in.priority < 1 || in.priority > 4 {
 		return recipes.JobData{}, usageError("--priority must be between 1 and 4")
 	}
+	kind, err := jobKind(in)
+	if err != nil {
+		return recipes.JobData{}, err
+	}
 	return recipes.JobData{
 		Module:      module,
 		Ident:       names.ident,
@@ -375,7 +404,70 @@ func jobData(module string, in jobInput) (recipes.JobData, error) {
 		MaxAttempts: in.maxAttempts,
 		Queue:       in.queue,
 		Priority:    in.priority,
+		Kind:        kind.Kind, HTTPMethod: kind.HTTPMethod, HTTPURL: kind.HTTPURL, HTTPBody: kind.HTTPBody, SQL: kind.SQL,
+		EmailTo: kind.EmailTo, EmailSubject: kind.EmailSubject, EmailText: kind.EmailText, DispatchTarget: kind.DispatchTarget,
 	}, nil
+}
+
+// jobKind validates the kind and the fields it needs, and returns them
+// trimmed. Fields of other kinds must be empty, so a typo is noticed.
+func jobKind(in jobInput) (recipes.JobMarker, error) {
+	kind := strings.TrimSpace(in.kind)
+	if kind == "" {
+		kind = recipes.KindCustom
+	}
+	if !slices.Contains(recipes.JobKinds, kind) {
+		return recipes.JobMarker{}, usageError(fmt.Sprintf("--kind must be one of %s", strings.Join(recipes.JobKinds, ", ")))
+	}
+	m := recipes.JobMarker{Kind: kind}
+	fields := map[string]string{"url": in.httpURL, "body": in.httpBody, "sql": in.sql, "to": in.emailTo, "subject": in.emailSubject, "text": in.emailText, "dispatch": in.dispatchTarget}
+	allowed := map[string][]string{recipes.KindHTTP: {"url", "body"}, recipes.KindSQL: {"sql"}, recipes.KindEmail: {"to", "subject", "text"}, recipes.KindDispatch: {"dispatch"}}[kind]
+	for _, name := range []string{"url", "body", "sql", "to", "subject", "text", "dispatch"} {
+		if strings.TrimSpace(fields[name]) != "" && !slices.Contains(allowed, name) {
+			return recipes.JobMarker{}, usageError(fmt.Sprintf("--%s is for another kind of job, not %s", name, kind))
+		}
+	}
+	switch kind {
+	case recipes.KindHTTP:
+		method := strings.ToUpper(strings.TrimSpace(in.httpMethod))
+		if method == "" {
+			method = http.MethodPost
+		}
+		if !slices.Contains([]string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}, method) {
+			return recipes.JobMarker{}, usageError("--method must be GET, POST, PUT, PATCH or DELETE")
+		}
+		u, err := url.Parse(strings.TrimSpace(in.httpURL))
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return recipes.JobMarker{}, usageError("--url must be an http or https URL")
+		}
+		if body := strings.TrimSpace(in.httpBody); body != "" {
+			if !json.Valid([]byte(body)) {
+				return recipes.JobMarker{}, usageError("--body must be JSON")
+			}
+			m.HTTPBody = body
+		}
+		m.HTTPMethod, m.HTTPURL = method, u.String()
+	case recipes.KindSQL:
+		m.SQL = strings.TrimSpace(in.sql)
+		if m.SQL == "" {
+			return recipes.JobMarker{}, usageError("--sql is required for a sql job")
+		}
+	case recipes.KindEmail:
+		m.EmailTo, m.EmailSubject, m.EmailText = strings.TrimSpace(in.emailTo), strings.TrimSpace(in.emailSubject), strings.TrimSpace(in.emailText)
+		if _, err := mail.ParseAddress(m.EmailTo); err != nil {
+			return recipes.JobMarker{}, usageError("--to must be an email address")
+		}
+		if m.EmailSubject == "" {
+			return recipes.JobMarker{}, usageError("--subject is required for an email job")
+		}
+	case recipes.KindDispatch:
+		names, err := jobNames(strings.TrimSpace(in.dispatchTarget))
+		if err != nil {
+			return recipes.JobMarker{}, usageError("--dispatch " + err.Error())
+		}
+		m.DispatchTarget = names.name
+	}
+	return m, nil
 }
 
 var (

@@ -161,6 +161,10 @@ orb gen job CleanupSessions                                     # asks for the r
 orb gen job CleanupSessions --schedule "0 3 * * *" --timeout 5m --max-attempts 5 --yes
 orb gen job SendDigest --every 6h --description "Emails the daily digest." --disabled --yes
 orb gen job RebuildIndex --on-demand --dry-run
+orb gen job PingHook --kind http --url https://example.com/hook --body '{"ping":true}' --every 5m --yes
+orb gen job PurgeDrafts --kind sql --sql "DELETE FROM drafts WHERE updated_at < now() - interval '30 days'" --yes
+orb gen job WeeklyDigest --kind email --to ops@example.com --subject "Weekly digest" --text "All is well." --schedule "0 9 * * 1" --yes
+orb gen job NightlyChain --kind dispatch --dispatch PurgeDrafts --yes
 ```
 
 | Question | Flag | Default |
@@ -173,6 +177,7 @@ orb gen job RebuildIndex --on-demand --dry-run
 | Timeout per attempt (30s, 1m, 5m, 15m, 1h) | `--timeout 5m` (1s to 24h) | `1m` |
 | Attempts before giving up (1, 3, 5, 10, 25) | `--max-attempts N` (1 to 100) | 5 |
 | Enable the job now? | `--disabled` | enabled |
+| What does the job do? | `--kind custom` (a `Work` method to write), `http` (`--method`, `--url`, `--body` as JSON: the answer must be 2xx), `sql` (`--sql`: one statement on the app's pool), `email` (`--to`, `--subject`, `--text`: through the app's mailer, the job ID as idempotency key), `dispatch` (`--dispatch <Name>`: starts that job). The generated `Work` is ordinary Go; the definition carries an `//orb:job` marker the Dev Portal reads back until the worker is edited by hand ([ADR-0071](../adr/0071-job-kinds-and-ejection.md)) | `custom` |
 | (flag only) Queue | `--queue NAME` | `default` |
 | (flag only) Priority | `--priority N` (1 highest to 4) | 1 |
 

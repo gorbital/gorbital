@@ -94,7 +94,7 @@ Generator inputs are the flags of `orb gen job`, `orb gen resource` and `orb gen
 | Logs | Recent log records and a live tail, by level and text | `/_dev/logs`, `/_dev/logs/stream` |
 | Modules | What the app wired: libraries, API modules, jobs, settings, flags, permission catalogs | `/_dev/app` |
 | Audit | The audit log with filters and statistics | `/ops/audit`, `/ops/audit/stats` |
-| Jobs | Definitions, runs, queues; run now, retry, cancel, enable, disable, reschedule, pause and resume | `/ops/jobs/…`, `/ops/queues` |
+| Jobs | Definitions, runs, queues; run now, retry, cancel, enable, disable, reschedule, pause and resume; new job by form (kinds custom, HTTP, SQL, email, dispatch), CLI or code through the job generator with a diff preview; the form again for generated jobs, "Ejected: edit in code" once the worker was edited ([ADR-0071](../adr/0071-job-kinds-and-ejection.md)) | `/ops/jobs/…`, `/ops/queues`, `/_portal/api/jobs`, `/_portal/api/generators/job/…` |
 | Settings | Runtime settings by group with history; change and reset | `/ops/settings` |
 | Database | Migration state, pool, health checks; apply pending migrations | `/_dev/migrations`, `/ops/system`, `/_portal/api/app/migrate` |
 | SQL Editor | Scripts run in a transaction rolled back by default (or committed, or read-only), results per statement, warnings before running, EXPLAIN, snippets in `db/queries`, history, templates, save as migration | `/_portal/api/db/sql/…` |
