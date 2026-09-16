@@ -71,6 +71,8 @@
     "jobs.run.cancelled": "An operator cancelled a job run.",
     "jobs.run.retried": "An operator retried a job run.",
     "mail.test.requested": "An operator sent a test email through `POST /ops/mail/test`.",
+    "mail.suppression.added": "A signed Resend webhook reported a hard bounce or complaint, and the address was added to the suppression list. The event records the reason and suppression ID, never the address.",
+    "mail.suppression.removed": "An operator removed an address from the suppression list through `DELETE /ops/mail/suppressions/{id}`, with a reason.",
     "orgs.invitation.accepted": "An invited person accepted an invitation.",
     "orgs.invitation.created": "A member invited someone to the organisation.",
     "orgs.invitation.resent": "A member resent an invitation, with a new link.",

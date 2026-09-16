@@ -59,8 +59,8 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 
 | Action | Recorded when | Metadata |
 |---|---|---|
-| `mail.suppression.added` |  | `delivery_id`, `detail`, `reason`, `source` |
-| `mail.suppression.removed` |  | `reason`, `source`, `suppression_reason` |
+| `mail.suppression.added` | A signed Resend webhook reported a hard bounce or complaint, and the address was added to the suppression list. The event records the reason and suppression ID, never the address. | `delivery_id`, `detail`, `reason`, `source` |
+| `mail.suppression.removed` | An operator removed an address from the suppression list through `DELETE /ops/mail/suppressions/{id}`, with a reason. | `reason`, `source`, `suppression_reason` |
 | `mail.test.requested` | An operator sent a test email through `POST /ops/mail/test`. | `delivery`, `provider` |
 
 ## Organisations
