@@ -103,7 +103,8 @@ On SIGTERM an instance: marks itself not ready, waits 5 s so the load balancer s
 | Signal | Where |
 |---|---|
 | Logs | JSON on stdout in production, one line per request with `request_id`, `trace_id`, `span_id`. Collect with your platform |
-| Traces and metrics | Set `OTEL_EXPORTER_OTLP_ENDPOINT` (and `OTEL_EXPORTER_OTLP_HEADERS` for vendor auth). HTTP server spans, every SQL query, job execution |
+| Traces and metrics | Set `OTEL_EXPORTER_OTLP_ENDPOINT` (and `OTEL_EXPORTER_OTLP_HEADERS` for vendor auth). HTTP server spans, every SQL query, job execution; HTTP, Go runtime and connection pool metrics |
+| Prometheus | Set `METRICS_ADDR` to serve `GET /metrics` on a separate listener ([below](#prometheus-metrics)). Works with or without OTLP |
 | Health | `/livez`, `/readyz`. `/version` shows the build version, Go version and commit to anyone; block it at the load balancer if that matters to you |
 | Releases | `GET /ops/releases/current`, `/ops/releases/instances`: which versions are running where |
 | Jobs | `GET /ops/jobs/runs`, `/ops/queues`; retry, cancel, pause queues |
@@ -111,6 +112,39 @@ On SIGTERM an instance: marks itself not ready, waits 5 s so the load balancer s
 | Sign-in methods | `GET /ops/auth/providers`, or `/api auth-providers` in the container |
 
 Alert on: `/readyz` failures, 5xx rate, `unhandled error` and `panic recovered` log lines, discarded or repeatedly failing jobs (especially `gorbital.mail.send`), and database connection saturation.
+
+### Prometheus metrics
+
+Off by default. `METRICS_ADDR=0.0.0.0:9464` starts a second HTTP listener in each instance that serves only `GET /metrics`, in the Prometheus text format, from the same OpenTelemetry meter provider that OTLP exports ([ADR-0063](../adr/0063-prometheus-metrics.md)). It has the API server's timeouts, shuts down with it, and must use another port than `APP_ADDR`: the app refuses to start otherwise, so metrics never appear on the public API.
+
+The listener has **no authentication**. Keep it on the private network:
+
+- Bind it to a private interface (`10.0.0.5:9464`) where you can. In a container, `0.0.0.0:9464` is fine as long as the port isn't published: don't add it to the load balancer, the service's public ports or an ingress. On Kubernetes, expose it only through a separate `ClusterIP` service or pod annotations for your Prometheus, and restrict it with a `NetworkPolicy`.
+- On platforms that publish a single port per service (Cloud Run, Heroku-style routers), leave it off and use OTLP instead.
+- Scrape every instance, not the load balancer: each instance reports its own series. Use the platform's service discovery.
+
+What you get:
+
+| Metric (Prometheus name) | Labels | From |
+|---|---|---|
+| `http_server_request_duration_seconds` (histogram), `http_server_request_body_size_bytes`, `http_server_response_body_size_bytes` | `http_request_method` (unknown methods are `_OTHER`), `http_route` (the route pattern, such as `GET /v1/projects/{id}` becomes `/v1/projects/{id}`; `/` for paths no route matches), `http_response_status_code`, `url_scheme`, `network_protocol_*` | `telemetry.HTTPMiddleware` |
+| `go_memory_used_bytes`, `go_memory_limit_bytes` (when `GOMEMLIMIT` is set), `go_memory_allocated_bytes_total`, `go_memory_allocations_total`, `go_memory_gc_goal_bytes`, `go_goroutine_count`, `go_processor_limit`, `go_config_gogc_percent` | `go_memory_type` (`stack`, `other`) on memory used | `telemetry.WithRuntimeMetrics` |
+| `db_client_connection_count` (by `db_client_connection_state`: `idle`, `used`), `db_client_connection_max`, `pgxpool_acquires_total`, `pgxpool_acquire_waits_total`, `pgxpool_acquire_wait_time_seconds_total`, `pgxpool_acquire_canceled_total`, `pgxpool_connections_created_total` | `db_client_connection_pool_name` (the service name) | `postgres.WithMeterProvider` (Full apps) |
+| `target_info` | `service_name`, `service_version`, and `OTEL_RESOURCE_ATTRIBUTES` | The OpenTelemetry resource |
+
+Every series also carries `otel_scope_name`, `otel_scope_version` and `otel_scope_schema_url`. No label comes from a value a client chooses: the `Host` header, raw paths, query strings, user agents, forwarded addresses and trace headers never become labels, so a client can't create series (ADR-0007, HTTP-2). Add your own metrics with `a.tel.MeterProvider()`, and keep user IDs, organisation IDs, emails and other unbounded values out of their attributes.
+
+Each scrape collects on demand; at most four run at once per instance (others get 503), each for up to 10 seconds.
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: acme-api
+    static_configs:
+      - targets: ["10.0.0.5:9464", "10.0.0.6:9464"]
+```
+
+Useful queries: `sum by (http_route) (rate(http_server_request_duration_seconds_count{http_response_status_code=~"5.."}[5m]))` for 5xx rates per route, `histogram_quantile(0.95, sum by (le, http_route) (rate(http_server_request_duration_seconds_bucket[5m])))` for p95 latency, and `db_client_connection_count{db_client_connection_state="used"} / ignoring(db_client_connection_state) db_client_connection_max` for pool saturation.
 
 ## Operate
 

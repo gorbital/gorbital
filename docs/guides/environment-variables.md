@@ -108,6 +108,7 @@ The sender (`mail.from_name`, `mail.from_email`, `mail.reply_to`) is a runtime s
 | Variable | Required | Default | Example | Description |
 |---|---|---|---|---|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | No | empty | `http://127.0.0.1:4318` | Turns on OTLP/HTTP export of traces and metrics. Empty keeps telemetry in-process: logs still carry `trace_id` and `span_id`. `orb dev --observability` sets it to the local Grafana. The OpenTelemetry exporters read it, and the other standard `OTEL_EXPORTER_OTLP_*` variables (such as `OTEL_EXPORTER_OTLP_HEADERS` for an API key), directly |
+| `METRICS_ADDR` | No | empty | `0.0.0.0:9464` | Turns on Prometheus metrics: a separate listener serving only `GET /metrics`, with no authentication. Validated as `host:port` with a numeric port that differs from `APP_ADDR`'s (`METRICS_ADDR … must use another port than APP_ADDR`). Bind it to a private interface or an unpublished container port, never the public one ([production](production.md#prometheus-metrics), [ADR-0063](../adr/0063-prometheus-metrics.md)). Empty: off. All presets |
 
 ## Compose ports
 
@@ -149,7 +150,7 @@ Read by tests in the gorbital repository and in generated apps.
 
 ## Minimal preset
 
-A Minimal app reads only the [app server](#app-server) variables and `OTEL_EXPORTER_OTLP_ENDPOINT`; its `.env.example` also has `GRAFANA_PORT` and `OTLP_HTTP_PORT` for `orb dev --observability`.
+A Minimal app reads only the [app server](#app-server) variables, `OTEL_EXPORTER_OTLP_ENDPOINT` and `METRICS_ADDR`; its `.env.example` also has `GRAFANA_PORT` and `OTLP_HTTP_PORT` for `orb dev --observability`.
 
 ## Checked against `.env.example`
 

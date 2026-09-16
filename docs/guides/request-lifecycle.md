@@ -39,14 +39,14 @@ AccessLog writes one line; the span ends
 
 ## 2. Middleware
 
-`buildHTTP` wraps the mux with `httpx.Chain(mux, middlewares...)`; the first in the list runs first.
+`buildHTTP` wraps the mux with `httpx.Chain(telemetry.RecordRoute(mux), middlewares...)`; the first in the list runs first. `RecordRoute` hands the matched route pattern back to the telemetry middleware, because the session middleware passes a copy of the request to the mux and `http.ServeMux` sets the pattern on that copy.
 
 | # | Middleware | Package | What it does | Can answer |
 |---|---|---|---|---|
 | 1 | `httpx.Recover` | core `httpx` | Catches a panic further down, logs `panic recovered` with the stack and request ID, and answers 500 `internal_error` if no response was started. `http.ErrAbortHandler` is re-panicked | 500 |
 | 2 | `httpx.TrustedProxies` | core `httpx` | On requests from `APP_TRUSTED_PROXIES`, sets `RemoteAddr` to the client named by `X-Forwarded-For`; other requests keep their address ([ADR-0052](../adr/0052-shared-rate-limits.md)) | — |
 | 3 | `httpx.RequestIDFrom` | core `httpx`, `requestid` | Generates `req_…`, puts it in the context and the response header. A valid incoming `X-Request-ID` is kept only from `APP_TRUSTED_CALLERS`, so clients can't give their requests another request's ID in logs, audit events and jobs | — |
-| 4 | `tel.HTTPMiddleware` | `modules/telemetry` (`otelhttp`) | Starts the server span and records HTTP metrics; later log lines carry its `trace_id` and `span_id`. Each request starts a new trace, linked to an incoming `traceparent`; only `APP_TRUSTED_CALLERS` continue theirs. The span's `client.address` is `RemoteAddr`; metrics leave out the `Host` header | — |
+| 4 | `tel.HTTPMiddleware` | `modules/telemetry` (`otelhttp`) | Starts the server span and records HTTP metrics; later log lines carry its `trace_id` and `span_id`. Each request starts a new trace, linked to an incoming `traceparent`; only `APP_TRUSTED_CALLERS` continue theirs. The span's `client.address` is `RemoteAddr`; metrics leave out the `Host` header and are labelled with the route pattern (`http.route`), never the path. The same metrics are served on `METRICS_ADDR` when set ([production](production.md#prometheus-metrics)) | — |
 | 5 | `httpx.AccessLog` | core `httpx` | After the response, one `http request` log line with `method`, `route`, `status`, `duration_ms`, `bytes`, `request_id`, `trace_id`, `span_id` | — |
 | 6 | `httpx.SecureHeaders` | core `httpx` | Security headers on every response; HSTS for 365 days in production | — |
 | 7 | `httpx.CORS` | core `httpx` | Answers preflight `OPTIONS` and sets CORS headers for `APP_CORS_ORIGINS`. Allowed request headers: `Authorization`, `Content-Type`, `X-Request-ID`, `Idempotency-Key`; exposed: `X-Request-ID`, `Retry-After`, `Idempotent-Replayed` | 204 preflight |

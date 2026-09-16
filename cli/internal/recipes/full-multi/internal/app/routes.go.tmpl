@@ -13,6 +13,7 @@ import (
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/idempotency"
 	"gorbital.dev/modules/openapi"
+	"gorbital.dev/modules/telemetry"
 	"gorbital.dev/page"
 	"gorbital.dev/ratelimit"
 	"gorbital.dev/requestid"
@@ -145,6 +146,8 @@ func (a *App) buildHTTP(svc services) error {
 		)
 	}
 	a.api = api
-	a.handler = httpx.Chain(mux, middlewares...)
+	// RecordRoute gives spans and metrics the matched route pattern, which
+	// the auth middleware's request copy would otherwise hide from them.
+	a.handler = httpx.Chain(telemetry.RecordRoute(mux), middlewares...)
 	return nil
 }

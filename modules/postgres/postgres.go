@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
 	"gorbital.dev/config"
@@ -52,6 +53,7 @@ type options struct {
 	connectTimeout  time.Duration
 	applicationName string
 	tracerProvider  trace.TracerProvider
+	meterProvider   metric.MeterProvider
 }
 
 func (o options) validate() error {
@@ -125,6 +127,18 @@ func WithTracerProvider(tp trace.TracerProvider) Option {
 	return optionFunc(func(o *options) { o.tracerProvider = tp })
 }
 
+// WithMeterProvider reports the pool's connection and acquire statistics as
+// metrics of mp, read when metrics are collected: db.client.connection.count
+// (by state, idle or used), db.client.connection.max, pgxpool.acquires,
+// pgxpool.acquire.waits, pgxpool.acquire.wait_time, pgxpool.acquire.canceled
+// and pgxpool.connections.created. Series are labelled with
+// db.client.connection.pool.name, the application name set by
+// [WithApplicationName] or "postgres". The instruments stay registered for
+// the life of mp. Default: no pool metrics.
+func WithMeterProvider(mp metric.MeterProvider) Option {
+	return optionFunc(func(o *options) { o.meterProvider = mp })
+}
+
 // Open creates a connection pool for url and pings the database, so a wrong
 // URL or unreachable server fails at startup. Errors never include the URL,
 // which may contain a password.
@@ -175,6 +189,16 @@ func Open(ctx context.Context, url config.Secret, opts ...Option) (*pgxpool.Pool
 	if err := pool.Ping(pingCtx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("postgres: connect: %w", err)
+	}
+	if o.meterProvider != nil {
+		name := o.applicationName
+		if name == "" {
+			name = "postgres"
+		}
+		if err := registerPoolMetrics(o.meterProvider, pool, name); err != nil {
+			pool.Close()
+			return nil, err
+		}
 	}
 	return pool, nil
 }

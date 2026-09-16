@@ -31,6 +31,7 @@ type App struct {
 	tel     *telemetry.Telemetry
 	health  *health.Checker
 	cleanup *lifecycle.Cleanup
+	metrics *httpx.Server // nil unless METRICS_ADDR is set
 	api     huma.API
 	handler http.Handler
 }
@@ -49,6 +50,8 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		telemetry.WithLogFormat(format),
 		telemetry.WithLogLevel(cfg.LogLevel),
 		telemetry.WithTraceContextFrom(cfg.TrustedCallers), // other clients start a new trace
+		telemetry.WithPrometheus(cfg.MetricsAddr != ""),    // served by the metrics listener (metrics.go)
+		telemetry.WithRuntimeMetrics(),
 	)
 	if err != nil {
 		return nil, err
@@ -61,6 +64,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		tel:     tel,
 		health:  health.New(tel.Logger()),
 		cleanup: cleanup,
+		metrics: newMetricsServer(cfg, tel),
 	}
 	if err := a.buildHTTP(); err != nil {
 		return nil, errors.Join(err, cleanup.Close(ctx))
@@ -81,8 +85,13 @@ func (a *App) Run(ctx context.Context) error {
 		opts = append(opts, lifecycle.WithDrainDelay(0)) // no load balancer to drain locally
 	}
 
-	a.logger.InfoContext(ctx, "starting", "addr", "http://"+a.cfg.Addr, "docs_enabled", a.cfg.DocsEnabled)
-	return lifecycle.Run(ctx, []lifecycle.Runner{server}, opts...)
+	runners := []lifecycle.Runner{server}
+	if a.metrics != nil {
+		runners = append(runners, a.metrics)
+	}
+
+	a.logger.InfoContext(ctx, "starting", "addr", "http://"+a.cfg.Addr, "docs_enabled", a.cfg.DocsEnabled, "metrics_addr", a.cfg.MetricsAddr)
+	return lifecycle.Run(ctx, runners, opts...)
 }
 
 // Handler returns the HTTP handler, for tests.

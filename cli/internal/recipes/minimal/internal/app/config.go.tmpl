@@ -31,6 +31,9 @@ type Config struct {
 	TrustedCallers []netip.Prefix
 	MaxBodyBytes   int64  // APP_MAX_BODY_BYTES
 	OTLPEndpoint   string // OTEL_EXPORTER_OTLP_ENDPOINT
+	// MetricsAddr is the separate listener serving Prometheus metrics
+	// (METRICS_ADDR; empty: off; metrics.go).
+	MetricsAddr string
 }
 
 // Production reports whether the app runs in production mode.
@@ -129,6 +132,11 @@ func LoadConfig(src config.Source) (Config, error) {
 	}
 
 	cfg.OTLPEndpoint = get("OTEL_EXPORTER_OTLP_ENDPOINT")
+
+	cfg.MetricsAddr = get("METRICS_ADDR")
+	if err := checkMetricsAddr(cfg.MetricsAddr, cfg.Addr); err != nil {
+		errs = append(errs, err)
+	}
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, fmt.Errorf("invalid configuration:\n%w", err)
