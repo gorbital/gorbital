@@ -136,6 +136,8 @@ type Config struct {
 	// Jobs lists the app's jobs as they are in code (ADR-0071); nil when
 	// the app has none.
 	Jobs func() ([]JobSource, error)
+	// Logs is the local log store (ADR-0072); nil serves no log endpoints.
+	Logs *LogStore
 	// Database connects the Table Editor and Schema pages to the app's
 	// database; an empty Open means the app has none.
 	Database DatabaseConfig

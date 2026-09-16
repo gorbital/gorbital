@@ -22,6 +22,10 @@ type Config struct {
 	Env      string // APP_ENV: development or production; required
 	Addr     string // APP_ADDR
 	LogLevel slog.Level
+	// LogFormat is json or text; empty means JSON in production and text
+	// elsewhere. orb dev sets json, so the Dev Portal's log store reads
+	// structured records (ADR-0072).
+	LogFormat string
 	// DocsEnabled serves /docs and the OpenAPI document (APP_DOCS_ENABLED;
 	// default: on in development, off in production).
 	DocsEnabled bool
@@ -132,6 +136,12 @@ func LoadConfig(src config.Source) (Config, error) {
 		if err := cfg.LogLevel.UnmarshalText([]byte(v)); err != nil {
 			errs = append(errs, fmt.Errorf("APP_LOG_LEVEL: %w", err))
 		}
+	}
+	if v := get("APP_LOG_FORMAT"); v != "" {
+		if v != "json" && v != "text" {
+			errs = append(errs, fmt.Errorf("APP_LOG_FORMAT %q must be json or text", v))
+		}
+		cfg.LogFormat = v
 	}
 
 	cfg.DocsEnabled = !cfg.Production()

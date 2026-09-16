@@ -49,9 +49,12 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		return nil, err
 	}
 
-	format := telemetry.LogFormatText
-	if cfg.Production() {
-		format = telemetry.LogFormatJSON
+	format := telemetry.LogFormat(cfg.LogFormat)
+	if format == "" {
+		format = telemetry.LogFormatText
+		if cfg.Production() {
+			format = telemetry.LogFormatJSON
+		}
 	}
 	tel, err := telemetry.Setup(ctx, ServiceName, buildinfo.Read().Version,
 		telemetry.WithOTLPExport(cfg.OTLPEndpoint != ""),

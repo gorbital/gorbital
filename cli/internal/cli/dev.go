@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -116,6 +117,7 @@ type devRunner struct {
 	portalTokenFromEnv bool
 	openBrowser        bool
 	hub                *portal.Hub
+	logs               *portal.LogStore // the local log store while the portal runs (ADR-0072)
 	server             *portal.Server
 	open               func(url string) error // opens a URL in the browser; tests replace it
 	// db is the portal's connection to the app's database, opened on the
@@ -171,7 +173,10 @@ func newDevRunner(out io.Writer) *devRunner {
 		commands: make(chan devCommand, 1),
 		run: func(ctx context.Context, env []string, name string, args ...string) error {
 			cmd := exec.CommandContext(ctx, name, args...)
-			cmd.Env, cmd.Stdout, cmd.Stderr = env, out, out
+			// The command's output (migrations, seeds, docker) goes to the
+			// terminal and to the portal, so a failed migration's error is
+			// readable there.
+			cmd.Env, cmd.Stdout, cmd.Stderr = env, io.MultiWriter(out, hub.Writer("orb")), io.MultiWriter(out, hub.Writer("orb"))
 			return cmd.Run()
 		},
 		output: func(ctx context.Context, env []string, name string, args ...string) ([]byte, error) {
@@ -569,8 +574,9 @@ func (d *devRunner) start() error {
 	cmd := exec.Command(d.bin)
 	cmd.Env = d.appEnv(env)
 	// The app's output goes to the terminal as before, and to the portal.
+	// The app logs JSON (appEnv), which the terminal shows as text.
 	appOut := d.hub.Writer("app")
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, io.MultiWriter(os.Stdout, appOut), io.MultiWriter(d.rawOut, appOut)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, io.MultiWriter(newTextRenderer(os.Stdout), appOut), io.MultiWriter(newTextRenderer(d.rawOut), appOut)
 	configureProcess(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start app: %w", err)
@@ -588,10 +594,48 @@ func (d *devRunner) start() error {
 	return nil
 }
 
-// appEnv returns the app process's environment: env with APP_ENV, then
-// extraEnv, whose later values win.
+// appEnv returns the app process's environment: env with APP_ENV and,
+// unless .env chose one, APP_LOG_FORMAT=json so the portal's log store
+// reads structured records (ADR-0072; the terminal still shows text),
+// then extraEnv, whose later values win.
 func (d *devRunner) appEnv(env []string) []string {
-	return append(withAppEnv(env), d.extraEnv...)
+	env = withAppEnv(env)
+	if envValue(env, "APP_LOG_FORMAT", "") == "" {
+		env = append(env, "APP_LOG_FORMAT=json")
+	}
+	return append(env, d.extraEnv...)
+}
+
+// textRenderer writes JSON log lines to the terminal as text (see
+// portal.RenderText); other lines pass unchanged. Partial lines wait for
+// their newline.
+type textRenderer struct {
+	w   io.Writer
+	buf []byte
+}
+
+func newTextRenderer(w io.Writer) *textRenderer { return &textRenderer{w: w} }
+
+func (t *textRenderer) Write(p []byte) (int, error) {
+	t.buf = append(t.buf, p...)
+	for {
+		i := bytes.IndexByte(t.buf, '\n')
+		if i < 0 {
+			break
+		}
+		line := string(t.buf[:i])
+		t.buf = t.buf[i+1:]
+		if _, err := io.WriteString(t.w, portal.RenderText(line)+"\n"); err != nil {
+			return len(p), err
+		}
+	}
+	if len(t.buf) > 64<<10 { // a line without end: pass it through
+		if _, err := t.w.Write(t.buf); err != nil {
+			return len(p), err
+		}
+		t.buf = t.buf[:0]
+	}
+	return len(p), nil
 }
 
 // stop asks the app to shut down gracefully and kills it after 10 seconds.

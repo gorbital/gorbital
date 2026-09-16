@@ -23,7 +23,7 @@ Each phase lives on its own branch, `dev-portal/phase-N`, in both repositories (
 | [4](#phase-4-schema-visualiser-objects-migrations) | Schema visualiser, objects, migrations | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-4` |
 | [5](#phase-5-authentication) | Authentication | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-5` |
 | [6](#phase-6-jobs) | Jobs | 🔨 In progress (2026-09-16): backend done ([ADR-0071](adr/0071-job-kinds-and-ejection.md)) | `dev-portal/phase-6` |
-| [7](#phase-7-logs) | Logs | Planned | `dev-portal/phase-7` |
+| [7](#phase-7-logs) | Logs | 🔨 In progress (2026-09-16): backend done ([ADR-0072](adr/0072-local-log-store.md)); the store is JSON Lines under `.orb/portal/logs`, not SQLite | `dev-portal/phase-7` |
 | [8](#phase-8-observability) | Observability | Planned | `dev-portal/phase-8` |
 | [9](#phase-9-mail-env-configuration) | Mail, env, configuration | Planned | `dev-portal/phase-9` |
 | [10](#phase-10-storage) | Storage | Planned | `dev-portal/phase-10` |
@@ -189,7 +189,7 @@ Docs: the [background jobs guide](guides/background-jobs.md) gains "Jobs from th
 
 ## Phase 7: Logs
 
-Backend: structured fields on every request log record in `modules/telemetry` (`user_id`, `method`, `path`, `status`, `duration_ms`, `source`), and the supervisor stores the app's JSON output in `.orb/portal.db` with full-text search, so logs survive reloads (the `/_dev/logs` buffer doesn't).
+Backend ([ADR-0072](adr/0072-local-log-store.md)): structured fields on every request log record (`httpx.AccessLog`: `source`, `method`, `path`, `route`, `status`, `duration_ms`, `user_id` from the auth middleware through an `AccessNote`), `APP_LOG_FORMAT` so the app logs JSON under `orb dev`, and the supervisor stores the app's output in JSON Lines segments under `.orb/portal/logs` (bounded to 64 MiB) with substring search, so logs survive reloads (the `/_dev/logs` buffer doesn't).
 
 | # | Item | Piece |
 |---|---|---|

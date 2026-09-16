@@ -106,9 +106,12 @@ func newBase(ctx context.Context, cfg Config) (*App, error) {
 		return nil, err
 	}
 
-	format := telemetry.LogFormatText
-	if cfg.Production() {
-		format = telemetry.LogFormatJSON
+	format := telemetry.LogFormat(cfg.LogFormat)
+	if format == "" {
+		format = telemetry.LogFormatText
+		if cfg.Production() {
+			format = telemetry.LogFormatJSON
+		}
 	}
 	tel, err := telemetry.Setup(ctx, ServiceName, buildinfo.Read().Version,
 		telemetry.WithOTLPExport(cfg.OTLPEndpoint != ""),
@@ -243,13 +246,13 @@ func (a *App) build(ctx context.Context) error {
 	a.jobs, err = jobs.New(pool, workers,
 		jobs.WithQueues(map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: a.cfg.JobWorkers}}),
 		jobs.WithDefinitions(defs),
-		jobs.WithLogger(a.logger),
+		jobs.WithLogger(a.logger.With("source", "jobs")), // the Dev Portal's log sources (ADR-0072)
 		jobs.WithTracerProvider(a.tel.TracerProvider()),
 	)
 	if err != nil {
 		return err
 	}
-	a.jobsManager, err = jobs.NewManager(ctx, pool, a.jobs, recorder, jobs.WithManagerLogger(a.logger))
+	a.jobsManager, err = jobs.NewManager(ctx, pool, a.jobs, recorder, jobs.WithManagerLogger(a.logger.With("source", "jobs")))
 	if err != nil {
 		return err
 	}
@@ -312,7 +315,7 @@ func (a *App) build(ctx context.Context) error {
 		Keyring:                 a.cfg.keyring(),
 		Issuer:                  ServiceName,
 		Passkeys:                a.cfg.WebAuthn.passkeys(),
-		Logger:                  a.logger,
+		Logger:                  a.logger.With("source", "auth"),
 		SessionIdleTTL:          appSettings.authSessionIdleTTL,
 		SessionAbsoluteTTL:      appSettings.authSessionAbsoluteTTL,
 		VerificationCodeTTL:     appSettings.authVerificationCodeTTL,
@@ -401,7 +404,7 @@ func (a *App) build(ctx context.Context) error {
 			}},
 		},
 		// The provider's bounce and complaint webhook (infra_mail.go).
-		mailEvents: maileventsusecase.Deps{Reader: a.cfg.Mail.webhookReader(), Suppressions: suppressions, Recorder: recorder, Logger: a.logger},
+		mailEvents: maileventsusecase.Deps{Reader: a.cfg.Mail.webhookReader(), Suppressions: suppressions, Recorder: recorder, Logger: a.logger.With("source", "mail")},
 		pingTime:   appFlags.pingTime,
 		flags:      a.flags,
 		collector:  a.collector,

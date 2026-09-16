@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -83,13 +84,28 @@ func (d *devRunner) servePortal(ctx context.Context) (func(), error) {
 	if !d.portal {
 		return func() {}, nil
 	}
+	logs, err := portal.NewLogStore(d.dir)
+	if err != nil {
+		return nil, fmt.Errorf("the Dev Portal's log store: %w", err)
+	}
+	d.logs = logs
 	server, err := portal.New(d.portalConfig())
 	if err != nil {
+		_ = logs.Close()
 		return nil, err
 	}
 	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", d.portalPort))
 	if err != nil {
+		_ = logs.Close()
 		return nil, fmt.Errorf("the Dev Portal can't listen on port %s: %w", d.portalPort, err)
+	}
+	// Every output line (the app's, orb's) goes to the store; with
+	// services, the PostgreSQL container's log too (ADR-0072).
+	stopLogs := make(chan struct{})
+	go logs.Follow(d.hub, stopLogs)
+	logsCtx, cancelLogs := context.WithCancel(ctx)
+	if d.database && d.services {
+		go d.followPostgresLogs(logsCtx, logs)
 	}
 	httpServer := &http.Server{
 		Handler:           server.Handler(),
@@ -113,7 +129,33 @@ func (d *devRunner) servePortal(ctx context.Context) (func(), error) {
 		shutdown, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		_ = httpServer.Shutdown(shutdown)
+		cancelLogs()
+		close(stopLogs)
+		_ = logs.Close()
 	}, nil
+}
+
+// followPostgresLogs streams the postgres service's log into the store
+// while ctx lasts (docker compose logs -f). Docker being absent or the
+// service stopped ends it quietly; the store then has no postgres source.
+func (d *devRunner) followPostgresLogs(ctx context.Context, logs *portal.LogStore) {
+	env, err := devEnv(".env")
+	if err != nil {
+		return
+	}
+	cmd := exec.CommandContext(ctx, "docker", "compose", "logs", "-f", "--no-log-prefix", "--no-color", "--since", "1s", "postgres")
+	cmd.Env = withAppEnv(env)
+	cmd.Dir = d.dir
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		return
+	}
+	cmd.Stderr = io.Discard
+	if err := cmd.Start(); err != nil {
+		return
+	}
+	_ = logs.IngestReader(portal.SourcePostgres, out)
+	_ = cmd.Wait()
 }
 
 // portalConfig builds the portal's configuration from the app and this run.
@@ -141,6 +183,7 @@ func (d *devRunner) portalConfig() portal.Config {
 		Links:        links,
 		Generators:   d.generators(),
 		Jobs:         func() ([]portal.JobSource, error) { return jobSources(d.dir) },
+		Logs:         d.logs,
 		Database:     d.databaseConfig(),
 		SQL:          d.sqlStore(),
 		UI:           ui.FS(),
@@ -181,7 +224,7 @@ func (d *devRunner) databaseConfig() portal.DatabaseConfig {
 			d.db = client
 			return client, nil
 		},
-		NextMigrationVersion: func() (string, error) { return nextMigrationVersion(d.dir, time.Now()) },
+		NextMigrationVersion: d.nextMigrationVersion,
 		Apply: func(ctx context.Context, plan genplan.Plan, allowDirty bool) error {
 			if !allowDirty {
 				if err := requireCleanGit(ctx, d.dir); err != nil {
@@ -530,4 +573,43 @@ func openInBrowser(url string) error {
 		cmd = exec.Command("xdg-open", url)
 	}
 	return cmd.Start()
+}
+
+// nextMigrationVersion is the next migration file's version: after every
+// file's and, when the database answers, after every version goose has
+// applied, so a version whose file was deleted (a rolled-back experiment,
+// another checkout) isn't reused and silently skipped.
+func (d *devRunner) nextMigrationVersion() (string, error) {
+	version, err := nextMigrationVersion(d.dir, time.Now())
+	if err != nil {
+		return "", err
+	}
+	open := d.databaseConfig().Open
+	if open == nil {
+		return version, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	db, err := open(ctx)
+	if err != nil {
+		return version, nil //nolint:nilerr // without the database, the files decide
+	}
+	migrations, err := db.Migrations(ctx, d.dir)
+	if err != nil {
+		return version, nil //nolint:nilerr // same
+	}
+	applied := map[string]bool{}
+	for _, m := range migrations {
+		if m.Applied {
+			applied[strconv.FormatInt(m.Version, 10)] = true
+		}
+	}
+	for applied[version] {
+		n, err := strconv.ParseInt(version, 10, 64)
+		if err != nil {
+			return version, nil //nolint:nilerr // not a numeric version: nothing to skip
+		}
+		version = strconv.FormatInt(n+1, 10)
+	}
+	return version, nil
 }

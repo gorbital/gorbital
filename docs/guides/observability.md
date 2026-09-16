@@ -57,6 +57,12 @@ In practice latencies spread evenly enough within a bucket that errors are a few
 
 Latency is measured from the collector's middleware to the end of the response; panic recovery, trusted proxies, request IDs and tracing, which run before it, aren't included.
 
+## The local log store
+
+In development, `orb dev` keeps the app's log records for the Dev Portal's Logs screen ([ADR-0072](../adr/0072-local-log-store.md)): every line the app writes (JSON, since `orb dev` sets `APP_LOG_FORMAT=json` unless `.env` chose; the terminal still shows text), `orb dev`'s own messages, and the PostgreSQL container's log when `orb dev` started the services. Records are JSON Lines under `.orb/portal/logs` (gitignored, mode 0600): segments of 8 MiB, 64 MiB in all, the oldest segment dropped first, so the store is bounded and survives the app's restarts. Each record has a `source` (`http` for the access log, `auth`, `jobs` and `mail` from the loggers the app hands those parts, `postgres`, `orb`, or `app`), and request records carry `method`, `path`, `route`, `status`, `duration_ms`, `request_id` and the signed-in `user_id`, so the screen filters by any of them. The Project Settings screen shows the store's size and clears it; `rm -r .orb/portal/logs` does the same.
+
+The store is development only: production logs go wherever `APP_LOG_FORMAT=json` output is shipped.
+
 ## Streaming it
 
 `GET /ops/observability/stream` sends the overview as [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html) every 5 seconds:

@@ -91,7 +91,7 @@ Generator inputs are the flags of `orb gen job`, `orb gen resource` and `orb gen
 | Overview | The app's state, uptime, restarts, readiness, health checks, project, links, output as it happens; restart, stop, start | `/_portal/api/status`, `/_portal/api/events`, `/readyz`, `/ops/system` |
 | Routes | Every route with its method, path, summary, tags and security, and a request builder that sends through the proxy | `/_dev/routes` |
 | Requests | Recent requests and a live tail, with the log records of a request | `/_dev/requests`, `/_dev/requests/stream`, `/_dev/logs` |
-| Logs | Recent log records and a live tail, by level and text | `/_dev/logs`, `/_dev/logs/stream` |
+| Logs | The local log store ([ADR-0072](../adr/0072-local-log-store.md)): every source (HTTP, auth, jobs, mail, storage, PostgreSQL, app, orb), filters by time, level, user, method, path, status class, duration, request or trace ID and text, a histogram, a live tail, a record's detail, all the records of a request, saved filters, and errors grouped by fingerprint; the store's size and Clear | `/_portal/api/logs…` |
 | Modules | What the app wired: libraries, API modules, jobs, settings, flags, permission catalogs | `/_dev/app` |
 | Audit | The audit log with filters and statistics | `/ops/audit`, `/ops/audit/stats` |
 | Jobs | Definitions, runs, queues; run now, retry, cancel, enable, disable, reschedule, pause and resume; new job by form (kinds custom, HTTP, SQL, email, dispatch), CLI or code through the job generator with a diff preview; the form again for generated jobs, "Ejected: edit in code" once the worker was edited ([ADR-0071](../adr/0071-job-kinds-and-ejection.md)) | `/ops/jobs/…`, `/ops/queues`, `/_portal/api/jobs`, `/_portal/api/generators/job/…` |

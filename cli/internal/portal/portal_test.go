@@ -583,3 +583,77 @@ func TestJobsListsTheAppsJobs(t *testing.T) {
 		t.Errorf("jobs without a source = %d %q", res.StatusCode, body)
 	}
 }
+
+func TestLogEndpoints(t *testing.T) {
+	store := newTestLogStore(t)
+	_, ts, _ := newTestServer(t, func(c *Config) { c.Logs = store })
+	store.Ingest("app", `{"time":"2026-09-16T10:00:00Z","level":"ERROR","msg":"boom","request_id":"req_1","error":"nope"}`)
+	store.Ingest("app", `{"time":"2026-09-16T10:00:01Z","level":"INFO","msg":"http request","method":"GET","path":"/x","status":200,"duration_ms":3,"request_id":"req_1"}`)
+
+	get := func(path string) (int, string) {
+		res := call(t, ts, http.MethodGet, APIPrefix+path, "", nil)
+		raw, _ := io.ReadAll(res.Body)
+		return res.StatusCode, string(raw)
+	}
+	if code, body := get("logs?min_level=ERROR"); code != http.StatusOK || !strings.Contains(body, `"message":"boom"`) || strings.Contains(body, "http request") {
+		t.Errorf("logs = %d %s", code, body)
+	}
+	if code, body := get("logs?status_class=bad"); code != http.StatusBadRequest || !strings.Contains(body, "status_class") {
+		t.Errorf("bad query = %d %s", code, body)
+	}
+	if code, body := get("logs/histogram?from=2026-09-16T10:00:00Z&to=2026-09-16T10:02:00Z&bucket=1m"); code != http.StatusOK || !strings.Contains(body, `"total":2`) {
+		t.Errorf("histogram = %d %s", code, body)
+	}
+	if code, body := get("logs/errors?from=2026-09-16T00:00:00Z"); code != http.StatusOK || !strings.Contains(body, `"shape":"boom"`) || !strings.Contains(body, `"count":1`) {
+		t.Errorf("errors = %d %s", code, body)
+	}
+	if code, body := get("logs/request/req_1"); code != http.StatusOK || !strings.Contains(body, `"boom"`) || strings.Index(body, "boom") > strings.Index(body, "http request") {
+		t.Errorf("request logs = %d %s", code, body)
+	}
+	if code, body := get("logs/stats"); code != http.StatusOK || !strings.Contains(body, `"records":2`) {
+		t.Errorf("stats = %d %s", code, body)
+	}
+	res := call(t, ts, http.MethodPut, APIPrefix+"logs/filters", `{"name":"errors","query":{"min_level":"ERROR"}}`, nil)
+	if raw, _ := io.ReadAll(res.Body); res.StatusCode != http.StatusOK || !strings.Contains(string(raw), `"name":"errors"`) {
+		t.Errorf("save filter = %d %s", res.StatusCode, raw)
+	}
+	if res := call(t, ts, http.MethodDelete, APIPrefix+"logs/filters/errors", "", nil); res.StatusCode != http.StatusNoContent {
+		t.Errorf("delete filter = %d", res.StatusCode)
+	}
+	if res := call(t, ts, http.MethodDelete, APIPrefix+"logs", "", nil); res.StatusCode != http.StatusNoContent {
+		t.Errorf("clear = %d", res.StatusCode)
+	}
+	if code, body := get("logs"); code != http.StatusOK || body != `{"logs":[]}`+"\n" {
+		t.Errorf("after clear = %d %s", code, body)
+	}
+
+	// The live tail delivers new records matching the filters.
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+APIPrefix+"logs/stream?min_level=WARN", nil)
+	req.AddCookie(&http.Cookie{Name: CookieName, Value: testToken})
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	store.Ingest("app", `{"time":"2026-09-16T10:00:02Z","level":"INFO","msg":"quiet"}`)
+	store.Ingest("app", `{"time":"2026-09-16T10:00:03Z","level":"WARN","msg":"loud"}`)
+	buf := make([]byte, 4096)
+	var got string
+	deadline := time.Now().Add(3 * time.Second)
+	for !strings.Contains(got, "loud") && time.Now().Before(deadline) {
+		n, err := res.Body.Read(buf)
+		got += string(buf[:n])
+		if err != nil {
+			break
+		}
+	}
+	if !strings.Contains(got, "event: log") || !strings.Contains(got, "loud") || strings.Contains(got, "quiet") {
+		t.Errorf("stream = %q", got)
+	}
+
+	// Without a store the endpoints are 404.
+	_, ts2, _ := newTestServer(t, nil)
+	if res := call(t, ts2, http.MethodGet, APIPrefix+"logs", "", nil); res.StatusCode != http.StatusNotFound {
+		t.Errorf("without a store = %d", res.StatusCode)
+	}
+}

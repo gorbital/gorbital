@@ -99,6 +99,7 @@ func (s *Server) apiHandler() http.Handler {
 	mux.HandleFunc("POST "+APIPrefix+"generators/{name}/plan", s.serveGenerator(false))
 	mux.HandleFunc("POST "+APIPrefix+"generators/{name}/apply", s.serveGenerator(true))
 	mux.HandleFunc("GET "+APIPrefix+"jobs", s.serveJobs)
+	s.logRoutes(mux)
 	mux.HandleFunc(APIPrefix, func(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, http.StatusNotFound, "not_found", "no portal endpoint "+r.Method+" "+r.URL.Path)
 	})
