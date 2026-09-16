@@ -132,11 +132,13 @@ gorbital/
 │   ├── telemetry/           OpenTelemetry SDK + OTLP and Prometheus exporters, runtime metrics, correlated logs   (v0.1, Prometheus v1.1)
 │   ├── postgres/            pool, transactions, migrations runner, pgtest (against Docker PostgreSQL)   (v0.2)
 │   ├── settings/            runtime settings: typed declarations, PostgreSQL store, LISTEN/NOTIFY reload, per-organisation values   (v0.2, v1.1)
+│   ├── flags/               feature flags: declared in code, organisation and user targeting, stable percentage rollouts, LISTEN/NOTIFY reload   (v1.1)
 │   ├── jobs/                River, job definitions and Manager (Lambda-style config), AsyncSender   (v0.2)
 │   ├── mail/resend/ · mail/smtp/   Resend HTTP API and standard-library SMTP senders (v0.2); Resend webhook verification (v1.1)
 │   ├── mail/suppressionpg/  email suppression list: bounced and complained addresses, once-per-delivery webhook adds   (v1.1)
+│   ├── observability/       request counts per minute and route shared by every instance, incidents, detection, stream limits   (v1.1)
 │   ├── auditpg/             append-only audit store with redaction, filtered query API   (v0.2)
-│   ├── auth/                building blocks: argon2id, tokens, codes, session middleware, permission catalog (v0.2); oidc, totp, passkey (v0.3)
+│   ├── auth/                building blocks: argon2id, tokens, codes, session middleware, permission catalog (v0.2); oidc, totp, passkey (v0.3); API keys, GitHub in social (v1.1)
 │   ├── orgs/                building blocks: organisation IDs, RequireMember/Authorize, invitation emails   (v0.4)
 │   ├── ratelimitpg/         rate limits shared across instances: GCRA in an unlogged table, in-memory fallback   (v1.0)
 │   ├── idempotency/         Idempotency-Key middleware: per-caller keys, atomic claim, stored responses replayed   (v1.1)
@@ -193,7 +195,8 @@ my-api/
 │   │   ├── module_<name>.go · job_<name>.go · commands.go · admin.go · admin_mfa.go · migrate.go · seed.go
 │   │   └── *_test.go      end-to-end HTTP tests, architecture_test.go (import rules)
 │   ├── modules/           each: module.go · domain/ · usecase/ · repository/ · delivery/
-│   │   ├── auth/          accounts, sessions, codes, 2FA, passkeys, Google and Apple, platform roles
+│   │   ├── auth/          accounts, sessions, codes, 2FA, passkeys, Google, Apple and GitHub, API keys and service accounts, platform roles
+│   │   ├── flags/         GET /v1/flags: client flags evaluated for the caller
 │   │   ├── ops/           /ops/* endpoints over the library's managers
 │   │   ├── ping/          example endpoint reading a runtime setting
 │   │   └── projects/      example resource to copy (orb gen resource output)
@@ -223,7 +226,7 @@ Three kinds of code: **library** (imported), **derived** (`// Code generated …
 
 ### 7.1 Authentication ([ADR-0024](adr/0024-authentication-methods.md))
 
-Email + password with email verification codes; server-side sessions (no JWT sessions); logout and logout-all; password reset and change; active sessions list and revoke; account deletion; Google and Apple sign-in (web redirect and native token); TOTP with recovery codes; passkeys; platform roles with a permission catalog; 2FA policy per role.
+Email + password with email verification codes; server-side sessions (no JWT sessions); logout and logout-all; password reset and change; active sessions list and revoke; account deletion; Google and Apple sign-in (web redirect and native token); GitHub sign-in (web redirect); API keys and service accounts; TOTP with recovery codes; passkeys; platform roles with a permission catalog; 2FA policy per role.
 
 Implemented in v0.2 ([ADR-0038](adr/0038-authentication-v0-2.md), [authentication guide](guides/authentication.md)): the generated app owns `internal/modules/auth` with all four layers (use cases for every flow, a repository with one SQL file per operation, `/v1/auth` endpoints); `modules/auth` provides the building blocks (argon2id, tokens and codes stored as hashes, the session middleware and cookies, the permission catalog, plain emails). Browsers get an HttpOnly `__Host-session` cookie; native clients ask for a bearer token. Durations are runtime settings clamped to hard limits. Roles are read on every request, and the first administrator is granted with `go run ./cmd/api grant-role <email> platform_admin`.
 
@@ -233,6 +236,11 @@ Implemented in v0.3:
 - **Passkeys** ([ADR-0044](adr/0044-passkeys.md)): passwordless sign-in and a second factor through `gorbital.dev/modules/auth/passkey` (go-webauthn), up to 10 per account, single-use ceremonies stored server-side, relying party from `WEBAUTHN_*`, and the generated `/.well-known/apple-app-site-association` and `assetlinks.json` for native apps.
 - **Sign-in provider setup** ([ADR-0045](adr/0045-sign-in-provider-setup.md)): what each method needs from the developer, in `.env.example`, `AUTH_PROVIDERS.md`, a status block at start, `go run ./cmd/api auth-providers` and `GET /ops/auth/providers`.
 - **Google and Apple sign-in** ([ADR-0046](adr/0046-google-and-apple-sign-in.md)): `gorbital.dev/modules/auth/social` (x/oauth2, go-oidc); the API hosts the web flow (`/v1/auth/{provider}/start` and callbacks, state bound to a `__Host-oauth` cookie) and verifies native apps' ID tokens with single-use nonces; identities link to accounts by provider-verified email; the second factor still applies; Apple tokens are queued for revocation in the same transaction as unlinking or account deletion and revoked by the `auth_revoke_tokens` job with retries, and Apple's notifications are handled.
+
+Implemented in v1.1:
+
+- **API keys and service accounts** ([ADR-0058](adr/0058-api-keys-and-service-accounts.md), [guide](guides/api-keys.md)): `modules/auth` generates, parses and compares `gbk_` keys and its middleware routes them to the app's `AuthenticateAPIKey`, never to sessions; the app's auth module stores keys (hashed) and service accounts, builds principals from the owner's current roles without 2FA-required roles, limited to the key's scopes, and keeps account management session-only. Organisation service accounts reach org-scoped modules through `orgs.Service().Memberships()` and are refused outside their organisation by `orgs.Authorize`. Every signed-in operation checks a permission: the `user` role, held by every user, grants what any user may do (user-scoped resources, creating and listing organisations, reading client flags), so a key's scopes bound everything it does; joining and leaving organisations are session-only.
+- **GitHub sign-in** ([ADR-0059](adr/0059-github-sign-in.md), [guide](sign-in/github.md)): `social.NewGitHub` in the same package, OAuth 2.0 with state and PKCE and GitHub's user and email API instead of ID tokens; GitHub is never authoritative for an address, so it never links an existing account and creates unverified accounts; signed-in users link it through `POST /v1/auth/github/link`, bound to the browser and the session. Browser sign-ins without `return_to` end at `AUTH_DEFAULT_RETURN_TO`, required in production.
 
 ### 7.2 Tenancy ([ADR-0023](adr/0023-tenancy.md))
 
@@ -251,7 +259,7 @@ Built in v1.1 ([ADR-0062](adr/0062-resend-webhooks-and-suppression-list.md)): th
 
 ### 7.4 Operations APIs ([ADR-0026](adr/0026-operations-apis.md))
 
-`/ops/*`, protected by platform roles and required 2FA. Built by v0.5: runtime settings, jobs and queues with an overview, audit log with stats, release monitor, system health (`/ops/system`), retention as runtime settings enforced by a `retention` job (`/ops/retention`), maintenance mode, email and sign-in method status ([ADR-0051](adr/0051-operations-v0-5.md)). Built in v1.1 so far: per-organisation setting overrides (`GET /ops/settings/{key}/overrides`, [ADR-0056](adr/0056-per-organisation-settings.md)) and the email suppression list (`/ops/mail/suppressions`, [ADR-0062](adr/0062-resend-webhooks-and-suppression-list.md)); still planned: feature flags, live observability, incidents, API keys.
+`/ops/*`, protected by platform roles and required 2FA. Built by v0.5: runtime settings, jobs and queues with an overview, audit log with stats, release monitor, system health (`/ops/system`), retention as runtime settings enforced by a `retention` job (`/ops/retention`), maintenance mode, email and sign-in method status ([ADR-0051](adr/0051-operations-v0-5.md)). Built in v1.1 so far: per-organisation setting overrides (`GET /ops/settings/{key}/overrides`, [ADR-0056](adr/0056-per-organisation-settings.md)), the email suppression list (`/ops/mail/suppressions`, [ADR-0062](adr/0062-resend-webhooks-and-suppression-list.md)), feature flags (`/ops/flags`, [ADR-0057](adr/0057-feature-flags.md)), platform service accounts and their keys (`/ops/service-accounts`, delivered by the auth module, [ADR-0058](adr/0058-api-keys-and-service-accounts.md)), live observability (`/ops/observability`, with a Server-Sent Events stream) and incidents with reports (`/ops/incidents`, [ADR-0064](adr/0064-live-observability-and-incidents.md)). API keys never carry the permissions of roles that require 2FA, so `/ops` stays human-only.
 
 Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)), `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)), `/ops/mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)). They require a signed-in user whose platform roles grant the operation's permission ([ADR-0038](adr/0038-authentication-v0-2.md)); required 2FA for ops roles arrived in v0.3 ([ADR-0043](adr/0043-two-factor-authentication.md)), with `/ops/auth/providers` ([ADR-0045](adr/0045-sign-in-provider-setup.md)).
 
@@ -265,9 +273,13 @@ Code-first with Huma v2, confined to `delivery/`: developers write Go input/outp
 
 From v1.1, setting `METRICS_ADDR` also serves the same metrics in the Prometheus format on a separate listener that answers only `GET /metrics`, off by default and refused on the API's port ([ADR-0063](adr/0063-prometheus-metrics.md)); apps record Go runtime and connection pool metrics, and `telemetry.RecordRoute` around the mux labels HTTP metrics and spans with the matched route pattern.
 
+**Live observability and incidents** (`modules/observability`, from v1.1, [ADR-0064](adr/0064-live-observability-and-incidents.md), [guide](guides/observability.md)). Each instance's collector middleware counts requests per minute, method and route pattern, with a latency histogram, and writes them to `observability_minutes` every 15 seconds; `/ops/observability/overview` and `/routes` add up every instance (rates, error rate, estimated percentiles, per instance and route) and `/stream` sends the overview as Server-Sent Events, rechecking the session before each event. Incidents have a severity, a status and a timeline, are audited, and have a report (JSON or Markdown) with the window's requests, audit events and releases. The `incidents_detect` job opens one automatic incident across instances when the server error rate stays above a threshold.
+
 ### 7.7 Configuration ([ADR-0020](adr/0020-constructors-and-configuration.md), [ADR-0031](adr/0031-runtime-settings.md))
 
 Two layers. **Environment** holds secrets, credentials and infrastructure (database URL, API keys, listen addresses) and changes with a redeploy. **Runtime settings** hold non-secret tunables (expiries, limits, sender names, frontend URLs, maintenance mode): declared in Go as typed handles with defaults and bounds, stored in PostgreSQL only when changed, edited through `PUT /ops/settings/{key}` with a reason and version, recorded in history and the audit log, and applied on every instance through `LISTEN/NOTIFY`. A value is never in both layers, and secrets are never settings. Settings declared `OrgOverridable` also take a value per organisation, set by its owners and admins under `/v1/orgs/{orgId}/settings`; `Get` returns it when the context's actor acts in that organisation, and security settings (sign-in, rate limits, retention, maintenance, mail, link targets) are never overridable ([ADR-0056](adr/0056-per-organisation-settings.md)). Guide: [runtime settings](guides/runtime-settings.md).
+
+**Feature flags** (`modules/flags`, from v1.1, [ADR-0057](adr/0057-feature-flags.md), [guide](guides/feature-flags.md)). Flags are declared in Go like settings, and operators change their state through `/ops/flags` with a version and a reason: enabled, a default, organisation and user allow and deny lists, and a percentage. `flag.Enabled(ctx)` reads memory and the actor: organisation lists apply to callers acting in an organisation, then user lists, then a stable SHA-256 bucket of the flag and the organisation (or user), then the default. Changes are stored with history, audited and reloaded on every instance through `LISTEN/NOTIFY`. Flags declared `Client()` are listed to signed-in clients by `GET /v1/flags` (permission `flags.flag.read`, and `GET /v1/orgs/{orgId}/flags` in multi-tenant apps). Flags aren't access control.
 
 ### 7.8 Background jobs ([ADR-0033](adr/0033-background-jobs.md))
 
@@ -279,7 +291,7 @@ PostgreSQL only, always from Docker in development, tests and CI. `modules/postg
 
 ### 7.10 Idempotency keys ([ADR-0060](adr/0060-idempotency-keys.md))
 
-Full apps accept `Idempotency-Key` on signed-in POST and PATCH requests (`modules/idempotency`, from v1.1). The middleware, last in the chain after authentication, claims the key per caller in PostgreSQL with one statement (so racing retries on any instance run once), fingerprints the request, and stores the final response for `idempotency.retention` (24 h) to replay it with `Idempotent-Replayed: true`. A different request with the same key gets 422, a key still in progress 409; server errors, responses setting cookies and handlers calling `idempotency.DontStore` release the key. `/v1/auth/*` is excluded; the `idempotency_cleanup` job deletes expired keys. Guide: [idempotency keys](guides/idempotency.md).
+Full apps accept `Idempotency-Key` on signed-in POST and PATCH requests (`modules/idempotency`, from v1.1). The middleware, last in the chain after authentication, claims the key per caller in PostgreSQL with one statement (so racing retries on any instance run once), fingerprints the request, and stores the final response for `idempotency.retention` (24 h) to replay it with `Idempotent-Replayed: true`. A different request with the same key gets 422, a key still in progress 409; server errors, responses setting cookies or marked `Cache-Control: no-store` (such as a new API key) and handlers calling `idempotency.DontStore` release the key. `/v1/auth/*` is excluded; the `idempotency_cleanup` job deletes expired keys. Guide: [idempotency keys](guides/idempotency.md).
 
 ---
 
@@ -328,7 +340,7 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | v0.5 ✅ done, tagged | `gorbital.lock` v2, `orb upgrade`, `orb add orgs`, `orb doctor`, system health, audit stats, retention, maintenance mode, Postman collection and `llms.txt` |
 | v1.0 (in progress) | Rate limits shared across instances, internal security review (done), API freeze and compatibility checks (done), governance (done), documentation content with generated reference pages (done); external security review open |
 | v1.3 (built early) | Public website and docs at gorbital.dev and docs.gorbital.dev ([ADR-0049](adr/0049-public-docs-and-website.md)) |
-| v1.1 (in progress) | Per-organisation settings (done), idempotency keys (done), Resend bounce and complaint webhooks with a suppression list (done), Prometheus `/metrics` option (done); feature flags, API keys, GitHub login, row-level security option, live observability, local dev console APIs to come |
+| v1.1 (in progress) | Per-organisation settings, feature flags, API keys and service accounts, GitHub sign-in, idempotency keys, Resend bounce and complaint webhooks with a suppression list, Prometheus `/metrics` option, live observability and incidents (done); row-level security option and local dev console APIs to come |
 | v1.2 (proposed) | Client templates: docs site, dashboard and Expo app created by `orb new` from separate template repositories ([ADR-0047](adr/0047-client-templates.md)) |
 
 ---

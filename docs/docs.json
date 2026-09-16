@@ -38,6 +38,7 @@
             { "title": "Passkeys in mobile apps", "slug": "sign-in/passkeys-mobile", "source": "docs/sign-in/passkeys-mobile.md" },
             { "title": "Google sign-in", "slug": "sign-in/google", "source": "docs/sign-in/google.md" },
             { "title": "Apple sign-in", "slug": "sign-in/apple", "source": "docs/sign-in/apple.md" },
+            { "title": "GitHub sign-in", "slug": "sign-in/github", "source": "docs/sign-in/github.md" },
             { "title": "Go-live checklist", "slug": "sign-in/go-live", "source": "docs/sign-in/go-live.md" }
           ]
         },
@@ -82,10 +83,13 @@
           "pages": [
             { "title": "Database", "slug": "technical/database", "source": "docs/guides/database.md" },
             { "title": "Runtime settings", "slug": "technical/runtime-settings", "source": "docs/guides/runtime-settings.md" },
+            { "title": "Feature flags", "slug": "technical/feature-flags", "source": "docs/guides/feature-flags.md" },
             { "title": "Background jobs", "slug": "technical/background-jobs", "source": "docs/guides/background-jobs.md" },
             { "title": "Idempotency keys", "slug": "technical/idempotency", "source": "docs/guides/idempotency.md" },
+            { "title": "Live observability and incidents", "slug": "technical/observability", "source": "docs/guides/observability.md" },
             { "title": "Authentication", "slug": "technical/authentication", "source": "docs/guides/authentication.md" },
             { "title": "Sign-in providers", "slug": "technical/sign-in-providers", "source": "docs/guides/auth-providers.md" },
+            { "title": "API keys and service accounts", "slug": "technical/api-keys", "source": "docs/guides/api-keys.md" },
             { "title": "Email", "slug": "technical/email", "source": "docs/guides/email.md" },
             { "title": "Error handling", "slug": "technical/error-handling", "source": "docs/guides/error-handling.md" },
             { "title": "Ops API", "slug": "technical/ops-api", "source": "docs/guides/ops-api.md" },

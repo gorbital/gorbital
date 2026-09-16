@@ -50,7 +50,7 @@ orb dev                 # API at :8080, docs at /docs, local email inbox
 | Preset | What you get |
 |---|---|
 | **Minimal** | HTTP server, config, logging, tracing, health checks, security defaults, OpenAPI docs. No database. |
-| **Full** | Everything: PostgreSQL, jobs, email (Resend or SMTP), email/password + Google + Apple sign-in, 2FA, passkeys, users and roles, optional multi-tenant organisations, audit logs, operations APIs. |
+| **Full** | Everything: PostgreSQL, jobs, email (Resend or SMTP), email/password + Google + Apple + GitHub sign-in, 2FA, passkeys, users and roles, API keys and service accounts, optional multi-tenant organisations, feature flags, audit logs, operations APIs with live observability and incidents. |
 
 ## Documentation
 

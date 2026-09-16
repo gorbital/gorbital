@@ -13,7 +13,7 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | Install what you need | [What you need](start/prerequisites.md) |
 | Create and run an app | [Quickstart](start/quickstart.md) |
 | Add your own data | [Add your first resource](start/first-resource.md) |
-| Set up Google, Apple, passkeys or email | [Set up sign-in](sign-in/overview.md), [Every key and credential](sign-in/all-keys.md) |
+| Set up Google, Apple, GitHub, passkeys or email | [Set up sign-in](sign-in/overview.md), [Every key and credential](sign-in/all-keys.md) |
 | Fix a problem | [Troubleshooting](start/troubleshooting.md) |
 | Launch | [Go-live checklist](sign-in/go-live.md), [Running in production](guides/production.md) |
 | Work on gorbital itself | [Local development](guides/local-development.md), [Testing](guides/testing.md) |
@@ -31,7 +31,7 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Upgrading apps](start/upgrading.md) | `orb upgrade`: newer templates and library into an existing app |
 | [Set up sign-in](sign-in/overview.md) | Overview of sign-in methods and where values go |
 | [Every key and credential](sign-in/all-keys.md) | Every value, how it's obtained, complete development and production environments |
-| [Encryption key](sign-in/encryption-key.md), [Email sending](sign-in/email.md), [Passkeys](sign-in/passkeys.md), [Passkeys in mobile apps](sign-in/passkeys-mobile.md), [Google](sign-in/google.md), [Apple](sign-in/apple.md) | Step-by-step setup of each |
+| [Encryption key](sign-in/encryption-key.md), [Email sending](sign-in/email.md), [Passkeys](sign-in/passkeys.md), [Passkeys in mobile apps](sign-in/passkeys-mobile.md), [Google](sign-in/google.md), [Apple](sign-in/apple.md), [GitHub](sign-in/github.md) | Step-by-step setup of each |
 | [Go-live checklist](sign-in/go-live.md) | Before real users arrive |
 | [Troubleshooting](start/troubleshooting.md) | Symptoms, exact messages, causes and fixes |
 
@@ -48,10 +48,13 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Secrets and keys](guides/secrets-and-keys.md) | Every secret, token and code: creation, storage, rotation, compromise |
 | [Database](guides/database.md) | `modules/postgres`, repositories, transactions, migrations, schema, relationships, indexes, pgtest |
 | [Runtime settings](guides/runtime-settings.md) | `modules/settings`: environment vs runtime settings, per-organisation values |
+| [Feature flags](guides/feature-flags.md) | `modules/flags`: declaring flags, targeting, percentage rollouts, `/ops/flags`, client flags |
 | [Background jobs](guides/background-jobs.md) | `modules/jobs`: definitions, schedules, email, the manager |
 | [Idempotency keys](guides/idempotency.md) | `modules/idempotency`: `Idempotency-Key` on POST and PATCH, replays, errors, what isn't stored |
-| [Authentication](guides/authentication.md) | Flows, sessions, 2FA, passkeys, Google and Apple, roles, error codes |
+| [Live observability and incidents](guides/observability.md) | `modules/observability`: request counts per route, `/ops/observability` and its stream, incidents, automatic detection, reports |
+| [Authentication](guides/authentication.md) | Flows, sessions, 2FA, passkeys, Google, Apple and GitHub, roles, error codes |
 | [Sign-in provider setup](guides/auth-providers.md) | How the app reports what's missing |
+| [API keys and service accounts](guides/api-keys.md) | `gbk_` keys, scopes, personal keys, platform and organisation service accounts, what keys can't do |
 | [Email](guides/email.md) | Resend or SMTP, Mailpit, sending from code, bounces, complaints and the suppression list |
 | [Error handling](guides/error-handling.md) | Problem details, the mapper, codes, logging |
 | [Ops API reference](guides/ops-api.md) | `/ops/*` endpoints, permissions, error codes, audit actions |
