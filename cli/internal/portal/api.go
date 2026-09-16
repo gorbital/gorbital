@@ -31,6 +31,9 @@ type Info struct {
 	// UI is "bundled" when a built UI is embedded, "placeholder" otherwise.
 	UI        string    `json:"ui"`
 	StartedAt time.Time `json:"started_at"`
+	// Database reports whether the portal can reach the app's database
+	// (the Table Editor and Schema pages).
+	Database bool `json:"database"`
 }
 
 // OutputList is GET /_portal/api/output: the most recent lines, oldest
@@ -121,7 +124,7 @@ func (s *Server) status() Status {
 		ui = "bundled"
 	}
 	return Status{
-		Portal:     Info{Version: s.cfg.Version, UI: ui, StartedAt: s.startedAt},
+		Portal:     Info{Version: s.cfg.Version, UI: ui, StartedAt: s.startedAt, Database: s.cfg.Database.Open != nil},
 		Project:    s.cfg.Project,
 		App:        s.cfg.Supervisor.Status(),
 		Links:      s.cfg.Links,

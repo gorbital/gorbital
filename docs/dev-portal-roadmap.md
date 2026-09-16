@@ -18,7 +18,7 @@ Each phase lives on its own branch, `dev-portal/phase-N`, in both repositories (
 |---|---|---|---|
 | [0](#phase-0-foundations) | Foundations | ✅ Done (2026-09-16); items 6 and 7 ship with Phases 2 and 3 | `dev-portal/phase-0` |
 | [1](#phase-1-connect-the-existing-screens) | Connect the existing screens | 🔨 In progress (2026-09-16) | `dev-portal/phase-1` |
-| [2](#phase-2-table-editor) | Table Editor | Planned | `dev-portal/phase-2` |
+| [2](#phase-2-table-editor) | Table Editor | 🔨 In progress (2026-09-16): backend done | `dev-portal/phase-2` |
 | [3](#phase-3-sql-editor) | SQL Editor | Planned | `dev-portal/phase-3` |
 | [4](#phase-4-schema-visualiser-objects-migrations) | Schema visualiser, objects, migrations | Planned | `dev-portal/phase-4` |
 | [5](#phase-5-authentication) | Authentication | Planned | `dev-portal/phase-5` |

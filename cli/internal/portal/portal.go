@@ -133,6 +133,9 @@ type Config struct {
 	Links map[string]string
 	// Generators by name: job, resource, migration.
 	Generators map[string]Generator
+	// Database connects the Table Editor and Schema pages to the app's
+	// database; an empty Open means the app has none.
+	Database DatabaseConfig
 	// UI is the built portal UI (a Next.js static export) to serve at /.
 	// Nil, or a UI without index.html, serves a placeholder page saying how
 	// to get it.
@@ -205,6 +208,7 @@ func (s *Server) Close() {
 func (s *Server) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+AuthPath, s.serveAuth)
+	mux.Handle(APIPrefix+"db/", s.guard(s.dbHandler()))
 	mux.Handle(APIPrefix, s.guard(s.apiHandler()))
 	mux.Handle(AppPrefix, s.guard(http.StripPrefix(strings.TrimSuffix(AppPrefix, "/"), s.proxy)))
 	mux.Handle(Prefix, s.guard(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

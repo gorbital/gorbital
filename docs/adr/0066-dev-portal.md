@@ -1,6 +1,6 @@
 # ADR-0066: Dev Portal
 
-**Status:** Accepted (2026-09-16) · **Amends:** ADR-0010, ADR-0021, ADR-0028, ADR-0029, ADR-0065
+**Status:** Accepted (2026-09-16) · **Amends:** ADR-0010, ADR-0021, ADR-0028, ADR-0029, ADR-0065 · **Amended by:** ADR-0067 (the Table Editor and `pgmeta`)
 
 ## Context
 

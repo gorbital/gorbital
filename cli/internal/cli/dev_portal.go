@@ -18,6 +18,7 @@ import (
 	"golang.org/x/term"
 
 	"gorbital.dev/cli/internal/genplan"
+	"gorbital.dev/cli/internal/pgmeta"
 	"gorbital.dev/cli/internal/portal"
 	"gorbital.dev/cli/internal/portal/ui"
 )
@@ -108,6 +109,7 @@ func (d *devRunner) servePortal(ctx context.Context) (func(), error) {
 	}
 	return func() {
 		server.Close()
+		d.closeDatabase()
 		shutdown, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		_ = httpServer.Shutdown(shutdown)
@@ -138,8 +140,67 @@ func (d *devRunner) portalConfig() portal.Config {
 		ConsoleToken: d.consoleToken,
 		Links:        links,
 		Generators:   d.generators(),
+		Database:     d.databaseConfig(),
 		UI:           ui.FS(),
 		Logf:         func(format string, args ...any) { fmt.Fprintf(d.out, format+"\n", args...) },
+	}
+}
+
+// databaseConfig connects the portal's Table Editor and Schema pages to
+// the app's database (ADR-0067): DATABASE_URL from .env, opened on first
+// use and kept for the run. Apps without a database get nothing.
+func (d *devRunner) databaseConfig() portal.DatabaseConfig {
+	if !d.database {
+		return portal.DatabaseConfig{}
+	}
+	return portal.DatabaseConfig{
+		Open: func(ctx context.Context) (portal.Database, error) {
+			d.dbMu.Lock()
+			defer d.dbMu.Unlock()
+			if d.db != nil {
+				return d.db, nil
+			}
+			env, err := devEnv(".env")
+			if err != nil {
+				return nil, err
+			}
+			url := envValue(env, "DATABASE_URL", "")
+			if url == "" {
+				return nil, errors.New("DATABASE_URL isn't set in .env")
+			}
+			client, err := pgmeta.Open(ctx, url)
+			if err != nil {
+				return nil, err
+			}
+			if err := client.Ping(ctx); err != nil {
+				client.Close()
+				return nil, err
+			}
+			d.db = client
+			return client, nil
+		},
+		NextMigrationVersion: func() (string, error) { return nextMigrationVersion(d.dir, time.Now()) },
+		Apply: func(ctx context.Context, plan genplan.Plan, allowDirty bool) error {
+			if !allowDirty {
+				if err := requireCleanGit(ctx, d.dir); err != nil {
+					return err
+				}
+			}
+			if err := genplan.Apply(d.dir, plan); err != nil {
+				return err
+			}
+			return d.Migrate()
+		},
+	}
+}
+
+// closeDatabase releases the portal's database connection.
+func (d *devRunner) closeDatabase() {
+	d.dbMu.Lock()
+	defer d.dbMu.Unlock()
+	if d.db != nil {
+		d.db.Close()
+		d.db = nil
 	}
 }
 

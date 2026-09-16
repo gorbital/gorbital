@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"gorbital.dev/cli/internal/pgmeta"
 	"gorbital.dev/cli/internal/portal"
 )
 
@@ -117,6 +118,10 @@ type devRunner struct {
 	hub                *portal.Hub
 	server             *portal.Server
 	open               func(url string) error // opens a URL in the browser; tests replace it
+	// db is the portal's connection to the app's database, opened on the
+	// first request that needs it (ADR-0067).
+	dbMu sync.Mutex
+	db   *pgmeta.Client
 
 	// The app's state as the portal reports it (ADR-0066), guarded by mu:
 	// loop changes it, portal requests read it.
