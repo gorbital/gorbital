@@ -149,8 +149,9 @@ func Register(api huma.API, svc *orgsusecase.Service) {
 	}), h.list)
 	huma.Register(api, op(huma.Operation{
 		OperationID: "orgs-create", Method: http.MethodPost, Path: "/v1/orgs",
-		Summary: "Create an organisation", Description: "You become its owner.",
-		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusUnprocessableEntity},
+		Summary:       "Create an organisation",
+		Description:   "You become its owner. Your email address must be verified, and you can own up to `orgs.max_owned` organisations.",
+		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusForbidden, http.StatusConflict, http.StatusUnprocessableEntity},
 	}), h.create)
 	huma.Register(api, inOrg(huma.Operation{
 		OperationID: "orgs-get", Method: http.MethodGet, Path: "/v1/orgs/{orgId}",
@@ -168,7 +169,9 @@ func Register(api huma.API, svc *orgsusecase.Service) {
 	}), h.delete)
 	huma.Register(api, op(huma.Operation{
 		OperationID: "orgs-restore", Method: http.MethodPost, Path: "/v1/orgs/{orgId}/restore",
-		Summary: "Restore a deleted organisation", Errors: []int{http.StatusForbidden, http.StatusNotFound},
+		Summary:     "Restore a deleted organisation",
+		Description: "Needs the same role as deleting it. Restoring counts toward `orgs.max_owned` like creating.",
+		Errors:      []int{http.StatusForbidden, http.StatusNotFound, http.StatusConflict},
 	}), h.restore)
 
 	huma.Register(api, inOrg(huma.Operation{
@@ -198,12 +201,12 @@ func Register(api huma.API, svc *orgsusecase.Service) {
 	huma.Register(api, inOrg(huma.Operation{
 		OperationID: "orgs-invitations-create", Method: http.MethodPost, Path: "/v1/orgs/{orgId}/invitations",
 		Summary:       "Invite someone",
-		Description:   "Emails a link to the frontend page in `orgs.invitation_url`. Accepting needs an account whose verified email is the invited address.",
+		Description:   "Emails a link to the frontend page in `orgs.invitation_url`. Your email address must be verified. Accepting needs an account whose verified email is the invited address, while you are still a member who may give the role.",
 		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusConflict, http.StatusUnprocessableEntity, http.StatusTooManyRequests},
 	}), h.invite)
 	huma.Register(api, inOrg(huma.Operation{
 		OperationID: "orgs-invitations-resend", Method: http.MethodPost, Path: "/v1/orgs/{orgId}/invitations/{invitationId}/resend",
-		Summary: "Resend an invitation", Description: "Sends a new link with a new expiry; the old link stops working.",
+		Summary: "Resend an invitation", Description: "Sends a new link with a new expiry; the old link stops working. You become the invitation's inviter.",
 		Errors: []int{http.StatusConflict, http.StatusTooManyRequests},
 	}), h.resend)
 	huma.Register(api, inOrg(huma.Operation{

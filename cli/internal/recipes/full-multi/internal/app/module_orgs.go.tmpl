@@ -37,7 +37,9 @@ func registerOrgs(api huma.API, mapper *httpx.Mapper, m *orgsmodule.Module) erro
 		httpx.Mapping{Err: orgsdomain.ErrAlreadyInvited, Status: http.StatusConflict, Code: "already_invited", Detail: "this address already has an open invitation; resend it instead"},
 		httpx.Mapping{Err: orgsdomain.ErrInvitationNotFound, Status: http.StatusNotFound, Code: "invitation_not_found", Detail: "the invitation doesn't exist, was used or revoked, or expired"},
 		httpx.Mapping{Err: orgsdomain.ErrInvitationEmail, Status: http.StatusForbidden, Code: "invitation_for_another_email", Detail: "the invitation was sent to another address; sign in with the invited, verified address"},
-		httpx.Mapping{Err: orgsdomain.ErrTooManyInvitations, Status: http.StatusTooManyRequests, Code: "too_many_invitations", Detail: "the organisation sent too many invitations in the last hour; try again later"},
+		httpx.Mapping{Err: orgsdomain.ErrTooManyInvitations, Status: http.StatusTooManyRequests, Code: "too_many_invitations", Detail: "too many invitations were sent from this organisation, or by you, in the last hour; try again later"},
+		httpx.Mapping{Err: orgsdomain.ErrEmailNotVerified, Status: http.StatusForbidden, Code: "email_not_verified", Detail: "verify your email address to create organisations or send invitations"},
+		httpx.Mapping{Err: orgsdomain.ErrTooManyOrgs, Status: http.StatusConflict, Code: "too_many_orgs", Detail: "you own as many organisations as allowed; delete one, or hand one over, first"},
 	)
 	if err != nil {
 		return fmt.Errorf("orgs module: %w", err)

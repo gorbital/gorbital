@@ -154,7 +154,7 @@ Declares every runtime setting with type, default, bounds and description, and r
 | `auth.reset_code_ttl` | duration | 30 minutes |
 | `auth.deleted_account_retention` | duration | 30 days |
 
-Multi-tenant apps add `orgs.invitation_url`, `orgs.invitation_ttl` and `orgs.deleted_org_retention`.
+Multi-tenant apps add `orgs.invitation_url`, `orgs.invitation_ttl`, `orgs.deleted_org_retention`, `orgs.max_owned` and `orgs.user_invitations_per_hour`.
 
 `appSettings.mailDefaults()` turns the `mail.*` values into `mail.Defaults` for `mail.WithDefaults`.
 

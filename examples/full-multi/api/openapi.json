@@ -8869,7 +8869,7 @@
         ]
       },
       "post": {
-        "description": "You become its owner.",
+        "description": "You become its owner. Your email address must be verified, and you can own up to `orgs.max_owned` organisations.",
         "operationId": "orgs-create",
         "requestBody": {
           "content": {
@@ -8901,6 +8901,26 @@
               }
             },
             "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -9312,7 +9332,7 @@
         ]
       },
       "post": {
-        "description": "Emails a link to the frontend page in `orgs.invitation_url`. Accepting needs an account whose verified email is the invited address.",
+        "description": "Emails a link to the frontend page in `orgs.invitation_url`. Your email address must be verified. Accepting needs an account whose verified email is the invited address, while you are still a member who may give the role.",
         "operationId": "orgs-invitations-create",
         "parameters": [
           {
@@ -9519,7 +9539,7 @@
     },
     "/v1/orgs/{orgId}/invitations/{invitationId}/resend": {
       "post": {
-        "description": "Sends a new link with a new expiry; the old link stops working.",
+        "description": "Sends a new link with a new expiry; the old link stops working. You become the invitation's inviter.",
         "operationId": "orgs-invitations-resend",
         "parameters": [
           {
@@ -10612,6 +10632,7 @@
     },
     "/v1/orgs/{orgId}/restore": {
       "post": {
+        "description": "Needs the same role as deleting it. Restoring counts toward `orgs.max_owned` like creating.",
         "operationId": "orgs-restore",
         "parameters": [
           {
@@ -10667,6 +10688,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {

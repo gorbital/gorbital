@@ -30,6 +30,7 @@ import (
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/modules/settings"
 	"gorbital.dev/modules/telemetry"
+	"gorbital.dev/ratelimit"
 
 	"example.com/acme-api/internal/jobs/authcleanup"
 	"example.com/acme-api/internal/jobs/orgspurge"
@@ -195,7 +196,14 @@ func (a *App) build(ctx context.Context) error {
 
 	// Organisations: members, org roles (permissions.go), invitations and
 	// personal workspaces (ADR-0048). Built before authentication, whose
-	// account hooks use it.
+	// account hooks use it. Invitations per user are limited across
+	// instances like the auth limits.
+	orgsInvitations, err := limits.store.Limiter("orgs_invitations", func(ctx context.Context) ratelimit.Limit {
+		return ratelimit.Per(appSettings.orgsInvitationsPerHour.Get(ctx), time.Hour)
+	})
+	if err != nil {
+		return err
+	}
 	a.orgs, err = orgsmodule.New(pool, orgsusecase.Config{
 		Catalog:             declareOrgPermissions(),
 		Recorder:            recorder,
@@ -203,6 +211,8 @@ func (a *App) build(ctx context.Context) error {
 		InvitationURL:       appSettings.orgsInvitationURL,
 		InvitationTTL:       appSettings.orgsInvitationTTL,
 		DeletedOrgRetention: appSettings.orgsDeletedOrgRetention,
+		MaxOwnedOrgs:        appSettings.orgsMaxOwned,
+		InvitationLimiter:   orgsInvitations,
 		Logger:              a.logger,
 	})
 	if err != nil {

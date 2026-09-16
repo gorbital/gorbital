@@ -135,7 +135,7 @@ gorbital/
 │   ├── mail/resend/ · mail/smtp/   Resend HTTP API and standard-library SMTP senders   (v0.2)
 │   ├── auditpg/             append-only audit store with redaction, filtered query API   (v0.2)
 │   ├── auth/                building blocks: argon2id, tokens, codes, session middleware, permission catalog (v0.2); oidc, totp, passkey (v0.3)
-│   ├── orgs/                building blocks: organisation IDs, RequireMember, invitation emails   (v0.4)
+│   ├── orgs/                building blocks: organisation IDs, RequireMember/Authorize, invitation emails   (v0.4)
 │   ├── ratelimitpg/         rate limits shared across instances: GCRA in an unlogged table, in-memory fallback   (v1.0)
 │   └── releases/            instance build record at start, heartbeats, release queries   (v0.2)
 ├── cli/                     module gorbital.dev/cli → cmd/orb

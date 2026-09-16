@@ -50,6 +50,8 @@ type appSettings struct {
 	orgsInvitationURL       *settings.Setting[string]
 	orgsInvitationTTL       *settings.Setting[time.Duration]
 	orgsDeletedOrgRetention *settings.Setting[time.Duration]
+	orgsMaxOwned            *settings.Setting[int]
+	orgsInvitationsPerHour  *settings.Setting[int]
 }
 
 // defaultInvitationURL is where invitation links go until the frontend's
@@ -205,6 +207,18 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.Describe("How long a deleted organisation can be restored before the orgs_purge job removes it with its data."),
 			settings.Group("orgs"),
 			settings.Range(24*time.Hour, 365*24*time.Hour),
+			settings.ReasonRequired(),
+		),
+		orgsMaxOwned: settings.Int(reg, "orgs.max_owned", orgsusecase.DefaultMaxOwnedOrgs,
+			settings.Describe("How many organisations, personal workspaces aside, one user may own. Checked when they create or restore one."),
+			settings.Group("orgs"),
+			settings.Range(1, 10_000),
+			settings.ReasonRequired(),
+		),
+		orgsInvitationsPerHour: settings.Int(reg, "orgs.user_invitations_per_hour", orgsusecase.DefaultUserInvitationsPerHour,
+			settings.Describe("Invitations one user may send or resend per hour across all their organisations, on top of each organisation's 20 an hour."),
+			settings.Group("rate_limits"),
+			settings.Range(1, 10_000),
 			settings.ReasonRequired(),
 		),
 	}
