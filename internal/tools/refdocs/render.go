@@ -162,6 +162,7 @@ func statuses(cs []code) string {
 var areaLabels = map[string]string{
 	"app":      "Any endpoint",
 	"auth":     "`/v1/auth`",
+	"flags":    "`/v1/flags`",
 	"ops":      "`/ops`",
 	"orgs":     "`/v1/orgs`, `/v1/invitations`",
 	"ping":     "`/v1/ping`, `/v1/echo`",

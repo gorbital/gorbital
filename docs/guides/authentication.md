@@ -66,8 +66,8 @@ The role applies to your next request. `platform_admin` and `ops_viewer` require
 
 | Role | Can | Requires 2FA |
 |---|---|---|
-| `platform_admin` | Everything under `/ops`: settings, jobs, audit log, email | Yes |
-| `ops_viewer` | Read settings, jobs, the audit log and email status; change nothing | Yes |
+| `platform_admin` | Everything under `/ops`: settings, feature flags, jobs, audit log, email | Yes |
+| `ops_viewer` | Read settings, feature flags, jobs, the audit log and email status; change nothing | Yes |
 
 Add roles and permissions in `internal/app/permissions.go`; `c.RequireMFA("role")` makes a role require two-factor authentication. It's code, not a runtime setting, so nobody can switch it off from `/ops/settings`.
 

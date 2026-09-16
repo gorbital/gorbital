@@ -31,6 +31,7 @@ func TestOpsRetention(t *testing.T) {
 	}
 	for data, setting := range map[string]string{
 		"settings_history":       "ops.history_retention",
+		"flags_history":          "ops.history_retention",
 		"job_definition_history": "ops.history_retention",
 		"release_instances":      "releases.instance_retention",
 		"idempotency_keys":       "idempotency.retention",

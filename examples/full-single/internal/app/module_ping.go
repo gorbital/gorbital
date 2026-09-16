@@ -13,15 +13,16 @@ import (
 	pingdomain "example.com/acme-api/internal/modules/ping/domain"
 )
 
-// registerPing wires the ping example module. Error codes are public API:
-// add new ones, never change existing ones.
-func registerPing(api huma.API, mapper *httpx.Mapper, message config.Value[string]) error {
+// registerPing wires the ping example module: its reply is a runtime setting,
+// and whether it includes the server's time a feature flag. Error codes are
+// public API: add new ones, never change existing ones.
+func registerPing(api huma.API, mapper *httpx.Mapper, message config.Value[string], serverTime config.Value[bool]) error {
 	err := mapper.Add(
 		httpx.Mapping{Err: pingdomain.ErrMessageRequired, Status: http.StatusUnprocessableEntity, Code: "message_required"},
 	)
 	if err != nil {
 		return fmt.Errorf("ping module: %w", err)
 	}
-	ping.New(message).Register(api)
+	ping.New(message, serverTime).Register(api)
 	return nil
 }

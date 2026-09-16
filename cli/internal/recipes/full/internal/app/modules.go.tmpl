@@ -10,6 +10,7 @@ import (
 	"gorbital.dev/audit"
 	"gorbital.dev/config"
 	"gorbital.dev/httpx"
+	"gorbital.dev/modules/flags"
 	"gorbital.dev/modules/idempotency"
 	"gorbital.dev/ratelimit"
 
@@ -35,6 +36,10 @@ type services struct {
 	idempotency *idempotency.Store
 	// mailEvents receives the email provider's webhooks (ADR-0062).
 	mailEvents maileventsusecase.Deps
+	// pingTime is the example feature flag, and flags the feature flags
+	// store (flags.go, ADR-0057).
+	pingTime config.Value[bool]
+	flags    *flags.Store
 }
 
 // registerModules wires every business module: its HTTP operations and its
@@ -44,7 +49,8 @@ func registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {
 	return errors.Join(
 		//orb:anchor modules
 		registerProjects(api, mapper, svc),
-		registerPing(api, mapper, svc.pingMessage),
+		registerPing(api, mapper, svc.pingMessage, svc.pingTime),
+		registerFlags(api, mapper, svc.flags),
 		registerOps(api, mapper, svc.ops),
 		registerMailEvents(api, mapper, svc.mailEvents),
 		registerAuth(api, mapper, svc.auth),

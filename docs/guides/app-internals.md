@@ -23,6 +23,7 @@ cmd/api/main.go  run()
   │         ├─ postgres.Open                  pool; pings; readiness check
   │         ├─ auditpg.NewStore               audit recorder
   │         ├─ declareSettings → settings.NewStore   loads values, starts nothing yet
+  │         ├─ declareFlags → flags.NewStore         loads feature flag states
   │         ├─ newMailSender → jobs.AddMailWorker
   │         ├─ defineJobs → jobs.New → jobs.NewManager
   │         ├─ mail.WithDefaults(jobs.AsyncSender)   the mailer modules use
@@ -32,7 +33,7 @@ cmd/api/main.go  run()
   │
   └─ Run(ctx)
        ├─ reportSignInMethods
-       └─ lifecycle.Run(server, settings, jobs, jobsManager, releases)
+       └─ lifecycle.Run(server, settings, flags, jobs, jobsManager, releases)
 ```
 
 ## `config.go`
@@ -76,7 +77,7 @@ The wiring, in order, with the reason for the order:
 
 1. **Pool** first: everything below needs it. Adds `postgres.HealthCheck` to `/readyz`.
 2. **Audit recorder**: settings, jobs and auth record events.
-3. **Settings store**: its typed values (`appSettings`) feed the mailer and auth durations.
+3. **Settings store**: its typed values (`appSettings`) feed the mailer and auth durations. Then the **feature flags store** (`appFlags`), whose flags feed modules such as ping.
 4. **Mail sender and worker**: the worker must be registered before the job client is created.
 5. **Job definitions, client, manager**: `defineJobs` receives `authCleanup` as a closure over `a.auth`, which is built next but before any job can run.
 6. **Mailer**: `mail.WithDefaults(jobs.AsyncSender(a.jobs), …)` so modules send email by queueing a job, with the sender filled from settings. `warnDefaultSender` logs in production when `mail.from_email` is still the placeholder.
@@ -90,7 +91,7 @@ Creates the HTTP server, prints or logs the sign-in methods, logs `starting`, an
 
 ### `(*App).Workers() []lifecycle.Runner`
 
-`settings` (LISTEN/NOTIFY and resync), `jobs` (River client), `jobsManager` (definition changes across instances), `releases` (heartbeat). Exposed so tests can start them without an HTTP server.
+`settings` and `flags` (LISTEN/NOTIFY and resync), `jobs` (River client), `jobsManager` (definition changes across instances), `releases` (heartbeat). Exposed so tests can start them without an HTTP server.
 
 ### `WriteOpenAPI(ctx, cfg, w) error`
 
@@ -142,6 +143,12 @@ Declares every job with its code defaults; `orb gen job` adds a line after `//or
 | `gorbital.mail.send` | `jobs.AddMailWorker` in `app.go` | Delivers queued email; 8 attempts; `mail.ErrRejected` cancels |
 
 `jobDeps` holds what workers may use. Add a store or client there when a job needs one.
+
+## `flags.go`
+
+### `declareFlags(reg) appFlags`
+
+Declares every feature flag and returns the handles; `example.ping_time` (a client flag) adds `server_time` to `GET /v1/ping` replies. States live in `flags_states` only when changed through `/ops/flags`, and changes arrive on every instance through LISTEN/NOTIFY. `module_flags.go` wires `GET /v1/flags`; in multi-tenant apps the orgs module serves `GET /v1/orgs/{orgId}/flags`. See the [feature flags guide](feature-flags.md) and [ADR-0057](../adr/0057-feature-flags.md).
 
 ## `settings.go`
 

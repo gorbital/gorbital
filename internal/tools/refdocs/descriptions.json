@@ -64,6 +64,8 @@
     "auth.sessions.revoked": "A user signed out everywhere (logout-all).",
     "auth.user.created": "An operator or seed data created an account (`CreateUser`), not through sign-up.",
     "auth.user.registered": "Someone signed up, with a password or through Google or Apple.",
+    "flags.flag.changed": "An operator changed a feature flag's state through `PUT /ops/flags/{key}`, with a reason. The metadata summarises the new state (enabled, default, percentage, how many organisations and users are targeted); the IDs themselves are in the flag's history.",
+    "flags.flag.reset": "An operator reset a feature flag to the state declared in code through `DELETE /ops/flags/{key}`, with a reason.",
     "jobs.definition.changed": "An operator changed or reset a job's configuration through `/ops/jobs/definitions/{name}`.",
     "jobs.definition.run_requested": "An operator ran a job now through `/ops/jobs/definitions/{name}/run`.",
     "jobs.queue.paused": "An operator paused a queue.",

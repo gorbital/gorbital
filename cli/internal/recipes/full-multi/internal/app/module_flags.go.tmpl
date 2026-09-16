@@ -1,0 +1,28 @@
+package app
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"gorbital.dev/httpx"
+
+	flagsmodule "⟦.Module⟧/internal/modules/flags"
+	flagsdomain "⟦.Module⟧/internal/modules/flags/domain"
+	flagsusecase "⟦.Module⟧/internal/modules/flags/usecase"
+)
+
+// registerFlags wires the feature flags module: GET /v1/flags for signed-in
+// clients (ADR-0057). Operators change flags through the ops module. Error
+// codes are public API: add new ones, never change existing ones.
+func registerFlags(api huma.API, mapper *httpx.Mapper, store flagsusecase.FlagsStore) error {
+	err := mapper.Add(
+		httpx.Mapping{Err: flagsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+	)
+	if err != nil {
+		return fmt.Errorf("flags module: %w", err)
+	}
+	flagsmodule.New(store).Register(api)
+	return nil
+}

@@ -21,6 +21,8 @@ Platform roles are held across the whole app and grant access to `/ops`. Give an
 |---|---|---|---|
 | `ops.settings.read` | Read runtime settings and their history. | yes | yes |
 | `ops.settings.write` | Change and reset runtime settings. | yes | |
+| `ops.flags.read` | Read feature flags and their history. | yes | yes |
+| `ops.flags.write` | Change and reset feature flags. | yes | |
 | `ops.jobs.read` | Read job definitions, runs and queues. | yes | yes |
 | `ops.jobs.write` | Change job configuration; pause and resume queues. | yes | |
 | `ops.jobs.run` | Run, retry and cancel jobs. | yes | |

@@ -23,6 +23,7 @@ import (
 	"gorbital.dev/mail"
 	"gorbital.dev/modules/auditpg"
 	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/flags"
 	"gorbital.dev/modules/jobs"
 	"gorbital.dev/modules/mail/suppressionpg"
 	"gorbital.dev/modules/openapi"
@@ -58,6 +59,7 @@ type App struct {
 	cleanup     *lifecycle.Cleanup
 	metrics     *httpx.Server // nil unless METRICS_ADDR is set
 	settings    *settings.Store
+	flags       *flags.Store
 	jobs        *jobs.Client
 	jobsManager *jobs.Manager
 	auth        *authmodule.Module
@@ -147,6 +149,14 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
+	// Feature flags (flags.go), changed through /ops/flags (ADR-0057).
+	flagReg := flags.NewRegistry()
+	appFlags := declareFlags(flagReg)
+	a.flags, err = flags.NewStore(ctx, pool, flagReg, recorder, flags.WithLogger(a.logger))
+	if err != nil {
+		return err
+	}
+
 	// The mail worker delivers queued email through Mailpit in development,
 	// or the provider in infra_mail.go, skipping addresses on the suppression
 	// list: permanent bounces and complaints (ADR-0062).
@@ -191,6 +201,7 @@ func (a *App) build(ctx context.Context) error {
 		retentionTargets: []retention.Target{
 			{Name: "audit_events", Retention: appSettings.auditRetention.Get, Delete: recorder.DeleteBefore},
 			{Name: "settings_history", Retention: appSettings.historyRetention.Get, Delete: a.settings.DeleteHistoryBefore},
+			{Name: "flags_history", Retention: appSettings.historyRetention.Get, Delete: a.flags.DeleteHistoryBefore},
 			{Name: "job_definition_history", Retention: appSettings.historyRetention.Get, Delete: func(ctx context.Context, before time.Time, limit int) (int64, error) {
 				return a.jobsManager.DeleteHistoryBefore(ctx, before, limit)
 			}},
@@ -235,6 +246,7 @@ func (a *App) build(ctx context.Context) error {
 		MaxOwnedOrgs:        appSettings.orgsMaxOwned,
 		InvitationLimiter:   orgsInvitations,
 		Settings:            a.settings, // settings declared OrgOverridable (settings.go)
+		Flags:               a.flags,    // organisation members' client flags (flags.go)
 		Logger:              a.logger,
 	})
 	if err != nil {
@@ -303,6 +315,7 @@ func (a *App) build(ctx context.Context) error {
 		orgs:        a.orgs,
 		ops: opsusecase.Deps{
 			Settings: a.settings,
+			Flags:    a.flags,
 			Jobs:     a.jobsManager,
 			Audit:    recorder,
 			Releases: releaseLog,
@@ -320,6 +333,7 @@ func (a *App) build(ctx context.Context) error {
 			Retention: retentionReporter{jobs: a.jobsManager, policies: []retentionPolicy{
 				{data: "audit_events", setting: appSettings.auditRetention.Key(), retention: appSettings.auditRetention.Get, job: retention.Name, oldest: recorder.Oldest},
 				{data: "settings_history", setting: appSettings.historyRetention.Key(), retention: appSettings.historyRetention.Get, job: retention.Name, oldest: a.settings.OldestHistory},
+				{data: "flags_history", setting: appSettings.historyRetention.Key(), retention: appSettings.historyRetention.Get, job: retention.Name, oldest: a.flags.OldestHistory},
 				{data: "job_definition_history", setting: appSettings.historyRetention.Key(), retention: appSettings.historyRetention.Get, job: retention.Name, oldest: a.jobsManager.OldestHistory},
 				{data: "idempotency_keys", setting: appSettings.idempotencyRetention.Key(), retention: appSettings.idempotencyRetention.Get, job: idempotencycleanup.Name, oldest: idempotencyStore.Oldest},
 				{data: "release_instances", setting: appSettings.releasesInstanceRetention.Key(), retention: appSettings.releasesInstanceRetention.Get, enforcedBy: "each instance, when it starts"},
@@ -330,6 +344,8 @@ func (a *App) build(ctx context.Context) error {
 		},
 		// The provider's bounce and complaint webhook (infra_mail.go).
 		mailEvents: maileventsusecase.Deps{Reader: a.cfg.Mail.webhookReader(), Suppressions: suppressions, Recorder: recorder, Logger: a.logger},
+		pingTime:   appFlags.pingTime,
+		flags:      a.flags,
 	})
 }
 
@@ -357,11 +373,11 @@ func (a *App) Run(ctx context.Context) error {
 	return lifecycle.Run(ctx, runners, opts...)
 }
 
-// Workers returns the background runners: the settings and job definition
-// listeners, the job client and the release tracker. Run starts them; tests
-// start them directly.
+// Workers returns the background runners: the settings, feature flag and
+// job definition listeners, the job client and the release tracker. Run
+// starts them; tests start them directly.
 func (a *App) Workers() []lifecycle.Runner {
-	return []lifecycle.Runner{a.settings, a.jobs, a.jobsManager, a.releases}
+	return []lifecycle.Runner{a.settings, a.flags, a.jobs, a.jobsManager, a.releases}
 }
 
 // Auth returns the authentication service, for tests and commands.
@@ -384,7 +400,7 @@ func WriteOpenAPI(ctx context.Context, cfg Config, w io.Writer) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, a.Close(ctx)) }()
-	if err := a.buildHTTP(services{pingMessage: config.Static(defaultPingMessage)}); err != nil {
+	if err := a.buildHTTP(services{pingMessage: config.Static(defaultPingMessage), pingTime: config.Static(false)}); err != nil {
 		return err
 	}
 	if err := openapi.WriteSpec(w, a.api); err != nil {

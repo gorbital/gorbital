@@ -99,6 +99,9 @@ type Config struct {
 	// Settings holds organisations' own values of runtime settings
 	// (ADR-0056). Without it, organisations have no settings of their own.
 	Settings SettingsStore
+	// Flags evaluates the feature flags clients may read (ADR-0057).
+	// Without it, organisations list no flags.
+	Flags FlagsStore
 	// Now is the clock, for tests.
 	Now func() time.Time
 }
@@ -115,6 +118,7 @@ type Service struct {
 	maxOwned      config.Value[int]
 	invitations   ratelimit.Taker
 	settings      SettingsStore
+	flags         FlagsStore
 	logger        *slog.Logger
 	now           func() time.Time
 }
@@ -132,7 +136,7 @@ func NewService(c Config) (*Service, error) {
 	s := &Service{
 		store: c.Store, catalog: c.Catalog, recorder: c.Recorder, emails: c.Emails,
 		invitationURL: c.InvitationURL, invitationTTL: c.InvitationTTL, retention: c.DeletedOrgRetention,
-		maxOwned: c.MaxOwnedOrgs, invitations: c.InvitationLimiter, settings: c.Settings, logger: c.Logger, now: c.Now,
+		maxOwned: c.MaxOwnedOrgs, invitations: c.InvitationLimiter, settings: c.Settings, flags: c.Flags, logger: c.Logger, now: c.Now,
 	}
 	if s.invitationTTL == nil {
 		s.invitationTTL = config.Static(DefaultInvitationTTL)

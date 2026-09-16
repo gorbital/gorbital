@@ -21,6 +21,8 @@ import (
 // Deps are the Service's dependencies, wired in internal/app.
 type Deps struct {
 	Settings SettingsStore
+	// Flags is the feature flags store (ADR-0057).
+	Flags    FlagsStore
 	Jobs     JobsManager
 	Audit    AuditLog
 	Releases ReleaseLog
@@ -47,6 +49,7 @@ const TestEmailsPerHour = 5
 // Service runs the operations use cases.
 type Service struct {
 	settings      SettingsStore
+	flags         FlagsStore
 	jobs          JobsManager
 	audit         AuditLog
 	releases      ReleaseLog
@@ -63,7 +66,7 @@ type Service struct {
 // NewService returns a Service.
 func NewService(d Deps) *Service {
 	return &Service{
-		settings: d.Settings, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail,
+		settings: d.Settings, flags: d.Flags, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail,
 		signInMethods: d.SignInMethods, system: d.System, retention: d.Retention,
 		testEmailLimiter: d.TestEmailLimiter, suppressions: d.Suppressions,
 	}

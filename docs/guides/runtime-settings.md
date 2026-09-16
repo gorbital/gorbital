@@ -146,5 +146,5 @@ settings.Duration(reg, "orgs.invitation_ttl", 7*24*time.Hour,
 
 ## Limitations
 
-- No feature flags or percentage rollouts (v1.1).
+- Settings apply to everyone, or per organisation; to turn a feature on for some users or a percentage of them, use a [feature flag](feature-flags.md) (ADR-0057).
 - A setting cannot be locked from the environment.

@@ -20,6 +20,9 @@ These are the codes of a Full app as generated, including the example `projects`
 | `cross_origin_request_denied` | 403 | A cookie-authenticated, state-changing request came from an origin that isn't allowed (cross-site request forgery protection). | Any endpoint |
 | `email_not_verified` | 403 | The account's email address must be verified first: to sign in, or to create organisations and send invitations. | `/v1/auth`; `/v1/orgs`, `/v1/invitations` |
 | `error` | any other 4xx | Any other 4xx status without its own code. | Any endpoint |
+| `flag_not_found` | 404 | No feature flag has this key. | `/ops` |
+| `flag_reason_required` | 422 | A reason is required to change a feature flag. | `/ops` |
+| `flag_version_conflict` | 409 | The feature flag changed since it was read; read it again. | `/ops` |
 | `forbidden` | 403 | The caller is signed in but lacks the permission: a platform role for `/ops`, or an organisation role for org-scoped endpoints. | Any endpoint |
 | `idempotency_in_progress` | 409 | A request with this idempotency key is still in progress; retry later. | Any endpoint |
 | `idempotency_key_reused` | 422 | This idempotency key was used for a different request; use a new key for a new request. | Any endpoint |
@@ -34,6 +37,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `invalid_credentials` | 401 | The email address or password is wrong. | `/v1/auth` |
 | `invalid_cursor` | 400 | The cursor is not valid. | List endpoints |
 | `invalid_email` | 422 | The email address is not valid. | `/v1/auth` |
+| `invalid_flag_state` | 422 | The state is not valid for a feature flag. | `/ops` |
 | `invalid_idempotency_key` | 400 | Send one Idempotency-Key header of 1 to 255 visible ASCII characters. | Any endpoint |
 | `invalid_job_config` | 422 | The job configuration is outside the allowed bounds, such as a schedule more often than once a minute or a timeout that isn't a duration. | `/ops` |
 | `invalid_job_state` | 422 | State must be one of available, cancelled, completed, discarded, pending, retryable, running, scheduled. | `/ops` |
@@ -103,7 +107,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `too_many_attempts` | 429 | Too many sign-in, code, second-factor or re-authentication attempts within the window; the detail says when to try again. | Any endpoint |
 | `too_many_invitations` | 429 | Too many invitations were sent from this organisation, or by you, in the last hour; try again later. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `too_many_orgs` | 409 | You own as many organisations as allowed; delete one, or hand one over, first. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
-| `unauthenticated` | 401 | The endpoint needs a signed-in session (cookie or bearer token). | `/v1/auth`; `/ops`; `/v1/orgs`, `/v1/invitations` |
+| `unauthenticated` | 401 | The endpoint needs a signed-in session (cookie or bearer token). | `/v1/auth`; `/v1/flags`; `/ops`; `/v1/orgs`, `/v1/invitations` |
 | `unauthorized` | 401 | Authentication failed, when no more specific code applies. | Any endpoint |
 | `unavailable` | 503 | The service or a dependency is temporarily unavailable. | Any endpoint |
 | `unknown_role` | 422 | The role isn't one of the organisation roles. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |

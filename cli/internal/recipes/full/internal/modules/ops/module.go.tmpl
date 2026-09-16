@@ -24,6 +24,7 @@ func New(deps opsusecase.Deps) *Module {
 // Register adds the module's HTTP operations to api.
 func (m *Module) Register(api huma.API) {
 	opsdelivery.RegisterSettings(api, m.svc)
+	opsdelivery.RegisterFlags(api, m.svc)
 	opsdelivery.RegisterJobs(api, m.svc)
 	opsdelivery.RegisterAudit(api, m.svc)
 	opsdelivery.RegisterReleases(api, m.svc)

@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"gorbital.dev/httpx"
+	"gorbital.dev/modules/flags"
 	"gorbital.dev/modules/jobs"
 	"gorbital.dev/modules/settings"
 )
@@ -44,12 +45,14 @@ type surface struct {
 	Settings []string `json:"settings"`
 	// Jobs are the job definition names and the job kinds the app handles.
 	Jobs []string `json:"jobs"`
+	// Flags are the feature flag keys (ADR-0057).
+	Flags []string `json:"flags"`
 }
 
 // TestPublicSurface fails when a public name recorded in api/surface.json
 // disappears (a breaking change for clients and operators) or when a new one
-// isn't recorded yet. After adding endpoints, jobs, settings or permissions,
-// record them with
+// isn't recorded yet. After adding endpoints, jobs, settings, feature flags
+// or permissions, record them with
 //
 //	go test ./internal/app -run TestPublicSurface -update
 //
@@ -86,6 +89,7 @@ func TestPublicSurface(t *testing.T) {
 		{"audit action", want.AuditActions, got.AuditActions},
 		{"setting", want.Settings, got.Settings},
 		{"job", want.Jobs, got.Jobs},
+		{"feature flag", want.Flags, got.Flags},
 	} {
 		compareNames(t, d.name, d.want, d.got)
 	}
@@ -144,6 +148,10 @@ func currentSurface(t *testing.T) surface {
 	reg := settings.NewRegistry()
 	declareSettings(reg)
 	s.Settings = slices.Sorted(slices.Values(reg.Keys()))
+
+	flagReg := flags.NewRegistry()
+	declareFlags(flagReg)
+	s.Flags = slices.Sorted(slices.Values(flagReg.Keys()))
 
 	defs := jobs.NewDefinitions()
 	defineJobs(defs, jobDeps{})
