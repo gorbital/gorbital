@@ -26,9 +26,10 @@
 //	console, _ := devconsole.New(token, devconsole.WithLogs(logs), devconsole.WithSources(sources))
 //	handler = console.Mount(handler, logger)
 //
-// Stability: experimental. The console's response shapes are described by
-// the OpenAPI document served at /_dev/openapi.json ([OpenAPI]); fields may
-// be added.
+// Stability: stable (ADR-0015, ADR-0065). The Go API follows the stability
+// promise; the development-only /_dev responses are described by the OpenAPI
+// document served at /_dev/openapi.json ([OpenAPI]) and aren't API: fields may
+// be added or change between releases.
 package devconsole
 
 import (

@@ -1,6 +1,6 @@
 # ADR-0029: Threat model: framework, CLI and ecosystem
 
-**Status:** Accepted (2026-09-14) · **Amended by:** ADR-0036 (audit metadata controls), ADR-0053 (internal security review: corrected rows, new rows 33 to 39, review status)
+**Status:** Accepted (2026-09-14) · **Amended by:** ADR-0036 (audit metadata controls), ADR-0053 (internal security review: corrected rows, new rows 33 to 39, review status), ADR-0056 to ADR-0065 (v1.1 features: rows 40 to 49 and status)
 
 ## Context
 

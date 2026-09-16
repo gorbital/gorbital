@@ -52,7 +52,7 @@ Constraints: a web page the developer visits must not read or drive the console 
 |---|---|
 | All in app code | Rejected: the Host, peer and token checks, bounded buffers and streams are security-sensitive and the same in every app; fixes should arrive with `go get` (ADR-0040's argument) |
 | Core `httpx` helpers | Rejected: a development tool with response shapes that will change with the UI shouldn't join the stable core API |
-| **New `modules/devconsole` (stdlib, core and the OpenTelemetry trace API only), `Stability: experimental`; one additive `telemetry.WithLogTee` option; apps provide sources** | **Chosen**: Minimal apps use it without PostgreSQL; modules don't import each other (apps adapt `observability.Request`) |
+| **New `modules/devconsole` (stdlib, core and the OpenTelemetry trace API only), `Stability: stable` Go API (ADR-0015 keeps experimental for `gorbital.dev/x`), with the `/_dev` response shapes not API; one additive `telemetry.WithLogTee` option; apps provide sources** | **Chosen**: Minimal apps use it without PostgreSQL; modules don't import each other (apps adapt `observability.Request`) |
 
 ### Requests
 

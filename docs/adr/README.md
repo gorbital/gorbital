@@ -38,7 +38,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038, 0051, 0064 |
 | [0027](0027-api-contract-and-docs.md) | API contract and documentation | Accepted, amended by 0049, 0051, 0053 |
 | [0028](0028-local-development-environment.md) | Local development environment | Accepted, amended by 0042, 0065 |
-| [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted, amended by 0036, 0038, 0053 |
+| [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted, amended by 0036, 0038, 0053, 0056, 0057, 0058, 0059, 0060, 0061, 0062, 0063, 0064, 0065 |
 | [0030](0030-context-and-correlation.md) | Context and correlation propagation | Accepted, amended by 0053 |
 | [0031](0031-runtime-settings.md) | Runtime settings | Accepted, amended by 0056 |
 | [0032](0032-repository-sql.md) | Hand-written SQL in repositories | Accepted |
