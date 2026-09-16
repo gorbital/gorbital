@@ -286,6 +286,9 @@ type ResourceOptions struct {
 	// Scope is who the records belong to: ScopeUser (the default) or
 	// ScopeOrg, for multi-tenant apps (ADR-0048).
 	Scope string
+	// RLS adds the row-level security policy to an organisation resource's
+	// migration, for apps that ran orb add rls (ADR-0061).
+	RLS bool
 }
 
 // Resource scopes of orb gen resource --scope.
@@ -310,7 +313,10 @@ type ResourceData struct {
 	Migration   string // 20260915000002
 	// Org reports records that belong to an organisation (--scope org)
 	// instead of a user.
-	Org    bool
+	Org bool
+	// RLS reports an organisation resource whose migration forces
+	// row-level security with the organisation policy (ADR-0061).
+	RLS    bool
 	Fields []Field
 }
 
@@ -341,6 +347,7 @@ func NewResourceData(module, name string, fields []Field, o ResourceOptions) (Re
 		IDPrefix:    o.IDPrefix,
 		Migration:   o.Migration,
 		Org:         o.Scope == ScopeOrg,
+		RLS:         o.RLS && o.Scope == ScopeOrg,
 		Fields:      fields,
 	}
 	if o.Scope != "" && o.Scope != ScopeUser && o.Scope != ScopeOrg {

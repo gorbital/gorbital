@@ -32,6 +32,16 @@ CREATE INDEX ⟦.Table⟧_org_updated ON ⟦.Table⟧ (org_id, updated_at, id);
 ⟦- range .Strings⟧
 CREATE INDEX ⟦$.Table⟧_org_⟦.Name⟧_sort ON ⟦$.Table⟧ (org_id, (lower(⟦.Name⟧) COLLATE "C"), id);
 ⟦- end⟧
+⟦- if .RLS⟧
+
+-- Row-level security (ADR-0061, orb add rls): a database connection sees and
+-- writes only the ⟦.PluralHuman⟧ of the organisation it carries.
+ALTER TABLE ⟦.Table⟧ ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ⟦.Table⟧ FORCE ROW LEVEL SECURITY;
+CREATE POLICY org_isolation ON ⟦.Table⟧
+    USING (org_id = current_setting('gorbital.org_id', true) OR current_setting('gorbital.rls_bypass', true) = 'on')
+    WITH CHECK (org_id = current_setting('gorbital.org_id', true) OR current_setting('gorbital.rls_bypass', true) = 'on');
+⟦- end⟧
 ⟦else -⟧
 -- ⟦.PluralTitle⟧ (ADR-0039): each ⟦.Human⟧ belongs to one user. Change this
 -- migration freely until it is released; afterwards, add a new one.

@@ -167,7 +167,7 @@ func assertLockRebuilds(t *testing.T, dir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, err := recipes.Embedded().Tree(l.Inputs.Preset, l.Inputs.Tenancy, l.Inputs.Mail,
+	tree, err := inputsTree(recipes.Embedded(), l.Inputs, l.Inputs.Mail,
 		recipes.Data{Name: l.Inputs.Name, Module: l.Inputs.Module, LibraryVersion: recipes.LibraryVersion})
 	if err != nil {
 		t.Fatal(err)

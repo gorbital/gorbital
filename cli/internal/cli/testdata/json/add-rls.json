@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "name": "shop-api",
+  "already_on": false,
+  "migration": "db/migrations/{timestamp}_row_level_security.sql",
+  "files": [
+    "db/migrations/{timestamp}_row_level_security.sql",
+    "gorbital.yaml"
+  ],
+  "dry_run": true
+}

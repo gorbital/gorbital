@@ -67,7 +67,7 @@ const doctorUsage = `Usage: orb doctor [flags]
 Checks the app in the current directory and prints what to fix: the Go
 toolchain, git, Docker and the Go orb was built with; gorbital.lock and the library version; the lines
 generators insert at; .env; whether api/ matches the code; and the
-database's migrations. It changes nothing (ADR-0051).
+database's migrations and row-level security. It changes nothing (ADR-0051).
 `
 
 func runDoctor(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -359,6 +359,8 @@ func (d *doctor) database(ctx context.Context, env []string) {
 		Current       int64  `json:"current"`
 		Latest        int64  `json:"latest"`
 		Pending       int    `json:"pending"`
+		// Problems with row-level security, from apps since ADR-0061.
+		RowLevelSecurity []string `json:"row_level_security"`
 	}
 	if jsonErr := json.Unmarshal([]byte(out), &s); err != nil || jsonErr != nil {
 		d.add(doctorWarn, "database", "couldn't read the migration status: "+firstLine(cmp.Or(errOut, errString(err), errString(jsonErr))), "check that the app builds; apps from before v0.5 get migrate --status with orb upgrade")
@@ -375,6 +377,9 @@ func (d *doctor) database(ctx context.Context, env []string) {
 		d.add(doctorWarn, "database", strconv.Itoa(s.Pending)+" migrations pending", "go run ./cmd/migrate (orb dev runs them)")
 	default:
 		d.add(doctorOK, "database", fmt.Sprintf("at migration %d, none pending", s.Current), "")
+	}
+	for _, problem := range s.RowLevelSecurity {
+		d.add(doctorWarn, "row-level security", firstLine(problem), "see docs/guides/row-level-security.md")
 	}
 }
 

@@ -26,6 +26,9 @@ type MigrationStatus struct {
 	Current int64 `json:"current"`
 	Latest  int64 `json:"latest"`
 	Pending int   `json:"pending"`
+	// RowLevelSecurity lists problems that keep row-level security from
+	// protecting organisation data, when it is on (ADR-0061).
+	RowLevelSecurity []string `json:"row_level_security,omitempty"`
 }
 
 // statusTimeout bounds connecting to the database and reading its state.
@@ -47,6 +50,9 @@ func WriteMigrationStatus(ctx context.Context, cfg Config, cfgErr error, asJSON 
 		return errors.New(s.DatabaseError)
 	}
 	fmt.Fprintf(w, "migrations: database at %d, newest file %d, %d pending\n", s.Current, s.Latest, s.Pending)
+	for _, warning := range s.RowLevelSecurity {
+		fmt.Fprintf(w, "warning: %s\n", warning)
+	}
 	return nil
 }
 
@@ -68,5 +74,9 @@ func migrationStatus(ctx context.Context, cfg Config, cfgErr error) MigrationSta
 	if err != nil {
 		return MigrationStatus{DatabaseError: "read the migration state: " + err.Error()}
 	}
-	return MigrationStatus{Current: state.Current, Latest: state.Latest, Pending: state.Pending}
+	warnings, err := rowLevelSecurityWarnings(ctx, pool)
+	if err != nil {
+		return MigrationStatus{DatabaseError: "read row-level security: " + err.Error()}
+	}
+	return MigrationStatus{Current: state.Current, Latest: state.Latest, Pending: state.Pending, RowLevelSecurity: warnings}
 }

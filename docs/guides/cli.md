@@ -236,7 +236,7 @@ What it creates for `Project`:
 | `internal/modules/projects/module.go` | Wires the layers |
 | `internal/app/module_projects.go` | Builds the module and maps its error codes |
 | `internal/app/projects_test.go` | An end-to-end HTTP test, including another user's requests getting 404 |
-| `db/migrations/<version>_projects.sql` | The table, a unique index per unique field and one index per sort |
+| `db/migrations/<version>_projects.sql` | The table, a unique index per unique field and one index per sort; with `--scope org` in an app that ran `orb add rls`, forced row-level security and the `org_isolation` policy |
 | `internal/app/modules.go` | One `registerProjects(api, mapper, svc),` line after `//orb:anchor modules` |
 | `internal/app/permissions.go` | One `projectsPermissions,` line after `//orb:anchor org-permissions` (`--scope org`) or `//orb:anchor user-permissions` (`--scope user`) |
 
@@ -333,6 +333,26 @@ Resources you generated with `orb gen resource` stay owned by users and keep wor
 
 Other flags: `--json`, `--skip-tidy`, `--skip-build`. Safety checks: the app must be in git with no uncommitted changes, and on this release (run `orb upgrade` first). An app that already has organisations is left alone.
 
+## `orb add rls`
+
+Turns on row-level security in a multi-tenant app: a fifth isolation layer, in PostgreSQL, under the four organisations already have ([ADR-0061](../adr/0061-row-level-security.md), [guide](row-level-security.md)).
+
+```bash
+orb add rls --dry-run      # the files it would write
+orb add rls                # write them in the working tree
+go run ./cmd/migrate
+```
+
+| File | Change |
+|---|---|
+| `db/migrations/<version>_row_level_security.sql` | A copy of `db/row_level_security.sql`: forces row-level security, with the `org_isolation` policy, on every table with `org_id NOT NULL` except `org_members` and `org_invitations` |
+| `gorbital.yaml` | `rls: true`, so `orb gen resource --scope org` adds the policy to new resources' migrations |
+| `gorbital.lock` | `inputs.rls` and the new hash of `gorbital.yaml`, so `orb upgrade` keeps the line |
+
+The app already sets the organisation on every database connection, so no code changes. It prints next steps: connect as a role that isn't a superuser and has no `BYPASSRLS` (PostgreSQL applies no policy to those), migrate, run `orb doctor` and the tests, and commit.
+
+Other flags: `--json`. Safety checks: the app must be multi-tenant (run `orb add orgs` first), on this release (run `orb upgrade` first), and in git with no uncommitted changes. Running it again changes nothing.
+
 ## `orb upgrade`
 
 Brings the files `orb` wrote into your app up to this release, on a branch, without losing your edits ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)).
@@ -413,6 +433,7 @@ orb doctor · shop-api (full, single tenancy)
 | `.env` (Full preset) | It holds secrets and git doesn't ignore it | It's missing, git doesn't ignore it, or it lacks variables `.env.example` has |
 | `api files` | | `api/openapi.json`, `postman_collection.json` or `llms.txt` doesn't match the code |
 | `configuration`, `database` (Full preset) | The app's configuration doesn't load; the database ran migrations the code doesn't have | The database is unreachable, or migrations are pending |
+| `row-level security` (Full preset) | | Row-level security is on and the database role is a superuser or has `BYPASSRLS`, a table's row-level security isn't forced, or an organisation table has no policy ([row-level security](row-level-security.md)) |
 
 Values from `.env` are never printed. The database checks run the app's own `go run ./cmd/migrate --status --json`, so `orb` needs no database driver and reads the app's migration files. Exit code 1 when any check fails.
 
@@ -462,9 +483,10 @@ The port check listens on `127.0.0.1` only. On macOS, a program listening on all
 |---|---|
 | `orb new` | `name`, `module`, `dir`, `preset`, `tenancy`, `files` (count) |
 | `orb gen job` | `name`, `definition`, `files`, `dry_run` |
-| `orb gen resource` | `name`, `module`, `route`, `table`, `scope`, `files`, `dry_run` |
+| `orb gen resource` | `name`, `module`, `route`, `table`, `scope`, `files`, `dry_run`, `row_level_security` (when the migration has the policy) |
 | `orb gen migration` | `name`, `version`, `file`, `dry_run` |
 | `orb add mail` | `provider`, `already_configured`, `files`, `env_variables`, `modules`, `dry_run` |
+| `orb add rls` | `name`, `already_on`, `migration`, `files`, `dry_run` |
 | `orb add orgs`, `orb upgrade` | `name`, `from`, `to`, `up_to_date`, `branch`, `changes` (`path`, `action`, `note`), `conflicts`, `unproven`, `committed`, `dry_run`, `user_scoped_modules` (`orb add orgs`) |
 | `orb doctor` | `app`, `preset`, `tenancy`, `checks` (`name`, `status`, `detail`, `fix`), `failures`, `warnings` |
 | `orb version` | `version`, `recipe`, `library` |

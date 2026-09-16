@@ -44,6 +44,9 @@ type genResourceResult struct {
 	Scope  string   `json:"scope"`
 	Files  []string `json:"files"`
 	DryRun bool     `json:"dry_run"`
+	// RowLevelSecurity reports a migration with the row-level security
+	// policy, in apps that ran orb add rls (ADR-0061).
+	RowLevelSecurity bool `json:"row_level_security,omitempty"`
 }
 
 // resourceRoute is the collection path of a generated resource.
@@ -67,6 +70,21 @@ func appTenancy(dir string) string {
 		}
 	}
 	return recipes.TenancySingle
+}
+
+// appRowLevelSecurity reports whether the app's gorbital.yaml records orb
+// add rls (ADR-0061).
+func appRowLevelSecurity(dir string) bool {
+	data, err := os.ReadFile(filepath.Join(dir, "gorbital.yaml"))
+	if err != nil {
+		return false
+	}
+	for line := range strings.Lines(string(data)) {
+		if v, ok := strings.CutPrefix(line, recipes.RowLevelSecurityKey+":"); ok && strings.TrimSpace(v) == "true" {
+			return true
+		}
+	}
+	return false
 }
 
 func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
@@ -146,7 +164,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	if err != nil {
 		return err
 	}
-	data, err := recipes.NewResourceData(app.module, name, fields, recipes.ResourceOptions{Plural: *plural, IDPrefix: *idPrefix, Migration: version, Scope: *scope})
+	data, err := recipes.NewResourceData(app.module, name, fields, recipes.ResourceOptions{Plural: *plural, IDPrefix: *idPrefix, Migration: version, Scope: *scope, RLS: appRowLevelSecurity(app.dir)})
 	if err != nil {
 		return usageError(err.Error())
 	}
@@ -194,7 +212,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	if _, err := root.Stat(filepath.FromSlash(moduleDir)); err == nil {
 		return fmt.Errorf("%s already exists; choose another name or --plural", moduleDir)
 	}
-	result := genResourceResult{Name: data.Ident, Module: data.Package, Route: resourceRoute(data), Table: data.Table, Scope: *scope, DryRun: *dryRun}
+	result := genResourceResult{Name: data.Ident, Module: data.Package, Route: resourceRoute(data), Table: data.Table, Scope: *scope, DryRun: *dryRun, RowLevelSecurity: data.RLS}
 	for _, f := range files {
 		if _, err := root.Stat(filepath.FromSlash(f.Path)); err == nil {
 			return fmt.Errorf("%s already exists; choose another name or --plural", f.Path)
@@ -249,6 +267,9 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 		fmt.Fprintf(stdout, "\nNext:\n  1. go run ./cmd/migrate\n  2. go run ./cmd/api openapi --dir api\n  3. go test ./internal/app -run TestPublicSurface -update (records the new error codes, audit actions and permissions)\n  4. go test ./...\n  5. go run ./cmd/api, sign in, then POST %s\n\n"+
 			"The code is yours: change the rules in internal/modules/%s/domain and the SQL in internal/modules/%s/repository.\n",
 			resourceRoute(data), data.Package, data.Package)
+		if data.RLS {
+			fmt.Fprintf(stdout, "The migration forces row-level security on %s with the organisation policy (orb add rls).\n", data.Table)
+		}
 		if data.Org {
 			fmt.Fprintf(stdout, "Every organisation role gets %s.%s.read and .write; change that in declareOrgPermissions in internal/app/permissions.go.\n", data.Package, data.Snake)
 		} else {

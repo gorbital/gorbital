@@ -29,6 +29,9 @@ func (t *tracer) TraceQueryStart(ctx context.Context, conn *pgx.Conn, data pgx.T
 		attribute.String("db.system.name", "postgresql"),
 		attribute.String("db.query.text", data.SQL),
 	}
+	if reason, ok := bypassReason(ctx); ok {
+		attrs = append(attrs, attribute.String("gorbital.rls_bypass", reason))
+	}
 	if conn != nil {
 		if db := conn.Config().Database; db != "" {
 			attrs = append(attrs, attribute.String("db.namespace", db))

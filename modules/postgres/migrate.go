@@ -17,9 +17,12 @@ import (
 // order. It returns nil when fsys has no migrations or none are pending.
 //
 // A PostgreSQL advisory lock serialises concurrent callers, so several
-// instances can run Migrate at once. Apps run migrations from a separate
+// instances can run Migrate at once. Migrations run
+// [WithoutRowLevelSecurity], so a data migration reaches every
+// organisation's rows (ADR-0061). Apps run migrations from a separate
 // command, never implicitly at startup (ADR-0017).
 func Migrate(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) ([]int64, error) {
+	ctx = WithoutRowLevelSecurity(ctx, "migrate")
 	var applied []int64
 	err := withProvider(pool, fsys, func(p *goose.Provider) error {
 		results, err := p.Up(ctx)

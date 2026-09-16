@@ -56,6 +56,10 @@ func TestJSONOutputs(t *testing.T) {
 			newGitApp(t, "--preset", "full")
 			return runOrb(t, "add", "orgs", "--dry-run", "--skip-tidy", "--json")
 		}},
+		{"add-rls", func(t *testing.T) (int, string, string) {
+			newGitApp(t, "--preset", "full", "--tenancy", "multi")
+			return runOrb(t, "add", "rls", "--dry-run", "--json")
+		}},
 		{"upgrade", func(t *testing.T) (int, string, string) {
 			appFromRelease(t, olderRelease(t), "v0.5.0")
 			useRelease(t, recipes.Embedded())

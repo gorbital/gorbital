@@ -103,6 +103,15 @@ One mistake in one layer shouldn't leak data. Each layer is checked by a test in
 | Database | `org_id NOT NULL` with a cascading foreign key, and `UNIQUE (org_id, id)` for references between org-scoped tables. | `TestPurgingAnOrganisationDeletesItsProjects` |
 | Tests | A member of another organisation gets 404 on read, update, delete and list. | `TestOrganisationsCantReachEachOthersProjects` |
 
+### A fifth layer: row-level security
+
+Every database connection already carries the organisation `orgs.RequireMember` checked. Run `orb add rls` and PostgreSQL enforces it too: a query that forgets `org_id` sees only that organisation's rows, and a write can't reach another organisation. It adds one migration and changes no code. The app's database role must not be a superuser or have `BYPASSRLS`. See [Row-level security](../guides/row-level-security.md).
+
+```bash
+orb add rls
+go run ./cmd/migrate
+```
+
 ## Deleting organisations and accounts
 
 - Creating an organisation needs a verified email address, and a user owns at most `orgs.max_owned` organisations besides their personal workspace (409 `too_many_orgs`). Deleted organisations don't count until they are restored.

@@ -1,0 +1,294 @@
+package app_test
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+
+	"gorbital.dev/actor"
+	"gorbital.dev/config"
+	"gorbital.dev/modules/postgres"
+	"gorbital.dev/modules/postgres/pgtest"
+
+	"example.com/acme-api/internal/app"
+)
+
+// appRole is the database role test apps run as: not a superuser and
+// without BYPASSRLS, as the app's role must be in production, so row-level
+// security policies apply to the tests once orb add rls has added them
+// (ADR-0061). Roles belong to the whole server, so every test shares it.
+const appRole = "gorbital_app_test"
+
+// asAppRole creates appRole when the server has none, grants it the
+// migrated database at dbURL, and returns dbURL connecting as appRole. The
+// test server's user must be able to create roles, as Docker PostgreSQL's
+// superuser can. With GORBITAL_TEST_RLS=1 it first turns row-level security
+// on, so the whole suite runs as it would after orb add rls:
+//
+//	GORBITAL_TEST_RLS=1 go test ./internal/app
+func asAppRole(t *testing.T, dbURL string) string {
+	t.Helper()
+	ctx := context.Background()
+	if os.Getenv("GORBITAL_TEST_RLS") == "1" {
+		enableRowLevelSecurity(t, dbURL)
+	}
+	conn, err := pgx.Connect(ctx, dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(ctx)
+	role := pgx.Identifier{appRole}.Sanitize()
+	err = pgx.BeginFunc(ctx, conn, func(tx pgx.Tx) error {
+		// Test binaries run in parallel; the lock lets one create the role.
+		if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended('gorbital_app_test.role', 0))"); err != nil {
+			return err
+		}
+		var exists bool
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)", appRole).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			if _, err := tx.Exec(ctx, "CREATE ROLE "+role+" NOLOGIN NOSUPERUSER NOBYPASSRLS"); err != nil {
+				return err
+			}
+		}
+		_, err := tx.Exec(ctx, `
+			GRANT USAGE ON SCHEMA public TO `+role+`;
+			GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO `+role+`;
+			GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO `+role)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("set up database role %s: %v", appRole, err)
+	}
+	u, err := url.Parse(dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := u.Query()
+	q.Set("options", "-c role="+appRole)
+	u.RawQuery = strings.ReplaceAll(q.Encode(), "+", "%20") // pgx doesn't read + as a space
+	return u.String()
+}
+
+// enableRowLevelSecurity runs db/row_level_security.sql on the database at
+// dbURL, as the migration orb add rls writes does.
+func enableRowLevelSecurity(t *testing.T, dbURL string) {
+	t.Helper()
+	sql, err := os.ReadFile(filepath.Join("..", "..", "db", "row_level_security.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	up := string(sql)
+	if _, after, ok := strings.Cut(up, "-- +goose StatementBegin"); ok {
+		up, _, _ = strings.Cut(after, "-- +goose StatementEnd")
+	}
+	conn, err := pgx.Connect(context.Background(), dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(context.Background())
+	if _, err := conn.Exec(context.Background(), up); err != nil {
+		t.Fatalf("db/row_level_security.sql: %v", err)
+	}
+}
+
+// TestRowLevelSecurity turns row-level security on under a running app and
+// checks that requests, jobs, commands, seed data and migrations still work,
+// and that a query missing its org_id filter sees only the organisation its
+// connection carries.
+func TestRowLevelSecurity(t *testing.T) {
+	a, dbURL := newAppWithURL(t, nil)
+	enableRowLevelSecurity(t, dbURL)
+	roleURL := asAppRole(t, dbURL)
+	h := a.Handler()
+	ctx := context.Background()
+	admin, err := pgx.Connect(ctx, dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer admin.Close(ctx)
+
+	ada, _ := signIn(t, a, "ada@example.com", "")
+	bob, _ := signIn(t, a, "bob@example.com", "")
+	adaOrg, bobOrg := personalWorkspace(t, h, ada), personalWorkspace(t, h, bob)
+
+	// Requests after RequireMember carry their organisation: every
+	// operation works, including writes the policy checks.
+	var adaProject string
+	for _, name := range []string{"Apollo", "Gemini"} {
+		r := do(t, h, "POST", "/v1/orgs/"+adaOrg+"/projects", `{"name":"`+name+`","description":"Example description"}`, ada...)
+		if r.code != http.StatusCreated {
+			t.Fatalf("create %s = %d %s", name, r.code, r.body)
+		}
+		adaProject, _ = r.json["id"].(string)
+	}
+	if r := do(t, h, "POST", "/v1/orgs/"+bobOrg+"/projects", `{"name":"Apollo","description":"Example description"}`, bob...); r.code != http.StatusCreated {
+		t.Fatalf("create in bob's workspace = %d %s", r.code, r.body)
+	}
+	item := "/v1/orgs/" + adaOrg + "/projects/" + adaProject
+	if r := do(t, h, "GET", "/v1/orgs/"+adaOrg+"/projects", "", ada...); r.code != http.StatusOK || len(r.json["items"].([]any)) != 2 {
+		t.Errorf("list = %d %s, want ada's 2 projects", r.code, r.body)
+	}
+	if r := do(t, h, "PATCH", item, `{"version":1,"name":"Gemini 2"}`, ada...); r.code != http.StatusOK {
+		t.Errorf("update = %d %s", r.code, r.body)
+	}
+	if r := do(t, h, "GET", item, "", bob...); r.code != http.StatusNotFound {
+		t.Errorf("another organisation's member reads = %d %s, want 404", r.code, r.body)
+	}
+	if r := do(t, h, "DELETE", item, "", ada...); r.code != http.StatusNoContent {
+		t.Errorf("delete = %d %s", r.code, r.body)
+	}
+
+	// A query that forgets its org_id filter, run as the app's role, sees
+	// only the organisation of its context; writes to another organisation
+	// are refused.
+	pool, err := postgres.Open(ctx, config.NewSecret(roleURL), postgres.WithMaxConns(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	in := func(org string) context.Context {
+		return actor.With(ctx, actor.Actor{Kind: actor.KindUser, ID: "usr_test", OrgID: org})
+	}
+	for _, c := range []struct {
+		name string
+		ctx  context.Context
+		want int
+	}{
+		{"ada's organisation", in(adaOrg), 1},
+		{"bob's organisation", in(bobOrg), 1},
+		{"no organisation", ctx, 0},
+		{"a system path that bypasses row-level security", postgres.WithoutRowLevelSecurity(ctx, "test"), 2},
+	} {
+		var n int
+		if err := pool.QueryRow(c.ctx, "SELECT count(*) FROM projects").Scan(&n); err != nil || n != c.want {
+			t.Errorf("%s: projects without an org_id filter = %d, %v; want %d", c.name, n, err, c.want)
+		}
+	}
+	_, err = pool.Exec(in(adaOrg), `INSERT INTO projects (id, org_id, created_by, name, created_at, updated_at) VALUES ('prj_forged', $1, 'usr_test', 'Forged', now(), now())`, bobOrg)
+	if pgErr := (*pgconn.PgError)(nil); !errors.As(err, &pgErr) || pgErr.Code != "42501" {
+		t.Errorf("insert into another organisation = %v, want a row-level security violation", err)
+	}
+
+	// Seed data goes into the administrator's workspace through the use
+	// cases, as the app's role.
+	roleCfg := testConfig(t, map[string]string{"DATABASE_URL": roleURL})
+	if err := app.Seed(ctx, roleCfg, app.DefaultSeedEmail, io.Discard); err != nil {
+		t.Errorf("Seed() as the app's role = %v", err)
+	}
+	var seeded int
+	if err := admin.QueryRow(ctx, "SELECT count(*) FROM projects p JOIN orgs o ON o.id = p.org_id JOIN auth_users u ON u.id = o.created_by WHERE u.email = $1", app.DefaultSeedEmail).Scan(&seeded); err != nil || seeded != 3 {
+		t.Errorf("seeded projects = %d, %v; want 3", seeded, err)
+	}
+	if err := app.Migrate(ctx, roleCfg, io.Discard); err != nil {
+		t.Errorf("Migrate() as the app's role = %v", err)
+	}
+
+	// The purge job removes an organisation's rows through its foreign
+	// keys, without a bypass; the account cleanup job still runs.
+	if r := do(t, h, "POST", "/v1/orgs", `{"name":"Short-lived"}`, bob...); r.code != http.StatusCreated {
+		t.Fatalf("create an organisation = %d %s", r.code, r.body)
+	} else {
+		team, _ := r.json["id"].(string)
+		if r := do(t, h, "POST", "/v1/orgs/"+team+"/projects", `{"name":"Doomed","description":"Example description"}`, bob...); r.code != http.StatusCreated {
+			t.Fatalf("create a project = %d %s", r.code, r.body)
+		}
+		if r := do(t, h, "DELETE", "/v1/orgs/"+team, "", bob...); r.code != http.StatusNoContent {
+			t.Fatalf("delete the organisation = %d %s", r.code, r.body)
+		}
+		if _, err := admin.Exec(ctx, "UPDATE orgs SET purge_after = now() - interval '1 minute' WHERE id = $1", team); err != nil {
+			t.Fatal(err)
+		}
+		system := actor.With(ctx, actor.System("orgs_purge"))
+		if n, err := a.Orgs().Purge(system); err != nil || n != 1 {
+			t.Errorf("Purge() = %d, %v; want 1", n, err)
+		}
+		var left int
+		if err := admin.QueryRow(ctx, "SELECT count(*) FROM projects WHERE org_id = $1", team).Scan(&left); err != nil || left != 0 {
+			t.Errorf("purged organisation's projects = %d, %v; want 0", left, err)
+		}
+		if _, err := a.Auth().Cleanup(system); err != nil {
+			t.Errorf("auth cleanup = %v", err)
+		}
+	}
+
+	// Startup and orb doctor report a role that bypasses the policies.
+	status := func(dbURL string) app.MigrationStatus {
+		t.Helper()
+		var out bytes.Buffer
+		if err := app.WriteMigrationStatus(ctx, testConfig(t, map[string]string{"DATABASE_URL": dbURL}), nil, true, &out); err != nil {
+			t.Fatal(err)
+		}
+		var s app.MigrationStatus
+		if err := json.Unmarshal(out.Bytes(), &s); err != nil {
+			t.Fatal(err)
+		}
+		return s
+	}
+	if s := status(roleURL); len(s.RowLevelSecurity) != 0 {
+		t.Errorf("status as the app's role reports %q, want nothing", s.RowLevelSecurity)
+	}
+	if s := status(dbURL); len(s.RowLevelSecurity) != 1 || !strings.Contains(s.RowLevelSecurity[0], "superuser or has BYPASSRLS") {
+		t.Errorf("status as a superuser reports %q, want the bypassing role", s.RowLevelSecurity)
+	}
+}
+
+// TestRowLevelSecurityCoversOrganisationTables checks which tables
+// db/row_level_security.sql protects: every table with a NOT NULL org_id
+// except the two it leaves out, forced, and the same when run again.
+func TestRowLevelSecurityCoversOrganisationTables(t *testing.T) {
+	_, dbURL := newAppWithURL(t, nil)
+	ctx := context.Background()
+	for range 2 {
+		enableRowLevelSecurity(t, dbURL)
+	}
+	conn, err := pgx.Connect(ctx, asAppRole(t, dbURL))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(ctx)
+	r, err := postgres.CheckRowLevelSecurity(ctx, conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Bypasses || !slices.Contains(r.Forced, "projects") || len(r.NotForced) != 0 || !slices.Equal(r.Unprotected, []string{"org_invitations", "org_members"}) {
+		t.Errorf("row-level security = %+v; want projects forced and only org_invitations and org_members left out", r)
+	}
+	var policies int
+	if err := conn.QueryRow(ctx, "SELECT count(*) FROM pg_policies WHERE tablename = 'projects'").Scan(&policies); err != nil || policies != 1 {
+		t.Errorf("projects policies = %d, %v; want 1 after running twice", policies, err)
+	}
+	// Without row-level security on, nothing is reported, even as a
+	// superuser. (After orb add rls, the migrations turn it on.)
+	freshURL := pgtest.NewDatabase(t)
+	fresh := testConfig(t, map[string]string{"DATABASE_URL": freshURL})
+	if err := app.Migrate(ctx, fresh, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	freshConn, err := pgx.Connect(ctx, freshURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer freshConn.Close(ctx)
+	if migrated, err := postgres.CheckRowLevelSecurity(ctx, freshConn); err != nil {
+		t.Fatal(err)
+	} else if !migrated.On() {
+		var out bytes.Buffer
+		if err := app.WriteMigrationStatus(ctx, fresh, nil, false, &out); err != nil || strings.Contains(out.String(), "warning") {
+			t.Errorf("status without row-level security = %q, %v", out.String(), err)
+		}
+	}
+}

@@ -125,12 +125,14 @@ func (a *App) build(ctx context.Context) error {
 		postgres.WithApplicationName(ServiceName),
 		postgres.WithTracerProvider(a.tel.TracerProvider()),
 		postgres.WithMeterProvider(a.tel.MeterProvider()),
+		postgres.WithLogger(a.logger), // records row-level security bypasses (ADR-0061)
 	)
 	if err != nil {
 		return err
 	}
 	a.cleanup.Add("postgres", func(context.Context) error { pool.Close(); return nil })
 	a.health.Add(postgres.HealthCheck(pool))
+	warnRowLevelSecurity(ctx, a.logger, pool) // rls.go
 
 	// Audit events from every module go to the audit_events table, listed by
 	// /ops/audit (ADR-0036).

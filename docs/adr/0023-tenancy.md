@@ -1,6 +1,6 @@
 # ADR-0023: Tenancy
 
-**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0013 · **Amended by:** ADR-0033, ADR-0048 (org roles in `org_members`, 404 for non-members, invitation and personal workspace rules, `orb add orgs` moved to v0.5)
+**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0013 · **Amended by:** ADR-0033, ADR-0048 (org roles in `org_members`, 404 for non-members, invitation and personal workspace rules, `orb add orgs` moved to v0.5), ADR-0061 (the optional row-level security layer)
 
 ## Context
 
@@ -55,7 +55,7 @@ Option 3.
 3. **Database:** `UNIQUE (org_id, …)` constraints and composite foreign keys including `org_id`.
 4. **Tests:** generated cross-org denial tests for every org-scoped resource.
 
-Row-level security is an optional additional layer in v1.1. `org_id` is carried in audit events, job metadata and log attributes.
+Row-level security is an optional additional layer in v1.1 ([ADR-0061](0061-row-level-security.md): `orb add rls`). `org_id` is carried in audit events, job metadata and log attributes.
 
 ### Generator
 

@@ -30,6 +30,10 @@ var multiTenantChanges = []string{
 	"internal/app/orgs_service_accounts_test.go", // and their cross-organisation denial tests
 	// Feature flags as the organisation (ADR-0057).
 	"internal/app/org_flags_test.go",
+	// Row-level security (ADR-0061): the policies orb add rls turns into a
+	// migration, and the tests that run the app as a role without bypass.
+	"db/row_level_security.sql",
+	"internal/app/rls_test.go",
 
 	// Wiring that names the orgs module.
 	"go.mod",

@@ -32,7 +32,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0020](0020-constructors-and-configuration.md) | Constructors and configuration | Accepted, amended by 0031, 0053 |
 | [0021](0021-generator-operation-model.md) | Generator operation model | Accepted, amended by 0041, 0050 |
 | [0022](0022-generated-application-layout.md) | Generated application layout | Accepted, amended by 0032 |
-| [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033, 0048 |
+| [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033, 0048, 0061 |
 | [0024](0024-authentication-methods.md) | Authentication methods | Accepted, amended by 0038, 0043, 0044, 0046, 0058, 0059 |
 | [0025](0025-email-providers.md) | Email providers | Accepted, amended by 0033, 0037, 0062 |
 | [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038, 0051, 0064 |
@@ -57,9 +57,9 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0045](0045-sign-in-provider-setup.md) | Sign-in provider setup | Accepted, amended by 0046, 0059 |
 | [0046](0046-google-and-apple-sign-in.md) | Google and Apple sign-in | Accepted, amended by 0053, 0059 |
 | [0047](0047-client-templates.md) | Client templates: docs site, dashboard and mobile apps from separate template repositories | Proposed |
-| [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Accepted, amended by 0050, 0053, 0056, 0058 |
+| [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Accepted, amended by 0050, 0053, 0056, 0058, 0061 |
 | [0049](0049-public-docs-and-website.md) | Public website: landing page, framework docs and API reference in the gorbital look; the Go generator in `site/` was replaced by the gorbital-web Next.js repository on 2026-09-15; generated reference pages and the changelog page added 2026-09-16 | Accepted |
-| [0050](0050-upgrades-and-adding-features.md) | Upgrading apps and adding features to them (v0.5): lock v2, rebuilt merge base, `orb upgrade`, `orb add orgs` | Accepted, amended by 0053 |
+| [0050](0050-upgrades-and-adding-features.md) | Upgrading apps and adding features to them (v0.5): lock v2, rebuilt merge base, `orb upgrade`, `orb add orgs` | Accepted, amended by 0053, 0061 |
 | [0051](0051-operations-v0-5.md) | Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports, `orb doctor` | Accepted, amended by 0053, 0064 |
 | [0052](0052-shared-rate-limits.md) | Shared rate limits and trusted proxies | Accepted, amended by 0053 |
 | [0053](0053-internal-security-review.md) | Internal security review before the external one: six areas, severity scale, every finding fixed with a regression test or accepted in writing; report in `docs/security/` | Accepted |
@@ -70,6 +70,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0058](0058-api-keys-and-service-accounts.md) | API keys and service accounts: `gbk_` keys stored as hashes with expiry, scopes and last use, platform and organisation service accounts, never 2FA-required permissions | Accepted |
 | [0059](0059-github-sign-in.md) | GitHub sign-in: OAuth without OpenID Connect, verified primary email, never authoritative, links bound to the browser and session, `AUTH_DEFAULT_RETURN_TO` | Accepted |
 | [0060](0060-idempotency-keys.md) | Idempotency keys: `modules/idempotency`, stored and replayed POST and PATCH responses per caller | Accepted |
+| [0061](0061-row-level-security.md) | Row-level security option: every connection carries its organisation, `orb add rls` forces policies on organisation tables, audited bypass for system paths | Accepted |
 | [0062](0062-resend-webhooks-and-suppression-list.md) | Resend bounce and complaint webhooks and the email suppression list | Accepted |
 | [0063](0063-prometheus-metrics.md) | Prometheus metrics endpoint: exporter on a separate `METRICS_ADDR` listener, Go runtime and connection pool metrics, route labels through request copies | Accepted |
 | [0064](0064-live-observability-and-incidents.md) | Live observability and incidents: `modules/observability` request minutes shared through PostgreSQL, `/ops/observability` with a live stream, incidents with timelines, automatic detection and reports | Accepted |

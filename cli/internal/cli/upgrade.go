@@ -128,7 +128,7 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
-	theirs, err := recipes.Embedded().Tree(inputs.Preset, inputs.Tenancy, inputs.Mail, d)
+	theirs, err := inputsTree(recipes.Embedded(), inputs, inputs.Mail, d)
 	if err != nil {
 		return err
 	}
@@ -272,6 +272,8 @@ func readManifest(dir string) (lockInputs, error) {
 			in.Tenancy = value
 		case "mail":
 			in.Mail = value
+		case recipes.RowLevelSecurityKey:
+			in.RLS = value == "true"
 		}
 	}
 	if in.Name == "" || in.Module == "" || in.Preset == "" {
@@ -355,7 +357,7 @@ func rebuildBase(release recipes.Release, lock lockFile, in lockInputs, d recipe
 	if lock.APIVersion == lockAPIVersionV1 && in.Mail != "" {
 		proveMail = recipes.MailResend
 	}
-	proof, err := release.Tree(in.Preset, in.Tenancy, proveMail, d)
+	proof, err := inputsTree(release, in, proveMail, d)
 	if err != nil {
 		return nil, nil, fmt.Errorf("rebuild the app as %s wrote it: %w", ref, err)
 	}
@@ -376,8 +378,19 @@ func rebuildBase(release recipes.Release, lock lockFile, in lockInputs, d recipe
 	if proveMail == in.Mail {
 		return proof, unproven, nil
 	}
-	base, err := release.Tree(in.Preset, in.Tenancy, in.Mail, d)
+	base, err := inputsTree(release, in, in.Mail, d)
 	return base, unproven, err
+}
+
+// inputsTree renders what orb writes into an app with inputs in, sending
+// email with mail, at release: the preset's tree, and row-level security in
+// gorbital.yaml when orb add rls recorded it (ADR-0061).
+func inputsTree(release recipes.Release, in lockInputs, mail string, d recipes.Data) (map[string][]byte, error) {
+	tree, err := release.Tree(in.Preset, in.Tenancy, mail, d)
+	if err == nil && in.RLS {
+		recipes.SetRowLevelSecurity(tree)
+	}
+	return tree, err
 }
 
 // lockFromTree records tree as this orb rendered it for in.

@@ -52,6 +52,8 @@ type lockInputs struct {
 	Preset  string `json:"preset"`
 	Tenancy string `json:"tenancy"`
 	Mail    string `json:"mail,omitempty"`
+	// RLS records orb add rls: gorbital.yaml says rls: true (ADR-0061).
+	RLS bool `json:"rls,omitempty"`
 }
 
 // validate checks inputs read from source (gorbital.lock or gorbital.yaml)
@@ -68,6 +70,9 @@ func (in lockInputs) validate(source string) error {
 	}
 	if _, ok := recipes.LookupPreset(in.Preset, in.Tenancy); !ok {
 		return fmt.Errorf("%s has an unknown preset %q with tenancy %q", source, in.Preset, in.Tenancy)
+	}
+	if in.RLS && (in.Preset != "full" || in.Tenancy != recipes.TenancyMulti) {
+		return fmt.Errorf("%s records row-level security for an app without organisations", source)
 	}
 	switch in.Mail {
 	case "", recipes.MailResend, recipes.MailSMTP:

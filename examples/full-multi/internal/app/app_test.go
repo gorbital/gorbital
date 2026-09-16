@@ -55,7 +55,8 @@ func newApp(t *testing.T, env map[string]string, configure ...func(*app.Config))
 }
 
 // newAppWithURL is newApp that also returns the database URL, for tests that
-// read tables directly. configure changes the loaded configuration.
+// read tables directly. configure changes the loaded configuration. The app
+// connects as appRole, the URL as the test server's user.
 func newAppWithURL(t *testing.T, env map[string]string, configure ...func(*app.Config)) (*app.App, string) {
 	t.Helper()
 	ctx := context.Background()
@@ -69,6 +70,7 @@ func newAppWithURL(t *testing.T, env map[string]string, configure ...func(*app.C
 	if err := app.Migrate(ctx, cfg, io.Discard); err != nil {
 		t.Fatalf("Migrate() error = %v", err)
 	}
+	cfg.DatabaseURL = config.NewSecret(asAppRole(t, url)) // rls_test.go
 	a, err := app.New(ctx, cfg)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
