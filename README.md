@@ -70,7 +70,7 @@ orb dev                 # API at :8080, docs at /docs, local email inbox
 | v0.4 Multi-tenant organisations | Done, tagged |
 | v0.5 `orb upgrade`, `orb add orgs`, `orb doctor`, system health, audit stats, retention, maintenance mode, Postman collection and `llms.txt` | Done, tagged |
 | v1.0 Security review, API freeze, governance, reference docs | In progress |
-| v1.1 Feature flags, per-organisation settings, API keys, GitHub login, idempotency keys, row-level security, email webhooks, Prometheus, live observability, dev console APIs | Planned |
+| v1.1 Feature flags, per-organisation settings, API keys, GitHub login, idempotency keys, row-level security, email webhooks, Prometheus, live observability, dev console APIs | In progress |
 
 What changed in each release: [CHANGELOG.md](CHANGELOG.md).
 

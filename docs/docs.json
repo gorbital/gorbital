@@ -83,6 +83,7 @@
             { "title": "Database", "slug": "technical/database", "source": "docs/guides/database.md" },
             { "title": "Runtime settings", "slug": "technical/runtime-settings", "source": "docs/guides/runtime-settings.md" },
             { "title": "Background jobs", "slug": "technical/background-jobs", "source": "docs/guides/background-jobs.md" },
+            { "title": "Idempotency keys", "slug": "technical/idempotency", "source": "docs/guides/idempotency.md" },
             { "title": "Authentication", "slug": "technical/authentication", "source": "docs/guides/authentication.md" },
             { "title": "Sign-in providers", "slug": "technical/sign-in-providers", "source": "docs/guides/auth-providers.md" },
             { "title": "Email", "slug": "technical/email", "source": "docs/guides/email.md" },

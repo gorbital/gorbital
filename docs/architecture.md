@@ -118,7 +118,7 @@ gorbital/
 ├── actor/                   who is acting, and from which client (context)
 ├── requestid/               request ID generation, validation, context
 ├── audit/                   Event, Recorder
-├── mail/                    Message, Sender
+├── mail/                    Message, Sender, WithDefaults, WithSuppressionList
 ├── config/                  Secret type, env lookup with _FILE support
 ├── page/                    cursor pagination, sort
 ├── ratelimit/               token bucket + middleware
@@ -129,15 +129,17 @@ gorbital/
 ├── api/                     exported Go API listings per library module (gorbital.dev.txt, modules-auth.txt, …)
 ├── modules/
 │   ├── openapi/             Huma integration, problem errors, /docs API reference (reference/)   (v0.1)
-│   ├── telemetry/           OpenTelemetry SDK + exporters, correlated logs           (v0.1)
+│   ├── telemetry/           OpenTelemetry SDK + OTLP and Prometheus exporters, runtime metrics, correlated logs   (v0.1, Prometheus v1.1)
 │   ├── postgres/            pool, transactions, migrations runner, pgtest (against Docker PostgreSQL)   (v0.2)
-│   ├── settings/            runtime settings: typed declarations, PostgreSQL store, LISTEN/NOTIFY reload   (v0.2)
+│   ├── settings/            runtime settings: typed declarations, PostgreSQL store, LISTEN/NOTIFY reload, per-organisation values   (v0.2, v1.1)
 │   ├── jobs/                River, job definitions and Manager (Lambda-style config), AsyncSender   (v0.2)
-│   ├── mail/resend/ · mail/smtp/   Resend HTTP API and standard-library SMTP senders   (v0.2)
+│   ├── mail/resend/ · mail/smtp/   Resend HTTP API and standard-library SMTP senders (v0.2); Resend webhook verification (v1.1)
+│   ├── mail/suppressionpg/  email suppression list: bounced and complained addresses, once-per-delivery webhook adds   (v1.1)
 │   ├── auditpg/             append-only audit store with redaction, filtered query API   (v0.2)
 │   ├── auth/                building blocks: argon2id, tokens, codes, session middleware, permission catalog (v0.2); oidc, totp, passkey (v0.3)
 │   ├── orgs/                building blocks: organisation IDs, RequireMember/Authorize, invitation emails   (v0.4)
 │   ├── ratelimitpg/         rate limits shared across instances: GCRA in an unlogged table, in-memory fallback   (v1.0)
+│   ├── idempotency/         Idempotency-Key middleware: per-caller keys, atomic claim, stored responses replayed   (v1.1)
 │   └── releases/            instance build record at start, heartbeats, release queries   (v0.2)
 ├── cli/                     module gorbital.dev/cli → cmd/orb
 │   └── internal/recipes/    templates generated from examples/ (go generate), embedded in orb
@@ -245,9 +247,11 @@ Resend or SMTP behind `mail.Sender`. Development always delivers to Mailpit. Sen
 
 Implemented in v0.2 ([ADR-0037](adr/0037-email-setup-and-delivery.md), [email guide](guides/email.md)): `orb add mail` asks Resend or SMTP, saves typed secrets only to `.env`, writes `internal/app/infra_mail.go` and the `.env.example` block, and prints next steps; running it again switches provider. The Resend API key and SMTP credentials are environment variables; the sender name, address and reply-to are runtime settings (`mail.*`) filled into each message by `mail.WithDefaults`. `MAIL_DELIVERY` picks Mailpit (development default) or the provider (always in production).
 
+Built in v1.1 ([ADR-0062](adr/0062-resend-webhooks-and-suppression-list.md)): the mail worker's sender is wrapped with `mail.WithSuppressionList`, so addresses on the suppression list (`modules/mail/suppressionpg`) get no email and their jobs are cancelled. Resend's signed webhook `POST /v1/webhooks/resend` (app module `mailevents`, on only with `RESEND_WEBHOOK_SECRET`) adds the recipients of hard bounces and complaints, once per delivery ID; operators list and remove them with `/ops/mail/suppressions`.
+
 ### 7.4 Operations APIs ([ADR-0026](adr/0026-operations-apis.md))
 
-`/ops/*`, protected by platform roles and required 2FA. Built by v0.5: runtime settings, jobs and queues with an overview, audit log with stats, release monitor, system health (`/ops/system`), retention as runtime settings enforced by a `retention` job (`/ops/retention`), maintenance mode, email and sign-in method status ([ADR-0051](adr/0051-operations-v0-5.md)). v1.1: feature flags, live observability, incidents, API keys.
+`/ops/*`, protected by platform roles and required 2FA. Built by v0.5: runtime settings, jobs and queues with an overview, audit log with stats, release monitor, system health (`/ops/system`), retention as runtime settings enforced by a `retention` job (`/ops/retention`), maintenance mode, email and sign-in method status ([ADR-0051](adr/0051-operations-v0-5.md)). Built in v1.1 so far: per-organisation setting overrides (`GET /ops/settings/{key}/overrides`, [ADR-0056](adr/0056-per-organisation-settings.md)) and the email suppression list (`/ops/mail/suppressions`, [ADR-0062](adr/0062-resend-webhooks-and-suppression-list.md)); still planned: feature flags, live observability, incidents, API keys.
 
 Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.md)): `/ops/settings` ([ADR-0031](adr/0031-runtime-settings.md)), `/ops/jobs/definitions`, `/ops/jobs/scheduled`, `/ops/jobs/runs` and `/ops/queues` ([ADR-0033](adr/0033-background-jobs.md)), `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)), `/ops/mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)). They require a signed-in user whose platform roles grant the operation's permission ([ADR-0038](adr/0038-authentication-v0-2.md)); required 2FA for ops roles arrived in v0.3 ([ADR-0043](adr/0043-two-factor-authentication.md)), with `/ops/auth/providers` ([ADR-0045](adr/0045-sign-in-provider-setup.md)).
 
@@ -259,9 +263,11 @@ Code-first with Huma v2, confined to `delivery/`: developers write Go input/outp
 
 `modules/telemetry` keeps OpenTelemetry always on in the app (traces, metrics, slog logs carrying `request_id`, `trace_id` and `span_id`); export is enabled by setting `OTEL_EXPORTER_OTLP_ENDPOINT`. The Minimal preset needs no Docker. From v0.2, `orb dev` starts PostgreSQL and Mailpit, and `orb dev --observability` also starts Grafana (`grafana/otel-lgtm`). PostgreSQL always runs in Docker (the official image, through `compose.yaml` locally and a service container in CI); gorbital never downloads PostgreSQL binaries.
 
+From v1.1, setting `METRICS_ADDR` also serves the same metrics in the Prometheus format on a separate listener that answers only `GET /metrics`, off by default and refused on the API's port ([ADR-0063](adr/0063-prometheus-metrics.md)); apps record Go runtime and connection pool metrics, and `telemetry.RecordRoute` around the mux labels HTTP metrics and spans with the matched route pattern.
+
 ### 7.7 Configuration ([ADR-0020](adr/0020-constructors-and-configuration.md), [ADR-0031](adr/0031-runtime-settings.md))
 
-Two layers. **Environment** holds secrets, credentials and infrastructure (database URL, API keys, listen addresses) and changes with a redeploy. **Runtime settings** hold non-secret tunables (expiries, limits, sender names, frontend URLs, maintenance mode): declared in Go as typed handles with defaults and bounds, stored in PostgreSQL only when changed, edited through `PUT /ops/settings/{key}` with a reason and version, recorded in history and the audit log, and applied on every instance through `LISTEN/NOTIFY`. A value is never in both layers, and secrets are never settings. Guide: [runtime settings](guides/runtime-settings.md).
+Two layers. **Environment** holds secrets, credentials and infrastructure (database URL, API keys, listen addresses) and changes with a redeploy. **Runtime settings** hold non-secret tunables (expiries, limits, sender names, frontend URLs, maintenance mode): declared in Go as typed handles with defaults and bounds, stored in PostgreSQL only when changed, edited through `PUT /ops/settings/{key}` with a reason and version, recorded in history and the audit log, and applied on every instance through `LISTEN/NOTIFY`. A value is never in both layers, and secrets are never settings. Settings declared `OrgOverridable` also take a value per organisation, set by its owners and admins under `/v1/orgs/{orgId}/settings`; `Get` returns it when the context's actor acts in that organisation, and security settings (sign-in, rate limits, retention, maintenance, mail, link targets) are never overridable ([ADR-0056](adr/0056-per-organisation-settings.md)). Guide: [runtime settings](guides/runtime-settings.md).
 
 ### 7.8 Background jobs ([ADR-0033](adr/0033-background-jobs.md))
 
@@ -270,6 +276,10 @@ Jobs run on PostgreSQL with River, in the API process: every instance serves HTT
 ### 7.9 Database ([ADR-0005](adr/0005-database-strategy.md), [ADR-0028](adr/0028-local-development-environment.md), [ADR-0032](adr/0032-repository-sql.md))
 
 PostgreSQL only, always from Docker in development, tests and CI. `modules/postgres` opens a traced pgx pool and provides `DBTX`, `InTx`, error classification, goose migrations and `pgtest` (a fresh database per test). Repositories use hand-written SQL with one file per operation. Guide: [database](guides/database.md).
+
+### 7.10 Idempotency keys ([ADR-0060](adr/0060-idempotency-keys.md))
+
+Full apps accept `Idempotency-Key` on signed-in POST and PATCH requests (`modules/idempotency`, from v1.1). The middleware, last in the chain after authentication, claims the key per caller in PostgreSQL with one statement (so racing retries on any instance run once), fingerprints the request, and stores the final response for `idempotency.retention` (24 h) to replay it with `Idempotent-Replayed: true`. A different request with the same key gets 422, a key still in progress 409; server errors, responses setting cookies and handlers calling `idempotency.DontStore` release the key. `/v1/auth/*` is excluded; the `idempotency_cleanup` job deletes expired keys. Guide: [idempotency keys](guides/idempotency.md).
 
 ---
 
@@ -318,7 +328,7 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | v0.5 ✅ done, tagged | `gorbital.lock` v2, `orb upgrade`, `orb add orgs`, `orb doctor`, system health, audit stats, retention, maintenance mode, Postman collection and `llms.txt` |
 | v1.0 (in progress) | Rate limits shared across instances, internal security review (done), API freeze and compatibility checks (done), governance (done), documentation content with generated reference pages (done); external security review open |
 | v1.3 (built early) | Public website and docs at gorbital.dev and docs.gorbital.dev ([ADR-0049](adr/0049-public-docs-and-website.md)) |
-| v1.1 | Feature flags, live observability, API keys, GitHub login, row-level security option, local dev console |
+| v1.1 (in progress) | Per-organisation settings (done), idempotency keys (done), Resend bounce and complaint webhooks with a suppression list (done), Prometheus `/metrics` option (done); feature flags, API keys, GitHub login, row-level security option, live observability, local dev console APIs to come |
 | v1.2 (proposed) | Client templates: docs site, dashboard and Expo app created by `orb new` from separate template repositories ([ADR-0047](adr/0047-client-templates.md)) |
 
 ---

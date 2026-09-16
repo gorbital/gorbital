@@ -47,17 +47,18 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Environment variables](guides/environment-variables.md) | Every variable: reader, default, validation, secret or not |
 | [Secrets and keys](guides/secrets-and-keys.md) | Every secret, token and code: creation, storage, rotation, compromise |
 | [Database](guides/database.md) | `modules/postgres`, repositories, transactions, migrations, schema, relationships, indexes, pgtest |
-| [Runtime settings](guides/runtime-settings.md) | `modules/settings`: environment vs runtime settings |
+| [Runtime settings](guides/runtime-settings.md) | `modules/settings`: environment vs runtime settings, per-organisation values |
 | [Background jobs](guides/background-jobs.md) | `modules/jobs`: definitions, schedules, email, the manager |
+| [Idempotency keys](guides/idempotency.md) | `modules/idempotency`: `Idempotency-Key` on POST and PATCH, replays, errors, what isn't stored |
 | [Authentication](guides/authentication.md) | Flows, sessions, 2FA, passkeys, Google and Apple, roles, error codes |
 | [Sign-in provider setup](guides/auth-providers.md) | How the app reports what's missing |
-| [Email](guides/email.md) | Resend or SMTP, Mailpit, sending from code |
+| [Email](guides/email.md) | Resend or SMTP, Mailpit, sending from code, bounces, complaints and the suppression list |
 | [Error handling](guides/error-handling.md) | Problem details, the mapper, codes, logging |
 | [Ops API reference](guides/ops-api.md) | `/ops/*` endpoints, permissions, error codes, audit actions |
 | [CLI](guides/cli.md) | Every `orb` command and flag |
 | [Testing](guides/testing.md) | What's tested, helpers, commands, drift checks, CI |
 | [Stability and compatibility](guides/stability.md) | What 1.0 promises not to break and the checks that enforce it: API listings, `api/surface.json`, the `/ops` baseline, `--json` schemas, scaffold compatibility, reference pages |
-| [Running in production](guides/production.md) | Image, configuration, migrations, scaling, observability, operations, what never to do |
+| [Running in production](guides/production.md) | Image, configuration, migrations, scaling, observability (including Prometheus), operations, what never to do |
 | [Upgrade notes](guides/upgrade-notes.md) | What changes for existing apps in each release, and what to do before deploying |
 | [Local development](guides/local-development.md) | Working on the gorbital repository |
 | [Security overview](security/README.md) | How security is reviewed and reported; the [internal review of September 2026](security/2026-09-internal-review.md) |
