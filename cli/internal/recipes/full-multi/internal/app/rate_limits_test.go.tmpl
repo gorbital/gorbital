@@ -93,6 +93,8 @@ func TestTrustedProxiesConfiguration(t *testing.T) {
 			switch k {
 			case "APP_TRUSTED_PROXIES":
 				return value
+			case "APP_ENV":
+				return "development"
 			case "AUTH_ENCRYPTION_KEYS":
 				return testEncryptionKeys
 			}

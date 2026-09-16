@@ -19,14 +19,18 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/netip"
 	"os"
+	"slices"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/instrumentation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -47,6 +51,8 @@ type Telemetry struct {
 	logger *slog.Logger
 	tp     *sdktrace.TracerProvider
 	mp     *sdkmetric.MeterProvider
+
+	traceCallers []netip.Prefix
 }
 
 // Logger returns the correlated structured logger.
@@ -76,6 +82,7 @@ type options struct {
 	logLevel     slog.Leveler
 	sampleRatio  float64
 	setGlobals   bool
+	traceCallers []netip.Prefix
 }
 
 // An Option configures [Setup].
@@ -119,6 +126,15 @@ func WithSampleRatio(r float64) Option {
 	return optionFunc(func(o *options) { o.sampleRatio = r })
 }
 
+// WithTraceContextFrom makes [Telemetry.HTTPMiddleware] continue the trace,
+// and accept the baggage, of requests whose client address is in callers:
+// gateways and internal services that start traces. Match addresses as the
+// middleware sees them, after httpx.TrustedProxies. Requests from other
+// addresses start a new trace linked to the incoming one. Default: none.
+func WithTraceContextFrom(callers []netip.Prefix) Option {
+	return optionFunc(func(o *options) { o.traceCallers = slices.Clone(callers) })
+}
+
 // WithoutGlobals keeps Setup from installing OpenTelemetry globals.
 func WithoutGlobals() Option {
 	return optionFunc(func(o *options) { o.setGlobals = false })
@@ -152,7 +168,7 @@ func Setup(ctx context.Context, service, version string, opts ...Option) (*Telem
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(o.sampleRatio))),
 	}
-	mpOpts := []sdkmetric.Option{sdkmetric.WithResource(res)}
+	mpOpts := []sdkmetric.Option{sdkmetric.WithResource(res), httpMetricsView()}
 	if o.exportOTLP {
 		traceExp, err := otlptracehttp.New(ctx)
 		if err != nil {
@@ -186,5 +202,16 @@ func Setup(ctx context.Context, service, version string, opts ...Option) (*Telem
 	}
 	base = base.WithAttrs([]slog.Attr{slog.String("service", service)})
 
-	return &Telemetry{logger: slog.New(NewLogHandler(base)), tp: tp, mp: mp}, nil
+	return &Telemetry{logger: slog.New(NewLogHandler(base)), tp: tp, mp: mp, traceCallers: o.traceCallers}, nil
+}
+
+// httpMetricsView leaves server.address and server.port out of HTTP server
+// metrics: they come from the client's Host header, and each new value would
+// add a metric series until the SDK's cardinality limit sends every new
+// series, 5xx responses included, to an overflow series (ADR-0007).
+func httpMetricsView() sdkmetric.Option {
+	return sdkmetric.WithView(sdkmetric.NewView(
+		sdkmetric.Instrument{Scope: instrumentation.Scope{Name: otelhttp.ScopeName}},
+		sdkmetric.Stream{AttributeFilter: attribute.NewDenyKeysFilter("server.address", "server.port")},
+	))
 }

@@ -22,6 +22,11 @@ import (
 // DefaultTimeout applies to checks with no timeout.
 const DefaultTimeout = 2 * time.Second
 
+// readinessTTL is how long [Checker.Readiness] reuses a result, so a flood of
+// requests can't run the checks, and hold database connections, once per
+// request.
+const readinessTTL = time.Second
+
 // A Check verifies one dependency. Func must respect ctx.
 type Check struct {
 	Name    string
@@ -37,6 +42,18 @@ type Checker struct {
 
 	mu     sync.RWMutex
 	checks []Check
+
+	readyMu sync.Mutex
+	ready   *readinessRun // the latest run of the checks for Readiness
+}
+
+// readinessRun is one run of the checks shared by concurrent readiness
+// requests. status, ok and at are set before done is closed.
+type readinessRun struct {
+	done   chan struct{}
+	status Status
+	ok     bool
+	at     time.Time
 }
 
 // New returns a Checker. A nil logger discards check failures.
@@ -52,6 +69,9 @@ func (c *Checker) Add(check Check) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.checks = append(c.checks, check)
+	c.readyMu.Lock()
+	c.ready = nil // the next readiness request runs the new check
+	c.readyMu.Unlock()
 }
 
 // SetShuttingDown makes readiness fail from now on. Pass it to
@@ -80,13 +100,15 @@ func (c *Checker) Liveness() http.Handler {
 
 // Readiness runs every check concurrently and serves 200 when all pass, 503
 // otherwise, or 503 {"status":"shutting_down"} after [Checker.SetShuttingDown].
+// Concurrent requests share one run of the checks, and its result is reused
+// for one second.
 func (c *Checker) Readiness() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if c.shuttingDown.Load() {
 			writeJSON(w, http.StatusServiceUnavailable, Status{Status: "shutting_down"})
 			return
 		}
-		status, ok := c.Check(r.Context())
+		status, ok := c.sharedCheck(r.Context())
 		code := http.StatusOK
 		if !ok {
 			code = http.StatusServiceUnavailable
@@ -95,7 +117,42 @@ func (c *Checker) Readiness() http.Handler {
 	})
 }
 
-// Check runs every check and reports whether all passed.
+// sharedCheck returns the result of a run of the checks that is in progress
+// or finished less than readinessTTL ago, or starts one. The run doesn't stop
+// when the request that started it is canceled; each check has a timeout.
+func (c *Checker) sharedCheck(ctx context.Context) (Status, bool) {
+	c.readyMu.Lock()
+	run := c.ready
+	if run == nil || run.expired() {
+		run = &readinessRun{done: make(chan struct{})}
+		c.ready = run
+		c.readyMu.Unlock()
+		run.status, run.ok = c.Check(context.WithoutCancel(ctx))
+		run.at = time.Now()
+		close(run.done)
+	} else {
+		c.readyMu.Unlock()
+	}
+	select {
+	case <-run.done:
+		return run.status, run.ok
+	case <-ctx.Done():
+		return Status{Status: "unavailable"}, false
+	}
+}
+
+// expired reports whether the run finished readinessTTL ago or more.
+func (r *readinessRun) expired() bool {
+	select {
+	case <-r.done:
+		return time.Since(r.at) >= readinessTTL
+	default:
+		return false
+	}
+}
+
+// Check runs every check and reports whether all passed. Unlike
+// [Checker.Readiness], it runs them on every call.
 func (c *Checker) Check(ctx context.Context) (Status, bool) {
 	c.mu.RLock()
 	checks := append([]Check(nil), c.checks...)

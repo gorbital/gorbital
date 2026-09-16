@@ -28,7 +28,7 @@ var (
 
 func TestMailProviderConfiguration(t *testing.T) {
 	load := func(env map[string]string) error {
-		env["AUTH_ENCRYPTION_KEYS"] = testEncryptionKeys
+		env["APP_ENV"], env["AUTH_ENCRYPTION_KEYS"] = "development", testEncryptionKeys
 		_, err := app.LoadConfig(config.Source{Getenv: func(k string) string { return env[k] }, ReadFile: os.ReadFile})
 		return err
 	}

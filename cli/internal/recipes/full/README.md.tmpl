@@ -23,8 +23,8 @@ Commit the new app before running `orb gen` or `orb add`: they refuse to change 
 
 | URL | What |
 |---|---|
-| http://127.0.0.1:8080/docs | Interactive API reference |
-| http://127.0.0.1:8080/openapi.json | OpenAPI 3.1 document |
+| http://127.0.0.1:8080/docs | Interactive API reference (in production only with `APP_DOCS_ENABLED=true`) |
+| http://127.0.0.1:8080/openapi.json | OpenAPI 3.1 document (served with the docs) |
 | http://127.0.0.1:8080/v1/ping | Example endpoint; its reply is a runtime setting |
 | http://127.0.0.1:8080/ops/settings | Runtime settings (platform role) |
 | http://127.0.0.1:8080/ops/jobs/definitions | Job configuration, run now, history (platform role) |

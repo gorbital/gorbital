@@ -166,3 +166,14 @@ d, err := l.Take(ctx, "ada@example.com")
 | Failure | With the pool closed, decisions keep the burst in memory and log one warning; requests past twice the burst are refused locally without touching the database |
 | Trusted proxies | Direct clients, spoofed headers from untrusted peers, one and several proxies, client-supplied hops left of the proxy, IPv6 and IPv4-mapped peers, malformed hops, all-trusting ranges |
 | Apps | Two instances on one database share the sign-in limit (`TestSignInLimitSharedAcrossInstances`); behind a trusted proxy two clients get separate per-IP budgets while an untrusted peer claiming new addresses is still limited (`TestPerIPLimitBehindTrustedProxy`); `APP_TRUSTED_PROXIES` validation |
+
+## Security review fixes (2026-09-16)
+
+- **HTTP-8:** `docs/guides/production.md` still told operators to add their own `X-Forwarded-For` middleware and that limits were per instance. It now points to `APP_TRUSTED_PROXIES` and the shared limits; a hand-written middleware trusting every peer would have reopened client IP spoofing. The comment on `authLimitKey` in the Full apps' `routes.go` said the same and was corrected.
+- **HTTP-4:** `APP_CORS_ORIGINS` entries are trusted by cross-origin protection and as sign-in `return_to` origins, but http origins were accepted in production. `LoadConfig` now refuses non-https origins when `APP_ENV=production`, like `WEBAUTHN_ORIGINS`; `httpx.CORS` parses each origin and refuses user info, paths, queries and fragments (`https://a@evil.example` passed the old prefix check).
+- **Trusted proxies and correlation:** trace context and request IDs aren't trusted from `APP_TRUSTED_PROXIES`, because load balancers usually pass clients' `traceparent` and `X-Request-ID` through unchanged. They have their own list, `APP_TRUSTED_CALLERS`, matched on the client address this middleware resolves (ADR-0007, ADR-0030).
+
+| Check | Result |
+|---|---|
+| Apps `TestLoadConfigSecureDefaults` | `https://` origins pass in production and `http://localhost:3000` in development; an `http://` origin in production fails naming `APP_CORS_ORIGINS`; `APP_TRUSTED_CALLERS=0.0.0.0/0` is refused |
+| `httpx` `TestCORS` | Origins with user info, path, query, fragment, another scheme or no host are refused; IPv6 and port origins pass |

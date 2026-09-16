@@ -106,7 +106,10 @@ func TestEmailConfiguration(t *testing.T) {
 			if v, ok := env[k]; ok {
 				return v
 			}
-			if k == "AUTH_ENCRYPTION_KEYS" {
+			switch k {
+			case "APP_ENV":
+				return "development"
+			case "AUTH_ENCRYPTION_KEYS":
 				return testEncryptionKeys
 			}
 			return ""

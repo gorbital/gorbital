@@ -52,8 +52,15 @@ func WithBearerAuth(description string) Option {
 	})
 }
 
+// WithoutSpecEndpoints stops [New] from serving the OpenAPI document, for APIs
+// whose contract isn't public. [WriteSpec] still exports it; [MountDocs],
+// which reads the served document, can't be used with it.
+func WithoutSpecEndpoints() Option {
+	return optionFunc(func(c *huma.Config) { c.OpenAPIPath = "" })
+}
+
 // New returns a Huma API registered on mux. It serves the OpenAPI document at
-// /openapi.json and /openapi.yaml, disables Huma's built-in docs (use
+// /openapi.json and /openapi.yaml (unless [WithoutSpecEndpoints]), disables Huma's built-in docs (use
 // [MountDocs]) and response $schema links, and doesn't expose /schemas.
 //
 // Call [InstallErrors] before registering operations.

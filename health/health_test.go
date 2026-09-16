@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -53,6 +55,42 @@ func TestReadiness(t *testing.T) {
 	c.SetShuttingDown()
 	if code, s, _ := serve(t, c.Readiness()); code != http.StatusServiceUnavailable || s.Status != "shutting_down" {
 		t.Errorf("Readiness() while shutting down = %d %+v, want 503 shutting_down", code, s)
+	}
+}
+
+// TestReadinessSharesChecks checks that a flood of readiness requests runs
+// the checks once, not once per request (HTTP-7).
+func TestReadinessSharesChecks(t *testing.T) {
+	var runs atomic.Int32
+	release := make(chan struct{})
+	c := health.New(nil, health.Check{Name: "db", Func: func(context.Context) error {
+		runs.Add(1)
+		<-release
+		return nil
+	}})
+	h := c.Readiness()
+	var wg sync.WaitGroup
+	codes := make([]int, 50)
+	for i := range codes {
+		wg.Go(func() {
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, httptest.NewRequest("GET", "/readyz", nil))
+			codes[i] = rec.Code
+		})
+	}
+	time.Sleep(50 * time.Millisecond)
+	close(release)
+	wg.Wait()
+	if code, _, _ := serve(t, h); code != http.StatusOK {
+		t.Errorf("Readiness() right after = %d, want 200", code)
+	}
+	if n := runs.Load(); n != 1 {
+		t.Errorf("51 readiness requests ran the checks %d times, want 1", n)
+	}
+	for i, code := range codes {
+		if code != http.StatusOK {
+			t.Errorf("request %d = %d, want 200", i, code)
+		}
 	}
 }
 

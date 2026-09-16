@@ -17,8 +17,8 @@ import (
 )
 
 // authLimitKey limits changing requests to /v1/auth/, and Google and Apple
-// sign-in redirects, by client IP. Behind a proxy, add trusted-proxy
-// middleware so RemoteAddr is the client.
+// sign-in redirects, by client IP. Behind load balancers, set
+// APP_TRUSTED_PROXIES so RemoteAddr is the client (ADR-0052).
 func authLimitKey(r *http.Request) string {
 	if !strings.HasPrefix(r.URL.Path, "/v1/auth/") {
 		return ""
@@ -71,9 +71,13 @@ func (a *App) buildHTTP(svc services) error {
 	}
 
 	mux := http.NewServeMux()
-	api := openapi.New(mux, ServiceName, buildinfo.Read().Version,
+	apiOpts := []openapi.Option{
 		openapi.WithBearerAuth(`Session token from POST /v1/auth/login with "transport": "bearer". Browsers use the session cookie that login sets instead.`),
-	)
+	}
+	if !a.cfg.DocsEnabled {
+		apiOpts = append(apiOpts, openapi.WithoutSpecEndpoints()) // APP_DOCS_ENABLED=false hides the contract too
+	}
+	api := openapi.New(mux, ServiceName, buildinfo.Read().Version, apiOpts...)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "get-version",
@@ -115,7 +119,7 @@ func (a *App) buildHTTP(svc services) error {
 	middlewares := []httpx.Middleware{
 		httpx.Recover(a.logger),
 		httpx.TrustedProxies(a.cfg.TrustedProxies), // the client's address behind load balancers (APP_TRUSTED_PROXIES)
-		httpx.RequestID(),
+		httpx.RequestIDFrom(a.cfg.TrustedCallers),  // clients' own X-Request-ID only from APP_TRUSTED_CALLERS
 		a.tel.HTTPMiddleware(),
 		httpx.AccessLog(a.logger),
 		httpx.SecureHeaders(httpx.SecureHeadersOptions{HSTSMaxAge: hsts}),

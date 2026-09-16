@@ -138,7 +138,7 @@ func TestSocialConfiguration(t *testing.T) {
 	badKey := filepath.Join(t.TempDir(), "bad.p8")
 	_ = os.WriteFile(badKey, []byte("not a key"), 0o600)
 	load := func(env map[string]string) (app.Config, error) {
-		base := map[string]string{"AUTH_ENCRYPTION_KEYS": testEncryptionKeys}
+		base := map[string]string{"APP_ENV": "development", "AUTH_ENCRYPTION_KEYS": testEncryptionKeys}
 		if env["APP_ENV"] == "production" {
 			maps.Copy(base, mailProviderEnv)
 		}

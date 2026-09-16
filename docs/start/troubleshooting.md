@@ -158,7 +158,10 @@ The app checks every setting before it starts and lists **all** problems at once
 | `WEBAUTHN_ORIGINS: "http://…" must use https in production` | Use https addresses |
 | `config: both variable and _FILE variant are set: DATABASE_URL` | Set `DATABASE_URL` or `DATABASE_URL_FILE`, not both |
 | `config: read DATABASE_URL_FILE: …` | The file path is wrong or unreadable |
+| `APP_ENV is required: development or production` | Set `APP_ENV`: `orb dev` and `.env.example` use `development`, the Docker image `production`. With plain `go run`, export `.env` first or run `APP_ENV=development go run ./cmd/api` |
 | `APP_ENV must be development or production` | Use one of the two words |
+| `APP_CORS_ORIGINS: "http://…" must use https in production` | Use https addresses for your production frontends |
+| `APP_TRUSTED_PROXIES: …` or `APP_TRUSTED_CALLERS: …` | Use CIDR ranges or addresses, and not a range covering every address such as `0.0.0.0/0` |
 | `APP_ADDR "…" is not host:port` | Such as `127.0.0.1:8080` |
 | `APP_DB_MAX_CONNS must be between 1 and 1000` / `APP_JOB_WORKERS must be between 1 and 10000` | Use a number in range |
 

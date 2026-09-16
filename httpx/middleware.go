@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
+	"net/url"
 	"runtime/debug"
 	"slices"
 	"strconv"
@@ -26,13 +28,21 @@ func Chain(h http.Handler, middlewares ...Middleware) http.Handler {
 	return h
 }
 
-// RequestID accepts a valid incoming X-Request-ID or generates one, stores it
-// in the request context and echoes it in the response header.
-func RequestID() Middleware {
+// RequestID generates a request ID, stores it in the request context and
+// echoes it in the response header. It ignores incoming X-Request-ID headers,
+// so clients can't give their requests another request's ID in logs, audit
+// events and jobs; use [RequestIDFrom] to accept them from trusted callers.
+func RequestID() Middleware { return RequestIDFrom(nil) }
+
+// RequestIDFrom is [RequestID] that accepts a valid incoming X-Request-ID
+// from requests whose client address is in trusted: gateways and internal
+// services that assign request IDs. Match addresses as this middleware sees
+// them, after [TrustedProxies]. Other requests get a generated ID.
+func RequestIDFrom(trusted []netip.Prefix) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			id := r.Header.Get(requestid.Header)
-			if !requestid.Valid(id) {
+			if !requestid.Valid(id) || !fromTrusted(r, trusted) {
 				id = requestid.New()
 			}
 			w.Header().Set(requestid.Header, id)
@@ -114,7 +124,7 @@ func CORS(opts CORSOptions) (Middleware, error) {
 		return nil, errors.New("httpx: CORS wildcard origin can't be combined with credentials")
 	}
 	for _, o := range opts.AllowedOrigins {
-		if o != "*" && (!strings.HasPrefix(o, "https://") && !strings.HasPrefix(o, "http://") || strings.HasSuffix(o, "/")) {
+		if o != "*" && !validOrigin(o) {
 			return nil, fmt.Errorf("httpx: CORS origin %q must be scheme://host[:port] without a trailing slash", o)
 		}
 	}
@@ -153,6 +163,15 @@ func CORS(opts CORSOptions) (Middleware, error) {
 			next.ServeHTTP(w, r)
 		})
 	}, nil
+}
+
+// validOrigin reports whether origin is scheme://host[:port], with an http
+// or https scheme and nothing else.
+func validOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	return err == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" &&
+		u.User == nil && u.Opaque == "" && u.RawPath == "" && u.Path == "" && !u.ForceQuery && u.RawQuery == "" && u.Fragment == "" &&
+		u.Scheme+"://"+u.Host == origin
 }
 
 func orDefault(v, def []string) []string {

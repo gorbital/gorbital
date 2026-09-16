@@ -28,7 +28,7 @@ var (
 
 func TestMailProviderConfiguration(t *testing.T) {
 	load := func(env map[string]string) (app.Config, error) {
-		base := map[string]string{"AUTH_ENCRYPTION_KEYS": testEncryptionKeys, "MAIL_DELIVERY": "provider", "SMTP_HOST": "smtp.example.com"}
+		base := map[string]string{"APP_ENV": "development", "AUTH_ENCRYPTION_KEYS": testEncryptionKeys, "MAIL_DELIVERY": "provider", "SMTP_HOST": "smtp.example.com"}
 		for k, v := range env {
 			base[k] = v
 		}

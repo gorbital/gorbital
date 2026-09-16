@@ -44,17 +44,18 @@ AccessLog writes one line; the span ends
 | # | Middleware | Package | What it does | Can answer |
 |---|---|---|---|---|
 | 1 | `httpx.Recover` | core `httpx` | Catches a panic further down, logs `panic recovered` with the stack and request ID, and answers 500 `internal_error` if no response was started. `http.ErrAbortHandler` is re-panicked | 500 |
-| 2 | `httpx.RequestID` | core `httpx`, `requestid` | Accepts a valid incoming `X-Request-ID` or generates `req_…`, puts it in the context and the response header | — |
-| 3 | `tel.HTTPMiddleware` | `modules/telemetry` (`otelhttp`) | Starts the server span and records HTTP metrics; later log lines carry its `trace_id` and `span_id` | — |
-| 4 | `httpx.AccessLog` | core `httpx` | After the response, one `http request` log line with `method`, `route`, `status`, `duration_ms`, `bytes`, `request_id`, `trace_id`, `span_id` | — |
-| 5 | `httpx.SecureHeaders` | core `httpx` | Security headers on every response; HSTS for 365 days in production | — |
-| 6 | `httpx.CORS` | core `httpx` | Answers preflight `OPTIONS` and sets CORS headers for `APP_CORS_ORIGINS`. Allowed request headers default to `Authorization`, `Content-Type`, `X-Request-ID`; exposed: `X-Request-ID`, `Retry-After` | 204 preflight |
-| 7 | `exceptCrossSitePosts(httpx.CrossOrigin)` | core `httpx`, app `routes.go` | `http.CrossOriginProtection`: refuses state-changing browser requests from other origins, using `Sec-Fetch-Site` and `Origin`, unless the origin is in `APP_CORS_ORIGINS`. Non-browser clients send neither header and pass. Skipped for Apple's two cross-site POSTs (callback and notifications), which carry their own proof | 403 `cross_origin_request_denied` |
-| 8 | `httpx.BodyLimit` | core `httpx` | Refuses a declared `Content-Length` above `APP_MAX_BODY_BYTES`; cuts off undeclared bodies at the limit | 413 `request_too_large` |
-| 9 | `auth.Middleware` | `internal/modules/auth`, `modules/auth` | Resolves the session: see below | 503 `auth_unavailable` |
-| 10 | `ratelimit.Middleware` | core `ratelimit` | 60 requests a minute (burst 60) per client IP for non-GET requests under `/v1/auth/`, and Google and Apple `start` and `callback` redirects. Other requests have no key and pass | 429 `rate_limited` |
+| 2 | `httpx.TrustedProxies` | core `httpx` | On requests from `APP_TRUSTED_PROXIES`, sets `RemoteAddr` to the client named by `X-Forwarded-For`; other requests keep their address ([ADR-0052](../adr/0052-shared-rate-limits.md)) | — |
+| 3 | `httpx.RequestIDFrom` | core `httpx`, `requestid` | Generates `req_…`, puts it in the context and the response header. A valid incoming `X-Request-ID` is kept only from `APP_TRUSTED_CALLERS`, so clients can't give their requests another request's ID in logs, audit events and jobs | — |
+| 4 | `tel.HTTPMiddleware` | `modules/telemetry` (`otelhttp`) | Starts the server span and records HTTP metrics; later log lines carry its `trace_id` and `span_id`. Each request starts a new trace, linked to an incoming `traceparent`; only `APP_TRUSTED_CALLERS` continue theirs. The span's `client.address` is `RemoteAddr`; metrics leave out the `Host` header | — |
+| 5 | `httpx.AccessLog` | core `httpx` | After the response, one `http request` log line with `method`, `route`, `status`, `duration_ms`, `bytes`, `request_id`, `trace_id`, `span_id` | — |
+| 6 | `httpx.SecureHeaders` | core `httpx` | Security headers on every response; HSTS for 365 days in production | — |
+| 7 | `httpx.CORS` | core `httpx` | Answers preflight `OPTIONS` and sets CORS headers for `APP_CORS_ORIGINS`. Allowed request headers default to `Authorization`, `Content-Type`, `X-Request-ID`; exposed: `X-Request-ID`, `Retry-After` | 204 preflight |
+| 8 | `exceptCrossSitePosts(httpx.CrossOrigin)` | core `httpx`, app `routes.go` | `http.CrossOriginProtection`: refuses state-changing browser requests from other origins, using `Sec-Fetch-Site` and `Origin`, unless the origin is in `APP_CORS_ORIGINS`. Non-browser clients send neither header and pass. Skipped for Apple's two cross-site POSTs (callback and notifications), which carry their own proof | 403 `cross_origin_request_denied` |
+| 9 | `httpx.BodyLimit` | core `httpx` | Refuses a declared `Content-Length` above `APP_MAX_BODY_BYTES`; cuts off undeclared bodies at the limit | 413 `request_too_large` |
+| 10 | `auth.Middleware` | `internal/modules/auth`, `modules/auth` | Resolves the session: see below | 503 `auth_unavailable` |
+| 11 | `ratelimit.Middleware` | core `ratelimit` | 60 requests a minute (burst 60) per client IP for non-GET requests under `/v1/auth/`, and Google and Apple `start` and `callback` redirects. Other requests have no key and pass | 429 `rate_limited` |
 
-Order matters: a panic anywhere is caught; the request ID and span exist before anything logs; CORS answers preflights before the cross-origin check; the body limit applies before anything reads the body. The auth middleware and rate limiter are added only when the auth module exists, which is always in a Full app.
+Order matters: a panic anywhere is caught; the client's address is resolved before anything records it; the request ID and span exist before anything logs; CORS answers preflights before the cross-origin check; the body limit applies before anything reads the body. The auth middleware and rate limiter are added only when the auth module exists, which is always in a Full app.
 
 ## 3. Authentication
 

@@ -296,3 +296,21 @@ func TestSnapshotSeparatesMigrations(t *testing.T) {
 		t.Error("a new migration didn't change the migrations snapshot")
 	}
 }
+
+// TestDevSetsAppEnv checks that orb dev runs apps, which refuse to start
+// without APP_ENV, in development unless the environment or .env says
+// otherwise.
+func TestDevSetsAppEnv(t *testing.T) {
+	for _, tt := range []struct {
+		env  []string
+		want string
+	}{
+		{[]string{"PATH=/bin"}, "development"},
+		{[]string{"APP_ENV="}, "development"},
+		{[]string{"APP_ENV=production"}, "production"},
+	} {
+		if got := envValue(withAppEnv(tt.env), "APP_ENV", ""); got != tt.want {
+			t.Errorf("withAppEnv(%q) APP_ENV = %q, want %q", tt.env, got, tt.want)
+		}
+	}
+}

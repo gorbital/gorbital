@@ -52,13 +52,14 @@ Set environment variables through your platform's secret store; see [environment
 DATABASE_URL_FILE=/run/secrets/database_url        # sslmode=require or verify-full
 AUTH_ENCRYPTION_KEYS_FILE=/run/secrets/auth_encryption_keys
 RESEND_API_KEY_FILE=/run/secrets/resend_api_key    # or the SMTP_ variables
-APP_CORS_ORIGINS=https://app.example.com
+APP_ENV=production                                 # the Dockerfile sets it; the app refuses to start without it
+APP_CORS_ORIGINS=https://app.example.com           # https only in production
 APP_TRUSTED_PROXIES=10.0.0.0/8                     # your load balancer's range
 WEBAUTHN_RP_ID=example.com
 WEBAUTHN_ORIGINS=https://app.example.com
 ```
 
-Plus `APP_PUBLIC_URL` and the provider variables for Google or Apple. The app refuses to start when production requirements aren't met, listing every problem.
+Plus `APP_PUBLIC_URL` and the provider variables for Google or Apple. `/docs` and the OpenAPI document are off in production; set `APP_DOCS_ENABLED=true` for a public API reference. The app refuses to start when production requirements aren't met, listing every problem.
 
 After the first deploy, set runtime settings through the ops API: at least `mail.from_email` (the default `no-reply@example.com` logs a warning at start), and `orgs.invitation_url` in multi-tenant apps.
 
@@ -81,7 +82,7 @@ docker run --rm --env-file prod.env --entrypoint /migrate acme-api:<tag>
 | Setting | Recommended |
 |---|---|
 | Instances | 2 or more, for rolling deploys |
-| Health checks | Readiness: `GET /readyz` (checks PostgreSQL; fails during shutdown). Liveness: `GET /livez` |
+| Health checks | Readiness: `GET /readyz` (checks PostgreSQL; fails during shutdown; concurrent requests share one check, reused for 1 s). Liveness: `GET /livez`. Both are public: block them at the load balancer for internet clients if you can |
 | Stop grace period | At least 30 s: 5 s drain, then up to 25 s for requests and jobs |
 | Resources | Start with 0.5 CPU and 256 MiB per instance and adjust from metrics |
 | Database connections | `instances × APP_DB_MAX_CONNS` (default 10) plus migrations and River's listener, below PostgreSQL's `max_connections` |
@@ -93,8 +94,9 @@ On SIGTERM an instance: marks itself not ready, waits 5 s so the load balancer s
 
 - Terminate TLS at the load balancer; the app speaks plain HTTP on 8080. HSTS is sent in production, so serve the API only over https.
 - Session cookies are `__Host-` cookies with `Secure`; browsers only send them over https (and `localhost`).
-- The sign-in rate limiter keys on `RemoteAddr`. Behind a proxy that's the proxy's address: add middleware that sets `RemoteAddr` from the header your proxy sets (`X-Forwarded-For`, `CF-Connecting-IP`, …), trusting only your proxy, before the rate limiter in `routes.go`. Generated apps don't guess which header to trust.
-- Rate limits are in memory per instance. Shared limits across instances are planned for v1.0.
+- Set `APP_TRUSTED_PROXIES` to your load balancers' ranges. The app then takes the client's address from `X-Forwarded-For` on requests from those addresses only, for per-IP rate limits, logs, traces and audit events ([ADR-0052](../adr/0052-shared-rate-limits.md)). Don't add your own `X-Forwarded-For` middleware: one that trusts every peer lets clients choose their IP.
+- Rate limits are stored in PostgreSQL and shared by every instance ([ADR-0052](../adr/0052-shared-rate-limits.md)).
+- Clients can't choose their request ID or trace: the app generates `X-Request-ID` and starts a new trace for each request, linking any incoming `traceparent`. Set `APP_TRUSTED_CALLERS` to the ranges of gateways and internal services whose request IDs and traces should carry on. List client addresses, not your load balancer, unless the load balancer itself sets those headers and drops clients' values.
 
 ## Observe
 
@@ -102,7 +104,7 @@ On SIGTERM an instance: marks itself not ready, waits 5 s so the load balancer s
 |---|---|
 | Logs | JSON on stdout in production, one line per request with `request_id`, `trace_id`, `span_id`. Collect with your platform |
 | Traces and metrics | Set `OTEL_EXPORTER_OTLP_ENDPOINT` (and `OTEL_EXPORTER_OTLP_HEADERS` for vendor auth). HTTP server spans, every SQL query, job execution |
-| Health | `/livez`, `/readyz` |
+| Health | `/livez`, `/readyz`. `/version` shows the build version, Go version and commit to anyone; block it at the load balancer if that matters to you |
 | Releases | `GET /ops/releases/current`, `/ops/releases/instances`: which versions are running where |
 | Jobs | `GET /ops/jobs/runs`, `/ops/queues`; retry, cancel, pause queues |
 | Audit | `GET /ops/audit`: who changed settings, jobs, roles and accounts |
@@ -122,7 +124,7 @@ Commands in the image, run with the production environment (for example `docker 
 | `/api reset-mfa <email>` | Turns off a user's authenticator app and recovery codes |
 | `/api rotate-auth-keys` | Re-encrypts TOTP secrets with the first key in `AUTH_ENCRYPTION_KEYS` |
 | `/api auth-providers` | Shows which sign-in methods are configured |
-| `/api openapi` | Prints the OpenAPI document |
+| `/api openapi` | Prints the OpenAPI document (it reads no environment variables) |
 
 ## Back up
 

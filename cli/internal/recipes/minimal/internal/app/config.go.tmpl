@@ -16,14 +16,19 @@ import (
 // Config is every setting of the application. Each field maps to an
 // environment variable documented in .env.example.
 type Config struct {
-	Env         string // APP_ENV: development or production
-	Addr        string // APP_ADDR
-	LogLevel    slog.Level
-	DocsEnabled bool     // APP_DOCS_ENABLED
-	CORSOrigins []string // APP_CORS_ORIGINS
+	Env      string // APP_ENV: development or production; required
+	Addr     string // APP_ADDR
+	LogLevel slog.Level
+	// DocsEnabled serves /docs and the OpenAPI document (APP_DOCS_ENABLED;
+	// default: on in development, off in production).
+	DocsEnabled bool
+	CORSOrigins []string // APP_CORS_ORIGINS; https in production
 	// TrustedProxies are the load balancers whose X-Forwarded-For names the
 	// client (APP_TRUSTED_PROXIES, ADR-0052).
 	TrustedProxies []netip.Prefix
+	// TrustedCallers are the gateways and internal services whose
+	// X-Request-ID and trace context the app accepts (APP_TRUSTED_CALLERS).
+	TrustedCallers []netip.Prefix
 	MaxBodyBytes   int64  // APP_MAX_BODY_BYTES
 	OTLPEndpoint   string // OTEL_EXPORTER_OTLP_ENDPOINT
 }
@@ -31,14 +36,24 @@ type Config struct {
 // Production reports whether the app runs in production mode.
 func (c Config) Production() bool { return c.Env == "production" }
 
+// ExportSource is the configuration source of the openapi command. The
+// OpenAPI document describes the code, not a deployment, so it is exported
+// with development defaults and no environment variables.
+var ExportSource = config.Source{
+	Getenv: func(key string) string {
+		if key == "APP_ENV" {
+			return "development"
+		}
+		return ""
+	},
+}
+
 // LoadConfig reads configuration from src. It reports every invalid value at
 // once so a misconfigured deployment fails on the first start.
 func LoadConfig(src config.Source) (Config, error) {
 	cfg := Config{
-		Env:          "development",
 		Addr:         "127.0.0.1:8080",
 		LogLevel:     slog.LevelInfo,
-		DocsEnabled:  true,
 		MaxBodyBytes: 1 << 20,
 	}
 	var errs []error
@@ -50,10 +65,13 @@ func LoadConfig(src config.Source) (Config, error) {
 		return strings.TrimSpace(v)
 	}
 
-	if v := get("APP_ENV"); v != "" {
-		cfg.Env = v
-	}
-	if cfg.Env != "development" && cfg.Env != "production" {
+	// No default: a deployment that forgets APP_ENV must not run with
+	// development's relaxed checks.
+	cfg.Env = get("APP_ENV")
+	switch {
+	case cfg.Env == "":
+		errs = append(errs, errors.New("APP_ENV is required: development or production"))
+	case cfg.Env != "development" && cfg.Env != "production":
 		errs = append(errs, fmt.Errorf("APP_ENV must be development or production, got %q", cfg.Env))
 	}
 
@@ -70,6 +88,7 @@ func LoadConfig(src config.Source) (Config, error) {
 		}
 	}
 
+	cfg.DocsEnabled = !cfg.Production()
 	if v := get("APP_DOCS_ENABLED"); v != "" {
 		b, err := strconv.ParseBool(v)
 		if err != nil {
@@ -82,12 +101,23 @@ func LoadConfig(src config.Source) (Config, error) {
 		if origin = strings.TrimSpace(origin); origin != "" {
 			cfg.CORSOrigins = append(cfg.CORSOrigins, origin)
 		}
+		// Browsers on these origins are trusted by cross-origin protection:
+		// a page served over http can be changed by anyone on its network.
+		if cfg.Production() && origin != "" && !strings.HasPrefix(origin, "https://") {
+			errs = append(errs, fmt.Errorf("APP_CORS_ORIGINS: %q must use https in production", origin))
+		}
 	}
 
 	if proxies, err := httpx.ParseTrustedProxies(get("APP_TRUSTED_PROXIES")); err != nil {
 		errs = append(errs, fmt.Errorf("APP_TRUSTED_PROXIES: %w", err))
 	} else {
 		cfg.TrustedProxies = proxies
+	}
+
+	if callers, err := httpx.ParseTrustedProxies(get("APP_TRUSTED_CALLERS")); err != nil {
+		errs = append(errs, fmt.Errorf("APP_TRUSTED_CALLERS: %w", err))
+	} else {
+		cfg.TrustedCallers = callers
 	}
 
 	if v := get("APP_MAX_BODY_BYTES"); v != "" {

@@ -145,6 +145,7 @@ func (d *devRunner) prepare(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	env = withAppEnv(env)
 
 	var services []composeService
 	if d.database && d.services {
@@ -327,7 +328,7 @@ func (d *devRunner) loop(ctx context.Context, reload bool, interval time.Duratio
 			if sql, _ := snapshot(migrationsDir, isSQL); d.database && sql != lastSQL {
 				env, err := devEnv(".env")
 				if err == nil {
-					err = d.migrate(ctx, env)
+					err = d.migrate(ctx, withAppEnv(env))
 				}
 				if err != nil {
 					d.keepRunning("migrations failed")
@@ -367,7 +368,7 @@ func (d *devRunner) start() error {
 		return err
 	}
 	cmd := exec.Command(d.bin)
-	cmd.Env = append(env, d.extraEnv...) // later values win
+	cmd.Env = append(withAppEnv(env), d.extraEnv...) // later values win
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, d.out
 	configureProcess(cmd)
 	if err := cmd.Start(); err != nil {
@@ -445,6 +446,16 @@ func watched(name string) bool {
 }
 
 func isSQL(name string) bool { return strings.HasSuffix(name, ".sql") }
+
+// withAppEnv adds APP_ENV=development when neither the environment nor .env
+// sets it: apps refuse to start without APP_ENV, and orb dev runs them for
+// development.
+func withAppEnv(env []string) []string {
+	if envValue(env, "APP_ENV", "") == "" {
+		return append(env, "APP_ENV=development")
+	}
+	return env
+}
 
 // envValue returns the last non-empty value of key in env, or def.
 func envValue(env []string, key, def string) string {

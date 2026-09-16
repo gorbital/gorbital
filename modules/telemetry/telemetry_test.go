@@ -4,13 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"testing"
 
+	"go.opentelemetry.io/otel/baggage"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 
 	"gorbital.dev/actor"
 	"gorbital.dev/httpx"
@@ -26,6 +30,8 @@ func TestHTTPTraceAndCorrelatedLogs(t *testing.T) {
 		telemetry.WithSpanExporter(spans),
 		telemetry.WithLogWriter(&logs),
 		telemetry.WithoutGlobals(),
+		// httptest requests come from 192.0.2.1.
+		telemetry.WithTraceContextFrom([]netip.Prefix{netip.MustParsePrefix("192.0.2.0/24")}),
 	)
 	if err != nil {
 		t.Fatalf("Setup() error = %v", err)
@@ -77,6 +83,90 @@ func TestHTTPTraceAndCorrelatedLogs(t *testing.T) {
 
 	if err := tel.Shutdown(ctx); err != nil {
 		t.Errorf("Shutdown() error = %v", err)
+	}
+}
+
+// TestHTTPUntrustedTraceContext checks that a client can't choose its trace:
+// hide its requests with an unsampled traceparent, force sampling, reuse
+// another trace ID, send baggage or forge its address (HTTP-1).
+func TestHTTPUntrustedTraceContext(t *testing.T) {
+	ctx := context.Background()
+	const incoming = "0af7651916cd43dd8448eb211c80319c"
+	for name, tt := range map[string]struct {
+		ratio     float64
+		flags     string
+		wantSpans int
+	}{
+		"unsampled traceparent is still traced":      {ratio: 1, flags: "00", wantSpans: 1},
+		"sampled traceparent doesn't force sampling": {ratio: 0, flags: "01", wantSpans: 0},
+	} {
+		spans := tracetest.NewInMemoryExporter()
+		tel, err := telemetry.Setup(ctx, "my-api", "v0.1.0",
+			telemetry.WithSpanExporter(spans),
+			telemetry.WithLogWriter(io.Discard),
+			telemetry.WithSampleRatio(tt.ratio),
+			telemetry.WithoutGlobals(),
+			// Trusted callers elsewhere don't make this client trusted.
+			telemetry.WithTraceContextFrom([]netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}),
+		)
+		if err != nil {
+			t.Fatalf("Setup() error = %v", err)
+		}
+		var sawBaggage bool
+		h := tel.HTTPMiddleware()(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			sawBaggage = baggage.FromContext(r.Context()).Len() > 0
+		}))
+		req := httptest.NewRequest("POST", "/v1/auth/login", nil)
+		req.Header.Set("traceparent", "00-"+incoming+"-b7ad6b7169203331-"+tt.flags)
+		req.Header.Set("baggage", "tenant=forged")
+		req.Header.Set("X-Forwarded-For", "203.0.113.99")
+		h.ServeHTTP(httptest.NewRecorder(), req)
+
+		got := spans.GetSpans()
+		if len(got) != tt.wantSpans {
+			t.Fatalf("%s: exported %d spans, want %d", name, len(got), tt.wantSpans)
+		}
+		if sawBaggage {
+			t.Errorf("%s: handler context has the client's baggage", name)
+		}
+		if len(got) == 0 {
+			continue
+		}
+		span := got[0]
+		if span.SpanContext.TraceID().String() == incoming || span.Parent.IsValid() {
+			t.Errorf("%s: span trace %s, parent %v; want a new root trace", name, span.SpanContext.TraceID(), span.Parent)
+		}
+		if len(span.Links) != 1 || span.Links[0].SpanContext.TraceID().String() != incoming {
+			t.Errorf("%s: span links = %v, want a link to the incoming trace", name, span.Links)
+		}
+		for _, a := range span.Attributes {
+			if a.Key == "client.address" && a.Value.AsString() != "192.0.2.1" {
+				t.Errorf("%s: client.address = %s, want the peer 192.0.2.1, not X-Forwarded-For", name, a.Value.AsString())
+			}
+		}
+	}
+}
+
+func TestHTTPTrustedTraceContextKeepsSampling(t *testing.T) {
+	spans := tracetest.NewInMemoryExporter()
+	tel, err := telemetry.Setup(context.Background(), "my-api", "v0.1.0",
+		telemetry.WithSpanExporter(spans),
+		telemetry.WithLogWriter(io.Discard),
+		telemetry.WithoutGlobals(),
+		telemetry.WithTraceContextFrom([]netip.Prefix{netip.MustParsePrefix("192.0.2.1/32")}),
+	)
+	if err != nil {
+		t.Fatalf("Setup() error = %v", err)
+	}
+	var parent trace.SpanContext
+	h := tel.HTTPMiddleware()(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		parent = trace.SpanContextFromContext(r.Context())
+	}))
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("traceparent", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00")
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	if n := len(spans.GetSpans()); n != 0 || parent.TraceID().String() != "0af7651916cd43dd8448eb211c80319c" {
+		t.Errorf("trusted unsampled request: %d spans, trace %s; want the caller's unsampled trace", n, parent.TraceID())
 	}
 }
 

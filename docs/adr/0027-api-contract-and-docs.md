@@ -66,3 +66,20 @@ Embedding Scalar added about 3.5 MB per binary, so the template embedded a pre-c
 - gorbital pins and tests Huma versions; upgrades go through the compatibility matrix.
 - `delivery/` code is part of the scaffold compatibility promise (ADR-0016).
 - ADR-0022's delivery layer description refers to Huma operations.
+
+## Security review fixes (2026-09-16)
+
+HTTP-3: `APP_DOCS_ENABLED=false` removed `/docs` but not the OpenAPI document, which `openapi.New` always served at `/openapi.json`, `/openapi.yaml` and `/openapi-3.0.*`, listing every `/ops` operation. Docs were also on by default in the production image.
+
+- `openapi.WithoutSpecEndpoints()` stops `New` from serving the document; `WriteSpec` still exports it. Golden apps pass it when docs are off, so `APP_DOCS_ENABLED` controls both.
+- `APP_DOCS_ENABLED` defaults to `true` in development and `false` in production. A public API reference in production is an explicit `APP_DOCS_ENABLED=true`. The "ops-only" docs mode from the decision above stays open.
+- The public website isn't affected: it renders the committed `api/openapi.json`, not a running app.
+- `api openapi` loads configuration from `app.ExportSource` (development defaults, no environment variables), so the exported document is the same everywhere and needs no `APP_ENV`, which apps now require at start (ADR-0020).
+
+| Check | Result |
+|---|---|
+| `modules/openapi` `TestWithoutSpecEndpoints` | `/openapi.json`, `.yaml`, `-3.0.json` and `-3.0.yaml` answer 404; `WriteSpec` still writes the document. Fails without the option (200) |
+| Apps `TestDocs` | With `APP_DOCS_ENABLED=false`, `/docs`, `/openapi.json`, `/openapi.yaml` and `/openapi-3.0.json` answer 404 |
+| Apps `TestLoadConfigSecureDefaults` | Docs on in development, off in production, and either way when set |
+| Export | `env -u APP_ENV go run ./cmd/api openapi --dir api` in all three apps leaves `api/` unchanged; `TestOpenAPIUpToDate` passes |
+
