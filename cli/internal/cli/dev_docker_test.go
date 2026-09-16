@@ -54,6 +54,7 @@ func TestDevWithDocker(t *testing.T) {
 }
 
 func devWithDocker(t *testing.T, repo, tenancy string) {
+	t.Setenv(devConsoleTokenVar, "") // orb dev generates the dev console token
 	t.Chdir(t.TempDir())
 	name := "e2e-dev-" + tenancy
 	if code, _, errOut := runOrb(t, "new", name, "--preset", "full", "--tenancy", tenancy, "--local", repo, "--no-git"); code != 0 {
@@ -180,6 +181,32 @@ func devWithDocker(t *testing.T, repo, tenancy string) {
 			t.Fatalf("no email for new-user@example.com in Mailpit after a minute:\n%s", stderr.String())
 		}
 		time.Sleep(time.Second)
+	}
+
+	// The dev console (ADR-0065): the printed token opens it, nothing else
+	// does, and the token is in no file of the app.
+	var consoleToken string
+	for line := range strings.Lines(out) {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "Token "); ok {
+			consoleToken, _, _ = strings.Cut(strings.TrimSpace(v), " ")
+		}
+	}
+	if consoleToken == "" || !strings.Contains(out, "✓ Dev APIs   "+api+"/_dev/") {
+		t.Fatalf("orb dev output lacks the dev console:\n%s", out)
+	}
+	if r, err := http.Get(api + "/_dev/app"); err != nil || r.StatusCode != http.StatusUnauthorized {
+		t.Errorf("GET /_dev/app without the token = %v, %v; want 401", r, err)
+	} else {
+		_ = r.Body.Close()
+	}
+	if mail := getJSON(t, api+"/_dev/mail", consoleToken); !strings.Contains(fmt.Sprint(mail["messages"]), "new-user@example.com") {
+		t.Errorf("GET /_dev/mail = %v, want the registration email", mail)
+	}
+	if app := getJSON(t, api+"/_dev/app", consoleToken); app["name"] != name || app["env"] != "development" {
+		t.Errorf("GET /_dev/app = %v", app)
+	}
+	if strings.Contains(readFile(t, ".env"), consoleToken) {
+		t.Error(".env holds the dev console token")
 	}
 }
 

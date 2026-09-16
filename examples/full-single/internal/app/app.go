@@ -23,6 +23,7 @@ import (
 	"gorbital.dev/mail"
 	"gorbital.dev/modules/auditpg"
 	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/devconsole"
 	"gorbital.dev/modules/flags"
 	"gorbital.dev/modules/jobs"
 	"gorbital.dev/modules/mail/suppressionpg"
@@ -63,6 +64,8 @@ type App struct {
 	releases    *releases.Tracker
 	collector   *observability.Collector
 	streams     *observability.Streams
+	devLogs     *devconsole.Logs    // nil unless the dev console is on (devconsole.go)
+	console     *devconsole.Console // nil unless the dev console is on
 	api         huma.API
 	handler     http.Handler
 	started     time.Time
@@ -90,6 +93,12 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 func newBase(ctx context.Context, cfg Config) (*App, error) {
 	cleanup := &lifecycle.Cleanup{}
 
+	// Recent log records for the dev console, when it is on (devconsole.go).
+	devLogs, err := newDevConsoleLogs(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	format := telemetry.LogFormatText
 	if cfg.Production() {
 		format = telemetry.LogFormatJSON
@@ -101,6 +110,7 @@ func newBase(ctx context.Context, cfg Config) (*App, error) {
 		telemetry.WithTraceContextFrom(cfg.TrustedCallers), // other clients start a new trace
 		telemetry.WithPrometheus(cfg.MetricsAddr != ""),    // served by the metrics listener (metrics.go)
 		telemetry.WithRuntimeMetrics(),
+		telemetry.WithLogTee(devLogs.Handler()), // nil when the dev console is off
 	)
 	if err != nil {
 		return nil, err
@@ -114,6 +124,7 @@ func newBase(ctx context.Context, cfg Config) (*App, error) {
 		health:  health.New(tel.Logger()),
 		cleanup: cleanup,
 		metrics: newMetricsServer(cfg, tel),
+		devLogs: devLogs,
 		started: time.Now(),
 	}, nil
 }
@@ -291,6 +302,11 @@ func (a *App) build(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// The dev console's APIs, in development with DEV_CONSOLE_TOKEN
+	// (devconsole.go).
+	if err := a.buildDevConsole(pool); err != nil {
+		return err
+	}
 
 	// Business modules such as projects build themselves from these in their
 	// module_<name>.go files.
@@ -354,6 +370,7 @@ func (a *App) Run(ctx context.Context) error {
 		lifecycle.WithLogger(a.logger),
 		lifecycle.OnShutdown(a.health.SetShuttingDown),
 		lifecycle.OnShutdown(a.streams.Close), // live streams would hold the server open
+		lifecycle.OnShutdown(a.console.Close), // and so would the dev console's
 	}
 	if !a.cfg.Production() {
 		opts = append(opts, lifecycle.WithDrainDelay(0)) // no load balancer to drain locally
@@ -365,7 +382,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	a.reportSignInMethods(ctx)
-	a.logger.InfoContext(ctx, "starting", "addr", "http://"+a.cfg.Addr, "docs_enabled", a.cfg.DocsEnabled, "mail_delivery", a.cfg.MailDelivery, "metrics_addr", a.cfg.MetricsAddr)
+	a.logger.InfoContext(ctx, "starting", "addr", "http://"+a.cfg.Addr, "docs_enabled", a.cfg.DocsEnabled, "mail_delivery", a.cfg.MailDelivery, "metrics_addr", a.cfg.MetricsAddr, "dev_console", a.console != nil)
 	return lifecycle.Run(ctx, runners, opts...)
 }
 

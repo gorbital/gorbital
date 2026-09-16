@@ -1,6 +1,6 @@
 # ADR-0028: Local development environment
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0007, ADR-0010 · **Amended by:** ADR-0042 (seed password printed once, never stored)
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0007, ADR-0010 · **Amended by:** ADR-0042 (seed password printed once, never stored), ADR-0065 (dev console APIs)
 
 ## Context
 
@@ -40,7 +40,7 @@ On start, `orb dev` prints:
 | Default admin | Created by seed on first run; the random password is printed once and never stored ([ADR-0042](0042-development-seed-data.md)) |
 | Services | Defined in the app's owned `compose.yaml`; `orb dev` never uses hidden containers |
 | Without the CLI | `docker compose up -d` plus `go run ./cmd/api` must work |
-| Custom dev console | v1.1; may replace Grafana for local viewing |
+| Custom dev console | v1.1: development-only `/_dev/` APIs with a per-run token printed by `orb dev` ([ADR-0065](0065-local-dev-console-apis.md)); Grafana stays the traces and metrics viewer |
 
 ## Why
 

@@ -17,6 +17,7 @@ import (
 	"gorbital.dev/buildinfo"
 	"gorbital.dev/health"
 	"gorbital.dev/httpx"
+	"gorbital.dev/modules/devconsole"
 	"gorbital.dev/modules/openapi"
 	"gorbital.dev/modules/telemetry"
 )
@@ -31,7 +32,8 @@ type App struct {
 	tel     *telemetry.Telemetry
 	health  *health.Checker
 	cleanup *lifecycle.Cleanup
-	metrics *httpx.Server // nil unless METRICS_ADDR is set
+	metrics *httpx.Server       // nil unless METRICS_ADDR is set
+	console *devconsole.Console // nil unless the dev console is on (devconsole.go)
 	api     huma.API
 	handler http.Handler
 }
@@ -40,6 +42,12 @@ type App struct {
 // order; each registers its resources on the cleanup stack.
 func New(ctx context.Context, cfg Config) (*App, error) {
 	cleanup := &lifecycle.Cleanup{}
+
+	// Recent log records for the dev console, when it is on (devconsole.go).
+	devLogs, err := newDevConsoleLogs(cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	format := telemetry.LogFormatText
 	if cfg.Production() {
@@ -52,6 +60,7 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		telemetry.WithTraceContextFrom(cfg.TrustedCallers), // other clients start a new trace
 		telemetry.WithPrometheus(cfg.MetricsAddr != ""),    // served by the metrics listener (metrics.go)
 		telemetry.WithRuntimeMetrics(),
+		telemetry.WithLogTee(devLogs.Handler()), // nil when the dev console is off
 	)
 	if err != nil {
 		return nil, err
@@ -65,6 +74,9 @@ func New(ctx context.Context, cfg Config) (*App, error) {
 		health:  health.New(tel.Logger()),
 		cleanup: cleanup,
 		metrics: newMetricsServer(cfg, tel),
+	}
+	if err := a.buildDevConsole(devLogs); err != nil {
+		return nil, errors.Join(err, cleanup.Close(ctx))
 	}
 	if err := a.buildHTTP(); err != nil {
 		return nil, errors.Join(err, cleanup.Close(ctx))
@@ -80,6 +92,7 @@ func (a *App) Run(ctx context.Context) error {
 		lifecycle.WithCleanup(a.cleanup),
 		lifecycle.WithLogger(a.logger),
 		lifecycle.OnShutdown(a.health.SetShuttingDown),
+		lifecycle.OnShutdown(a.console.Close), // dev console streams would hold the server open
 	}
 	if !a.cfg.Production() {
 		opts = append(opts, lifecycle.WithDrainDelay(0)) // no load balancer to drain locally
@@ -90,7 +103,7 @@ func (a *App) Run(ctx context.Context) error {
 		runners = append(runners, a.metrics)
 	}
 
-	a.logger.InfoContext(ctx, "starting", "addr", "http://"+a.cfg.Addr, "docs_enabled", a.cfg.DocsEnabled, "metrics_addr", a.cfg.MetricsAddr)
+	a.logger.InfoContext(ctx, "starting", "addr", "http://"+a.cfg.Addr, "docs_enabled", a.cfg.DocsEnabled, "metrics_addr", a.cfg.MetricsAddr, "dev_console", a.console != nil)
 	return lifecycle.Run(ctx, runners, opts...)
 }
 

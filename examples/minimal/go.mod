@@ -4,6 +4,7 @@ go 1.26.0
 
 require (
 	gorbital.dev v0.0.0
+	gorbital.dev/modules/devconsole v0.0.0
 	gorbital.dev/modules/openapi v0.0.0
 	gorbital.dev/modules/telemetry v0.0.0
 	github.com/danielgtaylor/huma/v2 v2.39.1
@@ -48,6 +49,7 @@ require (
 
 replace (
 	gorbital.dev => ../..
+	gorbital.dev/modules/devconsole => ../../modules/devconsole
 	gorbital.dev/modules/openapi => ../../modules/openapi
 	gorbital.dev/modules/telemetry => ../../modules/telemetry
 )

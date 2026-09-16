@@ -187,6 +187,56 @@ func TestLogHandlerDoesNotDuplicateKeys(t *testing.T) {
 	}
 }
 
+// levelBuffer is a text handler taking records at level and above.
+type levelBuffer struct {
+	slog.Handler
+	buf *bytes.Buffer
+}
+
+func newLevelBuffer(level slog.Level) levelBuffer {
+	var buf bytes.Buffer
+	return levelBuffer{Handler: slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: level}), buf: &buf}
+}
+
+func TestLogTee(t *testing.T) {
+	ctx := requestid.With(context.Background(), "req_tee")
+	var out bytes.Buffer
+	tee := newLevelBuffer(slog.LevelInfo)
+	tel, err := telemetry.Setup(ctx, "tee-test", "v0",
+		telemetry.WithoutGlobals(), telemetry.WithLogWriter(&out), telemetry.WithLogFormat(telemetry.LogFormatText),
+		telemetry.WithLogLevel(slog.LevelWarn), telemetry.WithLogTee(tee))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tel.Shutdown(ctx) }()
+
+	logger := tel.Logger().With("component", "tee").WithGroup("g")
+	logger.DebugContext(ctx, "debug line")
+	logger.InfoContext(ctx, "info line", "k", "v")
+	logger.WarnContext(ctx, "warn line")
+
+	if s := out.String(); strings.Contains(s, "info line") || !strings.Contains(s, "warn line") {
+		t.Errorf("primary output = %q, want the warning only (its own level)", s)
+	}
+	s := tee.buf.String()
+	for _, want := range []string{"info line", "warn line", "request_id=req_tee", "component=tee", "g.k=v"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("tee output %q lacks %q", s, want)
+		}
+	}
+	if strings.Contains(s, "debug line") {
+		t.Errorf("tee output %q has the debug record its handler doesn't take", s)
+	}
+
+	// A nil tee changes nothing.
+	tel2, err := telemetry.Setup(ctx, "tee-test", "v0", telemetry.WithoutGlobals(), telemetry.WithLogWriter(io.Discard), telemetry.WithLogTee(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tel2.Logger().Info("fine")
+	_ = tel2.Shutdown(ctx)
+}
+
 func TestSetupValidation(t *testing.T) {
 	ctx := context.Background()
 	for name, run := range map[string]func() error{

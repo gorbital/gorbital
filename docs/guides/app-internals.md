@@ -127,6 +127,12 @@ Builds the `modules/idempotency` store with `idempotency.retention`, the middlew
 
 Builds the `modules/observability` store of request minutes and incidents; this instance's collector, which counts requests under the release tracker's instance ID and writes them every 15 seconds (it runs with the workers); the live stream limits (2 per user, 20 per instance, 10 minutes); the request-count middleware (nothing when exporting the OpenAPI document); the session check streams repeat before each event; and the `incidents_detect` job's detection with the `incidents.*` settings. See the [observability guide](observability.md) and [ADR-0064](../adr/0064-live-observability-and-incidents.md).
 
+## `devconsole.go`
+
+### `loadDevConsoleConfig(get, secret, production)`, `newDevConsoleLogs(cfg)`, `buildDevConsole(pool)`, `devApp`, `devRoutes`, `devJobRuns`, `handlerRoutes`
+
+Reads `DEV_CONSOLE_TOKEN` (refused in production, at least 32 characters) and `MAILPIT_WEB_PORT`. When the app runs in development with a token: a buffer of recent log records that `telemetry.WithLogTee` fills, and a `modules/devconsole` console subscribed to the request collector, with sources for the app's wiring, routes (the OpenAPI document plus `handlerRoutes`), the variables `LoadConfig` recorded in `Config.EnvKeys`, Mailpit, migrations and job runs. `buildHTTP` mounts it in front of the middleware; `Run` ends its streams on shutdown. Otherwise nothing is built and nothing changes. See [dev console APIs](dev-console.md) and [ADR-0065](../adr/0065-local-dev-console-apis.md).
+
 ## `modules.go`
 
 ### `registerModules(api, mapper, svc) error`

@@ -9,6 +9,7 @@ import (
 
 	"gorbital.dev/buildinfo"
 	"gorbital.dev/httpx"
+	"gorbital.dev/modules/devconsole"
 	"gorbital.dev/modules/openapi"
 	"gorbital.dev/modules/telemetry"
 )
@@ -69,17 +70,22 @@ func (a *App) buildHTTP() error {
 	}
 
 	a.api = api
-	// RecordRoute gives spans and metrics the matched route pattern.
-	a.handler = httpx.Chain(telemetry.RecordRoute(mux),
+	// RecordRoute gives spans, metrics and the dev console's requests the
+	// matched route pattern.
+	app := httpx.Chain(telemetry.RecordRoute(devconsole.RecordRoute(mux)),
 		httpx.Recover(a.logger),
 		httpx.TrustedProxies(a.cfg.TrustedProxies), // the client's address behind load balancers (APP_TRUSTED_PROXIES)
 		httpx.RequestIDFrom(a.cfg.TrustedCallers),  // clients' own X-Request-ID only from APP_TRUSTED_CALLERS
 		a.tel.HTTPMiddleware(),
+		a.console.Middleware(), // recent requests for the dev console; nothing when it is off
 		httpx.AccessLog(a.logger),
 		httpx.SecureHeaders(httpx.SecureHeadersOptions{HSTSMaxAge: hsts}),
 		cors,
 		crossOrigin,
 		httpx.BodyLimit(a.cfg.MaxBodyBytes),
 	)
+	// /_dev/ in development with DEV_CONSOLE_TOKEN, before every middleware
+	// (devconsole.go); otherwise the app unchanged.
+	a.handler = a.console.Mount(app, a.logger)
 	return nil
 }

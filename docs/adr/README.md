@@ -37,7 +37,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0025](0025-email-providers.md) | Email providers | Accepted, amended by 0033, 0037, 0062 |
 | [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038, 0051, 0064 |
 | [0027](0027-api-contract-and-docs.md) | API contract and documentation | Accepted, amended by 0049, 0051, 0053 |
-| [0028](0028-local-development-environment.md) | Local development environment | Accepted |
+| [0028](0028-local-development-environment.md) | Local development environment | Accepted, amended by 0042, 0065 |
 | [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted, amended by 0036, 0038, 0053 |
 | [0030](0030-context-and-correlation.md) | Context and correlation propagation | Accepted, amended by 0053 |
 | [0031](0031-runtime-settings.md) | Runtime settings | Accepted, amended by 0056 |
@@ -74,3 +74,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0062](0062-resend-webhooks-and-suppression-list.md) | Resend bounce and complaint webhooks and the email suppression list | Accepted |
 | [0063](0063-prometheus-metrics.md) | Prometheus metrics endpoint: exporter on a separate `METRICS_ADDR` listener, Go runtime and connection pool metrics, route labels through request copies | Accepted |
 | [0064](0064-live-observability-and-incidents.md) | Live observability and incidents: `modules/observability` request minutes shared through PostgreSQL, `/ops/observability` with a live stream, incidents with timelines, automatic detection and reports | Accepted |
+| [0065](0065-local-dev-console-apis.md) | Local dev console APIs: development-only `/_dev/` endpoints in `modules/devconsole` behind Host, loopback and per-run token checks, request and log buffers with streams, configuration without secrets, `orb dev` token | Accepted |

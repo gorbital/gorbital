@@ -1,0 +1,240 @@
+package app_test
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"testing"
+
+	"gorbital.dev/config"
+
+	"⟦.Module⟧/internal/app"
+)
+
+// devToken is a dev console token as orb dev generates them: 256 bits,
+// base64url.
+const devToken = "q3Jt0tBq0Xvqf7i5Tq1hYw2m9x8Zr4Kc6Lp2Nd5Vb3E"
+
+// devServer serves an app with the dev console on over a real loopback
+// listener and returns its URL.
+func devServer(t *testing.T, env map[string]string) string {
+	t.Helper()
+	full := map[string]string{"DEV_CONSOLE_TOKEN": devToken}
+	for k, v := range env {
+		full[k] = v
+	}
+	srv := httptest.NewServer(newApp(t, full))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+// devGet requests path with the console token; headers are name/value
+// pairs, and a "Host" pair sets the Host header.
+func devGet(t *testing.T, base, path string, headers ...string) (int, http.Header, string) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, base+path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+devToken)
+	for i := 0; i+1 < len(headers); i += 2 {
+		switch headers[i] {
+		case "Host":
+			req.Host = headers[i+1]
+		case "Authorization":
+			if headers[i+1] == "" {
+				req.Header.Del("Authorization")
+				continue
+			}
+			req.Header.Set("Authorization", headers[i+1])
+		default:
+			req.Header.Set(headers[i], headers[i+1])
+		}
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, resp.Header, string(body)
+}
+
+func TestDevConsole(t *testing.T) {
+	const querySecret, headerSecret = "query-secret-4f1e", "header-secret-9a2c"
+	base := devServer(t, map[string]string{"APP_CORS_ORIGINS": "http://localhost:3000"})
+
+	for range 3 {
+		req, _ := http.NewRequest(http.MethodGet, base+"/v1/ping?token="+querySecret, nil)
+		req.Header.Set("X-Api-Key", headerSecret)
+		req.Header.Set("Cookie", "session="+headerSecret)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+
+	code, _, body := devGet(t, base, "/_dev/requests")
+	if code != http.StatusOK || !strings.Contains(body, `"route":"/v1/ping"`) || !strings.Contains(body, `"path":"/v1/ping"`) {
+		t.Errorf("/_dev/requests = %d %s", code, body)
+	}
+	if strings.Contains(body, "_dev") {
+		t.Errorf("/_dev/requests lists the console's own requests: %s", body)
+	}
+	code, _, logs := devGet(t, base, "/_dev/logs")
+	if code != http.StatusOK || !strings.Contains(logs, "http request") {
+		t.Errorf("/_dev/logs = %d %s", code, logs)
+	}
+	for _, leak := range []string{querySecret, headerSecret} {
+		if strings.Contains(body+logs, leak) {
+			t.Errorf("requests or logs hold %q", leak)
+		}
+	}
+
+	code, _, body = devGet(t, base, "/_dev/app")
+	var info struct {
+		Name    string   `json:"name"`
+		Env     string   `json:"env"`
+		Modules []string `json:"modules"`
+	}
+	if err := json.Unmarshal([]byte(body), &info); err != nil || code != 200 || info.Name != app.ServiceName || info.Env != "development" || len(info.Modules) == 0 {
+		t.Errorf("/_dev/app = %d %s", code, body)
+	}
+
+	code, _, body = devGet(t, base, "/_dev/")
+	if code != http.StatusOK || strings.Contains(body, "/_dev/mail") || strings.Contains(body, "/_dev/jobs") || !strings.Contains(body, "/_dev/config") {
+		t.Errorf("minimal index = %d %s, want no mail, migrations or jobs", code, body)
+	}
+	if code, _, _ := devGet(t, base, "/_dev/migrations"); code != http.StatusNotFound {
+		t.Errorf("/_dev/migrations = %d, want 404 in a Minimal app", code)
+	}
+	if code, _, body := devGet(t, base, "/_dev/openapi.json"); code != http.StatusOK || !strings.Contains(body, "/_dev/requests/stream") {
+		t.Errorf("/_dev/openapi.json = %d", code)
+	}
+	// The public contract never lists the console.
+	if code, _, body := devGet(t, base, "/openapi.json"); code != http.StatusOK || strings.Contains(body, "_dev") {
+		t.Errorf("/openapi.json = %d, mentions _dev: %v", code, strings.Contains(body, "_dev"))
+	}
+}
+
+func TestDevConsoleSecurity(t *testing.T) {
+	base := devServer(t, map[string]string{"APP_CORS_ORIGINS": "http://localhost:3000"})
+	port := base[strings.LastIndex(base, ":")+1:]
+
+	for _, host := range []string{"evil.example", "evil.example:" + port, "localhost.evil.example:" + port, "127.0.0.1.nip.io:" + port, "[::ffff:127.0.0.1]:" + port, "localhost:1"} {
+		code, _, body := devGet(t, base, "/_dev/config", "Host", host)
+		if code != http.StatusForbidden || strings.Contains(body, "variables") {
+			t.Errorf("Host %s = %d %s, want 403", host, code, body)
+		}
+	}
+	for _, auth := range []string{"", "Bearer wrong-token-wrong-token-wrong-token", "Bearer " + devToken[1:]} {
+		if code, _, _ := devGet(t, base, "/_dev/config", "Authorization", auth); code != http.StatusUnauthorized {
+			t.Errorf("Authorization %q = %d, want 401", auth, code)
+		}
+	}
+	// The app's CORS configuration doesn't reach the console.
+	for _, origin := range []string{"http://localhost:3000", "https://evil.example"} {
+		code, header, _ := devGet(t, base, "/_dev/app", "Origin", origin)
+		for name := range header {
+			if strings.HasPrefix(strings.ToLower(name), "access-control-") {
+				t.Errorf("Origin %s: /_dev/app (%d) has CORS header %s", origin, code, name)
+			}
+		}
+		if header.Get("Cache-Control") != "no-store" {
+			t.Errorf("Cache-Control = %q, want no-store", header.Get("Cache-Control"))
+		}
+	}
+	if _, header, _ := devGet(t, base, "/v1/ping", "Origin", "http://localhost:3000"); header.Get("Access-Control-Allow-Origin") == "" {
+		t.Error("the app's own CORS stopped working")
+	}
+}
+
+func TestDevConsoleConfigHidesSecrets(t *testing.T) {
+	const otlpPassword = "otlp-pass-77c1"
+	cfg := testConfig(t, map[string]string{"DEV_CONSOLE_TOKEN": devToken, "OTEL_EXPORTER_OTLP_ENDPOINT": "https://user:" + otlpPassword + "@otel.example"})
+	cfg.OTLPEndpoint = "" // listed, but nothing is exported in the test
+	a, err := app.New(context.Background(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = a.Close(context.Background()) }()
+	srv := httptest.NewServer(a.Handler())
+	defer srv.Close()
+	code, _, body := devGet(t, srv.URL, "/_dev/config")
+	if code != http.StatusOK {
+		t.Fatalf("/_dev/config = %d %s", code, body)
+	}
+	for _, leak := range []string{devToken, otlpPassword} {
+		if strings.Contains(body, leak) {
+			t.Errorf("/_dev/config holds %q: %s", leak, body)
+		}
+	}
+	for _, want := range []string{
+		`{"name":"APP_ENV","secret":false,"set":true,"value":"development"}`,
+		`{"name":"DEV_CONSOLE_TOKEN","secret":true,"set":true}`,
+		`{"name":"OTEL_EXPORTER_OTLP_ENDPOINT","secret":false,"set":true,"value":"https://[redacted]@otel.example"}`,
+		`{"name":"METRICS_ADDR","secret":false,"set":false}`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("/_dev/config lacks %s: %s", want, body)
+		}
+	}
+}
+
+func TestDevConsoleRoutes(t *testing.T) {
+	base := devServer(t, nil)
+	code, _, body := devGet(t, base, "/_dev/routes")
+	var list struct {
+		Routes []struct {
+			Method, Path, Source string
+		} `json:"routes"`
+	}
+	if err := json.Unmarshal([]byte(body), &list); err != nil || code != 200 {
+		t.Fatalf("/_dev/routes = %d %s", code, body)
+	}
+	handlers := 0
+	for _, r := range list.Routes {
+		if r.Source != "handler" {
+			continue
+		}
+		handlers++
+		// Every plain handler listed is really served.
+		if code, _, body := devGet(t, base, r.Path); code == http.StatusNotFound {
+			t.Errorf("listed route %s %s isn't served: %s", r.Method, r.Path, body)
+		}
+	}
+	if handlers == 0 || !strings.Contains(body, `"path":"/v1/ping"`) {
+		t.Errorf("routes = %s", body)
+	}
+}
+
+func TestDevConsoleOnlyInDevelopment(t *testing.T) {
+	// Without the token, /_dev/ is an ordinary unknown path.
+	srv := httptest.NewServer(newApp(t, nil))
+	defer srv.Close()
+	if code, _, body := devGet(t, srv.URL, "/_dev/app"); code != http.StatusNotFound || !strings.Contains(body, "no route matches") {
+		t.Errorf("/_dev/app without a token = %d %s, want the app's 404", code, body)
+	}
+
+	load := func(env map[string]string) error {
+		_, err := app.LoadConfig(config.Source{Getenv: func(k string) string { return env[k] }, ReadFile: os.ReadFile})
+		return err
+	}
+	if err := load(map[string]string{"APP_ENV": "production", "DEV_CONSOLE_TOKEN": devToken}); err == nil || !strings.Contains(err.Error(), "DEV_CONSOLE_TOKEN is for local development only") {
+		t.Errorf("production with DEV_CONSOLE_TOKEN: error = %v", err)
+	}
+	if err := load(map[string]string{"APP_ENV": "production", "DEV_CONSOLE_TOKEN_FILE": "/dev/null"}); err != nil {
+		t.Errorf("production with an empty token file: error = %v", err)
+	}
+	if err := load(map[string]string{"APP_ENV": "development", "DEV_CONSOLE_TOKEN": "short"}); err == nil || !strings.Contains(err.Error(), "DEV_CONSOLE_TOKEN must be") {
+		t.Errorf("short token: error = %v", err)
+	}
+	if err := load(map[string]string{"APP_ENV": "production"}); err != nil {
+		t.Errorf("production without a token: error = %v", err)
+	}
+}

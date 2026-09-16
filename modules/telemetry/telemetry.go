@@ -90,6 +90,7 @@ type options struct {
 
 	prometheus     bool
 	runtimeMetrics bool
+	logTee         slog.Handler
 }
 
 // An Option configures [Setup].
@@ -125,6 +126,15 @@ func WithLogFormat(f LogFormat) Option {
 // WithLogLevel sets the minimum log level. Default: info.
 func WithLogLevel(l slog.Leveler) Option {
 	return optionFunc(func(o *options) { o.logLevel = l })
+}
+
+// WithLogTee also sends every log record to h, such as the development
+// console's buffer of recent records (ADR-0065). h's Enabled decides which
+// records it receives, independently of [WithLogLevel], and it sees the
+// request, trace and organisation attributes the logger adds. A nil h adds
+// nothing. Default: none.
+func WithLogTee(h slog.Handler) Option {
+	return optionFunc(func(o *options) { o.logTee = h })
 }
 
 // WithSampleRatio sets the fraction of new traces sampled, from 0 to 1.
@@ -180,6 +190,9 @@ func Setup(ctx context.Context, service, version string, opts ...Option) (*Telem
 		base = slog.NewJSONHandler(o.logWriter, hopts)
 	}
 	base = base.WithAttrs([]slog.Attr{slog.String("service", service)})
+	if o.logTee != nil {
+		base = teeHandler{primary: base, tee: o.logTee}
+	}
 	logger := slog.New(NewLogHandler(base))
 
 	tpOpts := []sdktrace.TracerProviderOption{

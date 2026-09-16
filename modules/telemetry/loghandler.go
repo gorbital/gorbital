@@ -60,3 +60,36 @@ func (h contextHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 func (h contextHandler) WithGroup(name string) slog.Handler {
 	return contextHandler{Handler: h.Handler.WithGroup(name)}
 }
+
+// teeHandler sends records to primary and to tee, each deciding with its
+// own Enabled.
+type teeHandler struct {
+	primary, tee slog.Handler
+}
+
+// Enabled reports whether either handler takes records at level.
+func (h teeHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return h.primary.Enabled(ctx, level) || h.tee.Enabled(ctx, level)
+}
+
+// Handle passes r to each handler that takes its level. The tee's error is
+// ignored: it must never make logging fail.
+func (h teeHandler) Handle(ctx context.Context, r slog.Record) error {
+	if h.tee.Enabled(ctx, r.Level) {
+		_ = h.tee.Handle(ctx, r.Clone())
+	}
+	if h.primary.Enabled(ctx, r.Level) {
+		return h.primary.Handle(ctx, r)
+	}
+	return nil
+}
+
+// WithAttrs adds attrs to both handlers.
+func (h teeHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return teeHandler{primary: h.primary.WithAttrs(attrs), tee: h.tee.WithAttrs(attrs)}
+}
+
+// WithGroup opens a group in both handlers.
+func (h teeHandler) WithGroup(name string) slog.Handler {
+	return teeHandler{primary: h.primary.WithGroup(name), tee: h.tee.WithGroup(name)}
+}
