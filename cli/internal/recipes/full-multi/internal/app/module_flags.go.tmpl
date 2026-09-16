@@ -19,6 +19,7 @@ import (
 func registerFlags(api huma.API, mapper *httpx.Mapper, store flagsusecase.FlagsStore) error {
 	err := mapper.Add(
 		httpx.Mapping{Err: flagsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+		httpx.Mapping{Err: flagsdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
 	)
 	if err != nil {
 		return fmt.Errorf("flags module: %w", err)

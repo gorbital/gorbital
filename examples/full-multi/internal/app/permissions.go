@@ -5,6 +5,7 @@ import (
 	orgslib "gorbital.dev/modules/orgs"
 
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"
+	flagsusecase "example.com/acme-api/internal/modules/flags/usecase"
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
 	orgsusecase "example.com/acme-api/internal/modules/orgs/usecase"
 )
@@ -47,7 +48,8 @@ func declarePermissions() *authlib.Catalog {
 	// key's scopes limit that too; sessions always have it.
 	c.Permission(orgsusecase.PermOrgCreate, "Create organisations")
 	c.Permission(orgsusecase.PermOrgList, "See the organisations you belong to")
-	user := []string{orgsusecase.PermOrgCreate, orgsusecase.PermOrgList}
+	c.Permission(flagsusecase.PermFlagsRead, "Read the feature flags shown to clients")
+	user := []string{orgsusecase.PermOrgCreate, orgsusecase.PermOrgList, flagsusecase.PermFlagsRead}
 	for _, r := range userResourcePermissions() {
 		c.Permission(r.read, "See your "+r.name)
 		c.Permission(r.write, "Create, change and delete your "+r.name)

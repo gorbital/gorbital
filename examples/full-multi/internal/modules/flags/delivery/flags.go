@@ -37,7 +37,7 @@ func Register(api huma.API, svc *flagsusecase.Service) {
 		Description: "Whether each feature flag clients may read is on for you. Answers depend on who asks, so responses aren't cached. Unknown keys may appear as flags are added: ignore them.",
 		Tags:        []string{"Feature flags"},
 		Security:    openapi.Bearer,
-		Errors:      []int{http.StatusUnauthorized},
+		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden},
 	}, h.list)
 }
 

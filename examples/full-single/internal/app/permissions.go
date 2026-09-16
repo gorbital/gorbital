@@ -4,6 +4,7 @@ import (
 	authlib "gorbital.dev/modules/auth"
 
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"
+	flagsusecase "example.com/acme-api/internal/modules/flags/usecase"
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
 )
 
@@ -43,7 +44,8 @@ func declarePermissions() *authlib.Catalog {
 	// Every user holds the user role without a grant (ADR-0058). It covers
 	// what a signed-in user may do with their own data, so an API key's
 	// scopes limit that too; sessions always have it.
-	var user []string
+	c.Permission(flagsusecase.PermFlagsRead, "Read the feature flags shown to clients")
+	user := []string{flagsusecase.PermFlagsRead}
 	for _, r := range userResourcePermissions() {
 		c.Permission(r.read, "See your "+r.name)
 		c.Permission(r.write, "Create, change and delete your "+r.name)

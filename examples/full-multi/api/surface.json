@@ -192,6 +192,7 @@
       "projects.project.write"
     ],
     "platform": [
+      "flags.flag.read",
       "ops.audit.read",
       "ops.auth.read",
       "ops.flags.read",

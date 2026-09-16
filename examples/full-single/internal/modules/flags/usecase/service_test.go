@@ -27,7 +27,10 @@ func TestClientFlags(t *testing.T) {
 			t.Errorf("ClientFlags() %s error = %v, want ErrUnauthenticated", name, err)
 		}
 	}
-	got, err := svc.ClientFlags(actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_1"}))
+	if _, err := svc.ClientFlags(actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_1"})); !errors.Is(err, flagsdomain.ErrForbidden) {
+		t.Errorf("ClientFlags() without flags.flag.read error = %v, want ErrForbidden", err)
+	}
+	got, err := svc.ClientFlags(actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_1", Permissions: []string{flagsusecase.PermFlagsRead}}))
 	if err != nil || len(got) != 1 || !got["example.ping_time"] {
 		t.Errorf("ClientFlags() = %v, %v; want the flag on", got, err)
 	}

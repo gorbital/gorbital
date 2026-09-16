@@ -190,6 +190,12 @@ func TestAPIKeyScopesCoverOwnData(t *testing.T) {
 			t.Errorf("%s %s with a read-only key = %d %s, want 403 forbidden", req.method, req.path, r.code, r.body)
 		}
 	}
+	if r := do(t, h, "GET", "/v1/flags", "", reader...); r.code != http.StatusForbidden || r.json["code"] != "forbidden" {
+		t.Errorf("GET /v1/flags with a key without flags.flag.read = %d %s, want 403 forbidden", r.code, r.body)
+	}
+	if r := do(t, h, "GET", "/v1/flags", "", key(`["flags.flag.read"]`)...); r.code != http.StatusOK {
+		t.Errorf("GET /v1/flags with flags.flag.read = %d %s, want 200", r.code, r.body)
+	}
 	writer := key(`["projects.project.write"]`)
 	if r := do(t, h, "GET", projects, "", writer...); r.code != http.StatusForbidden {
 		t.Errorf("list with a write-only key = %d %s, want 403", r.code, r.body)

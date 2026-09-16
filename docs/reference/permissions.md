@@ -38,6 +38,7 @@ Platform roles are held across the whole app; the ops roles grant access to `/op
 | `ops.service_accounts.write` | Create, change and delete service accounts and their API keys. | | yes | |
 | `orgs.org.create` | Create organisations. *Multi-tenant apps only.* | yes | | |
 | `orgs.org.list` | See the organisations you belong to. *Multi-tenant apps only.* | yes | | |
+| `flags.flag.read` | Read the feature flags shown to clients. | yes | | |
 | `projects.project.read` | See your projects. *Single-tenant apps only.* | yes | | |
 | `projects.project.write` | Create, change and delete your projects. *Single-tenant apps only.* | yes | | |
 

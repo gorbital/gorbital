@@ -107,7 +107,7 @@ flag '{"version":3,"reason":"incident 42","state":{"enabled":false,"default":tru
 
 ## Clients
 
-`GET /v1/flags` (signed in) returns the client flags evaluated for the caller, with `Cache-Control: private, no-store`:
+`GET /v1/flags` (signed in, permission `flags.flag.read`, which the `user` role gives every user; an API key needs it in its scopes) returns the client flags evaluated for the caller, with `Cache-Control: private, no-store`:
 
 ```json
 {"flags": {"example.ping_time": false}}
