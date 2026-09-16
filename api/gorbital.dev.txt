@@ -204,8 +204,10 @@ pkg gorbital.dev/httpx, type ServerOption interface { apply }
 pkg gorbital.dev/httpx, var ErrTrustAll error
 pkg gorbital.dev/mail, const RedactedAddress = "[email]"
 pkg gorbital.dev/mail, const RedactedAddress ideal-string
+pkg gorbital.dev/mail, func NormalizeAddress(string) string
 pkg gorbital.dev/mail, func RedactAddresses(string) string
 pkg gorbital.dev/mail, func WithDefaults(Sender, Defaults) Sender
+pkg gorbital.dev/mail, func WithSuppressionList(Sender, SuppressionList) Sender
 pkg gorbital.dev/mail, method (Address) String() string
 pkg gorbital.dev/mail, method (Message) Validate() error
 pkg gorbital.dev/mail, method (SenderFunc) Send(context.Context, Message) error
@@ -228,7 +230,10 @@ pkg gorbital.dev/mail, type Message struct, To []Address
 pkg gorbital.dev/mail, type Sender interface { Send }
 pkg gorbital.dev/mail, type Sender interface, Send(context.Context, Message) error
 pkg gorbital.dev/mail, type SenderFunc func(context.Context, Message) error
+pkg gorbital.dev/mail, type SuppressionList interface { Suppressed }
+pkg gorbital.dev/mail, type SuppressionList interface, Suppressed(context.Context, []string) ([]string, error)
 pkg gorbital.dev/mail, var ErrRejected error
+pkg gorbital.dev/mail, var ErrSuppressed error
 pkg gorbital.dev/page, const DefaultLimit = 20
 pkg gorbital.dev/page, const DefaultLimit ideal-int
 pkg gorbital.dev/page, const MaxCursorLength = 512

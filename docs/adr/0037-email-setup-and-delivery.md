@@ -1,6 +1,6 @@
 # ADR-0037: Email setup and delivery
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0025, ADR-0035
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0025, ADR-0035 · **Amended by:** ADR-0062 (suppression list checked by the mail worker, `RESEND_WEBHOOK_SECRET` in the Resend provider file, `ops.mail.write`)
 
 ## Context
 

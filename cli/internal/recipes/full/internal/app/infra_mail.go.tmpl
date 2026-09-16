@@ -2,10 +2,16 @@ package app
 
 import (
 	"errors"
+	"fmt"
+	"net/http"
+	"time"
 
 	"gorbital.dev/config"
 	"gorbital.dev/mail"
 	"gorbital.dev/modules/mail/resend"
+
+	maileventsdomain "⟦.Module⟧/internal/modules/mailevents/domain"
+	maileventsusecase "⟦.Module⟧/internal/modules/mailevents/usecase"
 )
 
 // mailProvider is the email provider, chosen with `orb add mail`. To switch
@@ -18,17 +24,26 @@ const mailProvider = "resend"
 // /ops/settings without a restart.
 type mailConfig struct {
 	ResendAPIKey config.Secret // RESEND_API_KEY
+	// ResendWebhookSecret verifies Resend's bounce and complaint webhooks
+	// (RESEND_WEBHOOK_SECRET, ADR-0062); empty turns them off.
+	ResendWebhookSecret config.Secret
 }
 
 // loadMailConfig reads the provider's environment variables. required
 // reports whether email goes through the provider rather than Mailpit.
 func loadMailConfig(_ func(string) string, secret func(string) config.Secret, required bool) (mailConfig, []error) {
-	c := mailConfig{ResendAPIKey: secret("RESEND_API_KEY")}
+	c := mailConfig{ResendAPIKey: secret("RESEND_API_KEY"), ResendWebhookSecret: secret("RESEND_WEBHOOK_SECRET")}
+	var errs []error
 	if required && c.ResendAPIKey.IsZero() {
-		return c, []error{errors.New("RESEND_API_KEY is required to send email with Resend: create an API key at https://resend.com/api-keys " +
-			"and add it to .env (in development, leave MAIL_DELIVERY empty to use Mailpit instead)")}
+		errs = append(errs, errors.New("RESEND_API_KEY is required to send email with Resend: create an API key at https://resend.com/api-keys "+
+			"and add it to .env (in development, leave MAIL_DELIVERY empty to use Mailpit instead)"))
 	}
-	return c, nil
+	if !c.ResendWebhookSecret.IsZero() {
+		if err := resend.CheckWebhookSecret(c.ResendWebhookSecret); err != nil {
+			errs = append(errs, fmt.Errorf("RESEND_WEBHOOK_SECRET: %w", err))
+		}
+	}
+	return c, errs
 }
 
 // newMailProvider returns the sender that delivers email through Resend.
@@ -39,9 +54,51 @@ func newMailProvider(c mailConfig) (mail.Sender, error) {
 // details describes the provider's configuration for GET /ops/mail, without
 // secrets.
 func (c mailConfig) details() map[string]string {
-	apiKey := "missing"
-	if !c.ResendAPIKey.IsZero() {
-		apiKey = "configured"
+	configured := func(s config.Secret) string {
+		if s.IsZero() {
+			return "missing"
+		}
+		return "configured"
 	}
-	return map[string]string{"api_key": apiKey}
+	return map[string]string{"api_key": configured(c.ResendAPIKey), "webhook_secret": configured(c.ResendWebhookSecret)}
+}
+
+// webhookReader verifies Resend's webhooks for POST /v1/webhooks/resend, or
+// is nil without RESEND_WEBHOOK_SECRET, which answers 404.
+func (c mailConfig) webhookReader() maileventsusecase.WebhookReader {
+	if c.ResendWebhookSecret.IsZero() {
+		return nil
+	}
+	return resendWebhooks{secret: c.ResendWebhookSecret}
+}
+
+// resendWebhooks reads Resend's signed webhooks.
+type resendWebhooks struct {
+	secret config.Secret
+}
+
+func (resendWebhooks) Provider() string         { return mailProvider }
+func (resendWebhooks) Tolerance() time.Duration { return resend.WebhookTolerance }
+
+func (w resendWebhooks) Read(r maileventsdomain.WebhookRequest, now time.Time) (maileventsdomain.Webhook, error) {
+	header := http.Header{}
+	header.Set(resend.HeaderWebhookID, r.ID)
+	header.Set(resend.HeaderWebhookTimestamp, r.Timestamp)
+	header.Set(resend.HeaderWebhookSignature, r.Signature)
+	if err := resend.VerifyWebhook(w.secret, header, r.Body, now); err != nil {
+		return maileventsdomain.Webhook{}, fmt.Errorf("%w: %w", maileventsdomain.ErrInvalidSignature, err)
+	}
+	event, err := resend.ParseWebhookEvent(r.Body)
+	if err != nil {
+		return maileventsdomain.Webhook{}, fmt.Errorf("%w: %w", maileventsdomain.ErrInvalidPayload, err)
+	}
+	e := maileventsdomain.Event{Kind: maileventsdomain.KindOther, Recipients: event.To}
+	switch event.Type {
+	case resend.EventEmailBounced:
+		e.Kind, e.Permanent = maileventsdomain.KindBounce, event.Bounce.Permanent()
+		e.Detail = event.Bounce.Type + "/" + event.Bounce.SubType
+	case resend.EventEmailComplained:
+		e.Kind = maileventsdomain.KindComplaint
+	}
+	return maileventsdomain.Webhook{ID: r.ID, Events: []maileventsdomain.Event{e}}, nil
 }

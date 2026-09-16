@@ -1,17 +1,18 @@
 # Email guide
 
-How a Full preset app sends email: choosing Resend or SMTP, where each setting lives, development with Mailpit, sending from code and fixing delivery problems. Implemented in `examples/full-single`. Decisions: [ADR-0025](../adr/0025-email-providers.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md).
+How a Full preset app sends email: choosing Resend or SMTP, where each setting lives, development with Mailpit, sending from code and fixing delivery problems. Implemented in `examples/full-single`. Decisions: [ADR-0025](../adr/0025-email-providers.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md), [ADR-0062](../adr/0062-resend-webhooks-and-suppression-list.md).
 
 ## How email flows
 
 ```text
-module code ─► mailer ─────────────► job queue ─► mail worker ─► Mailpit (development)
-               fills the sender from   (retries,                  or Resend / SMTP
-               mail.* settings          idempotent)
+module code ─► mailer ─────────────► job queue ─► mail worker ─────────► Mailpit (development)
+               fills the sender from   (retries,    skips suppressed      or Resend / SMTP
+               mail.* settings          idempotent)  addresses
 ```
 
 - Code calls `mailer.Send(ctx, mail.Message{...})`. The message is validated and stored as a job, so the request doesn't wait for the provider.
 - The mail worker delivers it. Temporary failures (rate limits, outages) retry up to 8 times with the same idempotency key, so nobody gets the email twice. Permanent refusals (an unverified domain, an invalid address) stop at once and show in the job run.
+- Before each send, the worker drops recipients on the [suppression list](#bounces-complaints-and-the-suppression-list): addresses that bounced permanently or marked an email as spam. An email left with no recipient is cancelled, not retried.
 
 ## Choose a provider
 
@@ -45,6 +46,7 @@ All flags are in the [CLI guide](cli.md#orb-add-mail).
 | Setting | Where | Change it |
 |---|---|---|
 | Resend API key | `.env`: `RESEND_API_KEY` | Edit `.env`, restart |
+| Resend webhook signing secret | `.env`: `RESEND_WEBHOOK_SECRET` (optional) | Edit `.env`, restart |
 | SMTP server and login | `.env`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_TLS`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Edit `.env`, restart |
 | Mailpit or real email | `.env`: `MAIL_DELIVERY` (`mailpit` or `provider`; empty means Mailpit in development, provider in production) | Edit `.env`, restart |
 | Sender name | Runtime setting `mail.from_name` (default: the app name) | `PUT /ops/settings/mail.from_name`, live |
@@ -98,7 +100,7 @@ curl http://127.0.0.1:8080/ops/mail -H "Authorization: Bearer $TOKEN"
 ```
 
 ```json
-{"provider": "resend", "delivery": "mailpit", "details": {"api_key": "missing"}, "from_name": "Your App", "from_email": "hello@yourdomain.com"}
+{"provider": "resend", "delivery": "mailpit", "details": {"api_key": "missing", "webhook_secret": "missing"}, "from_name": "Your App", "from_email": "hello@yourdomain.com"}
 ```
 
 ```bash
@@ -108,6 +110,66 @@ curl -X POST http://127.0.0.1:8080/ops/mail/test \
 ```
 
 It returns 202 once the email is queued. See the delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`.
+
+## Bounces, complaints and the suppression list
+
+Sending again to an address that doesn't exist, or to someone who marked your email as spam, hurts your sender reputation until providers deliver your password resets to spam folders or suspend your account. The app keeps a **suppression list** in PostgreSQL and never emails an address on it:
+
+| Event from the provider | What happens |
+|---|---|
+| Hard bounce (Resend `email.bounced` with type `Permanent`) | The recipient is suppressed |
+| Complaint (`email.complained`: marked as spam) | The recipient is suppressed |
+| Soft bounce (`Transient`, such as a full mailbox) or `Undetermined` | Nothing: a later email may arrive |
+| Any other event (`email.delivered`, `email.opened`, …) | Accepted and ignored |
+
+- Emails to a suppressed address are cancelled when the worker picks them up, and the run says `every recipient is on the suppression list` (without the address). Other recipients of the same email still receive it.
+- The list works with both providers. Only Resend reports bounces to the app today; with SMTP, the list is empty unless you add to it from your own code with `suppressionpg.Store.Add`.
+- Addresses are personal data. They are stored trimmed and in lower case, shown only to operators with `ops.mail.read`, left out of audit events and logs, and kept until an operator removes them: a hard bounce stays true until the mailbox exists again.
+
+### Connect Resend's webhook
+
+Your API must be reachable from the internet over https (in development, use a tunnel such as `cloudflared tunnel --url http://127.0.0.1:8080`).
+
+1. Open [resend.com/webhooks](https://resend.com/webhooks) and choose **Add Webhook**.
+2. Endpoint URL: `https://<your API>/v1/webhooks/resend`.
+3. Events: select **email.bounced** and **email.complained** (other events are accepted but ignored, so leave them off to save requests).
+4. Save, open the webhook and copy its **Signing Secret**, which starts with `whsec_`.
+5. Put it in `.env` (or your platform's secret store) on every instance, and restart:
+   ```bash
+   RESEND_WEBHOOK_SECRET=whsec_…
+   ```
+   A secret that isn't `whsec_` and base64 stops the app at startup with a message naming the variable.
+6. Check `GET /ops/mail` shows `"webhook_secret": "configured"`.
+7. Test it with real delivery (`MAIL_DELIVERY=provider`, always the case in production): send an email to `bounced@resend.dev` (Resend's bounce simulator; `complained@resend.dev` simulates a complaint) with `POST /ops/mail/test`, then `GET /ops/mail/suppressions` lists the address within a few seconds, and `GET /ops/audit?action=mail.suppression.added` shows the event. Remove it again as below.
+
+How the endpoint protects itself:
+
+- Every request must carry Resend's Svix signature (`svix-id`, `svix-timestamp`, `svix-signature`): an HMAC-SHA256 of the ID, timestamp and raw body with the signing secret, compared in constant time. Several signatures are accepted while Resend rotates the secret. Anything else answers 401 `invalid_webhook_signature`.
+- A request signed more than 5 minutes before or after the server's clock is refused, and each applied delivery's `svix-id` is remembered for 10 minutes, so a captured request can't be replayed, for example to suppress an address an operator just removed. Resend's retries of a failed delivery use the same ID and are applied once.
+- Bodies are limited to 256 KiB. No session or cookie is involved; cross-origin protection lets Resend's server-to-server requests through (they have no `Origin`) and still refuses browsers posting from other sites.
+- Without `RESEND_WEBHOOK_SECRET`, or in an SMTP app, the endpoint answers 404 `webhook_not_found`.
+- During maintenance mode it answers 503 like the rest of the API, and Resend retries later.
+
+### Review and remove suppressions
+
+```bash
+curl http://127.0.0.1:8080/ops/mail/suppressions -H "Authorization: Bearer $TOKEN"
+```
+
+```json
+{"suppressions": [{"id": 12, "email": "ada@example.com", "reason": "bounce", "source": "resend", "detail": "Permanent/General",
+  "created_at": "2026-09-16T10:00:00Z", "updated_at": "2026-09-16T10:00:00Z"}], "next_cursor": "12"}
+```
+
+Filter with `?reason=bounce` or `?reason=complaint`; pages hold up to 100 (`limit`, `cursor`). When an address works again (the person fixed their mailbox, or asked for email after a complaint), remove it with a reason, which is recorded in the audit event `mail.suppression.removed`. Don't put the address in the reason:
+
+```bash
+curl -X DELETE http://127.0.0.1:8080/ops/mail/suppressions/12 \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"reason":"mailbox exists again (support ticket 4821)"}'
+```
+
+Listing needs `ops.mail.read` (`platform_admin`, `ops_viewer`); removing needs `ops.mail.write` (`platform_admin`). The address is suppressed again at its next hard bounce or complaint.
 
 ## Development: Mailpit
 
@@ -144,6 +206,9 @@ err := mailer.Send(ctx, mail.Message{
 | Run cancelled with `403 … domain is not verified` | `GET /ops/jobs/runs?kind=gorbital.mail.send` | Verify the domain in Resend, or change `mail.from_email` |
 | Run retrying with `401 … check RESEND_API_KEY` | Job runs | Fix the key in `.env` and restart; pending retries then succeed |
 | Run cancelled with `550` | Job runs | The SMTP server refused the sender or recipient; check the address and your provider's sending rules |
+| Run cancelled with `every recipient is on the suppression list` | Job runs; `GET /ops/mail/suppressions` | The address bounced or complained before; remove it only if it works again |
+| Resend shows webhook failures with 401 | Resend's webhook log; app logs `email webhook refused` | `RESEND_WEBHOOK_SECRET` doesn't match the webhook's signing secret, or the server clock is more than 5 minutes off |
+| Resend shows webhook failures with 404 | Resend's webhook log | Set `RESEND_WEBHOOK_SECRET` and restart; check the URL ends in `/v1/webhooks/resend` |
 | Run retrying with `authenticate … check the SMTP username and password` | Job runs | Fix `SMTP_USERNAME` / `SMTP_PASSWORD` and restart |
 
 Retried and cancelled runs keep their error messages; message contents and recipients are never shown by the ops APIs. Providers' replies often quote the recipient, so the SMTP and Resend senders and the mail worker replace email addresses in error text with `[email]` before it reaches the run or the logs. `POST /ops/mail/test` allows 5 test emails an hour per operator.
@@ -156,6 +221,7 @@ Retried and cancelled runs keep their error messages; message contents and recip
 | `MAILPIT_SMTP_ADDR` | both | `127.0.0.1:1025` | Mailpit's SMTP address |
 | `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT` | both | `1025`, `8025` | Host ports in `compose.yaml` |
 | `RESEND_API_KEY` | Resend | none | Required when delivery is `provider` |
+| `RESEND_WEBHOOK_SECRET` | Resend | none | The webhook's signing secret (`whsec_…`); empty turns `POST /v1/webhooks/resend` off |
 | `SMTP_HOST` | SMTP | none | Required when delivery is `provider` |
 | `SMTP_PORT` | SMTP | `587` | |
 | `SMTP_TLS` | SMTP | `starttls` | `starttls`, `tls` or `none` |

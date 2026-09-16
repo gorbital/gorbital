@@ -1,0 +1,122 @@
+// Package usecase holds the mail events module's application logic: it
+// verifies the email provider's webhooks and puts the recipients of hard
+// bounces and complaints on the suppression list (ADR-0062).
+package usecase
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/mail/suppressionpg"
+
+	"⟦.Module⟧/internal/modules/mailevents/domain"
+)
+
+// Deps are the Service's dependencies, wired in internal/app.
+type Deps struct {
+	// Reader verifies webhooks; nil turns them off.
+	Reader       WebhookReader
+	Suppressions SuppressionList
+	Recorder     audit.Recorder
+	Logger       *slog.Logger
+	// Now is the clock; nil means time.Now.
+	Now func() time.Time
+}
+
+// Service runs the mail events use cases.
+type Service struct {
+	reader       WebhookReader
+	suppressions SuppressionList
+	recorder     audit.Recorder
+	logger       *slog.Logger
+	now          func() time.Time
+}
+
+// NewService returns a Service.
+func NewService(d Deps) *Service {
+	s := &Service{reader: d.Reader, suppressions: d.Suppressions, recorder: d.Recorder, logger: d.Logger, now: d.Now}
+	if s.logger == nil {
+		s.logger = slog.New(slog.DiscardHandler)
+	}
+	if s.now == nil {
+		s.now = time.Now
+	}
+	return s
+}
+
+// ReceiveWebhook verifies a webhook request from provider and puts the
+// recipients of its hard bounces and complaints on the suppression list,
+// recording mail.suppression.added for each new address. Other events are
+// accepted and ignored. A delivery applied before (a replay, or the
+// provider sending it twice) changes nothing and succeeds, so the provider
+// stops sending it.
+func (s *Service) ReceiveWebhook(ctx context.Context, provider string, r domain.WebhookRequest) error {
+	if s.reader == nil || s.reader.Provider() != provider {
+		return domain.ErrWebhookNotConfigured
+	}
+	now := s.now()
+	webhook, err := s.reader.Read(r, now)
+	if err != nil {
+		// The reason is safe to log: readers never quote the body.
+		s.logger.WarnContext(ctx, "email webhook refused", "provider", provider, "err", err)
+		return err
+	}
+
+	var entries []suppressionpg.Entry
+	for _, e := range webhook.Events {
+		if !e.Suppresses() {
+			continue
+		}
+		reason := suppressionpg.ReasonBounce
+		if e.Kind == domain.KindComplaint {
+			reason = suppressionpg.ReasonComplaint
+		}
+		for _, to := range e.Recipients {
+			entries = append(entries, suppressionpg.Entry{Email: to, Reason: reason, Source: provider, Detail: e.Detail})
+		}
+	}
+	if len(entries) == 0 {
+		return nil // nothing to change, so nothing to replay
+	}
+
+	// A request is valid from its timestamp minus the tolerance to its
+	// timestamp plus the tolerance, so its ID is kept for twice as long.
+	added, err := s.suppressions.AddOnce(ctx, provider+":"+webhook.ID, now.Add(2*s.reader.Tolerance()), entries...)
+	switch {
+	case errors.Is(err, suppressionpg.ErrDuplicateDelivery):
+		s.logger.InfoContext(ctx, "email webhook already applied", "provider", provider, "delivery_id", webhook.ID)
+		return nil
+	case errors.Is(err, suppressionpg.ErrInvalidEntry):
+		s.logger.WarnContext(ctx, "email webhook refused", "provider", provider, "delivery_id", webhook.ID, "err", err)
+		return fmt.Errorf("%w: %w", domain.ErrInvalidPayload, err)
+	case err != nil:
+		return err
+	}
+
+	for _, sup := range added {
+		// The address is personal data: the event names the suppression.
+		err := s.recorder.Record(ctx, audit.Event{
+			ActorKind:    actor.KindSystem,
+			ActorID:      provider,
+			ActorLabel:   provider + " webhook",
+			Action:       "mail.suppression.added",
+			ResourceType: "mail_suppression",
+			ResourceID:   fmt.Sprint(sup.ID),
+			Outcome:      audit.OutcomeSuccess,
+			Metadata:     map[string]any{"reason": string(sup.Reason), "source": sup.Source, "detail": sup.Detail, "delivery_id": webhook.ID},
+		})
+		if err != nil {
+			// The suppression is stored; a retry would be a duplicate.
+			s.logger.ErrorContext(ctx, "record audit event", "action", "mail.suppression.added", "suppression_id", sup.ID, "err", err)
+		}
+	}
+	if len(added) > 0 {
+		s.logger.InfoContext(ctx, "email addresses suppressed", "provider", provider, "delivery_id", webhook.ID, "added", len(added))
+	}
+	return nil
+}

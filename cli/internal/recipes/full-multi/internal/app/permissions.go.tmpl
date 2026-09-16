@@ -32,6 +32,7 @@ func declarePermissions() *authlib.Catalog {
 	c.Permission(opsdomain.PermReleasesRead, "Read releases and the instances running them")
 	c.Permission(opsdomain.PermMailRead, "See how the app sends email")
 	c.Permission(opsdomain.PermMailTest, "Send a test email")
+	c.Permission(opsdomain.PermMailWrite, "Remove addresses from the email suppression list")
 	c.Permission(opsdomain.PermAuthRead, "See which sign-in methods are configured")
 	c.Permission(opsdomain.PermSystemRead, "See an instance's health checks, database pool, migrations and runtime")
 

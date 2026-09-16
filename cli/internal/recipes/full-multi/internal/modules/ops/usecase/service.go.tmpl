@@ -37,6 +37,8 @@ type Deps struct {
 	// TestEmailLimiter limits test emails per operator, keyed by actor ID;
 	// nil means no limit.
 	TestEmailLimiter ratelimit.Taker
+	// Suppressions is the email suppression list (ADR-0062).
+	Suppressions SuppressionList
 }
 
 // TestEmailsPerHour is how many test emails each operator may send an hour.
@@ -55,6 +57,7 @@ type Service struct {
 	retention     RetentionReporter
 
 	testEmailLimiter ratelimit.Taker
+	suppressions     SuppressionList
 }
 
 // NewService returns a Service.
@@ -62,7 +65,7 @@ func NewService(d Deps) *Service {
 	return &Service{
 		settings: d.Settings, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail,
 		signInMethods: d.SignInMethods, system: d.System, retention: d.Retention,
-		testEmailLimiter: d.TestEmailLimiter,
+		testEmailLimiter: d.TestEmailLimiter, suppressions: d.Suppressions,
 	}
 }
 

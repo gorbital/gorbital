@@ -39,6 +39,7 @@ internal/modules/<name>/ one bounded context per directory
   repository/            storage adapters implementing ports (hand-written SQL)
   delivery/              HTTP adapter: Huma operations ↔ use cases
 internal/modules/auth/   sign-up, sign-in, sessions, passwords and roles: domain, usecase, repository (SQL), delivery
+internal/modules/mailevents/ the email provider's bounce and complaint webhook, feeding the suppression list
 internal/modules/ops/    admin APIs for runtime settings, jobs, the audit log and email
 internal/modules/projects/ example business resource owned by the signed-in user: copy it for your own
 api/openapi.json         exported API contract (committed; review changes in pull requests)
@@ -84,6 +85,8 @@ Jobs run in the API process on PostgreSQL (River). A job carries the request ID,
 ## Email
 
 Modules send email through `mailer`, a `mail.Sender` built in `app.go`: it fills the sender from the `mail.*` runtime settings and queues the message; the mail worker delivers it with retries and idempotency. `mail.go` sends to Mailpit in development (`MAIL_DELIVERY`) or to the provider in `infra_mail.go`. The provider's secrets are environment variables in the `# orb:begin mail` block of `.env.example`. `orb add mail` replaces `infra_mail.go`, `infra_mail_test.go` and that block to switch between Resend and SMTP; don't edit them by hand.
+
+The mail worker skips addresses on the suppression list (`gorbital.dev/modules/mail/suppressionpg`, table `mail_suppressions`): permanent bounces and complaints, reported by Resend's signed webhook `POST /v1/webhooks/resend` (`internal/modules/mailevents`, on only with `RESEND_WEBHOOK_SECRET`). An email to a suppressed address is cancelled, not retried. Operators list and remove suppressions with `/ops/mail/suppressions` (ADR-0062).
 
 ## Audit log
 

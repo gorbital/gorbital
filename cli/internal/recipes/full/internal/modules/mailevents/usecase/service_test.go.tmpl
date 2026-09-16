@@ -1,0 +1,139 @@
+package usecase_test
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/mail/suppressionpg"
+
+	"⟦.Module⟧/internal/modules/mailevents/domain"
+	maileventsusecase "⟦.Module⟧/internal/modules/mailevents/usecase"
+)
+
+// reader accepts requests whose signature is "valid" and returns webhook.
+type reader struct {
+	webhook domain.Webhook
+	err     error
+}
+
+func (reader) Provider() string         { return "resend" }
+func (reader) Tolerance() time.Duration { return 5 * time.Minute }
+func (r reader) Read(req domain.WebhookRequest, _ time.Time) (domain.Webhook, error) {
+	if req.Signature != "valid" {
+		return domain.Webhook{}, domain.ErrInvalidSignature
+	}
+	return r.webhook, r.err
+}
+
+type call struct {
+	key       string
+	expiresAt time.Time
+	entries   []suppressionpg.Entry
+}
+
+type list struct {
+	calls []call
+	err   error
+}
+
+func (l *list) AddOnce(_ context.Context, key string, expiresAt time.Time, entries ...suppressionpg.Entry) ([]suppressionpg.Suppression, error) {
+	l.calls = append(l.calls, call{key, expiresAt, entries})
+	if l.err != nil {
+		return nil, l.err
+	}
+	added := make([]suppressionpg.Suppression, len(entries))
+	for i, e := range entries {
+		added[i] = suppressionpg.Suppression{ID: int64(i + 1), Email: e.Email, Reason: e.Reason, Source: e.Source, Detail: e.Detail}
+	}
+	return added, nil
+}
+
+type recorder struct{ events []audit.Event }
+
+func (r *recorder) Record(_ context.Context, e audit.Event) error {
+	r.events = append(r.events, e)
+	return nil
+}
+
+func TestReceiveWebhook(t *testing.T) {
+	now := time.Date(2026, 9, 16, 10, 0, 0, 0, time.UTC)
+	webhook := domain.Webhook{ID: "msg_1", Events: []domain.Event{
+		{Kind: domain.KindBounce, Permanent: true, Recipients: []string{"hard@example.com"}, Detail: "Permanent/General"},
+		{Kind: domain.KindBounce, Recipients: []string{"soft@example.com"}, Detail: "Transient/MailboxFull"},
+		{Kind: domain.KindComplaint, Recipients: []string{"spam@example.com", "spam2@example.com"}},
+		{Kind: domain.KindOther, Recipients: []string{"delivered@example.com"}},
+	}}
+	store, rec := &list{}, &recorder{}
+	svc := maileventsusecase.NewService(maileventsusecase.Deps{
+		Reader: reader{webhook: webhook}, Suppressions: store, Recorder: rec, Now: func() time.Time { return now },
+	})
+	ctx := context.Background()
+
+	if err := svc.ReceiveWebhook(ctx, "resend", domain.WebhookRequest{Signature: "valid"}); err != nil {
+		t.Fatalf("ReceiveWebhook() error = %v", err)
+	}
+	if len(store.calls) != 1 {
+		t.Fatalf("AddOnce calls = %+v", store.calls)
+	}
+	c := store.calls[0]
+	var emails []string
+	for _, e := range c.entries {
+		emails = append(emails, e.Email+"/"+string(e.Reason))
+	}
+	if got := strings.Join(emails, ","); got != "hard@example.com/bounce,spam@example.com/complaint,spam2@example.com/complaint" {
+		t.Errorf("suppressed %s; want the hard bounce and the complaint only", got)
+	}
+	if c.key != "resend:msg_1" || !c.expiresAt.Equal(now.Add(10*time.Minute)) || c.entries[0].Source != "resend" || c.entries[0].Detail != "Permanent/General" {
+		t.Errorf("AddOnce(%q, %v, …) = %+v", c.key, c.expiresAt, c.entries[0])
+	}
+	if len(rec.events) != 3 || rec.events[0].Action != "mail.suppression.added" || rec.events[0].ResourceID != "1" || rec.events[0].ActorID != "resend" {
+		t.Fatalf("audit events = %+v", rec.events)
+	}
+	for _, e := range rec.events {
+		for _, v := range e.Metadata {
+			if s, ok := v.(string); ok && strings.Contains(s, "@") {
+				t.Errorf("audit event carries an address: %+v", e)
+			}
+		}
+	}
+
+	// Only soft bounces and other events: nothing stored.
+	store.calls = nil
+	soft := maileventsusecase.NewService(maileventsusecase.Deps{
+		Reader:       reader{webhook: domain.Webhook{ID: "msg_2", Events: []domain.Event{webhook.Events[1], webhook.Events[3]}}},
+		Suppressions: store, Recorder: rec,
+	})
+	if err := soft.ReceiveWebhook(ctx, "resend", domain.WebhookRequest{Signature: "valid"}); err != nil || len(store.calls) != 0 {
+		t.Errorf("soft bounce: ReceiveWebhook() = %v with %d calls; want accepted without changes", err, len(store.calls))
+	}
+
+	// Replays succeed without audit events.
+	rec.events = nil
+	replayed := maileventsusecase.NewService(maileventsusecase.Deps{
+		Reader: reader{webhook: webhook}, Suppressions: &list{err: suppressionpg.ErrDuplicateDelivery}, Recorder: rec,
+	})
+	if err := replayed.ReceiveWebhook(ctx, "resend", domain.WebhookRequest{Signature: "valid"}); err != nil || len(rec.events) != 0 {
+		t.Errorf("replay: ReceiveWebhook() = %v, %d events; want nil and none", err, len(rec.events))
+	}
+
+	if err := svc.ReceiveWebhook(ctx, "resend", domain.WebhookRequest{Signature: "forged"}); !errors.Is(err, domain.ErrInvalidSignature) {
+		t.Errorf("forged: ReceiveWebhook() error = %v, want ErrInvalidSignature", err)
+	}
+	if err := svc.ReceiveWebhook(ctx, "postmark", domain.WebhookRequest{Signature: "valid"}); !errors.Is(err, domain.ErrWebhookNotConfigured) {
+		t.Errorf("another provider: ReceiveWebhook() error = %v, want ErrWebhookNotConfigured", err)
+	}
+	off := maileventsusecase.NewService(maileventsusecase.Deps{Suppressions: store, Recorder: rec})
+	if err := off.ReceiveWebhook(ctx, "resend", domain.WebhookRequest{Signature: "valid"}); !errors.Is(err, domain.ErrWebhookNotConfigured) {
+		t.Errorf("no reader: ReceiveWebhook() error = %v, want ErrWebhookNotConfigured", err)
+	}
+	invalid := maileventsusecase.NewService(maileventsusecase.Deps{
+		Reader: reader{webhook: webhook}, Suppressions: &list{err: suppressionpg.ErrInvalidEntry}, Recorder: rec,
+	})
+	if err := invalid.ReceiveWebhook(ctx, "resend", domain.WebhookRequest{Signature: "valid"}); !errors.Is(err, domain.ErrInvalidPayload) {
+		t.Errorf("invalid address: ReceiveWebhook() error = %v, want ErrInvalidPayload", err)
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"gorbital.dev/ratelimit"
 
 	authmodule "example.com/acme-api/internal/modules/auth"
+	maileventsusecase "example.com/acme-api/internal/modules/mailevents/usecase"
 	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
 	orgsmodule "example.com/acme-api/internal/modules/orgs"
 )
@@ -29,6 +30,8 @@ type services struct {
 	auth        *authmodule.Module
 	// ipLimiter limits /v1/auth/ requests per client IP (rate_limits.go).
 	ipLimiter ratelimit.Taker
+	// mailEvents receives the email provider's webhooks (ADR-0062).
+	mailEvents maileventsusecase.Deps
 	// orgs gives org-scoped modules the org catalog and memberships.
 	orgs *orgsmodule.Module
 }
@@ -42,6 +45,7 @@ func registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {
 		registerProjects(api, mapper, svc),
 		registerPing(api, mapper, svc.pingMessage),
 		registerOps(api, mapper, svc.ops),
+		registerMailEvents(api, mapper, svc.mailEvents),
 		registerAuth(api, mapper, svc.auth),
 		registerOrgs(api, mapper, svc.orgs),
 	)

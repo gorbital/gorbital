@@ -1,0 +1,23 @@
+package domain_test
+
+import (
+	"testing"
+
+	"⟦.Module⟧/internal/modules/mailevents/domain"
+)
+
+func TestEventSuppresses(t *testing.T) {
+	for _, tt := range []struct {
+		event domain.Event
+		want  bool
+	}{
+		{domain.Event{Kind: domain.KindBounce, Permanent: true}, true},
+		{domain.Event{Kind: domain.KindBounce}, false},
+		{domain.Event{Kind: domain.KindComplaint}, true},
+		{domain.Event{Kind: domain.KindOther, Permanent: true}, false},
+	} {
+		if got := tt.event.Suppresses(); got != tt.want {
+			t.Errorf("%+v.Suppresses() = %v, want %v", tt.event, got, tt.want)
+		}
+	}
+}

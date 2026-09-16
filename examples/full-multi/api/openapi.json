@@ -2284,6 +2284,23 @@
         },
         "type": "object"
       },
+      "RemoveSuppressionInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "reason": {
+            "description": "Why the address may receive email again; required. Don't include the address",
+            "examples": [
+              "The mailbox exists again (support ticket 4821)"
+            ],
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
       "RenameInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -2820,6 +2837,84 @@
         "required": [
           "nonce",
           "expires_at"
+        ],
+        "type": "object"
+      },
+      "SuppressionPage": {
+        "additionalProperties": false,
+        "properties": {
+          "next_cursor": {
+            "type": "string"
+          },
+          "suppressions": {
+            "items": {
+              "$ref": "#/components/schemas/SuppressionResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "suppressions"
+        ],
+        "type": "object"
+      },
+      "SuppressionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "description": "When the address was first suppressed",
+            "format": "date-time",
+            "type": "string"
+          },
+          "detail": {
+            "description": "The provider's classification",
+            "examples": [
+              "Permanent/General"
+            ],
+            "type": "string"
+          },
+          "email": {
+            "description": "Normalized: trimmed and in lower case",
+            "examples": [
+              "ada@example.com"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "reason": {
+            "description": "bounce: a permanent bounce; complaint: marked as spam",
+            "enum": [
+              "bounce",
+              "complaint"
+            ],
+            "type": "string"
+          },
+          "source": {
+            "description": "Who reported it",
+            "examples": [
+              "resend"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "The latest bounce or complaint",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "reason",
+          "source",
+          "created_at",
+          "updated_at"
         ],
         "type": "object"
       },
@@ -4983,6 +5078,221 @@
           }
         ],
         "summary": "Show how the app sends email",
+        "tags": [
+          "Ops: email"
+        ]
+      }
+    },
+    "/ops/mail/suppressions": {
+      "get": {
+        "description": "Addresses that bounced permanently or marked an email as spam, most recently added first. The app sends them no email: such jobs are cancelled. The provider's webhook adds them (`POST /v1/webhooks/resend`).",
+        "operationId": "ops-list-mail-suppressions",
+        "parameters": [
+          {
+            "description": "Only suppressions with this reason",
+            "explode": false,
+            "in": "query",
+            "name": "reason",
+            "schema": {
+              "description": "Only suppressions with this reason",
+              "enum": [
+                "bounce",
+                "complaint"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "next_cursor from the previous page",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "next_cursor from the previous page",
+              "maxLength": 30,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuppressionPage"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List suppressed addresses",
+        "tags": [
+          "Ops: email"
+        ]
+      }
+    },
+    "/ops/mail/suppressions/{id}": {
+      "delete": {
+        "description": "The address receives email again until its next permanent bounce or complaint. A reason is required and recorded in the audit event `mail.suppression.removed`. Returns the removed suppression.",
+        "operationId": "ops-remove-mail-suppression",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveSuppressionInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuppressionResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a suppressed address",
         "tags": [
           "Ops: email"
         ]
@@ -10990,6 +11300,115 @@
         "summary": "Check the API is reachable",
         "tags": [
           "Example"
+        ]
+      }
+    },
+    "/v1/webhooks/resend": {
+      "post": {
+        "description": "Register this URL as a webhook in Resend for `email.bounced` and `email.complained`, and set `RESEND_WEBHOOK_SECRET` to its signing secret. Requests are signed (Svix) and refused when the signature doesn't match or is more than 5 minutes old. Hard bounces and complaints put the recipients on the suppression list (`GET /ops/mail/suppressions`); soft bounces and other events are accepted and ignored. 404 when the app doesn't send with Resend or the secret isn't set.",
+        "operationId": "mail-resend-webhook",
+        "parameters": [
+          {
+            "description": "The delivery's ID, the same for every retry",
+            "in": "header",
+            "name": "svix-id",
+            "schema": {
+              "description": "The delivery's ID, the same for every retry",
+              "maxLength": 255,
+              "type": "string"
+            }
+          },
+          {
+            "description": "When the attempt was signed, in Unix seconds",
+            "in": "header",
+            "name": "svix-timestamp",
+            "schema": {
+              "description": "When the attempt was signed, in Unix seconds",
+              "maxLength": 20,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Space-separated v1,\u003cbase64 HMAC-SHA256\u003e signatures",
+            "in": "header",
+            "name": "svix-signature",
+            "schema": {
+              "description": "Space-separated v1,\u003cbase64 HMAC-SHA256\u003e signatures",
+              "maxLength": 4096,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "Resend's email events",
+        "tags": [
+          "Webhooks"
         ]
       }
     },

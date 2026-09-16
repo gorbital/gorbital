@@ -7,6 +7,7 @@ import (
 	"gorbital.dev/audit"
 	"gorbital.dev/modules/auditpg"
 	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/mail/suppressionpg"
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/modules/settings"
 )
@@ -56,9 +57,17 @@ type ReleaseLog interface {
 	Instances(ctx context.Context, f releases.InstanceFilter) (releases.InstancePage, error)
 }
 
+// SuppressionList lists and removes addresses on the email suppression list.
+// *suppressionpg.Store implements it.
+type SuppressionList interface {
+	List(ctx context.Context, f suppressionpg.Filter) (suppressionpg.Page, error)
+	Remove(ctx context.Context, id int64) (suppressionpg.Suppression, error)
+}
+
 var (
-	_ SettingsStore = (*settings.Store)(nil)
-	_ JobsManager   = (*jobs.Manager)(nil)
-	_ AuditLog      = (*auditpg.Store)(nil)
-	_ ReleaseLog    = (*releases.Store)(nil)
+	_ SettingsStore   = (*settings.Store)(nil)
+	_ JobsManager     = (*jobs.Manager)(nil)
+	_ AuditLog        = (*auditpg.Store)(nil)
+	_ ReleaseLog      = (*releases.Store)(nil)
+	_ SuppressionList = (*suppressionpg.Store)(nil)
 )

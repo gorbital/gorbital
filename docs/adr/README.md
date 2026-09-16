@@ -34,7 +34,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0022](0022-generated-application-layout.md) | Generated application layout | Accepted, amended by 0032 |
 | [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033, 0048 |
 | [0024](0024-authentication-methods.md) | Authentication methods | Accepted, amended by 0038, 0043, 0044, 0046 |
-| [0025](0025-email-providers.md) | Email providers | Accepted, amended by 0033, 0037 |
+| [0025](0025-email-providers.md) | Email providers | Accepted, amended by 0033, 0037, 0062 |
 | [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038, 0051 |
 | [0027](0027-api-contract-and-docs.md) | API contract and documentation | Accepted, amended by 0049, 0051 |
 | [0028](0028-local-development-environment.md) | Local development environment | Accepted |
@@ -46,7 +46,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0034](0034-interim-ops-token.md) | Interim ops token | Superseded by 0038 |
 | [0035](0035-interactive-cli.md) | Interactive CLI with flag parity | Accepted, amended by 0037 |
 | [0036](0036-audit-storage.md) | Audit storage | Accepted |
-| [0037](0037-email-setup-and-delivery.md) | Email setup and delivery | Accepted |
+| [0037](0037-email-setup-and-delivery.md) | Email setup and delivery | Accepted, amended by 0062 |
 | [0038](0038-authentication-v0-2.md) | Authentication in v0.2 | Accepted, amended by 0048 |
 | [0039](0039-resource-module-template.md) | Resource module template | Accepted, amended by 0048 |
 | [0040](0040-release-tracking.md) | Release tracking | Accepted |
@@ -64,3 +64,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0052](0052-shared-rate-limits.md) | Shared rate limits and trusted proxies | Accepted |
 | [0054](0054-api-freeze-and-scaffold-compatibility.md) | API freeze: stability markers, API listings, public-surface inventory, `/ops` baseline, `--json` schema version, scaffold compatibility check | Accepted |
 | [0055](0055-governance-and-contribution.md) | Governance and contribution: roles, decisions, reviews, supported versions, changelog | Accepted |
+| [0062](0062-resend-webhooks-and-suppression-list.md) | Resend bounce and complaint webhooks and the email suppression list | Accepted |
