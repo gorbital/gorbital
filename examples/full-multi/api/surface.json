@@ -151,6 +151,8 @@
       "orgs.org.delete",
       "orgs.org.read",
       "orgs.org.update",
+      "orgs.settings.read",
+      "orgs.settings.write",
       "projects.project.read",
       "projects.project.write"
     ],

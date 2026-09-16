@@ -19,6 +19,11 @@
 // other instances through PostgreSQL LISTEN/NOTIFY, with a periodic full
 // reload as a fallback.
 //
+// Settings declared with [OrgOverridable] also accept a value per
+// organisation (ADR-0056). [Setting.Get] returns the organisation's value
+// when the context's actor acts in one (actor.Actor.OrgID, set by
+// orgs.RequireMember), and the platform value otherwise.
+//
 // Stability: stable (ADR-0015, ADR-0054).
 package settings
 
@@ -33,6 +38,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"gorbital.dev/actor"
 	"gorbital.dev/config"
 )
 
@@ -61,6 +67,7 @@ type definition struct {
 	group           string
 	reasonRequired  bool
 	restartRequired bool
+	orgOverridable  bool
 	def             any
 	decode          func(json.RawMessage) (any, error)
 	encode          func(any) json.RawMessage
@@ -85,11 +92,13 @@ func (d *definition) parse(raw json.RawMessage) (any, error) {
 // stored is a setting's persisted state. A nil value means the default.
 type stored struct {
 	value     any
-	raw       json.RawMessage
 	version   int64
 	updatedAt time.Time
 	updatedBy string
 	invalid   bool
+	// seq orders organisation values applied in memory, so a full reload
+	// can tell a value applied while it ran from one deleted since.
+	seq uint64
 }
 
 // A Registry holds declared settings and their current values. Declare every
@@ -104,6 +113,12 @@ type Registry struct {
 	live    atomic.Pointer[map[string]stored]
 	boot    atomic.Pointer[map[string]stored]
 	unknown atomic.Pointer[[]string]
+
+	// orgs maps an organisation ID to its []orgValue, replaced whole under
+	// snapMu. Only settings declared with OrgOverridable have organisation
+	// values, so each slice is short.
+	orgs   sync.Map
+	orgSeq uint64 // guarded by snapMu
 }
 
 // NewRegistry returns an empty registry.
@@ -126,8 +141,17 @@ func (s *Setting[T]) Key() string { return s.def.key }
 // Get returns the setting's current value. It returns the default while the
 // setting is unchanged, when its stored value fails validation, and before a
 // store has loaded. Settings declared with [RestartRequired] keep the value
-// loaded at startup. Get never touches the database.
-func (s *Setting[T]) Get(context.Context) T {
+// loaded at startup. For a setting declared with [OrgOverridable], when the
+// actor in ctx acts in an organisation that has a valid value of its own,
+// Get returns that value. Get never touches the database.
+func (s *Setting[T]) Get(ctx context.Context) T {
+	if s.def.orgOverridable {
+		if a, ok := actor.From(ctx); ok && a.OrgID != "" {
+			if st, ok := s.reg.orgValue(a.OrgID, s.def.key); ok && st.value != nil {
+				return cloneValue(st.value).(T)
+			}
+		}
+	}
 	snap := s.reg.live.Load()
 	if s.def.restartRequired {
 		snap = s.reg.boot.Load()
@@ -176,6 +200,9 @@ func declare[T any](r *Registry, key string, kind Kind, def T,
 	}
 	if _, bounded := d.constraints["max_items"]; kind == KindStringList && !bounded {
 		_ = MaxItems(DefaultMaxItems).apply(d) // a positive bound on a string list never fails
+	}
+	if d.orgOverridable && d.restartRequired {
+		panic(fmt.Sprintf("settings: %s: OrgOverridable settings apply live; they can't be RestartRequired", key))
 	}
 	if _, err := d.parse(encode(def)); err != nil {
 		panic(fmt.Sprintf("settings: %s: default is invalid: %v", key, err))

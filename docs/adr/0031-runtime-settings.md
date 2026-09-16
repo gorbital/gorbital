@@ -1,6 +1,6 @@
 # ADR-0031: Runtime settings
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0020, ADR-0026
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0020, ADR-0026 · **Amended by:** ADR-0056 (settings declared `OrgOverridable` take a value per organisation, resolved by `Get` from the context's actor)
 
 ## Context
 

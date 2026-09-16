@@ -218,6 +218,8 @@ func Register(api huma.API, svc *orgsusecase.Service) {
 		Summary: "Accept an invitation",
 		Errors:  []int{http.StatusForbidden, http.StatusNotFound, http.StatusConflict},
 	}), h.accept)
+
+	registerSettings(api, h, inOrg)
 }
 
 func (h *handler) list(ctx context.Context, _ *struct{}) (*orgListOutput, error) {

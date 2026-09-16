@@ -53,6 +53,19 @@ func RestartRequired() Option {
 	})
 }
 
+// OrgOverridable lets each organisation have its own value, within the
+// same validation, through [Store.SetForOrg] (ADR-0056). [Setting.Get]
+// returns it when the context's actor acts in that organisation. Only mark
+// settings an organisation may choose for itself: never security-relevant
+// ones such as sign-in, rate limits, retention, maintenance or email senders.
+// It can't be combined with [RestartRequired].
+func OrgOverridable() Option {
+	return optionFunc(func(d *definition) error {
+		d.orgOverridable = true
+		return nil
+	})
+}
+
 // Range limits an Int, Float or Duration setting to [lo, hi]. The bounds'
 // type must match the setting: Range(0.0, 2.0) for a Float.
 func Range[T int | float64 | time.Duration](lo, hi T) Option {

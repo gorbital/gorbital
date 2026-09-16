@@ -55,6 +55,7 @@ Missing permission: 403 `forbidden`.
 | `PUT /ops/settings/{key}` | Change: `{value, version, reason?}` | 200 |
 | `DELETE /ops/settings/{key}` | Reset to default: `{version, reason?}` | 200 |
 | `GET /ops/settings/{key}/history?before=&limit=` | Changes, newest first | 200 `{changes: [...]}` |
+| `GET /ops/settings/{key}/overrides?after=&limit=` | Organisations' own values of a setting with `org_overridable`, by organisation ID ([ADR-0056](../adr/0056-per-organisation-settings.md)); always empty in single-tenant apps | 200 `{overrides: [{org_id, value, invalid_stored_value, version, updated_at, updated_by}]}` |
 
 ```bash
 curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
@@ -78,7 +79,8 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
   "reason_required": false,
   "restart_required": false,
   "restart_pending": false,
-  "constraints": {"max_len": 100}
+  "constraints": {"max_len": 100},
+  "org_overridable": false
 }
 ```
 

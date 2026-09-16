@@ -45,6 +45,7 @@ Keys are dotted lowercase, namespaced by feature (`module.name`). Keys are publi
 | `Group(name)` | all | Listing group (default: the key's first segment) |
 | `ReasonRequired()` | all | Every change needs a reason. Use it for every security-relevant setting: lifetimes of sessions and codes, rate limits, retention, maintenance, and anything that decides where emails and links go or who emails come from |
 | `RestartRequired()` | all | `Get` keeps the startup value; changes apply after restart |
+| `OrgOverridable()` | all but `RestartRequired` | Each organisation may have its own value ([below](#per-organisation-settings)) |
 | `Range(lo, hi)` | Int, Float, Duration | Bounds; types must match (`Range(0.0, 1.0)` for Float) |
 | `OneOf(values...)` | String, StringList items | Allowed values |
 | `MaxLen(n)` | String, StringList items | Maximum characters |
@@ -106,15 +107,44 @@ view, err := store.Set(ctx, "auth.verification_code_ttl", json.RawMessage(`"30m"
 
 `Store.List()` and `Store.Get(key)` return a `View` with the effective and default values, `Modified`, `InvalidStoredValue`, `Version`, `UpdatedAt`, `UpdatedBy`, `ReasonRequired`, `RestartRequired`, `RestartPending` and `Constraints` (min, max, one_of, max_len, max_items, format). `Store.UnknownKeys()` lists stored keys no longer declared.
 
+## Per-organisation settings
+
+In a multi-tenant app, a setting declared with `OrgOverridable()` takes a value per organisation, within the same validation ([ADR-0056](../adr/0056-per-organisation-settings.md)). The Full multi-tenant app declares one, `orgs.invitation_ttl`:
+
+```go
+settings.Duration(reg, "orgs.invitation_ttl", 7*24*time.Hour,
+	settings.Range(24*time.Hour, 30*24*time.Hour),
+	settings.ReasonRequired(),
+	settings.OrgOverridable(),
+)
+```
+
+`Get(ctx)` returns the organisation's value when the actor in `ctx` acts in an organisation that has one, and the platform value otherwise. `orgs.RequireMember` returns such a context, so a use case that reads the setting after checking membership gets the organisation's value with no other change. Still no database call: every organisation value is kept in memory, about 350 bytes each.
+
+| In Go | Over HTTP (multi-tenant Full app) | Who |
+|---|---|---|
+| `store.ListForOrg(orgID)`, `store.GetForOrg(orgID, key)` | `GET /v1/orgs/{orgId}/settings`, `GET /v1/orgs/{orgId}/settings/{key}` | Members (`orgs.settings.read`) |
+| `store.SetForOrg(ctx, orgID, key, value, change)` | `PUT /v1/orgs/{orgId}/settings/{key}` `{value, version, reason?}` | Owners and admins (`orgs.settings.write`) |
+| `store.ResetForOrg(ctx, orgID, key, change)` | `DELETE /v1/orgs/{orgId}/settings/{key}` `{version, reason?}`: back to the platform value | Owners and admins |
+| `store.HistoryForOrg(ctx, orgID, key, before, limit)` | `GET /v1/orgs/{orgId}/settings/{key}/history` | Members |
+| `store.Overrides(ctx, key, after, limit)` | `GET /ops/settings/{key}/overrides` | Operators (`ops.settings.read`) |
+
+- Organisation values have their own versions, history rows (with `org_id`) and `settings.value.changed` audit events carrying the organisation. `ReasonRequired` applies to them too.
+- Responses show `value` (what the organisation gets), `platform_value` (what it gets without its own) and `overridden`.
+- The library doesn't check membership: call `orgs.RequireMember` first, as the orgs module does.
+- Purging an organisation deletes its values and history through foreign keys (`20260918000002_settings_org_purge.sql`).
+
+> [!DONT]
+> Don't mark a setting `OrgOverridable` if it protects accounts or the platform: sign-in, rate limits, retention, maintenance, email senders, or where links go. `TestSecuritySettingsArentOrgOverridable` in `internal/app/settings_test.go` fails for those groups and keys; extend its lists when you add a security-relevant group.
+
 ## Storage
 
 | Table | Holds |
 |---|---|
-| `settings_values` | One row per changed setting: `key`, `value` (jsonb, NULL = default), `version`, `updated_at`, `updated_by`, `org_id` (reserved) |
-| `settings_history` | Every change with old and new values, reason, actor and request ID |
+| `settings_values` | One row per changed setting: `key`, `value` (jsonb, NULL = default), `version`, `updated_at`, `updated_by`, and `org_id` (NULL for the platform value, else the organisation's own value) |
+| `settings_history` | Every change with old and new values, reason, actor, request ID and `org_id` |
 
 ## Limitations
 
-- No per-organisation settings yet (the `org_id` column is reserved).
 - No feature flags or percentage rollouts (v1.1).
 - A setting cannot be locked from the environment.

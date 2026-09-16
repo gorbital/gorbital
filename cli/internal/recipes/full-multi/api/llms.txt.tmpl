@@ -61,6 +61,7 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Change a runtime setting](/docs/ops-settings/ops-set-setting.md): `PUT /ops/settings/{key}`
 - [Reset a runtime setting to its default](/docs/ops-settings/ops-reset-setting.md): `DELETE /ops/settings/{key}`
 - [List a runtime setting's changes](/docs/ops-settings/ops-setting-history.md): `GET /ops/settings/{key}/history`
+- [List organisations' own values of a runtime setting](/docs/ops-settings/ops-setting-overrides.md): `GET /ops/settings/{key}/overrides`
 
 ## Ops: system
 
@@ -128,6 +129,11 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Change a member's role](/docs/organisations/orgs-members-change-role.md): `PATCH /v1/orgs/{orgId}/members/{userId}`
 - [Remove a member](/docs/organisations/orgs-members-remove.md): `DELETE /v1/orgs/{orgId}/members/{userId}`
 - [Restore a deleted organisation](/docs/organisations/orgs-restore.md): `POST /v1/orgs/{orgId}/restore`
+- [List the organisation's settings](/docs/organisations/orgs-settings-list.md): `GET /v1/orgs/{orgId}/settings`
+- [Get an organisation setting](/docs/organisations/orgs-settings-get.md): `GET /v1/orgs/{orgId}/settings/{key}`
+- [Set the organisation's own value](/docs/organisations/orgs-settings-set.md): `PUT /v1/orgs/{orgId}/settings/{key}`
+- [Go back to the platform value](/docs/organisations/orgs-settings-reset.md): `DELETE /v1/orgs/{orgId}/settings/{key}`
+- [List changes to an organisation setting](/docs/organisations/orgs-settings-history.md): `GET /v1/orgs/{orgId}/settings/{key}/history`
 
 ## Projects
 

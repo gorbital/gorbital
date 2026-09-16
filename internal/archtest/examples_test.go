@@ -23,6 +23,9 @@ var multiTenantChanges = []string{
 	"internal/app/module_orgs.go",
 	"internal/app/orgs_hooks.go",
 	"internal/app/orgs_test.go",
+	// Organisations' own settings (ADR-0056): purged with the organisation.
+	"db/migrations/20260918000002_settings_org_purge.sql",
+	"internal/app/org_settings_test.go",
 
 	// Wiring that names the orgs module.
 	"go.mod",

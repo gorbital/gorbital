@@ -92,6 +92,9 @@ type Config struct {
 	// instances (ADR-0052). Without one, an in-memory limiter allows
 	// DefaultUserInvitationsPerHour per instance.
 	InvitationLimiter ratelimit.Taker
+	// Settings holds organisations' own values of runtime settings
+	// (ADR-0056). Without it, organisations have no settings of their own.
+	Settings SettingsStore
 	// Now is the clock, for tests.
 	Now func() time.Time
 }
@@ -107,6 +110,7 @@ type Service struct {
 	retention     config.Value[time.Duration]
 	maxOwned      config.Value[int]
 	invitations   ratelimit.Taker
+	settings      SettingsStore
 	logger        *slog.Logger
 	now           func() time.Time
 }
@@ -124,7 +128,7 @@ func NewService(c Config) (*Service, error) {
 	s := &Service{
 		store: c.Store, catalog: c.Catalog, recorder: c.Recorder, emails: c.Emails,
 		invitationURL: c.InvitationURL, invitationTTL: c.InvitationTTL, retention: c.DeletedOrgRetention,
-		maxOwned: c.MaxOwnedOrgs, invitations: c.InvitationLimiter, logger: c.Logger, now: c.Now,
+		maxOwned: c.MaxOwnedOrgs, invitations: c.InvitationLimiter, settings: c.Settings, logger: c.Logger, now: c.Now,
 	}
 	if s.invitationTTL == nil {
 		s.invitationTTL = config.Static(DefaultInvitationTTL)

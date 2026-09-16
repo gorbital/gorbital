@@ -9,6 +9,7 @@ import (
 	"gorbital.dev/actor"
 	"gorbital.dev/httpx"
 	orgslib "gorbital.dev/modules/orgs"
+	"gorbital.dev/modules/settings"
 
 	orgsmodule "example.com/acme-api/internal/modules/orgs"
 	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
@@ -40,6 +41,8 @@ func registerOrgs(api huma.API, mapper *httpx.Mapper, m *orgsmodule.Module) erro
 		httpx.Mapping{Err: orgsdomain.ErrTooManyInvitations, Status: http.StatusTooManyRequests, Code: "too_many_invitations", Detail: "too many invitations were sent from this organisation, or by you, in the last hour; try again later"},
 		httpx.Mapping{Err: orgsdomain.ErrEmailNotVerified, Status: http.StatusForbidden, Code: "email_not_verified", Detail: "verify your email address to create organisations or send invitations"},
 		httpx.Mapping{Err: orgsdomain.ErrTooManyOrgs, Status: http.StatusConflict, Code: "too_many_orgs", Detail: "you own as many organisations as allowed; delete one, or hand one over, first"},
+		// Organisation settings share the ops settings errors (module_ops.go).
+		httpx.Mapping{Err: settings.ErrNotOrgOverridable, Status: http.StatusNotFound, Code: "setting_not_found", Detail: "organisations can't set a setting with this key"},
 	)
 	if err != nil {
 		return fmt.Errorf("orgs module: %w", err)

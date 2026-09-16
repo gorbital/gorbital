@@ -22,6 +22,13 @@ var (
 	// the context.
 	ErrActorRequired = errors.New("settings: changes require an authenticated actor")
 
+	// ErrNotOrgOverridable reports an organisation value for a setting not
+	// declared with [OrgOverridable].
+	ErrNotOrgOverridable = errors.New("settings: setting can't be changed per organisation")
+
+	// ErrInvalidOrgID reports an empty or malformed organisation ID.
+	ErrInvalidOrgID = errors.New("settings: invalid organisation ID")
+
 	// ErrInvalidValue reports a value that fails decoding or validation.
 	// The error is an [*InvalidValueError].
 	ErrInvalidValue = errors.New("settings: invalid value")

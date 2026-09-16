@@ -1307,6 +1307,54 @@
               ]
             }
           }
+        },
+        {
+          "name": "List organisations' own values of a runtime setting",
+          "request": {
+            "method": "GET",
+            "description": "Only settings with `org_overridable` have any (ADR-0056). Ordered by organisation ID; pass the last `org_id` as `after` for the next page.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/settings/:key/overrides",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "settings",
+                ":key",
+                "overrides"
+              ],
+              "query": [
+                {
+                  "key": "after",
+                  "value": "string",
+                  "description": "Return organisations after this organisation ID",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "orgs.invitation_ttl"
+                }
+              ]
+            }
+          }
         }
       ]
     },

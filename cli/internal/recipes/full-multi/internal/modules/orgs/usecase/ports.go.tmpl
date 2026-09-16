@@ -2,9 +2,11 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	orgslib "gorbital.dev/modules/orgs"
+	"gorbital.dev/modules/settings"
 
 	orgsdomain "⟦.Module⟧/internal/modules/orgs/domain"
 )
@@ -125,3 +127,15 @@ type UserOrg struct {
 	Owners   int
 	Members  int
 }
+
+// SettingsStore stores organisations' own values of runtime settings declared
+// settings.OrgOverridable (ADR-0056). *settings.Store implements it.
+type SettingsStore interface {
+	ListForOrg(orgID string) ([]settings.View, error)
+	GetForOrg(orgID, key string) (settings.View, error)
+	SetForOrg(ctx context.Context, orgID, key string, value json.RawMessage, change settings.Change) (settings.View, error)
+	ResetForOrg(ctx context.Context, orgID, key string, change settings.Change) (settings.View, error)
+	HistoryForOrg(ctx context.Context, orgID, key string, before int64, limit int) ([]settings.HistoryEntry, error)
+}
+
+var _ SettingsStore = (*settings.Store)(nil)
