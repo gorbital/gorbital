@@ -113,7 +113,7 @@ func TestHandler(t *testing.T) {
 	if rec.Code != http.StatusOK || rec.Header().Get("Content-Security-Policy") != reference.ContentSecurityPolicy {
 		t.Fatalf("GET /docs = %d, CSP %q", rec.Code, rec.Header().Get("Content-Security-Policy"))
 	}
-	for _, want := range []string{`aria-label="gorbital API atlas"`, `class="wordmark">gorbital</span>`, `class="suffix">API atlas</span>`, `class="mark"`} {
+	for _, want := range []string{`aria-label="gorbital API atlas"`, `class="wordmark">gorbital</span>`, `class="suffix">atlas</span>`, `class="mark"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("header lacks %s", want)
 		}

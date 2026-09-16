@@ -213,14 +213,7 @@ func generatedResourcesPass(t *testing.T, goldenDir, scope string) {
 		}
 	}
 	run(nil, "go", "vet", "./...")
-	spec, err := os.Create(filepath.Join(dir, "api", "openapi.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	run(spec, "go", "run", "./cmd/api", "openapi")
-	if err := spec.Close(); err != nil {
-		t.Fatal(err)
-	}
+	run(nil, "go", "run", "./cmd/api", "openapi", "--dir", "api")
 	if os.Getenv("GORBITAL_TEST_DATABASE_URL") == "" {
 		t.Skip("vetted the generated resources; set GORBITAL_TEST_DATABASE_URL to run their tests")
 	}

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -42,8 +43,17 @@ var skipped = map[string]bool{"go.mod": true, "go.sum": true}
 var SkippedDirs = map[string]bool{".orb": true, "bin": true, ".git": true}
 
 // Skipped reports whether the golden app file at rel (slash-separated) is
-// not turned into a template.
-func Skipped(rel string) bool { return skipped[rel] }
+// not turned into a template. Local environment files (.env, .env.local and
+// the like, but not .env.example) hold a developer's secrets: they are
+// git-ignored in the golden apps and must never reach a template, and so
+// every new app.
+func Skipped(rel string) bool {
+	if skipped[rel] {
+		return true
+	}
+	base := path.Base(rel)
+	return strings.HasPrefix(base, ".env") && base != ".env.example"
+}
 
 // Run writes templates for the golden app at src into dst, replacing dst.
 func Run(src, dst string) error {

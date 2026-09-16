@@ -73,3 +73,18 @@ func TestRunRejectsLeaks(t *testing.T) {
 		}
 	}
 }
+
+func TestSkippedLocalEnvironmentFiles(t *testing.T) {
+	for rel, want := range map[string]bool{
+		".env":                   true,
+		".env.local":             true,
+		"deploy/.env.production": true,
+		".env.example":           false,
+		"go.mod":                 true,
+		"internal/app/env.go":    false,
+	} {
+		if got := Skipped(rel); got != want {
+			t.Errorf("Skipped(%q) = %v, want %v", rel, got, want)
+		}
+	}
+}
