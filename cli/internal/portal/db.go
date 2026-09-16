@@ -33,6 +33,7 @@ type Database interface {
 	Update(ctx context.Context, e pgmeta.RowEdit) ([]pgmeta.Cell, error)
 	Delete(ctx context.Context, e pgmeta.RowEdit) (int64, error)
 	Plan(ctx context.Context, ch pgmeta.Change) (pgmeta.Plan, error)
+	Migrations(ctx context.Context, dir string) ([]pgmeta.Migration, error)
 }
 
 // DatabaseConfig connects the portal to the app's database.
@@ -147,6 +148,10 @@ func (s *Server) dbHandler() http.Handler {
 	get("extensions", func(ctx context.Context, db Database, _ *http.Request) (any, error) {
 		v, err := db.Extensions(ctx)
 		return map[string]any{"extensions": v}, err
+	})
+	get("migrations", func(ctx context.Context, db Database, _ *http.Request) (any, error) {
+		v, err := db.Migrations(ctx, s.cfg.Project.Dir)
+		return map[string]any{"migrations": v}, err
 	})
 	get("types", func(ctx context.Context, db Database, r *http.Request) (any, error) {
 		schemas, err := schemasParam(ctx, db, r)

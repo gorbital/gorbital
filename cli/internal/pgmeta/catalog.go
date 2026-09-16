@@ -2,11 +2,19 @@ package pgmeta
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Schema is a namespace.
@@ -612,4 +620,87 @@ func findColumn(columns []Column, name string) (Column, error) {
 		}
 	}
 	return Column{}, fmt.Errorf("%w: %q", ErrUnknownColumn, name)
+}
+
+// Migration is one file under db/migrations and whether the database has
+// it, for the Migrations page (ADR-0069).
+type Migration struct {
+	Version int64  `json:"version"`
+	Name    string `json:"name"`
+	// Path is the file relative to the app.
+	Path      string     `json:"path"`
+	SQL       string     `json:"sql"`
+	Applied   bool       `json:"applied"`
+	AppliedAt *time.Time `json:"applied_at"`
+	// HasDown reports a Down section, so the file can be rolled back.
+	HasDown bool `json:"has_down"`
+}
+
+var migrationFile = regexp.MustCompile(`^(\d+)_([A-Za-z0-9_-]+)\.sql$`)
+
+// Migrations lists the files under dir/db/migrations with their state in
+// goose's version table, oldest first. Files goose doesn't know are
+// pending; versions in the table without a file are listed with an empty
+// path.
+func (c *Client) Migrations(ctx context.Context, dir string) ([]Migration, error) {
+	entries, err := os.ReadDir(filepath.Join(dir, "db", "migrations"))
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, err
+	}
+	byVersion := map[int64]*Migration{}
+	var out []Migration
+	for _, e := range entries {
+		m := migrationFile.FindStringSubmatch(e.Name())
+		if e.IsDir() || m == nil {
+			continue
+		}
+		version, err := strconv.ParseInt(m[1], 10, 64)
+		if err != nil {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, "db", "migrations", e.Name()))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, Migration{Version: version, Name: m[2], Path: "db/migrations/" + e.Name(), SQL: string(data), HasDown: strings.Contains(string(data), "+goose Down")})
+	}
+	rows, err := c.pool.Query(ctx, `SELECT version_id, tstamp FROM goose_db_version WHERE is_applied ORDER BY version_id`)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "42P01" { // no table: nothing applied yet
+			sort.Slice(out, func(i, j int) bool { return out[i].Version < out[j].Version })
+			return out, nil
+		}
+		return nil, err
+	}
+	defer rows.Close()
+	for i := range out {
+		byVersion[out[i].Version] = &out[i]
+	}
+	var extra []Migration
+	for rows.Next() {
+		var version int64
+		var at time.Time
+		if err := rows.Scan(&version, &at); err != nil {
+			return nil, err
+		}
+		if version == 0 {
+			continue // goose's baseline row
+		}
+		at = at.UTC()
+		if m, ok := byVersion[version]; ok {
+			m.Applied, m.AppliedAt = true, &at
+			continue
+		}
+		extra = append(extra, Migration{Version: version, Applied: true, AppliedAt: &at})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out = append(out, extra...)
+	sort.Slice(out, func(i, j int) bool { return out[i].Version < out[j].Version })
+	if out == nil {
+		out = []Migration{}
+	}
+	return out, nil
 }

@@ -37,3 +37,32 @@ func Migrate(ctx context.Context, cfg Config, w io.Writer) error {
 	}
 	return err
 }
+
+// MigrateDown rolls back the most recent migration, for development only
+// (ADR-0069): the Dev Portal undoes a migration it wrote before it is
+// released. Production refuses. River's tables are never rolled back.
+//
+//	go run ./cmd/migrate --down
+func MigrateDown(ctx context.Context, cfg Config, w io.Writer) error {
+	if cfg.Production() {
+		return errors.New("migrate --down is for development only, and APP_ENV is production")
+	}
+	if cfg.DatabaseURL.IsZero() {
+		return errors.New("DATABASE_URL is required")
+	}
+	pool, err := postgres.Open(ctx, cfg.DatabaseURL, postgres.WithApplicationName(ServiceName+"-migrate"))
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+	version, err := postgres.MigrateDown(ctx, pool, migrations.FS)
+	if err != nil {
+		return err
+	}
+	if version == 0 {
+		fmt.Fprintln(w, "no migration to roll back")
+		return nil
+	}
+	fmt.Fprintf(w, "rolled back migration %d\n", version)
+	return nil
+}

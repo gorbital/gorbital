@@ -1,6 +1,6 @@
 # ADR-0067: Table Editor and `pgmeta`
 
-**Status:** Accepted (2026-09-16) · **Amends:** ADR-0066, ADR-0029, ADR-0005 · **Amended by:** ADR-0068 (the SQL editor)
+**Status:** Accepted (2026-09-16) · **Amends:** ADR-0066, ADR-0029, ADR-0005 · **Amended by:** ADR-0068 (the SQL editor), ADR-0069 (objects and migrations)
 
 ## Context
 

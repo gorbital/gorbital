@@ -43,10 +43,12 @@ func (f *fakeSupervisor) record(name string) error {
 	return nil
 }
 
-func (f *fakeSupervisor) Restart() error { return f.record("restart") }
-func (f *fakeSupervisor) Stop() error    { return f.record("stop") }
-func (f *fakeSupervisor) Start() error   { return f.record("start") }
-func (f *fakeSupervisor) Migrate() error { return f.record("migrate") }
+func (f *fakeSupervisor) Restart() error     { return f.record("restart") }
+func (f *fakeSupervisor) Stop() error        { return f.record("stop") }
+func (f *fakeSupervisor) Start() error       { return f.record("start") }
+func (f *fakeSupervisor) Migrate() error     { return f.record("migrate") }
+func (f *fakeSupervisor) MigrateDown() error { return f.record("migrate-down") }
+func (f *fakeSupervisor) MigrateRedo() error { return f.record("migrate-redo") }
 
 // newTestServer returns a portal over a fake app and its test server.
 func newTestServer(t *testing.T, mutate func(*Config)) (*Server, *httptest.Server, *fakeSupervisor) {
@@ -272,7 +274,7 @@ func TestStatusOutputAndActions(t *testing.T) {
 		t.Errorf("bad limit = %d", res.StatusCode)
 	}
 
-	for _, action := range []string{"restart", "stop", "start", "migrate"} {
+	for _, action := range []string{"restart", "stop", "start", "migrate", "migrate-down", "migrate-redo"} {
 		res := call(t, ts, http.MethodPost, APIPrefix+"app/"+action, "", nil)
 		if res.StatusCode != http.StatusAccepted {
 			t.Errorf("%s = %d", action, res.StatusCode)
@@ -281,7 +283,7 @@ func TestStatusOutputAndActions(t *testing.T) {
 			t.Errorf("%s answer = %+v", action, a)
 		}
 	}
-	if strings.Join(sup.actions, ",") != "restart,stop,start,migrate" {
+	if strings.Join(sup.actions, ",") != "restart,stop,start,migrate,migrate-down,migrate-redo" {
 		t.Errorf("actions = %q", sup.actions)
 	}
 	sup.fail = true

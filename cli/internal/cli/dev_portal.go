@@ -294,11 +294,20 @@ func (d *devRunner) Stop() error { return d.request(commandStop) }
 func (d *devRunner) Start() error { return d.request(commandStart) }
 
 // Migrate implements portal.Supervisor: loop applies pending migrations.
-func (d *devRunner) Migrate() error {
+func (d *devRunner) Migrate() error { return d.requestMigration(commandMigrate) }
+
+// MigrateDown implements portal.Supervisor: loop rolls back one migration.
+func (d *devRunner) MigrateDown() error { return d.requestMigration(commandDown) }
+
+// MigrateRedo implements portal.Supervisor: loop rolls back one migration
+// and applies it again.
+func (d *devRunner) MigrateRedo() error { return d.requestMigration(commandRedo) }
+
+func (d *devRunner) requestMigration(c devCommand) error {
 	if !d.database {
 		return errors.New("this app has no database: migrations apply to apps created with the Full preset")
 	}
-	return d.request(commandMigrate)
+	return d.request(c)
 }
 
 // request queues a command for loop, refusing a second one while the

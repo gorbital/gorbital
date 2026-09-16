@@ -94,6 +94,8 @@ func (s *Server) apiHandler() http.Handler {
 	mux.HandleFunc("POST "+APIPrefix+"app/stop", s.appAction(s.cfg.Supervisor.Stop))
 	mux.HandleFunc("POST "+APIPrefix+"app/start", s.appAction(s.cfg.Supervisor.Start))
 	mux.HandleFunc("POST "+APIPrefix+"app/migrate", s.appAction(s.cfg.Supervisor.Migrate))
+	mux.HandleFunc("POST "+APIPrefix+"app/migrate-down", s.appAction(s.cfg.Supervisor.MigrateDown))
+	mux.HandleFunc("POST "+APIPrefix+"app/migrate-redo", s.appAction(s.cfg.Supervisor.MigrateRedo))
 	mux.HandleFunc("POST "+APIPrefix+"generators/{name}/plan", s.serveGenerator(false))
 	mux.HandleFunc("POST "+APIPrefix+"generators/{name}/apply", s.serveGenerator(true))
 	mux.HandleFunc(APIPrefix, func(w http.ResponseWriter, r *http.Request) {

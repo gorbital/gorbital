@@ -75,7 +75,9 @@ type Change struct {
 	// Kind: create_table, drop_table, rename_table, add_column, drop_column,
 	// rename_column, alter_column, add_foreign_key, add_unique, add_check,
 	// drop_constraint, set_primary_key, create_index, drop_index, create_enum,
-	// add_enum_value, rename_enum_value, comment, rls.
+	// add_enum_value, rename_enum_value, drop_enum, comment, rls,
+	// create_extension, drop_extension, create_function, drop_function,
+	// create_trigger, drop_trigger, create_view, drop_view.
 	Kind   string `json:"kind"`
 	Schema string `json:"schema"`
 	Table  string `json:"table,omitempty"`
@@ -115,6 +117,14 @@ type Change struct {
 	Forced  *bool `json:"forced,omitempty"`
 	// Cascade allows drop_table and drop_column to cascade.
 	Cascade bool `json:"cascade,omitempty"`
+	// Definition: create_function (the whole CREATE FUNCTION statement),
+	// create_trigger (the whole CREATE TRIGGER statement), create_view (the
+	// SELECT the view is defined as). Signature: drop_function and the Down
+	// of create_function, as "name(argument types)" from the catalog's
+	// identity_args. Materialized: create_view and drop_view.
+	Definition   string `json:"definition,omitempty"`
+	Signature    string `json:"signature,omitempty"`
+	Materialized bool   `json:"materialized,omitempty"`
 }
 
 // Picker types: the name the UI offers, the SQL rendered, and a line.
@@ -369,7 +379,7 @@ func (c *Client) Plan(ctx context.Context, ch Change) (Plan, error) {
 	if snap.enums, err = c.Enums(ctx, []string{ch.Schema, "public"}); err != nil {
 		return Plan{}, err
 	}
-	if ch.Table != "" && ch.Kind != "create_table" {
+	if ch.Table != "" && ch.Kind != "create_table" && ch.Kind != "create_trigger" && ch.Kind != "drop_trigger" {
 		if err := checkIdent("table", ch.Table); err != nil {
 			return Plan{}, err
 		}
@@ -731,6 +741,122 @@ func plan(ch Change, snap snapshot) (Plan, error) {
 		}
 		if len(p.Up) == 0 {
 			return p, fmt.Errorf("%w: rls needs enabled or forced", ErrInvalidInput)
+		}
+	case "drop_enum":
+		if err := checkIdent("type", ch.Name); err != nil {
+			return p, err
+		}
+		i := slices.IndexFunc(snap.enums, func(e Enum) bool { return e.Schema == ch.Schema && e.Name == ch.Name })
+		if i < 0 {
+			return p, fmt.Errorf("%w: enum %s", ErrNotFound, ch.Name)
+		}
+		vals := make([]string, 0, len(snap.enums[i].Values))
+		for _, v := range snap.enums[i].Values {
+			vals = append(vals, literal(v))
+		}
+		e := ident(ch.Schema, ch.Name)
+		p.Summary = "Drop enum " + ch.Name
+		p.Up = []string{"DROP TYPE " + e + ";"}
+		p.Down = []string{"CREATE TYPE " + e + " AS ENUM (" + strings.Join(vals, ", ") + ");"}
+	case "create_extension":
+		if err := checkIdent("extension", ch.Name); err != nil {
+			return p, err
+		}
+		p.Summary = "Create extension " + ch.Name
+		p.Up = []string{"CREATE EXTENSION IF NOT EXISTS " + ident(ch.Name) + ";"}
+		p.Down = []string{"DROP EXTENSION IF EXISTS " + ident(ch.Name) + ";"}
+	case "drop_extension":
+		if err := checkIdent("extension", ch.Name); err != nil {
+			return p, err
+		}
+		p.Summary = "Drop extension " + ch.Name
+		p.Up = []string{"DROP EXTENSION IF EXISTS " + ident(ch.Name) + ";"}
+		p.Down = []string{"CREATE EXTENSION IF NOT EXISTS " + ident(ch.Name) + ";"}
+		p.Notes = append(p.Notes, "dropping an extension drops what it created; objects that depend on it stop the drop")
+	case "create_function":
+		if err := checkIdent("function", ch.Name); err != nil {
+			return p, err
+		}
+		if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(ch.Definition)), "CREATE") {
+			return p, fmt.Errorf("%w: the definition is the whole CREATE FUNCTION statement", ErrInvalidInput)
+		}
+		if ch.Signature == "" {
+			return p, fmt.Errorf("%w: create_function needs the signature, such as name(text, integer)", ErrInvalidInput)
+		}
+		p.Summary = "Create function " + ch.Name
+		p.Up = []string{strings.TrimRight(strings.TrimSpace(ch.Definition), ";") + ";"}
+		p.Down = []string{"DROP FUNCTION IF EXISTS " + ident(ch.Schema) + "." + ch.Signature + ";"}
+	case "drop_function":
+		if ch.Signature == "" {
+			return p, fmt.Errorf("%w: drop_function needs the signature, such as name(text, integer)", ErrInvalidInput)
+		}
+		p.Summary = "Drop function " + ch.Signature
+		p.Up = []string{"DROP FUNCTION " + ident(ch.Schema) + "." + ch.Signature + ";"}
+		if ch.Definition != "" {
+			p.Down = []string{strings.TrimRight(strings.TrimSpace(ch.Definition), ";") + ";"}
+		} else {
+			p.Irreversible = true
+			p.Notes = append(p.Notes, "the function's definition wasn't given; recreate it by hand")
+		}
+	case "create_trigger":
+		if err := checkIdent("trigger", ch.Name); err != nil {
+			return p, err
+		}
+		if err := checkIdent("table", ch.Table); err != nil {
+			return p, err
+		}
+		if !strings.HasPrefix(strings.ToUpper(strings.TrimSpace(ch.Definition)), "CREATE") {
+			return p, fmt.Errorf("%w: the definition is the whole CREATE TRIGGER statement", ErrInvalidInput)
+		}
+		p.Summary = "Create trigger " + ch.Name + " on " + ch.Table
+		p.Up = []string{strings.TrimRight(strings.TrimSpace(ch.Definition), ";") + ";"}
+		p.Down = []string{"DROP TRIGGER IF EXISTS " + ident(ch.Name) + " ON " + t + ";"}
+	case "drop_trigger":
+		if err := checkIdent("trigger", ch.Name); err != nil {
+			return p, err
+		}
+		if err := checkIdent("table", ch.Table); err != nil {
+			return p, err
+		}
+		p.Summary = "Drop trigger " + ch.Name + " on " + ch.Table
+		p.Up = []string{"DROP TRIGGER " + ident(ch.Name) + " ON " + t + ";"}
+		if ch.Definition != "" {
+			p.Down = []string{strings.TrimRight(strings.TrimSpace(ch.Definition), ";") + ";"}
+		} else {
+			p.Irreversible = true
+			p.Notes = append(p.Notes, "the trigger's definition wasn't given; recreate it by hand")
+		}
+	case "create_view":
+		if err := checkIdent("view", ch.Name); err != nil {
+			return p, err
+		}
+		if strings.TrimSpace(ch.Definition) == "" {
+			return p, fmt.Errorf("%w: create_view needs the SELECT it is defined as", ErrInvalidInput)
+		}
+		kind := "VIEW"
+		if ch.Materialized {
+			kind = "MATERIALIZED VIEW"
+		}
+		v := ident(ch.Schema, ch.Name)
+		p.Summary = "Create view " + ch.Name
+		p.Up = []string{"CREATE " + kind + " " + v + " AS\n" + strings.TrimRight(strings.TrimSpace(ch.Definition), ";") + ";"}
+		p.Down = []string{"DROP " + kind + " " + v + ";"}
+	case "drop_view":
+		if err := checkIdent("view", ch.Name); err != nil {
+			return p, err
+		}
+		kind := "VIEW"
+		if ch.Materialized {
+			kind = "MATERIALIZED VIEW"
+		}
+		v := ident(ch.Schema, ch.Name)
+		p.Summary = "Drop view " + ch.Name
+		p.Up = []string{"DROP " + kind + " " + v + ";"}
+		if ch.Definition != "" {
+			p.Down = []string{"CREATE " + kind + " " + v + " AS\n" + strings.TrimRight(strings.TrimSpace(ch.Definition), ";") + ";"}
+		} else {
+			p.Irreversible = true
+			p.Notes = append(p.Notes, "the view's definition wasn't given; recreate it by hand")
 		}
 	default:
 		return p, fmt.Errorf("%w: unknown change kind %q", ErrInvalidInput, ch.Kind)

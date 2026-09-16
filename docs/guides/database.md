@@ -1,6 +1,6 @@
 # Database
 
-> The [Dev Portal](dev-portal.md)'s Table Editor reads this database and writes schema changes as migration files under `db/migrations` ([ADR-0067](../adr/0067-table-editor-and-pgmeta.md)): a change made in the browser is a file in git before the local database changes, so teammates and production get it from the migrations as always. Its SQL editor saves queries under `db/queries` ([ADR-0068](../adr/0068-sql-editor.md)), also committed with the app. guide
+> The [Dev Portal](dev-portal.md)'s Table Editor reads this database and writes schema changes as migration files under `db/migrations` ([ADR-0067](../adr/0067-table-editor-and-pgmeta.md)): a change made in the browser is a file in git before the local database changes, so teammates and production get it from the migrations as always. Its SQL editor saves queries under `db/queries` ([ADR-0068](../adr/0068-sql-editor.md)), also committed with the app. In development, `go run ./cmd/migrate --down` rolls back the most recent migration and `--redo` rolls it back and applies it again ([ADR-0069](../adr/0069-schema-visualiser-objects-and-migrations.md)); production refuses both, and released migrations still never change. guide
 
 `gorbital.dev/modules/postgres` connects apps to PostgreSQL. Decisions: [ADR-0005](../adr/0005-database-strategy.md) (PostgreSQL, goose), [ADR-0028](../adr/0028-local-development-environment.md) (Docker), [ADR-0032](../adr/0032-repository-sql.md) (hand-written SQL).
 

@@ -59,6 +59,11 @@ type Supervisor interface {
 	// Migrate applies the app's pending migrations (go run ./cmd/migrate)
 	// without restarting it; apps without a database refuse.
 	Migrate() error
+	// MigrateDown rolls back the most recent migration (go run ./cmd/migrate
+	// --down); MigrateRedo rolls it back and applies it again (--redo), the
+	// check that a migration's Down works (ADR-0069).
+	MigrateDown() error
+	MigrateRedo() error
 }
 
 // OutputLine is one line the app or orb wrote.

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -65,6 +66,8 @@ func setup(t *testing.T, c *Client, schema string) {
 	exec(t, c.pool, "CREATE TABLE "+s+".river_job (id int)")
 	exec(t, c.pool, "CREATE TABLE "+s+".auth_users (id text PRIMARY KEY)")
 	exec(t, c.pool, "CREATE TABLE "+s+".stuff (a int NOT NULL, b int NOT NULL)")
+	exec(t, c.pool, "CREATE TYPE "+s+".unused AS ENUM ('a', 'b')")
+	exec(t, c.pool, "CREATE FUNCTION "+s+".touch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$")
 	exec(t, c.pool, "INSERT INTO "+s+".owners VALUES ('usr_1', 'a@example.com'), ('usr_2', 'b@example.com')")
 	exec(t, c.pool, "INSERT INTO "+s+".projects (owner_id, name, tags, meta) VALUES ('usr_1', 'Website', '{web,design}', '{\"a\": 1}'), ('usr_1', 'Mobile app', '{}', NULL), ('usr_2', 'Legacy', '{}', NULL)")
 	exec(t, c.pool, "UPDATE "+s+".projects SET status = 'archived' WHERE name = 'Legacy'")
@@ -158,7 +161,7 @@ func TestCatalog(t *testing.T) {
 	}
 
 	enums, err := c.Enums(ctx, []string{schema})
-	if err != nil || len(enums) != 1 || strings.Join(enums[0].Values, ",") != "active,archived" {
+	if err != nil || len(enums) != 2 || enums[0].Name != "status" || strings.Join(enums[0].Values, ",") != "active,archived" {
 		t.Errorf("Enums() = %+v, %v", enums, err)
 	}
 	fks, err := c.ForeignKeys(ctx, []string{schema})
@@ -172,10 +175,10 @@ func TestCatalog(t *testing.T) {
 	if ext, err := c.Extensions(ctx); err != nil || len(ext) == 0 {
 		t.Errorf("Extensions() = %d, %v", len(ext), err)
 	}
-	if fns, err := c.Functions(ctx, []string{schema}); err != nil || len(fns) != 0 {
+	if fns, err := c.Functions(ctx, []string{schema}); err != nil || len(fns) != 1 || fns[0].Name != "touch" || fns[0].Language != "plpgsql" || fns[0].Definition == nil {
 		t.Errorf("Functions() = %+v, %v", fns, err)
 	}
-	if opts, err := c.Types(ctx, []string{schema}); err != nil || len(opts) != len(pickerTypes)+1 || opts[len(opts)-1].Name != schema+".status" {
+	if opts, err := c.Types(ctx, []string{schema}); err != nil || len(opts) != len(pickerTypes)+2 || opts[len(opts)-2].Name != schema+".status" {
 		t.Errorf("Types() = %d, %v", len(opts), err)
 	}
 	if _, err := c.Detail(ctx, schema, "nope"); !errors.Is(err, ErrNotFound) {
@@ -352,6 +355,13 @@ func TestPlanAgainstTheDatabase(t *testing.T) {
 		{Kind: "comment", Schema: schema, Table: "projects", Comment: str("Changed")},
 		{Kind: "comment", Schema: schema, Table: "projects", Column: &ColumnSpec{Name: "name"}, Comment: str("")},
 		{Kind: "rls", Schema: schema, Table: "projects", Enabled: ptr(true)},
+		{Kind: "create_extension", Schema: schema, Name: "pgcrypto"},
+		{Kind: "create_function", Schema: schema, Name: "add_one", Signature: "add_one(integer)", Definition: "CREATE FUNCTION " + ident(schema) + ".add_one(n integer) RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT n + 1 $$"},
+		{Kind: "create_trigger", Schema: schema, Table: "projects", Name: "projects_touch", Definition: "CREATE TRIGGER projects_touch BEFORE UPDATE ON " + ident(schema, "projects") + " FOR EACH ROW EXECUTE FUNCTION " + ident(schema) + ".touch()"},
+		{Kind: "create_view", Schema: schema, Name: "archived_projects", Definition: "SELECT id, name FROM " + ident(schema, "projects") + " WHERE status = 'archived'"},
+		{Kind: "create_view", Schema: schema, Name: "project_counts", Materialized: true, Definition: "SELECT owner_id, count(*) AS n FROM " + ident(schema, "projects") + " GROUP BY owner_id"},
+		{Kind: "drop_view", Schema: schema, Name: "active_projects", Definition: "SELECT id, name FROM " + ident(schema, "projects") + " WHERE status = 'active'"},
+		{Kind: "drop_enum", Schema: schema, Name: "unused"},
 		{Kind: "set_primary_key", Schema: schema, Table: "stuff", PrimaryKey: []string{"a", "b"}},
 		{Kind: "set_primary_key", Schema: schema, Table: "projects", PrimaryKey: []string{"id"}},
 	}
@@ -418,5 +428,41 @@ func TestRenderAndHelpers(t *testing.T) {
 	}
 	if _, err := plan(Change{Kind: "sing"}, snapshot{}); !errors.Is(err, ErrInvalidInput) {
 		t.Errorf("unknown kind = %v", err)
+	}
+}
+
+func TestMigrationsList(t *testing.T) {
+	c, _ := testClient(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	// A table of goose's shape, in a schema of this test, isn't what the
+	// client reads (it reads the search path's goose_db_version), so the list
+	// covers the file side and the no-table case.
+	if err := os.MkdirAll(filepath.Join(dir, "db", "migrations"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "db", "migrations", "20260101000001_init.sql"), []byte("-- +goose Up\nCREATE TABLE t (id int);\n-- +goose Down\nDROP TABLE t;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "db", "migrations", "20260101000002_more.sql"), []byte("-- +goose Up\nSELECT 1;\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "db", "migrations", "notes.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	list, err := c.Migrations(ctx, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) < 2 || list[0].Name != "init" || !list[0].HasDown || list[1].HasDown || list[0].Path != "db/migrations/20260101000001_init.sql" {
+		t.Errorf("Migrations() = %+v", list)
+	}
+	for _, m := range list {
+		if m.Path != "" && m.Applied {
+			t.Errorf("file %s reported as applied in a fresh database", m.Path)
+		}
+	}
+	if list, err := c.Migrations(ctx, t.TempDir()); err != nil || len(list) != 0 && list[0].Path != "" {
+		t.Errorf("Migrations() without files = %+v, %v", list, err)
 	}
 }

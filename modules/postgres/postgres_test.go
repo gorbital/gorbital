@@ -260,6 +260,28 @@ func TestMigrate(t *testing.T) {
 
 	// The pool stays usable after migrating through database/sql.
 	mustExec(t, pool, "INSERT INTO widgets (id, name) VALUES (1, 'gear')")
+
+	// The list names every file with its state; Down rolls back one step,
+	// and a migration without a Down section is a versioned no-op.
+	list, err := postgres.MigrationList(ctx, pool, fsys)
+	if err != nil || len(list) != 3 || !list[0].Applied || list[0].AppliedAt.IsZero() || list[2].Applied || list[2].Path != "00003_index_widget_name.sql" {
+		t.Fatalf("MigrationList() = %+v, %v", list, err)
+	}
+	if version, err := postgres.MigrateDown(ctx, pool, fsys); err != nil || version != 2 {
+		t.Errorf("MigrateDown() = %d, %v; want 2", version, err)
+	}
+	if state, _ := postgres.Migrations(ctx, pool, fsys); state.Current != 1 || state.Pending != 2 {
+		t.Errorf("after Down: %+v", state)
+	}
+	if version, err := postgres.MigrateDown(ctx, pool, fsys); err != nil || version != 1 {
+		t.Errorf("second MigrateDown() = %d, %v; want 1", version, err)
+	}
+	if version, err := postgres.MigrateDown(ctx, pool, fsys); err != nil || version != 0 {
+		t.Errorf("MigrateDown() with nothing applied = %d, %v; want 0", version, err)
+	}
+	if _, err := postgres.Migrate(ctx, pool, fsys); err != nil {
+		t.Errorf("Migrate() after Down: %v", err)
+	}
 }
 
 func TestMigrateReportsFailureAndPartialProgress(t *testing.T) {

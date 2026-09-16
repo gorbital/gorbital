@@ -153,6 +153,8 @@ const (
 	commandStop    devCommand = "stop"
 	commandStart   devCommand = "start"
 	commandMigrate devCommand = "migrate"
+	commandDown    devCommand = "migrate-down"
+	commandRedo    devCommand = "migrate-redo"
 )
 
 func newDevRunner(out io.Writer) *devRunner {
@@ -338,8 +340,15 @@ func checkServicePort(service, envVar, port string) error {
 }
 
 func (d *devRunner) migrate(ctx context.Context, env []string) error {
-	fmt.Fprintln(d.out, "orb: applying migrations (go run ./cmd/migrate)")
-	if err := d.run(ctx, env, "go", "run", "./cmd/migrate"); err != nil {
+	return d.migrateWith(ctx, env)
+}
+
+// migrateWith runs the app's migrate command with args, such as --down or
+// --redo (development only, ADR-0069).
+func (d *devRunner) migrateWith(ctx context.Context, env []string, args ...string) error {
+	all := append([]string{"run", "./cmd/migrate"}, args...)
+	fmt.Fprintf(d.out, "orb: applying migrations (go %s)\n", strings.Join(all, " "))
+	if err := d.run(ctx, env, "go", all...); err != nil {
 		return fmt.Errorf("migrations failed: %w", err)
 	}
 	return nil
@@ -459,11 +468,12 @@ func (d *devRunner) runCommand(ctx context.Context, c devCommand, lastSQL *uint6
 			fmt.Fprintf(d.out, "orb: start failed: %v\n", err)
 			d.setState(portal.StateStopped, err.Error())
 		}
-	case commandMigrate:
-		fmt.Fprintln(d.out, "orb: migrations requested from the Dev Portal")
+	case commandMigrate, commandDown, commandRedo:
+		args := map[devCommand][]string{commandMigrate: nil, commandDown: {"--down"}, commandRedo: {"--redo"}}[c]
+		fmt.Fprintf(d.out, "orb: %s requested from the Dev Portal\n", c)
 		env, err := devEnv(".env")
 		if err == nil {
-			err = d.migrate(ctx, withAppEnv(env))
+			err = d.migrateWith(ctx, withAppEnv(env), args...)
 		}
 		if err != nil {
 			d.setStateAfterFailure("migrations failed: " + err.Error())

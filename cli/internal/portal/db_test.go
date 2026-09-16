@@ -86,6 +86,10 @@ func (f *fakeDB) Delete(_ context.Context, e pgmeta.RowEdit) (int64, error) {
 	return int64(len(e.Keys)), nil
 }
 
+func (f *fakeDB) Migrations(_ context.Context, _ string) ([]pgmeta.Migration, error) {
+	return []pgmeta.Migration{{Version: 1, Name: "init", Path: "db/migrations/1_init.sql", Applied: true}}, nil
+}
+
 func (f *fakeDB) Plan(_ context.Context, ch pgmeta.Change) (pgmeta.Plan, error) {
 	if ch.Kind == "add_column" && ch.Column != nil && ch.Column.Type == "money" {
 		return pgmeta.Plan{}, pgmeta.ErrInvalidInput
@@ -143,6 +147,10 @@ func TestDatabaseCatalogAndRows(t *testing.T) {
 	res = call(t, ts, http.MethodGet, APIPrefix+"db/types", "", nil)
 	if res.StatusCode != 200 {
 		t.Errorf("types = %d", res.StatusCode)
+	}
+	res = call(t, ts, http.MethodGet, APIPrefix+"db/migrations", "", nil)
+	if m := decode[struct{ Migrations []pgmeta.Migration }](t, res); res.StatusCode != 200 || len(m.Migrations) != 1 || !m.Migrations[0].Applied {
+		t.Errorf("migrations = %d %+v", res.StatusCode, m)
 	}
 
 	res = call(t, ts, http.MethodPost, APIPrefix+"db/rows/query", `{"schema":"public","table":"projects","limit":50}`, nil)
