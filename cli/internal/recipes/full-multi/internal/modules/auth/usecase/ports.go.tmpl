@@ -205,6 +205,47 @@ type SocialStore interface {
 	UpdateTokenRevocationKey(ctx context.Context, id, oldKeyID, keyID string, ciphertext []byte) (bool, error)
 }
 
+// APIKeyStore reads and writes service accounts and API keys (ADR-0058). An
+// empty orgID means the platform: a service account is found only with its
+// own organisation, or with none for a platform one. Exactly one of userID
+// and serviceAccountID names a key's owner.
+type APIKeyStore interface {
+	InsertServiceAccount(ctx context.Context, a authdomain.ServiceAccount) error
+	// SelectServiceAccounts returns orgID's service accounts, oldest first.
+	SelectServiceAccounts(ctx context.Context, orgID string) ([]authdomain.ServiceAccount, error)
+	// SelectServiceAccount returns one of orgID's service accounts, or
+	// ErrServiceAccountNotFound; lock locks it until the transaction ends.
+	SelectServiceAccount(ctx context.Context, orgID, id string, lock bool) (authdomain.ServiceAccount, error)
+	CountServiceAccounts(ctx context.Context, orgID string) (int, error)
+	UpdateServiceAccount(ctx context.Context, a authdomain.ServiceAccount) error
+	// DeleteServiceAccount removes a service account with its keys and
+	// reports whether it existed.
+	DeleteServiceAccount(ctx context.Context, orgID, id string) (bool, error)
+	InsertAPIKey(ctx context.Context, k authdomain.APIKey) error
+	// SelectAPIKeys returns an owner's keys, newest first.
+	SelectAPIKeys(ctx context.Context, userID, serviceAccountID string) ([]authdomain.APIKey, error)
+	// CountActiveAPIKeys counts an owner's keys neither revoked nor expired
+	// at now.
+	CountActiveAPIKeys(ctx context.Context, userID, serviceAccountID string, now time.Time) (int, error)
+	// SelectAPIKeyByLookupID returns a key and, for a service account's key,
+	// its service account; or ErrAPIKeyNotFound, also for a deleted user's
+	// key.
+	SelectAPIKeyByLookupID(ctx context.Context, lookupID string) (authdomain.APIKey, authdomain.ServiceAccount, error)
+	// TouchAPIKey records a use at now unless one was recorded after
+	// notSince.
+	TouchAPIKey(ctx context.Context, id string, now, notSince time.Time) error
+	// RevokeAPIKey revokes an owner's key and returns it, reporting whether
+	// this call revoked it; or ErrAPIKeyNotFound.
+	RevokeAPIKey(ctx context.Context, id, userID, serviceAccountID string, now time.Time, reason string) (authdomain.APIKey, bool, error)
+	// RevokeOwnerAPIKeys revokes every key of an owner and returns how many.
+	RevokeOwnerAPIKeys(ctx context.Context, userID, serviceAccountID string, now time.Time, reason string) (int64, error)
+	// MarkAPIKeysExpired marks up to limit keys expired by now, not revoked
+	// and not marked before, and returns them.
+	MarkAPIKeysExpired(ctx context.Context, now time.Time, limit int) ([]authdomain.APIKey, error)
+	// DeleteOldAPIKeys removes keys expired or revoked before before.
+	DeleteOldAPIKeys(ctx context.Context, before time.Time) (int64, error)
+}
+
 // Store is every storage operation the use cases need, plus transactions.
 type Store interface {
 	UserStore
@@ -214,6 +255,7 @@ type Store interface {
 	MFAStore
 	PasskeyStore
 	SocialStore
+	APIKeyStore
 	// InTx runs fn in one transaction: it commits when fn returns nil and
 	// rolls back otherwise.
 	InTx(ctx context.Context, fn func(tx Store) error) error

@@ -74,6 +74,8 @@ Jobs run in the API process on PostgreSQL (River). A job carries the request ID,
 
 `internal/modules/auth` owns sign-up, email codes, sign-in, sessions, password reset and change, account deletion and platform roles, with all four layers: its use cases hold every flow and its repository holds the SQL for `auth_users`, `auth_sessions`, `auth_codes` and `auth_user_roles`. The gorbital auth library supplies password hashing, tokens, codes, cookies, the permission catalog and the middleware that puts the signed-in user's actor (with the permissions of their roles) in each request's context. Use cases check `actor.Can(permission)`; declare permissions and roles in `internal/app/permissions.go`.
 
+API keys (`gbk_…` bearer tokens) and service accounts live in the same module (`auth_api_keys`, `auth_service_accounts`; ADR-0058): the middleware authenticates keys with `AuthenticateAPIKey`, never as sessions; a key gets its owner's current permissions without roles that require two-factor authentication, limited to its scopes, and can't manage accounts, sessions or keys (`requirePrincipal` answers `session_required`). Platform service accounts are managed under `/ops/service-accounts`.
+
 ## Business resources
 
 `internal/modules/projects` is exactly what `orb gen resource Project name:string:unique description:text 'status:enum(active,archived)'` creates. Generate your own resources the same way, or copy it. All of it is your code: change any rule, query or response.

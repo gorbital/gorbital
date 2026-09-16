@@ -86,4 +86,8 @@ type CleanupResult struct {
 	// Unverified counts accounts deleted because their address was never
 	// verified.
 	Unverified int64
+	// ExpiredAPIKeys counts keys whose expiry was recorded, and APIKeys the
+	// expired or revoked keys removed.
+	ExpiredAPIKeys int64
+	APIKeys        int64
 }

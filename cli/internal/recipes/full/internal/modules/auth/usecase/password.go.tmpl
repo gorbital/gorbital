@@ -70,6 +70,7 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 	var (
 		userID, to string
 		valid      bool
+		revoked    int64
 	)
 	err = s.store.InTx(ctx, func(tx Store) error {
 		u, err := tx.SelectUserByEmail(ctx, normalized, true)
@@ -91,6 +92,11 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 		if err := tx.UpdatePassword(ctx, u.ID, hash, now); err != nil {
 			return err
 		}
+		// Whoever had the account's sessions or keys may be why the owner
+		// resets the password.
+		if revoked, err = tx.RevokeOwnerAPIKeys(ctx, u.ID, "", now, authdomain.RevokedPasswordReset); err != nil {
+			return err
+		}
 		if _, err := tx.RevokeUserSessions(ctx, u.ID, "", now, "password_reset"); err != nil || u.EmailVerified() {
 			return err
 		}
@@ -107,6 +113,7 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 	}
 	s.sent(ctx, "password_changed", s.emails.SendPasswordChanged(ctx, to))
 	s.audit(ctx, userEvent("auth.password.reset", userID, authlib.ClientInfoFromContext(ctx)))
+	s.keysRevoked(ctx, authdomain.OwnerUser, userID, "", revoked, authdomain.RevokedPasswordReset)
 	return nil
 }
 

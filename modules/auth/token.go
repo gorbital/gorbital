@@ -26,12 +26,16 @@ func NewID(prefix string) string {
 }
 
 // NewToken returns a session token with 256 bits of randomness and the hash
-// to store. Store only the hash.
+// to store. Store only the hash. The token never starts with
+// [APIKeyPrefix], which marks API keys.
 func NewToken() (token string, hash []byte) {
 	b := make([]byte, 32)
-	_, _ = rand.Read(b)
-	token = base64.RawURLEncoding.EncodeToString(b)
-	return token, HashToken(token)
+	for {
+		_, _ = rand.Read(b)
+		if token = base64.RawURLEncoding.EncodeToString(b); !IsAPIKey(token) {
+			return token, HashToken(token)
+		}
+	}
 }
 
 // HashToken returns the SHA-256 of a token, for storing and looking it up.

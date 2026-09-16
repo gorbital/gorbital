@@ -13,6 +13,9 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | `auth.account.deleted` | A user deleted their account (`DELETE /v1/auth/me`). The account is kept for `auth.deleted_account_retention`, then purged. |  |
 | `auth.accounts.purged` | The `auth_cleanup` job removed accounts deleted longer ago than `auth.deleted_account_retention`. | `count` |
 | `auth.accounts.unverified_expired` | The `auth_cleanup` job deleted accounts whose email address was never verified within `auth.unverified_account_ttl`. | `count` |
+| `auth.api_key.created` |  |  |
+| `auth.api_key.expired` |  |  |
+| `auth.api_key.revoked` |  | `count`, `reason` |
 | `auth.email.verified` | A user verified their email address with the emailed code. |  |
 | `auth.identity.apple_notification` | Apple sent a server-to-server notification about a linked Apple account, such as consent revoked or the account deleted. | `before_link`, `known`, `replayed`, `sessions_ended`, `type` |
 | `auth.identity.linked` | A Google or Apple account was linked: at sign-up through the provider, or by a signed-in user. | `identity_id`, `new_account`, `provider`, `signed_in` |
@@ -39,6 +42,10 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | `auth.reauth.failed` | A signed-in user's password or second factor was wrong when confirming a sensitive change. | `reason` |
 | `auth.role.granted` | An operator gave a user a platform role with `grant-role`. | `role` |
 | `auth.role.revoked` | An operator took a platform role away with `revoke-role`. | `role` |
+| `auth.service_account.created` |  | `roles` |
+| `auth.service_account.deleted` |  |  |
+| `auth.service_account.disabled` |  | `revoked_keys` |
+| `auth.service_account.updated` |  | `changed`, `roles` |
 | `auth.session.revoked` | One session ended: logout, or the user revoked it from their session list. | `reason`, `user_id` |
 | `auth.sessions.revoked` | A user signed out everywhere (logout-all). | `count`, `reason` |
 | `auth.user.created` | An operator or seed data created an account (`CreateUser`), not through sign-up. | `email_verified` |

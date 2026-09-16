@@ -271,8 +271,8 @@ func TestCallersDontShareKeys(t *testing.T) {
 
 // TestReleasedResponses checks that responses that aren't final outcomes
 // release the key, so a retry runs again: server errors, panics, statuses a
-// caller resolves without changing the request, cookies, bodies over the cap,
-// and DontStore.
+// caller resolves without changing the request, cookies, Cache-Control:
+// no-store, bodies over the cap, and DontStore.
 func TestReleasedResponses(t *testing.T) {
 	s, pool := newStore(t)
 	for _, tt := range []struct {
@@ -292,6 +292,10 @@ func TestReleasedResponses(t *testing.T) {
 		{"body over the cap", func(w http.ResponseWriter, _ *http.Request) {
 			_, _ = w.Write([]byte(strings.Repeat("x", 60)))
 			_, _ = w.Write([]byte(strings.Repeat("y", 60)))
+		}},
+		{"Cache-Control: no-store", func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Cache-Control", "private, No-Store")
+			_, _ = w.Write([]byte(`{"api_key":"shown once"}`))
 		}},
 		{"DontStore", func(w http.ResponseWriter, r *http.Request) {
 			idempotency.DontStore(r.Context())

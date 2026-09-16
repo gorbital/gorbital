@@ -39,9 +39,10 @@ func New(pool *pgxpool.Pool, cfg authusecase.Config) (*Module, error) {
 // Service returns the use cases, for other wiring (commands, jobs, tests).
 func (m *Module) Service() *authusecase.Service { return m.svc }
 
-// Middleware authenticates requests with the module's sessions.
+// Middleware authenticates requests with the module's sessions, and bearer
+// API keys (ADR-0058).
 func (m *Module) Middleware(logger *slog.Logger) func(http.Handler) http.Handler {
-	return authlib.Middleware(m.svc, authlib.WithCookieName(m.cookie), authlib.WithLogger(logger))
+	return authlib.Middleware(m.svc, authlib.WithCookieName(m.cookie), authlib.WithLogger(logger), authlib.WithAPIKeys(m.svc))
 }
 
 // Register adds the module's HTTP operations to api. A nil module registers
@@ -54,4 +55,15 @@ func (m *Module) Register(api huma.API) {
 		svc, cookie = m.svc, m.cookie
 	}
 	authdelivery.Register(api, svc, cookie)
+}
+
+// RegisterOrgServiceAccounts adds organisations' service accounts, for
+// multi-tenant apps (ADR-0058). A nil module registers the operations
+// without their dependencies.
+func (m *Module) RegisterOrgServiceAccounts(api huma.API) {
+	var svc *authusecase.Service
+	if m != nil {
+		svc = m.svc
+	}
+	authdelivery.RegisterOrgServiceAccounts(api, svc)
 }

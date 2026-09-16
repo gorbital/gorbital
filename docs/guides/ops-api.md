@@ -38,6 +38,8 @@ Changes are attributed to the signed-in user in history, job metadata and audit 
 | `ops.mail.write` | Remove addresses from the email suppression list |
 | `ops.auth.read` | See which sign-in methods are configured |
 | `ops.system.read` | See an instance's health checks, database pool, migrations and runtime |
+| `ops.service_accounts.read` | List service accounts and their API keys (`ops_viewer`, `platform_admin`) |
+| `ops.service_accounts.write` | Create, change, disable and delete service accounts; create and revoke their keys (`platform_admin`) |
 
 Missing permission: 403 `forbidden`.
 
@@ -358,6 +360,23 @@ Which sign-in methods this deployment has configured, and what turns the others 
 | `GET /ops/auth/providers` | Each method: `key` (`email_password`, `authenticator_app`, `passkeys`, `passkeys_ios`, `passkeys_android`, `google`, `google_ios`, `google_android`, `apple`, `apple_ios`), `name`, `enabled`, `detail` for enabled methods (relying party ID and origins, app IDs, Android packages), `missing` environment variables and the `guide` section for the others | 200 `{methods: [...]}` |
 
 Values of secrets are never returned; the same report is printed at start in development and by `go run ./cmd/api auth-providers`.
+
+## Service accounts
+
+Non-human principals with platform roles, which call the API with API keys ([ADR-0058](../adr/0058-api-keys-and-service-accounts.md), [API keys guide](api-keys.md)). Registered by the auth module. Roles that require two-factor authentication, including `platform_admin` and `ops_viewer`, can't be given to a service account, and API keys never reach `/ops`: these endpoints need a session.
+
+| Method and path | Permission | Purpose | Success |
+|---|---|---|---|
+| `GET /ops/service-accounts` | `ops.service_accounts.read` | List, oldest first | 200 `{service_accounts}` |
+| `POST /ops/service-accounts` | `ops.service_accounts.write` | `{name, description?, roles?}` | 201 |
+| `GET /ops/service-accounts/{id}` | `ops.service_accounts.read` | Read | 200 |
+| `PATCH /ops/service-accounts/{id}` | `ops.service_accounts.write` | `{name?, description?, roles?, disabled?}`; disabling revokes every key | 200 |
+| `DELETE /ops/service-accounts/{id}` | `ops.service_accounts.write` | Delete with its keys | 204 |
+| `GET /ops/service-accounts/{id}/keys` | `ops.service_accounts.read` | Keys, with `status` and `last_used_at`, never the key | 200 `{api_keys}` |
+| `POST /ops/service-accounts/{id}/keys` | `ops.service_accounts.write` | `{name, expires_at, scopes?, password?}`; the key is returned once with `Cache-Control: no-store` | 201 `{api_key, key}` |
+| `DELETE /ops/service-accounts/{id}/keys/{keyId}` | `ops.service_accounts.write` | Revoke a key | 204 |
+
+Errors: `service_account_not_found` (404), `api_key_not_found` (404), `invalid_service_account` and `invalid_service_account_role` (422), `invalid_api_key_name`, `invalid_api_key_expiry` and `invalid_api_key_scopes` (422), `api_key_limit_reached`, `service_account_limit_reached` and `service_account_disabled` (409), `session_required` (403, with an API key). Audit: `auth.service_account.created`, `.updated`, `.disabled`, `.deleted`, `auth.api_key.created`, `.revoked`.
 
 ## Error codes
 

@@ -1,0 +1,41 @@
+package app
+
+import (
+	"context"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	authlib "gorbital.dev/modules/auth"
+
+	authmodule "example.com/acme-api/internal/modules/auth"
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
+	orgsusecase "example.com/acme-api/internal/modules/orgs/usecase"
+)
+
+// orgAccess lets organisation owners and admins manage their organisation's
+// service accounts, which the auth module stores and authenticates
+// (ADR-0058): membership and role checks come from the orgs module. Keys of
+// those service accounts reach org-scoped modules through
+// orgs.Service().Memberships().
+type orgAccess struct {
+	orgs func() *orgsusecase.Service
+}
+
+var _ authusecase.OrgAccess = orgAccess{}
+
+func (o orgAccess) AuthorizeServiceAccounts(ctx context.Context, orgID string) (context.Context, string, error) {
+	return o.orgs().AuthorizeServiceAccounts(ctx, orgID)
+}
+
+func (o orgAccess) CanAssign(callerRole, role string) bool {
+	return o.orgs().CanAssignServiceAccountRole(callerRole, role)
+}
+
+func (o orgAccess) Catalog() *authlib.Catalog { return o.orgs().Catalog() }
+
+// registerOrgServiceAccounts adds /v1/orgs/{orgId}/service-accounts. Its
+// errors are mapped in module_auth.go and module_orgs.go.
+func registerOrgServiceAccounts(api huma.API, m *authmodule.Module) error {
+	m.RegisterOrgServiceAccounts(api)
+	return nil
+}

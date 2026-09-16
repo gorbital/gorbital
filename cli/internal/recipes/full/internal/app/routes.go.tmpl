@@ -75,7 +75,7 @@ func (a *App) buildHTTP(svc services) error {
 
 	mux := http.NewServeMux()
 	apiOpts := []openapi.Option{
-		openapi.WithBearerAuth(`Session token from POST /v1/auth/login with "transport": "bearer". Browsers use the session cookie that login sets instead.`),
+		openapi.WithBearerAuth(`Session token from POST /v1/auth/login with "transport": "bearer", or an API key (gbk_…) from POST /v1/auth/api-keys. Browsers use the session cookie that login sets instead.`),
 	}
 	if !a.cfg.DocsEnabled {
 		apiOpts = append(apiOpts, openapi.WithoutSpecEndpoints()) // APP_DOCS_ENABLED=false hides the contract too

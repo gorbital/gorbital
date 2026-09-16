@@ -263,6 +263,7 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 	registerMFA(api, h, public, signedIn)
 	registerPasskeys(api, h, public, signedIn)
 	registerSocial(api, h, public, signedIn)
+	registerAPIKeys(api, h, signedIn)
 }
 
 func (h *handler) register(ctx context.Context, in *registerInput) (*acceptedOutput, error) {

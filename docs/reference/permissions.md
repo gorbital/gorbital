@@ -31,6 +31,8 @@ Platform roles are held across the whole app and grant access to `/ops`. Give an
 | `ops.mail.write` | Remove addresses from the email suppression list. | yes | |
 | `ops.auth.read` | See which sign-in methods are configured. | yes | yes |
 | `ops.system.read` | See an instance's health checks, database pool, migrations and runtime. | yes | yes |
+| `ops.service_accounts.read` | See service accounts and their API keys. | yes | yes |
+| `ops.service_accounts.write` | Create, change and delete service accounts and their API keys. | yes | |
 
 ## Organisation roles
 
@@ -53,5 +55,6 @@ Platform roles are held across the whole app and grant access to `/ops`. Give an
 | `orgs.members.manage` | Invite people, change roles and remove members, up to your own role. | yes | yes | |
 | `orgs.settings.read` | See the organisation's settings and their history. | yes | yes | yes |
 | `orgs.settings.write` | Change the organisation's settings. | yes | yes | |
+| `orgs.service_accounts.manage` | Create and manage service accounts and their API keys, up to your own role. | yes | yes | |
 | `projects.project.read` | See projects. | yes | yes | yes |
 | `projects.project.write` | Create, change and delete projects. | yes | yes | yes |

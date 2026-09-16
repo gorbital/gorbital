@@ -67,10 +67,13 @@ func (s *Service) VerifyEmail(ctx context.Context, email, code string) error {
 // that session got it from the account's own identity, and now proved the
 // address too, so both are the owner's.
 func (s *Service) claimAddress(ctx context.Context, tx Store, userID string, now time.Time, reason string) error {
-	if p, ok := authlib.PrincipalFrom(ctx); ok && p.UserID == userID {
+	if p, ok := authlib.PrincipalFrom(ctx); ok && !p.APIKey() && p.UserID == userID {
 		return nil
 	}
 	if _, err := tx.RevokeUserSessions(ctx, userID, "", now, reason); err != nil {
+		return err
+	}
+	if _, err := tx.RevokeOwnerAPIKeys(ctx, userID, "", now, authdomain.RevokedAddressClaimed); err != nil {
 		return err
 	}
 	if _, err := tx.DeletePasskeys(ctx, userID); err != nil {

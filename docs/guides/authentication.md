@@ -175,6 +175,10 @@ Native app: POST /v1/auth/{provider}/nonce → SDK sign-in with the nonce → PO
 
 Errors: `invalid_social_token` (401), `invalid_state` (401), `social_email_unverified` (403), `social_link_required` (403), `identity_not_found` (404), `last_sign_in_method` (409), `identity_in_use` (409, linking a provider account another account has), `invalid_return_to` (422), `social_unavailable` (503). The web flow puts the same codes in `#error=`, plus `access_denied` when the person cancels.
 
+## API keys
+
+Scripts, CI jobs and other services call the API with API keys instead of sessions: personal keys (`POST /v1/auth/api-keys`) act as the user, and service accounts (`/ops/service-accounts`, and `/v1/orgs/{orgId}/service-accounts` in multi-tenant apps) are non-human principals with their own roles. Keys are sent as `Authorization: Bearer gbk_…`, always expire, can be limited to some permissions, never get permissions of roles that require two-factor authentication, and can't manage accounts, sessions or keys (403 `session_required`). Resetting the password revokes the account's keys. See the [API keys guide](api-keys.md).
+
 ## Browsers and native apps
 
 | Client | Login body | Result | Later requests |
@@ -210,6 +214,11 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 | `POST /v1/auth/mfa/totp/confirm` | ✓ | `{code}`; turn two-factor authentication on | 200 `{recovery_codes}` |
 | `DELETE /v1/auth/mfa/totp` | ✓ | `{password, code, recovery_code or passkey}`; turn it off | 204 |
 | `POST /v1/auth/mfa/recovery-codes` | ✓ | `{code or passkey}`; replace the recovery codes | 200 `{recovery_codes}` |
+| `GET /v1/auth/api-keys` | ✓ | Your API keys, without the keys | 200 `{api_keys}` |
+| `POST /v1/auth/api-keys` | ✓ | `{name, expires_at, scopes?, password?}`; the key is returned once ([API keys](api-keys.md)) | 201 `{api_key, key}` |
+| `DELETE /v1/auth/api-keys/{id}` | ✓ | Revoke an API key | 204 |
+
+"Needs a session" means a signed-in session: an API key gets 403 `session_required` on every endpoint above.
 
 ## What users see
 
@@ -256,8 +265,9 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 | `auth.reset_code_ttl` | 30 minutes | 10 minutes – 2 hours | Yes |
 | `auth.deleted_account_retention` | 30 days | 1 – 365 days | Yes |
 | `auth.unverified_account_ttl` | 7 days | 1 hour – 90 days | Yes |
+| `auth.api_key_max_ttl` | 90 days | 1 – 365 days | Yes |
 
-Rate limit settings (group `rate_limits`, all with a reason required) are in the table under [What users see](#what-users-see): `auth.ip_requests_per_minute` (10 – 10 000), `auth.login_attempts` (3 – 100), `auth.login_address_attempts` (10 – 1000), `auth.login_window` (1 minute – 24 hours), `auth.mfa_change_attempts` (3 – 100), `auth.reauth_attempts` (3 – 100), `auth.code_attempts` (5 – 100) and `auth.code_window` (1 hour – 7 days).
+Rate limit settings (group `rate_limits`, all with a reason required) are in the table under [What users see](#what-users-see): `auth.ip_requests_per_minute` (10 – 10 000), `auth.login_attempts` (3 – 100), `auth.login_address_attempts` (10 – 1000), `auth.login_window` (1 minute – 24 hours), `auth.mfa_change_attempts` (3 – 100), `auth.reauth_attempts` (3 – 100), `auth.code_attempts` (5 – 100), `auth.code_window` (1 hour – 7 days) and `auth.api_key_failures_per_minute` (5 – 10 000; wrong API keys per client network, see [API keys](api-keys.md#limits-and-settings)).
 
 Change them with `PUT /ops/settings/{key}`. The auth module also enforces hard limits of its own, so no setting can make sessions or codes unsafe. Two-factor authentication has no runtime settings.
 
@@ -307,11 +317,12 @@ func (s *Service) CreateProject(ctx context.Context, name string) (Project, erro
 | `session_not_found` | 404 | Revoking a session that isn't yours or has ended |
 | `social_link_required` | 403 | Signing in with Google or Apple for the address of an existing account that provider doesn't manage; sign in and link it with `POST /v1/auth/identities` |
 | `identity_in_use` | 409 | Linking a Google or Apple account that another account has |
+| `session_required` | 403 | An API key used where a signed-in session is needed; other API key and service account codes are in the [API keys guide](api-keys.md#error-codes) |
 | `auth_unavailable` | 503 | The session store couldn't be reached, or too many passwords are being checked at once (each waits up to 5 seconds for its turn) |
 
 ## Audit events
 
-Every sign-in (successful or not), second factor (`auth.mfa.challenge_succeeded`, `auth.mfa.challenge_failed`, `auth.mfa.recovery_code_used`), verification, password change or reset, two-factor change (`auth.mfa.totp_enabled`, `auth.mfa.totp_disabled`, `auth.mfa.recovery_codes_regenerated`, `auth.mfa.reset`, `auth.keys.rotated`), sign-out, account deletion and role change is recorded, as is every wrong password or second factor given behind a session (`auth.reauth.failed`, `reason` `invalid_credentials`, `invalid_mfa` or `rate_limited`), with the client's IP address and user agent. See them with `GET /ops/audit?action_prefix=auth.`. Email addresses, secrets, codes and recovery codes are never stored in event metadata. Every action with its metadata keys: [audit actions reference](../reference/audit-actions.md); roles and permissions: [permissions reference](../reference/permissions.md).
+Every sign-in (successful or not), second factor (`auth.mfa.challenge_succeeded`, `auth.mfa.challenge_failed`, `auth.mfa.recovery_code_used`), verification, password change or reset, two-factor change (`auth.mfa.totp_enabled`, `auth.mfa.totp_disabled`, `auth.mfa.recovery_codes_regenerated`, `auth.mfa.reset`, `auth.keys.rotated`), sign-out, account deletion and role change is recorded, as is every wrong password or second factor given behind a session (`auth.reauth.failed`, `reason` `invalid_credentials`, `invalid_mfa` or `rate_limited`), with the client's IP address and user agent. API keys and service accounts record `auth.api_key.*` and `auth.service_account.*` ([API keys](api-keys.md#audit-events)). See them with `GET /ops/audit?action_prefix=auth.`. Email addresses, secrets, codes and recovery codes are never stored in event metadata. Every action with its metadata keys: [audit actions reference](../reference/audit-actions.md); roles and permissions: [permissions reference](../reference/permissions.md).
 
 ## Troubleshooting
 

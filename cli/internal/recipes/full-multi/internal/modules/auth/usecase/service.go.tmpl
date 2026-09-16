@@ -56,6 +56,19 @@ type Config struct {
 	Issuer string
 	// Hooks let other modules take part in creating and deleting accounts.
 	Hooks AccountHooks
+	// Orgs lets organisations manage their own service accounts in a
+	// multi-tenant app (ADR-0058). Without it, only platform service
+	// accounts exist.
+	Orgs OrgAccess
+	// APIKeyMaxTTL is the longest lifetime of a new API key, usually a
+	// runtime setting, clamped to auth.APIKeyTTLLimits. Default:
+	// auth.DefaultAPIKeyMaxTTL.
+	APIKeyMaxTTL config.Value[time.Duration]
+	// APIKeyLimiter limits failed API key authentications per client
+	// network. The app passes a limiter shared across instances. Without
+	// one, an in-memory limiter allows DefaultAPIKeyFailures a minute per
+	// instance.
+	APIKeyLimiter ratelimit.Taker
 	// Durations, usually runtime settings. Each is clamped to the auth
 	// module's hard limits.
 	SessionIdleTTL          config.Value[time.Duration]
@@ -113,6 +126,7 @@ type Service struct {
 	defaultReturnTo string
 	issuer          string
 	hooks           AccountHooks
+	orgs            OrgAccess
 	now             func() time.Time
 	hasher          *authlib.Hasher
 	loginLimiter    ratelimit.Taker
@@ -126,6 +140,7 @@ type Service struct {
 	// noticeLimiter limits "account exists" emails per address, separately
 	// from logins, so registrations can't lock the owner out.
 	noticeLimiter   ratelimit.Taker
+	apiKeyLimiter   ratelimit.Taker
 	minResponseTime time.Duration
 
 	sessionIdle      config.Value[time.Duration]
@@ -134,6 +149,7 @@ type Service struct {
 	resetCode        config.Value[time.Duration]
 	retention        config.Value[time.Duration]
 	unverifiedTTL    config.Value[time.Duration]
+	apiKeyMaxTTL     config.Value[time.Duration]
 }
 
 // NewService returns a Service. It freezes the catalog.
@@ -152,6 +168,7 @@ func NewService(c Config) (*Service, error) {
 		defaultReturnTo:  c.DefaultReturnTo,
 		issuer:           orDefault(c.Issuer, "app"),
 		hooks:            c.Hooks,
+		orgs:             c.Orgs,
 		now:              c.Now,
 		sessionIdle:      orDefault(c.SessionIdleTTL, config.Static(authlib.DefaultSessionIdleTTL)),
 		sessionAbsolute:  orDefault(c.SessionAbsoluteTTL, config.Static(authlib.DefaultSessionAbsoluteTTL)),
@@ -159,6 +176,7 @@ func NewService(c Config) (*Service, error) {
 		resetCode:        orDefault(c.ResetCodeTTL, config.Static(authlib.DefaultResetCodeTTL)),
 		retention:        orDefault(c.DeletedAccountRetention, config.Static(authlib.DefaultDeletedAccountRetention)),
 		unverifiedTTL:    orDefault(c.UnverifiedAccountTTL, config.Static(authlib.DefaultUnverifiedAccountTTL)),
+		apiKeyMaxTTL:     orDefault(c.APIKeyMaxTTL, config.Static(authlib.DefaultAPIKeyMaxTTL)),
 		minResponseTime:  orDefault(c.MinResponseTime, authlib.DefaultMinResponseTime),
 	}
 	if s.now == nil {
@@ -207,6 +225,7 @@ func NewService(c Config) (*Service, error) {
 	s.reauthLimiter = inMemory(c.ReauthLimiter, attempts, window)
 	s.codeLimiter = inMemory(c.CodeLimiter, authlib.DefaultCodeAttempts, authlib.DefaultCodeWindow)
 	s.noticeLimiter = inMemory(c.NoticeLimiter, 1, authlib.CodeResendInterval)
+	s.apiKeyLimiter = inMemory(c.APIKeyLimiter, DefaultAPIKeyFailures, time.Minute)
 	return s, nil
 }
 
@@ -321,10 +340,16 @@ func requireActor(ctx context.Context) (actor.Actor, error) {
 	return a, nil
 }
 
+// requirePrincipal returns the request's signed-in session. A request
+// authenticated with an API key gets ErrSessionRequired: keys can't change
+// the account, its sign-in methods or sessions, or create keys (ADR-0058).
 func requirePrincipal(ctx context.Context) (authlib.Principal, error) {
 	p, ok := authlib.PrincipalFrom(ctx)
-	if !ok {
+	switch {
+	case !ok:
 		return authlib.Principal{}, authlib.ErrUnauthenticated
+	case p.APIKey() || p.UserID == "":
+		return authlib.Principal{}, authdomain.ErrSessionRequired
 	}
 	return p, nil
 }

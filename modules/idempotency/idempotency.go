@@ -15,8 +15,8 @@
 //
 // Only final outcomes are stored. Server errors (5xx), panics, and 401, 403,
 // 408 and 429 responses release the key so the client can retry, and so do
-// responses that set cookies, bodies larger than the cap, and requests whose
-// handler calls [DontStore]. A request that dies without releasing its key
+// responses that set cookies or say Cache-Control: no-store, bodies larger
+// than the cap, and requests whose handler calls [DontStore]. A request that dies without releasing its key
 // (a crashed instance) holds it for the lock TTL.
 //
 // Stability: stable (ADR-0015, ADR-0054).

@@ -10,6 +10,8 @@ These are the codes of a Full app as generated, including the example `projects`
 |---|---|---|---|
 | `already_invited` | 409 | This address already has an open invitation; resend it instead. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `already_member` | 409 | This person is already a member. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
+| `api_key_limit_reached` | 409 | At most 20 usable API keys each; revoke one first. | `/v1/auth` |
+| `api_key_not_found` | 404 | No API key here has this ID. | `/v1/auth` |
 | `audit_event_not_found` | 404 | No audit event has this ID. | `/ops` |
 | `audit_query_timeout` | 503 | The audit query took too long; narrow the filters or the time range. | `/ops` |
 | `auth_unavailable` | 503 | Authentication is temporarily unavailable, for example when every password hashing slot is busy; try again shortly. | Any endpoint |
@@ -24,6 +26,9 @@ These are the codes of a Full app as generated, including the example `projects`
 | `identity_in_use` | 409 | This Google or Apple account is linked to another account. | `/v1/auth` |
 | `identity_not_found` | 404 | No linked account of yours has this ID. | `/v1/auth` |
 | `internal_error` | 500, any other 5xx | An unexpected error. The detail never includes the cause; it is logged once with the request ID. | Any endpoint |
+| `invalid_api_key_expiry` | 422 | expires_at must be at least an hour away and within auth.api_key_max_ttl. | `/v1/auth` |
+| `invalid_api_key_name` | 422 | An API key name must be 1 to 100 characters on one line. | `/v1/auth` |
+| `invalid_api_key_scopes` | 422 | Scopes must be at most 50 permissions the key's owner holds without two-factor authentication. | `/v1/auth` |
 | `invalid_audit_filter` | 422 | The audit filter is not valid. | `/ops` |
 | `invalid_code` | 422 | The code is wrong, used or expired. | `/v1/auth` |
 | `invalid_credentials` | 401 | The email address or password is wrong. | `/v1/auth` |
@@ -39,6 +44,8 @@ These are the codes of a Full app as generated, including the example `projects`
 | `invalid_passkey_name` | 422 | A passkey name must be 1 to 100 characters. | `/v1/auth` |
 | `invalid_recipient` | 422 | The recipient is not an email address. | `/ops` |
 | `invalid_return_to` | 422 | return_to must be an absolute URL on the API's origin or APP_CORS_ORIGINS. | `/v1/auth` |
+| `invalid_service_account` | 422 | A service account name must be 1 to 100 characters on one line, and its description at most 500. | `/v1/auth` |
+| `invalid_service_account_role` | 422 | Service accounts can't hold roles that require two-factor authentication or an organisation's owner role, nor a role above your own. | `/v1/auth` |
 | `invalid_setting_value` | 422 | The value isn't valid JSON, or fails the setting's type or constraints. | `/ops`; `/v1/orgs`, `/v1/invitations` |
 | `invalid_social_token` | 401 | The sign-in with Google or Apple couldn't be verified; start again. | `/v1/auth` |
 | `invalid_sort` | 400 | Sort by one allowed field, with - for descending order. | List endpoints |
@@ -64,7 +71,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `method_not_allowed` | 405 | The path exists but not with this HTTP method. | Any endpoint |
 | `mfa_already_enabled` | 409 | Two-factor authentication is already on. | `/v1/auth` |
 | `mfa_not_enabled` | 409 | Two-factor authentication isn't on, or its setup wasn't started. | `/v1/auth` |
-| `mfa_required` | 403 | The permission needs a session signed in with a second factor: turn on two-factor authentication and sign in again. | `/ops`; `/v1/orgs`, `/v1/invitations` |
+| `mfa_required` | 403 | The permission needs a session signed in with a second factor: turn on two-factor authentication and sign in again. | `/v1/auth`; `/ops`; `/v1/orgs`, `/v1/invitations` |
 | `mfa_required_by_role` | 409 | A role of this account requires two-factor authentication. | `/v1/auth` |
 | `mfa_unavailable` | 503 | Two-factor authentication isn't configured on this server. | `/v1/auth` |
 | `not_found` | 404 | No route matches the method and path, or a resource wasn't found and no more specific code applies. | Any endpoint |
@@ -81,7 +88,11 @@ These are the codes of a Full app as generated, including the example `projects`
 | `rate_limited` | 429 | Too many requests from this client or for this operation; wait for `Retry-After`. | Any endpoint |
 | `request_too_large` | 413 | The request body is larger than `APP_MAX_BODY_BYTES`. | Any endpoint |
 | `role_not_allowed` | 403 | You can't give, change or remove a role above your own, and only owners manage owners. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
+| `service_account_disabled` | 409 | The service account is disabled; enable it first. | `/v1/auth` |
+| `service_account_limit_reached` | 409 | At most 100 service accounts; delete one first. | `/v1/auth` |
+| `service_account_not_found` | 404 | No service account here has this ID. | `/v1/auth` |
 | `session_not_found` | 404 | No active session of yours has this ID. | `/v1/auth` |
+| `session_required` | 403 | Sign in to do this: an API key can't manage accounts, sessions or API keys. | `/v1/auth` |
 | `setting_not_found` | 404 | No setting has this key. Organisations can't set a setting with this key. | `/ops`; `/v1/orgs`, `/v1/invitations` |
 | `setting_reason_required` | 422 | A reason is required to change this setting. | `/ops` |
 | `setting_version_conflict` | 409 | The setting changed since it was read; read it again. | `/ops` |
@@ -89,7 +100,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `social_link_required` | 403 | An account with this email address exists; sign in to it and link this provider from the account. | `/v1/auth` |
 | `social_unavailable` | 503 | This sign-in provider isn't configured on this server (see AUTH_PROVIDERS.md). | `/v1/auth` |
 | `sole_owner` | 409 | You are the only owner of organisations with other members; make another member an owner, or delete them, first. *Multi-tenant apps only.* | `DELETE /v1/auth/me` |
-| `too_many_attempts` | 429 | Too many sign-in, code, second-factor or re-authentication attempts within the window; the detail says when to try again. | `/v1/auth` |
+| `too_many_attempts` | 429 | Too many sign-in, code, second-factor or re-authentication attempts within the window; the detail says when to try again. | Any endpoint |
 | `too_many_invitations` | 429 | Too many invitations were sent from this organisation, or by you, in the last hour; try again later. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `too_many_orgs` | 409 | You own as many organisations as allowed; delete one, or hand one over, first. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `unauthenticated` | 401 | The endpoint needs a signed-in session (cookie or bearer token). | `/v1/auth`; `/ops`; `/v1/orgs`, `/v1/invitations` |

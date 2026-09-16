@@ -30,6 +30,7 @@ Runtime settings are non-secret values operators change without a redeploy: `PUT
 | `auth.reset_code_ttl` | duration | 30 minutes | 10 minutes to 2 hours | yes | no | How long password reset codes stay valid. |
 | `auth.deleted_account_retention` | duration | 30 days | 1 day to 1 year | yes | no | How long deleted accounts are kept before the auth_cleanup job removes them. |
 | `auth.unverified_account_ttl` | duration | 7 days | 1 hour to 90 days | yes | no | How long an account whose email address was never verified stays before the auth_cleanup job deletes it, freeing the address. Accounts with a Google or Apple sign-in are kept. |
+| `auth.api_key_max_ttl` | duration | 90 days | 1 day to 1 year | yes | no | The longest lifetime of a new API key. Every key needs an expiry within it; existing keys keep theirs. |
 
 ## Rate limits
 
@@ -43,6 +44,7 @@ Runtime settings are non-secret values operators change without a redeploy: `PUT
 | `auth.reauth_attempts` | int | `10` | 3 to 100 | yes | no | Changes that check the password or a second factor of a signed-in user (changing the password, setting up or turning off two-factor authentication, adding or removing passkeys, linking or unlinking Google or Apple, deleting the account) allowed per user within auth.login_window. |
 | `auth.code_attempts` | int | `20` | 5 to 100 | yes | no | Email verification and password reset code checks allowed per email address within auth.code_window, across every code sent. Reaching it blocks the owner's codes too until the window passes. |
 | `auth.code_window` | duration | 1 day | 1 hour to 7 days | yes | no | The window of auth.code_attempts. |
+| `auth.api_key_failures_per_minute` | int | `30` | 5 to 10000 | yes | no | Requests with a malformed, unknown or wrong API key allowed per client network (an IPv4 address or IPv6 /64) per minute, across all instances; then 429. Valid keys aren't limited. |
 | `orgs.user_invitations_per_hour` | int | `50` | 1 to 10000 | yes | no | Invitations one user may send or resend per hour across all their organisations, on top of each organisation's 20 an hour. *Multi-tenant apps only.* |
 
 ## Retention

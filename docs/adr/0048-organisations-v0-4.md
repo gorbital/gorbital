@@ -1,6 +1,6 @@
 # ADR-0048: Organisations (v0.4)
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0023, ADR-0038 · **Amended by:** ADR-0050 (`orb add orgs` merges `base-full` into `base-full-multi` and converts data with new migrations), ADR-0053 (inviter re-checked at acceptance, permission-subset role assignment, organisation and invitation limits), ADR-0056 (organisations' own runtime settings, purged with the organisation)
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0023, ADR-0038 · **Amended by:** ADR-0050 (`orb add orgs` merges `base-full` into `base-full-multi` and converts data with new migrations), ADR-0053 (inviter re-checked at acceptance, permission-subset role assignment, organisation and invitation limits), ADR-0056 (organisations' own runtime settings, purged with the organisation), ADR-0058 (organisation service accounts pass `orgs.RequireMember` in their own organisation; API keys' scopes limit org permissions; the purge deletes service accounts)
 
 The maintainer approved the five questions below as recommended (2026-09-15).
 

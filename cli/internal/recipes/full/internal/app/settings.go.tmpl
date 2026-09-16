@@ -11,6 +11,8 @@ import (
 	"gorbital.dev/modules/idempotency"
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/modules/settings"
+
+	authusecase "⟦.Module⟧/internal/modules/auth/usecase"
 )
 
 const (
@@ -41,6 +43,8 @@ type appSettings struct {
 	authReauthAttempts          *settings.Setting[int]
 	authCodeAttempts            *settings.Setting[int]
 	authCodeWindow              *settings.Setting[time.Duration]
+	authAPIKeyMaxTTL            *settings.Setting[time.Duration]
+	authAPIKeyFailures          *settings.Setting[int]
 
 	auditRetention            *settings.Setting[time.Duration]
 	historyRetention          *settings.Setting[time.Duration]
@@ -178,6 +182,18 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.Describe("The window of auth.code_attempts."),
 			settings.Group("rate_limits"),
 			settings.Range(time.Hour, 7*24*time.Hour),
+			settings.ReasonRequired(),
+		),
+		// API keys (ADR-0058).
+		authAPIKeyMaxTTL: settings.Duration(reg, "auth.api_key_max_ttl", authlib.DefaultAPIKeyMaxTTL,
+			settings.Describe("The longest lifetime of a new API key. Every key needs an expiry within it; existing keys keep theirs."),
+			settings.Range(24*time.Hour, 365*24*time.Hour),
+			settings.ReasonRequired(),
+		),
+		authAPIKeyFailures: settings.Int(reg, "auth.api_key_failures_per_minute", authusecase.DefaultAPIKeyFailures,
+			settings.Describe("Requests with a malformed, unknown or wrong API key allowed per client network (an IPv4 address or IPv6 /64) per minute, across all instances; then 429. Valid keys aren't limited."),
+			settings.Group("rate_limits"),
+			settings.Range(5, 10_000),
 			settings.ReasonRequired(),
 		),
 

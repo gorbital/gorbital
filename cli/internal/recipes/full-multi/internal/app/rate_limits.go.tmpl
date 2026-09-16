@@ -37,6 +37,8 @@ type rateLimits struct {
 	notice ratelimit.Taker
 	// testEmail limits POST /ops/mail/test per operator.
 	testEmail ratelimit.Taker
+	// apiKey limits failed API key authentications per client network.
+	apiKey ratelimit.Taker
 }
 
 // newRateLimits builds the shared limiters on pool.
@@ -74,6 +76,9 @@ func newRateLimits(pool *pgxpool.Pool, s appSettings, logger *slog.Logger) (rate
 		}},
 		{"ops_test_email", &limits.testEmail, func(context.Context) ratelimit.Limit {
 			return ratelimit.Per(opsusecase.TestEmailsPerHour, time.Hour)
+		}},
+		{"auth_api_key", &limits.apiKey, func(ctx context.Context) ratelimit.Limit {
+			return ratelimit.Per(s.authAPIKeyFailures.Get(ctx), time.Minute)
 		}},
 	} {
 		limiter, err := store.Limiter(l.name, l.limit)

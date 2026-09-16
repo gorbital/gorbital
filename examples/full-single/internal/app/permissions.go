@@ -3,6 +3,7 @@ package app
 import (
 	authlib "gorbital.dev/modules/auth"
 
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
 )
 
@@ -33,14 +34,17 @@ func declarePermissions() *authlib.Catalog {
 	c.Permission(opsdomain.PermMailWrite, "Remove addresses from the email suppression list")
 	c.Permission(opsdomain.PermAuthRead, "See which sign-in methods are configured")
 	c.Permission(opsdomain.PermSystemRead, "See an instance's health checks, database pool, migrations and runtime")
+	c.Permission(authusecase.PermServiceAccountsRead, "See service accounts and their API keys")
+	c.Permission(authusecase.PermServiceAccountsWrite, "Create, change and delete service accounts and their API keys")
 
-	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission", opsdomain.AllPermissions()...)
+	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission",
+		append(opsdomain.AllPermissions(), authusecase.PermServiceAccountsRead, authusecase.PermServiceAccountsWrite)...)
 	c.Role(roleOpsViewer, "Reads operational data without changing anything",
 		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead, opsdomain.PermAuthRead,
-		opsdomain.PermSystemRead)
+		opsdomain.PermSystemRead, authusecase.PermServiceAccountsRead)
 
 	// Ops roles grant their permissions only to sessions signed in with a
-	// second factor (ADR-0043).
+	// second factor (ADR-0043), so never to API keys (ADR-0058).
 	c.RequireMFA(rolePlatformAdmin, roleOpsViewer)
 	return c
 }

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"gorbital.dev/actor"
@@ -23,7 +24,9 @@ const DefaultMaxResponseBytes = 1 << 20
 const finishTimeout = 5 * time.Second
 
 // replayedHeaders are the response headers stored and replayed. Set-Cookie is
-// never among them: responses setting cookies aren't stored at all.
+// never among them: responses setting cookies aren't stored at all, and
+// neither are responses marked Cache-Control: no-store, such as those showing
+// a new API key once.
 var replayedHeaders = []string{"Content-Type", "Location", "ETag"}
 
 // releasedStatuses are the client errors a caller can resolve without
@@ -219,12 +222,12 @@ func validKey(key string) bool {
 // it.
 type recorder struct {
 	http.ResponseWriter
-	max      int
-	status   int
-	header   http.Header
-	body     bytes.Buffer
-	cookies  bool
-	overflow bool
+	max        int
+	status     int
+	header     http.Header
+	body       bytes.Buffer
+	unstorable bool // Set-Cookie or Cache-Control: no-store
+	overflow   bool
 }
 
 func (rec *recorder) WriteHeader(status int) {
@@ -238,7 +241,7 @@ func (rec *recorder) WriteHeader(status int) {
 func (rec *recorder) snapshot(status int) {
 	rec.status = status
 	h := rec.ResponseWriter.Header()
-	rec.cookies = len(h.Values("Set-Cookie")) > 0
+	rec.unstorable = len(h.Values("Set-Cookie")) > 0 || noStore(h)
 	rec.header = http.Header{}
 	for _, name := range replayedHeaders {
 		if v := h.Values(name); len(v) > 0 {
@@ -271,7 +274,21 @@ func (rec *recorder) storable() bool {
 	if rec.status == 0 {
 		rec.snapshot(http.StatusOK) // a handler that wrote nothing answers 200
 	}
-	return rec.status < 500 && !slices.Contains(releasedStatuses, rec.status) && !rec.cookies && !rec.overflow
+	return rec.status < 500 && !slices.Contains(releasedStatuses, rec.status) && !rec.unstorable && !rec.overflow
+}
+
+// noStore reports whether h forbids storing the response: a Cache-Control
+// no-store directive (RFC 9111) means it carries something that must not be
+// kept, so it isn't kept for replay either.
+func noStore(h http.Header) bool {
+	for _, v := range h.Values("Cache-Control") {
+		for _, directive := range strings.Split(v, ",") {
+			if strings.EqualFold(strings.TrimSpace(directive), "no-store") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (rec *recorder) response() Response {

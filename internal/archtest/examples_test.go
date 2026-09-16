@@ -26,6 +26,8 @@ var multiTenantChanges = []string{
 	// Organisations' own settings (ADR-0056): purged with the organisation.
 	"db/migrations/20260918000002_settings_org_purge.sql",
 	"internal/app/org_settings_test.go",
+	"internal/app/orgs_service_accounts.go",      // organisation service accounts (ADR-0058)
+	"internal/app/orgs_service_accounts_test.go", // and their cross-organisation denial tests
 
 	// Wiring that names the orgs module.
 	"go.mod",

@@ -41,6 +41,7 @@ Client errors are final outcomes and are replayed too: a retry of a request that
 - server errors (5xx) and crashes (panics);
 - 401, 403, 408 and 429, which the caller can resolve without changing the request (sign in, get a permission or a fresh second factor, wait);
 - responses that set a cookie;
+- responses marked `Cache-Control: no-store`, such as the ones that show a new API key once ([API keys](api-keys.md));
 - response bodies larger than 1 MiB;
 - responses whose handler calls `idempotency.DontStore(ctx)`.
 

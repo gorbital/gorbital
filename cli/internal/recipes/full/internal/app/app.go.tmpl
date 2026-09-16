@@ -218,6 +218,8 @@ func (a *App) build(ctx context.Context) error {
 		ReauthLimiter:           limits.reauth,
 		CodeLimiter:             limits.code,
 		NoticeLimiter:           limits.notice,
+		APIKeyLimiter:           limits.apiKey,
+		APIKeyMaxTTL:            appSettings.authAPIKeyMaxTTL,
 		Google:                  google,
 		Apple:                   apple,
 		PublicURL:               a.cfg.Social.PublicURL,

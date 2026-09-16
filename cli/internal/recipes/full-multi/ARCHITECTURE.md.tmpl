@@ -22,6 +22,7 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   admin_mfa.go           reset-mfa and rotate-auth-keys commands (cmd/api)
   commands.go            database, audit, auth and orgs wiring shared by commands
   orgs_hooks.go          account hooks: personal workspaces and ownership checks on account deletion
+  orgs_service_accounts.go organisation service accounts: OrgAccess for the auth module and their routes
   keys.go                AUTH_ENCRYPTION_KEYS: the keyring for two-factor authentication secrets
   passkeys.go            WEBAUTHN_*: the passkey relying party and the /.well-known files for apps
   social.go              GOOGLE_*, APPLE_*, APP_PUBLIC_URL: Google and Apple sign-in providers
@@ -75,6 +76,8 @@ Jobs run in the API process on PostgreSQL (River). A job carries the request ID,
 ## Authentication
 
 `internal/modules/auth` owns sign-up, email codes, sign-in, sessions, password reset and change, account deletion and platform roles, with all four layers: its use cases hold every flow and its repository holds the SQL for `auth_users`, `auth_sessions`, `auth_codes` and `auth_user_roles`. The gorbital auth library supplies password hashing, tokens, codes, cookies, the permission catalog and the middleware that puts the signed-in user's actor (with the permissions of their roles) in each request's context. Use cases check `actor.Can(permission)`; declare permissions and roles in `internal/app/permissions.go`.
+
+API keys (`gbk_…` bearer tokens) and service accounts live in the same module (`auth_api_keys`, `auth_service_accounts`; ADR-0058): the middleware authenticates keys with `AuthenticateAPIKey`, never as sessions; a key gets its owner's current permissions without roles that require two-factor authentication, limited to its scopes, and can't manage accounts, sessions or keys (`requirePrincipal` answers `session_required`). Platform service accounts are managed under `/ops/service-accounts`. Organisation service accounts, under `/v1/orgs/{orgId}/service-accounts`, reach the orgs module through `OrgAccess` in `orgs_service_accounts.go`, and act in org-scoped modules through `orgs.Service().Memberships()`.
 
 ## Organisations
 
