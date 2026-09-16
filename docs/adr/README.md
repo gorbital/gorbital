@@ -19,7 +19,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0007](0007-observability.md) | Observability | Accepted, amended by 0019, 0028, 0053, 0063 |
 | [0008](0008-configuration.md) | Configuration | Superseded by 0020 |
 | [0009](0009-repository-strategy.md) | Repository strategy | Accepted, amended by 0019 |
-| [0010](0010-dashboard-architecture.md) | Dashboard architecture | Accepted, amended by 0026, 0028 |
+| [0010](0010-dashboard-architecture.md) | Dashboard architecture | Accepted, amended by 0026, 0028, 0066 |
 | [0011](0011-github-integration.md) | GitHub integration | Accepted |
 | [0012](0012-versioning-and-upgrades.md) | Versioning and upgrades | Superseded by 0015, 0016 |
 | [0013](0013-multi-tenancy.md) | Multi-tenancy | Superseded by 0023 |
@@ -30,15 +30,15 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0018](0018-error-contract.md) | Error contract and problem+json | Accepted |
 | [0019](0019-module-dependency-rules.md) | Module dependency rules and core budget | Accepted, amended by 0033 |
 | [0020](0020-constructors-and-configuration.md) | Constructors and configuration | Accepted, amended by 0031, 0053 |
-| [0021](0021-generator-operation-model.md) | Generator operation model | Accepted, amended by 0041, 0050 |
+| [0021](0021-generator-operation-model.md) | Generator operation model | Accepted, amended by 0041, 0050, 0066 |
 | [0022](0022-generated-application-layout.md) | Generated application layout | Accepted, amended by 0032 |
 | [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033, 0048, 0061 |
 | [0024](0024-authentication-methods.md) | Authentication methods | Accepted, amended by 0038, 0043, 0044, 0046, 0058, 0059 |
 | [0025](0025-email-providers.md) | Email providers | Accepted, amended by 0033, 0037, 0062 |
 | [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038, 0051, 0064 |
 | [0027](0027-api-contract-and-docs.md) | API contract and documentation | Accepted, amended by 0049, 0051, 0053 |
-| [0028](0028-local-development-environment.md) | Local development environment | Accepted, amended by 0042, 0065 |
-| [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted, amended by 0036, 0038, 0053, 0056, 0057, 0058, 0059, 0060, 0061, 0062, 0063, 0064, 0065 |
+| [0028](0028-local-development-environment.md) | Local development environment | Accepted, amended by 0042, 0065, 0066 |
+| [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted, amended by 0036, 0038, 0053, 0056, 0057, 0058, 0059, 0060, 0061, 0062, 0063, 0064, 0065, 0066 |
 | [0030](0030-context-and-correlation.md) | Context and correlation propagation | Accepted, amended by 0053 |
 | [0031](0031-runtime-settings.md) | Runtime settings | Accepted, amended by 0056 |
 | [0032](0032-repository-sql.md) | Hand-written SQL in repositories | Accepted |
@@ -74,4 +74,5 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0062](0062-resend-webhooks-and-suppression-list.md) | Resend bounce and complaint webhooks and the email suppression list | Accepted |
 | [0063](0063-prometheus-metrics.md) | Prometheus metrics endpoint: exporter on a separate `METRICS_ADDR` listener, Go runtime and connection pool metrics, route labels through request copies | Accepted |
 | [0064](0064-live-observability-and-incidents.md) | Live observability and incidents: `modules/observability` request minutes shared through PostgreSQL, `/ops/observability` with a live stream, incidents with timelines, automatic detection and reports | Accepted |
-| [0065](0065-local-dev-console-apis.md) | Local dev console APIs: development-only `/_dev/` endpoints in `modules/devconsole` behind Host, loopback and per-run token checks, request and log buffers with streams, configuration without secrets, `orb dev` token | Accepted |
+| [0065](0065-local-dev-console-apis.md) | Local dev console APIs: development-only `/_dev/` endpoints in `modules/devconsole` behind Host, loopback and per-run token checks, request and log buffers with streams, configuration without secrets, `orb dev` token | Accepted, amended by 0066 |
+| [0066](0066-dev-portal.md) | Dev Portal: `orb dev` serves the embedded portal UI, a `/_portal/api/` for the app's state, output, restarts and generator plans, and a proxy to the app; per-run token, Host and loopback checks, a write header; generators plan before they write (`genplan`) | Accepted |

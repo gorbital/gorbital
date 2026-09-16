@@ -5,13 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 	"unicode"
 
 	"github.com/charmbracelet/huh"
+
+	"gorbital.dev/cli/internal/genplan"
 )
 
 const genMigrationUsage = `Usage: orb gen migration <name> [flags]
@@ -77,20 +77,12 @@ func runGenMigration(ctx context.Context, args []string, stdin io.Reader, stdout
 	if name == "" {
 		return usageError("missing migration name: orb gen migration <name> (or run it in a terminal to be asked)")
 	}
-	words, err := migrationName(name)
-	if err != nil {
-		return usageError(err.Error())
-	}
-	version, err := nextMigrationVersion(app.dir, time.Now())
+	plan, err := planMigration(app, name, time.Now())
 	if err != nil {
 		return err
 	}
-	result := genMigrationResult{
-		Name:    strings.Join(words, "_"),
-		Version: version,
-		File:    "db/migrations/" + version + "_" + strings.Join(words, "_") + ".sql",
-		DryRun:  *dryRun,
-	}
+	result := plan.Result.(genMigrationResult)
+	result.DryRun = *dryRun
 
 	if !*dryRun {
 		if !*allowDirty {
@@ -98,7 +90,7 @@ func runGenMigration(ctx context.Context, args []string, stdin io.Reader, stdout
 				return err
 			}
 		}
-		if err := writeNewFile(app.dir, result.File, migrationContent(words)); err != nil {
+		if err := genplan.Apply(app.dir, plan); err != nil {
 			return err
 		}
 	}
@@ -174,23 +166,4 @@ func migrationContent(words []string) []byte {
 		"-- one.\n" +
 		"\n" +
 		"-- +goose Up\n")
-}
-
-// writeNewFile creates path inside dir with content, failing if the file
-// already exists.
-func writeNewFile(dir, path string, content []byte) error {
-	root, err := os.OpenRoot(dir)
-	if err != nil {
-		return err
-	}
-	defer root.Close()
-	f, err := root.OpenFile(filepath.FromSlash(path), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if err != nil {
-		return err
-	}
-	if _, err := f.Write(content); err != nil {
-		_ = f.Close()
-		return err
-	}
-	return f.Close()
 }

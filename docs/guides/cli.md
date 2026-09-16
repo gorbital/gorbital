@@ -453,12 +453,17 @@ In every app whose `.env.example` declares `DEV_CONSOLE_TOKEN` and that runs wit
 
 While it runs, a changed or new migration is applied before the restart; if it fails, the previous version keeps running. Services keep running after `orb dev` stops, so the next start is fast: `docker compose down` stops them, and `docker compose down -v` also deletes the database.
 
+It also serves the [Dev Portal](dev-portal.md) at http://127.0.0.1:3100 and opens it in your browser ([ADR-0066](../adr/0066-dev-portal.md)): the app's state and output as it happens, restart, stop and start, and the app's dev console APIs through a proxy; more screens arrive with each phase of the [Dev Portal roadmap](../dev-portal-roadmap.md). The printed link holds a token that is new on every run and never written to disk; the portal answers only this machine. Its port is checked before anything starts, like the services' ports.
+
 | Flag | Default |
 |---|---|
 | `--observability` | off. Also starts Grafana (`grafana/otel-lgtm`, the `observability` profile in `compose.yaml`) on `GRAFANA_PORT` (3000) and sets `OTEL_EXPORTER_OTLP_ENDPOINT` for the app, so its traces, metrics and logs appear there. Works in Minimal apps too. Grafana receives metrics over OTLP and doesn't scrape the app; to check the Prometheus endpoint locally, set `METRICS_ADDR=127.0.0.1:9464` in `.env` and open http://127.0.0.1:9464/metrics ([production](production.md#prometheus-metrics)) |
 | `--no-services` | start services. Skips Docker and uses `DATABASE_URL` and `MAILPIT_SMTP_ADDR` from `.env` as they are; migrations and seed data still run |
 | `--no-reload` | reload on change |
 | `--interval` | 500ms between change checks |
+| `--portal-port` | `DEV_PORTAL_PORT` from `.env` or the environment, else 3100 |
+| `--no-portal` | serve the Dev Portal |
+| `--no-open` | open the Dev Portal in a browser (never in CI or when output isn't a terminal) |
 
 Without Docker, a Full app stops with a message: install and start Docker, or point `DATABASE_URL` at an existing PostgreSQL and use `--no-services`. Without the CLI, the same steps are `cp .env.example .env` (and a key in `AUTH_ENCRYPTION_KEYS`), `docker compose up -d --wait`, `set -a; . ./.env; set +a` to export `.env`, `go run ./cmd/migrate`, `go run ./cmd/seed` and `go run ./cmd/api`.
 

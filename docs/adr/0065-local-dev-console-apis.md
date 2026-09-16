@@ -1,6 +1,6 @@
 # ADR-0065: Local dev console APIs
 
-**Status:** Accepted (2026-09-16) · **Amends:** ADR-0028
+**Status:** Accepted (2026-09-16) · **Amends:** ADR-0028 · **Amended by:** ADR-0066 (the Dev Portal proxies the console and holds its token)
 
 ## Context
 

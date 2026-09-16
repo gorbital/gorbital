@@ -54,6 +54,8 @@ Other programs running as your own user can read a process's environment, and so
 
 ## Building a UI on them
 
+The [Dev Portal](dev-portal.md) is the UI built on these APIs: `orb dev` serves it on port 3100 and proxies `/_portal/app/_dev/…` to the app with the token added, so the browser never holds it ([ADR-0066](../adr/0066-dev-portal.md)). For a UI of your own:
+
 - **Serve it from the app's origin, or proxy.** Browsers on another origin (such as a Next.js app on `http://localhost:3000`) can't call the APIs directly: there is no CORS. Call them from your UI's server (route handlers, rewrites or a proxy), sending the token and a `Host` of `127.0.0.1:<port>` (what `fetch` to `http://127.0.0.1:8080` sends). Keep the token on the server side.
 - **Read streams with `fetch`.** `EventSource` can't send an `Authorization` header. Read `text/event-stream` from `fetch`'s body instead.
 - **Take the shapes from `/_dev/openapi.json`.** It describes every endpoint and response; generate types from it. Fields may be added (the module is `Stability: experimental`); changes are listed in the upgrade notes.

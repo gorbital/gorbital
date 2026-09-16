@@ -29,7 +29,7 @@ Usage:
   orb add mail [flags]           set up email with Resend or SMTP (Full preset apps)
   orb add orgs [flags]           turn a single-tenant app multi-tenant on a branch (Full preset apps)
   orb add rls [flags]            turn on row-level security for organisations' data (multi-tenant apps)
-  orb dev [flags]                run the application with live reload
+  orb dev [flags]                run the application with live reload and the Dev Portal
   orb upgrade [flags]            merge this release's templates into the app on a branch
   orb doctor [flags]             check the app, its environment and database, and say what to fix
   orb version [--json]           print version information
