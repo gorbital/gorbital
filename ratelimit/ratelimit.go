@@ -6,7 +6,7 @@
 // enforces its own limit. gorbital.dev/modules/ratelimitpg implements
 // [Taker] with limits shared across instances (ADR-0052).
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package ratelimit
 
 import (

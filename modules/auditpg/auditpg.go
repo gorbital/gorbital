@@ -11,7 +11,7 @@
 //
 // Use [Store.RecordTx] to commit an event with the change it describes.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package auditpg
 
 import (

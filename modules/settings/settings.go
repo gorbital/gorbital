@@ -19,7 +19,7 @@
 // other instances through PostgreSQL LISTEN/NOTIFY, with a periodic full
 // reload as a fallback.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package settings
 
 import (
@@ -202,6 +202,15 @@ func (r *Registry) lookup(key string) (*definition, bool) {
 	defer r.mu.Unlock()
 	d, ok := r.defs[key]
 	return d, ok
+}
+
+// Keys returns the key of every declared setting, in declaration order.
+// Setting keys are public API (ADR-0015); apps record them in their surface
+// inventory (ADR-0054).
+func (r *Registry) Keys() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return slices.Clone(r.keys)
 }
 
 // definitions returns every definition in declaration order.

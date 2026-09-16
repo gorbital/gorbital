@@ -5,7 +5,7 @@
 // Audit events are not application logs: they have their own retention,
 // integrity and access rules (ADR-0026).
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package audit
 
 import (

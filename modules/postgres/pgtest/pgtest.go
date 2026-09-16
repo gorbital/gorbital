@@ -15,7 +15,8 @@
 // database, and each test's database is cloned from it, so tests stay fast
 // and fully isolated. Old templates remain until `docker compose down -v`.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable, for tests only: the API follows the compatibility
+// promise; what the helpers do inside a test may change (ADR-0015, ADR-0054).
 package pgtest
 
 import (

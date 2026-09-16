@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -206,6 +207,15 @@ func (defs *Definitions) freeze(workers *river.Workers) error {
 	}
 	defs.frozen = true
 	return nil
+}
+
+// Names returns the name of every defined job, in definition order. Job
+// names are public API (ADR-0015); apps record them in their surface
+// inventory (ADR-0054).
+func (defs *Definitions) Names() []string {
+	defs.mu.Lock()
+	defer defs.mu.Unlock()
+	return slices.Clone(defs.names)
 }
 
 func (defs *Definitions) lookup(name string) (*definition, bool) {

@@ -1,0 +1,98 @@
+pkg gorbital.dev/modules/settings, const DefaultResyncInterval = 300000000000
+pkg gorbital.dev/modules/settings, const DefaultResyncInterval time.Duration
+pkg gorbital.dev/modules/settings, const KindBool = "bool"
+pkg gorbital.dev/modules/settings, const KindBool Kind
+pkg gorbital.dev/modules/settings, const KindDuration = "duration"
+pkg gorbital.dev/modules/settings, const KindDuration Kind
+pkg gorbital.dev/modules/settings, const KindEnum = "enum"
+pkg gorbital.dev/modules/settings, const KindEnum Kind
+pkg gorbital.dev/modules/settings, const KindFloat = "float"
+pkg gorbital.dev/modules/settings, const KindFloat Kind
+pkg gorbital.dev/modules/settings, const KindInt = "int"
+pkg gorbital.dev/modules/settings, const KindInt Kind
+pkg gorbital.dev/modules/settings, const KindString = "string"
+pkg gorbital.dev/modules/settings, const KindString Kind
+pkg gorbital.dev/modules/settings, const KindStringList = "string_list"
+pkg gorbital.dev/modules/settings, const KindStringList Kind
+pkg gorbital.dev/modules/settings, func Bool(*Registry, string, bool, ...Option) *Setting[bool]
+pkg gorbital.dev/modules/settings, func Describe(string) Option
+pkg gorbital.dev/modules/settings, func Duration(*Registry, string, time.Duration, ...Option) *Setting[time.Duration]
+pkg gorbital.dev/modules/settings, func Email() Option
+pkg gorbital.dev/modules/settings, func Enum(*Registry, string, string, []string, ...Option) *Setting[string]
+pkg gorbital.dev/modules/settings, func Float(*Registry, string, float64, ...Option) *Setting[float64]
+pkg gorbital.dev/modules/settings, func Group(string) Option
+pkg gorbital.dev/modules/settings, func Int(*Registry, string, int, ...Option) *Setting[int]
+pkg gorbital.dev/modules/settings, func MaxItems(int) Option
+pkg gorbital.dev/modules/settings, func MaxLen(int) Option
+pkg gorbital.dev/modules/settings, func NewRegistry() *Registry
+pkg gorbital.dev/modules/settings, func NewStore(context.Context, *pgxpool.Pool, *Registry, audit.Recorder, ...StoreOption) (*Store, error)
+pkg gorbital.dev/modules/settings, func OneOf(...string) Option
+pkg gorbital.dev/modules/settings, func Range[T int | float64 | time.Duration](T, T) Option
+pkg gorbital.dev/modules/settings, func ReasonRequired() Option
+pkg gorbital.dev/modules/settings, func RestartRequired() Option
+pkg gorbital.dev/modules/settings, func String(*Registry, string, string, ...Option) *Setting[string]
+pkg gorbital.dev/modules/settings, func StringList(*Registry, string, []string, ...Option) *Setting[[]string]
+pkg gorbital.dev/modules/settings, func URL() Option
+pkg gorbital.dev/modules/settings, func Validate[T any](func(T) error) Option
+pkg gorbital.dev/modules/settings, func WithLogger(*slog.Logger) StoreOption
+pkg gorbital.dev/modules/settings, func WithResyncInterval(time.Duration) StoreOption
+pkg gorbital.dev/modules/settings, method (*InvalidValueError) Error() string
+pkg gorbital.dev/modules/settings, method (*InvalidValueError) Unwrap() error
+pkg gorbital.dev/modules/settings, method (*Registry) Keys() []string
+pkg gorbital.dev/modules/settings, method (*Setting) Get(context.Context) T
+pkg gorbital.dev/modules/settings, method (*Setting) Key() string
+pkg gorbital.dev/modules/settings, method (*Store) DeleteHistoryBefore(context.Context, time.Time, int) (int64, error)
+pkg gorbital.dev/modules/settings, method (*Store) Get(string) (View, error)
+pkg gorbital.dev/modules/settings, method (*Store) History(context.Context, string, int64, int) ([]HistoryEntry, error)
+pkg gorbital.dev/modules/settings, method (*Store) List() []View
+pkg gorbital.dev/modules/settings, method (*Store) OldestHistory(context.Context) (time.Time, bool, error)
+pkg gorbital.dev/modules/settings, method (*Store) Reload(context.Context) error
+pkg gorbital.dev/modules/settings, method (*Store) Reset(context.Context, string, Change) (View, error)
+pkg gorbital.dev/modules/settings, method (*Store) Run(context.Context) error
+pkg gorbital.dev/modules/settings, method (*Store) Set(context.Context, string, json.RawMessage, Change) (View, error)
+pkg gorbital.dev/modules/settings, method (*Store) UnknownKeys() []string
+pkg gorbital.dev/modules/settings, type Change struct
+pkg gorbital.dev/modules/settings, type Change struct, Reason string
+pkg gorbital.dev/modules/settings, type Change struct, Version int64
+pkg gorbital.dev/modules/settings, type HistoryEntry struct
+pkg gorbital.dev/modules/settings, type HistoryEntry struct, ActorID string
+pkg gorbital.dev/modules/settings, type HistoryEntry struct, ActorKind actor.Kind
+pkg gorbital.dev/modules/settings, type HistoryEntry struct, ChangedAt time.Time
+pkg gorbital.dev/modules/settings, type HistoryEntry struct, ID int64
+pkg gorbital.dev/modules/settings, type HistoryEntry struct, Key string
+pkg gorbital.dev/modules/settings, type HistoryEntry struct, NewValue json.RawMessage
+pkg gorbital.dev/modules/settings, type HistoryEntry struct, OldValue json.RawMessage
+pkg gorbital.dev/modules/settings, type HistoryEntry struct, Reason string
+pkg gorbital.dev/modules/settings, type HistoryEntry struct, RequestID string
+pkg gorbital.dev/modules/settings, type HistoryEntry struct, Version int64
+pkg gorbital.dev/modules/settings, type InvalidValueError struct
+pkg gorbital.dev/modules/settings, type InvalidValueError struct, Key string
+pkg gorbital.dev/modules/settings, type InvalidValueError struct, Reason string
+pkg gorbital.dev/modules/settings, type Kind string
+pkg gorbital.dev/modules/settings, type Option interface { apply }
+pkg gorbital.dev/modules/settings, type Registry struct
+pkg gorbital.dev/modules/settings, type Setting[T any] struct
+pkg gorbital.dev/modules/settings, type Store struct
+pkg gorbital.dev/modules/settings, type StoreOption interface { applyStore }
+pkg gorbital.dev/modules/settings, type View struct
+pkg gorbital.dev/modules/settings, type View struct, Constraints map[string]any
+pkg gorbital.dev/modules/settings, type View struct, Default json.RawMessage
+pkg gorbital.dev/modules/settings, type View struct, Description string
+pkg gorbital.dev/modules/settings, type View struct, Group string
+pkg gorbital.dev/modules/settings, type View struct, InvalidStoredValue bool
+pkg gorbital.dev/modules/settings, type View struct, Key string
+pkg gorbital.dev/modules/settings, type View struct, Kind Kind
+pkg gorbital.dev/modules/settings, type View struct, Modified bool
+pkg gorbital.dev/modules/settings, type View struct, ReasonRequired bool
+pkg gorbital.dev/modules/settings, type View struct, RestartPending bool
+pkg gorbital.dev/modules/settings, type View struct, RestartRequired bool
+pkg gorbital.dev/modules/settings, type View struct, UpdatedAt time.Time
+pkg gorbital.dev/modules/settings, type View struct, UpdatedBy string
+pkg gorbital.dev/modules/settings, type View struct, Value json.RawMessage
+pkg gorbital.dev/modules/settings, type View struct, Version int64
+pkg gorbital.dev/modules/settings, var ErrActorRequired error
+pkg gorbital.dev/modules/settings, var ErrInvalidValue error
+pkg gorbital.dev/modules/settings, var ErrReasonRequired error
+pkg gorbital.dev/modules/settings, var ErrUnknownSetting error
+pkg gorbital.dev/modules/settings, var ErrVersionConflict error
+pkg gorbital.dev/modules/settings, var Migrations fs.FS

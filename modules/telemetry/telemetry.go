@@ -10,7 +10,7 @@
 // propagator as OpenTelemetry globals, which instrumentation libraries use.
 // Call it once, from the composition root.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package telemetry
 
 import (

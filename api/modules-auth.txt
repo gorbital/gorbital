@@ -1,0 +1,304 @@
+pkg gorbital.dev/modules/auth, const CodeMaxAttempts = 5
+pkg gorbital.dev/modules/auth, const CodeMaxAttempts ideal-int
+pkg gorbital.dev/modules/auth, const CodeResendInterval = 60000000000
+pkg gorbital.dev/modules/auth, const CodeResendInterval time.Duration
+pkg gorbital.dev/modules/auth, const CodeRetention = 86400000000000
+pkg gorbital.dev/modules/auth, const CodeRetention time.Duration
+pkg gorbital.dev/modules/auth, const DefaultCookieName = "__Host-session"
+pkg gorbital.dev/modules/auth, const DefaultCookieName ideal-string
+pkg gorbital.dev/modules/auth, const DefaultDeletedAccountRetention = 2592000000000000
+pkg gorbital.dev/modules/auth, const DefaultDeletedAccountRetention time.Duration
+pkg gorbital.dev/modules/auth, const DefaultLoginAttempts = 10
+pkg gorbital.dev/modules/auth, const DefaultLoginAttempts ideal-int
+pkg gorbital.dev/modules/auth, const DefaultLoginWindow = 900000000000
+pkg gorbital.dev/modules/auth, const DefaultLoginWindow time.Duration
+pkg gorbital.dev/modules/auth, const DefaultResetCodeTTL = 1800000000000
+pkg gorbital.dev/modules/auth, const DefaultResetCodeTTL time.Duration
+pkg gorbital.dev/modules/auth, const DefaultSessionAbsoluteTTL = 7776000000000000
+pkg gorbital.dev/modules/auth, const DefaultSessionAbsoluteTTL time.Duration
+pkg gorbital.dev/modules/auth, const DefaultSessionIdleTTL = 1209600000000000
+pkg gorbital.dev/modules/auth, const DefaultSessionIdleTTL time.Duration
+pkg gorbital.dev/modules/auth, const DefaultVerificationCodeTTL = 900000000000
+pkg gorbital.dev/modules/auth, const DefaultVerificationCodeTTL time.Duration
+pkg gorbital.dev/modules/auth, const EndedSessionRetention = 604800000000000
+pkg gorbital.dev/modules/auth, const EndedSessionRetention time.Duration
+pkg gorbital.dev/modules/auth, const MFAChallengeMaxAttempts = 5
+pkg gorbital.dev/modules/auth, const MFAChallengeMaxAttempts ideal-int
+pkg gorbital.dev/modules/auth, const MFAChallengeTTL = 300000000000
+pkg gorbital.dev/modules/auth, const MFAChallengeTTL time.Duration
+pkg gorbital.dev/modules/auth, const MaxPasswordLength = 128
+pkg gorbital.dev/modules/auth, const MaxPasswordLength ideal-int
+pkg gorbital.dev/modules/auth, const MinPasswordLength = 12
+pkg gorbital.dev/modules/auth, const MinPasswordLength ideal-int
+pkg gorbital.dev/modules/auth, const RecentVerification = 600000000000
+pkg gorbital.dev/modules/auth, const RecentVerification time.Duration
+pkg gorbital.dev/modules/auth, const RecoveryCodeCount = 10
+pkg gorbital.dev/modules/auth, const RecoveryCodeCount ideal-int
+pkg gorbital.dev/modules/auth, const SessionTouchInterval = 60000000000
+pkg gorbital.dev/modules/auth, const SessionTouchInterval time.Duration
+pkg gorbital.dev/modules/auth, const TOTPDigits = 6
+pkg gorbital.dev/modules/auth, const TOTPDigits ideal-int
+pkg gorbital.dev/modules/auth, const TOTPPeriod = 30000000000
+pkg gorbital.dev/modules/auth, const TOTPPeriod time.Duration
+pkg gorbital.dev/modules/auth, const TOTPSkew = 1
+pkg gorbital.dev/modules/auth, const TOTPSkew ideal-int
+pkg gorbital.dev/modules/auth, func ClearSessionCookie(string) *http.Cookie
+pkg gorbital.dev/modules/auth, func ClientInfoFrom(*http.Request) ClientInfo
+pkg gorbital.dev/modules/auth, func ClientInfoFromContext(context.Context) ClientInfo
+pkg gorbital.dev/modules/auth, func CodeMatches(string, string, []byte) bool
+pkg gorbital.dev/modules/auth, func HashCode(string, string) []byte
+pkg gorbital.dev/modules/auth, func HashRecoveryCode(string, string) []byte
+pkg gorbital.dev/modules/auth, func HashToken(string) []byte
+pkg gorbital.dev/modules/auth, func Middleware(Authenticator, ...MiddlewareOption) func(http.Handler) http.Handler
+pkg gorbital.dev/modules/auth, func NewCatalog() *Catalog
+pkg gorbital.dev/modules/auth, func NewCode() string
+pkg gorbital.dev/modules/auth, func NewHasher() (*Hasher, error)
+pkg gorbital.dev/modules/auth, func NewID(string) string
+pkg gorbital.dev/modules/auth, func NewKeyringKey(string) string
+pkg gorbital.dev/modules/auth, func NewMailEmails(mail.Sender, string) Emails
+pkg gorbital.dev/modules/auth, func NewRecoveryCodes() []string
+pkg gorbital.dev/modules/auth, func NewTOTPSecret() string
+pkg gorbital.dev/modules/auth, func NewToken() (string, []byte)
+pkg gorbital.dev/modules/auth, func NormalizeEmail(string) (string, string, error)
+pkg gorbital.dev/modules/auth, func NormalizeRecoveryCode(string) string
+pkg gorbital.dev/modules/auth, func ParseKeyring(string) (*Keyring, error)
+pkg gorbital.dev/modules/auth, func PrincipalFrom(context.Context) (Principal, bool)
+pkg gorbital.dev/modules/auth, func SessionCookie(string, string, time.Time) *http.Cookie
+pkg gorbital.dev/modules/auth, func TOTPCode(string, time.Time) (string, error)
+pkg gorbital.dev/modules/auth, func TOTPQRCode(string) (string, error)
+pkg gorbital.dev/modules/auth, func TOTPStep(time.Time) int64
+pkg gorbital.dev/modules/auth, func TOTPURI(string, string, string) string
+pkg gorbital.dev/modules/auth, func TokenFrom(*http.Request, string) string
+pkg gorbital.dev/modules/auth, func ValidatePassword(context.Context, string, PasswordChecker) error
+pkg gorbital.dev/modules/auth, func VerifyTOTP(string, string, time.Time) (int64, bool)
+pkg gorbital.dev/modules/auth, func WithClientInfo(context.Context, ClientInfo) context.Context
+pkg gorbital.dev/modules/auth, func WithCookieName(string) MiddlewareOption
+pkg gorbital.dev/modules/auth, func WithLogger(*slog.Logger) MiddlewareOption
+pkg gorbital.dev/modules/auth, func WithPrincipal(context.Context, Principal) context.Context
+pkg gorbital.dev/modules/auth, method (*Catalog) AllPermissions() []Permission
+pkg gorbital.dev/modules/auth, method (*Catalog) Freeze()
+pkg gorbital.dev/modules/auth, method (*Catalog) HasRole(string) bool
+pkg gorbital.dev/modules/auth, method (*Catalog) Permission(string, string)
+pkg gorbital.dev/modules/auth, method (*Catalog) Permissions(...string) []string
+pkg gorbital.dev/modules/auth, method (*Catalog) PermissionsFor([]string, bool) ([]string, []string)
+pkg gorbital.dev/modules/auth, method (*Catalog) RequireMFA(...string)
+pkg gorbital.dev/modules/auth, method (*Catalog) RequiresMFA(...string) bool
+pkg gorbital.dev/modules/auth, method (*Catalog) Role(string, string, ...string)
+pkg gorbital.dev/modules/auth, method (*Catalog) Roles() []Role
+pkg gorbital.dev/modules/auth, method (*Hasher) Hash(string) (string, error)
+pkg gorbital.dev/modules/auth, method (*Hasher) Verify(string, string) (bool, bool)
+pkg gorbital.dev/modules/auth, method (*Hasher) VerifyDummy(string)
+pkg gorbital.dev/modules/auth, method (*Keyring) CurrentKeyID() string
+pkg gorbital.dev/modules/auth, method (*Keyring) Decrypt(string, []byte, []byte) ([]byte, error)
+pkg gorbital.dev/modules/auth, method (*Keyring) Encrypt([]byte, []byte) (string, []byte, error)
+pkg gorbital.dev/modules/auth, method (*PasswordError) Error() string
+pkg gorbital.dev/modules/auth, method (*PasswordError) Unwrap() error
+pkg gorbital.dev/modules/auth, method (ClientInfo) Clean() ClientInfo
+pkg gorbital.dev/modules/auth, method (Limits) Clamp(time.Duration) time.Duration
+pkg gorbital.dev/modules/auth, method (Principal) RecentlySignedIn(time.Time) bool
+pkg gorbital.dev/modules/auth, method (Principal) RecentlyVerified(time.Time) bool
+pkg gorbital.dev/modules/auth, type Authenticator interface { Authenticate }
+pkg gorbital.dev/modules/auth, type Authenticator interface, Authenticate(context.Context, string) (Principal, error)
+pkg gorbital.dev/modules/auth, type Catalog struct
+pkg gorbital.dev/modules/auth, type ClientInfo struct
+pkg gorbital.dev/modules/auth, type ClientInfo struct, IP string
+pkg gorbital.dev/modules/auth, type ClientInfo struct, UserAgent string
+pkg gorbital.dev/modules/auth, type Emails interface { SendAccountExists, SendPasskeyAdded, SendPasskeyRemoved, SendPasswordChanged, SendPasswordResetCode, SendRecoveryCodeUsed, SendSignInMethodAdded, SendSignInMethodRemoved, SendTwoFactorDisabled, SendTwoFactorEnabled, SendVerificationCode }
+pkg gorbital.dev/modules/auth, type Emails interface, SendAccountExists(context.Context, string) error
+pkg gorbital.dev/modules/auth, type Emails interface, SendPasskeyAdded(context.Context, string, string) error
+pkg gorbital.dev/modules/auth, type Emails interface, SendPasskeyRemoved(context.Context, string, string) error
+pkg gorbital.dev/modules/auth, type Emails interface, SendPasswordChanged(context.Context, string) error
+pkg gorbital.dev/modules/auth, type Emails interface, SendPasswordResetCode(context.Context, string, string, time.Duration) error
+pkg gorbital.dev/modules/auth, type Emails interface, SendRecoveryCodeUsed(context.Context, string, int) error
+pkg gorbital.dev/modules/auth, type Emails interface, SendSignInMethodAdded(context.Context, string, string) error
+pkg gorbital.dev/modules/auth, type Emails interface, SendSignInMethodRemoved(context.Context, string, string) error
+pkg gorbital.dev/modules/auth, type Emails interface, SendTwoFactorDisabled(context.Context, string) error
+pkg gorbital.dev/modules/auth, type Emails interface, SendTwoFactorEnabled(context.Context, string) error
+pkg gorbital.dev/modules/auth, type Emails interface, SendVerificationCode(context.Context, string, string, time.Duration) error
+pkg gorbital.dev/modules/auth, type Hasher struct
+pkg gorbital.dev/modules/auth, type Keyring struct
+pkg gorbital.dev/modules/auth, type Limits struct
+pkg gorbital.dev/modules/auth, type Limits struct, Max time.Duration
+pkg gorbital.dev/modules/auth, type Limits struct, Min time.Duration
+pkg gorbital.dev/modules/auth, type MiddlewareOption interface { apply }
+pkg gorbital.dev/modules/auth, type PasswordChecker func(context.Context, string) error
+pkg gorbital.dev/modules/auth, type PasswordError struct
+pkg gorbital.dev/modules/auth, type PasswordError struct, Reason string
+pkg gorbital.dev/modules/auth, type Permission struct
+pkg gorbital.dev/modules/auth, type Permission struct, Description string
+pkg gorbital.dev/modules/auth, type Permission struct, Name string
+pkg gorbital.dev/modules/auth, type Principal struct
+pkg gorbital.dev/modules/auth, type Principal struct, MFAVerified bool
+pkg gorbital.dev/modules/auth, type Principal struct, MFAVerifiedAt time.Time
+pkg gorbital.dev/modules/auth, type Principal struct, Permissions []string
+pkg gorbital.dev/modules/auth, type Principal struct, SessionID string
+pkg gorbital.dev/modules/auth, type Principal struct, SignedInAt time.Time
+pkg gorbital.dev/modules/auth, type Principal struct, StepUp []string
+pkg gorbital.dev/modules/auth, type Principal struct, UserID string
+pkg gorbital.dev/modules/auth, type Role struct
+pkg gorbital.dev/modules/auth, type Role struct, Description string
+pkg gorbital.dev/modules/auth, type Role struct, Name string
+pkg gorbital.dev/modules/auth, type Role struct, Permissions []string
+pkg gorbital.dev/modules/auth, var DeletedRetentionLimits Limits
+pkg gorbital.dev/modules/auth, var ErrDecrypt error
+pkg gorbital.dev/modules/auth, var ErrInvalidEmail error
+pkg gorbital.dev/modules/auth, var ErrInvalidKeyring error
+pkg gorbital.dev/modules/auth, var ErrInvalidTOTPSecret error
+pkg gorbital.dev/modules/auth, var ErrUnauthenticated error
+pkg gorbital.dev/modules/auth, var ErrUnknownKey error
+pkg gorbital.dev/modules/auth, var ErrWeakPassword error
+pkg gorbital.dev/modules/auth, var ResetCodeLimits Limits
+pkg gorbital.dev/modules/auth, var SessionAbsoluteLimits Limits
+pkg gorbital.dev/modules/auth, var SessionIdleLimits Limits
+pkg gorbital.dev/modules/auth, var VerificationCodeLimits Limits
+pkg gorbital.dev/modules/auth/passkey, const CeremonyTTL = 300000000000
+pkg gorbital.dev/modules/auth/passkey, const CeremonyTTL time.Duration
+pkg gorbital.dev/modules/auth/passkey, const UserHandleSize = 64
+pkg gorbital.dev/modules/auth/passkey, const UserHandleSize ideal-int
+pkg gorbital.dev/modules/auth/passkey, func AndroidOrigin([32]byte) string
+pkg gorbital.dev/modules/auth/passkey, func AppleAppSiteAssociation([]string) []byte
+pkg gorbital.dev/modules/auth/passkey, func AssetLinks([]AndroidApp) []byte
+pkg gorbital.dev/modules/auth/passkey, func CheckOrigin(string, string) error
+pkg gorbital.dev/modules/auth/passkey, func FormatFingerprint([32]byte) string
+pkg gorbital.dev/modules/auth/passkey, func New(Config) (*Service, error)
+pkg gorbital.dev/modules/auth/passkey, func NewUserHandle() []byte
+pkg gorbital.dev/modules/auth/passkey, func ParseAndroidApps(string) ([]AndroidApp, error)
+pkg gorbital.dev/modules/auth/passkey, func ParseAppleAppIDs(string) ([]string, error)
+pkg gorbital.dev/modules/auth/passkey, method (*Service) BeginDiscoverableLogin() (Ceremony, error)
+pkg gorbital.dev/modules/auth/passkey, method (*Service) BeginRegistration(User) (Ceremony, error)
+pkg gorbital.dev/modules/auth/passkey, method (*Service) BeginUserLogin(User) (Ceremony, error)
+pkg gorbital.dev/modules/auth/passkey, method (*Service) Config() Config
+pkg gorbital.dev/modules/auth/passkey, method (*Service) FinishLogin([]byte, []byte, func([]byte, []byte) (User, error)) (User, Credential, error)
+pkg gorbital.dev/modules/auth/passkey, method (*Service) FinishRegistration(User, []byte, []byte) (Credential, error)
+pkg gorbital.dev/modules/auth/passkey, type AndroidApp struct
+pkg gorbital.dev/modules/auth/passkey, type AndroidApp struct, Fingerprints [][32]byte
+pkg gorbital.dev/modules/auth/passkey, type AndroidApp struct, Package string
+pkg gorbital.dev/modules/auth/passkey, type Ceremony struct
+pkg gorbital.dev/modules/auth/passkey, type Ceremony struct, Options json.RawMessage
+pkg gorbital.dev/modules/auth/passkey, type Ceremony struct, State []byte
+pkg gorbital.dev/modules/auth/passkey, type Config struct
+pkg gorbital.dev/modules/auth/passkey, type Config struct, AndroidApps []AndroidApp
+pkg gorbital.dev/modules/auth/passkey, type Config struct, AppleAppIDs []string
+pkg gorbital.dev/modules/auth/passkey, type Config struct, Origins []string
+pkg gorbital.dev/modules/auth/passkey, type Config struct, RPDisplayName string
+pkg gorbital.dev/modules/auth/passkey, type Config struct, RPID string
+pkg gorbital.dev/modules/auth/passkey, type Credential struct
+pkg gorbital.dev/modules/auth/passkey, type Credential struct, AAGUID []byte
+pkg gorbital.dev/modules/auth/passkey, type Credential struct, BackupEligible bool
+pkg gorbital.dev/modules/auth/passkey, type Credential struct, BackupState bool
+pkg gorbital.dev/modules/auth/passkey, type Credential struct, ID []byte
+pkg gorbital.dev/modules/auth/passkey, type Credential struct, Record []byte
+pkg gorbital.dev/modules/auth/passkey, type Credential struct, SignCount uint32
+pkg gorbital.dev/modules/auth/passkey, type Service struct
+pkg gorbital.dev/modules/auth/passkey, type User struct
+pkg gorbital.dev/modules/auth/passkey, type User struct, Credentials []Credential
+pkg gorbital.dev/modules/auth/passkey, type User struct, DisplayName string
+pkg gorbital.dev/modules/auth/passkey, type User struct, Handle []byte
+pkg gorbital.dev/modules/auth/passkey, type User struct, Name string
+pkg gorbital.dev/modules/auth/passkey, var ErrCloneWarning error
+pkg gorbital.dev/modules/auth/passkey, var ErrInvalidConfig error
+pkg gorbital.dev/modules/auth/passkey, var ErrInvalidResponse error
+pkg gorbital.dev/modules/auth/passkey, var ErrUnknownCredential error
+pkg gorbital.dev/modules/auth/passkey/passkeytest, func New(string) *Authenticator
+pkg gorbital.dev/modules/auth/passkey/passkeytest, method (*Authenticator) Create([]byte) ([]byte, error)
+pkg gorbital.dev/modules/auth/passkey/passkeytest, method (*Authenticator) CredentialID() []byte
+pkg gorbital.dev/modules/auth/passkey/passkeytest, method (*Authenticator) Get([]byte) ([]byte, error)
+pkg gorbital.dev/modules/auth/passkey/passkeytest, method (*Authenticator) SetSignCount(uint32)
+pkg gorbital.dev/modules/auth/passkey/passkeytest, type Authenticator struct
+pkg gorbital.dev/modules/auth/passkey/passkeytest, type Authenticator struct, Synced bool
+pkg gorbital.dev/modules/auth/passkey/passkeytest, type Authenticator struct, UserVerified bool
+pkg gorbital.dev/modules/auth/social, const Apple = "apple"
+pkg gorbital.dev/modules/auth/social, const Apple ideal-string
+pkg gorbital.dev/modules/auth/social, const Google = "google"
+pkg gorbital.dev/modules/auth/social, const Google ideal-string
+pkg gorbital.dev/modules/auth/social, const MaxTokenAge = 600000000000
+pkg gorbital.dev/modules/auth/social, const MaxTokenAge time.Duration
+pkg gorbital.dev/modules/auth/social, const NotificationAccountDelete = "account-delete"
+pkg gorbital.dev/modules/auth/social, const NotificationAccountDelete ideal-string
+pkg gorbital.dev/modules/auth/social, const NotificationConsentRevoked = "consent-revoked"
+pkg gorbital.dev/modules/auth/social, const NotificationConsentRevoked ideal-string
+pkg gorbital.dev/modules/auth/social, const NotificationEmailDisabled = "email-disabled"
+pkg gorbital.dev/modules/auth/social, const NotificationEmailDisabled ideal-string
+pkg gorbital.dev/modules/auth/social, const NotificationEmailEnabled = "email-enabled"
+pkg gorbital.dev/modules/auth/social, const NotificationEmailEnabled ideal-string
+pkg gorbital.dev/modules/auth/social, func AppleEndpoints() Endpoints
+pkg gorbital.dev/modules/auth/social, func GoogleEndpoints() Endpoints
+pkg gorbital.dev/modules/auth/social, func NewApple(AppleConfig) (*Provider, error)
+pkg gorbital.dev/modules/auth/social, func NewGoogle(GoogleConfig) (*Provider, error)
+pkg gorbital.dev/modules/auth/social, func NewPKCEVerifier() string
+pkg gorbital.dev/modules/auth/social, func ParseApplePrivateKey([]byte) (*ecdsa.PrivateKey, error)
+pkg gorbital.dev/modules/auth/social, method (*Provider) AppleNotification(context.Context, string) (Notification, error)
+pkg gorbital.dev/modules/auth/social, method (*Provider) AuthCodeURL(string, string, string, string) string
+pkg gorbital.dev/modules/auth/social, method (*Provider) Exchange(context.Context, string, string, string, string) (Token, error)
+pkg gorbital.dev/modules/auth/social, method (*Provider) ExchangeNativeCode(context.Context, string, string) (string, error)
+pkg gorbital.dev/modules/auth/social, method (*Provider) Name() string
+pkg gorbital.dev/modules/auth/social, method (*Provider) NativeClients() []string
+pkg gorbital.dev/modules/auth/social, method (*Provider) Revoke(context.Context, string, string) error
+pkg gorbital.dev/modules/auth/social, method (*Provider) VerifyIDToken(context.Context, string, string) (Identity, error)
+pkg gorbital.dev/modules/auth/social, method (*Provider) Web() bool
+pkg gorbital.dev/modules/auth/social, type AppleConfig struct
+pkg gorbital.dev/modules/auth/social, type AppleConfig struct, BundleIDs []string
+pkg gorbital.dev/modules/auth/social, type AppleConfig struct, Endpoints Endpoints
+pkg gorbital.dev/modules/auth/social, type AppleConfig struct, HTTPClient *http.Client
+pkg gorbital.dev/modules/auth/social, type AppleConfig struct, KeyID string
+pkg gorbital.dev/modules/auth/social, type AppleConfig struct, Now func() time.Time
+pkg gorbital.dev/modules/auth/social, type AppleConfig struct, PrivateKey *ecdsa.PrivateKey
+pkg gorbital.dev/modules/auth/social, type AppleConfig struct, ServicesID string
+pkg gorbital.dev/modules/auth/social, type AppleConfig struct, TeamID string
+pkg gorbital.dev/modules/auth/social, type Endpoints struct
+pkg gorbital.dev/modules/auth/social, type Endpoints struct, AuthURL string
+pkg gorbital.dev/modules/auth/social, type Endpoints struct, Issuers []string
+pkg gorbital.dev/modules/auth/social, type Endpoints struct, KeysURL string
+pkg gorbital.dev/modules/auth/social, type Endpoints struct, RevokeURL string
+pkg gorbital.dev/modules/auth/social, type Endpoints struct, TokenURL string
+pkg gorbital.dev/modules/auth/social, type GoogleConfig struct
+pkg gorbital.dev/modules/auth/social, type GoogleConfig struct, ClientID string
+pkg gorbital.dev/modules/auth/social, type GoogleConfig struct, ClientSecret string
+pkg gorbital.dev/modules/auth/social, type GoogleConfig struct, Endpoints Endpoints
+pkg gorbital.dev/modules/auth/social, type GoogleConfig struct, HTTPClient *http.Client
+pkg gorbital.dev/modules/auth/social, type GoogleConfig struct, NativeClientIDs []string
+pkg gorbital.dev/modules/auth/social, type GoogleConfig struct, Now func() time.Time
+pkg gorbital.dev/modules/auth/social, type Identity struct
+pkg gorbital.dev/modules/auth/social, type Identity struct, Audience string
+pkg gorbital.dev/modules/auth/social, type Identity struct, Email string
+pkg gorbital.dev/modules/auth/social, type Identity struct, EmailVerified bool
+pkg gorbital.dev/modules/auth/social, type Identity struct, Name string
+pkg gorbital.dev/modules/auth/social, type Identity struct, PrivateEmail bool
+pkg gorbital.dev/modules/auth/social, type Identity struct, Provider string
+pkg gorbital.dev/modules/auth/social, type Identity struct, Subject string
+pkg gorbital.dev/modules/auth/social, type Notification struct
+pkg gorbital.dev/modules/auth/social, type Notification struct, At time.Time
+pkg gorbital.dev/modules/auth/social, type Notification struct, Email string
+pkg gorbital.dev/modules/auth/social, type Notification struct, PrivateEmail bool
+pkg gorbital.dev/modules/auth/social, type Notification struct, Subject string
+pkg gorbital.dev/modules/auth/social, type Notification struct, Type string
+pkg gorbital.dev/modules/auth/social, type Provider struct
+pkg gorbital.dev/modules/auth/social, type Token struct
+pkg gorbital.dev/modules/auth/social, type Token struct, Identity Identity
+pkg gorbital.dev/modules/auth/social, type Token struct, RefreshToken string
+pkg gorbital.dev/modules/auth/social, var ErrExchange error
+pkg gorbital.dev/modules/auth/social, var ErrInvalidConfig error
+pkg gorbital.dev/modules/auth/social, var ErrInvalidToken error
+pkg gorbital.dev/modules/auth/social, var ErrWebUnavailable error
+pkg gorbital.dev/modules/auth/social/socialtest, func New(testing.TB) *Server
+pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) Code(Claims, string) string
+pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) Endpoints() social.Endpoints
+pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) FailRevocations(bool)
+pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) IDToken(Claims) string
+pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) Notification(string, string, string) string
+pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) Revoked() []string
+pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) TokenRequests() []url.Values
+pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct
+pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, Audience string
+pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, Email string
+pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, EmailVerified bool
+pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, Extra map[string]any
+pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, IssuedAt time.Time
+pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, Issuer string
+pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, Name string
+pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, Nonce string
+pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, PrivateEmail bool
+pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, Subject string
+pkg gorbital.dev/modules/auth/social/socialtest, type Server struct
+pkg gorbital.dev/modules/auth/social/socialtest, type Server struct, Now func() time.Time
+pkg gorbital.dev/modules/auth/social/socialtest, type Server struct, URL string

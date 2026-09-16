@@ -115,6 +115,22 @@ func TestInvalidDefinitionsPanic(t *testing.T) {
 	})
 }
 
+func TestDefinitionNames(t *testing.T) {
+	defs := jobs.NewDefinitions()
+	if got := defs.Names(); len(got) != 0 {
+		t.Errorf("Names() of empty definitions = %v", got)
+	}
+	jobs.Define(defs, jobs.Definition[rebuildArgs]{Name: "rebuild_index", Worker: &observingWorker[rebuildArgs]{}, NewArgs: func() rebuildArgs { return rebuildArgs{} }})
+	got := defs.Names()
+	if len(got) != 1 || got[0] != "rebuild_index" {
+		t.Fatalf("Names() = %v, want [rebuild_index]", got)
+	}
+	got[0] = "changed"
+	if defs.Names()[0] != "rebuild_index" {
+		t.Error("changing the result of Names() changed the definitions")
+	}
+}
+
 func TestJobsCarryTheEnqueuingContext(t *testing.T) {
 	pool := newPool(t)
 	seen := make(chan observed, 10)

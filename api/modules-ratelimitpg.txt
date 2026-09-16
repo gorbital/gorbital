@@ -1,0 +1,12 @@
+pkg gorbital.dev/modules/ratelimitpg, const DecisionTimeout = 250000000
+pkg gorbital.dev/modules/ratelimitpg, const DecisionTimeout time.Duration
+pkg gorbital.dev/modules/ratelimitpg, func NewStore(*pgxpool.Pool, ...Option) (*Store, error)
+pkg gorbital.dev/modules/ratelimitpg, func WithClock(func() time.Time) Option
+pkg gorbital.dev/modules/ratelimitpg, func WithLogger(*slog.Logger) Option
+pkg gorbital.dev/modules/ratelimitpg, method (*Limiter) Take(context.Context, string) (ratelimit.Decision, error)
+pkg gorbital.dev/modules/ratelimitpg, method (*Store) DeleteExpired(context.Context, int) (int64, error)
+pkg gorbital.dev/modules/ratelimitpg, method (*Store) Limiter(string, func(context.Context) ratelimit.Limit) (*Limiter, error)
+pkg gorbital.dev/modules/ratelimitpg, type Limiter struct
+pkg gorbital.dev/modules/ratelimitpg, type Option func(*Store)
+pkg gorbital.dev/modules/ratelimitpg, type Store struct
+pkg gorbital.dev/modules/ratelimitpg, var Migrations fs.FS

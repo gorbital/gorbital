@@ -6,7 +6,7 @@
 // Huma is used only in delivery layers and the composition root of
 // generated apps; domain, use case and repository code never imports it.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package openapi
 
 import (

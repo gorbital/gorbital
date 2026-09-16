@@ -38,6 +38,20 @@ func TestDeclarationsReturnDefaultsBeforeLoading(t *testing.T) {
 	}
 }
 
+func TestRegistryKeys(t *testing.T) {
+	reg := settings.NewRegistry()
+	settings.Int(reg, "auth.max_attempts", 5)
+	settings.Bool(reg, "ops.maintenance_mode", false)
+	got := reg.Keys()
+	if strings.Join(got, ",") != "auth.max_attempts,ops.maintenance_mode" {
+		t.Fatalf("Keys() = %v, want declaration order", got)
+	}
+	got[0] = "changed"
+	if reg.Keys()[0] != "auth.max_attempts" {
+		t.Error("changing the result of Keys() changed the registry")
+	}
+}
+
 func TestInvalidDeclarationsPanic(t *testing.T) {
 	tests := []struct {
 		name    string

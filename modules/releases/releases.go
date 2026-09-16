@@ -16,7 +16,7 @@
 //
 // The release_instances table comes from [Migrations]; apply them first.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package releases
 
 import (

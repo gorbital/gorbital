@@ -10,7 +10,7 @@
 // errors wrap pgx errors. Repositories translate them into domain errors with
 // [IsNoRows], [UniqueViolation] and the other helpers before returning.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package postgres
 
 import (

@@ -9,7 +9,7 @@
 // example the last item's sort key and ID); repositories still apply
 // authorisation and tenant filters to every query.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package page
 
 import (

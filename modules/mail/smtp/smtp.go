@@ -10,7 +10,7 @@
 // refusals (5xx replies) wrap [mail.ErrRejected]; everything else is
 // temporary and safe to retry.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package smtp
 
 import (

@@ -7,7 +7,7 @@
 // The app keeps the state, nonce and PKCE verifier of a web sign-in on the
 // server, and resolves the returned Identity to an account.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package social
 
 import (

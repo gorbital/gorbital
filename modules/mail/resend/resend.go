@@ -12,7 +12,7 @@
 // key (fixable by an operator) are temporary. Each message's idempotency key
 // is sent as Resend's Idempotency-Key, so a retried job never sends twice.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package resend
 
 import (

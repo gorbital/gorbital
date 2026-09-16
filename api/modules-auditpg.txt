@@ -1,0 +1,70 @@
+pkg gorbital.dev/modules/auditpg, const DefaultMaxMetadataBytes = 16384
+pkg gorbital.dev/modules/auditpg, const DefaultMaxMetadataBytes ideal-int
+pkg gorbital.dev/modules/auditpg, const DefaultStatsWindow = 604800000000000
+pkg gorbital.dev/modules/auditpg, const DefaultStatsWindow time.Duration
+pkg gorbital.dev/modules/auditpg, const MaxStatsGroups = 50
+pkg gorbital.dev/modules/auditpg, const MaxStatsGroups ideal-int
+pkg gorbital.dev/modules/auditpg, const MaxStatsWindow = 7776000000000000
+pkg gorbital.dev/modules/auditpg, const MaxStatsWindow time.Duration
+pkg gorbital.dev/modules/auditpg, const StatsByAction = "action"
+pkg gorbital.dev/modules/auditpg, const StatsByAction StatsGroup
+pkg gorbital.dev/modules/auditpg, const StatsByActorKind = "actor_kind"
+pkg gorbital.dev/modules/auditpg, const StatsByActorKind StatsGroup
+pkg gorbital.dev/modules/auditpg, const StatsByDay = "day"
+pkg gorbital.dev/modules/auditpg, const StatsByDay StatsGroup
+pkg gorbital.dev/modules/auditpg, const StatsByOutcome = "outcome"
+pkg gorbital.dev/modules/auditpg, const StatsByOutcome StatsGroup
+pkg gorbital.dev/modules/auditpg, const StatsByResourceType = "resource_type"
+pkg gorbital.dev/modules/auditpg, const StatsByResourceType StatsGroup
+pkg gorbital.dev/modules/auditpg, func NewStore(*pgxpool.Pool, ...Option) (*Store, error)
+pkg gorbital.dev/modules/auditpg, func WithMaxMetadataBytes(int) Option
+pkg gorbital.dev/modules/auditpg, func WithRedactedKeys(...string) Option
+pkg gorbital.dev/modules/auditpg, method (*Store) DeleteBefore(context.Context, time.Time, int) (int64, error)
+pkg gorbital.dev/modules/auditpg, method (*Store) Get(context.Context, int64) (StoredEvent, error)
+pkg gorbital.dev/modules/auditpg, method (*Store) List(context.Context, Filter) (Page, error)
+pkg gorbital.dev/modules/auditpg, method (*Store) Oldest(context.Context) (time.Time, bool, error)
+pkg gorbital.dev/modules/auditpg, method (*Store) Record(context.Context, audit.Event) error
+pkg gorbital.dev/modules/auditpg, method (*Store) RecordTx(context.Context, postgres.DBTX, audit.Event) error
+pkg gorbital.dev/modules/auditpg, method (*Store) Stats(context.Context, StatsFilter) (Stats, error)
+pkg gorbital.dev/modules/auditpg, method (StoredEvent) Validate() error
+pkg gorbital.dev/modules/auditpg, type Filter struct
+pkg gorbital.dev/modules/auditpg, type Filter struct, Action string
+pkg gorbital.dev/modules/auditpg, type Filter struct, ActionPrefix string
+pkg gorbital.dev/modules/auditpg, type Filter struct, ActorID string
+pkg gorbital.dev/modules/auditpg, type Filter struct, ActorKind actor.Kind
+pkg gorbital.dev/modules/auditpg, type Filter struct, Cursor string
+pkg gorbital.dev/modules/auditpg, type Filter struct, From time.Time
+pkg gorbital.dev/modules/auditpg, type Filter struct, Limit int
+pkg gorbital.dev/modules/auditpg, type Filter struct, OrgID string
+pkg gorbital.dev/modules/auditpg, type Filter struct, Outcome audit.Outcome
+pkg gorbital.dev/modules/auditpg, type Filter struct, RequestID string
+pkg gorbital.dev/modules/auditpg, type Filter struct, ResourceID string
+pkg gorbital.dev/modules/auditpg, type Filter struct, ResourceType string
+pkg gorbital.dev/modules/auditpg, type Filter struct, To time.Time
+pkg gorbital.dev/modules/auditpg, type Option interface { apply }
+pkg gorbital.dev/modules/auditpg, type Page struct
+pkg gorbital.dev/modules/auditpg, type Page struct, Events []StoredEvent
+pkg gorbital.dev/modules/auditpg, type Page struct, NextCursor string
+pkg gorbital.dev/modules/auditpg, type Stats struct
+pkg gorbital.dev/modules/auditpg, type Stats struct, From time.Time
+pkg gorbital.dev/modules/auditpg, type Stats struct, GroupBy StatsGroup
+pkg gorbital.dev/modules/auditpg, type Stats struct, Groups []StatsCount
+pkg gorbital.dev/modules/auditpg, type Stats struct, Other int64
+pkg gorbital.dev/modules/auditpg, type Stats struct, To time.Time
+pkg gorbital.dev/modules/auditpg, type Stats struct, Total int64
+pkg gorbital.dev/modules/auditpg, type StatsCount struct
+pkg gorbital.dev/modules/auditpg, type StatsCount struct, Count int64
+pkg gorbital.dev/modules/auditpg, type StatsCount struct, Key string
+pkg gorbital.dev/modules/auditpg, type StatsFilter struct
+pkg gorbital.dev/modules/auditpg, type StatsFilter struct, GroupBy StatsGroup
+pkg gorbital.dev/modules/auditpg, type StatsFilter struct, embedded Filter
+pkg gorbital.dev/modules/auditpg, type StatsGroup string
+pkg gorbital.dev/modules/auditpg, type Store struct
+pkg gorbital.dev/modules/auditpg, type StoredEvent struct
+pkg gorbital.dev/modules/auditpg, type StoredEvent struct, ID int64
+pkg gorbital.dev/modules/auditpg, type StoredEvent struct, RecordedAt time.Time
+pkg gorbital.dev/modules/auditpg, type StoredEvent struct, embedded audit.Event
+pkg gorbital.dev/modules/auditpg, var ErrEventNotFound error
+pkg gorbital.dev/modules/auditpg, var ErrInvalidCursor error
+pkg gorbital.dev/modules/auditpg, var ErrInvalidFilter error
+pkg gorbital.dev/modules/auditpg, var Migrations fs.FS

@@ -1,0 +1,288 @@
+pkg gorbital.dev/actor, const KindAnonymous = "anonymous"
+pkg gorbital.dev/actor, const KindAnonymous Kind
+pkg gorbital.dev/actor, const KindService = "service"
+pkg gorbital.dev/actor, const KindService Kind
+pkg gorbital.dev/actor, const KindSystem = "system"
+pkg gorbital.dev/actor, const KindSystem Kind
+pkg gorbital.dev/actor, const KindUser = "user"
+pkg gorbital.dev/actor, const KindUser Kind
+pkg gorbital.dev/actor, func From(context.Context) (Actor, bool)
+pkg gorbital.dev/actor, func FromOrAnonymous(context.Context) Actor
+pkg gorbital.dev/actor, func Require(context.Context, string) error
+pkg gorbital.dev/actor, func System(string) Actor
+pkg gorbital.dev/actor, func With(context.Context, Actor) context.Context
+pkg gorbital.dev/actor, method (Actor) Can(string) bool
+pkg gorbital.dev/actor, type Actor struct
+pkg gorbital.dev/actor, type Actor struct, ID string
+pkg gorbital.dev/actor, type Actor struct, Kind Kind
+pkg gorbital.dev/actor, type Actor struct, Label string
+pkg gorbital.dev/actor, type Actor struct, OrgID string
+pkg gorbital.dev/actor, type Actor struct, Permissions []string
+pkg gorbital.dev/actor, type Actor struct, StepUp []string
+pkg gorbital.dev/actor, type Kind string
+pkg gorbital.dev/actor, var Anonymous Actor
+pkg gorbital.dev/actor, var ErrForbidden error
+pkg gorbital.dev/actor, var ErrStepUpRequired error
+pkg gorbital.dev/actor, var ErrUnauthenticated error
+pkg gorbital.dev/app, const DefaultDrainDelay = 5000000000
+pkg gorbital.dev/app, const DefaultDrainDelay time.Duration
+pkg gorbital.dev/app, const DefaultShutdownTimeout = 25000000000
+pkg gorbital.dev/app, const DefaultShutdownTimeout time.Duration
+pkg gorbital.dev/app, func OnShutdown(func()) Option
+pkg gorbital.dev/app, func Run(context.Context, []Runner, ...Option) error
+pkg gorbital.dev/app, func WithCleanup(*Cleanup) Option
+pkg gorbital.dev/app, func WithDrainDelay(time.Duration) Option
+pkg gorbital.dev/app, func WithLogger(*slog.Logger) Option
+pkg gorbital.dev/app, func WithShutdownTimeout(time.Duration) Option
+pkg gorbital.dev/app, func WithSignals(...os.Signal) Option
+pkg gorbital.dev/app, method (*Cleanup) Add(string, func(context.Context) error)
+pkg gorbital.dev/app, method (*Cleanup) AddCloser(string, io.Closer)
+pkg gorbital.dev/app, method (*Cleanup) Close(context.Context) error
+pkg gorbital.dev/app, method (RunnerFunc) Run(context.Context) error
+pkg gorbital.dev/app, type Cleanup struct
+pkg gorbital.dev/app, type Option interface { apply }
+pkg gorbital.dev/app, type Runner interface { Run }
+pkg gorbital.dev/app, type Runner interface, Run(context.Context) error
+pkg gorbital.dev/app, type RunnerFunc func(context.Context) error
+pkg gorbital.dev/app, var ErrForcedShutdown error
+pkg gorbital.dev/app, var ErrRunnerExited error
+pkg gorbital.dev/app, var ErrShutdownTimeout error
+pkg gorbital.dev/audit, const OutcomeDenied = "denied"
+pkg gorbital.dev/audit, const OutcomeDenied Outcome
+pkg gorbital.dev/audit, const OutcomeFailure = "failure"
+pkg gorbital.dev/audit, const OutcomeFailure Outcome
+pkg gorbital.dev/audit, const OutcomeSuccess = "success"
+pkg gorbital.dev/audit, const OutcomeSuccess Outcome
+pkg gorbital.dev/audit, func FromContext(context.Context, Event) Event
+pkg gorbital.dev/audit, func NewLogRecorder(*slog.Logger) *LogRecorder
+pkg gorbital.dev/audit, method (*LogRecorder) Record(context.Context, Event) error
+pkg gorbital.dev/audit, method (Event) Validate() error
+pkg gorbital.dev/audit, method (RecorderFunc) Record(context.Context, Event) error
+pkg gorbital.dev/audit, type Event struct
+pkg gorbital.dev/audit, type Event struct, Action string
+pkg gorbital.dev/audit, type Event struct, ActorID string
+pkg gorbital.dev/audit, type Event struct, ActorKind actor.Kind
+pkg gorbital.dev/audit, type Event struct, ActorLabel string
+pkg gorbital.dev/audit, type Event struct, IP string
+pkg gorbital.dev/audit, type Event struct, Metadata map[string]any
+pkg gorbital.dev/audit, type Event struct, OccurredAt time.Time
+pkg gorbital.dev/audit, type Event struct, OrgID string
+pkg gorbital.dev/audit, type Event struct, Outcome Outcome
+pkg gorbital.dev/audit, type Event struct, RequestID string
+pkg gorbital.dev/audit, type Event struct, ResourceID string
+pkg gorbital.dev/audit, type Event struct, ResourceType string
+pkg gorbital.dev/audit, type Event struct, TraceID string
+pkg gorbital.dev/audit, type Event struct, UserAgent string
+pkg gorbital.dev/audit, type LogRecorder struct
+pkg gorbital.dev/audit, type Outcome string
+pkg gorbital.dev/audit, type Recorder interface { Record }
+pkg gorbital.dev/audit, type Recorder interface, Record(context.Context, Event) error
+pkg gorbital.dev/audit, type RecorderFunc func(context.Context, Event) error
+pkg gorbital.dev/buildinfo, func Handler() http.Handler
+pkg gorbital.dev/buildinfo, func Read() Info
+pkg gorbital.dev/buildinfo, type Info struct
+pkg gorbital.dev/buildinfo, type Info struct, BuildTime string
+pkg gorbital.dev/buildinfo, type Info struct, Commit string
+pkg gorbital.dev/buildinfo, type Info struct, GoVersion string
+pkg gorbital.dev/buildinfo, type Info struct, Modified bool
+pkg gorbital.dev/buildinfo, type Info struct, Version string
+pkg gorbital.dev/config, func NewSecret(string) Secret
+pkg gorbital.dev/config, func Static[T any](T) Value[T]
+pkg gorbital.dev/config, method (*Secret) UnmarshalText([]byte) error
+pkg gorbital.dev/config, method (Secret) Format(fmt.State, rune)
+pkg gorbital.dev/config, method (Secret) GoString() string
+pkg gorbital.dev/config, method (Secret) IsZero() bool
+pkg gorbital.dev/config, method (Secret) LogValue() slog.Value
+pkg gorbital.dev/config, method (Secret) MarshalText() ([]byte, error)
+pkg gorbital.dev/config, method (Secret) Reveal() string
+pkg gorbital.dev/config, method (Secret) String() string
+pkg gorbital.dev/config, method (Source) Get(string) (string, error)
+pkg gorbital.dev/config, method (Source) Secret(string) (Secret, error)
+pkg gorbital.dev/config, type Secret struct
+pkg gorbital.dev/config, type Source struct
+pkg gorbital.dev/config, type Source struct, Getenv func(string) string
+pkg gorbital.dev/config, type Source struct, ReadFile func(string) ([]byte, error)
+pkg gorbital.dev/config, type Value[T any] interface { Get }
+pkg gorbital.dev/config, type Value[T any] interface, Get(context.Context) T
+pkg gorbital.dev/config, var ErrBothSet error
+pkg gorbital.dev/config, var OS Source
+pkg gorbital.dev/health, const DefaultTimeout = 2000000000
+pkg gorbital.dev/health, const DefaultTimeout time.Duration
+pkg gorbital.dev/health, func New(*slog.Logger, ...Check) *Checker
+pkg gorbital.dev/health, method (*Checker) Add(Check)
+pkg gorbital.dev/health, method (*Checker) Check(context.Context) (Status, bool)
+pkg gorbital.dev/health, method (*Checker) Liveness() http.Handler
+pkg gorbital.dev/health, method (*Checker) Readiness() http.Handler
+pkg gorbital.dev/health, method (*Checker) SetShuttingDown()
+pkg gorbital.dev/health, type Check struct
+pkg gorbital.dev/health, type Check struct, Func func(context.Context) error
+pkg gorbital.dev/health, type Check struct, Name string
+pkg gorbital.dev/health, type Check struct, Timeout time.Duration
+pkg gorbital.dev/health, type CheckStatus struct
+pkg gorbital.dev/health, type CheckStatus struct, DurationMS int64
+pkg gorbital.dev/health, type CheckStatus struct, Status string
+pkg gorbital.dev/health, type Checker struct
+pkg gorbital.dev/health, type Status struct
+pkg gorbital.dev/health, type Status struct, Checks map[string]CheckStatus
+pkg gorbital.dev/health, type Status struct, Status string
+pkg gorbital.dev/httpx, const DefaultIdleTimeout = 120000000000
+pkg gorbital.dev/httpx, const DefaultIdleTimeout time.Duration
+pkg gorbital.dev/httpx, const DefaultMaxHeaderBytes = 1048576
+pkg gorbital.dev/httpx, const DefaultMaxHeaderBytes ideal-int
+pkg gorbital.dev/httpx, const DefaultReadHeaderTimeout = 5000000000
+pkg gorbital.dev/httpx, const DefaultReadHeaderTimeout time.Duration
+pkg gorbital.dev/httpx, const DefaultReadTimeout = 30000000000
+pkg gorbital.dev/httpx, const DefaultReadTimeout time.Duration
+pkg gorbital.dev/httpx, const DefaultShutdownTimeout = 20000000000
+pkg gorbital.dev/httpx, const DefaultShutdownTimeout time.Duration
+pkg gorbital.dev/httpx, const DefaultWriteTimeout = 60000000000
+pkg gorbital.dev/httpx, const DefaultWriteTimeout time.Duration
+pkg gorbital.dev/httpx, const ProblemContentType = "application/problem+json"
+pkg gorbital.dev/httpx, const ProblemContentType ideal-string
+pkg gorbital.dev/httpx, func AccessLog(*slog.Logger) Middleware
+pkg gorbital.dev/httpx, func BodyLimit(int64) Middleware
+pkg gorbital.dev/httpx, func CORS(CORSOptions) (Middleware, error)
+pkg gorbital.dev/httpx, func Chain(http.Handler, ...Middleware) http.Handler
+pkg gorbital.dev/httpx, func CrossOrigin(...string) (Middleware, error)
+pkg gorbital.dev/httpx, func DefaultCode(int) string
+pkg gorbital.dev/httpx, func NewMapper(*slog.Logger, ...Mapping) (*Mapper, error)
+pkg gorbital.dev/httpx, func NewProblem(int, string, string) *Problem
+pkg gorbital.dev/httpx, func NewServer(string, http.Handler, ...ServerOption) *Server
+pkg gorbital.dev/httpx, func ParseTrustedProxies(string) ([]netip.Prefix, error)
+pkg gorbital.dev/httpx, func Recover(*slog.Logger) Middleware
+pkg gorbital.dev/httpx, func RequestID() Middleware
+pkg gorbital.dev/httpx, func SecureHeaders(SecureHeadersOptions) Middleware
+pkg gorbital.dev/httpx, func TrustedProxies([]netip.Prefix) Middleware
+pkg gorbital.dev/httpx, func WithErrorLogger(*slog.Logger) ServerOption
+pkg gorbital.dev/httpx, func WithShutdownTimeout(time.Duration) ServerOption
+pkg gorbital.dev/httpx, func WithTimeouts(time.Duration, time.Duration, time.Duration, time.Duration) ServerOption
+pkg gorbital.dev/httpx, func WriteProblem(http.ResponseWriter, *http.Request, *Problem)
+pkg gorbital.dev/httpx, method (*Mapper) Add(...Mapping) error
+pkg gorbital.dev/httpx, method (*Mapper) Match(error) (*Problem, bool)
+pkg gorbital.dev/httpx, method (*Mapper) Problem(context.Context, error) *Problem
+pkg gorbital.dev/httpx, method (*Mapper) Write(http.ResponseWriter, *http.Request, error)
+pkg gorbital.dev/httpx, method (*Problem) ContentType(string) string
+pkg gorbital.dev/httpx, method (*Problem) Error() string
+pkg gorbital.dev/httpx, method (*Problem) GetStatus() int
+pkg gorbital.dev/httpx, method (*Server) Addr(context.Context) (string, error)
+pkg gorbital.dev/httpx, method (*Server) Run(context.Context) error
+pkg gorbital.dev/httpx, type CORSOptions struct
+pkg gorbital.dev/httpx, type CORSOptions struct, AllowCredentials bool
+pkg gorbital.dev/httpx, type CORSOptions struct, AllowedHeaders []string
+pkg gorbital.dev/httpx, type CORSOptions struct, AllowedMethods []string
+pkg gorbital.dev/httpx, type CORSOptions struct, AllowedOrigins []string
+pkg gorbital.dev/httpx, type CORSOptions struct, ExposedHeaders []string
+pkg gorbital.dev/httpx, type CORSOptions struct, MaxAge time.Duration
+pkg gorbital.dev/httpx, type FieldError struct
+pkg gorbital.dev/httpx, type FieldError struct, Location string
+pkg gorbital.dev/httpx, type FieldError struct, Message string
+pkg gorbital.dev/httpx, type Mapper struct
+pkg gorbital.dev/httpx, type Mapping struct
+pkg gorbital.dev/httpx, type Mapping struct, Code string
+pkg gorbital.dev/httpx, type Mapping struct, Detail string
+pkg gorbital.dev/httpx, type Mapping struct, Err error
+pkg gorbital.dev/httpx, type Mapping struct, Status int
+pkg gorbital.dev/httpx, type Middleware func(http.Handler) http.Handler
+pkg gorbital.dev/httpx, type Problem struct
+pkg gorbital.dev/httpx, type Problem struct, Code string
+pkg gorbital.dev/httpx, type Problem struct, Detail string
+pkg gorbital.dev/httpx, type Problem struct, Errors []FieldError
+pkg gorbital.dev/httpx, type Problem struct, RequestID string
+pkg gorbital.dev/httpx, type Problem struct, Status int
+pkg gorbital.dev/httpx, type Problem struct, Title string
+pkg gorbital.dev/httpx, type Problem struct, Type string
+pkg gorbital.dev/httpx, type SecureHeadersOptions struct
+pkg gorbital.dev/httpx, type SecureHeadersOptions struct, HSTSMaxAge time.Duration
+pkg gorbital.dev/httpx, type Server struct
+pkg gorbital.dev/httpx, type ServerOption interface { apply }
+pkg gorbital.dev/httpx, var ErrTrustAll error
+pkg gorbital.dev/mail, func WithDefaults(Sender, Defaults) Sender
+pkg gorbital.dev/mail, method (Address) String() string
+pkg gorbital.dev/mail, method (Message) Validate() error
+pkg gorbital.dev/mail, method (SenderFunc) Send(context.Context, Message) error
+pkg gorbital.dev/mail, type Address struct
+pkg gorbital.dev/mail, type Address struct, Email string
+pkg gorbital.dev/mail, type Address struct, Name string
+pkg gorbital.dev/mail, type Defaults struct
+pkg gorbital.dev/mail, type Defaults struct, FromEmail config.Value[string]
+pkg gorbital.dev/mail, type Defaults struct, FromName config.Value[string]
+pkg gorbital.dev/mail, type Defaults struct, ReplyTo config.Value[string]
+pkg gorbital.dev/mail, type Message struct
+pkg gorbital.dev/mail, type Message struct, From Address
+pkg gorbital.dev/mail, type Message struct, HTML string
+pkg gorbital.dev/mail, type Message struct, IdempotencyKey string
+pkg gorbital.dev/mail, type Message struct, ReplyTo []Address
+pkg gorbital.dev/mail, type Message struct, Subject string
+pkg gorbital.dev/mail, type Message struct, Tags map[string]string
+pkg gorbital.dev/mail, type Message struct, Text string
+pkg gorbital.dev/mail, type Message struct, To []Address
+pkg gorbital.dev/mail, type Sender interface { Send }
+pkg gorbital.dev/mail, type Sender interface, Send(context.Context, Message) error
+pkg gorbital.dev/mail, type SenderFunc func(context.Context, Message) error
+pkg gorbital.dev/mail, var ErrRejected error
+pkg gorbital.dev/page, const DefaultLimit = 20
+pkg gorbital.dev/page, const DefaultLimit ideal-int
+pkg gorbital.dev/page, const MaxCursorLength = 512
+pkg gorbital.dev/page, const MaxCursorLength ideal-int
+pkg gorbital.dev/page, const MaxLimit = 100
+pkg gorbital.dev/page, const MaxLimit ideal-int
+pkg gorbital.dev/page, func DecodeCursor(string, any) error
+pkg gorbital.dev/page, func EncodeCursor(any) (string, error)
+pkg gorbital.dev/page, func Parse(url.Values, Options) (Request, error)
+pkg gorbital.dev/page, method (Params) Request(Options) (Request, error)
+pkg gorbital.dev/page, type Options struct
+pkg gorbital.dev/page, type Options struct, DefaultLimit int
+pkg gorbital.dev/page, type Options struct, DefaultSort []SortField
+pkg gorbital.dev/page, type Options struct, MaxLimit int
+pkg gorbital.dev/page, type Options struct, SortFields []string
+pkg gorbital.dev/page, type Params struct
+pkg gorbital.dev/page, type Params struct, Cursor string
+pkg gorbital.dev/page, type Params struct, Limit int
+pkg gorbital.dev/page, type Params struct, Sort string
+pkg gorbital.dev/page, type Request struct
+pkg gorbital.dev/page, type Request struct, Cursor string
+pkg gorbital.dev/page, type Request struct, Limit int
+pkg gorbital.dev/page, type Request struct, Sort []SortField
+pkg gorbital.dev/page, type Result[T any] struct
+pkg gorbital.dev/page, type Result[T any] struct, Items []T
+pkg gorbital.dev/page, type Result[T any] struct, NextCursor string
+pkg gorbital.dev/page, type SortField struct
+pkg gorbital.dev/page, type SortField struct, Desc bool
+pkg gorbital.dev/page, type SortField struct, Field string
+pkg gorbital.dev/page, var ErrInvalidCursor error
+pkg gorbital.dev/page, var ErrInvalidLimit error
+pkg gorbital.dev/page, var ErrInvalidSort error
+pkg gorbital.dev/ratelimit, const DefaultIdleTTL = 600000000000
+pkg gorbital.dev/ratelimit, const DefaultIdleTTL time.Duration
+pkg gorbital.dev/ratelimit, const DefaultMaxKeys = 100000
+pkg gorbital.dev/ratelimit, const DefaultMaxKeys ideal-int
+pkg gorbital.dev/ratelimit, func ByRemoteIP(*http.Request) string
+pkg gorbital.dev/ratelimit, func Middleware(Taker, KeyFunc, http.Handler) func(http.Handler) http.Handler
+pkg gorbital.dev/ratelimit, func New(float64, int, ...Option) *Limiter
+pkg gorbital.dev/ratelimit, func Per(int, time.Duration) Limit
+pkg gorbital.dev/ratelimit, func WithClock(func() time.Time) Option
+pkg gorbital.dev/ratelimit, func WithIdleTTL(time.Duration) Option
+pkg gorbital.dev/ratelimit, func WithMaxKeys(int) Option
+pkg gorbital.dev/ratelimit, method (*Limiter) Allow(string) (bool, time.Duration)
+pkg gorbital.dev/ratelimit, method (*Limiter) Take(context.Context, string) (Decision, error)
+pkg gorbital.dev/ratelimit, method (Limit) Valid() bool
+pkg gorbital.dev/ratelimit, type Decision struct
+pkg gorbital.dev/ratelimit, type Decision struct, Allowed bool
+pkg gorbital.dev/ratelimit, type Decision struct, RetryAfter time.Duration
+pkg gorbital.dev/ratelimit, type KeyFunc func(*http.Request) string
+pkg gorbital.dev/ratelimit, type Limit struct
+pkg gorbital.dev/ratelimit, type Limit struct, Burst int
+pkg gorbital.dev/ratelimit, type Limit struct, PerSecond float64
+pkg gorbital.dev/ratelimit, type Limiter struct
+pkg gorbital.dev/ratelimit, type Option interface { apply }
+pkg gorbital.dev/ratelimit, type Taker interface { Take }
+pkg gorbital.dev/ratelimit, type Taker interface, Take(context.Context, string) (Decision, error)
+pkg gorbital.dev/ratelimit, var ErrEmptyKey error
+pkg gorbital.dev/requestid, const Header = "X-Request-ID"
+pkg gorbital.dev/requestid, const Header ideal-string
+pkg gorbital.dev/requestid, const MaxLength = 128
+pkg gorbital.dev/requestid, const MaxLength ideal-int
+pkg gorbital.dev/requestid, func From(context.Context) string
+pkg gorbital.dev/requestid, func New() string
+pkg gorbital.dev/requestid, func Valid(string) bool
+pkg gorbital.dev/requestid, func With(context.Context, string) context.Context

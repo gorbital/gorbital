@@ -1,0 +1,11 @@
+pkg gorbital.dev/modules/mail/resend, const DefaultBaseURL = "https://api.resend.com"
+pkg gorbital.dev/modules/mail/resend, const DefaultBaseURL ideal-string
+pkg gorbital.dev/modules/mail/resend, const DefaultTimeout = 30000000000
+pkg gorbital.dev/modules/mail/resend, const DefaultTimeout time.Duration
+pkg gorbital.dev/modules/mail/resend, func New(config.Secret, ...Option) (*Sender, error)
+pkg gorbital.dev/modules/mail/resend, func WithBaseURL(string) Option
+pkg gorbital.dev/modules/mail/resend, func WithHTTPClient(*http.Client) Option
+pkg gorbital.dev/modules/mail/resend, func WithTimeout(time.Duration) Option
+pkg gorbital.dev/modules/mail/resend, method (*Sender) Send(context.Context, mail.Message) error
+pkg gorbital.dev/modules/mail/resend, type Option interface { apply }
+pkg gorbital.dev/modules/mail/resend, type Sender struct

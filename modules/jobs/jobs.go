@@ -21,7 +21,7 @@
 // ID, trace and actor (but never its permissions); workers see them in their
 // context (ADR-0030). River's tables are created by [Migrate].
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package jobs
 
 import (

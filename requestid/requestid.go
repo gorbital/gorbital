@@ -2,7 +2,7 @@
 // [context.Context], so HTTP middleware, logging, audit and jobs share one
 // correlation value (ADR-0030).
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package requestid
 
 import (

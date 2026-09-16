@@ -9,7 +9,7 @@
 // helpers for the security-sensitive steps, so fixes to them arrive with
 // go get, while every flow stays readable and editable in the app.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package auth
 
 import "time"

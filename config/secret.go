@@ -5,7 +5,7 @@
 // Library modules never read the environment; only the application's
 // internal/app package uses this package (ADR-0020).
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package config
 
 import (

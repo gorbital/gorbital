@@ -1,0 +1,77 @@
+name: Release library
+
+# Pushing a library tag, v1.2.0 for the root module or modules/auth/v1.2.0
+# for a module, runs gorelease against the module's previous tag: it fails
+# when the API changed incompatibly for the version, or the version number
+# doesn't match the change (ADR-0015, ADR-0054). Run it by hand before
+# tagging with "Run workflow". It needs the earlier release and gorbital.dev
+# to be downloadable, so it works from the first public release on.
+on:
+  push:
+    tags: ["v*", "modules/**/v*"]
+  workflow_dispatch:
+    inputs:
+      module:
+        description: Module directory, such as . or modules/auth
+        required: true
+        default: "."
+      version:
+        description: Version to check, such as v1.1.0
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  gorelease:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # every tag, to find the previous release
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+          cache-dependency-path: "**/go.sum"
+      - name: module, version and previous release
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_MODULE: ${{ inputs.module }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            dir="$INPUT_MODULE"; version="$INPUT_VERSION"
+          else
+            case "$REF_NAME" in
+              modules/*) dir="${REF_NAME%/v*}"; version="${REF_NAME##*/}" ;;
+              *) dir="."; version="$REF_NAME" ;;
+            esac
+          fi
+          prefix=""
+          if [ "$dir" != "." ]; then prefix="$dir/"; fi
+          test -f "$dir/go.mod" || { echo "no module in $dir"; exit 1; }
+          # The newest earlier release tag of this module, ignoring pre-releases.
+          base=$(git tag --list "${prefix}v*" --sort=-v:refname \
+            | grep -E "^${prefix}v[0-9]+\.[0-9]+\.[0-9]+$" \
+            | grep -v -x "${prefix}${version}" | head -n 1 || true)
+          # Releases before the rename to gorbital.dev have another module path.
+          module=$(sed -n 's/^module //p' "$dir/go.mod")
+          if [ -n "$base" ] && [ "$(git show "$base:${prefix}go.mod" 2>/dev/null | sed -n 's/^module //p')" != "$module" ]; then
+            echo "$base has another module path; checking $version as a first release"
+            base=""
+          fi
+          {
+            echo "MODULE_DIR=$dir"
+            echo "VERSION=$version"
+            echo "BASE=${base##*/}"
+          } >> "$GITHUB_ENV"
+      - name: gorelease
+        working-directory: ${{ env.MODULE_DIR }}
+        run: |
+          go install golang.org/x/exp/cmd/gorelease@v0.0.0-20260908205506-85c1c2202aba
+          if [ -z "$BASE" ]; then
+            gorelease -base=none -version="$VERSION"
+          else
+            gorelease -base="$BASE" -version="$VERSION"
+          fi

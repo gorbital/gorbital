@@ -9,7 +9,8 @@
 // come from [Assets], and [Reference.Handler] serves them under
 // [ContentSecurityPolicy].
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable: the Go API follows the compatibility promise; the
+// rendered HTML, CSS and scripts are not API (ADR-0015, ADR-0054).
 package reference
 
 import (

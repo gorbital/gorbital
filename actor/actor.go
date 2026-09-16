@@ -3,7 +3,7 @@
 // authentication middleware sets the actor, and audit, jobs and use cases
 // read it (ADR-0030).
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package actor
 
 import (

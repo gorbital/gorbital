@@ -17,6 +17,6 @@
 //	cleanup.AddCloser("postgres", db)
 //	return app.Run(ctx, []app.Runner{server, workers}, app.WithCleanup(cleanup))
 //
-// Stability: pre-1.0; the API may change in minor releases (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 // Design: ADR-0017.
 package app

@@ -3,7 +3,8 @@
 // keys, attestation none), so tests exercise the same verification browsers
 // and devices go through.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable, for tests only: the API follows the compatibility
+// promise; what the helpers do inside a test may change (ADR-0015, ADR-0054).
 package passkeytest
 
 import (

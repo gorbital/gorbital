@@ -3,7 +3,7 @@
 // organisation operation starts with, and invitation emails. The generated
 // app owns the flows, tables and SQL in internal/modules/orgs.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package orgs
 
 import (

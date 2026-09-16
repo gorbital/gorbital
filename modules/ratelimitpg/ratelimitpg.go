@@ -15,7 +15,7 @@
 //     a minute per limiter, so requests keep working with per-instance
 //     limits during an outage.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package ratelimitpg
 
 import (

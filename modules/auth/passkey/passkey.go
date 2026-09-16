@@ -9,7 +9,7 @@
 // server; Finish takes that state and the client's response, and verifies
 // the response.
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package passkey
 
 import (

@@ -1,7 +1,7 @@
 // Package mail defines email messages and the [Sender] contract implemented
 // by provider modules such as mail/resend and mail/smtp (ADR-0025).
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package mail
 
 import (

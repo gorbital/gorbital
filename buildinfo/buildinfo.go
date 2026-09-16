@@ -5,7 +5,7 @@
 //
 //	go build -ldflags "-X gorbital.dev/buildinfo.version=v1.2.3" ./cmd/api
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package buildinfo
 
 import (

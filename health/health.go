@@ -6,7 +6,7 @@
 // application is shutting down, so load balancers stop routing to it
 // (ADR-0017).
 //
-// Stability: pre-1.0 (ADR-0015).
+// Stability: stable (ADR-0015, ADR-0054).
 package health
 
 import (

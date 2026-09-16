@@ -2,6 +2,9 @@
 // for Google or Apple in tests: it serves signing keys, a token endpoint and
 // a revocation endpoint, and issues signed ID tokens, authorization codes and
 // Apple notifications. Point a social provider at it with Endpoints.
+//
+// Stability: stable, for tests only: the API follows the compatibility
+// promise; what the helpers do inside a test may change (ADR-0015, ADR-0054).
 package socialtest
 
 import (
