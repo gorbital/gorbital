@@ -77,20 +77,27 @@ func runGit(ctx context.Context, dir string, stdin []byte, args ...string) ([]by
 // git runs one command and returns its output; a failing command becomes
 // a *gitError.
 func (g *Git) git(ctx context.Context, timeout time.Duration, stdin []byte, args ...string) (string, error) {
+	out, _, err := g.gitBoth(ctx, timeout, stdin, args...)
+	return out, err
+}
+
+// gitBoth is git with stderr returned too, for the commands whose
+// summary goes there (fetch, push).
+func (g *Git) gitBoth(ctx context.Context, timeout time.Duration, stdin []byte, args ...string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	out, errOut, err := g.run(ctx, g.dir, stdin, args...)
 	if err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
-			return string(out), &gitError{args: args, stderr: string(errOut), code: exit.ExitCode()}
+			return string(out), string(errOut), &gitError{args: args, stderr: string(errOut), code: exit.ExitCode()}
 		}
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return string(out), fmt.Errorf("git %s: took longer than %s", strings.Join(args, " "), timeout)
+			return string(out), string(errOut), fmt.Errorf("git %s: took longer than %s", strings.Join(args, " "), timeout)
 		}
-		return string(out), fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
+		return string(out), string(errOut), fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
 	}
-	return string(out), nil
+	return string(out), string(errOut), nil
 }
 
 // Available reports whether dir is inside a git repository.
@@ -520,8 +527,8 @@ type GitRemoteResult struct {
 
 // Fetch updates the remotes (fetch --all --prune).
 func (g *Git) Fetch(ctx context.Context) (GitRemoteResult, error) {
-	out, err := g.git(ctx, GitNetworkTimeout, nil, "fetch", "--all", "--prune")
-	return GitRemoteResult{Output: out}, err
+	out, errOut, err := g.gitBoth(ctx, GitNetworkTimeout, nil, "fetch", "--all", "--prune")
+	return GitRemoteResult{Output: strings.TrimSpace(out + "\n" + errOut)}, err
 }
 
 // Pull fetches and merges the upstream: a fast-forward when it can, a
@@ -560,12 +567,8 @@ func (g *Git) Push(ctx context.Context) (GitRemoteResult, error) {
 		}
 		args = append(args, "--set-upstream", remote, st.Branch)
 	}
-	out, err := g.git(ctx, GitNetworkTimeout, nil, args...)
-	var ge *gitError
-	if errors.As(err, &ge) {
-		out += ge.stderr
-	}
-	return GitRemoteResult{Output: out}, err
+	out, errOut, err := g.gitBoth(ctx, GitNetworkTimeout, nil, args...)
+	return GitRemoteResult{Output: strings.TrimSpace(out + "\n" + errOut)}, err
 }
 
 // GitMergePreview says what merging a branch would do, without touching
@@ -685,7 +688,7 @@ func (g *Git) Log(ctx context.Context, opts GitLogOptions) ([]GitCommit, error) 
 		limit = 100
 	}
 	limit = min(limit, 1000)
-	args := []string{"log", "--format=%H\x1f%h\x1f%P\x1f%an\x1f%ae\x1f%aI\x1f%s\x1f%b\x1f%D\x1e", "--max-count=" + strconv.Itoa(limit), "--skip=" + strconv.Itoa(max(opts.Skip, 0))}
+	args := []string{"log", "--topo-order", "--format=%H\x1f%h\x1f%P\x1f%an\x1f%ae\x1f%aI\x1f%s\x1f%b\x1f%D\x1e", "--max-count=" + strconv.Itoa(limit), "--skip=" + strconv.Itoa(max(opts.Skip, 0))}
 	if opts.All {
 		args = append(args, "--all")
 	}
