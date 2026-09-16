@@ -50,5 +50,7 @@ Platform roles are held across the whole app and grant access to `/ops`. Give an
 | `orgs.org.delete` | Delete and restore the organisation. | yes | | |
 | `orgs.members.read` | See the members. | yes | yes | yes |
 | `orgs.members.manage` | Invite people, change roles and remove members, up to your own role. | yes | yes | |
+| `orgs.settings.read` | See the organisation's settings and their history. | yes | yes | yes |
+| `orgs.settings.write` | Change the organisation's settings. | yes | yes | |
 | `projects.project.read` | See projects. | yes | yes | yes |
 | `projects.project.write` | Create, change and delete projects. | yes | yes | yes |

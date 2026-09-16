@@ -52,6 +52,7 @@ Runtime settings are non-secret values operators change without a redeploy: `PUT
 | `audit.retention` | duration | 1 year | 30 days to 10 years | yes | no | How long audit events are kept before the retention job deletes them. Each deletion leaves a retention.purged audit event. |
 | `ops.history_retention` | duration | 1 year | 30 days to 10 years | yes | no | How long the history of runtime setting and job configuration changes is kept before the retention job deletes it. |
 | `releases.instance_retention` | duration | 90 days | 1 day to 3 years | no | no | How long instances are listed in /ops/releases after they were last seen. Applied when an instance starts. |
+| `idempotency.retention` | duration | 1 day | 1 hour to 7 days | yes | no | How long responses to requests with an Idempotency-Key are kept for retries before the idempotency_cleanup job deletes them. They can hold personal data. Shortening it applies to stored responses at once. |
 
 ## Maintenance mode
 
@@ -68,6 +69,6 @@ Runtime settings are non-secret values operators change without a redeploy: `PUT
 | Key | Type | Default | Allowed | Reason required | Restart required | Description |
 |---|---|---|---|---|---|---|
 | `orgs.invitation_url` | string | `"http://localhost:3000/invitations"` | at most 500 characters | yes | no | The frontend page invitation emails link to. The link adds #token=… for the page to POST to /v1/invitations/accept. |
-| `orgs.invitation_ttl` | duration | 7 days | 1 day to 30 days | yes | no | How long an invitation link stays valid. |
+| `orgs.invitation_ttl` | duration | 7 days | 1 day to 30 days | yes | no | How long an invitation link stays valid. Owners and admins may set their organisation's own value, within the same range, with PUT /v1/orgs/{orgId}/settings/orgs.invitation_ttl. |
 | `orgs.deleted_org_retention` | duration | 30 days | 1 day to 1 year | yes | no | How long a deleted organisation can be restored before the orgs_purge job removes it with its data. |
 | `orgs.max_owned` | int | `20` | 1 to 10000 | yes | no | How many organisations, personal workspaces aside, one user may own. Checked when they create or restore one. |

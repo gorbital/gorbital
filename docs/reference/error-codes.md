@@ -19,6 +19,8 @@ These are the codes of a Full app as generated, including the example `projects`
 | `email_not_verified` | 403 | The account's email address must be verified first: to sign in, or to create organisations and send invitations. | `/v1/auth`; `/v1/orgs`, `/v1/invitations` |
 | `error` | any other 4xx | Any other 4xx status without its own code. | Any endpoint |
 | `forbidden` | 403 | The caller is signed in but lacks the permission: a platform role for `/ops`, or an organisation role for org-scoped endpoints. | Any endpoint |
+| `idempotency_in_progress` | 409 | A request with this idempotency key is still in progress; retry later. | Any endpoint |
+| `idempotency_key_reused` | 422 | This idempotency key was used for a different request; use a new key for a new request. | Any endpoint |
 | `identity_in_use` | 409 | This Google or Apple account is linked to another account. | `/v1/auth` |
 | `identity_not_found` | 404 | No linked account of yours has this ID. | `/v1/auth` |
 | `internal_error` | 500, any other 5xx | An unexpected error. The detail never includes the cause; it is logged once with the request ID. | Any endpoint |
@@ -27,6 +29,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `invalid_credentials` | 401 | The email address or password is wrong. | `/v1/auth` |
 | `invalid_cursor` | 400 | The cursor is not valid. | List endpoints |
 | `invalid_email` | 422 | The email address is not valid. | `/v1/auth` |
+| `invalid_idempotency_key` | 400 | Send one Idempotency-Key header of 1 to 255 visible ASCII characters. | Any endpoint |
 | `invalid_job_config` | 422 | The job configuration is outside the allowed bounds, such as a schedule more often than once a minute or a timeout that isn't a duration. | `/ops` |
 | `invalid_job_state` | 422 | State must be one of available, cancelled, completed, discarded, pending, retryable, running, scheduled. | `/ops` |
 | `invalid_limit` | 400 | Limit must be between 1 and 100. | List endpoints |
@@ -36,7 +39,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `invalid_passkey_name` | 422 | A passkey name must be 1 to 100 characters. | `/v1/auth` |
 | `invalid_recipient` | 422 | The recipient is not an email address. | `/ops` |
 | `invalid_return_to` | 422 | return_to must be an absolute URL on the API's origin or APP_CORS_ORIGINS. | `/v1/auth` |
-| `invalid_setting_value` | 422 | The value isn't valid JSON, or fails the setting's type or constraints. | `/ops` |
+| `invalid_setting_value` | 422 | The value isn't valid JSON, or fails the setting's type or constraints. | `/ops`; `/v1/orgs`, `/v1/invitations` |
 | `invalid_social_token` | 401 | The sign-in with Google or Apple couldn't be verified; start again. | `/v1/auth` |
 | `invalid_sort` | 400 | Sort by one allowed field, with - for descending order. | List endpoints |
 | `invalid_state` | 401 | The sign-in expired or was started in another browser; start again. | `/v1/auth` |
@@ -75,7 +78,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `request_too_large` | 413 | The request body is larger than `APP_MAX_BODY_BYTES`. | Any endpoint |
 | `role_not_allowed` | 403 | You can't give, change or remove a role above your own, and only owners manage owners. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `session_not_found` | 404 | No active session of yours has this ID. | `/v1/auth` |
-| `setting_not_found` | 404 | No setting has this key. | `/ops` |
+| `setting_not_found` | 404 | No setting has this key. Organisations can't set a setting with this key. | `/ops`; `/v1/orgs`, `/v1/invitations` |
 | `setting_reason_required` | 422 | A reason is required to change this setting. | `/ops` |
 | `setting_version_conflict` | 409 | The setting changed since it was read; read it again. | `/ops` |
 | `social_email_unverified` | 403 | The provider hasn't verified this email address. | `/v1/auth` |

@@ -99,4 +99,4 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 
 | Action | Recorded when | Metadata |
 |---|---|---|
-| `settings.value.changed` | An operator changed or reset a runtime setting through `/ops/settings/{key}`; `reason` is required for security-relevant settings. | `reason`, `reset`, `version` |
+| `settings.value.changed` | An operator changed or reset a runtime setting through `/ops/settings/{key}`; `reason` is required for security-relevant settings. | `org_id`, `reason`, `reset`, `version` |
