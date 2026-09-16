@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"gorbital.dev/cli/internal/devmail"
 	"gorbital.dev/cli/internal/pgmeta"
 	"gorbital.dev/cli/internal/portal"
 )
@@ -119,6 +120,9 @@ type devRunner struct {
 	hub                *portal.Hub
 	logs               *portal.LogStore      // the local log store while the portal runs (ADR-0072)
 	system             *portal.SystemSampler // the machine and the app process (ADR-0073)
+	mailStore          *devmail.Store        // the mail catcher's inbox, when it runs (ADR-0074)
+	mailServer         *devmail.Server
+	mailAddr           string
 	server             *portal.Server
 	open               func(url string) error // opens a URL in the browser; tests replace it
 	// db is the portal's connection to the app's database, opened on the
@@ -250,7 +254,7 @@ func (d *devRunner) prepare(ctx context.Context) error {
 
 	var services []composeService
 	if d.database && d.services {
-		services = append(services, databaseServices...)
+		services = append(services, composeServicesIn("compose.yaml", databaseServices)...)
 	}
 	if d.observability {
 		services = append(services, grafanaService)
@@ -380,7 +384,12 @@ func (d *devRunner) banner(env []string) {
 		api = "http://" + net.JoinHostPort("127.0.0.1", port)
 	}
 	fmt.Fprintf(d.out, "\n  ✓ API        %s\n  ✓ API docs   %s/docs\n", api, api)
-	if d.database && d.services {
+	switch {
+	case d.database && mailDelivery(env) == "devmail" && d.portal:
+		fmt.Fprintf(d.out, "  ✓ Emails     %s/mail (caught at %s)\n", d.portalLink(), devMailAddr(env))
+	case d.database && mailDelivery(env) == "devmail":
+		fmt.Fprintf(d.out, "  ✓ Emails     caught at %s; the Dev Portal's Mail screen shows them (orb dev without --no-portal)\n", devMailAddr(env))
+	case d.database && d.services && mailDelivery(env) == "mailpit":
 		fmt.Fprintf(d.out, "  ✓ Emails     http://127.0.0.1:%s\n", envValue(env, "MAILPIT_WEB_PORT", "8025"))
 	}
 	if d.consoleToken != "" {
@@ -779,3 +788,36 @@ func manifestFeatures(manifest []byte) []string {
 	}
 	return features
 }
+
+// composeServicesIn drops Mailpit when compose.yaml doesn't define it
+// (apps made since ADR-0074 send email to orb dev's catcher instead);
+// PostgreSQL is always expected.
+func composeServicesIn(path string, services []composeService) []composeService {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return services
+	}
+	var out []composeService
+	for _, s := range services {
+		if s.name == "mailpit" && !strings.Contains(string(data), "\n  mailpit:") {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+// mailDelivery is MAIL_DELIVERY as the app resolves it: devmail in
+// development unless set.
+func mailDelivery(env []string) string {
+	if v := envValue(env, "MAIL_DELIVERY", ""); v != "" {
+		return v
+	}
+	if envValue(env, "APP_ENV", "development") == "production" {
+		return "provider"
+	}
+	return "devmail"
+}
+
+// devMailAddr is where the mail catcher listens (DEV_MAIL_SMTP_ADDR).
+func devMailAddr(env []string) string { return envValue(env, "DEV_MAIL_SMTP_ADDR", "127.0.0.1:1025") }

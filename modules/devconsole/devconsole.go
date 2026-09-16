@@ -130,6 +130,10 @@ type Sources struct {
 	Migrations func(ctx context.Context) (Migrations, error)
 	// Jobs lists recent job runs (GET /_dev/jobs).
 	Jobs func(ctx context.Context) ([]JobRun, error)
+	// MailPreviews renders the app's emails with sample data (GET
+	// /_dev/mail/previews, /_dev/mail/preview, POST /_dev/mail/preview/send);
+	// see [MailPreviewer].
+	MailPreviews *MailPreviewer
 }
 
 // Option configures a [Console].
@@ -262,6 +266,8 @@ type endpoint struct {
 	path    string
 	serve   func(w http.ResponseWriter, r *http.Request) error
 	present bool
+	// post endpoints answer POST instead of GET (the preview send).
+	post bool
 }
 
 // handler checks every request, then routes it.
@@ -304,7 +310,12 @@ func (c *Console) handler(logger *slog.Logger) http.Handler {
 			httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, "not_found", "no dev console endpoint "+path))
 			return
 		}
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		switch {
+		case e.post && r.Method != http.MethodPost:
+			h.Set("Allow", "POST")
+			httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusMethodNotAllowed, "method_not_allowed", "this dev console endpoint answers POST only"))
+			return
+		case !e.post && r.Method != http.MethodGet && r.Method != http.MethodHead:
 			h.Set("Allow", "GET, HEAD")
 			httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusMethodNotAllowed, "method_not_allowed", "dev console endpoints answer GET only"))
 			return

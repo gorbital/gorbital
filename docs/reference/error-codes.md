@@ -20,6 +20,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `conflict` | 409 | The request conflicts with the current state, when no more specific code applies. | Any endpoint |
 | `cross_origin_request_denied` | 403 | A cookie-authenticated, state-changing request came from an origin that isn't allowed (cross-site request forgery protection). | Any endpoint |
 | `email_not_verified` | 403 | The account's email address must be verified first: to sign in, or to create organisations and send invitations. | `/v1/auth`; `/v1/orgs`, `/v1/invitations` |
+| `email_taken` | 409 | An account already has this email address. | `/v1/auth` |
 | `error` | any other 4xx | Any other 4xx status without its own code. | Any endpoint |
 | `flag_not_found` | 404 | No feature flag has this key. | `/ops` |
 | `flag_reason_required` | 422 | A reason is required to change a feature flag. | `/ops` |
@@ -34,6 +35,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `incident_resolved` | 409 | The incident is resolved and can't change. | `/ops` |
 | `incident_updates_limited` | 409 | The incident has the most updates allowed. | `/ops` |
 | `internal_error` | 500, any other 5xx | An unexpected error. The detail never includes the cause; it is logged once with the request ID. | Any endpoint |
+| `invalid_address` | 400 | To must be an email address. | Any endpoint |
 | `invalid_api_key_expiry` | 422 | expires_at must be at least an hour away and within auth.api_key_max_ttl. | `/v1/auth` |
 | `invalid_api_key_name` | 422 | An API key name must be 1 to 100 characters on one line. | `/v1/auth` |
 | `invalid_api_key_scopes` | 422 | Scopes must be at most 50 permissions the key's owner holds without two-factor authentication. | `/v1/auth` |
@@ -94,6 +96,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `passkey_not_found` | 404 | No passkey of yours has this ID. | `/v1/auth` |
 | `passkeys_unavailable` | 503 | Passkeys aren't configured on this server (WEBAUTHN_RP_ID). | `/v1/auth` |
 | `personal_workspace` | 409 | A personal workspace can't be left, deleted or shared; create an organisation instead. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
+| `preview_not_found` | 404 |  | Any endpoint |
 | `project_name_taken` | 409 | The organisation already has a project with this name. | `/v1/orgs/{orgId}/projects` (`/v1/projects` in single-tenant apps) |
 | `project_not_found` | 404 | The organisation has no project with this ID. | `/v1/orgs/{orgId}/projects` (`/v1/projects` in single-tenant apps) |
 | `project_version_conflict` | 409 | The project changed since you read it; get it again and retry. | `/v1/orgs/{orgId}/projects` (`/v1/projects` in single-tenant apps) |
@@ -120,7 +123,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `unauthenticated` | 401 | The endpoint needs a signed-in session (cookie or bearer token). | `/v1/auth`; `/v1/flags`; `/ops`; `/v1/orgs`, `/v1/invitations` |
 | `unauthorized` | 401 | Authentication failed, when no more specific code applies. | Any endpoint |
 | `unavailable` | 503 | The service or a dependency is temporarily unavailable. | Any endpoint |
-| `unknown_role` | 422 | The role isn't one of the organisation roles. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
+| `unknown_role` | 422 | No such role in the permission catalog. The role isn't one of the organisation roles. | `/v1/auth`; `/v1/orgs`, `/v1/invitations` |
 | `user_not_found` | 404 | No account has this ID; deleted accounts are gone to operators too. | `/ops/auth/users/{id}` and its actions. |
 | `validation_failed` | 422 | The request doesn't match the operation's schema, or a resource's fields aren't valid. `errors` lists each field. | Any endpoint |
 | `weak_password` | 422 | The password doesn't meet the password policy; the detail says why. | `/v1/auth` |

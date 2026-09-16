@@ -57,8 +57,9 @@ type Config struct {
 	DBMaxConns        int32 // APP_DB_MAX_CONNS
 	JobWorkers        int   // APP_JOB_WORKERS
 
-	MailDelivery string     // MAIL_DELIVERY: mailpit or provider (mail.go)
+	MailDelivery string     // MAIL_DELIVERY: devmail, mailpit or provider (mail.go)
 	MailpitAddr  string     // MAILPIT_SMTP_ADDR
+	DevMailAddr  string     // DEV_MAIL_SMTP_ADDR: orb dev's mail catcher (ADR-0074)
 	Mail         mailConfig // the email provider's secrets (infra_mail.go)
 
 	// DevConsole turns on the development console's APIs under /_dev/ in
@@ -227,7 +228,7 @@ func LoadConfig(src config.Source) (Config, error) {
 		cfg.JobWorkers = n
 	}
 
-	cfg.MailDelivery = mailDeliveryMailpit
+	cfg.MailDelivery = mailDeliveryDevMail
 	if cfg.Production() {
 		cfg.MailDelivery = mailDeliveryProvider
 	}
@@ -235,10 +236,17 @@ func LoadConfig(src config.Source) (Config, error) {
 		cfg.MailDelivery = v
 	}
 	switch {
-	case cfg.MailDelivery != mailDeliveryMailpit && cfg.MailDelivery != mailDeliveryProvider:
-		errs = append(errs, fmt.Errorf("MAIL_DELIVERY must be mailpit or provider, got %q", cfg.MailDelivery))
-	case cfg.Production() && cfg.MailDelivery == mailDeliveryMailpit:
-		errs = append(errs, errors.New("MAIL_DELIVERY=mailpit is for development; production sends email through the provider"))
+	case cfg.MailDelivery != mailDeliveryDevMail && cfg.MailDelivery != mailDeliveryMailpit && cfg.MailDelivery != mailDeliveryProvider:
+		errs = append(errs, fmt.Errorf("MAIL_DELIVERY must be devmail, mailpit or provider, got %q", cfg.MailDelivery))
+	case cfg.Production() && cfg.MailDelivery != mailDeliveryProvider:
+		errs = append(errs, fmt.Errorf("MAIL_DELIVERY=%s is for development; production sends email through the provider", cfg.MailDelivery))
+	}
+	cfg.DevMailAddr = "127.0.0.1:1025"
+	if v := get("DEV_MAIL_SMTP_ADDR"); v != "" {
+		cfg.DevMailAddr = v
+	}
+	if _, _, err := net.SplitHostPort(cfg.DevMailAddr); err != nil {
+		errs = append(errs, fmt.Errorf("DEV_MAIL_SMTP_ADDR %q is not host:port", cfg.DevMailAddr))
 	}
 
 	cfg.MailpitAddr = "127.0.0.1:1025"

@@ -106,7 +106,8 @@ func (a *App) buildDevConsole(pool *pgxpool.Pool) error {
 			state, err := postgres.Migrations(ctx, pool, migrations.FS)
 			return devconsole.Migrations{Current: state.Current, Latest: state.Latest, Pending: state.Pending}, err
 		},
-		Jobs: a.devJobRuns,
+		Jobs:         a.devJobRuns,
+		MailPreviews: a.mailPreviews(), // the email previews (mail_previews.go)
 	}
 	if a.cfg.MailDelivery == mailDeliveryMailpit {
 		host, _, err := net.SplitHostPort(a.cfg.MailpitAddr)

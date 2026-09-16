@@ -5,14 +5,14 @@ A Go API created with [gorbital](https://gorbital.dev) (Full preset, multi-tenan
 ## Run
 
 ```bash
-orb dev      # PostgreSQL and Mailpit in Docker, migrations, seed data, live reload
+orb dev      # PostgreSQL in Docker, the mail catcher, migrations, seed data, live reload
 ```
 
 The first run prints the password of the seeded administrator, `admin@example.com`, once. Sign-in methods (email and password, authenticator apps, passkeys, Google, Apple and GitHub) and how to create the credentials for each are in [AUTH_PROVIDERS.md](AUTH_PROVIDERS.md); the app lists what's on when it starts. For passkeys, open the app at http://localhost:8080. Without the gorbital CLI:
 
 ```bash
 cp .env.example .env            # then set AUTH_ENCRYPTION_KEYS: echo "k1:$(openssl rand -base64 32)"
-docker compose up -d --wait     # PostgreSQL and Mailpit
+docker compose up -d --wait     # PostgreSQL
 set -a; . ./.env; set +a        # the app reads the environment, not .env: export it in each terminal
 go run ./cmd/migrate            # database migrations
 go run ./cmd/seed               # administrator, their personal workspace and example projects (development only)
@@ -31,7 +31,7 @@ Commit the new app before running `orb gen` or `orb add`: they refuse to change 
 | http://127.0.0.1:8080/ops/jobs/definitions | Job configuration, run now, history (platform role) |
 | http://127.0.0.1:8080/ops/audit | Audit log: who changed what, filterable (platform role) |
 | http://127.0.0.1:8080/ops/mail | Email provider and sender; `POST /ops/mail/test` sends a test email (platform role) |
-| http://127.0.0.1:8025 | Mailpit: every email sent in development |
+| http://127.0.0.1:3100/mail | The Dev Portal's Mail screen: every email sent in development |
 | http://127.0.0.1:3000 | Grafana: traces, metrics and logs, with `orb dev --observability` |
 | http://127.0.0.1:8080/livez · /readyz | Health checks |
 
@@ -47,14 +47,14 @@ TOKEN=$(curl -s -X POST http://127.0.0.1:8080/v1/auth/login/mfa -H 'Content-Type
 curl http://127.0.0.1:8080/ops/settings -H "Authorization: Bearer $TOKEN"
 ```
 
-Lost the password? `POST /v1/auth/password/forgot` and the code from Mailpit. Lost the authenticator app? Send a recovery code as `"recovery_code"` instead of `"code"`, or run `go run ./cmd/api reset-mfa admin@example.com`.
+Lost the password? `POST /v1/auth/password/forgot` and the code from the Dev Portal's Mail screen. Lost the authenticator app? Send a recovery code as `"recovery_code"` instead of `"code"`, or run `go run ./cmd/api reset-mfa admin@example.com`.
 
 To make your own account an administrator:
 
 ```bash
 curl -X POST http://127.0.0.1:8080/v1/auth/register -H 'Content-Type: application/json' \
   -d '{"email":"you@example.com","password":"a long enough password"}'
-# read the 6-digit code in Mailpit (http://127.0.0.1:8025), then:
+# read the 6-digit code in the Dev Portal's Mail screen (http://127.0.0.1:3100/mail), then:
 curl -X POST http://127.0.0.1:8080/v1/auth/verify-email -H 'Content-Type: application/json' \
   -d '{"email":"you@example.com","code":"123456"}'
 go run ./cmd/api grant-role you@example.com platform_admin
@@ -110,7 +110,7 @@ Two layers:
 
 ## Email
 
-This app sends email with **Resend**. In development every email goes to Mailpit instead (http://127.0.0.1:8025), so no key is needed to start.
+This app sends email with **Resend**. In development every email goes to orb dev's mail catcher instead (the Dev Portal's Mail screen), so no key is needed to start.
 
 1. For real email, create a key at https://resend.com/api-keys and set `RESEND_API_KEY` in `.env`.
 2. Set the sender: `PUT /ops/settings/mail.from_email` and `PUT /ops/settings/mail.from_name`.

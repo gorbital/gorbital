@@ -19,6 +19,7 @@ import (
 
 	"golang.org/x/term"
 
+	"gorbital.dev/cli/internal/devmail"
 	"gorbital.dev/cli/internal/genplan"
 	"gorbital.dev/cli/internal/pgmeta"
 	"gorbital.dev/cli/internal/portal"
@@ -86,6 +87,9 @@ func (d *devRunner) servePortal(ctx context.Context) (func(), error) {
 		return func() {}, nil
 	}
 	d.system = portal.NewSystemSampler(d.dir, func() int { return d.Status().PID })
+	if err := d.startMailCatcher(); err != nil {
+		return nil, err
+	}
 	logs, err := portal.NewLogStore(d.dir)
 	if err != nil {
 		return nil, fmt.Errorf("the Dev Portal's log store: %w", err)
@@ -135,7 +139,37 @@ func (d *devRunner) servePortal(ctx context.Context) (func(), error) {
 		cancelLogs()
 		close(stopLogs)
 		_ = logs.Close()
+		if d.mailServer != nil {
+			_ = d.mailServer.Close()
+		}
 	}, nil
+}
+
+// startMailCatcher starts the SMTP catcher when the app sends its email
+// to devmail (ADR-0074): a Full app in development whose .env doesn't
+// choose mailpit or the provider.
+func (d *devRunner) startMailCatcher() error {
+	if !d.database {
+		return nil
+	}
+	env, err := devEnv(".env")
+	if err != nil {
+		return err
+	}
+	if mailDelivery(env) != "devmail" {
+		return nil
+	}
+	store, err := devmail.Open(d.dir)
+	if err != nil {
+		return fmt.Errorf("the mail catcher's store: %w", err)
+	}
+	server := devmail.NewServer(store)
+	addr := devMailAddr(env)
+	if err := server.Listen(addr); err != nil {
+		return fmt.Errorf("the mail catcher can't listen on %s (DEV_MAIL_SMTP_ADDR): %w", addr, err)
+	}
+	d.mailStore, d.mailServer, d.mailAddr = store, server, addr
+	return nil
 }
 
 // followPostgresLogs streams the postgres service's log into the store
@@ -167,7 +201,7 @@ func (d *devRunner) portalConfig() portal.Config {
 	env = withAppEnv(env)
 	api := "http://" + reachableAddr(appAddr(env))
 	links := map[string]string{"api": api, "docs": api + "/docs"}
-	if d.database && d.services {
+	if d.database && d.services && mailDelivery(env) == "mailpit" {
 		links["mail"] = "http://127.0.0.1:" + envValue(env, "MAILPIT_WEB_PORT", "8025")
 	}
 	if d.consoleToken != "" {
@@ -188,6 +222,8 @@ func (d *devRunner) portalConfig() portal.Config {
 		Jobs:         func() ([]portal.JobSource, error) { return jobSources(d.dir) },
 		Logs:         d.logs,
 		System:       d.system,
+		Mail:         portal.MailConfig{Store: d.mailStore, SMTPAddr: d.mailAddr},
+		Env:          portal.NewEnvEditor(d.dir),
 		Health:       d.health,
 		Database:     d.databaseConfig(),
 		SQL:          d.sqlStore(),
@@ -666,7 +702,12 @@ func (d *devRunner) health(ctx context.Context) []portal.ServiceHealth {
 		})
 	}
 	env, _ := devEnv(".env")
-	if d.database && d.services {
+	if d.mailStore != nil {
+		timed("mail", func() (string, string, string) {
+			return portal.HealthOK, fmt.Sprintf("orb dev's catcher on %s, %d messages", d.mailAddr, d.mailStore.Count()), ""
+		})
+	}
+	if d.database && d.services && mailDelivery(env) == "mailpit" {
 		timed("mail", func() (string, string, string) {
 			url := "http://127.0.0.1:" + envValue(env, "MAILPIT_WEB_PORT", "8025") + "/api/v1/info"
 			req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -684,9 +725,9 @@ func (d *devRunner) health(ctx context.Context) []portal.ServiceHealth {
 			}
 			return portal.HealthOK, fmt.Sprintf("%d messages in the inbox", info.Messages), info.Version
 		})
-		for _, svc := range d.composeServices(ctx, env) {
-			out = append(out, svc)
-		}
+	}
+	if d.database && d.services {
+		out = append(out, d.composeServices(ctx, env)...)
 	}
 	return out
 }

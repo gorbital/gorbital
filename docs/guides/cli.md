@@ -116,7 +116,7 @@ preset full · library ../gorbital
 created shop-api
 
   api docs     http://localhost:8080/docs (localhost, not 127.0.0.1, for passkeys)
-  emails       http://127.0.0.1:8025 (Mailpit catches every email in development)
+  emails       http://127.0.0.1:3100/mail (orb dev catches every email in development)
   ...
 
   next: cd shop-api
@@ -133,14 +133,14 @@ A Full app is exactly [examples/full-single](../../examples/full-single) with yo
 ```bash
 cd my-api
 git add -A && git commit -m "Create my-api"   # orb new doesn't commit; orb gen and orb add need a clean tree
-orb dev                                      # .env, PostgreSQL and Mailpit, migrations, seed data, the API
+orb dev                                      # .env, PostgreSQL, the mail catcher, migrations, seed data, the API
 ```
 
 Without `orb dev`, export `.env` yourself: the app reads environment variables, not the file.
 
 ```bash
 cp .env.example .env           # then set AUTH_ENCRYPTION_KEYS: echo "k1:$(openssl rand -base64 32)"
-docker compose up -d --wait    # PostgreSQL and Mailpit
+docker compose up -d --wait    # PostgreSQL
 set -a; . ./.env; set +a       # in each terminal, and again after editing .env
 go run ./cmd/migrate
 go run ./cmd/seed
@@ -449,8 +449,8 @@ Builds and runs the app in the current directory, rebuilding when files change a
 In an app with a database (Full preset), before the first start it:
 
 1. Creates `.env` from `.env.example` (mode 0600) when there is none, and fills an empty `AUTH_ENCRYPTION_KEYS` with a random development key ([ADR-0043](../adr/0043-two-factor-authentication.md)).
-2. Checks Docker, and that the services' host ports are free: `POSTGRES_PORT`, `MAILPIT_SMTP_PORT` and `MAILPIT_WEB_PORT` (ports held by the app's own running services are fine). A taken port names the `.env` line that moves it.
-3. Starts PostgreSQL and Mailpit from the app's `compose.yaml` with `docker compose up -d --wait`.
+2. Checks Docker, and that the services' host ports are free: `POSTGRES_PORT` (and `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT` when `compose.yaml` still has Mailpit; ports held by the app's own running services are fine). A taken port names the `.env` line that moves it.
+3. Starts PostgreSQL (and Mailpit when defined) from the app's `compose.yaml` with `docker compose up -d --wait`, and its own mail catcher on `DEV_MAIL_SMTP_ADDR` when `MAIL_DELIVERY` is `devmail` ([ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)).
 4. Applies migrations (`go run ./cmd/migrate`) and runs seed data (`go run ./cmd/seed`). The first run prints the administrator's password once ([ADR-0042](../adr/0042-development-seed-data.md)); later runs change nothing.
 5. Prints the API, docs and email inbox addresses, then starts the app.
 
@@ -463,7 +463,7 @@ It also serves the [Dev Portal](dev-portal.md) at http://127.0.0.1:3100 and open
 | Flag | Default |
 |---|---|
 | `--observability` | off. Also starts Grafana (`grafana/otel-lgtm`, the `observability` profile in `compose.yaml`) on `GRAFANA_PORT` (3000) and sets `OTEL_EXPORTER_OTLP_ENDPOINT` for the app, so its traces, metrics and logs appear there. Works in Minimal apps too. Grafana receives metrics over OTLP and doesn't scrape the app; to check the Prometheus endpoint locally, set `METRICS_ADDR=127.0.0.1:9464` in `.env` and open http://127.0.0.1:9464/metrics ([production](production.md#prometheus-metrics)) |
-| `--no-services` | start services. Skips Docker and uses `DATABASE_URL` and `MAILPIT_SMTP_ADDR` from `.env` as they are; migrations and seed data still run |
+| `--no-services` | start services. Skips Docker and uses `DATABASE_URL` (and `MAILPIT_SMTP_ADDR`) from `.env` as they are; the mail catcher, migrations and seed data still run |
 | `--no-reload` | reload on change |
 | `--interval` | 500ms between change checks |
 | `--portal-port` | `DEV_PORTAL_PORT` from `.env` or the environment, else 3100 |

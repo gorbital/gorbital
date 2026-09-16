@@ -116,7 +116,7 @@ func TestDevPrepareFullApp(t *testing.T) {
 	for _, s := range []string{
 		"orb: created .env from .env.example",
 		"✓ API docs   http://127.0.0.1:" + ports.app + "/docs",
-		"✓ Emails     http://127.0.0.1:" + ports.web,
+		"✓ Emails     caught at 127.0.0.1:1025", // MAIL_DELIVERY unset: orb dev's catcher (ADR-0074)
 		"orb dev --observability",
 	} {
 		if !strings.Contains(out.String(), s) {
@@ -202,7 +202,8 @@ func TestDevPrepareWithoutDocker(t *testing.T) {
 }
 
 func TestDevPrepareNoServices(t *testing.T) {
-	newDevApp(t, fullManifest, newDevPorts(t).env())
+	ports := newDevPorts(t)
+	newDevApp(t, fullManifest, ports.env())
 	var out bytes.Buffer
 	d := newDevRunner(&out)
 	f := &fakeCommands{noTool: true}
@@ -215,7 +216,7 @@ func TestDevPrepareNoServices(t *testing.T) {
 	if want := []string{"go run ./cmd/migrate", "go run ./cmd/seed"}; !slices.Equal(f.calls, want) {
 		t.Errorf("commands = %q, want %q", f.calls, want)
 	}
-	if strings.Contains(out.String(), "Emails") {
+	if strings.Contains(out.String(), "http://127.0.0.1:"+ports.web) {
 		t.Errorf("output lists Mailpit, which orb dev didn't start:\n%s", out.String())
 	}
 }

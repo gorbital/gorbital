@@ -25,6 +25,8 @@
     "validation_failed": "The request doesn't match the operation's schema, or a resource's fields aren't valid. `errors` lists each field.",
     "weak_password": "The password doesn't meet the password policy; the detail says why.",
     "account_banned": "An operator banned the account; it can't sign in until the ban is lifted (ADR-0070).",
+    "preview_not_found": "No email preview has this name; `GET /_dev/mail/previews` lists them (ADR-0074).",
+    "invalid_address": "The recipient isn't an email address.",
     "impersonation_off": "Impersonation exists only while the app runs with the dev console (`orb dev`), never in production (ADR-0070).",
     "user_not_found": "No account has this ID; deleted accounts are gone to operators too.",
     "rate_limiter_not_found": "The app has no rate limiter with this name, or the key was empty (ADR-0070)."

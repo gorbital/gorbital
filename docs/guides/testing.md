@@ -22,7 +22,7 @@ go test ./...
 
 The URL names your development server, but tests never touch your development database: `pgtest` creates `pgtest_…` databases next to it from a template migrated with `db/migrations`, and drops them.
 
-Add Mailpit to test email delivery end to end:
+Add a Mailpit (for example the repository's, on 51025 and 58025) to test email delivery end to end; the apps' e2e tests send through it with `MAIL_DELIVERY=mailpit`:
 
 ```bash
 export GORBITAL_TEST_MAILPIT_SMTP=127.0.0.1:1025

@@ -20,7 +20,7 @@ curl -X POST http://127.0.0.1:8080/v1/auth/register \
   -H 'Content-Type: application/json' \
   -d '{"email":"you@example.com","password":"a long enough password"}'
 
-# 2. Read the code in Mailpit, then verify the address
+# 2. Read the code in the Dev Portal's Mail screen (http://127.0.0.1:3100/mail), then verify the address
 curl -X POST http://127.0.0.1:8080/v1/auth/verify-email \
   -H 'Content-Type: application/json' \
   -d '{"email":"you@example.com","code":"123456"}'
@@ -334,7 +334,7 @@ Every sign-in (successful or not), second factor (`auth.mfa.challenge_succeeded`
 
 | Symptom | Fix |
 |---|---|
-| No code arrives | Check Mailpit (http://127.0.0.1:8025) in development, or `GET /ops/jobs/runs?kind=gorbital.mail.send` for delivery errors ([email guide](email.md)) |
+| No code arrives | Check the Dev Portal's Mail screen (http://127.0.0.1:3100/mail) in development, or `GET /ops/jobs/runs?kind=gorbital.mail.send` for delivery errors ([email guide](email.md)) |
 | `email_not_verified` | Verify with the emailed code, or `POST /v1/auth/verify-email/resend` |
 | `forbidden` on `/ops/*` | `go run ./cmd/api grant-role <email> platform_admin` (the account's address must be verified) |
 | `mfa_required` on `/ops/*` | Turn on two-factor authentication (`POST /v1/auth/mfa/totp`, then `/confirm`), or sign in again with a code |

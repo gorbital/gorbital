@@ -96,7 +96,8 @@ Read in `config.go` and `infra_mail.go`. `infra_mail.go` is replaced by `orb add
 
 | Variable | Required | Default | Example | Secret | Description |
 |---|---|---|---|---|---|
-| `MAIL_DELIVERY` | No | `mailpit` in development, `provider` in production | `provider` | No | `mailpit` or `provider`. **Prod**: `mailpit` is refused. Provider credentials are only required when delivery is `provider` |
+| `DEV_MAIL_SMTP_ADDR` | No | `127.0.0.1:1025` | `127.0.0.1:1035` | host:port | Where `orb dev`'s mail catcher listens and the app sends with `MAIL_DELIVERY=devmail` ([ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)) |
+| `MAIL_DELIVERY` | No | `devmail` in development, `provider` in production | `provider` | No | `devmail`, `mailpit` or `provider`. **Prod**: `devmail` and `mailpit` are refused. Provider credentials are only required when delivery is `provider` |
 | `MAILPIT_SMTP_ADDR` | No | `127.0.0.1:1025` | `127.0.0.1:1035` | No | `host:port` of Mailpit's SMTP server, used when delivery is `mailpit` |
 | `RESEND_API_KEY` | Resend, with delivery `provider` | empty | `re_…` | **Secret** | Resend API key, "Sending access" is enough |
 | `RESEND_WEBHOOK_SECRET` | No | empty | `whsec_…` | **Secret** | Signing secret of the Resend webhook for bounces and complaints; empty turns `POST /v1/webhooks/resend` off (404). Must be `whsec_` and base64 (`RESEND_WEBHOOK_SECRET: resend: the webhook signing secret must be …`). [Email guide](email.md#connect-resends-webhook) |

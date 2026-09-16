@@ -25,11 +25,11 @@ Each phase lives on its own branch, `dev-portal/phase-N`, in both repositories (
 | [6](#phase-6-jobs) | Jobs | 🔨 In progress (2026-09-16): backend done ([ADR-0071](adr/0071-job-kinds-and-ejection.md)) | `dev-portal/phase-6` |
 | [7](#phase-7-logs) | Logs | 🔨 In progress (2026-09-16): backend done ([ADR-0072](adr/0072-local-log-store.md)); the store is JSON Lines under `.orb/portal/logs`, not SQLite | `dev-portal/phase-7` |
 | [8](#phase-8-observability) | Observability | 🔨 In progress (2026-09-16): backend done ([ADR-0073](adr/0073-observability-screen.md)); no OTLP receiver, the screen builds on the request minutes, `/ops/system`, `pgmeta` statistics and a machine sampler | `dev-portal/phase-8` |
-| [9](#phase-9-mail-env-configuration) | Mail, env, configuration | Planned | `dev-portal/phase-9` |
+| [9](#phase-9-mail-env-configuration) | Mail, env, configuration | 🔨 In progress (2026-09-16): backend done ([ADR-0074](adr/0074-dev-mail-previews-and-env-editor.md)) | `dev-portal/phase-9` |
 | [10](#phase-10-storage) | Storage | Planned | `dev-portal/phase-10` |
 | [11](#phase-11-git) | Git | Planned | `dev-portal/phase-11` |
 | [12](#phase-12-generators-and-scaffolding) | Generators and scaffolding | Planned | `dev-portal/phase-12` |
-| [13](#phase-13-advanced) | Advanced | Planned | `dev-portal/phase-13` |
+| [13](#phase-13-advanced) | Advanced | ⏸ Skipped for now (2026-09-16, by decision): the work stops after Phase 12 | — |
 
 ## Architecture
 
@@ -225,7 +225,7 @@ Docs: the observability guide's local section rewritten around the portal; upgra
 | 71 | Env editor validated against the app's configuration schema ([ADR-0008](adr/0008-configuration.md)): secrets hidden until revealed, add, edit and delete, keys present in `.env.example` but missing from `.env` flagged, restart offered after a change | Backend, frontend |
 | 72 | Feature flags ([ADR-0057](adr/0057-feature-flags.md)) and runtime settings through `/ops` | Frontend |
 
-Docs: the [email guide](guides/email.md) and [environment variables guide](guides/environment-variables.md); upgrade note for the `compose.yaml` change (Mailpit removed, `MAIL_DELIVERY=devmail`).
+Docs: the [email guide](guides/email.md) and [environment variables guide](guides/environment-variables.md); upgrade note for the `compose.yaml` change (Mailpit removed, `MAIL_DELIVERY=devmail`). Decided in [ADR-0074](adr/0074-dev-mail-previews-and-env-editor.md): the catcher is `cli/internal/devmail`, previews come from the real message builders through the dev console, and `orb dev` edits `.env` in place.
 
 ## Phase 10: Storage
 

@@ -17,6 +17,7 @@ import (
 
 	"gorbital.dev/config"
 	"gorbital.dev/httpx"
+	gmail "gorbital.dev/mail"
 	"gorbital.dev/modules/devconsole"
 )
 
@@ -600,4 +601,59 @@ func TestStreamReportsDroppedEvents(t *testing.T) {
 			t.Fatal("no dropped event")
 		}
 	}
+}
+
+func TestMailPreviews(t *testing.T) {
+	var sent []gmail.Message
+	previews := &devconsole.MailPreviewer{
+		Previews: []devconsole.MailPreview{{Name: "auth.code", Description: "d", Category: "auth"}},
+		Build: func(_ context.Context, name, to string) (gmail.Message, error) {
+			return gmail.Message{To: []gmail.Address{{Email: to}}, Subject: "Code for " + to, Text: "483920", HTML: "<b>483920</b>", Tags: map[string]string{"category": "auth"}}, nil
+		},
+		Send: func(_ context.Context, m gmail.Message) error { sent = append(sent, m); return nil },
+	}
+	base, _ := newServer(t, appHandler(), devconsole.WithSources(devconsole.Sources{MailPreviews: previews}))
+	if r := get(t, base, "/_dev/mail/previews", "", true); r.code != 200 || !strings.Contains(r.body, `"name":"auth.code"`) {
+		t.Errorf("previews = %d %s", r.code, r.body)
+	}
+	if r := get(t, base, "/_dev/mail/preview?name=auth.code", "", true); r.code != 200 || !strings.Contains(r.body, `"subject":"Code for preview@example.com"`) || !strings.Contains(r.body, `483920`) || !strings.Contains(r.body, `"to":"preview@example.com"`) {
+		t.Errorf("preview = %d %s", r.code, r.body)
+	}
+	if r := get(t, base, "/_dev/mail/preview?name=nope", "", true); r.code != 404 || !strings.Contains(r.body, "preview_not_found") {
+		t.Errorf("unknown preview = %d %s", r.code, r.body)
+	}
+	if r := get(t, base, "/_dev/mail/preview/send?name=auth.code", "", true); r.code != 405 {
+		t.Errorf("GET send = %d %s", r.code, r.body)
+	}
+	if r := post(t, base, "/_dev/mail/preview/send?name=auth.code&to=ada@example.com", ""); r.code != 200 || !strings.Contains(r.body, `"sent":true`) || len(sent) != 1 || sent[0].To[0].Email != "ada@example.com" {
+		t.Errorf("send = %d %s, sent %+v", r.code, r.body, sent)
+	}
+	if r := post(t, base, "/_dev/mail/preview/send?name=auth.code&to=nope", ""); r.code != 400 || !strings.Contains(r.body, "invalid_address") {
+		t.Errorf("bad address = %d %s", r.code, r.body)
+	}
+	// Without a previewer the endpoints aren't served.
+	base2, _ := newServer(t, appHandler())
+	if r := get(t, base2, "/_dev/mail/previews", "", true); r.code != 404 {
+		t.Errorf("without previews = %d", r.code)
+	}
+}
+
+// post sends a POST with the token and returns the answer.
+func post(t *testing.T, base, path, body string) result {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, base+path, strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	out, _ := io.ReadAll(resp.Body)
+	return result{resp.StatusCode, resp.Header, string(out)}
 }

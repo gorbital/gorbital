@@ -52,7 +52,7 @@ Set `GORBITAL_POSTGRES_PORT` to use another host port.
 
 ## Mailpit
 
-The same `compose.yaml` runs [Mailpit](https://mailpit.axllent.org), a local email inbox, for the SMTP module and example tests: SMTP on **127.0.0.1:51025**, web inbox on **http://127.0.0.1:58025** (`GORBITAL_MAILPIT_SMTP_PORT` and `GORBITAL_MAILPIT_WEB_PORT` to change). Apps have their own Mailpit in their `compose.yaml`, on 1025 and 8025 ([email guide](email.md)).
+The same `compose.yaml` runs [Mailpit](https://mailpit.axllent.org), a local email inbox, for the SMTP module and example tests: SMTP on **127.0.0.1:51025**, web inbox on **http://127.0.0.1:58025** (`GORBITAL_MAILPIT_SMTP_PORT` and `GORBITAL_MAILPIT_WEB_PORT` to change). Apps send their own email to `orb dev`'s mail catcher on 127.0.0.1:1025, read in the Dev Portal ([email guide](email.md), [ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)).
 
 ## Running tests
 
@@ -102,7 +102,7 @@ go run ./cmd/api openapi --dir api
 
 ```bash
 cd examples/full-single
-orb dev      # .env, its own PostgreSQL on 127.0.0.1:5432 and Mailpit on http://127.0.0.1:8025, migrations, seed data
+orb dev      # .env, its own PostgreSQL on 127.0.0.1:5432, the mail catcher on 127.0.0.1:1025, migrations, seed data
 ```
 
 The first run prints the seeded administrator's password (`admin@example.com`) once. Every run also prints a new token for the development-only `/_dev/` APIs (recent requests and logs, routes, configuration without secrets, captured email): see [dev console APIs](dev-console.md). Without the CLI:

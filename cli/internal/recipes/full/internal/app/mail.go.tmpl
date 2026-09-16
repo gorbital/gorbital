@@ -14,8 +14,12 @@ import (
 // managed by `orb add mail`; this file stays the same whichever provider is
 // chosen.
 const (
-	// mailDeliveryMailpit sends every email to the local Mailpit inbox from
-	// compose.yaml, whatever the provider. The default in development.
+	// mailDeliveryDevMail sends every email to orb dev's mail catcher, read
+	// in the Dev Portal's Mail screen (ADR-0074). The default in
+	// development.
+	mailDeliveryDevMail = "devmail"
+	// mailDeliveryMailpit sends every email to a Mailpit inbox (an older
+	// compose.yaml, or your own), whatever the provider.
 	mailDeliveryMailpit = "mailpit"
 	// mailDeliveryProvider sends real email through the provider. Always
 	// used in production.
@@ -24,7 +28,10 @@ const (
 
 // newMailSender returns the sender the mail worker delivers through.
 func newMailSender(cfg Config) (mail.Sender, error) {
-	if cfg.MailDelivery == mailDeliveryMailpit {
+	switch cfg.MailDelivery {
+	case mailDeliveryDevMail:
+		return smtp.New(cfg.DevMailAddr, smtp.WithTLS(smtp.TLSNone))
+	case mailDeliveryMailpit:
 		return smtp.New(cfg.MailpitAddr, smtp.WithTLS(smtp.TLSNone))
 	}
 	return newMailProvider(cfg.Mail)

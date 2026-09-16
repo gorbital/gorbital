@@ -171,7 +171,7 @@ func TestDevConsoleMail(t *testing.T) {
 	}
 	_, closedPort, _ := net.SplitHostPort(ln.Addr().String())
 	ln.Close()
-	_, base := devServer(t, map[string]string{"MAILPIT_WEB_PORT": closedPort})
+	_, base := devServer(t, map[string]string{"MAIL_DELIVERY": "mailpit", "MAILPIT_WEB_PORT": closedPort})
 	if code, _, body := devGet(t, base, "/_dev/mail"); code != http.StatusServiceUnavailable || !strings.Contains(body, `"code":"unavailable"`) {
 		t.Errorf("/_dev/mail without Mailpit = %d %s, want 503", code, body)
 	}
@@ -184,7 +184,7 @@ func TestDevConsoleMail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, base = devServer(t, map[string]string{"MAILPIT_SMTP_ADDR": smtp, "MAILPIT_WEB_PORT": u.Port()})
+	_, base = devServer(t, map[string]string{"MAIL_DELIVERY": "mailpit", "MAILPIT_SMTP_ADDR": smtp, "MAILPIT_WEB_PORT": u.Port()})
 	code, _, body := devGet(t, base, "/_dev/mail")
 	if code != http.StatusOK || !strings.Contains(body, `"web_url":"http://`) || !strings.Contains(body, `"messages":[`) {
 		t.Errorf("/_dev/mail = %d %s", code, body)

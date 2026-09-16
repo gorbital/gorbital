@@ -8,12 +8,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
 
+	"gorbital.dev/cli/internal/devmail"
 	"gorbital.dev/cli/internal/genplan"
 )
 
@@ -701,5 +704,114 @@ func TestObservabilityEndpoints(t *testing.T) {
 	}
 	if res := call(t, ts2, http.MethodGet, APIPrefix+"health", "", nil); res.StatusCode != http.StatusOK {
 		t.Errorf("health without checks = %d", res.StatusCode)
+	}
+}
+
+func TestMailEndpoints(t *testing.T) {
+	store, err := devmail.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, ts, _ := newTestServer(t, func(c *Config) { c.Mail = MailConfig{Store: store, SMTPAddr: "127.0.0.1:1025"} })
+	raw := "From: no-reply@acme.test\r\nTo: ada@example.com\r\nSubject: Your code\r\nContent-Type: text/html\r\n\r\n<p>Code <b>123456</b> <a href=\"https://acme.test/v\">go</a></p>\r\n"
+	if _, err := store.Add(context.Background(), "no-reply@acme.test", []string{"ada@example.com"}, []byte(raw)); err != nil {
+		t.Fatal(err)
+	}
+	get := func(path string) (int, string, http.Header) {
+		res := call(t, ts, http.MethodGet, APIPrefix+path, "", nil)
+		body, _ := io.ReadAll(res.Body)
+		return res.StatusCode, string(body), res.Header
+	}
+	code, body, _ := get("mail?q=code")
+	if code != http.StatusOK || !strings.Contains(body, `"subject":"Your code"`) || !strings.Contains(body, `"codes":["123456"]`) || !strings.Contains(body, `"smtp_addr":"127.0.0.1:1025"`) {
+		t.Fatalf("list = %d %s", code, body)
+	}
+	var list struct {
+		Messages []devmail.Summary `json:"messages"`
+	}
+	_ = json.Unmarshal([]byte(body), &list)
+	id := list.Messages[0].ID
+	if code, body, _ := get("mail/" + id); code != http.StatusOK || !strings.Contains(body, `"links":[{"url":"https://acme.test/v","text":"go"}]`) || !strings.Contains(body, `"read":true`) {
+		t.Errorf("get = %d %s", code, body)
+	}
+	if code, body, h := get("mail/" + id + "/html"); code != http.StatusOK || !strings.Contains(body, "<b>123456</b>") || !strings.Contains(h.Get("Content-Security-Policy"), "sandbox") {
+		t.Errorf("html = %d %s %v", code, body, h)
+	}
+	if code, body, _ := get("mail/" + id + "/source"); code != http.StatusOK || body != raw {
+		t.Errorf("source = %d %q", code, body)
+	}
+	if code, _, _ := get("mail/000000000099"); code != http.StatusNotFound {
+		t.Errorf("missing = %d", code)
+	}
+	if res := call(t, ts, http.MethodDelete, APIPrefix+"mail/"+id, "", nil); res.StatusCode != http.StatusNoContent {
+		t.Errorf("delete = %d", res.StatusCode)
+	}
+	if res := call(t, ts, http.MethodDelete, APIPrefix+"mail", "", nil); res.StatusCode != http.StatusNoContent {
+		t.Errorf("clear = %d", res.StatusCode)
+	}
+	_, ts2, _ := newTestServer(t, nil)
+	if res := call(t, ts2, http.MethodGet, APIPrefix+"mail", "", nil); res.StatusCode != http.StatusNotFound {
+		t.Errorf("without a catcher = %d", res.StatusCode)
+	}
+}
+
+func TestEnvEndpoints(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".env.example"), []byte("# The app's address.\nAPP_ADDR=127.0.0.1:8080\n\n# Where email goes.\nMAIL_DELIVERY=\n# The provider's key.\nRESEND_API_KEY=\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("APP_ADDR=127.0.0.1:9090\nRESEND_API_KEY=re_secret_1234567890\nEXTRA=\"a b\" # note\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, ts, _ := newTestServer(t, func(c *Config) { c.Env = NewEnvEditor(dir) })
+	res := call(t, ts, http.MethodGet, APIPrefix+"env", "", nil)
+	body, _ := io.ReadAll(res.Body)
+	var out struct {
+		Entries []EnvEntry `json:"entries"`
+	}
+	if err := json.Unmarshal(body, &out); err != nil || res.StatusCode != http.StatusOK {
+		t.Fatalf("env = %d %s", res.StatusCode, body)
+	}
+	byKey := map[string]EnvEntry{}
+	for _, e := range out.Entries {
+		byKey[e.Key] = e
+	}
+	if len(out.Entries) != 4 || out.Entries[0].Key != "APP_ADDR" || byKey["APP_ADDR"].Value != "127.0.0.1:9090" || byKey["APP_ADDR"].Description != "The app's address." || byKey["APP_ADDR"].Line != 1 {
+		t.Errorf("entries = %+v", out.Entries)
+	}
+	if e := byKey["MAIL_DELIVERY"]; !e.Missing || e.Set || !e.InExample {
+		t.Errorf("missing key = %+v", e)
+	}
+	if e := byKey["RESEND_API_KEY"]; !e.Secret || e.Value == "re_secret_1234567890" || !strings.Contains(e.Value, "••") {
+		t.Errorf("secret = %+v", e)
+	}
+	if e := byKey["EXTRA"]; e.InExample || e.Value != "a b" {
+		t.Errorf("extra = %+v", e)
+	}
+	res = call(t, ts, http.MethodGet, APIPrefix+"env/RESEND_API_KEY", "", nil)
+	if body, _ := io.ReadAll(res.Body); res.StatusCode != http.StatusOK || !strings.Contains(string(body), `"value":"re_secret_1234567890"`) {
+		t.Errorf("reveal = %d %s", res.StatusCode, body)
+	}
+	if res := call(t, ts, http.MethodGet, APIPrefix+"env/NOPE", "", nil); res.StatusCode != http.StatusNotFound {
+		t.Errorf("reveal missing = %d", res.StatusCode)
+	}
+	res = call(t, ts, http.MethodPut, APIPrefix+"env", `{"set":{"MAIL_DELIVERY":"mailpit","NEW_KEY":"x y"},"unset":["EXTRA"]}`, nil)
+	if body, _ := io.ReadAll(res.Body); res.StatusCode != http.StatusOK || !strings.Contains(string(body), `"restart_needed":true`) {
+		t.Errorf("put = %d %s", res.StatusCode, body)
+	}
+	got, _ := os.ReadFile(filepath.Join(dir, ".env"))
+	want := "APP_ADDR=127.0.0.1:9090\nRESEND_API_KEY=re_secret_1234567890\n\n# Where email goes.\nMAIL_DELIVERY=mailpit\nNEW_KEY=\"x y\"\n"
+	if string(got) != want {
+		t.Errorf(".env after put =\n%s\nwant\n%s", got, want)
+	}
+	if res := call(t, ts, http.MethodPut, APIPrefix+"env", `{"set":{"bad key":"1"}}`, nil); res.StatusCode != http.StatusBadRequest {
+		t.Errorf("bad key = %d", res.StatusCode)
+	}
+	if res := call(t, ts, http.MethodPut, APIPrefix+"env", `{"set":{"K":"a\nb"}}`, nil); res.StatusCode != http.StatusBadRequest {
+		t.Errorf("newline value = %d", res.StatusCode)
+	}
+	_, ts2, _ := newTestServer(t, nil)
+	if res := call(t, ts2, http.MethodGet, APIPrefix+"env", "", nil); res.StatusCode != http.StatusNotFound {
+		t.Errorf("without an editor = %d", res.StatusCode)
 	}
 }

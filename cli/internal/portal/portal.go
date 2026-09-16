@@ -143,6 +143,10 @@ type Config struct {
 	System *SystemSampler
 	// Health checks every service the app depends on; nil reports none.
 	Health func(ctx context.Context) []ServiceHealth
+	// Mail is the mail catcher's inbox (ADR-0074).
+	Mail MailConfig
+	// Env edits the app's .env (ADR-0074); nil answers 404.
+	Env *EnvEditor
 	// Database connects the Table Editor and Schema pages to the app's
 	// database; an empty Open means the app has none.
 	Database DatabaseConfig
