@@ -66,6 +66,10 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0054](0054-api-freeze-and-scaffold-compatibility.md) | API freeze: stability markers, API listings, public-surface inventory, `/ops` baseline, `--json` schema version, scaffold compatibility check | Accepted |
 | [0055](0055-governance-and-contribution.md) | Governance and contribution: roles, decisions, reviews, supported versions, changelog | Accepted |
 | [0056](0056-per-organisation-settings.md) | Per-organisation settings: org-overridable declarations, organisation values resolved from the context, organisation and `/ops` endpoints | Accepted |
+| [0057](0057-feature-flags.md) | Feature flags: flags declared in code, organisation and user targeting, stable percentage rollouts, `/ops/flags` with reasons, history and audit, client flags | Accepted |
 | [0058](0058-api-keys-and-service-accounts.md) | API keys and service accounts: `gbk_` keys stored as hashes with expiry, scopes and last use, platform and organisation service accounts, never 2FA-required permissions | Accepted |
 | [0059](0059-github-sign-in.md) | GitHub sign-in: OAuth without OpenID Connect, verified primary email, never authoritative, links bound to the browser and session, `AUTH_DEFAULT_RETURN_TO` | Accepted |
+| [0060](0060-idempotency-keys.md) | Idempotency keys: `modules/idempotency`, stored and replayed POST and PATCH responses per caller | Accepted |
+| [0062](0062-resend-webhooks-and-suppression-list.md) | Resend bounce and complaint webhooks and the email suppression list | Accepted |
+| [0063](0063-prometheus-metrics.md) | Prometheus metrics endpoint: exporter on a separate `METRICS_ADDR` listener, Go runtime and connection pool metrics, route labels through request copies | Accepted |
 | [0064](0064-live-observability-and-incidents.md) | Live observability and incidents: `modules/observability` request minutes shared through PostgreSQL, `/ops/observability` with a live stream, incidents with timelines, automatic detection and reports | Accepted |
