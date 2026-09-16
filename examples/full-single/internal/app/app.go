@@ -215,6 +215,7 @@ func (a *App) build(ctx context.Context) error {
 		VerificationCodeTTL:     appSettings.authVerificationCodeTTL,
 		ResetCodeTTL:            appSettings.authResetCodeTTL,
 		DeletedAccountRetention: appSettings.authDeletedAccountRetention,
+		UnverifiedAccountTTL:    appSettings.authUnverifiedAccountTTL,
 	})
 	if err != nil {
 		return err
@@ -261,6 +262,7 @@ func (a *App) build(ctx context.Context) error {
 				{data: "job_definition_history", setting: appSettings.historyRetention.Key(), retention: appSettings.historyRetention.Get, job: retention.Name, oldest: a.jobsManager.OldestHistory},
 				{data: "release_instances", setting: appSettings.releasesInstanceRetention.Key(), retention: appSettings.releasesInstanceRetention.Get, enforcedBy: "each instance, when it starts"},
 				{data: "deleted_accounts", setting: appSettings.authDeletedAccountRetention.Key(), retention: appSettings.authDeletedAccountRetention.Get, job: authcleanup.Name},
+				{data: "unverified_accounts", setting: appSettings.authUnverifiedAccountTTL.Key(), retention: appSettings.authUnverifiedAccountTTL.Get, job: authcleanup.Name},
 			}},
 		},
 	})

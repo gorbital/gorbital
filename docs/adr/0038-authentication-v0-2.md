@@ -159,3 +159,17 @@ The internal security review of September 2026 (findings AUTH-S-1 to AUTH-S-8) c
 | `TestChecksBehindASessionAreLimited` (use cases and HTTP, the reviewers' PoC) | 10 wrong passwords across the five changes, then 429 even for the right password, from a new IP each time |
 | `TestLoginLimitIsPerNetwork`, `TestPerIPLimitGroupsIPv6`, `TestByRemoteIPGroupsIPv6By64` | Another network signs in after a /64 is limited; the address-wide limit still applies; a /64 shares the per-IP budget |
 | `TestHasherWaitIsBounded`, `TestResetChecksTheCodeBeforeHashing` | A busy hasher returns `ErrHasherBusy` after the wait or when the context ends; wrong reset codes never wait for it |
+
+### Follow-up (2026-09-16)
+
+Three items left open by the fixes above, closed after review:
+
+- **Roles only for verified accounts.** `GrantRole` returns `ErrEmailNotVerified` for an account whose address isn't verified, and `grant-role` says so ("hasn't verified its email address; roles are granted only to verified accounts"). It used to grant the role with a note. Verification removes what came before (`claimAddress`), but a role would survive it and reach whoever verifies. Seed data and `CreateUser` create verified accounts, so no other path is affected.
+- **Unverified accounts expire.** `Cleanup` (the `auth_cleanup` job) soft-deletes accounts still unverified after `auth.unverified_account_ttl` (default 7 days, 1 hour – 90 days, reason required; library hard limits `auth.UnverifiedAccountLimits`), 500 per statement and at most 20 statements per run (`FOR UPDATE SKIP LOCKED`), runs the `AccountDeleted` hook for each and records one `auth.accounts.unverified_expired` event with only the count. Accounts with a Google or Apple identity, and accounts sent a code within the TTL, are kept. Soft deletion reuses account deletion: the address is free at once and the rows go after `auth.deleted_account_retention`. No `CheckAccountDeletion`: an unverified account without an identity can't sign in, so it owns nothing to hand over. `/ops/retention` lists `unverified_accounts`.
+- **A request signed in to the account claims nothing from itself.** `claimAddress` removes nothing when the verifying request is signed in to that same account (ADR-0046 follow-up): its session came from the account's own identity, and the code proves the address too.
+
+| Check | Result |
+|---|---|
+| `TestRolesGrantPermissions`, `TestAuthenticationEndToEnd` | An unverified account gets `ErrEmailNotVerified` and no role; `grant-role` explains why |
+| `TestCleanupExpiresUnverifiedAccounts` | Of accounts registered 49 hours earlier with a 48-hour TTL, the one without a recent code is deleted and its address can register again; a verified account, a Google account without a verified address, one sent a code two hours earlier and a recent registration stay; one audit event with only the count |
+| `TestOpsRetention` | `unverified_accounts` names `auth.unverified_account_ttl` and `auth_cleanup` |

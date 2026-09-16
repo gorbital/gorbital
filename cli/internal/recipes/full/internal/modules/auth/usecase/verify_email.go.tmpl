@@ -59,9 +59,17 @@ func (s *Service) VerifyEmail(ctx context.Context, email, code string) error {
 // passkeys, authenticator app, recovery codes and Google and Apple
 // identities (queuing Apple's tokens for revocation): whoever registered the
 // address before it was proven keeps nothing (security review AUTH-S-1).
-// Sign-in needs a verified address, so an unverified account normally has
-// none of these.
+// Password sign-in needs a verified address, so such an account has these
+// only from a Google or Apple identity whose provider isn't authoritative
+// for the address, which is removed too.
+//
+// A request signed in to the account itself removes nothing: whoever holds
+// that session got it from the account's own identity, and now proved the
+// address too, so both are the owner's.
 func (s *Service) claimAddress(ctx context.Context, tx Store, userID string, now time.Time, reason string) error {
+	if p, ok := authlib.PrincipalFrom(ctx); ok && p.UserID == userID {
+		return nil
+	}
 	if _, err := tx.RevokeUserSessions(ctx, userID, "", now, reason); err != nil {
 		return err
 	}

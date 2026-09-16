@@ -91,8 +91,7 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 		if err := tx.UpdatePassword(ctx, u.ID, hash, now); err != nil {
 			return err
 		}
-		if u.EmailVerified() {
-			_, err = tx.RevokeUserSessions(ctx, u.ID, "", now, "password_reset")
+		if _, err := tx.RevokeUserSessions(ctx, u.ID, "", now, "password_reset"); err != nil || u.EmailVerified() {
 			return err
 		}
 		if err := tx.MarkEmailVerified(ctx, u.ID, now); err != nil {

@@ -34,6 +34,7 @@ type appSettings struct {
 	authVerificationCodeTTL     *settings.Setting[time.Duration]
 	authResetCodeTTL            *settings.Setting[time.Duration]
 	authDeletedAccountRetention *settings.Setting[time.Duration]
+	authUnverifiedAccountTTL    *settings.Setting[time.Duration]
 	authIPRequestsPerMinute     *settings.Setting[int]
 	authLoginAttempts           *settings.Setting[int]
 	authLoginAddressAttempts    *settings.Setting[int]
@@ -133,6 +134,11 @@ func declareSettings(reg *settings.Registry) appSettings {
 		authDeletedAccountRetention: settings.Duration(reg, "auth.deleted_account_retention", authlib.DefaultDeletedAccountRetention,
 			settings.Describe("How long deleted accounts are kept before the auth_cleanup job removes them."),
 			settings.Range(24*time.Hour, 365*24*time.Hour),
+			settings.ReasonRequired(),
+		),
+		authUnverifiedAccountTTL: settings.Duration(reg, "auth.unverified_account_ttl", authlib.DefaultUnverifiedAccountTTL,
+			settings.Describe("How long an account whose email address was never verified stays before the auth_cleanup job deletes it, freeing the address. Accounts with a Google or Apple sign-in are kept."),
+			settings.Range(time.Hour, 90*24*time.Hour),
 			settings.ReasonRequired(),
 		),
 

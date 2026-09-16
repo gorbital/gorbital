@@ -165,3 +165,15 @@ Errors: `invalid_social_token` (401), `invalid_state` (401), `social_email_unver
 | `TestSocialLinkingEndToEnd` (the reviewers' PoC) | Google sign-in for a password account's non-Gmail address redirects with `#error=social_link_required` and no session; after `POST /v1/auth/identities` (201, then 200) it signs in to the owner's account; another account gets 409 |
 | `TestAppleNotificationReplay`, `TestAppleNotificationReplayEndToEnd` (the reviewers' PoC) | A replay after signing in again keeps the session; an event from before the link leaves it; a year-old notification is 401 |
 | `TestConcurrentFirstSignIn` | Six concurrent first sign-ins still get one account |
+
+### Follow-up (2026-09-16)
+
+- **Only an authoritative provider verifies a new account's address.** A first Google or Apple sign-in for an address with no account creates the account with `email_verified_at` set only when `AuthoritativeEmail()` holds (Gmail, the account's Workspace domain, iCloud, Apple relay). Otherwise the account is unverified: it signs in with its identity as before, but whoever later proves the address by email (verification code, password reset, or a registration followed by verification) runs `claimAddress`, which ends its sessions and removes the identity, passkeys and authenticator app. Signing in again with that identity then meets a verified account and gets `social_link_required`. An authoritative provider linking the unverified account still verifies it.
+- **The owner doesn't lose their own identity.** A request signed in to the account (whose session came from the account's own identity) that also proves the address removes nothing, so a person who created their account with a personal Google account on their company address verifies it while signed in and keeps Google.
+- Accounts created this way stay unverified until verified by email, so they can't be granted roles or accept organisation invitations (which need a verified address). `auth_cleanup` never expires an account with an identity.
+
+| Check | Result |
+|---|---|
+| `TestNonAuthoritativeSocialAccountIsClaimedByEmail` | An attacker's Google identity for `victim@corp.example` creates an unverified account; after the victim resets the password by email code, the attacker's session is gone and the Google sign-in answers `social_link_required`; a Gmail account is verified |
+| `TestSignedInOwnerVerifiesWithoutLosingTheirSignIn` | Verifying while signed in to the account keeps the Google identity |
+| `TestSocialWebSignIn`, `TestIdentitiesRemovalAndAccountDeletion` | Updated: a new account for `example.com` is unverified; Google is linked explicitly to an iCloud account |

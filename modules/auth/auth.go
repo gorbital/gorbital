@@ -21,6 +21,9 @@ const (
 	DefaultVerificationCodeTTL     = 15 * time.Minute
 	DefaultResetCodeTTL            = 30 * time.Minute
 	DefaultDeletedAccountRetention = 30 * 24 * time.Hour
+	// DefaultUnverifiedAccountTTL is how long an account whose address was
+	// never verified stays before cleanup deletes it.
+	DefaultUnverifiedAccountTTL = 7 * 24 * time.Hour
 
 	// DefaultLoginAttempts per email address and client network within
 	// DefaultLoginWindow.
@@ -81,9 +84,10 @@ func (l Limits) Clamp(d time.Duration) time.Duration {
 
 // Hard limits for authentication durations.
 var (
-	SessionIdleLimits      = Limits{Min: 5 * time.Minute, Max: 90 * 24 * time.Hour}
-	SessionAbsoluteLimits  = Limits{Min: time.Hour, Max: 365 * 24 * time.Hour}
-	VerificationCodeLimits = Limits{Min: time.Minute, Max: time.Hour}
-	ResetCodeLimits        = Limits{Min: time.Minute, Max: 2 * time.Hour}
-	DeletedRetentionLimits = Limits{Min: 0, Max: 365 * 24 * time.Hour}
+	SessionIdleLimits       = Limits{Min: 5 * time.Minute, Max: 90 * 24 * time.Hour}
+	SessionAbsoluteLimits   = Limits{Min: time.Hour, Max: 365 * 24 * time.Hour}
+	VerificationCodeLimits  = Limits{Min: time.Minute, Max: time.Hour}
+	ResetCodeLimits         = Limits{Min: time.Minute, Max: 2 * time.Hour}
+	DeletedRetentionLimits  = Limits{Min: 0, Max: 365 * 24 * time.Hour}
+	UnverifiedAccountLimits = Limits{Min: time.Hour, Max: 90 * 24 * time.Hour}
 )

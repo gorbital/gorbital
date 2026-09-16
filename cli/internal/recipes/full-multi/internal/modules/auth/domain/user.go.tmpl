@@ -83,4 +83,7 @@ type CleanupResult struct {
 	Codes      int64
 	Challenges int64
 	Users      int64
+	// Unverified counts accounts deleted because their address was never
+	// verified.
+	Unverified int64
 }

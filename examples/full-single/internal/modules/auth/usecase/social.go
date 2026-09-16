@@ -209,7 +209,8 @@ func (s *Service) newIdentity(ctx context.Context, id social.Identity, refreshTo
 // signInWithIdentity finds or creates the account of a verified identity,
 // then starts a session or a second-factor challenge. An unknown identity
 // with a provider-verified email creates an account when the address has
-// none. It links to the address's existing account only when the provider is
+// none; the account's address counts as verified only when the provider is
+// authoritative for it. It links to the address's existing account only when the provider is
 // authoritative for the address (social.Identity.AuthoritativeEmail):
 // otherwise the address may have changed hands since the provider verified
 // it, and the account's owner links the provider with LinkIdentity instead
@@ -256,7 +257,14 @@ func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, re
 		u, err = tx.SelectUserByEmail(ctx, normalized, true)
 		switch {
 		case errors.Is(err, authdomain.ErrUserNotFound):
-			u, err = tx.InsertUser(ctx, authdomain.User{ID: authlib.NewID("usr"), Email: email, NormalizedEmail: normalized, EmailVerifiedAt: &now, CreatedAt: now})
+			// Only a provider authoritative for the address proves it; otherwise
+			// the account stays unverified, so whoever proves the address later
+			// by email claims it and removes this identity (claimAddress).
+			var verifiedAt *time.Time
+			if id.AuthoritativeEmail() {
+				verifiedAt = &now
+			}
+			u, err = tx.InsertUser(ctx, authdomain.User{ID: authlib.NewID("usr"), Email: email, NormalizedEmail: normalized, EmailVerifiedAt: verifiedAt, CreatedAt: now})
 			if err != nil {
 				return err
 			}

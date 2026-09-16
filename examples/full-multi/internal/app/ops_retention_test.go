@@ -34,6 +34,7 @@ func TestOpsRetention(t *testing.T) {
 		"job_definition_history": "ops.history_retention",
 		"release_instances":      "releases.instance_retention",
 		"deleted_accounts":       "auth.deleted_account_retention",
+		"unverified_accounts":    "auth.unverified_account_ttl",
 	} {
 		if p := policies[data]; p == nil || p["setting"] != setting || (p["job"] == nil && p["enforced_by"] == nil) {
 			t.Errorf("%s policy = %v, want setting %s and what enforces it", data, p, setting)

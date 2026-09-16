@@ -13,6 +13,8 @@ import (
 	"gorbital.dev/actor"
 	"gorbital.dev/config"
 	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/auth/social"
+	"gorbital.dev/modules/auth/social/socialtest"
 
 	authdomain "⟦.Module⟧/internal/modules/auth/domain"
 	authusecase "⟦.Module⟧/internal/modules/auth/usecase"
@@ -726,5 +728,56 @@ func TestNewServiceValidates(t *testing.T) {
 	if _, err := authusecase.NewService(authusecase.Config{LoginAttempts: -1, LoginWindow: time.Minute}); err == nil ||
 		!strings.Contains(err.Error(), "required") || !strings.Contains(err.Error(), "login limit") {
 		t.Errorf("NewService(empty config) error = %v", err)
+	}
+}
+
+// TestCleanupExpiresUnverifiedAccounts: accounts still unverified after
+// auth.unverified_account_ttl are deleted, freeing the address, with one
+// audit event counting them; verified accounts, accounts with a Google or
+// Apple identity and recent registrations stay.
+func TestCleanupExpiresUnverifiedAccounts(t *testing.T) {
+	f := newSocialFixture(t, func(c *authusecase.Config) { c.UnverifiedAccountTTL = config.Static(48 * time.Hour) })
+	ctx := requestCtx()
+	for _, email := range []string{"old1@example.com", "old2@example.com"} {
+		if err := f.svc.Register(ctx, email, password); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.signUp(t, "verified@example.com")
+	if _, err := f.webSignIn(t, social.Google, socialtest.Claims{Subject: "g-social", Email: "social@corp.example", EmailVerified: true}, ""); err != nil {
+		t.Fatal(err)
+	}
+	f.clock.advance(47 * time.Hour)
+	if err := f.svc.Register(ctx, "recent@example.com", password); err != nil {
+		t.Fatal(err)
+	}
+	// old2's owner asked for a new code just now: still verifying.
+	if err := f.svc.ResendVerification(ctx, "old2@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	f.clock.advance(2 * time.Hour)
+
+	res, err := f.svc.Cleanup(context.Background())
+	if err != nil || res.Unverified != 1 {
+		t.Fatalf("Cleanup() = %+v, %v; want 1 unverified account deleted", res, err)
+	}
+	if _, err := f.svc.UserByEmail(operator(), "old1@example.com"); !errors.Is(err, authdomain.ErrUserNotFound) {
+		t.Errorf("UserByEmail(expired) error = %v, want ErrUserNotFound", err)
+	}
+	for _, email := range []string{"old2@example.com", "verified@example.com", "social@corp.example", "recent@example.com"} {
+		if _, err := f.svc.UserByEmail(operator(), email); err != nil {
+			t.Errorf("UserByEmail(%s) error = %v, want the account kept", email, err)
+		}
+	}
+	e, ok := f.audit.find("auth.accounts.unverified_expired")
+	if !ok || e.Metadata["count"] != int64(1) || len(e.Metadata) != 1 || e.ResourceID != "" {
+		t.Errorf("audit event = %+v, want only the count", e)
+	}
+	// The address is free again, and a second run finds nothing.
+	if err := f.svc.Register(ctx, "old1@example.com", "someone else's password"); err != nil {
+		t.Fatal(err)
+	}
+	if res, err := f.svc.Cleanup(context.Background()); err != nil || res.Unverified != 0 {
+		t.Errorf("Cleanup() again = %+v, %v; want nothing", res, err)
 	}
 }

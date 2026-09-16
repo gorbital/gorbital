@@ -55,6 +55,10 @@ func changeRole(ctx context.Context, cfg Config, email, role string, grant bool,
 	} else {
 		err = svc.RevokeRole(ctx, user.ID, role)
 	}
+	if errors.Is(err, authdomain.ErrEmailNotVerified) {
+		return fmt.Errorf("%s hasn't verified its email address; roles are granted only to verified accounts. "+
+			"Ask the user to verify with the emailed code (or reset the password, which verifies it), then grant the role again", email)
+	}
 	if errors.Is(err, authdomain.ErrUnknownRole) {
 		var names []string
 		for _, r := range svc.Catalog().Roles() {
@@ -73,9 +77,6 @@ func changeRole(ctx context.Context, cfg Config, email, role string, grant bool,
 		roles = strings.Join(user.Roles, ", ")
 	}
 	fmt.Fprintf(w, "✓ %s now has roles: %s\n", email, roles)
-	if grant && !user.EmailVerified() {
-		fmt.Fprintln(w, "  The email address isn't verified yet; the role applies once the user verifies it and signs in.")
-	}
 	return nil
 }
 

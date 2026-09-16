@@ -63,6 +63,7 @@ type Config struct {
 	VerificationCodeTTL     config.Value[time.Duration]
 	ResetCodeTTL            config.Value[time.Duration]
 	DeletedAccountRetention config.Value[time.Duration]
+	UnverifiedAccountTTL    config.Value[time.Duration]
 	// LoginLimiter limits sign-in attempts per address from one client
 	// network, and LoginAddressLimiter per address from any network (second
 	// factors included); MFALimiter limits changes to two-factor
@@ -132,6 +133,7 @@ type Service struct {
 	verificationCode config.Value[time.Duration]
 	resetCode        config.Value[time.Duration]
 	retention        config.Value[time.Duration]
+	unverifiedTTL    config.Value[time.Duration]
 }
 
 // NewService returns a Service. It freezes the catalog.
@@ -156,6 +158,7 @@ func NewService(c Config) (*Service, error) {
 		verificationCode: orDefault(c.VerificationCodeTTL, config.Static(authlib.DefaultVerificationCodeTTL)),
 		resetCode:        orDefault(c.ResetCodeTTL, config.Static(authlib.DefaultResetCodeTTL)),
 		retention:        orDefault(c.DeletedAccountRetention, config.Static(authlib.DefaultDeletedAccountRetention)),
+		unverifiedTTL:    orDefault(c.UnverifiedAccountTTL, config.Static(authlib.DefaultUnverifiedAccountTTL)),
 		minResponseTime:  orDefault(c.MinResponseTime, authlib.DefaultMinResponseTime),
 	}
 	if s.now == nil {

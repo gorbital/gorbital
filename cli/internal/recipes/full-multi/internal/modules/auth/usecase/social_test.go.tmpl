@@ -124,9 +124,10 @@ func TestSocialWebSignIn(t *testing.T) {
 		t.Fatalf("StartSocialSignIn() = %+v, %v", start, err)
 	}
 
-	// A new person gets an account with a verified email and no password.
+	// A new person gets an account without a password. Google doesn't manage
+	// example.com, so the address isn't verified by it.
 	res, err := f.webSignIn(t, social.Google, ada, "")
-	if err != nil || res.Token == "" || res.ReturnTo != returnTo || !res.User.EmailVerified() || res.User.HasPassword() || res.User.Email != "Ada@Example.com" {
+	if err != nil || res.Token == "" || res.ReturnTo != returnTo || res.User.EmailVerified() || res.User.HasPassword() || res.User.Email != "Ada@Example.com" {
 		t.Fatalf("FinishSocialSignIn(new person) = %+v, %v", res, err)
 	}
 	if !hasAll(f.audit.actions(), "auth.user.registered", "auth.identity.linked", "auth.login.succeeded") {
@@ -320,7 +321,7 @@ func TestNativeSocialSignIn(t *testing.T) {
 
 func TestIdentitiesRemovalAndAccountDeletion(t *testing.T) {
 	f := newSocialFixture(t)
-	apple := socialtest.Claims{Subject: "001.ada", Audience: "com.example.app", Email: "ada@example.com", Extra: map[string]any{"email_verified": "true"}}
+	apple := socialtest.Claims{Subject: "001.ada", Audience: "com.example.app", Email: "ada@icloud.com", Extra: map[string]any{"email_verified": "true"}}
 	res, err := f.nativeSignIn(t, social.Apple, apple, f.srv.Code(socialtest.Claims{Subject: "001.ada", Audience: "com.example.app"}, "refresh-1"), "")
 	if err != nil {
 		t.Fatal(err)
@@ -337,8 +338,9 @@ func TestIdentitiesRemovalAndAccountDeletion(t *testing.T) {
 	}
 
 	// With Google linked, Google can go; an old session needs a new sign-in.
-	google := socialtest.Claims{Subject: "g-ada", Email: "ada@example.com", EmailVerified: true, Extra: map[string]any{"hd": "example.com"}}
-	if _, err := f.webSignIn(t, social.Google, google, ""); err != nil {
+	// Google doesn't manage iCloud addresses, so the signed-in user links it.
+	google := socialtest.Claims{Subject: "g-ada", Email: "ada@icloud.com", EmailVerified: true}
+	if _, _, err := f.linkIdentity(t, ctx, social.Google, google, ""); err != nil {
 		t.Fatal(err)
 	}
 	identities, _ = f.svc.ListIdentities(ctx)
@@ -613,5 +615,64 @@ func TestSocialLinksOnlyAuthoritativeEmails(t *testing.T) {
 	}
 	if _, _, err := f.svc.LinkIdentity(requestCtx(), social.Google, token, "made-up", "", "", password); !errors.Is(err, authlib.ErrUnauthenticated) {
 		t.Errorf("LinkIdentity(signed out) error = %v, want ErrUnauthenticated", err)
+	}
+}
+
+// TestNonAuthoritativeSocialAccountIsClaimedByEmail: a Google account for an
+// address Google doesn't manage creates an unverified account, so the
+// address's owner proving it by email removes that identity (security review
+// AUTH-M-1, AUTH-S-1). A provider that manages the address verifies it.
+func TestNonAuthoritativeSocialAccountIsClaimedByEmail(t *testing.T) {
+	f := newSocialFixture(t)
+	attacker := socialtest.Claims{Subject: "g-attacker", Email: "victim@corp.example", EmailVerified: true}
+	res, err := f.webSignIn(t, social.Google, attacker, "")
+	if err != nil || res.Token == "" || res.User.EmailVerified() {
+		t.Fatalf("FinishSocialSignIn(address Google doesn't manage) = %+v, %v; want a session on an unverified account", res.User, err)
+	}
+	if gmail, err := f.webSignIn(t, social.Google, socialtest.Claims{Subject: "g-ada", Email: "ada@gmail.com", EmailVerified: true}, ""); err != nil || !gmail.User.EmailVerified() {
+		t.Errorf("FinishSocialSignIn(Gmail) = %+v, %v; want a verified account", gmail.User, err)
+	}
+
+	// The victim resets the password with the emailed code.
+	if err := f.svc.RequestPasswordReset(requestCtx(), "victim@corp.example"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.ResetPassword(requestCtx(), "victim@corp.example", f.emails.last(t, "reset").code, "the victim's own password"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.Authenticate(context.Background(), res.Token); !errors.Is(err, authlib.ErrUnauthenticated) {
+		t.Errorf("attacker's session after the reset error = %v, want ErrUnauthenticated", err)
+	}
+	again, err := f.webSignIn(t, social.Google, attacker, "")
+	if !errors.Is(err, authdomain.ErrSocialLinkRequired) || again.Token != "" {
+		t.Errorf("attacker's Google sign-in after the reset = %+v, %v; want ErrSocialLinkRequired and no session", again.User, err)
+	}
+	if _, err := f.svc.Login(requestCtx(), "victim@corp.example", "the victim's own password"); err != nil {
+		t.Errorf("Login(victim) error = %v", err)
+	}
+}
+
+// TestSignedInOwnerVerifiesWithoutLosingTheirSignIn: the person signed in
+// with the account's own Google identity who also proves the address keeps
+// the identity.
+func TestSignedInOwnerVerifiesWithoutLosingTheirSignIn(t *testing.T) {
+	f := newSocialFixture(t)
+	owner := socialtest.Claims{Subject: "g-owner", Email: "owner@corp.example", EmailVerified: true}
+	res, err := f.webSignIn(t, social.Google, owner, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := f.principalCtx(t, res.Token)
+	if err := f.svc.ResendVerification(requestCtx(), "owner@corp.example"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.VerifyEmail(ctx, "owner@corp.example", f.emails.last(t, "verify").code); err != nil {
+		t.Fatal(err)
+	}
+	if identities, err := f.svc.ListIdentities(ctx); err != nil || len(identities) != 1 {
+		t.Errorf("ListIdentities() after verifying signed in = %+v, %v; want the Google identity kept", identities, err)
+	}
+	if again, err := f.webSignIn(t, social.Google, owner, ""); err != nil || again.User.ID != res.User.ID || !again.User.EmailVerified() {
+		t.Errorf("Google sign-in after verifying = %+v, %v", again.User, err)
 	}
 }

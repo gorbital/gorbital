@@ -146,6 +146,12 @@ func TestAuthenticationEndToEnd(t *testing.T) {
 	if err := app.GrantRole(context.Background(), cfg, "nobody@example.com", "ops_viewer", io.Discard); err == nil || !strings.Contains(err.Error(), "register") {
 		t.Errorf("GrantRole(unknown account) error = %v", err)
 	}
+	// Roles go only to verified accounts: whoever verifies an address later
+	// may not be who registered it.
+	do(t, h, "POST", "/v1/auth/register", `{"email":"pending@example.com","password":"a long enough password"}`)
+	if err := app.GrantRole(context.Background(), cfg, "pending@example.com", "ops_viewer", io.Discard); err == nil || !strings.Contains(err.Error(), "hasn't verified its email address") {
+		t.Errorf("GrantRole(unverified account) error = %v, want a refusal naming verification", err)
+	}
 	// The role requires two-factor authentication, which this account hasn't
 	// turned on (ADR-0043).
 	if r := do(t, h, "GET", "/ops/audit", "", native...); r.code != http.StatusForbidden || r.json["code"] != "mfa_required" {

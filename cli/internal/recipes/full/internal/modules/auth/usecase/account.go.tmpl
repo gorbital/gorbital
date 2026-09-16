@@ -141,7 +141,8 @@ func (s *Service) withRoles(ctx context.Context, op string, find func() (authdom
 }
 
 // GrantRole gives a user a platform role. Granting a role the user has
-// changes nothing. It returns ErrUnknownRole, ErrUserNotFound or
+// changes nothing. It returns ErrUnknownRole, ErrUserNotFound,
+// ErrEmailNotVerified for an account whose address isn't verified, or
 // ErrActorRequired.
 func (s *Service) GrantRole(ctx context.Context, userID, role string) error {
 	a, err := requireActor(ctx)
@@ -151,10 +152,16 @@ func (s *Service) GrantRole(ctx context.Context, userID, role string) error {
 	if !s.catalog.HasRole(role) {
 		return authdomain.ErrUnknownRole
 	}
-	if _, err := s.store.SelectUserByID(ctx, userID, false); errors.Is(err, authdomain.ErrUserNotFound) {
+	u, err := s.store.SelectUserByID(ctx, userID, false)
+	switch {
+	case errors.Is(err, authdomain.ErrUserNotFound):
 		return err
-	} else if err != nil {
+	case err != nil:
 		return dbError("grant role", err)
+	case !u.EmailVerified():
+		// Whoever verifies the address later may not be who registered it:
+		// verification removes what came before, but a role would stay.
+		return authdomain.ErrEmailNotVerified
 	}
 	added, err := s.store.InsertUserRole(ctx, userID, role, string(a.Kind)+":"+a.ID, s.now())
 	if err != nil {
@@ -187,12 +194,18 @@ func (s *Service) RevokeRole(ctx context.Context, userID, role string) error {
 }
 
 // Cleanup removes sessions that ended more than 7 days ago, codes older
-// than a day, and accounts deleted longer ago than the retention period.
-// The auth_cleanup job runs it.
+// than a day, and accounts deleted longer ago than the retention period. It
+// deletes accounts still unverified after auth.unverified_account_ttl, like
+// account deletion, so an abandoned or unowned registration doesn't hold an
+// address forever; accounts with a Google or Apple identity are kept. The
+// auth_cleanup job runs it.
 func (s *Service) Cleanup(ctx context.Context) (authdomain.CleanupResult, error) {
 	now := s.now()
 	var res authdomain.CleanupResult
 	var err error
+	if res.Unverified, err = s.expireUnverified(ctx, now); err != nil {
+		return res, err
+	}
 	if res.Sessions, err = s.store.DeleteEndedSessions(ctx, now.Add(-authlib.EndedSessionRetention)); err != nil {
 		return res, dbError("clean up sessions", err)
 	}
@@ -221,4 +234,38 @@ func (s *Service) Cleanup(ctx context.Context) (authdomain.CleanupResult, error)
 		s.audit(ctx, auditEvent{Action: "auth.accounts.purged", ActorKind: "system", ActorID: "auth_cleanup", ResourceType: "user", Metadata: map[string]any{"count": res.Users}})
 	}
 	return res, nil
+}
+
+// unverifiedBatch is how many unverified accounts one statement deletes, and
+// unverifiedBatches how many statements one cleanup runs; the next run
+// continues.
+const (
+	unverifiedBatch   = 500
+	unverifiedBatches = 20
+)
+
+// expireUnverified soft-deletes accounts whose address stayed unverified
+// past auth.unverified_account_ttl, runs the AccountDeleted hook for each
+// and records one audit event with the count. Such accounts can't sign in,
+// so they own nothing another module must check first.
+func (s *Service) expireUnverified(ctx context.Context, now time.Time) (int64, error) {
+	before := now.Add(-authlib.UnverifiedAccountLimits.Clamp(s.unverifiedTTL.Get(ctx)))
+	var total int64
+	for range unverifiedBatches {
+		ids, err := s.store.MarkUnverifiedUsersDeleted(ctx, before, now, unverifiedBatch)
+		if err != nil {
+			return total, dbError("delete unverified accounts", err)
+		}
+		for _, id := range ids {
+			s.accountDeleted(ctx, id)
+		}
+		total += int64(len(ids))
+		if len(ids) < unverifiedBatch {
+			break
+		}
+	}
+	if total > 0 {
+		s.audit(ctx, auditEvent{Action: "auth.accounts.unverified_expired", ActorKind: "system", ActorID: "auth_cleanup", ResourceType: "user", Metadata: map[string]any{"count": total}})
+	}
+	return total, nil
 }

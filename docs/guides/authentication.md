@@ -165,7 +165,7 @@ Native app: POST /v1/auth/{provider}/nonce → SDK sign-in with the nonce → PO
 | `DELETE /v1/auth/identities/{id}` | ✓ | `{password}` unless the second factor is under 10 minutes old; accounts without a password sign in again first | 204 |
 | `POST /v1/auth/apple/notifications` | | Apple's server-to-server notifications | 204 |
 
-- **New people** get an account with a verified email and no password (`user.has_password` false); they can set one with "forgot password".
+- **New people** get an account with no password (`user.has_password` false); they can set one with "forgot password". The address counts as verified (`user.email_verified`) only when the provider manages it (below). Otherwise the account works for signing in with that provider, but whoever proves the address by email later (a verification code or password reset) takes the account over: its sessions end and the provider link is removed. The person themselves verifies while signed in (`POST /v1/auth/verify-email/resend`, then `POST /v1/auth/verify-email` with their session) and keeps the link.
 - **An existing account with the same email** is linked by signing in only when the provider manages the address: Google for `gmail.com`, `googlemail.com` and the account's own Google Workspace domain (the `hd` claim), Apple for iCloud (`icloud.com`, `me.com`, `mac.com`) and its private relay addresses. The owner gets an email. For any other address a provider's "verified" only means the person controlled it when they added it, maybe years ago, so sign-in answers `social_link_required` (403): the owner signs in and links the provider with `POST /v1/auth/identities`, sending an ID token from Google's or Apple's SDK in a native app, or from Google Identity Services or Sign in with Apple JS in a browser.
 - If that account never verified its email, linking by sign-in removes its password, ends its sessions, and removes any passkey, authenticator app or other identity, so whoever registered the address without owning it loses access.
 - **Two-factor authentication** still applies: an account with it on gets a challenge, as with a password.
@@ -215,7 +215,9 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 
 - **Registration** always answers "check your email", even if the address already has an account, and takes the same time (at least 300 ms) either way; the owner of an existing account gets an email saying someone tried to sign up. Resending a code and forgot password take the same time too.
 - **Registering again before verifying** sends a new code (at most once a minute) and keeps the password only when it's the same one. With a different password the account is left without one: nobody has proven they own the address yet, so neither the first nor the last registrant gets to choose the password of the account the owner verifies. After verifying, the owner sets a password with forgot password. Show that option when sign-in answers `invalid_credentials` right after verification.
-- **Verifying an address**, with its code or with a password reset code, signs out every session and removes any passkey, authenticator app, recovery codes and Google or Apple link the account got before its address was proven.
+- **Verifying an address**, with its code or with a password reset code, signs out every session and removes any passkey, authenticator app, recovery codes and Google or Apple link the account got before its address was proven, unless the request is signed in to that account.
+- **Unverified accounts expire**: the `auth_cleanup` job deletes accounts still unverified after `auth.unverified_account_ttl` (7 days), freeing the address. Accounts with a Google or Apple link, and accounts sent a code within that time, are kept.
+- **Roles** go only to verified accounts: `grant-role` refuses an unverified one.
 - **Wrong email or password** is one answer: `invalid_credentials`. `email_not_verified` appears only after the right password.
 - **Forgot password** always answers "check your email".
 - **Codes** are 6 digits, expire (15 minutes to verify, 30 to reset, adjustable), allow 5 tries, and a new one replaces the old one. An address gets 20 code checks a day across all its codes (`auth.code_attempts`, `auth.code_window`), whether or not it has an account; past that even the right code gets `too_many_attempts` until the window passes, so a new code every minute doesn't bring new guesses.
@@ -240,7 +242,7 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 - A session ends after 14 days without use or 90 days in total (runtime settings `auth.session_idle_ttl`, `auth.session_absolute_ttl`), or when signed out.
 - A session is `mfa_verified` when it was created with a second factor, or when the user confirmed two-factor authentication in it. Roles requiring 2FA grant their permissions only to such sessions.
 - Changing the password signs out other devices; resetting it or deleting the account signs out every device; turning two-factor authentication on or off signs out other devices.
-- The `auth_cleanup` job (daily, 03:30 UTC) removes ended sessions after 7 days, old codes and sign-in challenges, and deleted accounts after `auth.deleted_account_retention` (30 days).
+- The `auth_cleanup` job (daily, 03:30 UTC) removes ended sessions after 7 days, old codes and sign-in challenges, and deleted accounts after `auth.deleted_account_retention` (30 days). It deletes accounts still unverified after `auth.unverified_account_ttl` (7 days), recording `auth.accounts.unverified_expired` with the count.
 - The `ratelimit_cleanup` job (hourly) deletes rate limit buckets that are full again.
 - The `auth_revoke_tokens` job (every minute) revokes queued Apple tokens, retrying after 1, 2, 4 … minutes up to 6 hours; after 10 failures it gives up and records `auth.identity.revocation_abandoned`.
 
@@ -253,6 +255,7 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 | `auth.verification_code_ttl` | 15 minutes | 5 minutes – 1 hour | Yes |
 | `auth.reset_code_ttl` | 30 minutes | 10 minutes – 2 hours | Yes |
 | `auth.deleted_account_retention` | 30 days | 1 – 365 days | Yes |
+| `auth.unverified_account_ttl` | 7 days | 1 hour – 90 days | Yes |
 
 Rate limit settings (group `rate_limits`, all with a reason required) are in the table under [What users see](#what-users-see): `auth.ip_requests_per_minute` (10 – 10 000), `auth.login_attempts` (3 – 100), `auth.login_address_attempts` (10 – 1000), `auth.login_window` (1 minute – 24 hours), `auth.mfa_change_attempts` (3 – 100), `auth.reauth_attempts` (3 – 100), `auth.code_attempts` (5 – 100) and `auth.code_window` (1 hour – 7 days).
 
@@ -316,7 +319,7 @@ Every sign-in (successful or not), second factor (`auth.mfa.challenge_succeeded`
 |---|---|
 | No code arrives | Check Mailpit (http://127.0.0.1:8025) in development, or `GET /ops/jobs/runs?kind=gorbital.mail.send` for delivery errors ([email guide](email.md)) |
 | `email_not_verified` | Verify with the emailed code, or `POST /v1/auth/verify-email/resend` |
-| `forbidden` on `/ops/*` | `go run ./cmd/api grant-role <email> platform_admin` |
+| `forbidden` on `/ops/*` | `go run ./cmd/api grant-role <email> platform_admin` (the account's address must be verified) |
 | `mfa_required` on `/ops/*` | Turn on two-factor authentication (`POST /v1/auth/mfa/totp`, then `/confirm`), or sign in again with a code |
 | `invalid_mfa` with a correct-looking code | The code was already used, or the phone's clock is off by more than 30 seconds: wait for the next code |
 | `mfa_unavailable` | Set `AUTH_ENCRYPTION_KEYS` (`orb dev` does it in development) |

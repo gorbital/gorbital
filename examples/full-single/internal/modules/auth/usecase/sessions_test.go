@@ -145,6 +145,18 @@ func TestRolesGrantPermissions(t *testing.T) {
 	if err := f.svc.GrantRole(operator(), "usr_missing", "viewer"); !errors.Is(err, authdomain.ErrUserNotFound) {
 		t.Errorf("GrantRole(missing user) error = %v", err)
 	}
+	// An unverified account gets no role: whoever verifies the address later
+	// may not be who registered it.
+	if err := f.svc.Register(requestCtx(), "pending@example.com", password); err != nil {
+		t.Fatal(err)
+	}
+	pending, _ := f.svc.UserByEmail(operator(), "pending@example.com")
+	if err := f.svc.GrantRole(operator(), pending.ID, "viewer"); !errors.Is(err, authdomain.ErrEmailNotVerified) {
+		t.Errorf("GrantRole(unverified account) error = %v, want ErrEmailNotVerified", err)
+	}
+	if u, _ := f.svc.User(operator(), pending.ID); len(u.Roles) != 0 {
+		t.Errorf("unverified account roles = %v, want none", u.Roles)
+	}
 	for range 2 {
 		if err := f.svc.GrantRole(operator(), userID, "viewer"); err != nil {
 			t.Fatalf("GrantRole() error = %v", err)

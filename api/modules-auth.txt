@@ -28,6 +28,8 @@ pkg gorbital.dev/modules/auth, const DefaultSessionAbsoluteTTL = 777600000000000
 pkg gorbital.dev/modules/auth, const DefaultSessionAbsoluteTTL time.Duration
 pkg gorbital.dev/modules/auth, const DefaultSessionIdleTTL = 1209600000000000
 pkg gorbital.dev/modules/auth, const DefaultSessionIdleTTL time.Duration
+pkg gorbital.dev/modules/auth, const DefaultUnverifiedAccountTTL = 604800000000000
+pkg gorbital.dev/modules/auth, const DefaultUnverifiedAccountTTL time.Duration
 pkg gorbital.dev/modules/auth, const DefaultVerificationCodeTTL = 900000000000
 pkg gorbital.dev/modules/auth, const DefaultVerificationCodeTTL time.Duration
 pkg gorbital.dev/modules/auth, const EndedSessionRetention = 604800000000000
@@ -168,6 +170,7 @@ pkg gorbital.dev/modules/auth, var ErrWeakPassword error
 pkg gorbital.dev/modules/auth, var ResetCodeLimits Limits
 pkg gorbital.dev/modules/auth, var SessionAbsoluteLimits Limits
 pkg gorbital.dev/modules/auth, var SessionIdleLimits Limits
+pkg gorbital.dev/modules/auth, var UnverifiedAccountLimits Limits
 pkg gorbital.dev/modules/auth, var VerificationCodeLimits Limits
 pkg gorbital.dev/modules/auth/passkey, const CeremonyTTL = 300000000000
 pkg gorbital.dev/modules/auth/passkey, const CeremonyTTL time.Duration
