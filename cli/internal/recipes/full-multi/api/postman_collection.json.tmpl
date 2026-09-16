@@ -1311,6 +1311,316 @@
       ]
     },
     {
+      "name": "Ops: service accounts",
+      "item": [
+        {
+          "name": "List service accounts",
+          "request": {
+            "method": "GET",
+            "description": "Platform service accounts: non-human principals with platform roles, which authenticate with API keys.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/service-accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "service-accounts"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a service account",
+          "request": {
+            "method": "POST",
+            "description": "Roles that require two-factor authentication, such as the ops roles, can't be given: API keys never reach `/ops`. Create keys with `POST /ops/service-accounts/{id}/keys`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/service-accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "service-accounts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Billing sync\",\n  \"description\": \"string\",\n  \"roles\": [\n    \"string\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get a service account",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/service-accounts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "service-accounts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change a service account",
+          "request": {
+            "method": "PATCH",
+            "description": "Disabling it revokes all its keys at once.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/service-accounts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "service-accounts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"string\",\n  \"disabled\": false,\n  \"name\": \"string\",\n  \"roles\": [\n    \"string\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete a service account",
+          "request": {
+            "method": "DELETE",
+            "description": "Deletes its keys too.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/service-accounts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "service-accounts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List a service account's API keys",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/service-accounts/:id/keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "service-accounts",
+                ":id",
+                "keys"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create an API key for a service account",
+          "request": {
+            "method": "POST",
+            "description": "Returns the key once. Scopes must be permissions the service account's roles grant. Send your password unless this session verified a second factor in the last 10 minutes.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/service-accounts/:id/keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "service-accounts",
+                ":id",
+                "keys"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expires_at\": \"2026-09-15T12:00:00Z\",\n  \"name\": \"CI deploys\",\n  \"password\": \"string\",\n  \"scopes\": [\n    \"string\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Revoke a service account's API key",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/service-accounts/:id/keys/:keyId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "service-accounts",
+                ":id",
+                "keys",
+                ":keyId"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                },
+                {
+                  "key": "keyId",
+                  "value": "key_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Ops: system",
       "item": [
         {
@@ -1345,6 +1655,110 @@
     {
       "name": "Auth",
       "item": [
+        {
+          "name": "List your API keys",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/api-keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "api-keys"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create an API key",
+          "request": {
+            "method": "POST",
+            "description": "Returns the key once. Programs send it as `Authorization: Bearer \u003ckey\u003e` and act as you, with your current permissions limited to the key's scopes, never those of roles that require two-factor authentication (so never `/ops`). Needs a verified address and your password, unless this session verified a second factor in the last 10 minutes; with two-factor authentication on, the session must have verified one. An API key can't be used to manage your account, sessions or API keys.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/api-keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "api-keys"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expires_at\": \"2026-09-15T12:00:00Z\",\n  \"name\": \"CI deploys\",\n  \"password\": \"string\",\n  \"scopes\": [\n    \"string\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Revoke an API key",
+          "request": {
+            "method": "DELETE",
+            "description": "The key stops working at once.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/api-keys/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "api-keys",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "key_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        },
         {
           "name": "Apple's return to the API",
           "request": {
@@ -3340,6 +3754,363 @@
                 {
                   "key": "orgId",
                   "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List the organisation's service accounts",
+          "request": {
+            "method": "GET",
+            "description": "Service accounts are non-human members with one organisation role, which authenticate with API keys and act only in this organisation. Owners and admins manage them.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a service account",
+          "request": {
+            "method": "POST",
+            "description": "The role must be one you could give a member, and not owner or a role that requires two-factor authentication.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Billing sync\",\n  \"role\": \"member\",\n  \"description\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get a service account",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change a service account",
+          "request": {
+            "method": "PATCH",
+            "description": "Disabling it revokes all its keys at once.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"string\",\n  \"disabled\": false,\n  \"name\": \"string\",\n  \"role\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete a service account",
+          "request": {
+            "method": "DELETE",
+            "description": "Deletes its keys too.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List a service account's API keys",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id/keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id",
+                "keys"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create an API key for a service account",
+          "request": {
+            "method": "POST",
+            "description": "Returns the key once. Scopes must be permissions the service account's role grants. Send your password unless this session verified a second factor in the last 10 minutes.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id/keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id",
+                "keys"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expires_at\": \"2026-09-15T12:00:00Z\",\n  \"name\": \"CI deploys\",\n  \"password\": \"string\",\n  \"scopes\": [\n    \"string\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Revoke a service account's API key",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id/keys/:keyId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id",
+                "keys",
+                ":keyId"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                },
+                {
+                  "key": "keyId",
+                  "value": "key_nbswy3dpeb3w64tmmq"
                 }
               ]
             }

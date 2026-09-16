@@ -30,7 +30,10 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 	if err := s.checkAccountDeletion(ctx, p.UserID); err != nil {
 		return err
 	}
-	var state error
+	var (
+		state   error
+		revoked int64
+	)
 	err = s.store.InTx(ctx, func(tx Store) error {
 		u, err := tx.SelectUserByID(ctx, p.UserID, true)
 		if err != nil {
@@ -54,6 +57,9 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 		if err := s.queueRevocations(ctx, tx, identities...); err != nil {
 			return err
 		}
+		if revoked, err = tx.RevokeOwnerAPIKeys(ctx, u.ID, "", now, authdomain.RevokedAccountDeleted); err != nil {
+			return err
+		}
 		_, err = tx.RevokeUserSessions(ctx, u.ID, "", now, "account_deleted")
 		return err
 	})
@@ -66,6 +72,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 		return s.reauthFailed(ctx, p.UserID, state)
 	}
 	s.audit(ctx, userEvent("auth.account.deleted", p.UserID, authlib.ClientInfoFromContext(ctx)))
+	s.keysRevoked(ctx, authdomain.OwnerUser, p.UserID, "", revoked, authdomain.RevokedAccountDeleted)
 	s.accountDeleted(ctx, p.UserID)
 	return nil
 }
@@ -194,7 +201,9 @@ func (s *Service) RevokeRole(ctx context.Context, userID, role string) error {
 }
 
 // Cleanup removes sessions that ended more than 7 days ago, codes older
-// than a day, and accounts deleted longer ago than the retention period. It
+// than a day, API keys expired or revoked more than 30 days ago (recording
+// each key's expiry first), and accounts deleted longer ago than the
+// retention period. It
 // deletes accounts still unverified after auth.unverified_account_ttl, like
 // account deletion, so an abandoned or unowned registration doesn't hold an
 // address forever; accounts with a Google or Apple identity are kept. The
@@ -204,6 +213,9 @@ func (s *Service) Cleanup(ctx context.Context) (authdomain.CleanupResult, error)
 	var res authdomain.CleanupResult
 	var err error
 	if res.Unverified, err = s.expireUnverified(ctx, now); err != nil {
+		return res, err
+	}
+	if res.ExpiredAPIKeys, res.APIKeys, err = s.cleanUpAPIKeys(ctx, now); err != nil {
 		return res, err
 	}
 	if res.Sessions, err = s.store.DeleteEndedSessions(ctx, now.Add(-authlib.EndedSessionRetention)); err != nil {

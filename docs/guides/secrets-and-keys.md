@@ -15,6 +15,7 @@ For step-by-step instructions for the values you provide, see the beginner guide
 | [`RESEND_API_KEY`](#resend-api-key-and-smtp-password) / `SMTP_PASSWORD` | Your email provider | Environment | Sending email as your domain |
 | [Passwords](#passwords) | Users | `auth_users`, argon2id hash | Offline cracking of weak passwords |
 | [Session tokens](#session-tokens) | The app | Client; SHA-256 in `auth_sessions` | Acting as that user until the session ends |
+| [API keys](#api-keys) | The app, when a user or operator asks | The program's secret store; SHA-256 in `auth_api_keys` | Acting as the user or service account, within the key's scopes, until revoked or expired |
 | [Email codes](#verification-and-reset-codes) | The app | Email; SHA-256 in `auth_codes` | Verifying an address or resetting a password, briefly |
 | [TOTP secrets](#totp-secrets) | The app | Authenticator app; encrypted in `auth_totp` | Generating second-factor codes |
 | [Recovery codes](#recovery-codes) | The app | User; SHA-256 in `auth_recovery_codes` | One second-factor sign-in each |
@@ -105,6 +106,17 @@ Hashed with argon2id (m = 19 MiB, t = 2, p = 1, 16-byte salt, 32-byte key; [ADR-
 | **Lifetime** | Idle 14 days (`auth.session_idle_ttl`), absolute 90 days (`auth.session_absolute_ttl`), both runtime settings |
 | **Revoke** | `POST /v1/auth/logout`, `POST /v1/auth/logout-all`, `DELETE /v1/auth/sessions/{id}`. Resetting the password ends every session; changing it ends all but the current one; deleting the account ends all |
 | **If leaked** | The holder acts as the user until the session is revoked or expires; sensitive changes still ask for the password or a passkey once the sign-in is 10 minutes old |
+
+### API keys
+
+| | |
+|---|---|
+| **Created** | `authlib.NewAPIKey`: `gbk_` + a 128-bit lookup ID + `_` + a 256-bit secret, lowercase base32, on `POST /v1/auth/api-keys` or a service account's `…/keys` ([ADR-0058](../adr/0058-api-keys-and-service-accounts.md)) |
+| **Stored** | The lookup ID and `SHA-256(key)` in `auth_api_keys`; the key is shown once with `Cache-Control: no-store`. Logs and audit events carry only the lookup ID |
+| **Sent** | `Authorization: Bearer gbk_…`; never accepted in a cookie, never treated as a session |
+| **Lifetime** | Required expiry, at most `auth.api_key_max_ttl` (90 days by default, never over a year) |
+| **Revoke** | `DELETE /v1/auth/api-keys/{id}` or the service account's keys endpoint; disabling a service account, deleting an account and resetting its password revoke every key |
+| **If leaked** | The holder calls the API as the user or service account, within the key's scopes and never with permissions of roles that require two-factor authentication, until the key is revoked; it can't create keys or change the account. Secret scanners can match the `gbk_` prefix |
 
 ### Verification and reset codes
 

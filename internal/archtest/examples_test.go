@@ -23,6 +23,8 @@ var multiTenantChanges = []string{
 	"internal/app/module_orgs.go",
 	"internal/app/orgs_hooks.go",
 	"internal/app/orgs_test.go",
+	"internal/app/orgs_service_accounts.go",      // organisation service accounts (ADR-0058)
+	"internal/app/orgs_service_accounts_test.go", // and their cross-organisation denial tests
 
 	// Wiring that names the orgs module.
 	"go.mod",

@@ -1,9 +1,19 @@
+pkg gorbital.dev/modules/auth, const APIKeyLength = 83
+pkg gorbital.dev/modules/auth, const APIKeyLength int
+pkg gorbital.dev/modules/auth, const APIKeyPrefix = "gbk_"
+pkg gorbital.dev/modules/auth, const APIKeyPrefix ideal-string
+pkg gorbital.dev/modules/auth, const APIKeyRetention = 2592000000000000
+pkg gorbital.dev/modules/auth, const APIKeyRetention time.Duration
+pkg gorbital.dev/modules/auth, const APIKeyTouchInterval = 60000000000
+pkg gorbital.dev/modules/auth, const APIKeyTouchInterval time.Duration
 pkg gorbital.dev/modules/auth, const CodeMaxAttempts = 5
 pkg gorbital.dev/modules/auth, const CodeMaxAttempts ideal-int
 pkg gorbital.dev/modules/auth, const CodeResendInterval = 60000000000
 pkg gorbital.dev/modules/auth, const CodeResendInterval time.Duration
 pkg gorbital.dev/modules/auth, const CodeRetention = 86400000000000
 pkg gorbital.dev/modules/auth, const CodeRetention time.Duration
+pkg gorbital.dev/modules/auth, const DefaultAPIKeyMaxTTL = 7776000000000000
+pkg gorbital.dev/modules/auth, const DefaultAPIKeyMaxTTL time.Duration
 pkg gorbital.dev/modules/auth, const DefaultCodeAttempts = 20
 pkg gorbital.dev/modules/auth, const DefaultCodeAttempts ideal-int
 pkg gorbital.dev/modules/auth, const DefaultCodeWindow = 86400000000000
@@ -54,14 +64,18 @@ pkg gorbital.dev/modules/auth, const TOTPPeriod = 30000000000
 pkg gorbital.dev/modules/auth, const TOTPPeriod time.Duration
 pkg gorbital.dev/modules/auth, const TOTPSkew = 1
 pkg gorbital.dev/modules/auth, const TOTPSkew ideal-int
+pkg gorbital.dev/modules/auth, func APIKeyMatches(string, []byte) bool
 pkg gorbital.dev/modules/auth, func ClearSessionCookie(string) *http.Cookie
 pkg gorbital.dev/modules/auth, func ClientInfoFrom(*http.Request) ClientInfo
 pkg gorbital.dev/modules/auth, func ClientInfoFromContext(context.Context) ClientInfo
 pkg gorbital.dev/modules/auth, func CodeMatches(string, string, []byte) bool
+pkg gorbital.dev/modules/auth, func HashAPIKey(string) []byte
 pkg gorbital.dev/modules/auth, func HashCode(string, string) []byte
 pkg gorbital.dev/modules/auth, func HashRecoveryCode(string, string) []byte
 pkg gorbital.dev/modules/auth, func HashToken(string) []byte
+pkg gorbital.dev/modules/auth, func IsAPIKey(string) bool
 pkg gorbital.dev/modules/auth, func Middleware(Authenticator, ...MiddlewareOption) func(http.Handler) http.Handler
+pkg gorbital.dev/modules/auth, func NewAPIKey() (string, string, []byte)
 pkg gorbital.dev/modules/auth, func NewCatalog() *Catalog
 pkg gorbital.dev/modules/auth, func NewCode() string
 pkg gorbital.dev/modules/auth, func NewHasher() (*Hasher, error)
@@ -74,6 +88,7 @@ pkg gorbital.dev/modules/auth, func NewTOTPSecret() string
 pkg gorbital.dev/modules/auth, func NewToken() (string, []byte)
 pkg gorbital.dev/modules/auth, func NormalizeEmail(string) (string, string, error)
 pkg gorbital.dev/modules/auth, func NormalizeRecoveryCode(string) string
+pkg gorbital.dev/modules/auth, func ParseAPIKey(string) (string, error)
 pkg gorbital.dev/modules/auth, func ParseKeyring(string) (*Keyring, error)
 pkg gorbital.dev/modules/auth, func PrincipalFrom(context.Context) (Principal, bool)
 pkg gorbital.dev/modules/auth, func SessionCookie(string, string, time.Time) *http.Cookie
@@ -84,6 +99,7 @@ pkg gorbital.dev/modules/auth, func TOTPURI(string, string, string) string
 pkg gorbital.dev/modules/auth, func TokenFrom(*http.Request, string) string
 pkg gorbital.dev/modules/auth, func ValidatePassword(context.Context, string, PasswordChecker) error
 pkg gorbital.dev/modules/auth, func VerifyTOTP(string, string, time.Time) (int64, bool)
+pkg gorbital.dev/modules/auth, func WithAPIKeys(APIKeyAuthenticator) MiddlewareOption
 pkg gorbital.dev/modules/auth, func WithClientInfo(context.Context, ClientInfo) context.Context
 pkg gorbital.dev/modules/auth, func WithCookieName(string) MiddlewareOption
 pkg gorbital.dev/modules/auth, func WithHashConcurrency(int) HasherOption
@@ -111,10 +127,16 @@ pkg gorbital.dev/modules/auth, method (*Keyring) Decrypt(string, []byte, []byte)
 pkg gorbital.dev/modules/auth, method (*Keyring) Encrypt([]byte, []byte) (string, []byte, error)
 pkg gorbital.dev/modules/auth, method (*PasswordError) Error() string
 pkg gorbital.dev/modules/auth, method (*PasswordError) Unwrap() error
+pkg gorbital.dev/modules/auth, method (*RateLimitError) Error() string
+pkg gorbital.dev/modules/auth, method (*RateLimitError) Unwrap() error
 pkg gorbital.dev/modules/auth, method (ClientInfo) Clean() ClientInfo
 pkg gorbital.dev/modules/auth, method (Limits) Clamp(time.Duration) time.Duration
+pkg gorbital.dev/modules/auth, method (Principal) APIKey() bool
 pkg gorbital.dev/modules/auth, method (Principal) RecentlySignedIn(time.Time) bool
 pkg gorbital.dev/modules/auth, method (Principal) RecentlyVerified(time.Time) bool
+pkg gorbital.dev/modules/auth, method (Principal) Restrict([]string, []string) ([]string, []string)
+pkg gorbital.dev/modules/auth, type APIKeyAuthenticator interface { AuthenticateAPIKey }
+pkg gorbital.dev/modules/auth, type APIKeyAuthenticator interface, AuthenticateAPIKey(context.Context, string) (Principal, error)
 pkg gorbital.dev/modules/auth, type Authenticator interface { Authenticate }
 pkg gorbital.dev/modules/auth, type Authenticator interface, Authenticate(context.Context, string) (Principal, error)
 pkg gorbital.dev/modules/auth, type Catalog struct
@@ -147,23 +169,31 @@ pkg gorbital.dev/modules/auth, type Permission struct
 pkg gorbital.dev/modules/auth, type Permission struct, Description string
 pkg gorbital.dev/modules/auth, type Permission struct, Name string
 pkg gorbital.dev/modules/auth, type Principal struct
+pkg gorbital.dev/modules/auth, type Principal struct, APIKeyID string
 pkg gorbital.dev/modules/auth, type Principal struct, MFAVerified bool
 pkg gorbital.dev/modules/auth, type Principal struct, MFAVerifiedAt time.Time
+pkg gorbital.dev/modules/auth, type Principal struct, OrgID string
 pkg gorbital.dev/modules/auth, type Principal struct, Permissions []string
+pkg gorbital.dev/modules/auth, type Principal struct, Scopes []string
+pkg gorbital.dev/modules/auth, type Principal struct, ServiceAccountID string
 pkg gorbital.dev/modules/auth, type Principal struct, SessionID string
 pkg gorbital.dev/modules/auth, type Principal struct, SignedInAt time.Time
 pkg gorbital.dev/modules/auth, type Principal struct, StepUp []string
 pkg gorbital.dev/modules/auth, type Principal struct, UserID string
+pkg gorbital.dev/modules/auth, type RateLimitError struct
+pkg gorbital.dev/modules/auth, type RateLimitError struct, RetryAfter time.Duration
 pkg gorbital.dev/modules/auth, type Role struct
 pkg gorbital.dev/modules/auth, type Role struct, Description string
 pkg gorbital.dev/modules/auth, type Role struct, Name string
 pkg gorbital.dev/modules/auth, type Role struct, Permissions []string
+pkg gorbital.dev/modules/auth, var APIKeyTTLLimits Limits
 pkg gorbital.dev/modules/auth, var DeletedRetentionLimits Limits
 pkg gorbital.dev/modules/auth, var ErrDecrypt error
 pkg gorbital.dev/modules/auth, var ErrHasherBusy error
 pkg gorbital.dev/modules/auth, var ErrInvalidEmail error
 pkg gorbital.dev/modules/auth, var ErrInvalidKeyring error
 pkg gorbital.dev/modules/auth, var ErrInvalidTOTPSecret error
+pkg gorbital.dev/modules/auth, var ErrRateLimited error
 pkg gorbital.dev/modules/auth, var ErrUnauthenticated error
 pkg gorbital.dev/modules/auth, var ErrUnknownKey error
 pkg gorbital.dev/modules/auth, var ErrWeakPassword error

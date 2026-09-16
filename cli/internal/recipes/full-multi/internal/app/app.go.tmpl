@@ -230,6 +230,8 @@ func (a *App) build(ctx context.Context) error {
 		ReauthLimiter:           limits.reauth,
 		CodeLimiter:             limits.code,
 		NoticeLimiter:           limits.notice,
+		APIKeyLimiter:           limits.apiKey,
+		APIKeyMaxTTL:            appSettings.authAPIKeyMaxTTL,
 		Google:                  google,
 		Apple:                   apple,
 		PublicURL:               a.cfg.Social.PublicURL,
@@ -249,6 +251,7 @@ func (a *App) build(ctx context.Context) error {
 		DeletedAccountRetention: appSettings.authDeletedAccountRetention,
 		UnverifiedAccountTTL:    appSettings.authUnverifiedAccountTTL,
 		Hooks:                   orgsHooks{orgs: a.orgs.Service},
+		Orgs:                    orgAccess{orgs: a.orgs.Service},
 	})
 	if err != nil {
 		return err

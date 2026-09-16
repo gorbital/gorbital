@@ -1,7 +1,8 @@
 // Package authcleanup runs the auth_cleanup background job: it removes ended
 // sessions, old email codes, accounts deleted longer ago than the
-// auth.deleted_account_retention runtime setting, and accounts still
-// unverified after auth.unverified_account_ttl. Its schedule can be changed
+// auth.deleted_account_retention runtime setting, accounts still
+// unverified after auth.unverified_account_ttl, and API keys expired or
+// revoked more than 30 days ago, recording each key's expiry first. Its schedule can be changed
 // through /ops/jobs/definitions/auth_cleanup.
 package authcleanup
 
@@ -47,6 +48,7 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
 		return err
 	}
 	w.logger.InfoContext(ctx, "authentication data cleaned up", "job", Name, "job_id", job.ID,
-		"sessions", res.Sessions, "codes", res.Codes, "challenges", res.Challenges, "accounts", res.Users, "unverified_accounts", res.Unverified)
+		"sessions", res.Sessions, "codes", res.Codes, "challenges", res.Challenges, "accounts", res.Users, "unverified_accounts", res.Unverified,
+		"expired_api_keys", res.ExpiredAPIKeys, "api_keys", res.APIKeys)
 	return nil
 }

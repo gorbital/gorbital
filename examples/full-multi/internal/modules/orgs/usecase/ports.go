@@ -17,6 +17,10 @@ import (
 type Store interface {
 	orgslib.Memberships
 
+	// ServiceAccountRole returns the role of an enabled service account of a
+	// live organisation, or orgs.ErrNotMember (ADR-0058).
+	ServiceAccountRole(ctx context.Context, orgID orgslib.ID, serviceAccountID string) (string, error)
+
 	// InsertOrg creates an organisation.
 	InsertOrg(ctx context.Context, o orgsdomain.Org) (orgsdomain.Org, error)
 	// SelectOrg returns a live organisation, or orgs.ErrOrgNotFound. lock

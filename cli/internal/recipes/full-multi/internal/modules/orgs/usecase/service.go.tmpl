@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"gorbital.dev/actor"
@@ -30,6 +31,9 @@ const (
 	PermOrgDelete     = "orgs.org.delete"
 	PermMembersRead   = "orgs.members.read"
 	PermMembersManage = "orgs.members.manage"
+	// PermServiceAccountsManage lets a member manage the organisation's
+	// service accounts and their API keys (ADR-0058).
+	PermServiceAccountsManage = "orgs.service_accounts.manage"
 )
 
 // Audit actions. They are public API (ADR-0015): add new ones, never rename.
@@ -152,8 +156,40 @@ func NewService(c Config) (*Service, error) {
 func (s *Service) Catalog() *authlib.Catalog { return s.catalog }
 
 // Memberships returns what other org-scoped modules pass to
-// orgs.RequireMember.
-func (s *Service) Memberships() orgslib.Memberships { return s.store }
+// orgs.RequireMember: members, and the organisation's enabled service
+// accounts with their role (ADR-0058). The orgs module's own operations
+// check members only, so a service account can't manage the organisation,
+// its members or invitations.
+func (s *Service) Memberships() orgslib.Memberships { return resourceMemberships{s.store} }
+
+// resourceMemberships answers for members and service accounts.
+type resourceMemberships struct{ store Store }
+
+func (m resourceMemberships) MemberRole(ctx context.Context, orgID orgslib.ID, id string) (string, error) {
+	if strings.HasPrefix(id, "svc_") {
+		return m.store.ServiceAccountRole(ctx, orgID, id)
+	}
+	return m.store.MemberRole(ctx, orgID, id)
+}
+
+// AuthorizeServiceAccounts checks that the signed-in user is a member of
+// orgID whose role may manage its service accounts, and returns a context
+// acting in the organisation and the member's role. Service accounts
+// themselves can't.
+func (s *Service) AuthorizeServiceAccounts(ctx context.Context, orgID string) (context.Context, string, error) {
+	ctx, me, err := orgslib.RequireMember(ctx, s.store, s.catalog, orgslib.ID(orgID), PermServiceAccountsManage)
+	if err != nil {
+		return ctx, "", storeError("authorize", err)
+	}
+	return ctx, me.Role, nil
+}
+
+// CanAssignServiceAccountRole reports whether a member with callerRole may
+// give a service account role, or manage one that has it: as for members,
+// but never the owner role.
+func (s *Service) CanAssignServiceAccountRole(callerRole, role string) bool {
+	return role != orgslib.RoleOwner && s.canAssign(callerRole, role)
+}
 
 // clock returns the time at PostgreSQL's microsecond precision.
 func (s *Service) clock() time.Time { return s.now().UTC().Truncate(time.Microsecond) }

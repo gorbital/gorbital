@@ -44,5 +44,6 @@ func registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {
 		registerOps(api, mapper, svc.ops),
 		registerAuth(api, mapper, svc.auth),
 		registerOrgs(api, mapper, svc.orgs),
+		registerOrgServiceAccounts(api, svc.auth),
 	)
 }

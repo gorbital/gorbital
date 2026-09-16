@@ -46,6 +46,21 @@ func registerAuth(api huma.API, mapper *httpx.Mapper, m *authmodule.Module) erro
 		httpx.Mapping{Err: authdomain.ErrSocialLinkRequired, Status: http.StatusForbidden, Code: "social_link_required", Detail: "an account with this email address exists; sign in to it and link this provider from the account"},
 		httpx.Mapping{Err: authdomain.ErrIdentityInUse, Status: http.StatusConflict, Code: "identity_in_use", Detail: "this Google or Apple account is linked to another account"},
 		httpx.Mapping{Err: authlib.ErrHasherBusy, Status: http.StatusServiceUnavailable, Code: "auth_unavailable", Detail: "authentication is temporarily unavailable; try again shortly"},
+
+		// API keys and service accounts (ADR-0058).
+		httpx.Mapping{Err: authdomain.ErrSessionRequired, Status: http.StatusForbidden, Code: "session_required", Detail: "sign in to do this: an API key can't manage accounts, sessions or API keys"},
+		httpx.Mapping{Err: authdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
+		httpx.Mapping{Err: authdomain.ErrStepUpRequired, Status: http.StatusForbidden, Code: "mfa_required", Detail: "sign in with two-factor authentication to use this operation; turn it on first if needed"},
+		httpx.Mapping{Err: authdomain.ErrAPIKeyNotFound, Status: http.StatusNotFound, Code: "api_key_not_found", Detail: "no API key here has this ID"},
+		httpx.Mapping{Err: authdomain.ErrInvalidAPIKeyName, Status: http.StatusUnprocessableEntity, Code: "invalid_api_key_name", Detail: "an API key name must be 1 to 100 characters on one line"},
+		httpx.Mapping{Err: authdomain.ErrInvalidAPIKeyExpiry, Status: http.StatusUnprocessableEntity, Code: "invalid_api_key_expiry", Detail: "expires_at must be at least an hour away and within auth.api_key_max_ttl"},
+		httpx.Mapping{Err: authdomain.ErrInvalidAPIKeyScopes, Status: http.StatusUnprocessableEntity, Code: "invalid_api_key_scopes", Detail: "scopes must be at most 50 permissions the key's owner holds without two-factor authentication"},
+		httpx.Mapping{Err: authdomain.ErrAPIKeyLimitReached, Status: http.StatusConflict, Code: "api_key_limit_reached", Detail: "at most 20 usable API keys each; revoke one first"},
+		httpx.Mapping{Err: authdomain.ErrServiceAccountNotFound, Status: http.StatusNotFound, Code: "service_account_not_found", Detail: "no service account here has this ID"},
+		httpx.Mapping{Err: authdomain.ErrInvalidServiceAccount, Status: http.StatusUnprocessableEntity, Code: "invalid_service_account", Detail: "a service account name must be 1 to 100 characters on one line, and its description at most 500"},
+		httpx.Mapping{Err: authdomain.ErrInvalidServiceAccountRole, Status: http.StatusUnprocessableEntity, Code: "invalid_service_account_role", Detail: "service accounts can't hold roles that require two-factor authentication or an organisation's owner role, nor a role above your own"},
+		httpx.Mapping{Err: authdomain.ErrServiceAccountLimitReached, Status: http.StatusConflict, Code: "service_account_limit_reached", Detail: "at most 100 service accounts; delete one first"},
+		httpx.Mapping{Err: authdomain.ErrServiceAccountDisabled, Status: http.StatusConflict, Code: "service_account_disabled", Detail: "the service account is disabled; enable it first"},
 	)
 	if err != nil {
 		return fmt.Errorf("auth module: %w", err)

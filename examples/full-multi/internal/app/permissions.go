@@ -4,6 +4,7 @@ import (
 	authlib "gorbital.dev/modules/auth"
 	orgslib "gorbital.dev/modules/orgs"
 
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
 	orgsusecase "example.com/acme-api/internal/modules/orgs/usecase"
 )
@@ -34,14 +35,17 @@ func declarePermissions() *authlib.Catalog {
 	c.Permission(opsdomain.PermMailTest, "Send a test email")
 	c.Permission(opsdomain.PermAuthRead, "See which sign-in methods are configured")
 	c.Permission(opsdomain.PermSystemRead, "See an instance's health checks, database pool, migrations and runtime")
+	c.Permission(authusecase.PermServiceAccountsRead, "See service accounts and their API keys")
+	c.Permission(authusecase.PermServiceAccountsWrite, "Create, change and delete service accounts and their API keys")
 
-	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission", opsdomain.AllPermissions()...)
+	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission",
+		append(opsdomain.AllPermissions(), authusecase.PermServiceAccountsRead, authusecase.PermServiceAccountsWrite)...)
 	c.Role(roleOpsViewer, "Reads operational data without changing anything",
 		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead, opsdomain.PermAuthRead,
-		opsdomain.PermSystemRead)
+		opsdomain.PermSystemRead, authusecase.PermServiceAccountsRead)
 
 	// Ops roles grant their permissions only to sessions signed in with a
-	// second factor (ADR-0043).
+	// second factor (ADR-0043), so never to API keys (ADR-0058).
 	c.RequireMFA(rolePlatformAdmin, roleOpsViewer)
 	return c
 }
@@ -74,6 +78,7 @@ func declareOrgPermissions() *authlib.Catalog {
 	c.Permission(orgsusecase.PermOrgDelete, "Delete and restore the organisation")
 	c.Permission(orgsusecase.PermMembersRead, "See the members")
 	c.Permission(orgsusecase.PermMembersManage, "Invite people, change roles and remove members, up to your own role")
+	c.Permission(orgsusecase.PermServiceAccountsManage, "Create and manage service accounts and their API keys, up to your own role")
 
 	member := []string{orgsusecase.PermOrgRead, orgsusecase.PermMembersRead}
 	for _, r := range orgResourcePermissions() {
@@ -81,7 +86,7 @@ func declareOrgPermissions() *authlib.Catalog {
 		c.Permission(r.write, "Create, change and delete "+r.name)
 		member = append(member, r.read, r.write)
 	}
-	admin := append([]string{orgsusecase.PermOrgUpdate, orgsusecase.PermMembersManage}, member...)
+	admin := append([]string{orgsusecase.PermOrgUpdate, orgsusecase.PermMembersManage, orgsusecase.PermServiceAccountsManage}, member...)
 	c.Role(orgslib.RoleOwner, "Everything, including deleting the organisation and managing owners", append([]string{orgsusecase.PermOrgDelete}, admin...)...)
 	c.Role(orgslib.RoleAdmin, "Manages the organisation and its members, except owners", admin...)
 	c.Role(orgslib.RoleMember, "Works in the organisation", member...)

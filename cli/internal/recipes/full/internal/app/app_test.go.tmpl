@@ -19,6 +19,10 @@ import (
 	"⟦.Module⟧/internal/app"
 )
 
+// signedInEndpoint is an endpoint any signed-in user can call (a user-owned resource),
+// for the API key tests in apikeys_test.go.
+const signedInEndpoint = "/v1/projects"
+
 func testConfig(t *testing.T, env map[string]string) app.Config {
 	t.Helper()
 	cfg, err := app.LoadConfig(config.Source{

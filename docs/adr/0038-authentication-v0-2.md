@@ -1,6 +1,6 @@
 # ADR-0038: Authentication in v0.2
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0024, ADR-0026, ADR-0029 · **Supersedes:** ADR-0034 · **Amended by:** ADR-0048 (multi-tenant apps create a personal workspace with each account and check ownership before deleting one)
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0024, ADR-0026, ADR-0029 · **Supersedes:** ADR-0034 · **Amended by:** ADR-0048 (multi-tenant apps create a personal workspace with each account and check ownership before deleting one), ADR-0058 (API keys: account management needs a signed-in session; password reset and address claims revoke keys)
 
 ## Context
 

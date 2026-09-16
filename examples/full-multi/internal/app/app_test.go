@@ -19,6 +19,10 @@ import (
 	"example.com/acme-api/internal/app"
 )
 
+// signedInEndpoint is an endpoint any signed-in user can call (the signed-in user's organisations),
+// for the API key tests in apikeys_test.go.
+const signedInEndpoint = "/v1/orgs"
+
 func testConfig(t *testing.T, env map[string]string) app.Config {
 	t.Helper()
 	cfg, err := app.LoadConfig(config.Source{

@@ -6,7 +6,7 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 
 ## Authentication
 
-- `bearer` (bearer): Session token from POST /v1/auth/login with "transport": "bearer". Browsers use the session cookie that login sets instead.
+- `bearer` (bearer): Session token from POST /v1/auth/login with "transport": "bearer", or an API key (gbk_…) from POST /v1/auth/api-keys. Browsers use the session cookie that login sets instead.
 
 ## Ops: audit
 
@@ -62,12 +62,26 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Reset a runtime setting to its default](/docs/ops-settings/ops-reset-setting.md): `DELETE /ops/settings/{key}`
 - [List a runtime setting's changes](/docs/ops-settings/ops-setting-history.md): `GET /ops/settings/{key}/history`
 
+## Ops: service accounts
+
+- [List service accounts](/docs/ops-service-accounts/ops-list-service-accounts.md): `GET /ops/service-accounts`
+- [Create a service account](/docs/ops-service-accounts/ops-create-service-account.md): `POST /ops/service-accounts`
+- [Get a service account](/docs/ops-service-accounts/ops-get-service-account.md): `GET /ops/service-accounts/{id}`
+- [Change a service account](/docs/ops-service-accounts/ops-update-service-account.md): `PATCH /ops/service-accounts/{id}`
+- [Delete a service account](/docs/ops-service-accounts/ops-delete-service-account.md): `DELETE /ops/service-accounts/{id}`
+- [List a service account's API keys](/docs/ops-service-accounts/ops-list-service-account-keys.md): `GET /ops/service-accounts/{id}/keys`
+- [Create an API key for a service account](/docs/ops-service-accounts/ops-create-service-account-key.md): `POST /ops/service-accounts/{id}/keys`
+- [Revoke a service account's API key](/docs/ops-service-accounts/ops-revoke-service-account-key.md): `DELETE /ops/service-accounts/{id}/keys/{keyId}`
+
 ## Ops: system
 
 - [Describe this instance](/docs/ops-system/ops-system.md): `GET /ops/system`
 
 ## Auth
 
+- [List your API keys](/docs/auth/auth-list-api-keys.md): `GET /v1/auth/api-keys`
+- [Create an API key](/docs/auth/auth-create-api-key.md): `POST /v1/auth/api-keys`
+- [Revoke an API key](/docs/auth/auth-revoke-api-key.md): `DELETE /v1/auth/api-keys/{id}`
 - [Apple's return to the API](/docs/auth/auth-apple-callback.md): `POST /v1/auth/apple/callback`
 - [Apple's server-to-server notifications](/docs/auth/auth-apple-notifications.md): `POST /v1/auth/apple/notifications`
 - [Sign in with an Apple ID token](/docs/auth/auth-apple-token.md): `POST /v1/auth/apple/token`
@@ -128,6 +142,14 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Change a member's role](/docs/organisations/orgs-members-change-role.md): `PATCH /v1/orgs/{orgId}/members/{userId}`
 - [Remove a member](/docs/organisations/orgs-members-remove.md): `DELETE /v1/orgs/{orgId}/members/{userId}`
 - [Restore a deleted organisation](/docs/organisations/orgs-restore.md): `POST /v1/orgs/{orgId}/restore`
+- [List the organisation's service accounts](/docs/organisations/orgs-list-service-accounts.md): `GET /v1/orgs/{orgId}/service-accounts`
+- [Create a service account](/docs/organisations/orgs-create-service-account.md): `POST /v1/orgs/{orgId}/service-accounts`
+- [Get a service account](/docs/organisations/orgs-get-service-account.md): `GET /v1/orgs/{orgId}/service-accounts/{id}`
+- [Change a service account](/docs/organisations/orgs-update-service-account.md): `PATCH /v1/orgs/{orgId}/service-accounts/{id}`
+- [Delete a service account](/docs/organisations/orgs-delete-service-account.md): `DELETE /v1/orgs/{orgId}/service-accounts/{id}`
+- [List a service account's API keys](/docs/organisations/orgs-list-service-account-keys.md): `GET /v1/orgs/{orgId}/service-accounts/{id}/keys`
+- [Create an API key for a service account](/docs/organisations/orgs-create-service-account-key.md): `POST /v1/orgs/{orgId}/service-accounts/{id}/keys`
+- [Revoke a service account's API key](/docs/organisations/orgs-revoke-service-account-key.md): `DELETE /v1/orgs/{orgId}/service-accounts/{id}/keys/{keyId}`
 
 ## Projects
 

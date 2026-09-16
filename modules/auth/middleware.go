@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,6 +35,19 @@ type Principal struct {
 	MFAVerifiedAt time.Time
 	// SignedInAt is when the session started.
 	SignedInAt time.Time
+
+	// APIKeyID is the API key that authenticated the request, empty for a
+	// session (ADR-0058). SessionID is empty for an API key.
+	APIKeyID string
+	// Scopes limit an API key to these permissions; empty means its owner's.
+	// See [Principal.Restrict].
+	Scopes []string
+	// ServiceAccountID is set, instead of UserID, for an API key of a service
+	// account: a non-human principal whose actor has kind service.
+	ServiceAccountID string
+	// OrgID is the organisation an organisation's service account belongs
+	// to; it can act in no other.
+	OrgID string
 }
 
 // RecentlySignedIn reports whether the session started less than
@@ -61,10 +75,17 @@ type (
 	clientKey    struct{}
 )
 
-// WithPrincipal returns a copy of ctx carrying p and its actor.
+// WithPrincipal returns a copy of ctx carrying p and its actor: a user, or
+// a service for a service account's API key. An API key's actor gets only
+// the permissions [Principal.Restrict] leaves it.
 func WithPrincipal(ctx context.Context, p Principal) context.Context {
+	p.Permissions, p.StepUp = p.Restrict(p.Permissions, p.StepUp)
 	ctx = context.WithValue(ctx, principalKey{}, p)
-	return actor.With(ctx, actor.Actor{Kind: actor.KindUser, ID: p.UserID, Permissions: p.Permissions, StepUp: p.StepUp})
+	a := actor.Actor{Kind: actor.KindUser, ID: p.UserID, Permissions: p.Permissions, StepUp: p.StepUp}
+	if p.ServiceAccountID != "" {
+		a.Kind, a.ID = actor.KindService, p.ServiceAccountID
+	}
+	return actor.With(ctx, a)
 }
 
 // PrincipalFrom returns the authenticated principal in ctx.
@@ -100,8 +121,9 @@ func ClientInfoFrom(r *http.Request) ClientInfo {
 }
 
 type middlewareOptions struct {
-	cookie string
-	logger *slog.Logger
+	cookie  string
+	logger  *slog.Logger
+	apiKeys APIKeyAuthenticator
 }
 
 // A MiddlewareOption configures [Middleware].
@@ -121,6 +143,13 @@ func WithLogger(logger *slog.Logger) MiddlewareOption {
 	return middlewareOptionFunc(func(o *middlewareOptions) { o.logger = logger })
 }
 
+// WithAPIKeys authenticates bearer tokens that start with [APIKeyPrefix]
+// with a (ADR-0058). Without it, such tokens are ignored and the request
+// continues anonymously.
+func WithAPIKeys(a APIKeyAuthenticator) MiddlewareOption {
+	return middlewareOptionFunc(func(o *middlewareOptions) { o.apiKeys = a })
+}
+
 // Middleware stores every request's [ClientInfo] in its context, and
 // authenticates requests carrying a session token in an "Authorization:
 // Bearer" header or the session cookie, putting the principal and its actor
@@ -128,6 +157,11 @@ func WithLogger(logger *slog.Logger) MiddlewareOption {
 // cases decide what needs authentication. When the authenticator fails for
 // another reason (the database is down) it responds 503, rather than
 // treating a signed-in user as anonymous.
+//
+// A token starting with [APIKeyPrefix] is never passed to the session
+// authenticator: in the Authorization header it goes to the API key
+// authenticator of [WithAPIKeys], and in a cookie it is ignored. An API key
+// authenticator's [*RateLimitError] responds 429 too_many_attempts.
 //
 // Cookie-authenticated requests need cross-origin protection
 // (httpx.CrossOrigin) earlier in the chain.
@@ -144,10 +178,25 @@ func Middleware(a Authenticator, opts ...MiddlewareOption) func(http.Handler) ht
 				next.ServeHTTP(w, r)
 				return
 			}
-			p, err := a.Authenticate(r.Context(), token)
+			var (
+				p   Principal
+				err error
+			)
+			switch {
+			case !IsAPIKey(token):
+				p, err = a.Authenticate(r.Context(), token)
+			case o.apiKeys == nil || !bearer(r):
+				err = ErrUnauthenticated
+			default:
+				p, err = o.apiKeys.AuthenticateAPIKey(r.Context(), token)
+			}
+			var limited *RateLimitError
 			switch {
 			case errors.Is(err, ErrUnauthenticated):
 				next.ServeHTTP(w, r)
+			case errors.As(err, &limited):
+				w.Header().Set("Retry-After", strconv.Itoa(max(int(limited.RetryAfter.Round(time.Second).Seconds()), 1)))
+				httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusTooManyRequests, "too_many_attempts", "too many failed authentications from this network; try again later"))
 			case err != nil:
 				o.logger.ErrorContext(r.Context(), "authenticate request", "err", err)
 				httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusServiceUnavailable, "auth_unavailable", "authentication is temporarily unavailable"))
@@ -156,6 +205,13 @@ func Middleware(a Authenticator, opts ...MiddlewareOption) func(http.Handler) ht
 			}
 		})
 	}
+}
+
+// bearer reports whether the request's token came from the Authorization
+// header rather than a cookie.
+func bearer(r *http.Request) bool {
+	_, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	return ok
 }
 
 // TokenFrom returns the request's bearer token, or else its session cookie.

@@ -151,6 +151,72 @@ func TestAuthorize(t *testing.T) {
 	}
 }
 
+// withKey is a request authenticated with an API key: a user's (userID
+// usr_…) or a service account's (svc_…, of orgID), limited to scopes.
+func withKey(id string, orgID orgs.ID, scopes ...string) context.Context {
+	p := auth.Principal{APIKeyID: "key_1", Scopes: scopes}
+	if strings.HasPrefix(id, "svc_") {
+		p.ServiceAccountID, p.OrgID = id, string(orgID)
+	} else {
+		p.UserID = id
+	}
+	return auth.WithPrincipal(context.Background(), p)
+}
+
+// TestRequireMemberWithAPIKeys checks what API keys reach in an organisation
+// (ADR-0058): never permissions of roles that require two-factor
+// authentication, only the key's scopes, and for a service account only its
+// own organisation.
+func TestRequireMemberWithAPIKeys(t *testing.T) {
+	org, other := orgs.NewID(), orgs.NewID()
+	m := memberships{
+		string(org) + "/usr_owner":     orgs.RoleOwner,
+		string(org) + "/usr_auditor":   "auditor",
+		string(org) + "/svc_robot":     orgs.RoleMember,
+		string(other) + "/svc_robot":   orgs.RoleOwner, // a lying store can't take a service account elsewhere
+		string(org) + "/svc_elsewhere": orgs.RoleOwner,
+	}
+	c := catalog()
+	tests := []struct {
+		name       string
+		ctx        context.Context
+		org        orgs.ID
+		permission string
+		wantErr    error
+		wantPerms  []string
+	}{
+		{"owner's key without scopes", withKey("usr_owner", ""), org, "orgs.org.delete", nil, []string{"orgs.org.delete", "orgs.org.read"}},
+		{"owner's key scoped to reading", withKey("usr_owner", "", "orgs.org.read"), org, "orgs.org.read", nil, []string{"orgs.org.read"}},
+		{"scope escalation: reading key deletes", withKey("usr_owner", "", "orgs.org.read"), org, "orgs.org.delete", actor.ErrForbidden, nil},
+		{"scope the role doesn't grant", withKey("usr_auditor", "", "orgs.org.delete"), org, "orgs.org.delete", actor.ErrForbidden, nil},
+		{"role needing 2FA is never reachable", withKey("usr_auditor", ""), org, "orgs.org.read", actor.ErrForbidden, nil},
+		{"service account in its organisation", withKey("svc_robot", org), org, "orgs.org.read", nil, []string{"orgs.org.read"}},
+		{"service account above its role", withKey("svc_robot", org), org, "orgs.org.delete", actor.ErrForbidden, nil},
+		{"service account in another organisation", withKey("svc_robot", org), other, "orgs.org.read", orgs.ErrOrgNotFound, nil},
+		{"service account of another organisation", withKey("svc_elsewhere", other), org, "orgs.org.read", orgs.ErrOrgNotFound, nil},
+		{"service account without an organisation", withKey("svc_robot", ""), org, "orgs.org.read", orgs.ErrOrgNotFound, nil},
+		{"service actor without a key", actor.With(context.Background(), actor.Actor{Kind: actor.KindService, ID: "svc_robot"}), org, "orgs.org.read", actor.ErrUnauthenticated, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, _, err := orgs.RequireMember(tt.ctx, m, c, tt.org, tt.permission)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("RequireMember() error = %v, want %v", err, tt.wantErr)
+			}
+			if a, _ := actor.From(ctx); err == nil && (!slices.Equal(a.Permissions, tt.wantPerms) || len(a.StepUp) != 0) {
+				t.Errorf("actor = %+v, want permissions %v and no step-up", a, tt.wantPerms)
+			}
+			if !errors.Is(err, orgs.ErrOrgNotFound) && !errors.Is(err, actor.ErrUnauthenticated) {
+				// Authorize, used on a membership read another way, agrees.
+				member := orgs.Member{OrgID: tt.org, UserID: actor.FromOrAnonymous(tt.ctx).ID, Role: m[string(tt.org)+"/"+actor.FromOrAnonymous(tt.ctx).ID]}
+				if _, err := orgs.Authorize(tt.ctx, c, member, tt.permission); !errors.Is(err, tt.wantErr) {
+					t.Errorf("Authorize() error = %v, want %v", err, tt.wantErr)
+				}
+			}
+		})
+	}
+}
+
 func TestRequireMemberPassesStoreErrors(t *testing.T) {
 	boom := errors.New("connection refused")
 	_, _, err := orgs.RequireMember(signedIn("usr_1", false), failingMemberships{boom}, catalog(), orgs.NewID(), "orgs.org.read")
