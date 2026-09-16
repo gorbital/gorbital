@@ -1,8 +1,10 @@
-// Package social signs people in with Google and Apple (ADR-0046): the web
-// authorization code flow with state, nonce and PKCE, ID tokens from native
-// apps checked against the app's client IDs, and Apple's client secret, token
-// revocation and server-to-server notifications. It wraps golang.org/x/oauth2
-// and github.com/coreos/go-oidc, so apps never import their types.
+// Package social signs people in with Google, Apple (ADR-0046) and GitHub
+// (ADR-0059): the web authorization code flow with state, nonce and PKCE, ID
+// tokens from native apps checked against the app's client IDs, Apple's
+// client secret, token revocation and server-to-server notifications, and
+// GitHub's user and email API for a provider without OpenID Connect. It wraps
+// golang.org/x/oauth2 and github.com/coreos/go-oidc, so apps never import
+// their types.
 //
 // The app keeps the state, nonce and PKCE verifier of a web sign-in on the
 // server, and resolves the returned Identity to an account.
@@ -29,6 +31,7 @@ import (
 const (
 	Google = "google"
 	Apple  = "apple"
+	GitHub = "github"
 )
 
 const (
@@ -50,10 +53,13 @@ var (
 	ErrExchange = errors.New("social: authorization code exchange failed")
 	// ErrWebUnavailable reports a provider configured only for native apps.
 	ErrWebUnavailable = errors.New("social: web sign-in is not configured")
+	// ErrNotSupported reports an operation the provider doesn't offer, such
+	// as verifying an ID token from GitHub, which issues none.
+	ErrNotSupported = errors.New("social: not supported by this provider")
 )
 
-// Endpoints are a provider's URLs. Zero values use Google's or Apple's;
-// tests point them at socialtest.
+// Endpoints are a provider's URLs. Zero values use Google's, Apple's or
+// GitHub's; tests point them at socialtest.
 type Endpoints struct {
 	AuthURL   string
 	TokenURL  string
@@ -61,6 +67,9 @@ type Endpoints struct {
 	RevokeURL string
 	// Issuers are the accepted "iss" values of ID tokens.
 	Issuers []string
+	// APIURL is the base URL of GitHub's REST API, which returns the person
+	// and their email addresses; unused by other providers.
+	APIURL string
 }
 
 // GoogleEndpoints returns Google's endpoints.
@@ -85,11 +94,14 @@ func AppleEndpoints() Endpoints {
 	}
 }
 
-// Identity is a person as a verified ID token describes them.
+// Identity is a person as a verified ID token, or GitHub's API, describes
+// them.
 type Identity struct {
-	// Provider is Google or Apple.
+	// Provider is Google, Apple or GitHub.
 	Provider string
-	// Subject identifies the person at the provider; it never changes.
+	// Subject identifies the person at the provider; it never changes. For
+	// GitHub it is the numeric user ID in decimal, not the login, which
+	// people can rename.
 	Subject string
 	Email   string
 	// EmailVerified reports that the provider checked the person owns Email.
@@ -99,9 +111,11 @@ type Identity struct {
 	// HostedDomain is the Google Workspace domain of the account ("hd"),
 	// empty for personal Google accounts and Apple.
 	HostedDomain string
-	// Name is the person's name, when the provider sends it.
+	// Name is the person's name, when the provider sends it; for GitHub, the
+	// login when the profile has no name.
 	Name string
-	// Audience is the client ID the token was issued for.
+	// Audience is the client ID the token was issued for (for GitHub, the
+	// OAuth app's client ID).
 	Audience string
 }
 
@@ -112,7 +126,8 @@ type Identity struct {
 // EmailVerified only says the person controlled the address when they
 // added it to their provider account, possibly years ago; don't link such
 // an identity to an existing account without the account's owner (security
-// review AUTH-M-1).
+// review AUTH-M-1). GitHub hosts no one's email, so it is never
+// authoritative (ADR-0059).
 func (id Identity) AuthoritativeEmail() bool {
 	if !id.EmailVerified {
 		return false
@@ -160,9 +175,10 @@ type Provider struct {
 	// webClient is the client ID of the web flow; empty for native only.
 	webClient string
 	// clients are every client ID ID tokens may be issued for.
-	clients  []string
-	secret   func(clientID string) (string, error)
-	ep       Endpoints
+	clients []string
+	secret  func(clientID string) (string, error)
+	ep      Endpoints
+	// keys verify ID tokens; nil for GitHub, which has no OpenID Connect.
 	keys     *oidc.RemoteKeySet
 	client   *http.Client
 	now      func() time.Time
@@ -192,23 +208,21 @@ func newProvider(name string, ep Endpoints, client *http.Client, now func() time
 	if now == nil {
 		now = time.Now
 	}
-	return &Provider{
-		name:   name,
-		ep:     ep,
-		client: client,
-		now:    now,
-		keys:   oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(), client), ep.KeysURL),
+	p := &Provider{name: name, ep: ep, client: client, now: now}
+	if name != GitHub {
+		p.keys = oidc.NewRemoteKeySet(oidc.ClientContext(context.Background(), client), ep.KeysURL)
 	}
+	return p
 }
 
 func withDefaults(ep, def Endpoints) Endpoints {
-	if ep.AuthURL == "" && ep.TokenURL == "" && ep.KeysURL == "" {
+	if ep.AuthURL == "" && ep.TokenURL == "" && ep.KeysURL == "" && ep.APIURL == "" {
 		return def
 	}
 	return ep
 }
 
-// Name returns the provider's name: Google or Apple.
+// Name returns the provider's name: Google, Apple or GitHub.
 func (p *Provider) Name() string { return p.name }
 
 // Web reports whether the web flow is configured.
@@ -226,9 +240,13 @@ func NewPKCEVerifier() string { return oauth2.GenerateVerifier() }
 
 // AuthCodeURL returns the provider URL that starts a web sign-in returning to
 // redirectURL. state and nonce are single-use random values the app keeps;
-// verifier is from [NewPKCEVerifier] (Apple ignores it).
+// verifier is from [NewPKCEVerifier] (Apple ignores it). GitHub, which issues
+// no ID token, ignores nonce: state and PKCE protect its flow.
 func (p *Provider) AuthCodeURL(redirectURL, state, nonce, verifier string) string {
-	opts := []oauth2.AuthCodeOption{oauth2.SetAuthURLParam("nonce", nonce)}
+	var opts []oauth2.AuthCodeOption
+	if p.keys != nil {
+		opts = append(opts, oauth2.SetAuthURLParam("nonce", nonce))
+	}
 	if p.pkce {
 		opts = append(opts, oauth2.S256ChallengeOption(verifier))
 	}
@@ -241,8 +259,10 @@ func (p *Provider) AuthCodeURL(redirectURL, state, nonce, verifier string) strin
 }
 
 // Exchange trades a web sign-in's authorization code for tokens and verifies
-// the ID token against the web client and nonce. It returns
-// [ErrWebUnavailable], [ErrExchange] or [ErrInvalidToken].
+// the ID token against the web client and nonce. For GitHub, it reads the
+// person from GitHub's API with the access token instead, which it then
+// forgets (nonce is unused). It returns [ErrWebUnavailable], [ErrExchange] or
+// [ErrInvalidToken].
 func (p *Provider) Exchange(ctx context.Context, redirectURL, code, verifier, nonce string) (Token, error) {
 	if !p.Web() {
 		return Token{}, ErrWebUnavailable
@@ -250,6 +270,10 @@ func (p *Provider) Exchange(ctx context.Context, redirectURL, code, verifier, no
 	tok, err := p.exchange(ctx, p.webClient, redirectURL, code, verifier)
 	if err != nil {
 		return Token{}, err
+	}
+	if p.name == GitHub {
+		id, err := p.gitHubIdentity(ctx, tok.AccessToken)
+		return Token{Identity: id}, err
 	}
 	raw, _ := tok.Extra("id_token").(string)
 	id, err := p.verify(ctx, raw, nonce, []string{p.webClient})
@@ -261,9 +285,13 @@ func (p *Provider) Exchange(ctx context.Context, redirectURL, code, verifier, no
 
 // ExchangeNativeCode trades an authorization code a native app received for
 // clientID, such as Apple's authorizationCode on iOS, and returns the refresh
-// token (empty when the provider sends none). It returns [ErrExchange] or
-// [ErrInvalidConfig] for a client ID that isn't configured.
+// token (empty when the provider sends none). It returns [ErrExchange],
+// [ErrInvalidConfig] for a client ID that isn't configured, or
+// [ErrNotSupported] for GitHub.
 func (p *Provider) ExchangeNativeCode(ctx context.Context, code, clientID string) (string, error) {
+	if p.keys == nil {
+		return "", fmt.Errorf("%w: %s has no native sign-in", ErrNotSupported, p.name)
+	}
 	if !slices.Contains(p.clients, clientID) {
 		return "", fmt.Errorf("%w: unknown client ID %q", ErrInvalidConfig, clientID)
 	}
@@ -302,12 +330,16 @@ func (p *Provider) oauth(redirectURL, clientID, secret string) *oauth2.Config {
 
 // VerifyIDToken verifies an ID token a native app obtained: signature,
 // issuer, an audience among the configured client IDs, expiry, an age under
-// [MaxTokenAge], and nonce. It returns [ErrInvalidToken].
+// [MaxTokenAge], and nonce. It returns [ErrInvalidToken], wrapping
+// [ErrNotSupported] for GitHub, which issues no ID tokens.
 func (p *Provider) VerifyIDToken(ctx context.Context, rawIDToken, nonce string) (Identity, error) {
 	return p.verify(ctx, rawIDToken, nonce, p.clients)
 }
 
 func (p *Provider) verify(ctx context.Context, raw, nonce string, audiences []string) (Identity, error) {
+	if p.keys == nil {
+		return Identity{}, fmt.Errorf("%w: %w: %s issues no ID tokens", ErrInvalidToken, ErrNotSupported, p.name)
+	}
 	if raw == "" || nonce == "" {
 		return Identity{}, fmt.Errorf("%w: an ID token and nonce are required", ErrInvalidToken)
 	}
@@ -355,8 +387,12 @@ func (p *Provider) verify(ctx context.Context, raw, nonce string, audiences []st
 }
 
 // Revoke revokes a refresh token issued for clientID, as Apple requires when
-// an account is deleted.
+// an account is deleted. It returns [ErrNotSupported] for GitHub, whose
+// tokens are never kept.
 func (p *Provider) Revoke(ctx context.Context, refreshToken, clientID string) error {
+	if p.ep.RevokeURL == "" {
+		return fmt.Errorf("%w: %s has no token revocation", ErrNotSupported, p.name)
+	}
 	secret, err := p.secret(clientID)
 	if err != nil {
 		return err

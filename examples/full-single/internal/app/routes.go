@@ -19,8 +19,8 @@ import (
 	"gorbital.dev/requestid"
 )
 
-// authLimitKey limits changing requests to /v1/auth/, and Google and Apple
-// sign-in redirects, by client IP. Behind load balancers, set
+// authLimitKey limits changing requests to /v1/auth/, and Google, Apple and
+// GitHub sign-in redirects, by client IP. Behind load balancers, set
 // APP_TRUSTED_PROXIES so RemoteAddr is the client (ADR-0052).
 func authLimitKey(r *http.Request) string {
 	if !strings.HasPrefix(r.URL.Path, "/v1/auth/") {

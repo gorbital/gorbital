@@ -1047,7 +1047,8 @@
           "provider": {
             "enum": [
               "google",
-              "apple"
+              "apple",
+              "github"
             ],
             "type": "string"
           }
@@ -3768,6 +3769,41 @@
         ],
         "type": "object"
       },
+      "StartLinkInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "password": {
+            "description": "Required unless this session verified a second factor in the last 10 minutes; accounts without a password sign in again instead",
+            "maxLength": 512,
+            "type": "string"
+          },
+          "return_to": {
+            "description": "Where GitHub's return sends the browser: an absolute URL on the API's origin or an APP_CORS_ORIGINS origin, such as your account settings page. Default: AUTH_DEFAULT_RETURN_TO",
+            "maxLength": 2048,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "StartLinkResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "url": {
+            "description": "Send the browser here (window.location), in the browser that made this request: the provider returns to return_to",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "type": "object"
+      },
       "SuppressionPage": {
         "additionalProperties": false,
         "properties": {
@@ -4280,7 +4316,7 @@
             "type": "boolean"
           },
           "has_password": {
-            "description": "The account has a password; accounts created with Google or Apple don't, until they reset one",
+            "description": "The account has a password; accounts created with Google, Apple or GitHub don't, until they reset one",
             "type": "boolean"
           },
           "id": {
@@ -9392,6 +9428,81 @@
         ]
       }
     },
+    "/v1/auth/github/callback": {
+      "get": {
+        "description": "GitHub redirects here; the API redirects to the sign-in's or link's `return_to`.",
+        "operationId": "auth-github-callback",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "code",
+            "schema": {
+              "maxLength": 4096,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "error",
+            "schema": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Set by the start endpoint",
+            "in": "cookie",
+            "name": "__Host-oauth",
+            "schema": {
+              "description": "Set by the start endpoint",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "See Other",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "GitHub's return to the API",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/v1/auth/google/callback": {
       "get": {
         "description": "Google redirects here; the API redirects to the sign-in's `return_to`.",
@@ -9596,7 +9707,7 @@
             "bearer": []
           }
         ],
-        "summary": "List linked Google and Apple accounts",
+        "summary": "List linked Google, Apple and GitHub accounts",
         "tags": [
           "Auth"
         ]
@@ -9794,7 +9905,7 @@
             "bearer": []
           }
         ],
-        "summary": "Unlink a Google or Apple account",
+        "summary": "Unlink a Google, Apple or GitHub account",
         "tags": [
           "Auth"
         ]
@@ -11619,7 +11730,7 @@
     },
     "/v1/auth/verify-email": {
       "post": {
-        "description": "Each code allows 5 attempts, and each address `auth.code_attempts` a day across codes (429). Verifying signs out every device and removes any passkey, authenticator app or Google or Apple link added before the address was proven.",
+        "description": "Each code allows 5 attempts, and each address `auth.code_attempts` a day across codes (429). Verifying signs out every device and removes any passkey, authenticator app or Google, Apple or GitHub link added before the address was proven.",
         "operationId": "auth-verify-email",
         "requestBody": {
           "content": {
@@ -11734,6 +11845,127 @@
         ]
       }
     },
+    "/v1/auth/{provider}/link": {
+      "post": {
+        "description": "GitHub has no ID token for `POST /v1/auth/identities`, so a signed-in user links it through GitHub's page. Call this with the browser's credentials (fetch with `credentials: \"include\"`); it sets a short-lived cookie in that browser and returns the GitHub URL to open in it. Send the password unless this session verified a second factor in the last 10 minutes. GitHub returns to the callback, which links the GitHub account to this user, only while this session is active, and redirects to `return_to`, or to `return_to#error=\u003ccode\u003e` (`identity_in_use`, `unauthenticated`, `invalid_state`, `access_denied`). Nobody is signed in by it.",
+        "operationId": "auth-start-identity-link",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "enum": [
+                "github"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartLinkInputBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StartLinkResponse"
+                }
+              }
+            },
+            "description": "OK",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Start linking a GitHub account",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/v1/auth/{provider}/nonce": {
       "post": {
         "description": "Put the nonce in Google's or Apple's SDK request, then send the ID token with it to `POST /v1/auth/{provider}/token`. It works once, for 5 minutes.",
@@ -11812,18 +12044,19 @@
             "schema": {
               "enum": [
                 "google",
-                "apple"
+                "apple",
+                "github"
               ],
               "type": "string"
             }
           },
           {
-            "description": "Where to send the browser afterwards: an absolute URL on the API's origin or an APP_CORS_ORIGINS origin. Default: the API docs",
+            "description": "Where to send the browser afterwards: an absolute URL on the API's origin or an APP_CORS_ORIGINS origin. Default: AUTH_DEFAULT_RETURN_TO (in development, the API docs)",
             "explode": false,
             "in": "query",
             "name": "return_to",
             "schema": {
-              "description": "Where to send the browser afterwards: an absolute URL on the API's origin or an APP_CORS_ORIGINS origin. Default: the API docs",
+              "description": "Where to send the browser afterwards: an absolute URL on the API's origin or an APP_CORS_ORIGINS origin. Default: AUTH_DEFAULT_RETURN_TO (in development, the API docs)",
               "maxLength": 2048,
               "type": "string"
             }
@@ -11876,7 +12109,7 @@
             "description": "Service Unavailable"
           }
         },
-        "summary": "Sign in with Google or Apple in a browser",
+        "summary": "Sign in with Google, Apple or GitHub in a browser",
         "tags": [
           "Auth"
         ]

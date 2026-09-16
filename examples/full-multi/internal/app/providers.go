@@ -20,7 +20,7 @@ const providersGuide = "AUTH_PROVIDERS.md"
 // secret values.
 func (c Config) signInMethods() []opsdomain.SignInMethod {
 	web := c.WebAuthn.RPID != ""
-	g, a := c.Social.Google, c.Social.Apple
+	g, a, gh := c.Social.Google, c.Social.Apple, c.Social.GitHub
 	method := func(key, name string, enabled bool, detail string, missing []string, section string) opsdomain.SignInMethod {
 		if enabled {
 			return opsdomain.SignInMethod{Key: key, Name: name, Enabled: true, Detail: detail}
@@ -54,6 +54,8 @@ func (c Config) signInMethods() []opsdomain.SignInMethod {
 			[]string{"APPLE_TEAM_ID", "APPLE_SERVICES_ID", "APPLE_KEY_ID", "APPLE_PRIVATE_KEY_FILE"}, "apple-sign-in"),
 		method("apple_ios", "Apple sign-in in iOS apps", a.native(), strings.Join(a.BundleIDs, ", "),
 			[]string{"APPLE_BUNDLE_IDS"}, "apple-sign-in"),
+		method("github", "GitHub sign-in", gh.enabled(), callback("github"),
+			[]string{"GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"}, "github-sign-in"),
 	}
 }
 

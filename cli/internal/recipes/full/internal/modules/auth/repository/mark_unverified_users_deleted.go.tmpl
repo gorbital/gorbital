@@ -6,7 +6,7 @@ import (
 )
 
 // Codes sent since createdBefore mean someone is still verifying the
-// address; accounts with a Google or Apple identity are in use.
+// address; accounts with a Google, Apple or GitHub identity are in use.
 const markUnverifiedUsersDeletedSQL = `
 	WITH expired AS (
 		SELECT u.id FROM auth_users u
@@ -23,7 +23,7 @@ const markUnverifiedUsersDeletedSQL = `
 
 // MarkUnverifiedUsersDeleted soft-deletes up to limit accounts created
 // before createdBefore whose address was never verified, which have no
-// Google or Apple identity and no code sent since, and returns their IDs.
+// Google, Apple or GitHub identity and no code sent since, and returns their IDs.
 func (s *Store) MarkUnverifiedUsersDeleted(ctx context.Context, createdBefore, now time.Time, limit int) ([]string, error) {
 	rows, err := s.db.Query(ctx, markUnverifiedUsersDeletedSQL, createdBefore, now, limit)
 	if err != nil {

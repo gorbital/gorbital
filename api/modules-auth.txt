@@ -260,6 +260,8 @@ pkg gorbital.dev/modules/auth/passkey/passkeytest, type Authenticator struct, Sy
 pkg gorbital.dev/modules/auth/passkey/passkeytest, type Authenticator struct, UserVerified bool
 pkg gorbital.dev/modules/auth/social, const Apple = "apple"
 pkg gorbital.dev/modules/auth/social, const Apple ideal-string
+pkg gorbital.dev/modules/auth/social, const GitHub = "github"
+pkg gorbital.dev/modules/auth/social, const GitHub ideal-string
 pkg gorbital.dev/modules/auth/social, const Google = "google"
 pkg gorbital.dev/modules/auth/social, const Google ideal-string
 pkg gorbital.dev/modules/auth/social, const MaxNotificationAge = 3600000000000
@@ -275,8 +277,10 @@ pkg gorbital.dev/modules/auth/social, const NotificationEmailDisabled ideal-stri
 pkg gorbital.dev/modules/auth/social, const NotificationEmailEnabled = "email-enabled"
 pkg gorbital.dev/modules/auth/social, const NotificationEmailEnabled ideal-string
 pkg gorbital.dev/modules/auth/social, func AppleEndpoints() Endpoints
+pkg gorbital.dev/modules/auth/social, func GitHubEndpoints() Endpoints
 pkg gorbital.dev/modules/auth/social, func GoogleEndpoints() Endpoints
 pkg gorbital.dev/modules/auth/social, func NewApple(AppleConfig) (*Provider, error)
+pkg gorbital.dev/modules/auth/social, func NewGitHub(GitHubConfig) (*Provider, error)
 pkg gorbital.dev/modules/auth/social, func NewGoogle(GoogleConfig) (*Provider, error)
 pkg gorbital.dev/modules/auth/social, func NewPKCEVerifier() string
 pkg gorbital.dev/modules/auth/social, func ParseApplePrivateKey([]byte) (*ecdsa.PrivateKey, error)
@@ -300,11 +304,17 @@ pkg gorbital.dev/modules/auth/social, type AppleConfig struct, PrivateKey *ecdsa
 pkg gorbital.dev/modules/auth/social, type AppleConfig struct, ServicesID string
 pkg gorbital.dev/modules/auth/social, type AppleConfig struct, TeamID string
 pkg gorbital.dev/modules/auth/social, type Endpoints struct
+pkg gorbital.dev/modules/auth/social, type Endpoints struct, APIURL string
 pkg gorbital.dev/modules/auth/social, type Endpoints struct, AuthURL string
 pkg gorbital.dev/modules/auth/social, type Endpoints struct, Issuers []string
 pkg gorbital.dev/modules/auth/social, type Endpoints struct, KeysURL string
 pkg gorbital.dev/modules/auth/social, type Endpoints struct, RevokeURL string
 pkg gorbital.dev/modules/auth/social, type Endpoints struct, TokenURL string
+pkg gorbital.dev/modules/auth/social, type GitHubConfig struct
+pkg gorbital.dev/modules/auth/social, type GitHubConfig struct, ClientID string
+pkg gorbital.dev/modules/auth/social, type GitHubConfig struct, ClientSecret string
+pkg gorbital.dev/modules/auth/social, type GitHubConfig struct, Endpoints Endpoints
+pkg gorbital.dev/modules/auth/social, type GitHubConfig struct, HTTPClient *http.Client
 pkg gorbital.dev/modules/auth/social, type GoogleConfig struct
 pkg gorbital.dev/modules/auth/social, type GoogleConfig struct, ClientID string
 pkg gorbital.dev/modules/auth/social, type GoogleConfig struct, ClientSecret string
@@ -336,11 +346,14 @@ pkg gorbital.dev/modules/auth/social, type Token struct, RefreshToken string
 pkg gorbital.dev/modules/auth/social, var ErrExchange error
 pkg gorbital.dev/modules/auth/social, var ErrInvalidConfig error
 pkg gorbital.dev/modules/auth/social, var ErrInvalidToken error
+pkg gorbital.dev/modules/auth/social, var ErrNotSupported error
 pkg gorbital.dev/modules/auth/social, var ErrWebUnavailable error
 pkg gorbital.dev/modules/auth/social/socialtest, func New(testing.TB) *Server
 pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) Code(Claims, string) string
 pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) Endpoints() social.Endpoints
 pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) FailRevocations(bool)
+pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) GitHubCode(GitHubUser, string) string
+pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) GitHubEndpoints() social.Endpoints
 pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) IDToken(Claims) string
 pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) Notification(string, string, string) string
 pkg gorbital.dev/modules/auth/social/socialtest, method (*Server) Revoked() []string
@@ -356,6 +369,16 @@ pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, Name string
 pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, Nonce string
 pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, PrivateEmail bool
 pkg gorbital.dev/modules/auth/social/socialtest, type Claims struct, Subject string
+pkg gorbital.dev/modules/auth/social/socialtest, type GitHubEmail struct
+pkg gorbital.dev/modules/auth/social/socialtest, type GitHubEmail struct, Email string
+pkg gorbital.dev/modules/auth/social/socialtest, type GitHubEmail struct, Primary bool
+pkg gorbital.dev/modules/auth/social/socialtest, type GitHubEmail struct, Verified bool
+pkg gorbital.dev/modules/auth/social/socialtest, type GitHubUser struct
+pkg gorbital.dev/modules/auth/social/socialtest, type GitHubUser struct, Emails []GitHubEmail
+pkg gorbital.dev/modules/auth/social/socialtest, type GitHubUser struct, EmailsStatus int
+pkg gorbital.dev/modules/auth/social/socialtest, type GitHubUser struct, ID int64
+pkg gorbital.dev/modules/auth/social/socialtest, type GitHubUser struct, Login string
+pkg gorbital.dev/modules/auth/social/socialtest, type GitHubUser struct, Name string
 pkg gorbital.dev/modules/auth/social/socialtest, type Server struct
 pkg gorbital.dev/modules/auth/social/socialtest, type Server struct, Now func() time.Time
 pkg gorbital.dev/modules/auth/social/socialtest, type Server struct, URL string

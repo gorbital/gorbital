@@ -26,7 +26,7 @@ type UserResponse struct {
 	EmailVerified bool      `json:"email_verified"`
 	CreatedAt     time.Time `json:"created_at"`
 	Roles         []string  `json:"roles" doc:"Platform roles, such as platform_admin"`
-	HasPassword   bool      `json:"has_password" doc:"The account has a password; accounts created with Google or Apple don't, until they reset one"`
+	HasPassword   bool      `json:"has_password" doc:"The account has a password; accounts created with Google, Apple or GitHub don't, until they reset one"`
 }
 
 // SessionResponse is a signed-in device.
@@ -199,7 +199,7 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 		OperationID: "auth-verify-email", Method: http.MethodPost, Path: "/v1/auth/verify-email",
 		Summary: "Verify an email address with its code",
 		Description: "Each code allows 5 attempts, and each address `auth.code_attempts` a day across codes (429). Verifying signs out every device and removes any passkey, " +
-			"authenticator app or Google or Apple link added before the address was proven.",
+			"authenticator app or Google, Apple or GitHub link added before the address was proven.",
 		DefaultStatus: http.StatusNoContent, Errors: limited,
 	}), h.verify)
 	huma.Register(api, public(huma.Operation{

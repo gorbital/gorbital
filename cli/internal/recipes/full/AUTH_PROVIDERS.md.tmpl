@@ -1,6 +1,6 @@
 # Sign-in methods: what you provide
 
-This app can sign people in with email and password, authenticator apps, passkeys, Google and Apple. Each method works once you give the app a few values from **your own** accounts: gorbital never owns them. This page walks through every value step by step: what it is, how to create it, where to paste it, and how to check it works.
+This app can sign people in with email and password, authenticator apps, passkeys, Google, Apple and GitHub. Each method works once you give the app a few values from **your own** accounts: gorbital never owns them. This page walks through every value step by step: what it is, how to create it, where to paste it, and how to check it works.
 
 Check what's on at any time:
 
@@ -26,6 +26,9 @@ Rules for every value:
 | [Passkeys in Android apps](#passkeys-in-android-apps) | `WEBAUTHN_ANDROID_APPS` | No | Your app's signing keys | Off until set |
 | [Google sign-in](#google-sign-in) | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_IOS_CLIENT_ID`, `GOOGLE_ANDROID_CLIENT_ID`, `APP_PUBLIC_URL` | Secret: yes | A Google account (free) | Off until set |
 | [Apple sign-in](#apple-sign-in) | `APPLE_TEAM_ID`, `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY_FILE`, `APPLE_BUNDLE_IDS`, `APP_PUBLIC_URL` | Key: yes | Apple Developer Program (paid) | Off until set |
+| [GitHub sign-in](#github-sign-in) | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `APP_PUBLIC_URL` | Secret: yes | A GitHub account (free) | Off until set |
+
+Browser sign-in with Google, Apple or GitHub also needs [`AUTH_DEFAULT_RETURN_TO`](#after-signing-in) in production.
 
 Console menus move from time to time. If a step's wording doesn't match what you see, look for the same item names nearby.
 
@@ -324,6 +327,79 @@ Users can hide their address; Apple then gives the app one like `abc123@privater
 | Users with hidden emails never get codes | Register your sending domain in step 5 and check SPF |
 | The app says the key file can't be read | `APPLE_PRIVATE_KEY_FILE` must be an absolute path readable by the app; the file starts with `-----BEGIN PRIVATE KEY-----` |
 
+## GitHub sign-in
+
+Sign in with a GitHub account, in browsers only ([ADR-0059](https://github.com/gorbital/gorbital/blob/main/docs/adr/0059-github-sign-in.md)). Off until you set the variables below. You need a GitHub account; it's free. GitHub has no ID tokens for native apps: an iOS or Android app opens the browser flow instead.
+
+| Variable | Secret? | What it is |
+|---|---|---|
+| `APP_PUBLIC_URL` | No | The API's public base URL, such as `https://api.example.com`; GitHub returns to it. Empty in development means `http://localhost:8080` |
+| `GITHUB_CLIENT_ID` | No | The OAuth app's **Client ID**, such as `Ov23liAbCdEf12345678` |
+| `GITHUB_CLIENT_SECRET` | **Yes** (or `GITHUB_CLIENT_SECRET_FILE`) | A client secret generated on the OAuth app's page |
+
+The API asks GitHub only for `read:user` and `user:email`: the person's numeric ID, login, name and email addresses. It keeps the ID (logins can be renamed) and uses the **primary** address, only if GitHub has verified it. The access token is used for those two reads and never stored.
+
+How accounts work with GitHub:
+
+- A first GitHub sign-in creates an account with the primary verified address, **not verified** and without a password: GitHub doesn't host anyone's email, so it can't prove the person still owns it. The account signs in with GitHub as usual and isn't deleted as unverified; it verifies its address with a code (`POST /v1/auth/verify-email/resend`, then `POST /v1/auth/verify-email`) while signed in, before it can be given roles or accept invitations. Whoever else proves the address by email takes it over and removes the GitHub link.
+- GitHub never links an existing account by itself, whatever the address: sign-in returns `#error=social_link_required`. The owner signs in and [links GitHub](#when-you-build-the-web-frontend) from their account.
+- No verified primary address: sign-in returns `#error=social_email_unverified`. The person verifies it at GitHub → **Settings** → **Emails** and tries again.
+
+URLs to register (replace the domain with your API's). An OAuth app has **one** callback URL, so create one app per environment:
+
+| Environment | Homepage URL | Authorization callback URL |
+|---|---|---|
+| Development | `http://localhost:8080` | `http://localhost:8080/v1/auth/github/callback` |
+| Production | `https://example.com` | `https://api.example.com/v1/auth/github/callback` |
+
+### 1. Create the OAuth app
+
+1. Sign in at [github.com](https://github.com). For a company app, create it under your organisation so it doesn't depend on one person: the organisation's **Settings** → **Developer settings** → **OAuth Apps** → **New OAuth App**. For a personal one: your picture (top right) → **Settings** → **Developer settings** → **OAuth Apps** → **New OAuth App**.
+2. **Application name**: what people see when they approve, such as `Acme`. **Homepage URL**: your site. **Application description**: optional.
+3. **Authorization callback URL**: the one for this environment from the table above.
+4. Leave **Enable Device Flow** unticked. Click **Register application**.
+
+Use an **OAuth app**, not a GitHub App: the API asks for OAuth scopes.
+
+### 2. Copy the client ID and create a secret
+
+1. On the app's page, copy the **Client ID** to `GITHUB_CLIENT_ID`.
+2. Click **Generate a new client secret** (GitHub may ask you to confirm with your password or 2FA) and copy it straight away: GitHub shows it only once. Lost it? Generate another, switch the app to it, then delete the old one.
+3. Paste them:
+
+   ```bash
+   GITHUB_CLIENT_ID=Ov23liAbCdEf12345678
+   GITHUB_CLIENT_SECRET=0123456789abcdef0123456789abcdef01234567
+   ```
+
+4. Optional: upload a logo under **Application logo**; people see it on GitHub's approval page.
+
+### Check it works
+
+`go run ./cmd/api auth-providers` shows `✓ GitHub sign-in` with the callback URL. Open `http://localhost:8080/v1/auth/github/start` in a browser, approve, and you arrive at the API docs signed in; `http://localhost:8080/v1/auth/me` shows the account.
+
+### Common errors
+
+| Error | Fix |
+|---|---|
+| GitHub shows `The redirect_uri is not associated with this application` | The app's **Authorization callback URL** isn't `<APP_PUBLIC_URL>/v1/auth/github/callback` for this environment (scheme, host and port must match); edit it and **Update application**, or use this environment's app |
+| Back on your site with `#error=invalid_social_token`, and the log says `incorrect_client_credentials` | `GITHUB_CLIENT_SECRET` isn't a current secret of `GITHUB_CLIENT_ID`'s app |
+| `#error=invalid_social_token`, and the log says `bad_verification_code` | The code was used, expired, or started in another sign-in; start again |
+| `#error=social_email_unverified` | The GitHub account has no verified primary email; verify it at GitHub → **Settings** → **Emails** |
+| `#error=social_link_required` | The address already has an account: sign in to it and link GitHub |
+| `#error=access_denied` | The person clicked **Cancel** at GitHub |
+
+## After signing in
+
+A browser sign-in with Google, Apple or GitHub returns to the `return_to` your frontend passes to `/v1/auth/{provider}/start`: an address on `APP_PUBLIC_URL` or an `APP_CORS_ORIGINS` origin. Without one, and when a sign-in fails before the API knows its `return_to` (an expired or unknown state), the browser goes to `AUTH_DEFAULT_RETURN_TO`.
+
+| Variable | Secret? | What it is |
+|---|---|---|
+| `AUTH_DEFAULT_RETURN_TO` | No | A page of your frontend that reads the fragment (`#error=…`, `#mfa_challenge_token=…`), such as `https://app.example.com/signed-in`. Same origin rules as `return_to`; https in production; no `#` |
+
+- **Development:** empty means the API docs, `http://localhost:8080/docs` (set it when `APP_DOCS_ENABLED=false`).
+- **Production:** required with Google, Apple on the web, or GitHub, and the app refuses to start without it: the API's `/docs` is off in production, so a default there would end sign-ins on a 404.
+
 ## Email for codes and alerts
 
 Not a sign-in method, but every method relies on it in production: verification and reset codes, "passkey added" and recovery-code alerts. Configure it with `orb add mail`, which asks for the provider and writes `.env`.
@@ -350,9 +426,10 @@ Not a sign-in method, but every method relies on it in production: verification 
 - [ ] Email provider configured; sender domain verified; registered with Apple's relay if you use Apple sign-in.
 - [ ] `WEBAUTHN_RP_ID` and https `WEBAUTHN_ORIGINS` set; the same origins in `APP_CORS_ORIGINS`.
 - [ ] `/.well-known/apple-app-site-association` and `assetlinks.json` reachable on the RP ID's domain, if you have mobile apps.
-- [ ] `APP_PUBLIC_URL` set to the API's https URL, if you use Google or Apple.
+- [ ] `APP_PUBLIC_URL` set to the API's https URL, and `AUTH_DEFAULT_RETURN_TO` to a page of your frontend, if you use Google, Apple or GitHub.
 - [ ] Google: consent screen published; production redirect URI registered; secret stored in the secret store.
 - [ ] Apple: production domain and return URL on the Services ID; notification endpoint on the App ID; `.p8` stored as a secret file; sending domain registered for email relay.
+- [ ] GitHub: a production OAuth app with the production callback URL; its secret stored in the secret store.
 - [ ] `go run ./cmd/api auth-providers` in the production environment shows every method you expect as `✓`.
 
 ## When you build the web frontend
@@ -362,9 +439,11 @@ Not a sign-in method, but every method relies on it in production: verification 
 - Second factor: after a 202 from `POST /v1/auth/login`, offer the `methods` it lists; for `passkey`, call `POST /v1/auth/login/mfa/passkey` first.
 - Confirm sensitive changes (delete the account, turn off the authenticator app, replace recovery codes) with a passkey: `POST /v1/auth/passkeys/verification`, `navigator.credentials.get()`, then send the result as `passkey`. Adding or removing a passkey asks for the password once the sign-in is 10 minutes old.
 - Authenticator apps: show `qr_code` from `POST /v1/auth/mfa/totp` as an image, then confirm a code.
-- Google and Apple: link or redirect the browser (not `fetch`) to `/v1/auth/google/start?return_to=https://app.example.com/after-login` (or `/apple/start`). The API sends the browser back to `return_to` signed in (session cookie set), with `#mfa_challenge_token=…&methods=…` to finish with `POST /v1/auth/login/mfa`, or with `#error=<code>`. Read the fragment, then clear it from the address bar.
-- Accounts created with Google or Apple have no password (`user.has_password` is false): hide "change password", and let them set one with "forgot password". Linked accounts: `GET /v1/auth/identities`, `DELETE /v1/auth/identities/{id}`.
+- Google, Apple and GitHub: link or redirect the browser (not `fetch`) to `/v1/auth/google/start?return_to=https://app.example.com/after-login` (or `/apple/start`, `/github/start`). The API sends the browser back to `return_to` signed in (session cookie set), with `#mfa_challenge_token=…&methods=…` to finish with `POST /v1/auth/login/mfa`, or with `#error=<code>`. Read the fragment, then clear it from the address bar.
+- Accounts created with Google, Apple or GitHub have no password (`user.has_password` is false): hide "change password", and let them set one with "forgot password". Linked accounts: `GET /v1/auth/identities`, `DELETE /v1/auth/identities/{id}`.
 - `#error=social_link_required`: the address has an account, and Google or Apple doesn't manage the address (only Gmail, the person's Google Workspace domain, iCloud and Apple relay addresses link by themselves). Ask the person to sign in with their password, then link: get an ID token with Google Identity Services or Sign in with Apple JS using a nonce from `POST /v1/auth/{provider}/nonce`, and send it with the password to `POST /v1/auth/identities`.
+- Link GitHub (always required for an existing account, and GitHub has no ID token): from the signed-in page, `fetch("<API>/v1/auth/github/link", {method: "POST", credentials: "include", headers: {"Content-Type": "application/json"}, body: JSON.stringify({password, return_to: "https://app.example.com/settings"})})`, then `window.location = response.url`. The request sets a short-lived cookie in this browser; GitHub returns to `return_to` with GitHub linked, or with `#error=identity_in_use`, `#error=unauthenticated` (the session ended) or `#error=invalid_state`. It works when the frontend and API share a site (`app.example.com` and `api.example.com`); browsers that block third-party cookies refuse the cookie for a frontend on another site.
+- Accounts created with GitHub start unverified: offer "verify your email" (`POST /v1/auth/verify-email/resend`, then `POST /v1/auth/verify-email` while signed in).
 - `invalid_credentials` right after verifying an address: it was registered more than once with different passwords before verification, so it has none; offer "forgot password".
 - Add the frontend's origin to `WEBAUTHN_ORIGINS` and `APP_CORS_ORIGINS` (the second also allows it as a `return_to`).
 

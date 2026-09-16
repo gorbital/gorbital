@@ -206,7 +206,7 @@ func (s *Service) RevokeRole(ctx context.Context, userID, role string) error {
 // retention period. It
 // deletes accounts still unverified after auth.unverified_account_ttl, like
 // account deletion, so an abandoned or unowned registration doesn't hold an
-// address forever; accounts with a Google or Apple identity are kept. The
+// address forever; accounts with a Google, Apple or GitHub identity are kept. The
 // auth_cleanup job runs it.
 func (s *Service) Cleanup(ctx context.Context) (authdomain.CleanupResult, error) {
 	now := s.now()

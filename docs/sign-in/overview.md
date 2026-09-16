@@ -1,6 +1,6 @@
 # Set up sign-in
 
-Your app can already sign people in with an email address and a password. It can also offer authenticator apps, passkeys, Google and Apple. Each of those needs a few values that belong to you: a key you generate yourself, or IDs and secrets from Google's or Apple's developer websites.
+Your app can already sign people in with an email address and a password. It can also offer authenticator apps, passkeys, Google, Apple and GitHub. Each of those needs a few values that belong to you: a key you generate yourself, or IDs and secrets from Google's, Apple's or GitHub's developer websites.
 
 This section walks through every value, click by click. You don't need to have used those websites before.
 
@@ -17,6 +17,7 @@ This section walks through every value, click by click. You don't need to have u
 | Passkeys in your apps | The same passkeys inside your iOS or Android app | Your app's IDs | Apple needs a paid membership | [Passkeys in mobile apps](passkeys-mobile.md) |
 | Google | Their Google account | A Google account | Free | [Google sign-in](google.md) |
 | Apple | Their Apple Account | An Apple Developer Program membership | Paid, yearly | [Apple sign-in](apple.md) |
+| GitHub | Their GitHub account, on your website | A GitHub account | Free | [GitHub sign-in](github.md) |
 
 You don't need all of them. Start with the ones your users expect.
 
@@ -70,7 +71,7 @@ Want the whole list at once, with which values you generate, copy or download? S
 1. [Encryption key](encryption-key.md): two minutes, and production needs it.
 2. [Email sending](email.md): sign-up codes need it once real people use your app.
 3. [Passkeys](passkeys.md): quick, and the most secure way to sign in.
-4. [Google sign-in](google.md), then [Apple sign-in](apple.md). If your iOS app offers Google sign-in, the App Store generally requires Apple sign-in too.
+4. [Google sign-in](google.md), then [Apple sign-in](apple.md). If your iOS app offers Google sign-in, the App Store generally requires Apple sign-in too. [GitHub sign-in](github.md) if your users are developers.
 5. [Go-live checklist](go-live.md) before real users arrive.
 
 Every app also contains `AUTH_PROVIDERS.md`, with the same steps in one file next to your code.

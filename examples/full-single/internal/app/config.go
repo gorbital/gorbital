@@ -43,10 +43,10 @@ type Config struct {
 	AuthEncryptionKeys config.Secret
 	// WebAuthn is the passkey relying party (WEBAUTHN_*, passkeys.go).
 	WebAuthn webAuthnConfig
-	// Social is Google and Apple sign-in (GOOGLE_*, APPLE_*, APP_PUBLIC_URL;
-	// social.go).
+	// Social is Google, Apple and GitHub sign-in (GOOGLE_*, APPLE_*,
+	// GITHUB_*, APP_PUBLIC_URL, AUTH_DEFAULT_RETURN_TO; social.go).
 	Social socialConfig
-	// ProviderEndpoints point Google and Apple at a fake provider in tests;
+	// ProviderEndpoints point the sign-in providers at a fake one in tests;
 	// never read from the environment.
 	ProviderEndpoints providerEndpoints
 	DBMaxConns        int32 // APP_DB_MAX_CONNS
@@ -184,6 +184,9 @@ func LoadConfig(src config.Source) (Config, error) {
 	var socialErrs []error
 	cfg.Social, socialErrs = loadSocialConfig(get, secret, cfg.Production())
 	errs = append(errs, socialErrs...)
+	if err := cfg.checkDefaultReturnTo(); err != nil {
+		errs = append(errs, err)
+	}
 
 	if v := get("APP_DB_MAX_CONNS"); v != "" {
 		n, err := strconv.ParseInt(v, 10, 32)

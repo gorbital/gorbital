@@ -52,7 +52,8 @@ echo "k1:$(openssl rand -base64 32)"
 | `WEBAUTHN_ORIGINS` | Passkeys in production | No | **Chosen by you**: your https frontends | [Passkeys](passkeys.md) |
 | `WEBAUTHN_APPLE_APP_IDS` | Passkeys in iOS apps | No | **Copied from a dashboard**: Team ID + bundle ID | [Mobile passkeys](passkeys-mobile.md) |
 | `WEBAUTHN_ANDROID_APPS` | Passkeys in Android apps | No | **Copied from a dashboard**: package name + SHA-256 fingerprints | [Mobile passkeys](passkeys-mobile.md) |
-| `APP_PUBLIC_URL` | Google or Apple on the web, in production | No | **Chosen by you**: your API's https address | [Google](google.md) |
+| `APP_PUBLIC_URL` | Google, Apple or GitHub on the web, in production | No | **Chosen by you**: your API's https address | [Google](google.md) |
+| `AUTH_DEFAULT_RETURN_TO` | Google, Apple or GitHub on the web, in production | No | **Chosen by you**: a page of your website | [GitHub](github.md#after-signing-in) |
 | `GOOGLE_CLIENT_ID` | Google | No | **Copied from a dashboard**: Google Cloud Console | [Google](google.md) |
 | `GOOGLE_CLIENT_SECRET` | Google | **Yes** | **Copied from a dashboard**, shown when the client is created | [Google](google.md) |
 | `GOOGLE_IOS_CLIENT_ID` | Google in iOS apps | No | **Copied from a dashboard** | [Google](google.md) |
@@ -62,6 +63,8 @@ echo "k1:$(openssl rand -base64 32)"
 | `APPLE_KEY_ID` | Apple | No | **Copied from a dashboard** | [Apple](apple.md) |
 | `APPLE_PRIVATE_KEY_FILE` or `APPLE_PRIVATE_KEY` | Apple | **Yes** | **Downloaded file** (`.p8`), once | [Apple](apple.md) |
 | `APPLE_BUNDLE_IDS` | Apple in iOS apps | No | **Copied from Xcode** | [Apple](apple.md) |
+| `GITHUB_CLIENT_ID` | GitHub | No | **Copied from a dashboard**: your GitHub OAuth app | [GitHub](github.md) |
+| `GITHUB_CLIENT_SECRET` | GitHub | **Yes** | **Copied from a dashboard**, shown once when generated | [GitHub](github.md) |
 
 ## Email
 
@@ -92,11 +95,11 @@ echo "k1:$(openssl rand -base64 32)"
 
 ## Secrets from files
 
-For any secret, you can set `NAME_FILE` to a file's path instead of `NAME`, and the app reads the value from the file: `DATABASE_URL_FILE`, `AUTH_ENCRYPTION_KEYS_FILE`, `GOOGLE_CLIENT_SECRET_FILE`, `APPLE_PRIVATE_KEY_FILE`, `RESEND_API_KEY_FILE`, `SMTP_PASSWORD_FILE`. Set one or the other: if both are set, the app refuses to start.
+For any secret, you can set `NAME_FILE` to a file's path instead of `NAME`, and the app reads the value from the file: `DATABASE_URL_FILE`, `AUTH_ENCRYPTION_KEYS_FILE`, `GOOGLE_CLIENT_SECRET_FILE`, `APPLE_PRIVATE_KEY_FILE`, `GITHUB_CLIENT_SECRET_FILE`, `RESEND_API_KEY_FILE`, `SMTP_PASSWORD_FILE`. Set one or the other: if both are set, the app refuses to start.
 
 ## A complete development `.env`
 
-What `orb dev` writes for an app named `acme-api`, with Google and Apple added. Values in `<…>` are yours.
+What `orb dev` writes for an app named `acme-api`, with Google, Apple and GitHub added. Values in `<…>` are yours.
 
 ```bash
 # ── Server ─────────────────────────────── default is fine
@@ -123,8 +126,9 @@ WEBAUTHN_ORIGINS=
 WEBAUTHN_APPLE_APP_IDS=                  # optional: copied from Apple Developer + Xcode
 WEBAUTHN_ANDROID_APPS=                   # optional: copied from Play Console / keytool
 
-# ── Google and Apple ───────────────────── optional
+# ── Google, Apple and GitHub ───────────── optional
 APP_PUBLIC_URL=                          # empty means http://localhost:8080
+AUTH_DEFAULT_RETURN_TO=                  # empty means http://localhost:8080/docs
 GOOGLE_CLIENT_ID=<id>.apps.googleusercontent.com          # copied from Google Cloud Console
 GOOGLE_CLIENT_SECRET=GOCSPX-<secret>                      # copied from Google Cloud Console (secret)
 GOOGLE_IOS_CLIENT_ID=                                     # optional
@@ -134,6 +138,8 @@ APPLE_SERVICES_ID=com.example.web                         # chosen by you, regis
 APPLE_KEY_ID=<10 characters>                              # copied from Apple Developer
 APPLE_PRIVATE_KEY_FILE=/Users/you/.config/acme-api/AuthKey_<KEY ID>.p8   # downloaded file (secret)
 APPLE_BUNDLE_IDS=                                         # optional: your iOS app
+GITHUB_CLIENT_ID=<client ID>                              # copied from your development OAuth app
+GITHUB_CLIENT_SECRET=<secret>                             # copied from GitHub, shown once (secret)
 
 # ── Email ──────────────────────────────── Mailpit, nothing to set
 MAIL_DELIVERY=
@@ -165,12 +171,15 @@ WEBAUTHN_RP_ID=example.com                # chosen by you
 WEBAUTHN_ORIGINS=https://app.example.com  # chosen by you
 
 APP_PUBLIC_URL=https://api.example.com    # chosen by you
+AUTH_DEFAULT_RETURN_TO=https://app.example.com/signed-in      # chosen by you: where sign-ins without return_to end
 GOOGLE_CLIENT_ID=<id>.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET_FILE=/run/secrets/google_client_secret   # copied from Google (secret, as a file)
 APPLE_TEAM_ID=<10 characters>
 APPLE_SERVICES_ID=com.example.web
 APPLE_KEY_ID=<10 characters>
 APPLE_PRIVATE_KEY_FILE=/run/secrets/apple_private_key          # downloaded .p8 (secret, as a file)
+GITHUB_CLIENT_ID=<client ID of the production OAuth app>
+GITHUB_CLIENT_SECRET_FILE=/run/secrets/github_client_secret    # copied from GitHub (secret, as a file)
 ```
 
 Then set the sender address, which is a runtime setting rather than a variable: `PUT /ops/settings/mail.from_email`. Before launch, go through the [go-live checklist](go-live.md).

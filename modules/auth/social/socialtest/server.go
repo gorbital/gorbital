@@ -1,7 +1,9 @@
 // Package socialtest runs an in-process OpenID Connect provider standing in
 // for Google or Apple in tests: it serves signing keys, a token endpoint and
 // a revocation endpoint, and issues signed ID tokens, authorization codes and
-// Apple notifications. Point a social provider at it with Endpoints.
+// Apple notifications. Point a social provider at it with Endpoints. It also
+// stands in for GitHub (GitHubEndpoints): an OAuth token endpoint checking
+// PKCE, and the user and email API.
 //
 // Stability: stable, for tests only: the API follows the compatibility
 // promise; what the helpers do inside a test may change (ADR-0015, ADR-0054).
@@ -58,6 +60,9 @@ type Server struct {
 	requests   []url.Values
 	revoked    []string
 	failRevoke bool
+	// gitHubGrants are GitHub codes; gitHubTokens the access tokens issued.
+	gitHubGrants map[string]gitHubGrant
+	gitHubTokens map[string]GitHubUser
 }
 
 // FailRevocations makes the revocation endpoint answer 503 while fail is
@@ -87,11 +92,17 @@ func New(t testing.TB) *Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &Server{Now: time.Now, key: key, signer: signer, grants: map[string]grant{}}
+	s := &Server{
+		Now: time.Now, key: key, signer: signer, grants: map[string]grant{},
+		gitHubGrants: map[string]gitHubGrant{}, gitHubTokens: map[string]GitHubUser{},
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /keys", s.serveKeys)
 	mux.HandleFunc("POST /token", s.serveToken)
 	mux.HandleFunc("POST /revoke", s.serveRevoke)
+	mux.HandleFunc("POST /login/oauth/access_token", s.serveGitHubToken)
+	mux.HandleFunc("GET /user", s.serveGitHubUser)
+	mux.HandleFunc("GET /user/emails", s.serveGitHubEmails)
 	s.srv = httptest.NewServer(mux)
 	s.URL = s.srv.URL
 	t.Cleanup(s.srv.Close)

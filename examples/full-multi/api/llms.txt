@@ -96,11 +96,12 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Apple's return to the API](/docs/auth/auth-apple-callback.md): `POST /v1/auth/apple/callback`
 - [Apple's server-to-server notifications](/docs/auth/auth-apple-notifications.md): `POST /v1/auth/apple/notifications`
 - [Sign in with an Apple ID token](/docs/auth/auth-apple-token.md): `POST /v1/auth/apple/token`
+- [GitHub's return to the API](/docs/auth/auth-github-callback.md): `GET /v1/auth/github/callback`
 - [Google's return to the API](/docs/auth/auth-google-callback.md): `GET /v1/auth/google/callback`
 - [Sign in with a Google ID token](/docs/auth/auth-google-token.md): `POST /v1/auth/google/token`
-- [List linked Google and Apple accounts](/docs/auth/auth-list-identities.md): `GET /v1/auth/identities`
+- [List linked Google, Apple and GitHub accounts](/docs/auth/auth-list-identities.md): `GET /v1/auth/identities`
 - [Link a Google or Apple account](/docs/auth/auth-link-identity.md): `POST /v1/auth/identities`
-- [Unlink a Google or Apple account](/docs/auth/auth-remove-identity.md): `DELETE /v1/auth/identities/{id}`
+- [Unlink a Google, Apple or GitHub account](/docs/auth/auth-remove-identity.md): `DELETE /v1/auth/identities/{id}`
 - [Sign in](/docs/auth/auth-login.md): `POST /v1/auth/login`
 - [Finish signing in with a second factor](/docs/auth/auth-login-mfa.md): `POST /v1/auth/login/mfa`
 - [Start a passkey second factor](/docs/auth/auth-login-mfa-passkey.md): `POST /v1/auth/login/mfa/passkey`
@@ -128,8 +129,9 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Sign out one device](/docs/auth/auth-revoke-session.md): `DELETE /v1/auth/sessions/{id}`
 - [Verify an email address with its code](/docs/auth/auth-verify-email.md): `POST /v1/auth/verify-email`
 - [Send a new verification code](/docs/auth/auth-resend-verification.md): `POST /v1/auth/verify-email/resend`
+- [Start linking a GitHub account](/docs/auth/auth-start-identity-link.md): `POST /v1/auth/{provider}/link`
 - [Get a nonce for a native sign-in](/docs/auth/auth-social-nonce.md): `POST /v1/auth/{provider}/nonce`
-- [Sign in with Google or Apple in a browser](/docs/auth/auth-start-social.md): `GET /v1/auth/{provider}/start`
+- [Sign in with Google, Apple or GitHub in a browser](/docs/auth/auth-start-social.md): `GET /v1/auth/{provider}/start`
 
 ## Example
 

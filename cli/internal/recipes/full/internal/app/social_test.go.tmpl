@@ -286,6 +286,22 @@ func TestSocialConfiguration(t *testing.T) {
 		{"production without the public URL", map[string]string{"APP_ENV": "production", "GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s"}, "APP_PUBLIC_URL is required"},
 		{"production over http", map[string]string{"APP_ENV": "production", "APP_PUBLIC_URL": "http://api.example.com", "GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s"}, "must use https"},
 		{"public URL with a path", map[string]string{"APP_PUBLIC_URL": "https://api.example.com/v1", "GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s"}, "must be a scheme and host"},
+		{"GitHub", map[string]string{"GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "s"}, ""},
+		{"GitHub without the secret", map[string]string{"GITHUB_CLIENT_ID": "id"}, "GITHUB_CLIENT_SECRET is required with GITHUB_CLIENT_ID"},
+		{"GitHub without the client ID", map[string]string{"GITHUB_CLIENT_SECRET": "s"}, "GITHUB_CLIENT_ID is required with GITHUB_CLIENT_SECRET"},
+		{"GitHub in production without the public URL", map[string]string{"APP_ENV": "production", "GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "s", "AUTH_DEFAULT_RETURN_TO": "https://api.example.com/"}, "APP_PUBLIC_URL is required"},
+		{"production without a default return address", map[string]string{"APP_ENV": "production", "APP_PUBLIC_URL": "https://api.example.com", "GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s"}, "AUTH_DEFAULT_RETURN_TO is required"},
+		{"production GitHub without a default return address", map[string]string{"APP_ENV": "production", "APP_PUBLIC_URL": "https://api.example.com", "GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "s"}, "AUTH_DEFAULT_RETURN_TO is required"},
+		{"production with a default return address", map[string]string{"APP_ENV": "production", "APP_PUBLIC_URL": "https://api.example.com", "GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s", "APP_CORS_ORIGINS": "https://app.example.com", "AUTH_DEFAULT_RETURN_TO": "https://app.example.com/signed-in"}, ""},
+		{"default return address on the API", map[string]string{"APP_ENV": "production", "APP_PUBLIC_URL": "https://api.example.com", "GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s", "AUTH_DEFAULT_RETURN_TO": "https://API.example.com/welcome"}, ""},
+		{"default return address on another site", map[string]string{"APP_ENV": "production", "APP_PUBLIC_URL": "https://api.example.com", "GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s", "APP_CORS_ORIGINS": "https://app.example.com", "AUTH_DEFAULT_RETURN_TO": "https://evil.example/"}, "must be on APP_PUBLIC_URL or an origin in APP_CORS_ORIGINS"},
+		{"default return address over http in production", map[string]string{"APP_ENV": "production", "APP_PUBLIC_URL": "https://api.example.com", "GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s", "APP_CORS_ORIGINS": "https://app.example.com", "AUTH_DEFAULT_RETURN_TO": "http://app.example.com/"}, "must use https in production"},
+		{"default return address with a fragment", map[string]string{"AUTH_DEFAULT_RETURN_TO": "http://localhost:8080/#x"}, "without user information or a fragment"},
+		{"default return address with user information", map[string]string{"AUTH_DEFAULT_RETURN_TO": "http://user@localhost:8080/"}, "without user information or a fragment"},
+		{"relative default return address", map[string]string{"AUTH_DEFAULT_RETURN_TO": "/welcome"}, "must be an absolute"},
+		{"development without docs or a default return address", map[string]string{"APP_DOCS_ENABLED": "false", "GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "s"}, "AUTH_DEFAULT_RETURN_TO is required with Google, Apple or GitHub sign-in when APP_DOCS_ENABLED=false"},
+		{"production without web sign-in", map[string]string{"APP_ENV": "production"}, ""},
+		{"production with Apple in iOS apps only", map[string]string{"APP_ENV": "production", "APPLE_TEAM_ID": "TEAM123456", "APPLE_KEY_ID": "KEY1234567", "APPLE_PRIVATE_KEY_FILE": keyFile, "APPLE_BUNDLE_IDS": "com.example.app"}, ""},
 	}
 	for _, tt := range tests {
 		_, err := load(tt.env)
@@ -297,6 +313,9 @@ func TestSocialConfiguration(t *testing.T) {
 		}
 	}
 
+	if cfg, err := load(map[string]string{"GITHUB_CLIENT_ID": "id", "GITHUB_CLIENT_SECRET": "s"}); err != nil || cfg.Social.DefaultReturnTo != "http://localhost:8080/docs" {
+		t.Errorf("development default return address = %q, %v; want the API docs", cfg.Social.DefaultReturnTo, err)
+	}
 	cfg, _ := load(map[string]string{"GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s", "APPLE_TEAM_ID": "T", "APPLE_KEY_ID": "K", "APPLE_PRIVATE_KEY_FILE": keyFile, "APPLE_BUNDLE_IDS": "com.example.app"})
 	var out bytes.Buffer
 	app.WriteSignInMethods(&out, cfg)
@@ -306,6 +325,189 @@ func TestSocialConfiguration(t *testing.T) {
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("WriteSignInMethods() lacks %q:\n%s", want, out.String())
+		}
+	}
+}
+
+// gitHubEnv turns on GitHub sign-in, with a frontend origin to return to.
+var gitHubEnv = map[string]string{
+	"GITHUB_CLIENT_ID": "github-client", "GITHUB_CLIENT_SECRET": "github-secret", "APP_CORS_ORIGINS": "https://app.example.com",
+}
+
+// gitHubCallback finishes a GitHub flow whose start (a redirect or a link's
+// JSON) sent the browser to GitHub at location, as GitHub would for user.
+func gitHubCallback(t *testing.T, h http.Handler, srv *socialtest.Server, location, browser string, user socialtest.GitHubUser) response {
+	t.Helper()
+	u, err := url.Parse(location)
+	if err != nil || !strings.HasPrefix(location, srv.URL+"/login/oauth/authorize") {
+		t.Fatalf("GitHub location = %q, %v", location, err)
+	}
+	q := u.Query()
+	code := srv.GitHubCode(user, q.Get("code_challenge"))
+	return do(t, h, "GET", "/v1/auth/github/callback?code="+url.QueryEscape(code)+"&state="+url.QueryEscape(q.Get("state")), "",
+		"Cookie", "__Host-oauth="+browser)
+}
+
+// TestGitHubSignInEndToEnd follows ADR-0059 over HTTP against a fake GitHub:
+// a new account, a person without a verified email, an address with an
+// account, linking while signed in bound to the browser and the session,
+// unlinking and the sign-in methods status.
+func TestGitHubSignInEndToEnd(t *testing.T) {
+	srv := socialtest.New(t)
+	a := newApp(t, gitHubEnv, func(c *app.Config) { c.ProviderEndpoints.GitHub = srv.GitHubEndpoints() })
+	h := a.Handler()
+	after := "https://app.example.com/after"
+	start := func() (location, browser string) {
+		t.Helper()
+		r := do(t, h, "GET", "/v1/auth/github/start?return_to="+url.QueryEscape(after), "")
+		if r.code != http.StatusFound || cookieValue(r, "__Host-oauth") == "" {
+			t.Fatalf("GET /v1/auth/github/start = %d %v %s", r.code, r.header, r.body)
+		}
+		return r.header.Get("Location"), cookieValue(r, "__Host-oauth")
+	}
+	octo := socialtest.GitHubUser{ID: 583231, Login: "octocat", Name: "The Octocat", Emails: []socialtest.GitHubEmail{{Email: "octocat@example.com", Primary: true, Verified: true}}}
+
+	location, browser := start()
+	if q, _ := url.Parse(location); q.Query().Get("scope") != "read:user user:email" || q.Query().Get("code_challenge_method") != "S256" {
+		t.Errorf("GitHub authorization URL = %s", location)
+	}
+	signedIn := gitHubCallback(t, h, srv, location, browser, octo)
+	if signedIn.code != http.StatusSeeOther || signedIn.header.Get("Location") != after || cookieValue(signedIn, "__Host-session") == "" {
+		t.Fatalf("GET /v1/auth/github/callback = %d %q %v", signedIn.code, signedIn.header.Get("Location"), signedIn.header.Values("Set-Cookie"))
+	}
+	me := do(t, h, "GET", "/v1/auth/me", "", "Cookie", "__Host-session="+cookieValue(signedIn, "__Host-session"))
+	if user, _ := me.json["user"].(map[string]any); me.code != http.StatusOK || user["email"] != "octocat@example.com" || user["has_password"] != false || user["email_verified"] != false {
+		t.Errorf("GET /v1/auth/me after GitHub = %d %s, want an unverified account without a password", me.code, me.body)
+	}
+
+	// No verified primary email, and an address with an account.
+	location, browser = start()
+	if r := gitHubCallback(t, h, srv, location, browser, socialtest.GitHubUser{ID: 2, Login: "nobody"}); r.header.Get("Location") != after+"#error=social_email_unverified" || cookieValue(r, "__Host-session") != "" {
+		t.Errorf("GitHub without a verified email = %q %v", r.header.Get("Location"), r.header.Values("Set-Cookie"))
+	}
+	ctx := actor.With(context.Background(), actor.System("test"))
+	owner, err := a.Auth().CreateUser(ctx, "ada@gmail.com", testPassword, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ada := socialtest.GitHubUser{ID: 1815, Login: "ada", Emails: []socialtest.GitHubEmail{{Email: "ada@gmail.com", Primary: true, Verified: true}}}
+	location, browser = start()
+	if r := gitHubCallback(t, h, srv, location, browser, ada); r.header.Get("Location") != after+"#error=social_link_required" || cookieValue(r, "__Host-session") != "" {
+		t.Errorf("GitHub with the address of an account = %q %v", r.header.Get("Location"), r.header.Values("Set-Cookie"))
+	}
+
+	// The owner links GitHub while signed in.
+	session := cookieHeader(t, do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":"ada@gmail.com","password":%q}`, testPassword)))
+	link := func(body string, headers ...string) response {
+		t.Helper()
+		return do(t, h, "POST", "/v1/auth/github/link", body, headers...)
+	}
+	body := fmt.Sprintf(`{"password":%q,"return_to":"https://app.example.com/settings"}`, testPassword)
+	if r := link(`{"password":"wrong password"}`, session...); r.code != http.StatusUnauthorized || r.json["code"] != "invalid_credentials" {
+		t.Errorf("POST /v1/auth/github/link with a wrong password = %d %s", r.code, r.body)
+	}
+	if r := link(body); r.code != http.StatusUnauthorized {
+		t.Errorf("POST /v1/auth/github/link signed out = %d %s, want 401", r.code, r.body)
+	}
+	if r := link(body, append(session, "Sec-Fetch-Site", "cross-site", "Origin", "https://evil.example")...); r.code != http.StatusForbidden {
+		t.Errorf("cross-site POST /v1/auth/github/link = %d %s, want 403", r.code, r.body)
+	}
+	if r := do(t, h, "POST", "/v1/auth/google/link", body, session...); r.code != http.StatusUnprocessableEntity {
+		t.Errorf("POST /v1/auth/google/link = %d %s, want 422 (GitHub only)", r.code, r.body)
+	}
+
+	started := link(body, session...)
+	linkBrowser := cookieValue(started, "__Host-oauth")
+	if started.code != http.StatusOK || linkBrowser == "" || started.header.Get("Cache-Control") != "no-store" || started.json["url"] == nil {
+		t.Fatalf("POST /v1/auth/github/link = %d %v %s", started.code, started.header, started.body)
+	}
+	// Someone else's browser following the link's GitHub return gets nothing.
+	if r := gitHubCallback(t, h, srv, fmt.Sprint(started.json["url"]), "attacker-browser", octo); r.header.Get("Location") != "https://app.example.com/settings#error=invalid_state" {
+		t.Errorf("link callback in another browser = %q", r.header.Get("Location"))
+	}
+	started = link(body, session...)
+	linked := gitHubCallback(t, h, srv, fmt.Sprint(started.json["url"]), cookieValue(started, "__Host-oauth"), ada)
+	if linked.code != http.StatusSeeOther || linked.header.Get("Location") != "https://app.example.com/settings" || cookieValue(linked, "__Host-session") != "" {
+		t.Fatalf("link callback = %d %q %v, want the return address and no new session", linked.code, linked.header.Get("Location"), linked.header.Values("Set-Cookie"))
+	}
+	identities := do(t, h, "GET", "/v1/auth/identities", "", session...)
+	items, _ := identities.json["identities"].([]any)
+	if identities.code != http.StatusOK || len(items) != 1 || items[0].(map[string]any)["provider"] != "github" {
+		t.Fatalf("GET /v1/auth/identities = %d %s", identities.code, identities.body)
+	}
+	location, browser = start()
+	viaGitHub := gitHubCallback(t, h, srv, location, browser, ada)
+	me = do(t, h, "GET", "/v1/auth/me", "", "Cookie", "__Host-session="+cookieValue(viaGitHub, "__Host-session"))
+	if user, _ := me.json["user"].(map[string]any); me.code != http.StatusOK || user["id"] != owner.ID {
+		t.Errorf("GitHub sign-in after linking = %d %s, want the owner's account", me.code, me.body)
+	}
+
+	// Another account's GitHub, and a link whose session signed out.
+	started = link(body, session...)
+	if r := gitHubCallback(t, h, srv, fmt.Sprint(started.json["url"]), cookieValue(started, "__Host-oauth"), octo); r.header.Get("Location") != "https://app.example.com/settings#error=identity_in_use" {
+		t.Errorf("linking another account's GitHub = %q", r.header.Get("Location"))
+	}
+	other := cookieHeader(t, do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":"ada@gmail.com","password":%q}`, testPassword)))
+	started = link(body, other...)
+	if r := do(t, h, "POST", "/v1/auth/logout", "", other...); r.code != http.StatusNoContent {
+		t.Fatalf("POST /v1/auth/logout = %d %s", r.code, r.body)
+	}
+	if r := gitHubCallback(t, h, srv, fmt.Sprint(started.json["url"]), cookieValue(started, "__Host-oauth"), socialtest.GitHubUser{ID: 7, Login: "work", Emails: ada.Emails}); r.header.Get("Location") != "https://app.example.com/settings#error=unauthenticated" {
+		t.Errorf("link after signing out = %q", r.header.Get("Location"))
+	}
+
+	// Unlinking.
+	id := items[0].(map[string]any)["id"].(string)
+	if r := do(t, h, "DELETE", "/v1/auth/identities/"+id, fmt.Sprintf(`{"password":%q}`, testPassword), session...); r.code != http.StatusNoContent {
+		t.Errorf("DELETE /v1/auth/identities/%s = %d %s", id, r.code, r.body)
+	}
+
+	// The sign-in methods status.
+	var out bytes.Buffer
+	app.WriteSignInMethods(&out, testConfig(t, gitHubEnv))
+	if !strings.Contains(out.String(), "✓ GitHub sign-in") || !strings.Contains(out.String(), "callback http://localhost:8080/v1/auth/github/callback") {
+		t.Errorf("WriteSignInMethods() with GitHub:\n%s", out.String())
+	}
+	out.Reset()
+	app.WriteSignInMethods(&out, testConfig(t, nil))
+	if !strings.Contains(out.String(), "– GitHub sign-in") || !strings.Contains(out.String(), "set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET in .env") || !strings.Contains(out.String(), "AUTH_PROVIDERS.md#github-sign-in") {
+		t.Errorf("WriteSignInMethods() without GitHub:\n%s", out.String())
+	}
+}
+
+// TestSignInReturnsToTheDefaultAddress: a web sign-in without return_to
+// ends at AUTH_DEFAULT_RETURN_TO, which production requires (its /docs is
+// off by default and answered 404), and at the API docs in development.
+func TestSignInReturnsToTheDefaultAddress(t *testing.T) {
+	srv := socialtest.New(t)
+	production := map[string]string{
+		"APP_ENV": "production", "APP_PUBLIC_URL": "https://api.example.com", "AUTH_DEFAULT_RETURN_TO": "https://app.example.com/signed-in",
+	}
+	maps.Copy(production, gitHubEnv)
+	maps.Copy(production, mailProviderEnv)
+	for name, tt := range map[string]struct {
+		env  map[string]string
+		want string
+	}{
+		"production":  {production, "https://app.example.com/signed-in"},
+		"development": {gitHubEnv, "http://localhost:8080/docs"},
+	} {
+		h := newApp(t, tt.env, func(c *app.Config) { c.ProviderEndpoints.GitHub = srv.GitHubEndpoints() }).Handler()
+		r := do(t, h, "GET", "/v1/auth/github/start", "")
+		location := r.header.Get("Location")
+		signedIn := gitHubCallback(t, h, srv, location, cookieValue(r, "__Host-oauth"), socialtest.GitHubUser{ID: 1, Login: "a", Emails: []socialtest.GitHubEmail{{Email: name + "@example.com", Primary: true, Verified: true}}})
+		if signedIn.header.Get("Location") != tt.want || cookieValue(signedIn, "__Host-session") == "" {
+			t.Errorf("%s: sign-in without return_to = %q %v, want %q", name, signedIn.header.Get("Location"), signedIn.header.Values("Set-Cookie"), tt.want)
+		}
+		if r := do(t, h, "GET", "/v1/auth/github/callback?code=x&state=unknown", ""); r.header.Get("Location") != tt.want+"#error=invalid_state" {
+			t.Errorf("%s: callback with an unknown state = %q, want %q", name, r.header.Get("Location"), tt.want+"#error=invalid_state")
+		}
+		wantDocs := http.StatusOK
+		if name == "production" {
+			wantDocs = http.StatusNotFound
+		}
+		if r := do(t, h, "GET", "/docs", ""); r.code != wantDocs {
+			t.Errorf("%s: GET /docs = %d, want %d", name, r.code, wantDocs)
 		}
 	}
 }

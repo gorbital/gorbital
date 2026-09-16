@@ -67,13 +67,14 @@ Read in `passkeys.go` ([ADR-0044](../adr/0044-passkeys.md)). No secrets.
 
 In development, when both `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGINS` are empty, the defaults above apply. In production, both empty means passkey endpoints answer 503 `passkeys_unavailable`.
 
-### Google and Apple
+### Google, Apple and GitHub
 
-Read in `social.go` ([ADR-0046](../adr/0046-google-and-apple-sign-in.md)).
+Read in `social.go` ([ADR-0046](../adr/0046-google-and-apple-sign-in.md), [ADR-0059](../adr/0059-github-sign-in.md)).
 
 | Variable | Required | Default | Example | Secret | Description |
 |---|---|---|---|---|---|
-| `APP_PUBLIC_URL` | With Google, or Apple web sign-in, in production | `http://localhost:8080` in development | `https://api.example.com` | No | The API's public origin: scheme and host, no path. Callback URLs are `<APP_PUBLIC_URL>/v1/auth/{google,apple}/callback`; the default `return_to` is `<APP_PUBLIC_URL>/docs`. **Prod**: https |
+| `APP_PUBLIC_URL` | With Google, Apple web or GitHub sign-in, in production | `http://localhost:8080` in development | `https://api.example.com` | No | The API's public origin: scheme and host, no path. Callback URLs are `<APP_PUBLIC_URL>/v1/auth/{google,apple,github}/callback`. **Prod**: https |
+| `AUTH_DEFAULT_RETURN_TO` | With Google, Apple web or GitHub sign-in, in production (and in development with `APP_DOCS_ENABLED=false`) | `<APP_PUBLIC_URL>/docs` in development | `https://app.example.com/signed-in` | No | Where a browser sign-in ends when it names no `return_to`, or fails before its `return_to` is known. Absolute URL on `APP_PUBLIC_URL` or an `APP_CORS_ORIGINS` origin, no user information or fragment. **Prod**: https; checked at start |
 | `GOOGLE_CLIENT_ID` | Enables Google | empty | `123-abc.apps.googleusercontent.com` | No | Web application client ID. Also an accepted audience for native ID tokens (Android's `serverClientId`) |
 | `GOOGLE_CLIENT_SECRET` | With `GOOGLE_CLIENT_ID` | empty | `GOCSPX-…` | **Secret** | Web client secret, for the authorization code exchange |
 | `GOOGLE_IOS_CLIENT_ID` | No; needs `GOOGLE_CLIENT_ID` | empty | `123-ios.apps.googleusercontent.com` | No | Accepted audience for ID tokens from the iOS app |
@@ -83,6 +84,8 @@ Read in `social.go` ([ADR-0046](../adr/0046-google-and-apple-sign-in.md)).
 | `APPLE_PRIVATE_KEY` (or `APPLE_PRIVATE_KEY_FILE`) | With any Apple variable | empty | `-----BEGIN PRIVATE KEY-----…` | **Secret** | The `.p8` Sign in with Apple key: PKCS #8 PEM, ECDSA P-256. Parsed at start |
 | `APPLE_SERVICES_ID` | This or `APPLE_BUNDLE_IDS` | empty | `com.example.web` | No | Client ID for web sign-in |
 | `APPLE_BUNDLE_IDS` | This or `APPLE_SERVICES_ID` | empty | `com.example.app,com.example.app.dev` | No | Client IDs for native sign-in |
+| `GITHUB_CLIENT_ID` | Enables GitHub | empty | `Ov23liAbCdEf12345678` | No | The GitHub OAuth app's client ID; web sign-in only |
+| `GITHUB_CLIENT_SECRET` (or `GITHUB_CLIENT_SECRET_FILE`) | With `GITHUB_CLIENT_ID` | empty | 40 hexadecimal characters | **Secret** | The OAuth app's client secret, for the code exchange |
 
 `.env.example` lists `APPLE_PRIVATE_KEY_FILE` and mentions `APPLE_PRIVATE_KEY` in its comment: a file is the recommended form, because multi-line values don't survive most `.env` parsers and environment dashboards.
 

@@ -19,7 +19,8 @@ import (
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 )
 
-// SocialStart is a started web sign-in with Google or Apple.
+// SocialStart is a started web sign-in with Google, Apple or GitHub, or a
+// started link of GitHub to the signed-in user.
 type SocialStart struct {
 	// URL is the provider page to send the browser to.
 	URL string
@@ -35,6 +36,10 @@ type SocialStart struct {
 type SocialResult struct {
 	LoginResult
 	ReturnTo string
+	// Linked reports a finished link started with StartIdentityLink: the
+	// provider was linked to the account that started it, and no one was
+	// signed in.
+	Linked bool
 }
 
 // StartSocialSignIn starts a web sign-in with provider that returns to
@@ -49,6 +54,52 @@ func (s *Service) StartSocialSignIn(ctx context.Context, provider, returnTo stri
 	if err != nil {
 		return SocialStart{}, err
 	}
+	return s.startWeb(ctx, p, returnTo, authlib.Principal{})
+}
+
+// StartIdentityLink starts linking GitHub to the signed-in user through the
+// web flow, since GitHub has no ID token for LinkIdentity (ADR-0059). It
+// checks the user as confirmUser does first. The flow is bound twice: to the
+// browser, by BrowserToken in the __Host-oauth cookie of this response, as
+// for a sign-in, so a stranger's callback link can't finish it; and to this
+// session, which must still be active when GitHub returns, so signing out
+// or ending the session cancels it. The callback links the GitHub account to
+// this user and signs no one in. It returns ErrSocialUnavailable,
+// ErrInvalidReturnTo, ErrInvalidCredentials, ErrInvalidMFA or a
+// *RateLimitError.
+func (s *Service) StartIdentityLink(ctx context.Context, provider, returnTo, password string) (SocialStart, error) {
+	p, err := s.reauthPrincipal(ctx)
+	if err != nil {
+		return SocialStart{}, err
+	}
+	pr := s.providers[provider]
+	if pr == nil || !pr.Web() || provider != social.GitHub {
+		return SocialStart{}, authdomain.ErrSocialUnavailable
+	}
+	if returnTo, err = s.checkReturnTo(returnTo); err != nil {
+		return SocialStart{}, err
+	}
+	u, err := s.store.SelectUserByID(ctx, p.UserID, false)
+	if errors.Is(err, authdomain.ErrUserNotFound) || p.SessionID == "" {
+		return SocialStart{}, authlib.ErrUnauthenticated
+	}
+	if err != nil {
+		return SocialStart{}, dbError("link sign-in method", err)
+	}
+	state, err := s.confirmUser(ctx, s.store, p, u, password)
+	if err != nil {
+		return SocialStart{}, dbError("link sign-in method", err)
+	}
+	if state != nil {
+		return SocialStart{}, s.reauthFailed(ctx, p.UserID, state)
+	}
+	return s.startWeb(ctx, pr, returnTo, p)
+}
+
+// startWeb stores a web flow's state and returns the provider URL: a sign-in,
+// or a link to the account of linkTo's session when it has one.
+func (s *Service) startWeb(ctx context.Context, p *social.Provider, returnTo string, linkTo authlib.Principal) (SocialStart, error) {
+	provider := p.Name()
 	now := s.now()
 	state, stateHash := authlib.NewToken()
 	browser, browserHash := authlib.NewToken()
@@ -56,7 +107,7 @@ func (s *Service) StartSocialSignIn(ctx context.Context, provider, returnTo stri
 	verifier := social.NewPKCEVerifier()
 	st := authdomain.OAuthState{
 		ID: authlib.NewID("oas"), TokenHash: stateHash, BrowserHash: browserHash, Provider: provider, Nonce: nonce, Verifier: verifier,
-		ReturnTo: returnTo, ExpiresAt: now.Add(authdomain.OAuthStateTTL), CreatedAt: now,
+		ReturnTo: returnTo, LinkUserID: linkTo.UserID, LinkSessionID: linkTo.SessionID, ExpiresAt: now.Add(authdomain.OAuthStateTTL), CreatedAt: now,
 	}
 	if err := s.store.InsertOAuthState(ctx, st); err != nil {
 		return SocialStart{}, dbError("start sign-in", err)
@@ -67,9 +118,11 @@ func (s *Service) StartSocialSignIn(ctx context.Context, provider, returnTo stri
 // FinishSocialSignIn finishes a web sign-in the provider sent back with code
 // and stateToken, in the browser holding browserToken. name is Apple's
 // first-time name, when sent. Like Login, it returns a session, or a
-// challenge for an account with two-factor authentication (ADR-0046). It
+// challenge for an account with two-factor authentication (ADR-0046). A flow
+// started with StartIdentityLink links instead (Linked) and also returns
+// ErrUnauthenticated when its session has ended, or ErrIdentityInUse. It
 // returns ErrSocialUnavailable, ErrInvalidState, ErrInvalidSocialToken,
-// ErrSocialEmailUnverified or ErrMFAUnavailable.
+// ErrSocialEmailUnverified, ErrSocialLinkRequired or ErrMFAUnavailable.
 func (s *Service) FinishSocialSignIn(ctx context.Context, provider, stateToken, browserToken, code, name string) (SocialResult, error) {
 	res := SocialResult{ReturnTo: s.defaultReturnTo}
 	p := s.providers[provider]
@@ -119,15 +172,43 @@ func (s *Service) FinishSocialSignIn(ctx context.Context, provider, stateToken, 
 	if tok.Identity.Name == "" {
 		tok.Identity.Name = name
 	}
+	if st.LinkUserID != "" {
+		res.Linked, err = true, s.finishLink(ctx, st, tok.Identity, tok.RefreshToken)
+		return res, err
+	}
 	res.LoginResult, err = s.signInWithIdentity(ctx, tok.Identity, tok.RefreshToken)
 	return res, err
+}
+
+// finishLink links the identity of a web flow started with
+// StartIdentityLink to the account that started it, provided the session
+// that started it is still active.
+func (s *Service) finishLink(ctx context.Context, st authdomain.OAuthState, id social.Identity, refreshToken string) error {
+	identity, err := s.newIdentity(ctx, id, refreshToken)
+	if err != nil {
+		return err
+	}
+	_, _, err = s.addIdentity(ctx, st.LinkUserID, identity, "web", func(tx Store) error {
+		sessions, err := tx.SelectActiveSessions(ctx, st.LinkUserID, s.now())
+		if err != nil {
+			return err
+		}
+		if !slices.ContainsFunc(sessions, func(ses authdomain.Session) bool { return ses.ID == st.LinkSessionID }) {
+			return authlib.ErrUnauthenticated
+		}
+		return nil
+	})
+	if err != nil && !errors.Is(err, authlib.ErrUnauthenticated) && !errors.Is(err, authdomain.ErrIdentityInUse) {
+		return dbError("link sign-in method", err)
+	}
+	return err
 }
 
 // SocialNonce returns a single-use nonce for a native app to put in its
 // Google or Apple sign-in request, valid for 5 minutes. Apple's iOS SDK takes
 // its SHA-256 in hex. It returns ErrSocialUnavailable.
 func (s *Service) SocialNonce(ctx context.Context, provider string) (string, time.Time, error) {
-	if s.providers[provider] == nil {
+	if s.providers[provider] == nil || provider == social.GitHub {
 		return "", time.Time{}, authdomain.ErrSocialUnavailable
 	}
 	now := s.now()
@@ -148,7 +229,7 @@ func (s *Service) SocialNonce(ctx context.Context, provider string) (string, tim
 // ErrSocialEmailUnverified or ErrMFAUnavailable.
 func (s *Service) SignInWithIDToken(ctx context.Context, provider, idToken, nonce, authorizationCode, name string) (LoginResult, error) {
 	p := s.providers[provider]
-	if p == nil {
+	if p == nil || provider == social.GitHub {
 		return LoginResult{}, authdomain.ErrSocialUnavailable
 	}
 	client := authlib.ClientInfoFromContext(ctx)
@@ -350,7 +431,7 @@ func (s *Service) LinkIdentity(ctx context.Context, provider, idToken, nonce, au
 		return authdomain.Identity{}, false, err
 	}
 	pr := s.providers[provider]
-	if pr == nil {
+	if pr == nil || provider == social.GitHub { // no ID tokens: StartIdentityLink
 		return authdomain.Identity{}, false, authdomain.ErrSocialUnavailable
 	}
 	// Confirm the user first, so a wrong password neither uses up the nonce
@@ -402,35 +483,66 @@ func (s *Service) LinkIdentity(ctx context.Context, provider, idToken, nonce, au
 	if err != nil {
 		return authdomain.Identity{}, false, err
 	}
+	identity, added, err = s.addIdentity(ctx, p.UserID, identity, "id_token", nil)
+	if errors.Is(err, authlib.ErrUnauthenticated) || errors.Is(err, authdomain.ErrIdentityInUse) {
+		return authdomain.Identity{}, false, err
+	}
+	if err != nil {
+		return authdomain.Identity{}, false, dbError("link sign-in method", err)
+	}
+	return identity, added, nil
+}
 
-	err = s.store.InTx(ctx, func(tx Store) error {
-		existing, found, err := tx.SelectIdentity(ctx, id.Provider, id.Subject, true)
+// addIdentity links identity to the account userID, after check (when set)
+// passes in the same transaction, unless the account already has it, and
+// emails and audits an addition. flow is how the identity was proven:
+// id_token or web. It returns the stored identity without its refresh token,
+// ErrUnauthenticated for a deleted account, ErrIdentityInUse, or check's
+// error.
+func (s *Service) addIdentity(ctx context.Context, userID string, identity authdomain.Identity, flow string, check func(tx Store) error) (authdomain.Identity, bool, error) {
+	var (
+		u     authdomain.User
+		added bool
+	)
+	err := s.store.InTx(ctx, func(tx Store) error {
+		var err error
+		if u, err = tx.SelectUserByID(ctx, userID, true); err != nil {
+			return err
+		}
+		if check != nil {
+			if err := check(tx); err != nil {
+				return err
+			}
+		}
+		existing, found, err := tx.SelectIdentity(ctx, identity.Provider, identity.Subject, true)
 		switch {
 		case err != nil:
 			return err
-		case found && existing.UserID != p.UserID:
+		case found && existing.UserID != userID:
 			return authdomain.ErrIdentityInUse
 		case found:
 			identity = existing
 			return nil
 		}
-		identity.UserID, identity.CreatedAt = p.UserID, s.now()
+		identity.UserID, identity.CreatedAt = userID, s.now()
 		added = true
 		return tx.InsertIdentity(ctx, identity)
 	})
 	switch {
+	case errors.Is(err, authdomain.ErrUserNotFound):
+		return authdomain.Identity{}, false, authlib.ErrUnauthenticated
 	case errors.Is(err, authdomain.ErrIdentityInUse), errors.Is(err, authdomain.ErrIdentityTaken):
 		return authdomain.Identity{}, false, authdomain.ErrIdentityInUse
 	case err != nil:
-		return authdomain.Identity{}, false, dbError("link sign-in method", err)
+		return authdomain.Identity{}, false, err
 	}
 	identity.RefreshKeyID, identity.RefreshTokenCiphertext, identity.RefreshClientID = "", nil, ""
 	if !added {
 		return identity, false, nil
 	}
-	s.sent(ctx, "sign_in_method_added", s.emails.SendSignInMethodAdded(ctx, u.Email, providerName(id.Provider)))
-	e := userEvent("auth.identity.linked", p.UserID, authlib.ClientInfoFromContext(ctx))
-	e.Metadata = map[string]any{"provider": id.Provider, "identity_id": identity.ID, "new_account": false, "signed_in": true}
+	s.sent(ctx, "sign_in_method_added", s.emails.SendSignInMethodAdded(ctx, u.Email, providerName(identity.Provider)))
+	e := userEvent("auth.identity.linked", userID, authlib.ClientInfoFromContext(ctx))
+	e.Metadata = map[string]any{"provider": identity.Provider, "identity_id": identity.ID, "new_account": false, "signed_in": true, "flow": flow}
 	s.audit(ctx, e)
 	return identity, true, nil
 }
@@ -506,6 +618,8 @@ func providerName(provider string) string {
 		return "Google"
 	case social.Apple:
 		return "Apple"
+	case social.GitHub:
+		return "GitHub"
 	}
 	return provider
 }

@@ -1,6 +1,6 @@
 # ADR-0045: Sign-in provider setup
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0024, ADR-0028, ADR-0044 · **Amended by:** ADR-0046 (`APP_PUBLIC_URL`, the Google and Apple status lines)
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0024, ADR-0028, ADR-0044 · **Amended by:** ADR-0046 (`APP_PUBLIC_URL`, the Google and Apple status lines), ADR-0059 (`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `AUTH_DEFAULT_RETURN_TO`, the GitHub status line)
 
 ## Context
 

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 
@@ -41,15 +42,18 @@ type Config struct {
 	// Passkeys runs passkey ceremonies (WEBAUTHN_RP_ID). Without it,
 	// passkeys are unavailable.
 	Passkeys *passkey.Service
-	// Google and Apple sign people in with those providers (ADR-0046).
-	// Without one, its endpoints answer ErrSocialUnavailable.
+	// Google, Apple and GitHub sign people in with those providers
+	// (ADR-0046, ADR-0059). Without one, its endpoints answer
+	// ErrSocialUnavailable.
 	Google *social.Provider
 	Apple  *social.Provider
+	GitHub *social.Provider
 	// PublicURL is the API's public base URL (APP_PUBLIC_URL), which
 	// providers return to at /v1/auth/{provider}/callback.
 	PublicURL string
 	// ReturnOrigins are the origins a web sign-in may return to, such as the
-	// frontend's; DefaultReturnTo is used when a sign-in names none.
+	// frontend's; DefaultReturnTo is used when a sign-in names none. Both
+	// are required with a provider's web flow.
 	ReturnOrigins   []string
 	DefaultReturnTo string
 	// Issuer names the app in authenticator apps. Default: "app".
@@ -182,7 +186,7 @@ func NewService(c Config) (*Service, error) {
 	if s.now == nil {
 		s.now = time.Now
 	}
-	for _, p := range []*social.Provider{c.Google, c.Apple} {
+	for _, p := range []*social.Provider{c.Google, c.Apple, c.GitHub} {
 		if p != nil {
 			s.providers[p.Name()] = p
 		}
@@ -201,8 +205,9 @@ func NewService(c Config) (*Service, error) {
 	if attempts < 1 || window <= 0 {
 		errs = append(errs, errors.New("login limit needs at least 1 attempt in a positive window"))
 	}
-	if len(s.providers) > 0 && (s.publicURL == "" || s.defaultReturnTo == "") {
-		errs = append(errs, errors.New("sign-in with Google or Apple needs the public URL and a default return address"))
+	web := slices.ContainsFunc([]*social.Provider{c.Google, c.Apple, c.GitHub}, func(p *social.Provider) bool { return p != nil && p.Web() })
+	if web && (s.publicURL == "" || s.defaultReturnTo == "") {
+		errs = append(errs, errors.New("web sign-in with Google, Apple or GitHub needs the public URL and a default return address"))
 	}
 	if err := errors.Join(errs...); err != nil {
 		return nil, fmt.Errorf("auth: invalid service: %w", err)
