@@ -271,6 +271,314 @@
       ]
     },
     {
+      "name": "Ops: incidents",
+      "item": [
+        {
+          "name": "List incidents, most recently opened first",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "open",
+                  "description": "open: every status but resolved",
+                  "disabled": true
+                },
+                {
+                  "key": "severity",
+                  "value": "sev1",
+                  "disabled": true
+                },
+                {
+                  "key": "source",
+                  "value": "manual",
+                  "disabled": true
+                },
+                {
+                  "key": "started_from",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Incidents that started at or after this time",
+                  "disabled": true
+                },
+                {
+                  "key": "started_to",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Incidents that started before this time",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "next_cursor from the previous page",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Open an incident",
+          "request": {
+            "method": "POST",
+            "description": "Records `ops.incident.opened`. Titles, summaries and messages are for operators: don't include personal data.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"severity\": \"sev1\",\n  \"title\": \"Checkout requests failing\",\n  \"message\": \"string\",\n  \"started_at\": \"2026-09-15T12:00:00Z\",\n  \"status\": \"investigating\",\n  \"summary\": \"Payments time out for most customers.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get an incident with its timeline",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get an incident report",
+          "request": {
+            "method": "GET",
+            "description": "The incident and its timeline, with what happened from 15 minutes before it started until 15 minutes after it was resolved (or now), at most 24 hours: requests, error rates and latency across instances (needs `ops.observability.read`), audit events without IP addresses, user agents or metadata (`ops.audit.read`, at most 200), and releases started (`ops.releases.read`). A section the caller can't read is left out with a note. As JSON, or Markdown with `format=markdown` or `Accept: text/markdown`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "string",
+                "description": "text/markdown for Markdown"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents/:id/report",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents",
+                ":id",
+                "report"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "json",
+                  "description": "Default: Markdown when Accept prefers text/markdown, otherwise JSON",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resolve an incident",
+          "request": {
+            "method": "POST",
+            "description": "Sets the status to resolved and the resolution time to now, with a final timeline update. Records `ops.incident.resolved`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents/:id/resolve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents",
+                ":id",
+                "resolve"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"The provider recovered; failed payments were retried.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Add a timeline update",
+          "request": {
+            "method": "POST",
+            "description": "Optionally changes the status and severity. Records `ops.incident.updated`. Resolved incidents can't be updated (409).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents/:id/updates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents",
+                ":id",
+                "updates"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"The payment provider confirmed an outage.\",\n  \"severity\": \"sev1\",\n  \"status\": \"investigating\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Ops: job definitions",
       "item": [
         {
@@ -926,6 +1234,129 @@
                   "language": "json"
                 }
               }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: observability",
+      "item": [
+        {
+          "name": "Show request rates, errors and latency",
+          "request": {
+            "method": "GET",
+            "description": "Every instance's HTTP requests over the window, up to the current minute: request rate, error rate and latency percentiles, per instance, and the busiest, most failing and slowest routes. Instances write their counts every 15 seconds.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/observability/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "observability",
+                "overview"
+              ],
+              "query": [
+                {
+                  "key": "window",
+                  "value": "1h",
+                  "description": "Whole minutes from 1m to 24h, as a Go duration",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List routes by traffic, errors or latency",
+          "request": {
+            "method": "GET",
+            "description": "Every route pattern's requests over the window, across instances. Routes are the patterns in code, never requested paths.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/observability/routes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "observability",
+                "routes"
+              ],
+              "query": [
+                {
+                  "key": "window",
+                  "value": "1h",
+                  "description": "Whole minutes from 1m to 24h, as a Go duration",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "requests",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "100",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Stream the overview",
+          "request": {
+            "method": "GET",
+            "description": "Server-Sent Events: an `overview` event (the body of `GET /ops/observability/overview`) now and every 5s, then an `end` event. A stream ends after 10m0s, when the session ends or loses the permission (checked before every event), or when the instance shuts down; `retry` tells EventSource clients to reconnect after 5s. Each user may hold 2 streams per instance, and an instance 20; more get 429. Proxies must not buffer the response (`X-Accel-Buffering: no` is set for nginx).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/observability/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "observability",
+                "stream"
+              ],
+              "query": [
+                {
+                  "key": "window",
+                  "value": "1h",
+                  "description": "Whole minutes from 1m to 24h, as a Go duration",
+                  "disabled": true
+                }
+              ]
             }
           }
         }
@@ -3187,6 +3618,11 @@
                 "key": "svix-signature",
                 "value": "string",
                 "description": "Space-separated v1,\u003cbase64 HMAC-SHA256\u003e signatures"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
               }
             ],
             "url": {

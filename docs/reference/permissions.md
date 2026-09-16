@@ -31,6 +31,9 @@ Platform roles are held across the whole app and grant access to `/ops`. Give an
 | `ops.mail.write` | Remove addresses from the email suppression list. | yes | |
 | `ops.auth.read` | See which sign-in methods are configured. | yes | yes |
 | `ops.system.read` | See an instance's health checks, database pool, migrations and runtime. | yes | yes |
+| `ops.observability.read` | See request rates, errors and latency across instances, and stream them. | yes | yes |
+| `ops.incidents.read` | Read incidents, their timelines and reports. | yes | yes |
+| `ops.incidents.write` | Open, update and resolve incidents. | yes | |
 
 ## Organisation roles
 

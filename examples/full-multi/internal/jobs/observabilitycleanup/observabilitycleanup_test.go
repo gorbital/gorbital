@@ -1,0 +1,52 @@
+package observabilitycleanup_test
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"log/slog"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
+
+	"example.com/acme-api/internal/jobs/observabilitycleanup"
+)
+
+func TestWorker(t *testing.T) {
+	var logs bytes.Buffer
+	batches := []int64{observabilitycleanup.BatchSize, 7}
+	calls := 0
+	start := time.Now()
+	w := observabilitycleanup.NewWorker(func(_ context.Context, before time.Time, limit int) (int64, error) {
+		if limit != observabilitycleanup.BatchSize {
+			t.Errorf("limit = %d, want %d", limit, observabilitycleanup.BatchSize)
+		}
+		if age := start.Sub(before); age < 24*time.Hour-time.Minute || age > 24*time.Hour+time.Minute {
+			t.Errorf("before = %v, want 24 hours ago", before)
+		}
+		n := batches[calls]
+		calls++
+		return n, nil
+	}, func(context.Context) time.Duration { return 24 * time.Hour }, slog.New(slog.NewJSONHandler(&logs, nil)))
+
+	job := &river.Job[observabilitycleanup.Args]{JobRow: &rivertype.JobRow{ID: 3, Attempt: 1}}
+	if err := w.Work(context.Background(), job); err != nil {
+		t.Fatalf("Work() error = %v", err)
+	}
+	if calls != 2 || !strings.Contains(logs.String(), `"minutes":5007`) {
+		t.Errorf("calls = %d, logs = %s; want 2 batches and the total", calls, logs.String())
+	}
+
+	failing := observabilitycleanup.NewWorker(func(context.Context, time.Time, int) (int64, error) {
+		return 0, errors.New("database unavailable")
+	}, func(context.Context) time.Duration { return time.Hour }, slog.New(slog.DiscardHandler))
+	if err := failing.Work(context.Background(), job); err == nil {
+		t.Error("Work() with a failing delete error = nil, want an error to retry")
+	}
+	if (observabilitycleanup.Args{}).Kind() != observabilitycleanup.Name {
+		t.Error("Args.Kind() doesn't return Name")
+	}
+}

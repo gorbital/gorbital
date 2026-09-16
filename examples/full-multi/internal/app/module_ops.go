@@ -10,6 +10,7 @@ import (
 	"gorbital.dev/modules/auditpg"
 	"gorbital.dev/modules/jobs"
 	"gorbital.dev/modules/mail/suppressionpg"
+	"gorbital.dev/modules/observability"
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/modules/settings"
 
@@ -19,8 +20,9 @@ import (
 )
 
 // registerOps wires the operations module: runtime settings, jobs, audit log,
-// releases and email admin APIs, including the email suppression list. Error codes are public API: add new ones, never
-// change existing ones.
+// releases, email (including the suppression list), live observability and
+// incidents admin APIs. Error codes are public API: add new ones, never change
+// existing ones.
 func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error {
 	err := mapper.Add(
 		httpx.Mapping{Err: opsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
@@ -54,6 +56,16 @@ func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error
 		httpx.Mapping{Err: opsdomain.ErrSuppressionReasonRequired, Status: http.StatusUnprocessableEntity, Code: "mail_suppression_reason_required", Detail: "a reason is required to remove a suppressed address"},
 		httpx.Mapping{Err: suppressionpg.ErrNotFound, Status: http.StatusNotFound, Code: "mail_suppression_not_found", Detail: "no suppression has this ID"},
 		httpx.Mapping{Err: suppressionpg.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
+
+		httpx.Mapping{Err: opsdomain.ErrInvalidWindow, Status: http.StatusUnprocessableEntity, Code: "invalid_observability_window", Detail: "the window must be whole minutes from 1m to 24h, such as 15m"},
+		httpx.Mapping{Err: observability.ErrQueryTimeout, Status: http.StatusServiceUnavailable, Code: "observability_query_timeout", Detail: "the request counts took too long to read; try a shorter window"},
+		httpx.Mapping{Err: observability.ErrTooManyStreams, Status: http.StatusTooManyRequests, Code: "observability_streams_limited", Detail: "too many open streams; close one or try another instance"},
+		httpx.Mapping{Err: observability.ErrStreamsClosed, Status: http.StatusServiceUnavailable, Code: "unavailable", Detail: "the instance is shutting down"},
+		httpx.Mapping{Err: observability.ErrIncidentNotFound, Status: http.StatusNotFound, Code: "incident_not_found", Detail: "no incident has this ID"},
+		httpx.Mapping{Err: observability.ErrInvalidIncident, Status: http.StatusUnprocessableEntity, Code: "invalid_incident", Detail: "the incident or update is not valid: check the title, severity, status, start time and message"},
+		httpx.Mapping{Err: observability.ErrIncidentResolved, Status: http.StatusConflict, Code: "incident_resolved", Detail: "the incident is resolved and can't change"},
+		httpx.Mapping{Err: observability.ErrTooManyUpdates, Status: http.StatusConflict, Code: "incident_updates_limited", Detail: "the incident has the most updates allowed"},
+		httpx.Mapping{Err: observability.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
 	)
 	if err != nil {
 		return fmt.Errorf("ops module: %w", err)

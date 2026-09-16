@@ -120,6 +120,12 @@ Applies cross-origin protection to every request except `POST /v1/auth/apple/cal
 
 Builds the `modules/idempotency` store with `idempotency.retention`, the middleware that replays retried POST and PATCH requests with an `Idempotency-Key` for the signed-in caller (skipping `/v1/auth/`), and adds the optional header to those operations in the OpenAPI document. See the [idempotency guide](idempotency.md) and [ADR-0060](../adr/0060-idempotency-keys.md).
 
+## `observability.go`
+
+### `newObservabilityStore(pool)`, `newCollector(store, instanceID, logger)`, `newStreams()`, `observabilityMiddleware(collector)`, `reauthenticate(auth)`, `detectIncidents(store, settings)`
+
+Builds the `modules/observability` store of request minutes and incidents; this instance's collector, which counts requests under the release tracker's instance ID and writes them every 15 seconds (it runs with the workers); the live stream limits (2 per user, 20 per instance, 10 minutes); the request-count middleware (nothing when exporting the OpenAPI document); the session check streams repeat before each event; and the `incidents_detect` job's detection with the `incidents.*` settings. See the [observability guide](observability.md) and [ADR-0064](../adr/0064-live-observability-and-incidents.md).
+
 ## `modules.go`
 
 ### `registerModules(api, mapper, svc) error`
@@ -139,6 +145,8 @@ Declares every job with its code defaults; `orb gen job` adds a line after `//or
 | `auth_revoke_tokens` | `job_auth_revoke_tokens.go` | Every minute: revokes up to 20 Apple refresh tokens queued in `auth_token_revocations` by unlinking or account deletion; failures back off from 1 minute to 6 hours and are abandoned after 10 attempts (audit action `auth.identity.revocation_abandoned`). Returns the counts as `authdomain.RevocationResult` |
 | `ratelimit_cleanup` | `job_ratelimit_cleanup.go` | Hourly: deletes shared rate limit buckets whose keys are back to a full budget (`ratelimitpg.Store.DeleteExpired`, in batches of 10 000) |
 | `idempotency_cleanup` | `job_idempotency_cleanup.go` | Hourly: deletes idempotency keys and their stored responses older than `idempotency.retention` (`idempotency.Store.DeleteExpired`, in batches of 1 000) |
+| `observability_cleanup` | `job_observability_cleanup.go` | Hourly: deletes request minutes older than `observability.retention` (`observability.Store.DeleteBefore`, in batches of 5 000) |
+| `incidents_detect` | `job_incidents_detect.go` | Every minute, one attempt: opens an automatic incident when the server error rate over `incidents.detection_window` is above `incidents.error_rate_threshold` with at least `incidents.min_requests` requests, and notes recovery; logs, counts `incidents.detections` and records `ops.incident.opened` or `ops.incident.updated` |
 | `gorbital.mail.send` | `jobs.AddMailWorker` in `app.go` | Delivers queued email; 8 attempts; `mail.ErrRejected` cancels |
 
 `jobDeps` holds what workers may use. Add a store or client there when a job needs one.

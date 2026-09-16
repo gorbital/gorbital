@@ -18,6 +18,15 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 
 - [List sign-in methods and what they need](/docs/ops-auth/ops-list-sign-in-methods.md): `GET /ops/auth/providers`
 
+## Ops: incidents
+
+- [List incidents, most recently opened first](/docs/ops-incidents/ops-list-incidents.md): `GET /ops/incidents`
+- [Open an incident](/docs/ops-incidents/ops-open-incident.md): `POST /ops/incidents`
+- [Get an incident with its timeline](/docs/ops-incidents/ops-get-incident.md): `GET /ops/incidents/{id}`
+- [Get an incident report](/docs/ops-incidents/ops-incident-report.md): `GET /ops/incidents/{id}/report`
+- [Resolve an incident](/docs/ops-incidents/ops-resolve-incident.md): `POST /ops/incidents/{id}/resolve`
+- [Add a timeline update](/docs/ops-incidents/ops-add-incident-update.md): `POST /ops/incidents/{id}/updates`
+
 ## Ops: job definitions
 
 - [List job definitions](/docs/ops-job-definitions/ops-list-job-definitions.md): `GET /ops/jobs/definitions`
@@ -42,6 +51,12 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [List suppressed addresses](/docs/ops-email/ops-list-mail-suppressions.md): `GET /ops/mail/suppressions`
 - [Remove a suppressed address](/docs/ops-email/ops-remove-mail-suppression.md): `DELETE /ops/mail/suppressions/{id}`
 - [Send a test email](/docs/ops-email/ops-send-test-email.md): `POST /ops/mail/test`
+
+## Ops: observability
+
+- [Show request rates, errors and latency](/docs/ops-observability/ops-observability-overview.md): `GET /ops/observability/overview`
+- [List routes by traffic, errors or latency](/docs/ops-observability/ops-observability-routes.md): `GET /ops/observability/routes`
+- [Stream the overview](/docs/ops-observability/ops-observability-stream.md): `GET /ops/observability/stream`
 
 ## Ops: job queues
 

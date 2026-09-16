@@ -18,11 +18,16 @@ const (
 	PermMailWrite     = "ops.mail.write"
 	PermAuthRead      = "ops.auth.read"
 	PermSystemRead    = "ops.system.read"
+
+	PermObservabilityRead = "ops.observability.read"
+	PermIncidentsRead     = "ops.incidents.read"
+	PermIncidentsWrite    = "ops.incidents.write"
 )
 
 // AllPermissions returns every operations permission.
 func AllPermissions() []string {
-	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead, PermReleasesRead, PermMailRead, PermMailTest, PermMailWrite, PermAuthRead, PermSystemRead}
+	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead, PermReleasesRead, PermMailRead, PermMailTest, PermMailWrite, PermAuthRead, PermSystemRead,
+		PermObservabilityRead, PermIncidentsRead, PermIncidentsWrite}
 }
 
 // Errors returned by operations use cases.
@@ -35,4 +40,7 @@ var (
 	// ErrSuppressionReasonRequired reports removing an address from the
 	// suppression list without saying why.
 	ErrSuppressionReasonRequired = errors.New("a reason is required to remove a suppression")
+	// ErrInvalidWindow reports an observability window that isn't a whole
+	// number of minutes from 1 minute to 24 hours.
+	ErrInvalidWindow = errors.New("the window must be whole minutes from 1 minute to 24 hours")
 )

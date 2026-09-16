@@ -1,0 +1,246 @@
+pkg gorbital.dev/modules/observability, const BucketCount = 35
+pkg gorbital.dev/modules/observability, const BucketCount int
+pkg gorbital.dev/modules/observability, const DefaultFlushInterval = 15000000000
+pkg gorbital.dev/modules/observability, const DefaultFlushInterval time.Duration
+pkg gorbital.dev/modules/observability, const DefaultMaxPendingMinutes = 10
+pkg gorbital.dev/modules/observability, const DefaultMaxPendingMinutes ideal-int
+pkg gorbital.dev/modules/observability, const DefaultMaxSeries = 500
+pkg gorbital.dev/modules/observability, const DefaultMaxSeries ideal-int
+pkg gorbital.dev/modules/observability, const DefaultQueryTimeout = 5000000000
+pkg gorbital.dev/modules/observability, const DefaultQueryTimeout time.Duration
+pkg gorbital.dev/modules/observability, const DetectionBreaching = "breaching"
+pkg gorbital.dev/modules/observability, const DetectionBreaching DetectionAction
+pkg gorbital.dev/modules/observability, const DetectionNone = ""
+pkg gorbital.dev/modules/observability, const DetectionNone DetectionAction
+pkg gorbital.dev/modules/observability, const DetectionOpened = "opened"
+pkg gorbital.dev/modules/observability, const DetectionOpened DetectionAction
+pkg gorbital.dev/modules/observability, const DetectionRecovered = "recovered"
+pkg gorbital.dev/modules/observability, const DetectionRecovered DetectionAction
+pkg gorbital.dev/modules/observability, const MaxIncidentUpdates = 500
+pkg gorbital.dev/modules/observability, const MaxIncidentUpdates ideal-int
+pkg gorbital.dev/modules/observability, const MaxInstanceLength = 64
+pkg gorbital.dev/modules/observability, const MaxInstanceLength ideal-int
+pkg gorbital.dev/modules/observability, const MaxMessageLength = 5000
+pkg gorbital.dev/modules/observability, const MaxMessageLength ideal-int
+pkg gorbital.dev/modules/observability, const MaxStartedAge = 7776000000000000
+pkg gorbital.dev/modules/observability, const MaxStartedAge time.Duration
+pkg gorbital.dev/modules/observability, const MaxSummaryLength = 5000
+pkg gorbital.dev/modules/observability, const MaxSummaryLength ideal-int
+pkg gorbital.dev/modules/observability, const MaxSummaryRange = 604800000000000
+pkg gorbital.dev/modules/observability, const MaxSummaryRange time.Duration
+pkg gorbital.dev/modules/observability, const MaxTitleLength = 200
+pkg gorbital.dev/modules/observability, const MaxTitleLength ideal-int
+pkg gorbital.dev/modules/observability, const OtherMethod = "_OTHER"
+pkg gorbital.dev/modules/observability, const OtherMethod ideal-string
+pkg gorbital.dev/modules/observability, const OverflowRoute = "_overflow"
+pkg gorbital.dev/modules/observability, const OverflowRoute ideal-string
+pkg gorbital.dev/modules/observability, const SeveritySev1 = "sev1"
+pkg gorbital.dev/modules/observability, const SeveritySev1 Severity
+pkg gorbital.dev/modules/observability, const SeveritySev2 = "sev2"
+pkg gorbital.dev/modules/observability, const SeveritySev2 Severity
+pkg gorbital.dev/modules/observability, const SeveritySev3 = "sev3"
+pkg gorbital.dev/modules/observability, const SeveritySev3 Severity
+pkg gorbital.dev/modules/observability, const SeveritySev4 = "sev4"
+pkg gorbital.dev/modules/observability, const SeveritySev4 Severity
+pkg gorbital.dev/modules/observability, const SourceAutomatic = "automatic"
+pkg gorbital.dev/modules/observability, const SourceAutomatic Source
+pkg gorbital.dev/modules/observability, const SourceManual = "manual"
+pkg gorbital.dev/modules/observability, const SourceManual Source
+pkg gorbital.dev/modules/observability, const StatusIdentified = "identified"
+pkg gorbital.dev/modules/observability, const StatusIdentified Status
+pkg gorbital.dev/modules/observability, const StatusInvestigating = "investigating"
+pkg gorbital.dev/modules/observability, const StatusInvestigating Status
+pkg gorbital.dev/modules/observability, const StatusMonitoring = "monitoring"
+pkg gorbital.dev/modules/observability, const StatusMonitoring Status
+pkg gorbital.dev/modules/observability, const StatusResolved = "resolved"
+pkg gorbital.dev/modules/observability, const StatusResolved Status
+pkg gorbital.dev/modules/observability, const UpdateBreaching = "breaching"
+pkg gorbital.dev/modules/observability, const UpdateBreaching UpdateKind
+pkg gorbital.dev/modules/observability, const UpdateNote = "update"
+pkg gorbital.dev/modules/observability, const UpdateNote UpdateKind
+pkg gorbital.dev/modules/observability, const UpdateOpened = "opened"
+pkg gorbital.dev/modules/observability, const UpdateOpened UpdateKind
+pkg gorbital.dev/modules/observability, const UpdateRecovered = "recovered"
+pkg gorbital.dev/modules/observability, const UpdateRecovered UpdateKind
+pkg gorbital.dev/modules/observability, const UpdateResolved = "resolved"
+pkg gorbital.dev/modules/observability, const UpdateResolved UpdateKind
+pkg gorbital.dev/modules/observability, func BucketBounds() []time.Duration
+pkg gorbital.dev/modules/observability, func NewCollector(...Option) (*Collector, error)
+pkg gorbital.dev/modules/observability, func NewStore(*pgxpool.Pool, ...StoreOption) (*Store, error)
+pkg gorbital.dev/modules/observability, func NewStreams(int, int, time.Duration) (*Streams, error)
+pkg gorbital.dev/modules/observability, func RecordRoute(http.Handler) http.Handler
+pkg gorbital.dev/modules/observability, func WithClock(func() time.Time) Option
+pkg gorbital.dev/modules/observability, func WithFlushInterval(time.Duration) Option
+pkg gorbital.dev/modules/observability, func WithInstance(string) Option
+pkg gorbital.dev/modules/observability, func WithLogger(*slog.Logger) Option
+pkg gorbital.dev/modules/observability, func WithMaxPendingMinutes(int) Option
+pkg gorbital.dev/modules/observability, func WithMaxSeries(int) Option
+pkg gorbital.dev/modules/observability, func WithQueryTimeout(time.Duration) StoreOption
+pkg gorbital.dev/modules/observability, func WithSink(Sink) Option
+pkg gorbital.dev/modules/observability, func WithStoreClock(func() time.Time) StoreOption
+pkg gorbital.dev/modules/observability, method (*Collector) Flush(context.Context) error
+pkg gorbital.dev/modules/observability, method (*Collector) Instance() string
+pkg gorbital.dev/modules/observability, method (*Collector) Lost() int64
+pkg gorbital.dev/modules/observability, method (*Collector) Middleware() func(http.Handler) http.Handler
+pkg gorbital.dev/modules/observability, method (*Collector) Minutes() []Minute
+pkg gorbital.dev/modules/observability, method (*Collector) Record(Request)
+pkg gorbital.dev/modules/observability, method (*Collector) Run(context.Context) error
+pkg gorbital.dev/modules/observability, method (*Collector) Subscribe(func(Request)) func()
+pkg gorbital.dev/modules/observability, method (*Store) DeleteBefore(context.Context, time.Time, int) (int64, error)
+pkg gorbital.dev/modules/observability, method (*Store) DetectIncident(context.Context, Detection) (DetectionResult, error)
+pkg gorbital.dev/modules/observability, method (*Store) Incident(context.Context, int64) (Incident, error)
+pkg gorbital.dev/modules/observability, method (*Store) IncidentUpdates(context.Context, int64) ([]IncidentUpdate, error)
+pkg gorbital.dev/modules/observability, method (*Store) Incidents(context.Context, IncidentFilter) (IncidentPage, error)
+pkg gorbital.dev/modules/observability, method (*Store) Oldest(context.Context) (time.Time, bool, error)
+pkg gorbital.dev/modules/observability, method (*Store) OpenIncident(context.Context, NewIncident) (Incident, IncidentUpdate, error)
+pkg gorbital.dev/modules/observability, method (*Store) ResolveIncident(context.Context, int64, string) (Incident, IncidentUpdate, error)
+pkg gorbital.dev/modules/observability, method (*Store) Summary(context.Context, time.Time, time.Time) (Summary, error)
+pkg gorbital.dev/modules/observability, method (*Store) UpdateIncident(context.Context, int64, IncidentChange) (Incident, IncidentUpdate, error)
+pkg gorbital.dev/modules/observability, method (*Store) WriteMinutes(context.Context, []Minute) error
+pkg gorbital.dev/modules/observability, method (*Streams) Close()
+pkg gorbital.dev/modules/observability, method (*Streams) Count() int
+pkg gorbital.dev/modules/observability, method (*Streams) MaxDuration() time.Duration
+pkg gorbital.dev/modules/observability, method (*Streams) Open(context.Context, string) (context.Context, func(), error)
+pkg gorbital.dev/modules/observability, method (DetectionResult) ErrorRate() float64
+pkg gorbital.dev/modules/observability, method (InstanceStats) ErrorRate() float64
+pkg gorbital.dev/modules/observability, method (InstanceStats) Mean() time.Duration
+pkg gorbital.dev/modules/observability, method (InstanceStats) Quantile(float64) time.Duration
+pkg gorbital.dev/modules/observability, method (Minute) ErrorRate() float64
+pkg gorbital.dev/modules/observability, method (Minute) Mean() time.Duration
+pkg gorbital.dev/modules/observability, method (Minute) Quantile(float64) time.Duration
+pkg gorbital.dev/modules/observability, method (MinuteStats) ErrorRate() float64
+pkg gorbital.dev/modules/observability, method (MinuteStats) Mean() time.Duration
+pkg gorbital.dev/modules/observability, method (MinuteStats) Quantile(float64) time.Duration
+pkg gorbital.dev/modules/observability, method (RouteStats) ErrorRate() float64
+pkg gorbital.dev/modules/observability, method (RouteStats) Mean() time.Duration
+pkg gorbital.dev/modules/observability, method (RouteStats) Quantile(float64) time.Duration
+pkg gorbital.dev/modules/observability, method (Stats) ErrorRate() float64
+pkg gorbital.dev/modules/observability, method (Stats) Mean() time.Duration
+pkg gorbital.dev/modules/observability, method (Stats) Quantile(float64) time.Duration
+pkg gorbital.dev/modules/observability, type Collector struct
+pkg gorbital.dev/modules/observability, type Detection struct
+pkg gorbital.dev/modules/observability, type Detection struct, Actor actor.Actor
+pkg gorbital.dev/modules/observability, type Detection struct, MinRequests int64
+pkg gorbital.dev/modules/observability, type Detection struct, Severity Severity
+pkg gorbital.dev/modules/observability, type Detection struct, Threshold float64
+pkg gorbital.dev/modules/observability, type Detection struct, Window time.Duration
+pkg gorbital.dev/modules/observability, type DetectionAction string
+pkg gorbital.dev/modules/observability, type DetectionResult struct
+pkg gorbital.dev/modules/observability, type DetectionResult struct, Action DetectionAction
+pkg gorbital.dev/modules/observability, type DetectionResult struct, Breaching bool
+pkg gorbital.dev/modules/observability, type DetectionResult struct, From time.Time
+pkg gorbital.dev/modules/observability, type DetectionResult struct, Healthy bool
+pkg gorbital.dev/modules/observability, type DetectionResult struct, Incident *Incident
+pkg gorbital.dev/modules/observability, type DetectionResult struct, Requests int64
+pkg gorbital.dev/modules/observability, type DetectionResult struct, ServerErrors int64
+pkg gorbital.dev/modules/observability, type DetectionResult struct, To time.Time
+pkg gorbital.dev/modules/observability, type DetectionResult struct, Update *IncidentUpdate
+pkg gorbital.dev/modules/observability, type Incident struct
+pkg gorbital.dev/modules/observability, type Incident struct, CreatedAt time.Time
+pkg gorbital.dev/modules/observability, type Incident struct, CreatedByID string
+pkg gorbital.dev/modules/observability, type Incident struct, CreatedByKind actor.Kind
+pkg gorbital.dev/modules/observability, type Incident struct, ID int64
+pkg gorbital.dev/modules/observability, type Incident struct, RecoveredAt *time.Time
+pkg gorbital.dev/modules/observability, type Incident struct, ResolvedAt *time.Time
+pkg gorbital.dev/modules/observability, type Incident struct, Severity Severity
+pkg gorbital.dev/modules/observability, type Incident struct, Source Source
+pkg gorbital.dev/modules/observability, type Incident struct, StartedAt time.Time
+pkg gorbital.dev/modules/observability, type Incident struct, Status Status
+pkg gorbital.dev/modules/observability, type Incident struct, Summary string
+pkg gorbital.dev/modules/observability, type Incident struct, Title string
+pkg gorbital.dev/modules/observability, type Incident struct, UpdatedAt time.Time
+pkg gorbital.dev/modules/observability, type IncidentChange struct
+pkg gorbital.dev/modules/observability, type IncidentChange struct, Message string
+pkg gorbital.dev/modules/observability, type IncidentChange struct, Severity Severity
+pkg gorbital.dev/modules/observability, type IncidentChange struct, Status Status
+pkg gorbital.dev/modules/observability, type IncidentFilter struct
+pkg gorbital.dev/modules/observability, type IncidentFilter struct, Cursor string
+pkg gorbital.dev/modules/observability, type IncidentFilter struct, Limit int
+pkg gorbital.dev/modules/observability, type IncidentFilter struct, Open bool
+pkg gorbital.dev/modules/observability, type IncidentFilter struct, Severity Severity
+pkg gorbital.dev/modules/observability, type IncidentFilter struct, Source Source
+pkg gorbital.dev/modules/observability, type IncidentFilter struct, StartedFrom time.Time
+pkg gorbital.dev/modules/observability, type IncidentFilter struct, StartedTo time.Time
+pkg gorbital.dev/modules/observability, type IncidentFilter struct, Status Status
+pkg gorbital.dev/modules/observability, type IncidentPage struct
+pkg gorbital.dev/modules/observability, type IncidentPage struct, Incidents []Incident
+pkg gorbital.dev/modules/observability, type IncidentPage struct, NextCursor string
+pkg gorbital.dev/modules/observability, type IncidentUpdate struct
+pkg gorbital.dev/modules/observability, type IncidentUpdate struct, ActorID string
+pkg gorbital.dev/modules/observability, type IncidentUpdate struct, ActorKind actor.Kind
+pkg gorbital.dev/modules/observability, type IncidentUpdate struct, CreatedAt time.Time
+pkg gorbital.dev/modules/observability, type IncidentUpdate struct, ID int64
+pkg gorbital.dev/modules/observability, type IncidentUpdate struct, IncidentID int64
+pkg gorbital.dev/modules/observability, type IncidentUpdate struct, Kind UpdateKind
+pkg gorbital.dev/modules/observability, type IncidentUpdate struct, Message string
+pkg gorbital.dev/modules/observability, type IncidentUpdate struct, Severity Severity
+pkg gorbital.dev/modules/observability, type IncidentUpdate struct, Status Status
+pkg gorbital.dev/modules/observability, type InstanceStats struct
+pkg gorbital.dev/modules/observability, type InstanceStats struct, Instance string
+pkg gorbital.dev/modules/observability, type InstanceStats struct, LastMinute time.Time
+pkg gorbital.dev/modules/observability, type InstanceStats struct, LastWrite time.Time
+pkg gorbital.dev/modules/observability, type InstanceStats struct, embedded Stats
+pkg gorbital.dev/modules/observability, type Minute struct
+pkg gorbital.dev/modules/observability, type Minute struct, Instance string
+pkg gorbital.dev/modules/observability, type Minute struct, Method string
+pkg gorbital.dev/modules/observability, type Minute struct, Route string
+pkg gorbital.dev/modules/observability, type Minute struct, Start time.Time
+pkg gorbital.dev/modules/observability, type Minute struct, embedded Stats
+pkg gorbital.dev/modules/observability, type MinuteStats struct
+pkg gorbital.dev/modules/observability, type MinuteStats struct, Start time.Time
+pkg gorbital.dev/modules/observability, type MinuteStats struct, embedded Stats
+pkg gorbital.dev/modules/observability, type NewIncident struct
+pkg gorbital.dev/modules/observability, type NewIncident struct, Message string
+pkg gorbital.dev/modules/observability, type NewIncident struct, Severity Severity
+pkg gorbital.dev/modules/observability, type NewIncident struct, StartedAt time.Time
+pkg gorbital.dev/modules/observability, type NewIncident struct, Status Status
+pkg gorbital.dev/modules/observability, type NewIncident struct, Summary string
+pkg gorbital.dev/modules/observability, type NewIncident struct, Title string
+pkg gorbital.dev/modules/observability, type Option func(*Collector)
+pkg gorbital.dev/modules/observability, type Request struct
+pkg gorbital.dev/modules/observability, type Request struct, Duration time.Duration
+pkg gorbital.dev/modules/observability, type Request struct, Method string
+pkg gorbital.dev/modules/observability, type Request struct, Path string
+pkg gorbital.dev/modules/observability, type Request struct, RequestID string
+pkg gorbital.dev/modules/observability, type Request struct, Route string
+pkg gorbital.dev/modules/observability, type Request struct, Status int
+pkg gorbital.dev/modules/observability, type Request struct, Time time.Time
+pkg gorbital.dev/modules/observability, type Request struct, TraceID string
+pkg gorbital.dev/modules/observability, type RouteStats struct
+pkg gorbital.dev/modules/observability, type RouteStats struct, Method string
+pkg gorbital.dev/modules/observability, type RouteStats struct, Route string
+pkg gorbital.dev/modules/observability, type RouteStats struct, embedded Stats
+pkg gorbital.dev/modules/observability, type Severity string
+pkg gorbital.dev/modules/observability, type Sink interface { WriteMinutes }
+pkg gorbital.dev/modules/observability, type Sink interface, WriteMinutes(context.Context, []Minute) error
+pkg gorbital.dev/modules/observability, type Source string
+pkg gorbital.dev/modules/observability, type Stats struct
+pkg gorbital.dev/modules/observability, type Stats struct, Buckets []int64
+pkg gorbital.dev/modules/observability, type Stats struct, ClientErrors int64
+pkg gorbital.dev/modules/observability, type Stats struct, DurationMax time.Duration
+pkg gorbital.dev/modules/observability, type Stats struct, DurationSum time.Duration
+pkg gorbital.dev/modules/observability, type Stats struct, Requests int64
+pkg gorbital.dev/modules/observability, type Stats struct, ServerErrors int64
+pkg gorbital.dev/modules/observability, type Status string
+pkg gorbital.dev/modules/observability, type Store struct
+pkg gorbital.dev/modules/observability, type StoreOption func(*Store)
+pkg gorbital.dev/modules/observability, type Streams struct
+pkg gorbital.dev/modules/observability, type Summary struct
+pkg gorbital.dev/modules/observability, type Summary struct, From time.Time
+pkg gorbital.dev/modules/observability, type Summary struct, Instances []InstanceStats
+pkg gorbital.dev/modules/observability, type Summary struct, Minutes []MinuteStats
+pkg gorbital.dev/modules/observability, type Summary struct, Routes []RouteStats
+pkg gorbital.dev/modules/observability, type Summary struct, To time.Time
+pkg gorbital.dev/modules/observability, type Summary struct, Total Stats
+pkg gorbital.dev/modules/observability, type UpdateKind string
+pkg gorbital.dev/modules/observability, var ErrIncidentNotFound error
+pkg gorbital.dev/modules/observability, var ErrIncidentResolved error
+pkg gorbital.dev/modules/observability, var ErrInvalidCursor error
+pkg gorbital.dev/modules/observability, var ErrInvalidIncident error
+pkg gorbital.dev/modules/observability, var ErrInvalidRange error
+pkg gorbital.dev/modules/observability, var ErrQueryTimeout error
+pkg gorbital.dev/modules/observability, var ErrStreamExpired error
+pkg gorbital.dev/modules/observability, var ErrStreamsClosed error
+pkg gorbital.dev/modules/observability, var ErrTooManyStreams error
+pkg gorbital.dev/modules/observability, var ErrTooManyUpdates error
+pkg gorbital.dev/modules/observability, var Migrations fs.FS

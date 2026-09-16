@@ -1,6 +1,6 @@
 # ADR-0026: Operations APIs
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0010 · **Amended by:** ADR-0031, ADR-0033, ADR-0034 (interim ops token until authentication), ADR-0036 (audit list and get moved to v0.2), ADR-0040 (release monitor moved to v0.2), ADR-0051 (v0.5: audit stats, system health, jobs overview, retention as runtime settings, maintenance mode's open routes and break-glass command)
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0010 · **Amended by:** ADR-0031, ADR-0033, ADR-0034 (interim ops token until authentication), ADR-0036 (audit list and get moved to v0.2), ADR-0040 (release monitor moved to v0.2), ADR-0051 (v0.5: audit stats, system health, jobs overview, retention as runtime settings, maintenance mode's open routes and break-glass command), ADR-0064 (v1.1 live observability shared across instances through PostgreSQL, incidents with timelines and reports)
 
 ## Context
 

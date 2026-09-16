@@ -34,6 +34,7 @@ func TestOpsRetention(t *testing.T) {
 		"job_definition_history": "ops.history_retention",
 		"release_instances":      "releases.instance_retention",
 		"idempotency_keys":       "idempotency.retention",
+		"observability_minutes":  "observability.retention",
 		"deleted_accounts":       "auth.deleted_account_retention",
 		"unverified_accounts":    "auth.unverified_account_ttl",
 	} {

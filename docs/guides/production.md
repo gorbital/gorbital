@@ -106,12 +106,13 @@ On SIGTERM an instance: marks itself not ready, waits 5 s so the load balancer s
 | Traces and metrics | Set `OTEL_EXPORTER_OTLP_ENDPOINT` (and `OTEL_EXPORTER_OTLP_HEADERS` for vendor auth). HTTP server spans, every SQL query, job execution; HTTP, Go runtime and connection pool metrics |
 | Prometheus | Set `METRICS_ADDR` to serve `GET /metrics` on a separate listener ([below](#prometheus-metrics)). Works with or without OTLP |
 | Health | `/livez`, `/readyz`. `/version` shows the build version, Go version and commit to anyone; block it at the load balancer if that matters to you |
+| Requests and incidents | `GET /ops/observability/overview` (and `/stream`): request rate, error rate and latency across every instance, per route; `/ops/incidents` for incidents, their timelines and reports ([observability](observability.md)) |
 | Releases | `GET /ops/releases/current`, `/ops/releases/instances`: which versions are running where |
 | Jobs | `GET /ops/jobs/runs`, `/ops/queues`; retry, cancel, pause queues |
 | Audit | `GET /ops/audit`: who changed settings, jobs, roles and accounts |
 | Sign-in methods | `GET /ops/auth/providers`, or `/api auth-providers` in the container |
 
-Alert on: `/readyz` failures, 5xx rate, `unhandled error` and `panic recovered` log lines, discarded or repeatedly failing jobs (especially `gorbital.mail.send`), and database connection saturation.
+Alert on: `/readyz` failures, 5xx rate, `unhandled error`, `panic recovered` and `incident opened: error rate above threshold` log lines (or the `incidents.detections` metric), discarded or repeatedly failing jobs (especially `gorbital.mail.send`), and database connection saturation.
 
 ### Prometheus metrics
 

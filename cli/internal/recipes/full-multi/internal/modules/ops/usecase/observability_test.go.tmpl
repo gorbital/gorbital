@@ -1,0 +1,193 @@
+package usecase_test
+
+import (
+	"context"
+	"errors"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"gorbital.dev/actor"
+	"gorbital.dev/modules/auditpg"
+	"gorbital.dev/modules/observability"
+
+	opsdomain "⟦.Module⟧/internal/modules/ops/domain"
+	opsusecase "⟦.Module⟧/internal/modules/ops/usecase"
+)
+
+type fakeSummaries struct {
+	fail  atomic.Bool
+	calls atomic.Int32
+}
+
+func (f *fakeSummaries) Summary(_ context.Context, from, to time.Time) (observability.Summary, error) {
+	f.calls.Add(1)
+	if f.fail.Load() {
+		return observability.Summary{}, observability.ErrQueryTimeout
+	}
+	return observability.Summary{From: from, To: to, Total: observability.Stats{Requests: 3}}, nil
+}
+
+func operator(perms ...string) context.Context {
+	return actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_ops", Permissions: perms})
+}
+
+// streamService returns a service whose streams send every 10 ms and last
+// maxDuration, re-authenticating with reauth.
+func streamService(t *testing.T, maxDuration time.Duration, reauth func(context.Context, string) (context.Context, error)) (*opsusecase.Service, *observability.Streams, *fakeSummaries) {
+	t.Helper()
+	streams, err := observability.NewStreams(2, 1, maxDuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	summaries := &fakeSummaries{}
+	return opsusecase.NewService(opsusecase.Deps{
+		Observability: summaries, Streams: streams, Reauthenticate: reauth, StreamInterval: 10 * time.Millisecond,
+	}), streams, summaries
+}
+
+func sameSession(ctx context.Context, _ string) (context.Context, error) {
+	return actor.With(ctx, actor.Actor{Kind: actor.KindUser, ID: "usr_ops", Permissions: []string{opsdomain.PermObservabilityRead}}), nil
+}
+
+func TestObservabilityStreamEnds(t *testing.T) {
+	ctx := operator(opsdomain.PermObservabilityRead)
+	run := func(svc *opsusecase.Service, send func(opsusecase.Overview) error) (opsusecase.StreamEnd, int) {
+		t.Helper()
+		stream, err := svc.OpenObservabilityStream(ctx, 15*time.Minute)
+		if err != nil {
+			t.Fatalf("OpenObservabilityStream() error = %v", err)
+		}
+		sent := 0
+		end := stream.Run("token", func(o opsusecase.Overview) error {
+			sent++
+			if o.Summary.Total.Requests != 3 || o.Window != 15*time.Minute {
+				t.Errorf("overview = %+v", o)
+			}
+			if send != nil {
+				return send(o)
+			}
+			return nil
+		})
+		return end, sent
+	}
+
+	t.Run("max duration", func(t *testing.T) {
+		svc, streams, _ := streamService(t, 60*time.Millisecond, sameSession)
+		if end, sent := run(svc, nil); end != opsusecase.StreamMaxDuration || sent < 3 {
+			t.Errorf("Run() = %s after %d overviews, want max_duration after several", end, sent)
+		}
+		if streams.Count() != 0 {
+			t.Errorf("open streams after the end = %d, want 0", streams.Count())
+		}
+	})
+	t.Run("session ended", func(t *testing.T) {
+		var checks atomic.Int32
+		svc, _, _ := streamService(t, time.Minute, func(ctx context.Context, token string) (context.Context, error) {
+			if token != "token" {
+				t.Errorf("reauthenticated with %q", token)
+			}
+			if checks.Add(1) == 3 {
+				return nil, opsdomain.ErrUnauthenticated
+			}
+			return sameSession(ctx, token)
+		})
+		if end, sent := run(svc, nil); end != opsusecase.StreamUnauthorized || sent != 3 {
+			t.Errorf("Run() = %s after %d overviews, want unauthorized after 3 (the first needs no check)", end, sent)
+		}
+	})
+	t.Run("permission removed", func(t *testing.T) {
+		svc, _, _ := streamService(t, time.Minute, func(ctx context.Context, _ string) (context.Context, error) {
+			return actor.With(ctx, actor.Actor{Kind: actor.KindUser, ID: "usr_ops"}), nil
+		})
+		if end, sent := run(svc, nil); end != opsusecase.StreamUnauthorized || sent != 1 {
+			t.Errorf("Run() = %s after %d overviews, want unauthorized after the first", end, sent)
+		}
+	})
+	t.Run("shutting down", func(t *testing.T) {
+		svc, streams, _ := streamService(t, time.Minute, sameSession)
+		time.AfterFunc(30*time.Millisecond, streams.Close)
+		if end, _ := run(svc, nil); end != opsusecase.StreamShuttingDown {
+			t.Errorf("Run() = %s, want shutting_down", end)
+		}
+		if _, err := svc.OpenObservabilityStream(ctx, time.Minute); !errors.Is(err, observability.ErrStreamsClosed) {
+			t.Errorf("OpenObservabilityStream() after Close error = %v, want ErrStreamsClosed", err)
+		}
+	})
+	t.Run("client gone", func(t *testing.T) {
+		svc, _, _ := streamService(t, time.Minute, sameSession)
+		if end, sent := run(svc, func(opsusecase.Overview) error { return errors.New("broken pipe") }); end != opsusecase.StreamClientGone || sent != 1 {
+			t.Errorf("Run() = %s after %d, want client_gone after 1", end, sent)
+		}
+	})
+	t.Run("summary unavailable", func(t *testing.T) {
+		svc, _, summaries := streamService(t, time.Minute, sameSession)
+		summaries.fail.Store(true)
+		if end, sent := run(svc, nil); end != opsusecase.StreamUnavailable || sent != 0 {
+			t.Errorf("Run() = %s after %d, want unavailable", end, sent)
+		}
+	})
+	t.Run("limits and window", func(t *testing.T) {
+		svc, _, _ := streamService(t, time.Minute, sameSession)
+		stream, err := svc.OpenObservabilityStream(ctx, time.Hour)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := svc.OpenObservabilityStream(ctx, time.Hour); !errors.Is(err, observability.ErrTooManyStreams) {
+			t.Errorf("second stream for one user error = %v, want ErrTooManyStreams", err)
+		}
+		go stream.Run("token", func(opsusecase.Overview) error { return errors.New("gone") })
+		for _, w := range []time.Duration{30 * time.Second, 25 * time.Hour, 90 * time.Second} {
+			if _, err := svc.OpenObservabilityStream(ctx, w); !errors.Is(err, opsdomain.ErrInvalidWindow) {
+				t.Errorf("window %v error = %v, want ErrInvalidWindow", w, err)
+			}
+		}
+		if _, err := svc.OpenObservabilityStream(operator(opsdomain.PermIncidentsRead), time.Hour); !errors.Is(err, opsdomain.ErrForbidden) {
+			t.Errorf("stream without ops.observability.read error = %v, want ErrForbidden", err)
+		}
+	})
+}
+
+type fakeIncidents struct{ opsusecase.IncidentStore }
+
+func (fakeIncidents) Incident(_ context.Context, id int64) (observability.Incident, error) {
+	return observability.Incident{ID: id, StartedAt: time.Now().Add(-time.Hour), Status: observability.StatusInvestigating}, nil
+}
+
+func (fakeIncidents) IncidentUpdates(context.Context, int64) ([]observability.IncidentUpdate, error) {
+	return nil, nil
+}
+
+type fakeAudit struct{ opsusecase.AuditLog }
+
+func (fakeAudit) List(context.Context, auditpg.Filter) (auditpg.Page, error) {
+	return auditpg.Page{}, errors.New("database unavailable")
+}
+
+// TestIncidentReportSections checks that a report leaves out each section
+// the reader has no read permission for, and notes sections that failed.
+func TestIncidentReportSections(t *testing.T) {
+	summaries := &fakeSummaries{}
+	svc := opsusecase.NewService(opsusecase.Deps{Incidents: fakeIncidents{}, Observability: summaries, Audit: fakeAudit{}})
+
+	r, err := svc.IncidentReport(operator(opsdomain.PermIncidentsRead), 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Requests != nil || r.RequestsNote != "not included: needs the ops.observability.read permission" ||
+		r.AuditEventsNote != "not included: needs the ops.audit.read permission" || r.ReleasesNote != "not included: needs the ops.releases.read permission" ||
+		summaries.calls.Load() != 0 {
+		t.Errorf("report with only ops.incidents.read = %+v", r)
+	}
+	if r.From.After(time.Now().Add(-75*time.Minute)) || r.To.Before(time.Now()) || r.Truncated {
+		t.Errorf("window = %v to %v, want 15 minutes before the start until now", r.From, r.To)
+	}
+
+	r, err = svc.IncidentReport(operator(opsdomain.PermIncidentsRead, opsdomain.PermObservabilityRead, opsdomain.PermAuditRead), 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Requests == nil || r.RequestsNote != "" || r.AuditEventsNote != "not included: couldn't be read" {
+		t.Errorf("report with observability and audit reads = requests %v (%q), audit note %q", r.Requests, r.RequestsNote, r.AuditEventsNote)
+	}
+}

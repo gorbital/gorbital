@@ -53,6 +53,15 @@ Runtime settings are non-secret values operators change without a redeploy: `PUT
 | `ops.history_retention` | duration | 1 year | 30 days to 10 years | yes | no | How long the history of runtime setting and job configuration changes is kept before the retention job deletes it. |
 | `releases.instance_retention` | duration | 90 days | 1 day to 3 years | no | no | How long instances are listed in /ops/releases after they were last seen. Applied when an instance starts. |
 | `idempotency.retention` | duration | 1 day | 1 hour to 7 days | yes | no | How long responses to requests with an Idempotency-Key are kept for retries before the idempotency_cleanup job deletes them. They can hold personal data. Shortening it applies to stored responses at once. |
+| `observability.retention` | duration | 1 day | 1 hour to 7 days | yes | no | How long request counts per minute, which /ops/observability and incident reports read, are kept before the observability_cleanup job deletes them. |
+
+## incidents
+
+| Key | Type | Default | Allowed | Reason required | Restart required | Description |
+|---|---|---|---|---|---|---|
+| `incidents.detection_window` | duration | 5 minutes | 1 minute to 1 hour | yes | no | How far back incidents_detect counts requests, in whole minutes up to the current one. |
+| `incidents.error_rate_threshold` | float | `5` | 0.1 to 100 | yes | no | The percentage of requests answered with a server error (5xx), over incidents.detection_window, above which an automatic incident opens. |
+| `incidents.min_requests` | int | `100` | 1 to 1e+06 | yes | no | How many requests incidents.detection_window needs before its error rate opens an incident or counts as recovered. |
 
 ## Maintenance mode
 

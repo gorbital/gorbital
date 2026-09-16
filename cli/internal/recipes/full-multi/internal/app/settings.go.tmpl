@@ -49,6 +49,11 @@ type appSettings struct {
 	historyRetention          *settings.Setting[time.Duration]
 	releasesInstanceRetention *settings.Setting[time.Duration]
 	idempotencyRetention      *settings.Setting[time.Duration]
+	observabilityRetention    *settings.Setting[time.Duration]
+
+	incidentsDetectionWindow    *settings.Setting[time.Duration]
+	incidentsErrorRateThreshold *settings.Setting[float64]
+	incidentsMinRequests        *settings.Setting[int]
 
 	maintenanceEnabled    *settings.Setting[bool]
 	maintenanceMessage    *settings.Setting[string]
@@ -217,6 +222,34 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.Describe("How long responses to requests with an Idempotency-Key are kept for retries before the idempotency_cleanup job deletes them. They can hold personal data. Shortening it applies to stored responses at once."),
 			settings.Group("retention"),
 			settings.Range(time.Hour, 7*24*time.Hour),
+			settings.ReasonRequired(),
+		),
+
+		observabilityRetention: settings.Duration(reg, "observability.retention", 24*time.Hour,
+			settings.Describe("How long request counts per minute, which /ops/observability and incident reports read, are kept before the observability_cleanup job deletes them."),
+			settings.Group("retention"),
+			settings.Range(time.Hour, 7*24*time.Hour),
+			settings.ReasonRequired(),
+		),
+
+		// Automatic incidents (ADR-0064): the incidents_detect job opens one
+		// when the server error rate stays high.
+		incidentsDetectionWindow: settings.Duration(reg, "incidents.detection_window", 5*time.Minute,
+			settings.Describe("How far back incidents_detect counts requests, in whole minutes up to the current one."),
+			settings.Group("incidents"),
+			settings.Range(time.Minute, time.Hour),
+			settings.ReasonRequired(),
+		),
+		incidentsErrorRateThreshold: settings.Float(reg, "incidents.error_rate_threshold", 5,
+			settings.Describe("The percentage of requests answered with a server error (5xx), over incidents.detection_window, above which an automatic incident opens."),
+			settings.Group("incidents"),
+			settings.Range(0.1, 100.0),
+			settings.ReasonRequired(),
+		),
+		incidentsMinRequests: settings.Int(reg, "incidents.min_requests", 100,
+			settings.Describe("How many requests incidents.detection_window needs before its error rate opens an incident or counts as recovered."),
+			settings.Group("incidents"),
+			settings.Range(1, 1_000_000),
 			settings.ReasonRequired(),
 		),
 
