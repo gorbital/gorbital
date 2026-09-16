@@ -202,7 +202,7 @@ func TestRolesRequiringMFA(t *testing.T) {
 	ctx, res := f.login(t, "admin@example.com")
 
 	p, err := f.svc.Authenticate(context.Background(), res.Token)
-	if err != nil || len(p.Permissions) != 0 || p.MFAVerified || !slices.Equal(p.StepUp, []string{"ops.settings.read", "ops.settings.write"}) {
+	if err != nil || len(p.Permissions) != 2 || p.MFAVerified || !slices.Equal(p.StepUp, []string{"ops.settings.read", "ops.settings.write"}) {
 		t.Fatalf("Authenticate() without 2FA = %+v, %v; want the role's permissions held back", p, err)
 	}
 	if err := actor.Require(authlib.WithPrincipal(context.Background(), p), "ops.settings.write"); !errors.Is(err, actor.ErrStepUpRequired) {
@@ -214,7 +214,7 @@ func TestRolesRequiringMFA(t *testing.T) {
 
 	_, codes := f.enroll(t, ctx)
 	verified := f.principalCtx(t, res.Token)
-	if p, _ := authlib.PrincipalFrom(verified); len(p.Permissions) != 2 || len(p.StepUp) != 0 {
+	if p, _ := authlib.PrincipalFrom(verified); len(p.Permissions) != 4 || len(p.StepUp) != 0 {
 		t.Errorf("principal after turning 2FA on = %+v, want every permission", p)
 	}
 	if err := f.svc.DisableTOTP(verified, password, authdomain.SecondFactor{RecoveryCode: codes[0]}); !errors.Is(err, authdomain.ErrMFARequiredByRole) {

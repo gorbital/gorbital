@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -156,6 +157,87 @@ func TestOrganisationsEndToEnd(t *testing.T) {
 		if !slices.Contains(actions, want) {
 			t.Errorf("audit actions for the organisation %v lack %s", actions, want)
 		}
+	}
+}
+
+// TestAPIKeysAndOrganisations checks what API keys may do with
+// organisations (ADR-0058): creating and listing them needs a scope, like
+// the organisation permissions do, and joining or leaving one needs the
+// person's session.
+func TestAPIKeysAndOrganisations(t *testing.T) {
+	a, dbURL := newAppWithURL(t, nil)
+	h := a.Handler()
+	pool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	ada, _ := signIn(t, a, "ada@example.com", "")
+	bob, bobID := signIn(t, a, "bob@example.com", "")
+	expires := time.Now().Add(7 * 24 * time.Hour).UTC().Format(time.RFC3339)
+	key := func(session []string, scopes string) []string {
+		k, _ := createKey(t, h, "/v1/auth/api-keys", fmt.Sprintf(`{"name":"CI","expires_at":%q,"password":%q,"scopes":%s}`, expires, testPassword, scopes), session)
+		return []string{"Authorization", "Bearer " + k}
+	}
+
+	projectsOnly := key(ada, `["projects.project.read"]`)
+	for _, req := range []struct{ method, path, body string }{
+		{"GET", "/v1/orgs", ""},
+		{"POST", "/v1/orgs", `{"name":"By a key"}`},
+	} {
+		if r := do(t, h, req.method, req.path, req.body, projectsOnly...); r.code != http.StatusForbidden || r.json["code"] != "forbidden" {
+			t.Errorf("%s %s with a projects-only key = %d %s, want 403 forbidden", req.method, req.path, r.code, r.body)
+		}
+	}
+	orgsKey := key(ada, `["orgs.org.create","orgs.org.list","orgs.org.read"]`)
+	created := do(t, h, "POST", "/v1/orgs", `{"name":"Road Runners"}`, orgsKey...)
+	if created.code != http.StatusCreated {
+		t.Fatalf("create with orgs.org.create = %d %s", created.code, created.body)
+	}
+	base := "/v1/orgs/" + created.json["id"].(string)
+	if r := do(t, h, "GET", "/v1/orgs", "", orgsKey...); r.code != http.StatusOK || len(r.json["items"].([]any)) != 2 {
+		t.Errorf("list with orgs.org.list = %d %s, want both organisations", r.code, r.body)
+	}
+	// Organisation permissions are limited by the same scopes.
+	if r := do(t, h, "GET", base, "", orgsKey...); r.code != http.StatusOK {
+		t.Errorf("get with orgs.org.read = %d %s", r.code, r.body)
+	}
+	for _, req := range []struct{ method, path, body string }{
+		{"PATCH", base, `{"name":"Renamed","version":1}`},
+		{"GET", base + "/members", ""},
+		{"POST", base + "/invitations", `{"email":"bob@example.com"}`},
+		{"GET", projectsOf(t, h, ada), ""},
+	} {
+		if r := do(t, h, req.method, req.path, req.body, orgsKey...); r.code != http.StatusForbidden || r.json["code"] != "forbidden" {
+			t.Errorf("%s %s outside the key's scopes = %d %s, want 403 forbidden", req.method, req.path, r.code, r.body)
+		}
+	}
+
+	// Joining and leaving need a session, even for an unscoped key.
+	if r := do(t, h, "POST", base+"/invitations", `{"email":"bob@example.com"}`, ada...); r.code != http.StatusCreated {
+		t.Fatalf("invite = %d %s", r.code, r.body)
+	}
+	accept := fmt.Sprintf(`{"token":%q}`, emailedInvitation(t, pool, "bob@example.com"))
+	bobKey := key(bob, `[]`)
+	if r := do(t, h, "POST", "/v1/invitations/accept", accept, bobKey...); r.code != http.StatusForbidden || r.json["code"] != "session_required" {
+		t.Errorf("accept with a key = %d %s, want 403 session_required", r.code, r.body)
+	}
+	if r := do(t, h, "POST", "/v1/invitations/accept", accept, bob...); r.code != http.StatusOK {
+		t.Fatalf("accept with the session = %d %s", r.code, r.body)
+	}
+	for _, req := range []struct{ method, path string }{
+		{"POST", base + "/leave"},
+		{"DELETE", base + "/members/" + bobID},
+	} {
+		if r := do(t, h, req.method, req.path, "", bobKey...); r.code != http.StatusForbidden || r.json["code"] != "session_required" {
+			t.Errorf("%s %s with a key = %d %s, want 403 session_required", req.method, req.path, r.code, r.body)
+		}
+	}
+	if r := do(t, h, "GET", base, "", bobKey...); r.code != http.StatusOK {
+		t.Errorf("the member's unscoped key in the organisation = %d %s, want 200", r.code, r.body)
+	}
+	if r := do(t, h, "POST", base+"/leave", "", bob...); r.code != http.StatusNoContent {
+		t.Errorf("leave with the session = %d %s", r.code, r.body)
 	}
 }
 

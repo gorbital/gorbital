@@ -11,6 +11,7 @@ import (
 	"gorbital.dev/actor"
 
 	authdomain "⟦.Module⟧/internal/modules/auth/domain"
+	authusecase "⟦.Module⟧/internal/modules/auth/usecase"
 )
 
 // GrantRole gives the account registered with email a platform role, for
@@ -59,10 +60,15 @@ func changeRole(ctx context.Context, cfg Config, email, role string, grant bool,
 		return fmt.Errorf("%s hasn't verified its email address; roles are granted only to verified accounts. "+
 			"Ask the user to verify with the emailed code (or reset the password, which verifies it), then grant the role again", email)
 	}
+	if errors.Is(err, authdomain.ErrUnknownRole) && role == authusecase.RoleUser {
+		return fmt.Errorf("every account holds the %s role without a grant", role)
+	}
 	if errors.Is(err, authdomain.ErrUnknownRole) {
 		var names []string
 		for _, r := range svc.Catalog().Roles() {
-			names = append(names, r.Name)
+			if r.Name != authusecase.RoleUser {
+				names = append(names, r.Name)
+			}
 		}
 		return fmt.Errorf("unknown role %q; roles are: %s", role, strings.Join(names, ", "))
 	}

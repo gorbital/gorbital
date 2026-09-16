@@ -399,7 +399,7 @@ func (d ResourceData) checkIdentifiers() error {
 		return nil
 	}
 	err := declare(d.Ident, d.Ident+"Fields", "New"+d.Ident, "Changes", "FieldError", "ValidationError",
-		"ErrUnauthenticated", "ErrInvalid"+d.Ident, "Err"+d.Ident+"NotFound", "Err"+d.Ident+"VersionConflict")
+		"ErrUnauthenticated", "ErrForbidden", "ErrInvalid"+d.Ident, "Err"+d.Ident+"NotFound", "Err"+d.Ident+"VersionConflict")
 	if err != nil {
 		return err
 	}
@@ -698,8 +698,23 @@ func (d ResourceData) ModulesLine() string {
 // get the new resource's permissions.
 const OrgPermissionsAnchor = "//orb:anchor org-permissions"
 
-// PermissionsLine is the line orb gen resource --scope org adds after
-// OrgPermissionsAnchor: the permissions its app wiring file declares.
+// UserPermissionsAnchor is the anchor in internal/app/permissions.go that
+// orb gen resource --scope user adds a line after, so the user role every
+// user holds gets the new resource's permissions and API keys can be scoped
+// to them (ADR-0058).
+const UserPermissionsAnchor = "//orb:anchor user-permissions"
+
+// PermissionsAnchor is the anchor PermissionsLine goes after:
+// OrgPermissionsAnchor or UserPermissionsAnchor.
+func (d ResourceData) PermissionsAnchor() string {
+	if d.Org {
+		return OrgPermissionsAnchor
+	}
+	return UserPermissionsAnchor
+}
+
+// PermissionsLine is the line orb gen resource adds after PermissionsAnchor:
+// the permissions its app wiring file declares.
 func (d ResourceData) PermissionsLine() string { return d.Package + "Permissions," }
 
 // RenderResource renders a resource's module, app wiring, tests and

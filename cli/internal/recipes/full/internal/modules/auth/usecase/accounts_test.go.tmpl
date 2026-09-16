@@ -50,7 +50,7 @@ func TestRegisterVerifyLogin(t *testing.T) {
 		t.Errorf("Login() = %+v", res)
 	}
 	p, err := f.svc.Authenticate(context.Background(), res.Token)
-	if err != nil || p.UserID != res.User.ID || p.SessionID != res.Session.ID || len(p.Permissions) != 0 {
+	if err != nil || p.UserID != res.User.ID || p.SessionID != res.Session.ID || !slices.Equal(p.Permissions, []string{"notes.note.read", "notes.note.write"}) {
 		t.Fatalf("Authenticate() = %+v, %v", p, err)
 	}
 

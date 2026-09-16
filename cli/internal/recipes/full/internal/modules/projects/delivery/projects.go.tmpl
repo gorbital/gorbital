@@ -73,12 +73,13 @@ type handler struct {
 }
 
 // Register adds the projects operations to api. Every operation needs a
-// signed-in user and reaches only that user's projects.
+// signed-in user and reaches only that user's projects; an API key also
+// needs the operation's permission in its scopes.
 func Register(api huma.API, svc *projectsusecase.Service) {
 	h := &handler{svc: svc}
 	signedIn := func(op huma.Operation) huma.Operation {
 		op.Tags, op.Security = []string{"Projects"}, openapi.Bearer
-		op.Errors = append([]int{http.StatusUnauthorized}, op.Errors...)
+		op.Errors = append([]int{http.StatusUnauthorized, http.StatusForbidden}, op.Errors...)
 		return op
 	}
 

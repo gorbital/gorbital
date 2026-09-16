@@ -54,9 +54,10 @@ type CreatedAPIKey struct {
 // a deleted user's key and a disabled service account's key, and an
 // *auth.RateLimitError when the client's network failed too often.
 //
-// A user's key gets the permissions of the user's current roles, a platform
-// service account's key those of its roles, both without roles that require
-// two-factor authentication and limited to the key's scopes. An
+// A user's key gets the permissions of the user's current roles and
+// RoleUser, a platform service account's key those of its roles, both
+// without roles that require two-factor authentication and limited to the
+// key's scopes. An
 // organisation's service account gets its permissions from
 // orgs.RequireMember, in its organisation only. Only the lookup ID is ever
 // logged.
@@ -94,21 +95,23 @@ func (s *Service) AuthenticateAPIKey(ctx context.Context, key string) (authlib.P
 	}
 
 	p := authlib.Principal{APIKeyID: k.ID, Scopes: k.Scopes}
-	var roles []string
+	// Roles requiring two-factor authentication grant an API key nothing:
+	// it can't sign in with a second factor.
+	var granted []string
 	if k.ServiceAccountID != "" {
 		p.ServiceAccountID, p.OrgID = account.ID, account.OrgID
 		if account.OrgID == "" {
-			roles = account.Roles // an organisation's role applies only through orgs.RequireMember
+			// An organisation's role applies only through orgs.RequireMember.
+			granted, _ = s.catalog.PermissionsFor(account.Roles, false)
 		}
 	} else {
 		p.UserID = k.UserID
-		if roles, err = s.store.SelectUserRoles(ctx, k.UserID); err != nil {
+		roles, err := s.store.SelectUserRoles(ctx, k.UserID)
+		if err != nil {
 			return authlib.Principal{}, dbError("authenticate API key", err)
 		}
+		granted, _ = s.userPermissions(roles, false)
 	}
-	// Roles requiring two-factor authentication grant an API key nothing:
-	// it can't sign in with a second factor.
-	granted, _ := s.catalog.PermissionsFor(roles, false)
 	p.Permissions, p.StepUp = p.Restrict(granted, nil)
 
 	if k.LastUsedAt == nil || now.Sub(*k.LastUsedAt) >= authlib.APIKeyTouchInterval {
@@ -186,7 +189,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, password string, in APIKeyIn
 		if err != nil {
 			return err
 		}
-		granted, _ := s.catalog.PermissionsFor(roles, false)
+		granted, _ := s.userPermissions(roles, false)
 		if !scopesAllowed(in.Scopes, granted, s.orgScopes()) {
 			state = authdomain.ErrInvalidAPIKeyScopes
 			return nil
@@ -282,6 +285,14 @@ func (s *Service) keysRevoked(ctx context.Context, ownerType, ownerID, orgID str
 		Action: "auth.api_key.revoked", OrgID: orgID, ResourceType: ownerType, ResourceID: ownerID,
 		Metadata: map[string]any{"reason": reason, "count": n},
 	})
+}
+
+// userPermissions returns the permissions a user's roles grant, with those
+// of RoleUser, which every user holds without a grant. Every signed-in
+// operation that needs no other role checks one of RoleUser's permissions,
+// so an API key's scopes limit it too (ADR-0058).
+func (s *Service) userPermissions(roles []string, mfaVerified bool) (granted, stepUp []string) {
+	return s.catalog.PermissionsFor(append(slices.Clone(roles), RoleUser), mfaVerified)
 }
 
 // scopesAllowed reports whether every scope is in one of the allowed lists.

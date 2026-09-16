@@ -36,6 +36,15 @@ const (
 	PermServiceAccountsManage = "orgs.service_accounts.manage"
 )
 
+// Platform permissions the orgs module checks outside an organisation. The
+// user role in internal/app/permissions.go grants them to every user, so
+// only an API key scoped without them is refused (ADR-0058). They are public
+// API.
+const (
+	PermOrgCreate = "orgs.org.create"
+	PermOrgList   = "orgs.org.list"
+)
+
 // Audit actions. They are public API (ADR-0015): add new ones, never rename.
 const (
 	ActionOrgCreated         = "orgs.org.created"
@@ -211,6 +220,36 @@ func userID(ctx context.Context) (string, error) {
 	return a.ID, nil
 }
 
+// requireUser returns the signed-in user's ID when their platform
+// permissions include permission, and ErrForbidden otherwise: every user
+// holds the orgs module's platform permissions, an API key only within its
+// scopes (ADR-0058).
+func requireUser(ctx context.Context, permission string) (string, error) {
+	uid, err := userID(ctx)
+	if err != nil {
+		return "", err
+	}
+	if err := actor.Require(ctx, permission); err != nil {
+		return "", orgsdomain.ErrForbidden
+	}
+	return uid, nil
+}
+
+// requireSession returns the signed-in user's ID, and ErrSessionRequired
+// for a request made with an API key. Joining and leaving organisations
+// change what the account's keys reach and who may act for it, so only the
+// person can, like account management (ADR-0058).
+func requireSession(ctx context.Context) (string, error) {
+	uid, err := userID(ctx)
+	if err != nil {
+		return "", err
+	}
+	if p, ok := authlib.PrincipalFrom(ctx); ok && p.APIKey() {
+		return "", orgsdomain.ErrSessionRequired
+	}
+	return uid, nil
+}
+
 // lockOrg locks a live organisation, then checks again, under the lock,
 // that the signed-in user is a member whose role grants permission. Use
 // cases call orgs.RequireMember first to fail fast, but a request that
@@ -272,7 +311,7 @@ func (s *Service) audit(ctx context.Context, action string, orgID orgslib.ID, re
 func storeError(op string, err error) error {
 	known := []error{
 		orgslib.ErrOrgNotFound, actor.ErrUnauthenticated, actor.ErrForbidden, actor.ErrStepUpRequired,
-		orgsdomain.ErrUnauthenticated, orgsdomain.ErrInvalidName, orgsdomain.ErrOrgVersionConflict,
+		orgsdomain.ErrUnauthenticated, orgsdomain.ErrForbidden, orgsdomain.ErrSessionRequired, orgsdomain.ErrInvalidName, orgsdomain.ErrOrgVersionConflict,
 		orgsdomain.ErrPersonalWorkspace, orgsdomain.ErrMemberNotFound, orgsdomain.ErrUnknownRole,
 		orgsdomain.ErrRoleNotAllowed, orgsdomain.ErrLastOwner, orgsdomain.ErrSoleOwner,
 		orgsdomain.ErrAlreadyMember, orgsdomain.ErrAlreadyInvited, orgsdomain.ErrInvitationNotFound, orgsdomain.ErrInvitationEmail,

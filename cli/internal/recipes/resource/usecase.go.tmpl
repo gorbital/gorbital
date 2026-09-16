@@ -11,14 +11,16 @@ import (
 
 	⟦.Package⟧domain "⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
 )
-⟦if .Org⟧
-// Permissions the ⟦.PluralHuman⟧ module checks. The org catalog in
-// internal/app/permissions.go grants them to roles. They are public API.
+
+// Permissions the ⟦.PluralHuman⟧ module checks. ⟦if .Org⟧The org catalog in
+// internal/app/permissions.go grants them to roles.⟦else⟧The user role in
+// internal/app/permissions.go grants them to every user, so only an API key
+// scoped without them is refused (ADR-0058).⟦end⟧ They are public API.
 const (
 	PermRead  = "⟦.Package⟧.⟦.Snake⟧.read"
 	PermWrite = "⟦.Package⟧.⟦.Snake⟧.write"
 )
-⟦end⟧
+
 // Audit actions. They are public API (ADR-0015): add new ones, never rename.
 const (
 	ActionCreated = "⟦.Package⟧.⟦.Snake⟧.created"
@@ -44,7 +46,7 @@ func (s *Service) Create(ctx context.Context, orgID orgslib.ID, f ⟦.Package⟧
 ⟦- else⟧
 // Create adds ⟦.A⟧ ⟦.Human⟧ owned by the signed-in user.
 func (s *Service) Create(ctx context.Context, f ⟦.Package⟧domain.⟦.Ident⟧Fields) (⟦.Package⟧domain.⟦.Ident⟧, error) {
-	owner, err := ownerID(ctx)
+	owner, err := ownerID(ctx, PermWrite)
 	if err != nil {
 		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
 	}
@@ -71,7 +73,7 @@ func (s *Service) Get(ctx context.Context, orgID orgslib.ID, id string) (⟦.Pac
 ⟦- else⟧
 // Get returns one of the signed-in user's ⟦.PluralHuman⟧.
 func (s *Service) Get(ctx context.Context, id string) (⟦.Package⟧domain.⟦.Ident⟧, error) {
-	owner, err := ownerID(ctx)
+	owner, err := ownerID(ctx, PermRead)
 	if err != nil {
 		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
 	}
@@ -114,7 +116,7 @@ func (s *Service) List(ctx context.Context, orgID orgslib.ID, in ListInput) (pag
 // field (newest first by default).
 func (s *Service) List(ctx context.Context, in ListInput) (page.Result[⟦.Package⟧domain.⟦.Ident⟧], error) {
 	var none page.Result[⟦.Package⟧domain.⟦.Ident⟧]
-	owner, err := ownerID(ctx)
+	owner, err := ownerID(ctx, PermRead)
 	if err != nil {
 		return none, err
 	}
@@ -205,7 +207,7 @@ func (s *Service) Update(ctx context.Context, orgID orgslib.ID, id string, in Up
 // Err⟦.Ident⟧VersionConflict when in.Version is no longer current. An update
 // that changes nothing returns the ⟦.Human⟧ as it is.
 func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (⟦.Package⟧domain.⟦.Ident⟧, error) {
-	owner, err := ownerID(ctx)
+	owner, err := ownerID(ctx, PermWrite)
 	if err != nil {
 		return ⟦.Package⟧domain.⟦.Ident⟧{}, err
 	}
@@ -252,7 +254,7 @@ func (s *Service) Delete(ctx context.Context, orgID orgslib.ID, id string) error
 ⟦- else⟧
 // Delete removes one of the signed-in user's ⟦.PluralHuman⟧.
 func (s *Service) Delete(ctx context.Context, id string) error {
-	owner, err := ownerID(ctx)
+	owner, err := ownerID(ctx, PermWrite)
 	if err != nil {
 		return err
 	}

@@ -3710,6 +3710,7 @@
           "name": "Accept an invitation",
           "request": {
             "method": "POST",
+            "description": "API keys can't accept invitations.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -4158,7 +4159,7 @@
           "name": "Leave an organisation",
           "request": {
             "method": "POST",
-            "description": "The last owner can't leave, and nobody leaves their personal workspace.",
+            "description": "The last owner can't leave, and nobody leaves their personal workspace. API keys can't leave organisations.",
             "auth": {
               "type": "bearer",
               "bearer": [

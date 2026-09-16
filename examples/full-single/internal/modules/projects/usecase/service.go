@@ -1,7 +1,7 @@
 // Package usecase holds the projects module's application logic. Each
 // operation finds the signed-in user, who owns the projects it reads or
-// changes, applies the domain rules, stores the result and records an audit
-// event (ADR-0039). Change it freely.
+// changes, checks the permission (ADR-0058), applies the domain rules, stores
+// the result and records an audit event (ADR-0039). Change it freely.
 package usecase
 
 import (
@@ -73,12 +73,18 @@ func newID() string {
 // time equals the one returned.
 func (s *Service) clock() time.Time { return s.now().UTC().Truncate(time.Microsecond) }
 
-// ownerID returns the signed-in user's ID. Only users own projects;
-// system and anonymous actors get ErrUnauthenticated.
-func ownerID(ctx context.Context) (string, error) {
+// ownerID returns the signed-in user's ID when they hold permission. Only
+// users own projects; system and anonymous actors get
+// ErrUnauthenticated. Every user holds the permissions through the user
+// role, but an API key only when its scopes include them, so a key limited
+// to reading can't change anything (ADR-0058); it gets ErrForbidden.
+func ownerID(ctx context.Context, permission string) (string, error) {
 	a, ok := actor.From(ctx)
 	if !ok || a.Kind != actor.KindUser || a.ID == "" {
 		return "", projectsdomain.ErrUnauthenticated
+	}
+	if err := actor.Require(ctx, permission); err != nil {
+		return "", projectsdomain.ErrForbidden
 	}
 	return a.ID, nil
 }

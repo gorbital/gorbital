@@ -155,6 +155,58 @@ func TestAPIKeysEndToEnd(t *testing.T) {
 	}
 }
 
+// TestAPIKeyScopesCoverOwnData checks that a key's scopes limit what it does
+// with the user's own data, which needs no granted role: a read-only key
+// lists and reads projects but can't change them, while the session and an
+// unscoped key can (ADR-0058).
+func TestAPIKeyScopesCoverOwnData(t *testing.T) {
+	a := newApp(t, nil)
+	h := a.Handler()
+	ada, _ := signIn(t, a, "ada@example.com", "")
+	projects := projectsOf(t, h, ada)
+	created := do(t, h, "POST", projects, `{"name":"Website"}`, ada...)
+	if created.code != http.StatusCreated {
+		t.Fatalf("create with the session = %d %s", created.code, created.body)
+	}
+	project := projects + "/" + created.json["id"].(string)
+	expires := time.Now().Add(7 * 24 * time.Hour).UTC().Format(time.RFC3339)
+	key := func(scopes string) []string {
+		k, _ := createKey(t, h, "/v1/auth/api-keys", fmt.Sprintf(`{"name":"CI","expires_at":%q,"password":%q,"scopes":%s}`, expires, testPassword, scopes), ada)
+		return []string{"Authorization", "Bearer " + k}
+	}
+
+	reader := key(`["projects.project.read"]`)
+	for _, path := range []string{projects, project} {
+		if r := do(t, h, "GET", path, "", reader...); r.code != http.StatusOK {
+			t.Errorf("GET %s with a read-only key = %d %s, want 200", path, r.code, r.body)
+		}
+	}
+	for _, req := range []struct{ method, path, body string }{
+		{"POST", projects, `{"name":"By a key"}`},
+		{"PATCH", project, `{"version":1,"name":"By a key"}`},
+		{"DELETE", project, ""},
+	} {
+		if r := do(t, h, req.method, req.path, req.body, reader...); r.code != http.StatusForbidden || r.json["code"] != "forbidden" {
+			t.Errorf("%s %s with a read-only key = %d %s, want 403 forbidden", req.method, req.path, r.code, r.body)
+		}
+	}
+	writer := key(`["projects.project.write"]`)
+	if r := do(t, h, "GET", projects, "", writer...); r.code != http.StatusForbidden {
+		t.Errorf("list with a write-only key = %d %s, want 403", r.code, r.body)
+	}
+
+	// The session and an unscoped key keep everything the user holds.
+	if r := do(t, h, "PATCH", project, `{"version":1,"name":"Website v2"}`, ada...); r.code != http.StatusOK {
+		t.Errorf("update with the session = %d %s", r.code, r.body)
+	}
+	if r := do(t, h, "DELETE", project, "", key(`[]`)...); r.code != http.StatusNoContent {
+		t.Errorf("delete with an unscoped key = %d %s", r.code, r.body)
+	}
+	if r := do(t, h, "POST", "/v1/auth/api-keys", fmt.Sprintf(`{"name":"CI","expires_at":%q,"password":%q,"scopes":["projects.project.admin"]}`, expires, testPassword), ada...); r.code != http.StatusUnprocessableEntity || r.json["code"] != "invalid_api_key_scopes" {
+		t.Errorf("create with an undeclared scope = %d %s, want 422 invalid_api_key_scopes", r.code, r.body)
+	}
+}
+
 // TestServiceAccountsThroughOps manages a platform service account over
 // /ops: permissions, roles that require two-factor authentication, keys,
 // disabling and deleting.

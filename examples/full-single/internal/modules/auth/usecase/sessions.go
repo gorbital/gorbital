@@ -13,8 +13,8 @@ import (
 // auth.Authenticator for the request middleware. It returns
 // auth.ErrUnauthenticated for an unknown, ended or expired session, or a
 // deleted account. Using a session extends its idle expiry, up to its
-// absolute expiry. Permissions come from the user's current roles, so a
-// grant or revocation applies to the next request.
+// absolute expiry. Permissions come from the user's current roles and
+// RoleUser, so a grant or revocation applies to the next request.
 func (s *Service) Authenticate(ctx context.Context, token string) (authlib.Principal, error) {
 	if token == "" || len(token) > 256 {
 		return authlib.Principal{}, authlib.ErrUnauthenticated
@@ -42,7 +42,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (authlib.Princ
 	}
 	// Roles that require two-factor authentication grant their permissions
 	// only to sessions verified with a second factor (ADR-0043).
-	granted, stepUp := s.catalog.PermissionsFor(roles, session.MFAVerified())
+	granted, stepUp := s.userPermissions(roles, session.MFAVerified())
 	p := authlib.Principal{
 		UserID: user.ID, SessionID: session.ID, Permissions: granted, StepUp: stepUp,
 		MFAVerified: session.MFAVerified(), SignedInAt: session.CreatedAt,

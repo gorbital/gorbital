@@ -18,13 +18,18 @@ import (
 	"gorbital.dev/ratelimit"
 
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
+	authrepository "example.com/acme-api/internal/modules/auth/repository"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 )
 
-// keyCatalog has a role without two-factor authentication (reporter), ops
-// roles that require it, and a role mixing both kinds of permissions.
+// keyCatalog has the user role every user holds (their notes), a role
+// without two-factor authentication (reporter), ops roles that require it,
+// and a role mixing both kinds of permissions.
 func keyCatalog() *authlib.Catalog {
 	c := authlib.NewCatalog()
+	c.Permission("notes.note.read", "See your notes")
+	c.Permission("notes.note.write", "Change your notes")
+	c.Role(authusecase.RoleUser, "Every user", "notes.note.read", "notes.note.write")
 	c.Permission("reports.report.read", "Read reports")
 	c.Permission("reports.report.write", "Write reports")
 	c.Permission("ops.settings.read", "Read runtime settings")
@@ -306,7 +311,7 @@ func TestAPIKeysNeverCarryTwoFactorPermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"reports.report.read", "reports.report.write"}; !slices.Equal(p.Permissions, want) || len(p.StepUp) != 0 {
+	if want := []string{"notes.note.read", "notes.note.write", "reports.report.read", "reports.report.write"}; !slices.Equal(p.Permissions, want) || len(p.StepUp) != 0 {
 		t.Errorf("unscoped key of a platform admin: permissions %v, step-up %v; want %v and none", p.Permissions, p.StepUp, want)
 	}
 	keyCtx := authlib.WithPrincipal(requestCtx(), p)
@@ -399,18 +404,74 @@ func TestAPIKeyScopesCantEscalate(t *testing.T) {
 	if got := perms(scoped.Key); !slices.Equal(got, []string{"reports.report.read"}) {
 		t.Errorf("scoped key after a new role = %v, want its scope only", got)
 	}
-	if got := perms(unscoped.Key); !slices.Equal(got, []string{"reports.report.read", "reports.report.write"}) {
+	if got := perms(unscoped.Key); !slices.Equal(got, []string{"notes.note.read", "notes.note.write", "reports.report.read", "reports.report.write"}) {
 		t.Errorf("unscoped key after a new role = %v", got)
 	}
-	// Losing roles narrows both at once.
+	// Losing roles narrows both at once; the user role stays.
 	for _, r := range []string{"reader", "reporter"} {
 		if err := f.svc.RevokeRole(operator(), userID, r); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if got, got2 := perms(scoped.Key), perms(unscoped.Key); len(got) != 0 || len(got2) != 0 {
-		t.Errorf("keys after losing every role = %v, %v; want none", got, got2)
+	if got, got2 := perms(scoped.Key), perms(unscoped.Key); len(got) != 0 || !slices.Equal(got2, []string{"notes.note.read", "notes.note.write"}) {
+		t.Errorf("keys after losing every granted role = %v, %v; want none and the user role's", got, got2)
 	}
+}
+
+// TestUserRoleIsScopedLikeAnyRole checks the user role every user holds
+// (ADR-0058): sessions get its permissions, API keys only within their
+// scopes, and nobody grants it or gives it to a service account.
+func TestUserRoleIsScopedLikeAnyRole(t *testing.T) {
+	f := newKeyFixture(t)
+	ctx, userID := f.user(t, "ada@example.com")
+	p, _ := authlib.PrincipalFrom(ctx)
+	if !slices.Equal(p.Permissions, []string{"notes.note.read", "notes.note.write"}) {
+		t.Errorf("session without granted roles has permissions %v, want the user role's", p.Permissions)
+	}
+	readOnly := f.newKey(t, ctx, authusecase.APIKeyInput{Scopes: []string{"notes.note.read"}})
+	keyCtx := f.keyCtx(t, readOnly.Key)
+	if err := actor.Require(keyCtx, "notes.note.read"); err != nil {
+		t.Errorf("read-scoped key: Require(notes.note.read) error = %v", err)
+	}
+	if err := actor.Require(keyCtx, "notes.note.write"); !errors.Is(err, actor.ErrForbidden) {
+		t.Errorf("read-scoped key: Require(notes.note.write) error = %v, want ErrForbidden", err)
+	}
+	unscoped := f.keyCtx(t, f.newKey(t, ctx, authusecase.APIKeyInput{}).Key)
+	if err := actor.Require(unscoped, "notes.note.write"); err != nil {
+		t.Errorf("unscoped key: Require(notes.note.write) error = %v", err)
+	}
+
+	if err := f.svc.GrantRole(operator(), userID, authusecase.RoleUser); !errors.Is(err, authdomain.ErrUnknownRole) {
+		t.Errorf("GrantRole(user) error = %v, want ErrUnknownRole", err)
+	}
+	admin := f.operatorSession(t)
+	if _, err := f.svc.CreateServiceAccount(admin, "", authusecase.ServiceAccountInput{Name: "robot", Roles: []string{authusecase.RoleUser}}); !errors.Is(err, authdomain.ErrInvalidServiceAccountRole) {
+		t.Errorf("CreateServiceAccount(user role) error = %v, want ErrInvalidServiceAccountRole", err)
+	}
+
+	for name, c := range map[string]*authlib.Catalog{
+		"no user role":            catalogWithUserRole(false, false),
+		"user role requiring 2FA": catalogWithUserRole(true, true),
+	} {
+		if _, err := authusecase.NewService(authusecase.Config{Store: authrepository.NewStore(f.pool), Catalog: c, Recorder: f.audit, Emails: f.emails}); err == nil ||
+			!strings.Contains(err.Error(), "user role") {
+			t.Errorf("NewService(%s) error = %v, want the user role required", name, err)
+		}
+	}
+}
+
+// catalogWithUserRole returns a catalog with or without the user role, which
+// may require two-factor authentication.
+func catalogWithUserRole(declare, mfa bool) *authlib.Catalog {
+	c := authlib.NewCatalog()
+	c.Permission("notes.note.read", "See your notes")
+	if declare {
+		c.Role(authusecase.RoleUser, "Every user", "notes.note.read")
+	}
+	if mfa {
+		c.RequireMFA(authusecase.RoleUser)
+	}
+	return c
 }
 
 // TestAPIKeysNeedASession checks that a key can't manage the account, its

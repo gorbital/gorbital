@@ -10,6 +10,14 @@ import (
 	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
 )
 
+// Permissions the projects module checks. The user role in
+// internal/app/permissions.go grants them to every user, so only an API key
+// scoped without them is refused (ADR-0058). They are public API.
+const (
+	PermRead  = "projects.project.read"
+	PermWrite = "projects.project.write"
+)
+
 // Audit actions. They are public API (ADR-0015): add new ones, never rename.
 const (
 	ActionCreated = "projects.project.created"
@@ -27,7 +35,7 @@ func listOptions() page.Options {
 
 // Create adds a project owned by the signed-in user.
 func (s *Service) Create(ctx context.Context, f projectsdomain.ProjectFields) (projectsdomain.Project, error) {
-	owner, err := ownerID(ctx)
+	owner, err := ownerID(ctx, PermWrite)
 	if err != nil {
 		return projectsdomain.Project{}, err
 	}
@@ -45,7 +53,7 @@ func (s *Service) Create(ctx context.Context, f projectsdomain.ProjectFields) (p
 
 // Get returns one of the signed-in user's projects.
 func (s *Service) Get(ctx context.Context, id string) (projectsdomain.Project, error) {
-	owner, err := ownerID(ctx)
+	owner, err := ownerID(ctx, PermRead)
 	if err != nil {
 		return projectsdomain.Project{}, err
 	}
@@ -76,7 +84,7 @@ type cursor struct {
 // field (newest first by default).
 func (s *Service) List(ctx context.Context, in ListInput) (page.Result[projectsdomain.Project], error) {
 	var none page.Result[projectsdomain.Project]
-	owner, err := ownerID(ctx)
+	owner, err := ownerID(ctx, PermRead)
 	if err != nil {
 		return none, err
 	}
@@ -151,7 +159,7 @@ type UpdateInput struct {
 // ErrProjectVersionConflict when in.Version is no longer current. An update
 // that changes nothing returns the project as it is.
 func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (projectsdomain.Project, error) {
-	owner, err := ownerID(ctx)
+	owner, err := ownerID(ctx, PermWrite)
 	if err != nil {
 		return projectsdomain.Project{}, err
 	}
@@ -189,7 +197,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (projec
 
 // Delete removes one of the signed-in user's projects.
 func (s *Service) Delete(ctx context.Context, id string) error {
-	owner, err := ownerID(ctx)
+	owner, err := ownerID(ctx, PermWrite)
 	if err != nil {
 		return err
 	}

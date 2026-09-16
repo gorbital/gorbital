@@ -51,11 +51,19 @@ func register⟦.Plural⟧(api huma.API, mapper *httpx.Mapper, svc services) err
 	return nil
 }
 ⟦- else⟧
+// ⟦.Package⟧Permissions are the ⟦.PluralHuman⟧ module's permissions.
+// declarePermissions in permissions.go gives them to the user role, which
+// every user holds.
+var ⟦.Package⟧Permissions = resourcePermissions{
+	read: ⟦.Package⟧usecase.PermRead, write: ⟦.Package⟧usecase.PermWrite, name: ⟦quote .PluralHuman⟧,
+}
+
 // register⟦.Plural⟧ builds and wires the ⟦.PluralHuman⟧ module. Error codes are
 // public API: add new ones, never change existing ones.
 func register⟦.Plural⟧(api huma.API, mapper *httpx.Mapper, svc services) error {
 	err := mapper.Add(
 		httpx.Mapping{Err: ⟦.Package⟧domain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+		httpx.Mapping{Err: ⟦.Package⟧domain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
 		httpx.Mapping{Err: ⟦.Package⟧domain.ErrInvalid⟦.Ident⟧, Status: http.StatusUnprocessableEntity, Code: "validation_failed", Detail: ⟦quote (print "the " .Human " is not valid")⟧},
 		httpx.Mapping{Err: ⟦.Package⟧domain.Err⟦.Ident⟧NotFound, Status: http.StatusNotFound, Code: "⟦.Snake⟧_not_found", Detail: ⟦quote (print "no " .Human " of yours has this ID")⟧},
 ⟦- range .Uniques⟧

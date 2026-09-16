@@ -23,7 +23,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `flag_not_found` | 404 | No feature flag has this key. | `/ops` |
 | `flag_reason_required` | 422 | A reason is required to change a feature flag. | `/ops` |
 | `flag_version_conflict` | 409 | The feature flag changed since it was read; read it again. | `/ops` |
-| `forbidden` | 403 | The caller is signed in but lacks the permission: a platform role for `/ops`, or an organisation role for org-scoped endpoints. | Any endpoint |
+| `forbidden` | 403 | The caller is signed in but lacks the permission: a platform role for `/ops`, an organisation role for org-scoped endpoints, or, for an API key, a scope. | Any endpoint |
 | `idempotency_in_progress` | 409 | A request with this idempotency key is still in progress; retry later. | Any endpoint |
 | `idempotency_key_reused` | 422 | This idempotency key was used for a different request; use a new key for a new request. | Any endpoint |
 | `identity_in_use` | 409 | This Google, Apple or GitHub account is linked to another account. | `/v1/auth` |
@@ -96,7 +96,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `service_account_limit_reached` | 409 | At most 100 service accounts; delete one first. | `/v1/auth` |
 | `service_account_not_found` | 404 | No service account here has this ID. | `/v1/auth` |
 | `session_not_found` | 404 | No active session of yours has this ID. | `/v1/auth` |
-| `session_required` | 403 | Sign in to do this: an API key can't manage accounts, sessions or API keys. | `/v1/auth` |
+| `session_required` | 403 | The operation needs the person's signed-in session, not an API key: managing the account, sessions, API keys and service accounts, and joining or leaving organisations. | `/v1/auth`; `/v1/orgs`, `/v1/invitations` |
 | `setting_not_found` | 404 | No setting has this key. Organisations can't set a setting with this key. | `/ops`; `/v1/orgs`, `/v1/invitations` |
 | `setting_reason_required` | 422 | A reason is required to change this setting. | `/ops` |
 | `setting_version_conflict` | 409 | The setting changed since it was read; read it again. | `/ops` |

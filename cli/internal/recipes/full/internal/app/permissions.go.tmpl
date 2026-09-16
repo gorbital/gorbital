@@ -8,7 +8,8 @@ import (
 )
 
 // Platform roles (ADR-0038). Access is denied by default: a signed-in user
-// holds only the permissions of their roles. Give someone a role with
+// holds only the permissions of their roles and of the user role
+// (authusecase.RoleUser), which every user holds. Give someone a role with
 //
 //	go run ./cmd/api grant-role <email> <role>
 //
@@ -39,6 +40,17 @@ func declarePermissions() *authlib.Catalog {
 	c.Permission(authusecase.PermServiceAccountsRead, "See service accounts and their API keys")
 	c.Permission(authusecase.PermServiceAccountsWrite, "Create, change and delete service accounts and their API keys")
 
+	// Every user holds the user role without a grant (ADR-0058). It covers
+	// what a signed-in user may do with their own data, so an API key's
+	// scopes limit that too; sessions always have it.
+	var user []string
+	for _, r := range userResourcePermissions() {
+		c.Permission(r.read, "See your "+r.name)
+		c.Permission(r.write, "Create, change and delete your "+r.name)
+		user = append(user, r.read, r.write)
+	}
+	c.Role(authusecase.RoleUser, "Held by every signed-in user without a grant; by API keys only within their scopes", user...)
+
 	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission",
 		append(opsdomain.AllPermissions(), authusecase.PermServiceAccountsRead, authusecase.PermServiceAccountsWrite)...)
 	c.Role(roleOpsViewer, "Reads operational data without changing anything",
@@ -49,6 +61,23 @@ func declarePermissions() *authlib.Catalog {
 	// second factor (ADR-0043), so never to API keys (ADR-0058).
 	c.RequireMFA(rolePlatformAdmin, roleOpsViewer)
 	return c
+}
+
+// resourcePermissions are a resource's permissions, declared in its
+// module_<name>.go file.
+type resourcePermissions struct {
+	read, write string
+	name        string // in words, such as "projects"
+}
+
+// userResourcePermissions lists the user-scoped resources' permissions,
+// which the user role grants. orb gen resource --scope user adds a line at
+// the anchor.
+func userResourcePermissions() []resourcePermissions {
+	return []resourcePermissions{
+		//orb:anchor user-permissions
+		projectsPermissions,
+	}
 }
 
 // permissionCatalogs returns every permission catalog by name, for the

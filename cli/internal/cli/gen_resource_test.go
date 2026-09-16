@@ -11,6 +11,8 @@ import (
 
 const testModulesGo = "package app\n\nimport \"errors\"\n\nfunc registerModules(api huma.API, mapper *httpx.Mapper, svc services) error {\n\treturn errors.Join(\n\t\t//orb:anchor modules\n\t\tregisterPing(api, mapper, svc.pingMessage),\n\t)\n}\n"
 
+const testPermissionsGo = "package app\n\nfunc userResourcePermissions() []resourcePermissions {\n\treturn []resourcePermissions{\n\t\t//orb:anchor user-permissions\n\t}\n}\n"
+
 // newResourceApp creates a minimal stand-in for a Full preset app with the
 // auth module and makes it the working directory.
 func newResourceApp(t *testing.T) string {
@@ -18,6 +20,7 @@ func newResourceApp(t *testing.T) string {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/shop\n\ngo 1.26.0\n")
 	writeFile(t, filepath.Join(dir, "internal", "app", "modules.go"), testModulesGo)
+	writeFile(t, filepath.Join(dir, "internal", "app", "permissions.go"), testPermissionsGo)
 	writeFile(t, filepath.Join(dir, "internal", "modules", "auth", "module.go"), "package auth\n")
 	writeFile(t, filepath.Join(dir, "db", "migrations", "20260915000001_auth.sql"), "-- auth\n")
 	t.Chdir(dir)
@@ -32,7 +35,7 @@ func TestGenResourceWithFields(t *testing.T) {
 	}
 	var res genResourceResult
 	if err := json.Unmarshal([]byte(out), &res); err != nil || res.Module != "projects" || res.Route != "/v1/projects" || res.Table != "projects" ||
-		len(res.Files) != 21 || res.DryRun {
+		len(res.Files) != 22 || res.DryRun {
 		t.Fatalf("orb gen resource --json = %q (%v)", out, err)
 	}
 	for _, f := range res.Files {
@@ -51,6 +54,7 @@ func TestGenResourceWithFields(t *testing.T) {
 		"internal/modules/projects/domain/errors.go":  "ErrProjectNameTaken",
 		"internal/app/module_projects.go":             `"example.com/shop/internal/modules/projects"`,
 		"internal/app/modules.go":                     "//orb:anchor modules\n\t\tregisterProjects(api, mapper, svc),\n\t\tregisterPing(",
+		"internal/app/permissions.go":                 "//orb:anchor user-permissions\n\t\tprojectsPermissions,\n",
 	} {
 		if got := readFile(t, filepath.FromSlash(path)); !strings.Contains(got, want) {
 			t.Errorf("%s lacks %q:\n%s", path, want, got)
@@ -142,6 +146,12 @@ func TestGenResourceOutsideFullPresetApp(t *testing.T) {
 	}
 
 	writeFile(t, filepath.Join(dir, "internal", "app", "modules.go"), testModulesGo)
+	writeFile(t, filepath.Join(dir, "internal", "app", "permissions.go"), "package app\n")
+	if code, _, errOut := runOrb(t, args...); code != 1 || !strings.Contains(errOut, "//orb:anchor user-permissions") {
+		t.Errorf("orb gen resource without the user permissions anchor = %d %q, want the line to add", code, errOut)
+	}
+
+	writeFile(t, filepath.Join(dir, "internal", "app", "permissions.go"), testPermissionsGo)
 	writeFile(t, filepath.Join(dir, "internal", "modules", "projects", "keep.go"), "package projects\n")
 	if code, _, errOut := runOrb(t, args...); code != 1 || !strings.Contains(errOut, "internal/modules/projects already exists") {
 		t.Errorf("orb gen resource over an existing module = %d %q", code, errOut)

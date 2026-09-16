@@ -26,6 +26,8 @@ func registerOrgs(api huma.API, mapper *httpx.Mapper, m *orgsmodule.Module) erro
 		httpx.Mapping{Err: actor.ErrStepUpRequired, Status: http.StatusForbidden, Code: "mfa_required", Detail: "sign in with two-factor authentication to do this in this organisation"},
 		httpx.Mapping{Err: orgslib.ErrOrgNotFound, Status: http.StatusNotFound, Code: "org_not_found", Detail: "you aren't a member of an organisation with this ID"},
 		httpx.Mapping{Err: orgsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+		httpx.Mapping{Err: orgsdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
+		httpx.Mapping{Err: orgsdomain.ErrSessionRequired, Status: http.StatusForbidden, Code: "session_required", Detail: "sign in to do this: an API key can't join or leave organisations"},
 		httpx.Mapping{Err: orgsdomain.ErrInvalidName, Status: http.StatusUnprocessableEntity, Code: "invalid_org_name", Detail: "an organisation name must be 1 to 100 characters on one line"},
 		httpx.Mapping{Err: orgsdomain.ErrOrgVersionConflict, Status: http.StatusConflict, Code: "org_version_conflict", Detail: "the organisation changed since you read it; get it again and retry"},
 		httpx.Mapping{Err: orgsdomain.ErrPersonalWorkspace, Status: http.StatusConflict, Code: "personal_workspace", Detail: "a personal workspace can't be left, deleted or shared; create an organisation instead"},

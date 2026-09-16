@@ -164,9 +164,10 @@ func (s *Service) RevokeInvitation(ctx context.Context, orgID orgslib.ID, id str
 // The account's verified email address must be the invited one, so a
 // forwarded link is no use to anyone else. The inviter must still be a
 // member who may assign the invitation's role: an invitation doesn't
-// outlive its inviter's removal or demotion.
+// outlive its inviter's removal or demotion. An API key can't accept one
+// (ErrSessionRequired).
 func (s *Service) AcceptInvitation(ctx context.Context, token string) (orgsdomain.Membership, error) {
-	uid, err := userID(ctx)
+	uid, err := requireSession(ctx)
 	if err != nil {
 		return orgsdomain.Membership{}, err
 	}

@@ -183,6 +183,9 @@ func catalog() *authlib.Catalog {
 	c.Permission("ops.settings.write", "Change runtime settings")
 	c.Role("platform_admin", "Operates the platform", "ops.settings.read", "ops.settings.write")
 	c.Role("viewer", "Reads operational data", "ops.settings.read")
+	c.Permission("notes.note.read", "See your notes")
+	c.Permission("notes.note.write", "Change your notes")
+	c.Role(authusecase.RoleUser, "Every user", "notes.note.read", "notes.note.write")
 	return c
 }
 

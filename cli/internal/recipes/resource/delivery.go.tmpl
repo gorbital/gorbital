@@ -136,12 +136,13 @@ func Register(api huma.API, svc *⟦.Package⟧usecase.Service) {
 }
 ⟦- else⟧
 // Register adds the ⟦.PluralHuman⟧ operations to api. Every operation needs a
-// signed-in user and reaches only that user's ⟦.PluralHuman⟧.
+// signed-in user and reaches only that user's ⟦.PluralHuman⟧; an API key also
+// needs the operation's permission in its scopes.
 func Register(api huma.API, svc *⟦.Package⟧usecase.Service) {
 	h := &handler{svc: svc}
 	signedIn := func(op huma.Operation) huma.Operation {
 		op.Tags, op.Security = []string{⟦quote .PluralTitle⟧}, openapi.Bearer
-		op.Errors = append([]int{http.StatusUnauthorized}, op.Errors...)
+		op.Errors = append([]int{http.StatusUnauthorized, http.StatusForbidden}, op.Errors...)
 		return op
 	}
 

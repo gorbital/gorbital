@@ -148,15 +148,16 @@ func (s *Service) withRoles(ctx context.Context, op string, find func() (authdom
 }
 
 // GrantRole gives a user a platform role. Granting a role the user has
-// changes nothing. It returns ErrUnknownRole, ErrUserNotFound,
-// ErrEmailNotVerified for an account whose address isn't verified, or
-// ErrActorRequired.
+// changes nothing. It returns ErrUnknownRole (also for RoleUser, which every
+// user holds), ErrUserNotFound, ErrEmailNotVerified for an account whose
+// address isn't verified, or ErrActorRequired.
 func (s *Service) GrantRole(ctx context.Context, userID, role string) error {
 	a, err := requireActor(ctx)
 	if err != nil {
 		return err
 	}
-	if !s.catalog.HasRole(role) {
+	if !s.catalog.HasRole(role) || role == RoleUser {
+		// Every user holds RoleUser without a grant.
 		return authdomain.ErrUnknownRole
 	}
 	u, err := s.store.SelectUserByID(ctx, userID, false)

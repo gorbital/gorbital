@@ -130,7 +130,8 @@ type handler struct {
 
 // Register adds the organisation operations to api. Every operation needs a
 // signed-in user; operations on an organisation answer 404 org_not_found to
-// anyone who isn't a member.
+// anyone who isn't a member. An API key needs each operation's permission in
+// its scopes, and can't join or leave organisations (ADR-0058).
 func Register(api huma.API, svc *orgsusecase.Service) {
 	h := &handler{svc: svc}
 	op := func(o huma.Operation) huma.Operation {
@@ -146,6 +147,7 @@ func Register(api huma.API, svc *orgsusecase.Service) {
 	huma.Register(api, op(huma.Operation{
 		OperationID: "orgs-list", Method: http.MethodGet, Path: "/v1/orgs",
 		Summary: "List your organisations", Description: "Your personal workspace first, then by name.",
+		Errors: []int{http.StatusForbidden},
 	}), h.list)
 	huma.Register(api, op(huma.Operation{
 		OperationID: "orgs-create", Method: http.MethodPost, Path: "/v1/orgs",
@@ -190,7 +192,7 @@ func Register(api huma.API, svc *orgsusecase.Service) {
 	}), h.removeMember)
 	huma.Register(api, inOrg(huma.Operation{
 		OperationID: "orgs-leave", Method: http.MethodPost, Path: "/v1/orgs/{orgId}/leave",
-		Summary: "Leave an organisation", Description: "The last owner can't leave, and nobody leaves their personal workspace.",
+		Summary: "Leave an organisation", Description: "The last owner can't leave, and nobody leaves their personal workspace. API keys can't leave organisations.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusConflict},
 	}), h.leave)
 
@@ -215,8 +217,8 @@ func Register(api huma.API, svc *orgsusecase.Service) {
 	}), h.revoke)
 	huma.Register(api, op(huma.Operation{
 		OperationID: "invitations-accept", Method: http.MethodPost, Path: "/v1/invitations/accept",
-		Summary: "Accept an invitation",
-		Errors:  []int{http.StatusForbidden, http.StatusNotFound, http.StatusConflict},
+		Summary: "Accept an invitation", Description: "API keys can't accept invitations.",
+		Errors: []int{http.StatusForbidden, http.StatusNotFound, http.StatusConflict},
 	}), h.accept)
 
 	registerSettings(api, h, inOrg)

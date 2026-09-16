@@ -166,23 +166,23 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 			modulesGo, data.PluralHuman, recipes.ModulesAnchor, err)
 	}
 
-	// Org-scoped resources also give their permissions to the organisation roles.
+	// The resource's permissions go to the organisation roles, or to the user
+	// role every user holds, so API keys can be scoped to them (ADR-0058).
 	permissionsGo := filepath.Join("internal", "app", "permissions.go")
-	var permissions []byte
-	if data.Org {
-		src, err := os.ReadFile(filepath.Join(app.dir, permissionsGo))
-		if err != nil {
-			return err
-		}
-		permissions, err = recipes.InsertAfterAnchor(src, recipes.OrgPermissionsAnchor, data.PermissionsLine())
-		switch {
-		case errors.Is(err, recipes.ErrAnchorMissing):
-			return fmt.Errorf("%s has no %q line; add it as the first line inside orgResourcePermissions, as in examples/full-multi, then run orb gen resource again", permissionsGo, recipes.OrgPermissionsAnchor)
-		case errors.Is(err, recipes.ErrLinePresent):
-			return fmt.Errorf("%s: the %s permissions are already declared", permissionsGo, data.PluralHuman)
-		case err != nil:
-			return fmt.Errorf("%s: can't declare the %s permissions after %q: %w", permissionsGo, data.PluralHuman, recipes.OrgPermissionsAnchor, err)
-		}
+	permissionsSrc, err := os.ReadFile(filepath.Join(app.dir, permissionsGo))
+	if err != nil {
+		return err
+	}
+	permissions, err := recipes.InsertAfterAnchor(permissionsSrc, data.PermissionsAnchor(), data.PermissionsLine())
+	switch {
+	case errors.Is(err, recipes.ErrAnchorMissing) && data.Org:
+		return fmt.Errorf("%s has no %q line; add it as the first line inside orgResourcePermissions, as in examples/full-multi, then run orb gen resource again", permissionsGo, recipes.OrgPermissionsAnchor)
+	case errors.Is(err, recipes.ErrAnchorMissing):
+		return fmt.Errorf("%s has no %q line; add userResourcePermissions and the user role as in examples/full-single (see the upgrade notes for ADR-0058), then run orb gen resource again", permissionsGo, recipes.UserPermissionsAnchor)
+	case errors.Is(err, recipes.ErrLinePresent):
+		return fmt.Errorf("%s: the %s permissions are already declared", permissionsGo, data.PluralHuman)
+	case err != nil:
+		return fmt.Errorf("%s: can't declare the %s permissions after %q: %w", permissionsGo, data.PluralHuman, data.PermissionsAnchor(), err)
 	}
 
 	root, err := os.OpenRoot(app.dir)
@@ -201,10 +201,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 		}
 		result.Files = append(result.Files, f.Path)
 	}
-	result.Files = append(result.Files, filepath.ToSlash(modulesGo))
-	if data.Org {
-		result.Files = append(result.Files, filepath.ToSlash(permissionsGo))
-	}
+	result.Files = append(result.Files, filepath.ToSlash(modulesGo), filepath.ToSlash(permissionsGo))
 
 	summary := resourceSummary(data, result.Files)
 	if !*dryRun && ask {
@@ -235,10 +232,8 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 		if err := root.WriteFile(modulesGo, updated, 0o644); err != nil {
 			return err
 		}
-		if data.Org {
-			if err := root.WriteFile(permissionsGo, permissions, 0o644); err != nil {
-				return err
-			}
+		if err := root.WriteFile(permissionsGo, permissions, 0o644); err != nil {
+			return err
 		}
 	}
 
@@ -256,6 +251,8 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 			resourceRoute(data), data.Package, data.Package)
 		if data.Org {
 			fmt.Fprintf(stdout, "Every organisation role gets %s.%s.read and .write; change that in declareOrgPermissions in internal/app/permissions.go.\n", data.Package, data.Snake)
+		} else {
+			fmt.Fprintf(stdout, "Every user holds %s.%s.read and .write through the user role in internal/app/permissions.go; an API key only when its scopes include them.\n", data.Package, data.Snake)
 		}
 	}
 	return nil

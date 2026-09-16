@@ -383,8 +383,9 @@ func (s *Service) serviceAccountAccess(ctx context.Context, orgID string, write 
 
 // serviceAccountRoles validates roles for a service account of orgID given
 // by a member with callerRole: declared platform roles (at most
-// MaxServiceAccountRoles), or exactly one organisation role the member may
-// give; never a role that requires two-factor authentication.
+// MaxServiceAccountRoles) other than RoleUser, which covers users' own data,
+// or exactly one organisation role the member may give; never a role that
+// requires two-factor authentication.
 func (s *Service) serviceAccountRoles(orgID, callerRole string, roles []string) ([]string, error) {
 	roles = authdomain.Roles(roles)
 	if orgID == "" {
@@ -392,7 +393,7 @@ func (s *Service) serviceAccountRoles(orgID, callerRole string, roles []string) 
 			return nil, authdomain.ErrInvalidServiceAccountRole
 		}
 		for _, r := range roles {
-			if !s.catalog.HasRole(r) || s.catalog.RequiresMFA(r) {
+			if !s.catalog.HasRole(r) || s.catalog.RequiresMFA(r) || r == RoleUser {
 				return nil, authdomain.ErrInvalidServiceAccountRole
 			}
 		}

@@ -63,7 +63,10 @@ func (r *reference) warnings() []string {
 const generatedNote = "<!-- Generated from examples/full-multi and examples/full-single by `go run -C internal/tools/refdocs . -write`. Don't edit: change the code, or internal/tools/refdocs/descriptions.json. -->\n\n"
 
 // multiOnly is the note for names only multi-tenant apps have.
-const multiOnly = "*Multi-tenant apps only.*"
+const (
+	multiOnly  = "*Multi-tenant apps only.*"
+	singleOnly = "*Single-tenant apps only.*"
+)
 
 func header(b *bytes.Buffer, title string, intro ...string) {
 	fmt.Fprintf(b, "# %s\n\n", title)
@@ -277,7 +280,7 @@ func (r *reference) auditActions() []byte {
 // ---- Permissions and roles ----
 
 var catalogIntros = map[string][2]string{
-	"platform": {"Platform", "Platform roles are held across the whole app and grant access to `/ops`. Give and take them with `go run ./cmd/api grant-role <email> <role>` and `revoke-role`; list them with `go run ./cmd/api roles`."},
+	"platform": {"Platform", "Platform roles are held across the whole app; the ops roles grant access to `/ops`. Every user holds the `user` role without a grant: it covers what they do with their own data and outside organisation roles, so an API key's scopes limit that too ([API keys](../guides/api-keys.md)). Give and take the other roles with `go run ./cmd/api grant-role <email> <role>` and `revoke-role`; list them with `go run ./cmd/api roles`. `orb gen resource --scope user` adds `<resource>.<resource>.read` and `.write` permissions, granted to the `user` role."},
 	"org":      {"Organisation", "Every member of an organisation has exactly one of these roles in it, and it grants permissions only in that organisation. Platform roles never grant them. `orb gen resource --scope org` adds `<resource>.<resource>.read` and `.write` permissions, granted to every role."},
 }
 
@@ -287,9 +290,9 @@ func (r *reference) permissions() []byte {
 		"Access is denied by default: a user holds only the permissions of their roles. Permission and role names are public API ([Stability](../guides/stability.md)); they are declared in `internal/app/permissions.go`. How checks work: [Authentication](../guides/authentication.md).",
 		"A role that requires two-factor authentication grants its permissions only to sessions signed in with a second factor; other sessions get `403 mfa_required`.",
 	)
-	single := map[string]bool{}
+	single := map[string]catalog{}
 	for _, c := range r.single.Catalogs {
-		single[c.Name] = true
+		single[c.Name] = c
 	}
 	catalogs := slices.Clone(r.multi.Catalogs)
 	order := func(name string) int {
@@ -305,12 +308,17 @@ func (r *reference) permissions() []byte {
 		return strings.Compare(a.Name, b.Name)
 	})
 	for _, c := range catalogs {
+		sc, inSingle := single[c.Name]
+		var marks map[string]string
+		if inSingle {
+			c, marks = mergeCatalogs(c, sc)
+		}
 		title, intro := c.Name, ""
 		if known, ok := catalogIntros[c.Name]; ok {
 			title, intro = known[0], known[1]
 		}
 		fmt.Fprintf(&b, "## %s roles\n\n", title)
-		if !single[c.Name] {
+		if !inSingle {
 			b.WriteString(multiOnly + " ")
 		}
 		if intro != "" {
@@ -327,7 +335,11 @@ func (r *reference) permissions() []byte {
 		}
 		b.WriteString("\n|---|---|" + strings.Repeat("---|", len(c.Roles)) + "\n")
 		for _, p := range c.Permissions {
-			fmt.Fprintf(&b, "| `%s` | %s |", p.Name, cell(sentence(p.Description)))
+			desc := sentence(p.Description)
+			if mark := marks[p.Name]; mark != "" {
+				desc += " " + mark
+			}
+			fmt.Fprintf(&b, "| `%s` | %s |", p.Name, cell(desc))
 			for _, role := range c.Roles {
 				if slices.Contains(role.Permissions, p.Name) {
 					b.WriteString(" yes |")
@@ -340,6 +352,41 @@ func (r *reference) permissions() []byte {
 		b.WriteString("\n")
 	}
 	return bytes.TrimSuffix(b.Bytes(), []byte("\n"))
+}
+
+// mergeCatalogs returns multi's catalog with the permissions and role grants
+// only single's has, and marks for permissions only one of them declares.
+// The same resource can be user-scoped in one app and org-scoped in the
+// other, as the example projects are.
+func mergeCatalogs(multi, single catalog) (catalog, map[string]string) {
+	marks := map[string]string{}
+	has := func(c catalog, name string) bool {
+		return slices.ContainsFunc(c.Permissions, func(p permission) bool { return p.Name == name })
+	}
+	for _, p := range multi.Permissions {
+		if !has(single, p.Name) {
+			marks[p.Name] = multiOnly
+		}
+	}
+	merged := catalog{Name: multi.Name, Permissions: slices.Clone(multi.Permissions)}
+	for _, p := range single.Permissions {
+		if !has(multi, p.Name) {
+			merged.Permissions = append(merged.Permissions, p)
+			marks[p.Name] = singleOnly
+		}
+	}
+	for _, r := range multi.Roles {
+		r.Permissions = slices.Clone(r.Permissions)
+		if i := slices.IndexFunc(single.Roles, func(sr role) bool { return sr.Name == r.Name }); i >= 0 {
+			for _, p := range single.Roles[i].Permissions {
+				if !slices.Contains(r.Permissions, p) {
+					r.Permissions = append(r.Permissions, p)
+				}
+			}
+		}
+		merged.Roles = append(merged.Roles, r)
+	}
+	return merged, marks
 }
 
 // ---- Settings ----
