@@ -1,0 +1,29 @@
+name: Bug report
+description: Something in the library, orb or a generated app doesn't work as documented.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `orb version`, and the gorbital.dev version in your go.mod.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you ran
+      description: Commands, requests or code that reproduce it. Remove secrets, tokens and email addresses.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected, and what happened
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Go version, PostgreSQL version.

@@ -1,0 +1,20 @@
+name: Feature request
+description: Propose a change. Public surfaces need a decision record before code.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you're trying to do and why the current behaviour doesn't allow it.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What you'd change, and which public surfaces it touches (Go API, error codes, settings, ops endpoints, CLI).
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

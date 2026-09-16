@@ -2,7 +2,17 @@
 
 ## Supported versions
 
-gorbital has no released versions yet. Once releases begin, this section will list which versions receive security fixes.
+gorbital is pre-1.0: only the latest release receives security fixes, and fixes may require an upgrade to it.
+
+From 1.0 ([ADR-0016](docs/adr/0016-scaffold-compatibility-and-upgrades.md)):
+
+| Version | Security fixes |
+|---|---|
+| Latest minor release of the current major | Yes, as patch releases |
+| Earlier minor releases of the current major | No: upgrade with `go get`, which the scaffold compatibility promise keeps safe |
+| Previous major | For 12 months after the next major is released |
+
+The library modules (`gorbital.dev/...`) and the `orb` CLI are versioned together.
 
 ## Reporting a vulnerability
 

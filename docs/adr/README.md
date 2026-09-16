@@ -62,3 +62,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0050](0050-upgrades-and-adding-features.md) | Upgrading apps and adding features to them (v0.5): lock v2, rebuilt merge base, `orb upgrade`, `orb add orgs` | Accepted |
 | [0051](0051-operations-v0-5.md) | Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports, `orb doctor` | Accepted |
 | [0052](0052-shared-rate-limits.md) | Shared rate limits and trusted proxies | Accepted |
+| [0055](0055-governance-and-contribution.md) | Governance and contribution: roles, decisions, reviews, supported versions, changelog | Accepted |

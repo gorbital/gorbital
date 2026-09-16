@@ -1,0 +1,19 @@
+# Reviewers per area (GOVERNANCE.md). Security-sensitive paths need two
+# approvals, one from a maintainer.
+
+*                                   @gorbital/maintainers
+
+# Security-sensitive
+/modules/auth/                      @gorbital/maintainers @gorbital/security
+/modules/orgs/                      @gorbital/maintainers @gorbital/security
+/httpx/                             @gorbital/maintainers @gorbital/security
+/ratelimit/                         @gorbital/maintainers @gorbital/security
+/modules/ratelimitpg/               @gorbital/maintainers @gorbital/security
+/cli/internal/recipes/generate/     @gorbital/maintainers @gorbital/security
+/cli/internal/cli/upgrade.go        @gorbital/maintainers @gorbital/security
+/.github/workflows/                 @gorbital/maintainers @gorbital/security
+/SECURITY.md                        @gorbital/maintainers @gorbital/security
+
+# Public contracts
+/api/                               @gorbital/maintainers
+/docs/adr/                          @gorbital/maintainers

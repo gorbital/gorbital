@@ -2,7 +2,7 @@
 
 **Production-ready Go APIs in minutes, as code you own.**
 
-> **Status: pre-alpha.** v0.1 to v0.4 are done, and v0.2, v0.3 and v0.4 are tagged: the core library, Minimal and Full presets, PostgreSQL, runtime settings, background jobs, audit log, email, authentication with 2FA, passkeys, Google and Apple, platform roles, multi-tenant organisations and the ops APIs. v0.5 is in progress: `gorbital.lock` v2, `orb upgrade` and `orb add orgs` are done. The library isn't published at `gorbital.dev` yet, so apps are created against a local checkout with `--local`. Docs: [docs.gorbital.dev](https://docs.gorbital.dev).
+> **Status: pre-release, v1.0 in progress.** v0.1 to v0.5 are done and tagged: the core library, Minimal and Full presets, PostgreSQL, runtime settings, background jobs, audit log, email, authentication with 2FA, passkeys, Google and Apple, platform roles, multi-tenant organisations, the ops APIs, `orb upgrade` and `orb add orgs`. The library isn't published at `gorbital.dev` yet, so apps are created against a local checkout with `--local`. Docs: [docs.gorbital.dev](https://docs.gorbital.dev).
 
 ## Try it
 
@@ -62,20 +62,21 @@ orb dev                 # API at :8080, docs at /docs, local email inbox
 
 ## Roadmap (summary)
 
-| Release | Focus |
-|---|---|
 | Release | Status |
 |---|---|
 | v0.1 Foundation: core library, Minimal preset, `orb new`, `orb dev`, API docs | Done |
 | v0.2 PostgreSQL, runtime settings, jobs, email, authentication, roles, audit, Full preset | Done, tagged |
 | v0.3 Google and Apple sign-in, TOTP, passkeys | Done, tagged |
 | v0.4 Multi-tenant organisations | Done, tagged |
-| v0.5 `orb upgrade`, `orb add orgs`, `orb doctor`, system health, audit stats, retention, maintenance mode, Postman collection and `llms.txt` | Done |
-| v1.0 External security review, stable API | Planned |
+| v0.5 `orb upgrade`, `orb add orgs`, `orb doctor`, system health, audit stats, retention, maintenance mode, Postman collection and `llms.txt` | Done, tagged |
+| v1.0 Security review, API freeze, governance | In progress |
+| v1.1 Feature flags, per-organisation settings, API keys, GitHub login, idempotency keys, row-level security, email webhooks, Prometheus, live observability, dev console APIs | Planned |
+
+What changed in each release: [CHANGELOG.md](CHANGELOG.md).
 
 ## Contributing
 
-The project is not accepting code contributions yet. Feedback on the architecture and ADRs is welcome through GitHub issues.
+Contributions are welcome: read [CONTRIBUTING.md](CONTRIBUTING.md) first. How decisions are made: [GOVERNANCE.md](GOVERNANCE.md).
 
 ## Security
 
