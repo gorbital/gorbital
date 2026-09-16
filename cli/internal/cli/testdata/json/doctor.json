@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "app": "shop-api",
+  "preset": "full",
+  "tenancy": "single",
+  "checks": [
+    {
+      "name": "go",
+      "status": "ok",
+      "detail": "{text}"
+    },
+    {
+      "name": "git",
+      "status": "ok",
+      "detail": "{text}"
+    }
+  ],
+  "failures": 0,
+  "warnings": 0
+}

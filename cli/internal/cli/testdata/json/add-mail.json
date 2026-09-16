@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "provider": "smtp",
+  "already_configured": false,
+  "files": [
+    "internal/app/infra_mail.go",
+    "internal/app/infra_mail_test.go"
+  ],
+  "env_variables": [
+    "SMTP_HOST",
+    "SMTP_PORT"
+  ],
+  "modules": null,
+  "dry_run": false
+}

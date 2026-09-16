@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "name": "shop-api",
+  "module": "shop-api",
+  "dir": "shop-api",
+  "preset": "full",
+  "tenancy": "multi",
+  "files": 0
+}

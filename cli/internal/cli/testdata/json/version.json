@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "version": "{version}",
+  "recipe": "base-minimal",
+  "library": "{version}"
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "name": "shop-api",
+  "from": "v0.5.0",
+  "to": "{version}",
+  "up_to_date": false,
+  "changes": [
+    {
+      "path": "README.md",
+      "action": "conflict",
+      "note": "{text}"
+    }
+  ],
+  "conflicts": [
+    "README.md"
+  ],
+  "unproven": 0,
+  "committed": false,
+  "dry_run": true
+}

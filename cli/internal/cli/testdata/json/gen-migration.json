@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "name": "add_customer_phone",
+  "version": "{timestamp}",
+  "file": "db/migrations/{timestamp}_add_customer_phone.sql",
+  "dry_run": false
+}

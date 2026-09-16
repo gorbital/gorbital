@@ -212,12 +212,6 @@ func runAddMail(ctx context.Context, args []string, stdin io.Reader, stdout, std
 	return nil
 }
 
-func writeJSON(w io.Writer, v any) error {
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(v)
-}
-
 // promptMail asks for the provider, then only that provider's questions.
 func promptMail(in *mailInput, set map[string]bool, p promptFlags, stdin io.Reader, stderr io.Writer) error {
 	ask := func(fields ...huh.Field) error {

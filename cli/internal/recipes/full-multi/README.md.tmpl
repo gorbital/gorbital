@@ -129,6 +129,7 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 |---|---|
 | Run tests (needs `docker compose up -d --wait`) | `GORBITAL_TEST_DATABASE_URL=postgres://⟦.Name⟧:⟦.Name⟧@127.0.0.1:5432/⟦.Name⟧?sslmode=disable go test ./...` |
 | Export the OpenAPI document, Postman collection and llms.txt | `go run ./cmd/api openapi --dir api` |
+| Record new public names (error codes, audit actions, permissions, settings, jobs) in `api/surface.json` | `go test ./internal/app -run TestPublicSurface -update` |
 | Add a background job | `orb gen job <Name>` (asks the rest), or with flags: `orb gen job CleanupSessions --schedule "0 3 * * *" --yes` |
 | Change a job's schedule, timeout or retries | `PUT /ops/jobs/definitions/{name}` (no redeploy) |
 | See who changed a setting or job | `GET /ops/audit?resource_id=<key or name>` |

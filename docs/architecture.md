@@ -123,7 +123,9 @@ gorbital/
 ├── page/                    cursor pagination, sort
 ├── ratelimit/               token bucket + middleware
 ├── buildinfo/               version, commit, build time
-├── internal/archtest/       dependency budget test
+├── internal/archtest/       dependency budget, stability markers, golden apps don't drift
+├── internal/tools/apicheck/  module: records and checks the exported API in api/*.txt (ADR-0054)
+├── api/                     exported Go API listings per library module (gorbital.dev.txt, modules-auth.txt, …)
 ├── modules/
 │   ├── openapi/             Huma integration, problem errors, /docs API reference (reference/)   (v0.1)
 │   ├── telemetry/           OpenTelemetry SDK + exporters, correlated logs           (v0.1)
@@ -142,7 +144,7 @@ gorbital/
 ├── compose.yaml             PostgreSQL in Docker for module tests (host port 55432)
 ├── scripts/                 first-run measurement
 ├── spikes/                  throwaway experiments
-├── .github/workflows/       CI and signed orb releases
+├── .github/workflows/       CI, signed orb releases, gorelease on library tags
 └── docs/
 ```
 
@@ -179,7 +181,8 @@ my-api/
 │   ├── api/main.go        server, and commands: openapi, roles, grant-role, revoke-role, reset-mfa, rotate-auth-keys, auth-providers
 │   ├── migrate/main.go    goose migrations, then River's
 │   └── seed/main.go       development administrator and example data
-├── api/openapi.json       exported from code: go run ./cmd/api openapi > api/openapi.json
+├── api/                 openapi.json, Postman collection and llms.txt (go run ./cmd/api openapi --dir api);
+│                          surface.json and openapi.baseline.json, the public names and /ops contract checked by tests
 ├── internal/
 │   ├── app/               composition root, the only package that reads the environment
 │   │   ├── app.go · config.go · routes.go · modules.go · jobs.go · settings.go · permissions.go
@@ -249,7 +252,7 @@ Implemented in v0.2 (`examples/full-single`, [ops API reference](guides/ops-api.
 
 ### 7.5 API contract and docs ([ADR-0027](adr/0027-api-contract-and-docs.md))
 
-Code-first with Huma v2, confined to `delivery/`: developers write Go input/output types and handlers; OpenAPI 3.1, validation and problem+json errors follow automatically. `my-api openapi` exports `api/openapi.json` (committed, checked for breaking changes in CI). `/docs` serves an API reference in the gorbital design, rendered from the app's own OpenAPI document by `modules/openapi/reference`, the same renderer as the public API reference ([ADR-0049](adr/0049-public-docs-and-website.md)). The Postman collection and `llms.txt` are generated from the exported spec.
+Code-first with Huma v2, confined to `delivery/`: developers write Go input/output types and handlers; OpenAPI 3.1, validation and problem+json errors follow automatically. `my-api openapi --dir api` exports `api/openapi.json` (committed; `/ops/*` is checked for breaking changes against `api/openapi.baseline.json` with `openapi.CheckCompatible`, [ADR-0054](adr/0054-api-freeze-and-scaffold-compatibility.md)). `/docs` serves an API reference in the gorbital design, rendered from the app's own OpenAPI document by `modules/openapi/reference`, the same renderer as the public API reference ([ADR-0049](adr/0049-public-docs-and-website.md)). The Postman collection and `llms.txt` are generated from the exported spec.
 
 ### 7.6 Observability ([ADR-0007](adr/0007-observability.md), [ADR-0028](adr/0028-local-development-environment.md))
 

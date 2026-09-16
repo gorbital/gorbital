@@ -302,9 +302,14 @@ func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 			if err := os.WriteFile(added[0], []byte(sql), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			// As orb gen resource's next steps say: the new endpoints change the spec.
+			// As orb gen resource's next steps say: the new endpoints change the
+			// spec, and the new error codes, audit actions, permissions and job
+			// are recorded in api/surface.json.
 			if out, err := exec.Command("go", "run", "./cmd/api", "openapi", "--dir", "api").CombinedOutput(); err != nil {
 				t.Fatalf("go run ./cmd/api openapi --dir api: %v\n%s", err, out)
+			}
+			if out, err := exec.Command("go", "test", "./internal/app", "-run", "TestPublicSurface", "-update").CombinedOutput(); err != nil {
+				t.Fatalf("go test ./internal/app -run TestPublicSurface -update: %v\n%s", err, out)
 			}
 			goIn(t, ".", "vet", "./...")
 			goIn(t, ".", "test", "./...")

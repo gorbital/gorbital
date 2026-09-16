@@ -23,8 +23,16 @@ import (
 const upgradeBranchPrefix = "orb-upgrade/"
 
 // derivedPaths are generated from the app's code, so upgrades regenerate
-// them instead of merging (ADR-0021).
-var derivedPaths = []string{"api/openapi.json", "api/postman_collection.json", "api/llms.txt"}
+// them instead of merging (ADR-0021). api/surface.json is recorded from the
+// merged code too: the upgrade commit shows what changed in it (ADR-0054).
+var derivedPaths = []string{"api/openapi.json", "api/postman_collection.json", "api/llms.txt", surfacePath}
+
+// surfacePath is the app's recorded public surface, written by its
+// TestPublicSurface test (ADR-0054).
+const surfacePath = "api/surface.json"
+
+// surfaceTest is the test that records surfacePath.
+const surfaceTest = "internal/app/surface_test.go"
 
 // errConflicts reports an upgrade that left conflicts to resolve.
 var errConflicts = errors.New("the upgrade has conflicts to resolve; see the files listed above")
@@ -67,7 +75,7 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	dryRun := flags.Bool("dry-run", false, "show what would change, without writing or creating a branch")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	skipTidy := flags.Bool("skip-tidy", false, "don't run go mod tidy")
-	skipBuild := flags.Bool("skip-build", false, "don't build, regenerate api/openapi.json or commit")
+	skipBuild := flags.Bool("skip-build", false, "don't build, regenerate api/openapi.json, record api/surface.json or commit")
 	flags.Usage = func() {
 		fmt.Fprint(stderr, upgradeUsage+"\nFlags:\n")
 		flags.PrintDefaults()
@@ -423,8 +431,8 @@ func upgradeGoMod(ctx context.Context, dir string, theirsGoMod []byte, skipTidy 
 	return nil
 }
 
-// finishUpgrade builds the app, regenerates api/openapi.json and commits
-// with message.
+// finishUpgrade builds the app, regenerates api/openapi.json, records
+// api/surface.json and commits with message.
 func finishUpgrade(ctx context.Context, dir string, root *os.Root, message string) error {
 	var out bytes.Buffer
 	if err := runIn(ctx, dir, &out, "go", "build", "./..."); err != nil {
@@ -439,6 +447,14 @@ func finishUpgrade(ctx context.Context, dir string, root *os.Root, message strin
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf("regenerate the API files in api/: %w\n%s", err, errOut.String())
 			}
+		}
+	}
+	if _, err := root.Stat(surfaceTest); err == nil {
+		var errOut bytes.Buffer
+		cmd := exec.CommandContext(ctx, "go", "test", "./internal/app", "-run", "^TestPublicSurface$", "-count=1", "-update")
+		cmd.Dir, cmd.Stdout, cmd.Stderr = dir, &errOut, &errOut
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("record %s: %w\n%s", surfacePath, err, errOut.String())
 		}
 	}
 	out.Reset()
@@ -495,11 +511,11 @@ func reportUpgrade(w io.Writer, asJSON bool, res upgradeResult) error {
 		for _, p := range res.Conflicts {
 			fmt.Fprintf(w, "    %s\n", p)
 		}
-		fmt.Fprintf(w, "\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        go test ./...\n        git add -A && git commit -m '%s'\n", s.dim.Render("next:"), res.message)
+		fmt.Fprintf(w, "\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        go test ./internal/app -run TestPublicSurface -update\n        go test ./...\n        git add -A && git commit -m '%s'\n", s.dim.Render("next:"), res.message)
 	case res.Committed:
 		fmt.Fprintf(w, "  committed on branch %s\n\n  %s go test ./...   (database tests need orb dev or docker compose up -d --wait)\n        then merge %s\n", res.Branch, s.dim.Render("next:"), res.Branch)
 	default:
-		fmt.Fprintf(w, "  on branch %s, not committed\n\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        git add -A && git commit -m '%s'\n", res.Branch, s.dim.Render("next:"), res.message)
+		fmt.Fprintf(w, "  on branch %s, not committed\n\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        go test ./internal/app -run TestPublicSurface -update\n        git add -A && git commit -m '%s'\n", res.Branch, s.dim.Render("next:"), res.message)
 	}
 	return nil
 }

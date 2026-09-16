@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "name": "SendDigest",
+  "definition": "send_digest",
+  "files": [
+    "internal/jobs/senddigest/senddigest.go",
+    "internal/jobs/senddigest/senddigest_test.go"
+  ],
+  "dry_run": false
+}

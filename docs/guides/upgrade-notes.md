@@ -11,6 +11,9 @@ What changes for existing apps in each release, and what to do that `orb upgrade
 | **`APP_TRUSTED_PROXIES`** | Behind a load balancer or reverse proxy, **set it before deploying** to their CIDR ranges (such as `10.0.0.0/8`). Otherwise every client shares the balancer's per-IP budget, and logs and audit events show the balancer's address |
 | New job `ratelimit_cleanup` (hourly) | Nothing |
 | Database | Two new migrations, `20260917000001_auth_token_revocations.sql` and `20260917000002_ratelimit_buckets.sql` (an unlogged table); run migrations as usual |
+| **Public names are recorded and checked** ([ADR-0054](../adr/0054-api-freeze-and-scaffold-compatibility.md)). Full apps gain `api/surface.json` (error codes, audit actions, permissions and roles, setting keys, job names), `api/openapi.baseline.json` (the `/ops` contract), and the tests `TestPublicSurface` and `TestOpsAPICompatible` in `internal/app`; `permissions.go` gains `permissionCatalogs` | Nothing: `orb upgrade` adds the files and records `api/surface.json` from your code, including your own resources and jobs; review it in the upgrade commit. From then on, after `orb gen resource`, `orb gen job` or adding a code, action, permission, setting or job by hand, run `go test ./internal/app -run TestPublicSurface -update` and commit the file. A test failure for a recorded name means you removed something clients may use. [Stability and compatibility](stability.md) |
+| **`orb --json` output starts with `"schemaVersion": 1`**; `orb version --json` is new | Scripts that read `--json` keep working (a field was added). Check `schemaVersion` from now on |
+| Library | Additions only: `settings.(*Registry).Keys`, `jobs.(*Definitions).Names`, `openapi.CheckCompatible`. Package docs say `Stability: stable` |
 
 ## v0.5
 

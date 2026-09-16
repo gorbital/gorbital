@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"strings"
 
 	"gorbital.dev/cli/internal/recipes"
 )
@@ -29,7 +30,7 @@ Usage:
   orb dev [flags]                run the application with live reload
   orb upgrade [flags]            merge this release's templates into the app on a branch
   orb doctor [flags]             check the app, its environment and database, and say what to fix
-  orb version                   print version information
+  orb version [--json]           print version information
   orb help                       show this help
 
 In a terminal, commands ask for anything you leave out, with arrow-key menus.
@@ -41,6 +42,30 @@ Run "orb <command> -h" for a command's flags.
 type usageError string
 
 func (e usageError) Error() string { return string(e) }
+
+// versionResult is orb version --json.
+type versionResult struct {
+	Version string `json:"version"`
+	Recipe  string `json:"recipe"`
+	Library string `json:"library"`
+}
+
+func runVersion(args []string, stdout, stderr io.Writer) error {
+	flags := flag.NewFlagSet("orb version", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	asJSON := flags.Bool("json", false, "print the result as JSON")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if flags.NArg() > 0 {
+		return usageError(fmt.Sprintf("unexpected arguments: %s", strings.Join(flags.Args(), " ")))
+	}
+	if *asJSON {
+		return writeJSON(stdout, versionResult{Version: Version, Recipe: recipes.MinimalName, Library: recipes.LibraryVersion})
+	}
+	fmt.Fprintf(stdout, "orb %s (recipe %s, library %s)\n", Version, recipes.MinimalName, recipes.LibraryVersion)
+	return nil
+}
 
 // Main runs orb with args and returns the process exit code: 0 on success,
 // 1 on failure, 2 on invalid usage, 130 when the user cancels a prompt.
@@ -66,8 +91,7 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io
 	case "doctor":
 		err = runDoctor(ctx, args[1:], stdout, stderr)
 	case "version", "-version", "--version":
-		fmt.Fprintf(stdout, "orb %s (recipe %s, library %s)\n", Version, recipes.MinimalName, recipes.LibraryVersion)
-		return 0
+		err = runVersion(args[1:], stdout, stderr)
 	case "help", "-h", "-help", "--help":
 		fmt.Fprint(stdout, usage)
 		return 0

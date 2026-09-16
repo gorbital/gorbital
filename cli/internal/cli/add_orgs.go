@@ -32,7 +32,7 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	dryRun := flags.Bool("dry-run", false, "show what would change, without writing or creating a branch")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	skipTidy := flags.Bool("skip-tidy", false, "don't run go mod tidy")
-	skipBuild := flags.Bool("skip-build", false, "don't build, regenerate api/openapi.json or commit")
+	skipBuild := flags.Bool("skip-build", false, "don't build, regenerate api/openapi.json, record api/surface.json or commit")
 	flags.Usage = func() {
 		fmt.Fprint(stderr, "Usage: orb add orgs [flags]\n\nTurns a single-tenant app multi-tenant on branch "+addOrgsBranch+": organisations with\nmembers, roles and invitations, a personal workspace for every account, and\nprojects moved into their owners' workspaces.\n\nFlags:\n")
 		flags.PrintDefaults()

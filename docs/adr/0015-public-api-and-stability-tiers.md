@@ -1,6 +1,6 @@
 # ADR-0015: Public API surface and stability tiers
 
-**Status:** Accepted (2026-09-14) · **Supersedes (with ADR-0016):** ADR-0012
+**Status:** Accepted (2026-09-14) · **Supersedes (with ADR-0016):** ADR-0012 · **Amended by:** ADR-0054 (how each tier is enforced: API listings, surface inventory, `/ops` baseline, `schemaVersion`, `gorelease` at release)
 
 ## Context
 

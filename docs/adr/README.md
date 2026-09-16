@@ -24,8 +24,8 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0012](0012-versioning-and-upgrades.md) | Versioning and upgrades | Superseded by 0015, 0016 |
 | [0013](0013-multi-tenancy.md) | Multi-tenancy | Superseded by 0023 |
 | [0014](0014-product-shape-and-presets.md) | Product shape, presets and creation prompts | Accepted, amended by 0035, 0041, 0050 |
-| [0015](0015-public-api-and-stability-tiers.md) | Public API surface and stability tiers | Accepted |
-| [0016](0016-scaffold-compatibility-and-upgrades.md) | Scaffold compatibility and upgrade path | Accepted, amended by 0050 |
+| [0015](0015-public-api-and-stability-tiers.md) | Public API surface and stability tiers | Accepted, amended by 0054 |
+| [0016](0016-scaffold-compatibility-and-upgrades.md) | Scaffold compatibility and upgrade path | Accepted, amended by 0050, 0054 |
 | [0017](0017-application-lifecycle.md) | Application lifecycle | Accepted |
 | [0018](0018-error-contract.md) | Error contract and problem+json | Accepted |
 | [0019](0019-module-dependency-rules.md) | Module dependency rules and core budget | Accepted, amended by 0033 |
@@ -62,4 +62,5 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0050](0050-upgrades-and-adding-features.md) | Upgrading apps and adding features to them (v0.5): lock v2, rebuilt merge base, `orb upgrade`, `orb add orgs` | Accepted |
 | [0051](0051-operations-v0-5.md) | Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports, `orb doctor` | Accepted |
 | [0052](0052-shared-rate-limits.md) | Shared rate limits and trusted proxies | Accepted |
+| [0054](0054-api-freeze-and-scaffold-compatibility.md) | API freeze: stability markers, API listings, public-surface inventory, `/ops` baseline, `--json` schema version, scaffold compatibility check | Accepted |
 | [0055](0055-governance-and-contribution.md) | Governance and contribution: roles, decisions, reviews, supported versions, changelog | Accepted |

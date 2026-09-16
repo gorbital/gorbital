@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"cmp"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -173,9 +172,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 
 	res := newResult{Name: name, Module: *module, Dir: name, Preset: chosen.Name, Tenancy: chosen.Tenancy, Files: len(files)}
 	if *asJSON {
-		enc := json.NewEncoder(stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(res)
+		return writeJSON(stdout, res)
 	}
 	fmt.Fprintf(stdout, "\n%s\n\n%s", s.strong.Render("created "+name), nextSteps(s, name, chosen))
 	return nil

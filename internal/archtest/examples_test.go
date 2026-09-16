@@ -48,6 +48,8 @@ var multiTenantChanges = []string{
 	"api/openapi.json",
 	"api/postman_collection.json",
 	"api/llms.txt",
+	"api/openapi.baseline.json",
+	"api/surface.json",
 	"README.md",
 	"ARCHITECTURE.md",
 	"AGENTS.md",

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "name": "Customer",
+  "module": "customers",
+  "route": "/v1/customers",
+  "table": "customers",
+  "scope": "user",
+  "files": [
+    "internal/modules/customers/module.go",
+    "internal/modules/customers/domain/customer.go"
+  ],
+  "dry_run": false
+}

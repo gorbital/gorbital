@@ -12,6 +12,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Eve
 - `APP_TRUSTED_PROXIES` and `httpx.TrustedProxies`: client IPs from `X-Forwarded-For` only through configured proxies.
 - Apple tokens revoked by the `auth_revoke_tokens` job, with retries.
 - Governance, contribution guide, code owners and issue and pull request templates ([ADR-0055](docs/adr/0055-governance-and-contribution.md)).
+- API freeze checks ([ADR-0054](docs/adr/0054-api-freeze-and-scaffold-compatibility.md)): `Stability:` markers on every package, API listings in `api/*.txt` checked by `internal/tools/apicheck`, `api/surface.json` and `api/openapi.baseline.json` with their tests in Full apps, `openapi.CheckCompatible`, `gorelease` on library tags, and the scaffold compatibility check.
+- `"schemaVersion": 1` in every `orb --json` output; `orb version --json`.
+- `settings.(*Registry).Keys` and `jobs.(*Definitions).Names`.
 
 ### Fixed
 

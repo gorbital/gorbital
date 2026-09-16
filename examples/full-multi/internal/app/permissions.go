@@ -87,3 +87,9 @@ func declareOrgPermissions() *authlib.Catalog {
 	c.Role(orgslib.RoleMember, "Works in the organisation", member...)
 	return c
 }
+
+// permissionCatalogs returns every permission catalog by name, for the
+// public-surface inventory in api/surface.json (ADR-0054).
+func permissionCatalogs() map[string]*authlib.Catalog {
+	return map[string]*authlib.Catalog{"platform": declarePermissions(), "org": declareOrgPermissions()}
+}

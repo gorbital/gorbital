@@ -43,3 +43,9 @@ func declarePermissions() *authlib.Catalog {
 	c.RequireMFA(rolePlatformAdmin, roleOpsViewer)
 	return c
 }
+
+// permissionCatalogs returns every permission catalog by name, for the
+// public-surface inventory in api/surface.json (ADR-0054).
+func permissionCatalogs() map[string]*authlib.Catalog {
+	return map[string]*authlib.Catalog{"platform": declarePermissions()}
+}

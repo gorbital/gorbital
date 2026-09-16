@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "name": "shop-api",
+  "from": "{version}",
+  "to": "{version}",
+  "up_to_date": false,
+  "changes": [
+    {
+      "path": "AGENTS.md",
+      "action": "update"
+    },
+    {
+      "path": "ARCHITECTURE.md",
+      "action": "update"
+    }
+  ],
+  "conflicts": [],
+  "unproven": 0,
+  "committed": false,
+  "dry_run": true
+}

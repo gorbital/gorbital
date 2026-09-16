@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -224,9 +223,7 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 	}
 
 	if *asJSON {
-		enc := json.NewEncoder(stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
+		return writeJSON(stdout, result)
 	}
 	verb := "Created"
 	if *dryRun {
@@ -234,7 +231,7 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 	}
 	fmt.Fprintf(stdout, "✓ %s job %s\n\n%s\n", verb, data.Name, summary)
 	if !*dryRun {
-		fmt.Fprintf(stdout, "\nNext:\n  1. Write the job in internal/jobs/%s/%s.go (Work)\n  2. go test ./...\n  3. go run ./cmd/api\n\n"+
+		fmt.Fprintf(stdout, "\nNext:\n  1. Write the job in internal/jobs/%s/%s.go (Work)\n  2. go test ./internal/app -run TestPublicSurface -update (records the job name)\n  3. go test ./...\n  4. go run ./cmd/api\n\n"+
 			"Change its schedule, timeout or retries any time, without a deploy:\n  PUT /ops/jobs/definitions/%s\n", data.Package, data.Package, data.Name)
 	}
 	return nil

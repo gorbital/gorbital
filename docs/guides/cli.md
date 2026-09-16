@@ -23,7 +23,7 @@ Open a new terminal (or run `hash -r`) and check it works:
 orb version
 ```
 
-Run `go install ./cmd/orb` again after pulling changes.
+`orb version --json` prints the version, recipe and library version for scripts. Run `go install ./cmd/orb` again after pulling changes.
 
 ## Interactive or flags: both work
 
@@ -163,6 +163,8 @@ What it creates for `CleanupSessions`:
 | `internal/app/job_cleanup_sessions.go` | `jobs.Define` with the defaults you chose |
 | `internal/app/jobs.go` | One `defineCleanupSessionsJob(defs, deps)` line after `//orb:anchor jobs` |
 
+The job name is public API: record it with `go test ./internal/app -run TestPublicSurface -update`, which updates `api/surface.json` ([stability](stability.md)).
+
 Safety checks: the app must have `internal/app/jobs.go` with the anchor; existing files are never overwritten; a job name can be registered once; the git repository must have no uncommitted changes (so the generated diff is easy to review) unless you pass `--allow-dirty`; generated Go is checked with gofmt.
 
 ## `orb gen resource`
@@ -214,7 +216,7 @@ What it creates for `Project`:
 | `internal/app/modules.go` | One `registerProjects(api, mapper, svc),` line after `//orb:anchor modules` |
 | `internal/app/permissions.go` (`--scope org` only) | One `projectsPermissions,` line after `//orb:anchor org-permissions` |
 
-Then run `go run ./cmd/migrate`, `go test ./...` and `go run ./cmd/api openapi --dir api`.
+Then run `go run ./cmd/migrate`, `go run ./cmd/api openapi --dir api`, `go test ./internal/app -run TestPublicSurface -update` (records the resource's error codes, audit actions and permissions in `api/surface.json`, [stability](stability.md)) and `go test ./...`.
 
 Safety checks: the app must have `internal/app/modules.go` with the anchor inside `errors.Join`, the auth module and `db/migrations`; existing modules and files are never overwritten; a resource can be registered once; the migration always sorts after the existing ones; the git repository must be clean unless `--allow-dirty`; names and field types come from allowlists and generated Go names are checked for clashes, so no input reaches the code unchecked; generated Go is checked with gofmt.
 
@@ -301,7 +303,7 @@ It merges the multi-tenant app's files into yours the way `orb upgrade` merges a
 | `<version>_orgs.sql` | Creates `orgs`, `org_members` and `org_invitations` |
 | `<version>_orgs_convert.sql` | Gives every account a personal workspace it owns (a deleted account's workspace is deleted too, purged 30 days after the account's deletion), then moves each project into its owner's workspace: `org_id` and `created_by` replace `owner_id`. The table is changed in place, so columns you added stay; this step is skipped if `projects` no longer has `owner_id` |
 
-Without conflicts it updates `go.mod`, builds, regenerates `api/openapi.json` and commits `Add organisations`. Then run `go test ./...`, apply the migrations (`orb dev`, or `go run ./cmd/migrate` in each environment) and merge the branch. Set `orgs.invitation_url` before inviting people.
+Without conflicts it updates `go.mod`, builds, regenerates `api/openapi.json`, records `api/surface.json` and commits `Add organisations`. Then run `go test ./...`, apply the migrations (`orb dev`, or `go run ./cmd/migrate` in each environment) and merge the branch. Set `orgs.invitation_url` before inviting people.
 
 Resources you generated with `orb gen resource` stay owned by users and keep working; the command lists them. To move one to organisations, generate it again with `--scope org` and move its data.
 
@@ -331,7 +333,7 @@ It rebuilds every file exactly as the release recorded in `gorbital.lock` wrote 
 
 A file whose rebuilt content doesn't match the lock is compared as yours against the release, so it can conflict but is never overwritten. Migrations are never merged: new ones are added with their released names, and yours stay as they are. Files `orb gen` created aren't tracked, so they're never touched.
 
-Without conflicts it then updates `go.mod` (new requirements and the new library version, then `go mod tidy`), runs `go build ./...`, regenerates `api/openapi.json` and commits `Upgrade gorbital to <version>`. Run your tests (database tests need `orb dev` or `docker compose up -d --wait`) and merge the branch. With conflicts it exits with code 1, commits nothing, and lists the files to resolve and the commands to finish.
+Without conflicts it then updates `go.mod` (new requirements and the new library version, then `go mod tidy`), runs `go build ./...`, regenerates `api/openapi.json` (with the Postman collection and `llms.txt`), records the app's public names in `api/surface.json` (`go test ./internal/app -run TestPublicSurface -update`; review what changed in the commit) and commits `Upgrade gorbital to <version>`. Run your tests (database tests need `orb dev` or `docker compose up -d --wait`) and merge the branch. With conflicts it exits with code 1, commits nothing, and lists the files to resolve and the commands to finish.
 
 Where earlier releases come from: with an gorbital checkout (`--local`, the checkout your `go.mod` replaces the library with, or the one you run in), `git archive` of the release's tag or commit. Otherwise the `gorbital.dev/cli` module from the Go module proxy, verified by the checksum database: `orb upgrade` refuses when `GOSUMDB=off` or `GONOSUMDB`, `GOPRIVATE` or `GOINSECURE` covers it. Templates are only rendered as text; nothing downloaded is run.
 
@@ -341,7 +343,7 @@ Where earlier releases come from: with an gorbital checkout (`--local`, the chec
 | `--local` | detected, as above |
 | `--dry-run`, `--json` | off |
 | `--skip-tidy` | run `go mod tidy` |
-| `--skip-build` | build, regenerate `api/openapi.json` and commit |
+| `--skip-build` | build, regenerate `api/openapi.json`, record `api/surface.json` and commit |
 
 Safety checks: the app must be in git with no uncommitted changes, and the branch `orb-upgrade/<version>` must not exist yet.
 
@@ -422,10 +424,21 @@ The port check listens on `127.0.0.1` only. On macOS, a program listening on all
 
 ## JSON output
 
-`--json` prints only a machine-readable result on stdout and never prompts.
+`--json` prints only a machine-readable result on stdout and never prompts. Every object starts with `schemaVersion`:
 
 ```json
-{"name": "SendDigest", "definition": "send_digest", "files": ["internal/jobs/senddigest/senddigest.go", "…"], "dry_run": false}
+{"schemaVersion": 1, "name": "SendDigest", "definition": "send_digest", "files": ["internal/jobs/senddigest/senddigest.go", "…"], "dry_run": false}
 ```
 
-Commands, flags, exit codes and JSON fields are public API from CLI 1.0 ([ADR-0015](../adr/0015-public-api-and-stability-tiers.md)).
+| Command | Fields after `schemaVersion` |
+|---|---|
+| `orb new` | `name`, `module`, `dir`, `preset`, `tenancy`, `files` (count) |
+| `orb gen job` | `name`, `definition`, `files`, `dry_run` |
+| `orb gen resource` | `name`, `module`, `route`, `table`, `scope`, `files`, `dry_run` |
+| `orb gen migration` | `name`, `version`, `file`, `dry_run` |
+| `orb add mail` | `provider`, `already_configured`, `files`, `env_variables`, `modules`, `dry_run` |
+| `orb add orgs`, `orb upgrade` | `name`, `from`, `to`, `up_to_date`, `branch`, `changes` (`path`, `action`, `note`), `conflicts`, `unproven`, `committed`, `dry_run`, `user_scoped_modules` (`orb add orgs`) |
+| `orb doctor` | `app`, `preset`, `tenancy`, `checks` (`name`, `status`, `detail`, `fix`), `failures`, `warnings` |
+| `orb version` | `version`, `recipe`, `library` |
+
+Commands, flags, exit codes and JSON fields are public API from CLI 1.0 ([ADR-0015](../adr/0015-public-api-and-stability-tiers.md)). Within `schemaVersion` 1, fields are only added; check the version before reading the rest. The shape of each output is recorded in `cli/internal/cli/testdata/json` and checked by `TestJSONOutputs` ([stability](stability.md), [ADR-0054](../adr/0054-api-freeze-and-scaffold-compatibility.md)).

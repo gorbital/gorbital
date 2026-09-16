@@ -214,6 +214,18 @@ func generatedResourcesPass(t *testing.T, goldenDir, scope string) {
 	}
 	run(nil, "go", "vet", "./...")
 	run(nil, "go", "run", "./cmd/api", "openapi", "--dir", "api")
+	// As orb gen resource's next steps say: record the new public names. The
+	// inventory must see the generated error codes and audit actions.
+	run(nil, "go", "test", "./internal/app", "-run", "TestPublicSurface", "-update")
+	surface, err := os.ReadFile(filepath.Join(dir, "api", "surface.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"customer_not_found"`, `"customers.customer.created"`, `"notes.note.deleted"`} {
+		if !strings.Contains(string(surface), want) {
+			t.Errorf("api/surface.json lacks the generated %s", want)
+		}
+	}
 	if os.Getenv("GORBITAL_TEST_DATABASE_URL") == "" {
 		t.Skip("vetted the generated resources; set GORBITAL_TEST_DATABASE_URL to run their tests")
 	}

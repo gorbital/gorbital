@@ -44,6 +44,8 @@ internal/modules/ops/    admin APIs for runtime settings, jobs, the audit log an
 internal/modules/orgs/   organisations, members, invitations and personal workspaces: domain, usecase, repository (SQL), delivery
 internal/modules/projects/ example business resource that belongs to an organisation: copy it for your own
 api/openapi.json         exported API contract (committed; review changes in pull requests)
+api/surface.json         error codes, audit actions, permissions, settings and jobs: public names that may only grow
+api/openapi.baseline.json the released /ops contract that TestOpsAPICompatible checks against
 compose.yaml             PostgreSQL and Mailpit for development and tests
 ```
 

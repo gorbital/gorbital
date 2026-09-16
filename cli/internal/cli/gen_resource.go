@@ -251,7 +251,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	}
 	fmt.Fprintf(stdout, "✓ %s resource %s\n\n%s\n", verb, data.Ident, summary)
 	if !*dryRun {
-		fmt.Fprintf(stdout, "\nNext:\n  1. go run ./cmd/migrate\n  2. go test ./...\n  3. go run ./cmd/api openapi --dir api\n  4. go run ./cmd/api, sign in, then POST %s\n\n"+
+		fmt.Fprintf(stdout, "\nNext:\n  1. go run ./cmd/migrate\n  2. go run ./cmd/api openapi --dir api\n  3. go test ./internal/app -run TestPublicSurface -update (records the new error codes, audit actions and permissions)\n  4. go test ./...\n  5. go run ./cmd/api, sign in, then POST %s\n\n"+
 			"The code is yours: change the rules in internal/modules/%s/domain and the SQL in internal/modules/%s/repository.\n",
 			resourceRoute(data), data.Package, data.Package)
 		if data.Org {
