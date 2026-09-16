@@ -14,6 +14,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"sync"
 	"time"
@@ -174,14 +175,33 @@ func (l *Limiter) evictIdle(now time.Time) {
 // limiting for that request.
 type KeyFunc func(r *http.Request) string
 
-// ByRemoteIP keys requests by the connection's remote IP. Behind a proxy,
-// run trusted-proxy middleware first so RemoteAddr holds the client address.
+// ByRemoteIP keys requests by the connection's remote IP, grouped as
+// [ClientKey] does. Behind a proxy, run trusted-proxy middleware first so
+// RemoteAddr holds the client address.
 func ByRemoteIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		return ClientKey(r.RemoteAddr)
 	}
-	return host
+	return ClientKey(host)
+}
+
+// ClientKey returns the rate-limit key of a client IP address: an IPv4
+// address as it is, and an IPv6 address as its /64 network, since one host
+// or customer usually holds a whole /64 and could otherwise use a new
+// address, and a new budget, for every request. IPv4-mapped IPv6 addresses
+// count as IPv4, and zones are ignored. A value that isn't an IP address is
+// returned unchanged.
+func ClientKey(ip string) string {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return ip
+	}
+	addr = addr.WithZone("").Unmap()
+	if addr.Is4() {
+		return addr.String()
+	}
+	return netip.PrefixFrom(addr, 64).Masked().String()
 }
 
 // Middleware limits requests with l. Limited requests receive onLimit, or a

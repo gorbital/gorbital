@@ -257,6 +257,7 @@ pkg gorbital.dev/ratelimit, const DefaultIdleTTL time.Duration
 pkg gorbital.dev/ratelimit, const DefaultMaxKeys = 100000
 pkg gorbital.dev/ratelimit, const DefaultMaxKeys ideal-int
 pkg gorbital.dev/ratelimit, func ByRemoteIP(*http.Request) string
+pkg gorbital.dev/ratelimit, func ClientKey(string) string
 pkg gorbital.dev/ratelimit, func Middleware(Taker, KeyFunc, http.Handler) func(http.Handler) http.Handler
 pkg gorbital.dev/ratelimit, func New(float64, int, ...Option) *Limiter
 pkg gorbital.dev/ratelimit, func Per(int, time.Duration) Limit

@@ -86,7 +86,14 @@ func TestTokensCodesAndEmails(t *testing.T) {
 	if err != nil || email != "Ada@Example.com" || normalized != "ada@example.com" {
 		t.Errorf("NormalizeEmail() = %q, %q, %v", email, normalized, err)
 	}
-	for _, bad := range []string{"", "not an email", "Ada <ada@example.com>", strings.Repeat("a", 250) + "@x.io"} {
+	if _, normalized, err := auth.NormalizeEmail("jürgen@bücher.example"); err != nil || normalized != "jürgen@bücher.example" {
+		t.Errorf("NormalizeEmail(lowercase non-ASCII) = %q, %v", normalized, err)
+	}
+	// Characters that lowercase to another address's characters would
+	// collide with it (security review AUTH-S-3): the Kelvin sign, the
+	// Angstrom sign, the Ohm sign and uppercase non-ASCII letters.
+	for _, bad := range []string{"", "not an email", "Ada <ada@example.com>", strings.Repeat("a", 250) + "@x.io",
+		"\u212Aevin@example.com", "\u212Bsa@example.com", "\u2126mega@example.com", "\u00C4da@example.com", "ada@\u00C4xample.com"} {
 		if _, _, err := auth.NormalizeEmail(bad); !errors.Is(err, auth.ErrInvalidEmail) {
 			t.Errorf("NormalizeEmail(%q) error = %v", bad, err)
 		}

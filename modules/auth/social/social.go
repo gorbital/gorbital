@@ -96,10 +96,40 @@ type Identity struct {
 	EmailVerified bool
 	// PrivateEmail reports an Apple relay address.
 	PrivateEmail bool
+	// HostedDomain is the Google Workspace domain of the account ("hd"),
+	// empty for personal Google accounts and Apple.
+	HostedDomain string
 	// Name is the person's name, when the provider sends it.
 	Name string
 	// Audience is the client ID the token was issued for.
 	Audience string
+}
+
+// AuthoritativeEmail reports whether the provider manages Email's domain,
+// so a verified Email still belongs to the person: Google for gmail.com,
+// googlemail.com and the account's own Workspace domain, Apple for relay
+// addresses and iCloud (icloud.com, me.com, mac.com). For other addresses,
+// EmailVerified only says the person controlled the address when they
+// added it to their provider account, possibly years ago; don't link such
+// an identity to an existing account without the account's owner (security
+// review AUTH-M-1).
+func (id Identity) AuthoritativeEmail() bool {
+	if !id.EmailVerified {
+		return false
+	}
+	at := strings.LastIndexByte(id.Email, '@')
+	if at < 0 {
+		return false
+	}
+	domain := strings.ToLower(id.Email[at+1:])
+	switch id.Provider {
+	case Google:
+		return domain == "gmail.com" || domain == "googlemail.com" ||
+			(id.HostedDomain != "" && strings.EqualFold(id.HostedDomain, domain))
+	case Apple:
+		return id.PrivateEmail || slices.Contains([]string{"privaterelay.appleid.com", "icloud.com", "me.com", "mac.com"}, domain)
+	}
+	return false
 }
 
 // Token is the result of a code exchange.
@@ -308,15 +338,20 @@ func (p *Provider) verify(ctx context.Context, raw, nonce string, audiences []st
 		Email         string   `json:"email"`
 		EmailVerified flexBool `json:"email_verified"`
 		PrivateEmail  flexBool `json:"is_private_email"`
+		HostedDomain  string   `json:"hd"`
 		Name          string   `json:"name"`
 	}
 	if err := t.Claims(&claims); err != nil {
 		return Identity{}, invalid(err)
 	}
-	return Identity{
+	id := Identity{
 		Provider: p.name, Subject: t.Subject, Email: strings.TrimSpace(claims.Email), EmailVerified: bool(claims.EmailVerified),
 		PrivateEmail: bool(claims.PrivateEmail), Name: strings.TrimSpace(claims.Name), Audience: aud,
-	}, nil
+	}
+	if p.name == Google {
+		id.HostedDomain = strings.TrimSpace(claims.HostedDomain)
+	}
+	return id, nil
 }
 
 // Revoke revokes a refresh token issued for clientID, as Apple requires when

@@ -11,6 +11,8 @@ import (
 	netmail "net/mail"
 	"net/netip"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 var idEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
@@ -61,6 +63,12 @@ func CodeMatches(id, code string, hash []byte) bool {
 
 // NormalizeEmail returns the address to send to and the lowercased address
 // accounts are unique by, or [ErrInvalidEmail].
+//
+// An address with a non-ASCII character that lowercasing changes, such as
+// the Kelvin sign (U+212A, lowercased to k) or an uppercase Ä, is refused:
+// otherwise a look-alike address could take the account key of another
+// address and receive its codes. Lowercase non-ASCII characters are
+// accepted.
 func NormalizeEmail(s string) (email, normalized string, err error) {
 	email = strings.TrimSpace(s)
 	if email == "" || len(email) > 254 {
@@ -69,6 +77,11 @@ func NormalizeEmail(s string) (email, normalized string, err error) {
 	addr, err := netmail.ParseAddress(email)
 	if err != nil || addr.Address != email {
 		return "", "", ErrInvalidEmail
+	}
+	for _, r := range email {
+		if r >= utf8.RuneSelf && unicode.ToLower(r) != r {
+			return "", "", ErrInvalidEmail
+		}
 	}
 	return email, strings.ToLower(email), nil
 }

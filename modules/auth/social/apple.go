@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -109,21 +111,34 @@ func ParseApplePrivateKey(pemBytes []byte) (*ecdsa.PrivateKey, error) {
 	return key, nil
 }
 
+// MaxNotificationAge is how old an Apple notification can be when it's
+// verified, so an old payload can't be replayed later.
+const MaxNotificationAge = time.Hour
+
 // Notification is an Apple server-to-server notification about a person
 // who signed in with Apple.
 type Notification struct {
+	// ID identifies the notification ("jti", or a hash of the payload when
+	// Apple sends none). Remember it until IssuedAt plus
+	// [MaxNotificationAge] and ignore a notification seen before: a replayed
+	// payload carries the same ID.
+	ID string
 	// Type is one of the Notification constants.
 	Type    string
 	Subject string
 	Email   string
 	// PrivateEmail reports an Apple relay address.
 	PrivateEmail bool
-	At           time.Time
+	// At is when the event happened; IssuedAt when Apple signed the
+	// notification.
+	At       time.Time
+	IssuedAt time.Time
 }
 
 // AppleNotification verifies the payload Apple posts to the notification
-// endpoint: Apple's signature, issuer and a configured audience. It returns
-// [ErrInvalidToken], or [ErrInvalidConfig] on a provider other than Apple.
+// endpoint: Apple's signature, issuer, a configured audience, and an issue
+// time within [MaxNotificationAge]. It returns [ErrInvalidToken], or
+// [ErrInvalidConfig] on a provider other than Apple.
 func (p *Provider) AppleNotification(ctx context.Context, payload string) (Notification, error) {
 	if p.name != Apple {
 		return Notification{}, fmt.Errorf("%w: notifications come from Apple", ErrInvalidConfig)
@@ -135,6 +150,8 @@ func (p *Provider) AppleNotification(ctx context.Context, payload string) (Notif
 	var claims struct {
 		Issuer   string          `json:"iss"`
 		Audience json.RawMessage `json:"aud"`
+		IssuedAt int64           `json:"iat"`
+		ID       string          `json:"jti"`
 		Events   string          `json:"events"`
 	}
 	if err := json.Unmarshal(body, &claims); err != nil {
@@ -162,8 +179,17 @@ func (p *Provider) AppleNotification(ctx context.Context, payload string) (Notif
 	case json.Unmarshal([]byte(claims.Events), &event) != nil || event.Type == "" || event.Subject == "":
 		return Notification{}, fmt.Errorf("%w: unreadable events", ErrInvalidToken)
 	}
+	now, issued := p.now(), time.Unix(claims.IssuedAt, 0).UTC()
+	if claims.IssuedAt <= 0 || issued.After(now.Add(clockSkew)) || now.Sub(issued) > MaxNotificationAge {
+		return Notification{}, fmt.Errorf("%w: notification issued at %s, older than %s", ErrInvalidToken, issued, MaxNotificationAge)
+	}
+	id := claims.ID
+	if id == "" {
+		sum := sha256.Sum256([]byte(payload))
+		id = hex.EncodeToString(sum[:])
+	}
 	return Notification{
-		Type: event.Type, Subject: event.Subject, Email: event.Email, PrivateEmail: bool(event.PrivateEmail),
-		At: time.UnixMilli(event.EventTime).UTC(),
+		ID: id, Type: event.Type, Subject: event.Subject, Email: event.Email, PrivateEmail: bool(event.PrivateEmail),
+		At: time.UnixMilli(event.EventTime).UTC(), IssuedAt: issued,
 	}, nil
 }
