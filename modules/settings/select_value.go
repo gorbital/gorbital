@@ -8,16 +8,18 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// valueRow is one settings_values row. A nil value means the default.
+// valueRow is one settings_values row. A nil value means the default, and an
+// empty orgID the platform-wide value.
 type valueRow struct {
 	key       string
+	orgID     string
 	value     []byte
 	version   int64
 	updatedAt time.Time
 	updatedBy string
 }
 
-const valueColumns = `key, value, version, updated_at, updated_by`
+const valueColumns = `key, coalesce(org_id, ''), value, version, updated_at, updated_by`
 
 const selectValuesSQL = `
 	SELECT ` + valueColumns + `
@@ -34,7 +36,7 @@ const selectValueForUpdateSQL = selectValueSQL + `
 
 func scanValueRow(row pgx.CollectableRow) (valueRow, error) {
 	var r valueRow
-	err := row.Scan(&r.key, &r.value, &r.version, &r.updatedAt, &r.updatedBy)
+	err := row.Scan(&r.key, &r.orgID, &r.value, &r.version, &r.updatedAt, &r.updatedBy)
 	return r, err
 }
 
@@ -58,8 +60,10 @@ func selectValueForUpdate(ctx context.Context, tx pgx.Tx, key string) (valueRow,
 	return selectOne(ctx, tx, selectValueForUpdateSQL, key)
 }
 
-func selectOne(ctx context.Context, db dbtx, sql, key string) (valueRow, bool, error) {
-	rows, err := db.Query(ctx, sql, key)
+// selectOne returns the row sql selects with args, the first being the key.
+// A missing row returns version 0.
+func selectOne(ctx context.Context, db dbtx, sql, key string, args ...any) (valueRow, bool, error) {
+	rows, err := db.Query(ctx, sql, append([]any{key}, args...)...)
 	if err != nil {
 		return valueRow{key: key}, false, err
 	}

@@ -74,14 +74,16 @@ func declareOrgPermissions() *authlib.Catalog {
 	c.Permission(orgsusecase.PermOrgDelete, "Delete and restore the organisation")
 	c.Permission(orgsusecase.PermMembersRead, "See the members")
 	c.Permission(orgsusecase.PermMembersManage, "Invite people, change roles and remove members, up to your own role")
+	c.Permission(orgsusecase.PermSettingsRead, "See the organisation's settings and their history")
+	c.Permission(orgsusecase.PermSettingsWrite, "Change the organisation's settings")
 
-	member := []string{orgsusecase.PermOrgRead, orgsusecase.PermMembersRead}
+	member := []string{orgsusecase.PermOrgRead, orgsusecase.PermMembersRead, orgsusecase.PermSettingsRead}
 	for _, r := range orgResourcePermissions() {
 		c.Permission(r.read, "See "+r.name)
 		c.Permission(r.write, "Create, change and delete "+r.name)
 		member = append(member, r.read, r.write)
 	}
-	admin := append([]string{orgsusecase.PermOrgUpdate, orgsusecase.PermMembersManage}, member...)
+	admin := append([]string{orgsusecase.PermOrgUpdate, orgsusecase.PermMembersManage, orgsusecase.PermSettingsWrite}, member...)
 	c.Role(orgslib.RoleOwner, "Everything, including deleting the organisation and managing owners", append([]string{orgsusecase.PermOrgDelete}, admin...)...)
 	c.Role(orgslib.RoleAdmin, "Manages the organisation and its members, except owners", admin...)
 	c.Role(orgslib.RoleMember, "Works in the organisation", member...)

@@ -2392,6 +2392,60 @@
         ],
         "type": "object"
       },
+      "SettingOverride": {
+        "additionalProperties": false,
+        "properties": {
+          "invalid_stored_value": {
+            "description": "The value fails validation, so the organisation gets the platform value",
+            "type": "boolean"
+          },
+          "org_id": {
+            "examples": [
+              "org_mfrggzdfmztwq2lkmfrggzdfmy"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updated_by": {
+            "type": "string"
+          },
+          "value": {
+            "description": "The organisation's value"
+          },
+          "version": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "org_id",
+          "value",
+          "invalid_stored_value",
+          "version"
+        ],
+        "type": "object"
+      },
+      "SettingOverrides": {
+        "additionalProperties": false,
+        "properties": {
+          "overrides": {
+            "items": {
+              "$ref": "#/components/schemas/SettingOverride"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "overrides"
+        ],
+        "type": "object"
+      },
       "SettingResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2432,6 +2486,10 @@
             "description": "A stored value overrides the default",
             "type": "boolean"
           },
+          "org_overridable": {
+            "description": "Organisations may set their own value; see GET /ops/settings/{key}/overrides",
+            "type": "boolean"
+          },
           "reason_required": {
             "type": "boolean"
           },
@@ -2469,7 +2527,8 @@
           "version",
           "reason_required",
           "restart_required",
-          "restart_pending"
+          "restart_pending",
+          "org_overridable"
         ],
         "type": "object"
       },
@@ -5869,6 +5928,120 @@
           }
         ],
         "summary": "List a runtime setting's changes",
+        "tags": [
+          "Ops: settings"
+        ]
+      }
+    },
+    "/ops/settings/{key}/overrides": {
+      "get": {
+        "description": "Only settings with `org_overridable` have any (ADR-0056). Ordered by organisation ID; pass the last `org_id` as `after` for the next page.",
+        "operationId": "ops-setting-overrides",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "examples": [
+                "orgs.invitation_ttl"
+              ],
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Return organisations after this organisation ID",
+            "explode": false,
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "description": "Return organisations after this organisation ID",
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingOverrides"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List organisations' own values of a runtime setting",
         "tags": [
           "Ops: settings"
         ]

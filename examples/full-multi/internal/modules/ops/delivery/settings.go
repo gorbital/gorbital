@@ -34,6 +34,7 @@ type SettingResponse struct {
 	RestartRequired    bool           `json:"restart_required"`
 	RestartPending     bool           `json:"restart_pending"`
 	Constraints        map[string]any `json:"constraints,omitempty" doc:"Validation summary such as min, max, one_of, max_len"`
+	OrgOverridable     bool           `json:"org_overridable" doc:"Organisations may set their own value; see GET /ops/settings/{key}/overrides"`
 }
 
 // SettingList is a list of runtime settings.
@@ -60,11 +61,29 @@ type SettingHistory struct {
 	Changes []SettingChange `json:"changes"`
 }
 
+// SettingOverride is an organisation's own value of a runtime setting.
+type SettingOverride struct {
+	OrgID              string     `json:"org_id" example:"org_mfrggzdfmztwq2lkmfrggzdfmy"`
+	Value              any        `json:"value" doc:"The organisation's value"`
+	InvalidStoredValue bool       `json:"invalid_stored_value" doc:"The value fails validation, so the organisation gets the platform value"`
+	Version            int64      `json:"version"`
+	UpdatedAt          *time.Time `json:"updated_at,omitempty"`
+	UpdatedBy          string     `json:"updated_by,omitempty"`
+}
+
+// SettingOverrides is a page of organisations' own values of a setting, by
+// organisation ID.
+type SettingOverrides struct {
+	Overrides []SettingOverride `json:"overrides"`
+}
+
 type settingOutput struct{ Body SettingResponse }
 
 type settingListOutput struct{ Body SettingList }
 
 type settingHistoryOutput struct{ Body SettingHistory }
+
+type settingOverridesOutput struct{ Body SettingOverrides }
 
 type listSettingsInput struct {
 	Group string `query:"group" maxLength:"100" doc:"Only settings in this group"`
@@ -97,6 +116,12 @@ type historyInput struct {
 	Key    string `path:"key" maxLength:"200" example:"example.ping_message"`
 	Before int64  `query:"before" minimum:"0" doc:"Return changes older than this change ID"`
 	Limit  int    `query:"limit" minimum:"1" maximum:"100" default:"50"`
+}
+
+type overridesInput struct {
+	Key   string `path:"key" maxLength:"200" example:"orgs.invitation_ttl"`
+	After string `query:"after" maxLength:"100" doc:"Return organisations after this organisation ID"`
+	Limit int    `query:"limit" minimum:"1" maximum:"100" default:"50"`
 }
 
 type settingsHandler struct {
@@ -135,6 +160,13 @@ func RegisterSettings(api huma.API, svc *opsusecase.Service) {
 		Summary: "List a runtime setting's changes", Tags: tags, Security: openapi.Bearer,
 		Errors: append(readErrors, http.StatusNotFound),
 	}, h.history)
+	huma.Register(api, huma.Operation{
+		OperationID: "ops-setting-overrides", Method: http.MethodGet, Path: "/ops/settings/{key}/overrides",
+		Summary:     "List organisations' own values of a runtime setting",
+		Description: "Only settings with `org_overridable` have any (ADR-0056). Ordered by organisation ID; pass the last `org_id` as `after` for the next page.",
+		Tags:        tags, Security: openapi.Bearer,
+		Errors: append(readErrors, http.StatusNotFound),
+	}, h.overrides)
 }
 
 func (h *settingsHandler) list(ctx context.Context, in *listSettingsInput) (*settingListOutput, error) {
@@ -193,6 +225,25 @@ func (h *settingsHandler) history(ctx context.Context, in *historyInput) (*setti
 	return out, nil
 }
 
+func (h *settingsHandler) overrides(ctx context.Context, in *overridesInput) (*settingOverridesOutput, error) {
+	views, err := h.svc.SettingOverrides(ctx, in.Key, in.After, in.Limit)
+	if err != nil {
+		return nil, err
+	}
+	out := &settingOverridesOutput{Body: SettingOverrides{Overrides: make([]SettingOverride, len(views))}}
+	for i, v := range views {
+		o := SettingOverride{
+			OrgID: v.OrgID, Value: decodeJSON(v.Value), InvalidStoredValue: v.InvalidStoredValue,
+			Version: v.Version, UpdatedBy: v.UpdatedBy,
+		}
+		if !v.UpdatedAt.IsZero() {
+			o.UpdatedAt = &v.UpdatedAt
+		}
+		out.Body.Overrides[i] = o
+	}
+	return out, nil
+}
+
 // settingError turns a rejected value into a problem carrying the reason,
 // which never includes the value itself.
 func settingError(err error) error {
@@ -210,7 +261,7 @@ func settingResponse(v settings.View) SettingResponse {
 		Modified: v.Modified, InvalidStoredValue: v.InvalidStoredValue,
 		Version: v.Version, UpdatedBy: v.UpdatedBy,
 		ReasonRequired: v.ReasonRequired, RestartRequired: v.RestartRequired, RestartPending: v.RestartPending,
-		Constraints: v.Constraints,
+		Constraints: v.Constraints, OrgOverridable: v.OrgOverridable,
 	}
 	if !v.UpdatedAt.IsZero() {
 		r.UpdatedAt = &v.UpdatedAt

@@ -18,6 +18,7 @@ type SettingsStore interface {
 	Set(ctx context.Context, key string, value json.RawMessage, change settings.Change) (settings.View, error)
 	Reset(ctx context.Context, key string, change settings.Change) (settings.View, error)
 	History(ctx context.Context, key string, before int64, limit int) ([]settings.HistoryEntry, error)
+	Overrides(ctx context.Context, key, after string, limit int) ([]settings.View, error)
 }
 
 // JobsManager manages job definitions, runs and queues. *jobs.Manager

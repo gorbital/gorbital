@@ -94,6 +94,14 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if !ok {
 		return fmt.Errorf("recipes: the multi-tenant tree has no %s", recipes.OrgsMigrationPath)
 	}
+	var laterSQL [][]byte
+	for _, p := range recipes.OrgsLaterMigrationPaths {
+		sql, ok := theirs[p]
+		if !ok {
+			return fmt.Errorf("recipes: the multi-tenant tree has no %s", p)
+		}
+		laterSQL = append(laterSQL, sql)
+	}
 	for _, p := range slices.Concat(untrackedPaths, derivedPaths) {
 		delete(base, p)
 		delete(theirs, p)
@@ -128,6 +136,10 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		merge.Change{Path: "db/migrations/" + first + "_orgs.sql", Action: merge.Create, Content: orgsSQL},
 		merge.Change{Path: "db/migrations/" + strconv.FormatInt(n+1, 10) + "_orgs_convert.sql", Action: merge.Create, Content: recipes.OrgsConversion()},
 	)
+	for i, p := range recipes.OrgsLaterMigrationPaths {
+		_, name, _ := strings.Cut(path.Base(p), "_")
+		changes = append(changes, merge.Change{Path: "db/migrations/" + strconv.FormatInt(n+2+int64(i), 10) + "_" + name, Action: merge.Create, Content: laterSQL[i]})
+	}
 	slices.SortFunc(changes, func(a, b merge.Change) int { return strings.Compare(a.Path, b.Path) })
 
 	name := filepath.Base(app.dir)

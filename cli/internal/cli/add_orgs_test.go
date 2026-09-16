@@ -90,6 +90,11 @@ func TestAddOrgs(t *testing.T) {
 	if readFile(t, orgsMigrations[0]) != string(tree[recipes.OrgsMigrationPath]) || readFile(t, converts[0]) != string(recipes.OrgsConversion()) {
 		t.Error("the new migrations aren't the organisations migration and the conversion")
 	}
+	// Later organisation migrations follow the conversion (ADR-0056).
+	settingsOrgs, _ := filepath.Glob("db/migrations/*_settings_org_purge.sql")
+	if len(settingsOrgs) != 1 || settingsOrgs[0] <= converts[0] || readFile(t, settingsOrgs[0]) != string(tree["db/migrations/20260918000002_settings_org_purge.sql"]) {
+		t.Errorf("settings organisation migrations = %v, want one after %s", settingsOrgs, converts[0])
+	}
 	for _, c := range res.Changes {
 		if c.Path == orgsMigrations[0] && c.Action != merge.Create {
 			t.Errorf("%s: %s", c.Path, c.Action)

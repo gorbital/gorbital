@@ -34,8 +34,8 @@ Every member has exactly one role.
 | Role | Can |
 |---|---|
 | `owner` | Everything, including deleting the organisation and managing owners |
-| `admin` | Rename the organisation, invite, change and remove members and admins, work with resources |
-| `member` | See the organisation and its members, work with resources |
+| `admin` | Rename the organisation, change its settings, invite, change and remove members and admins, work with resources |
+| `member` | See the organisation, its members and its settings, work with resources |
 
 - Nobody gives, changes or removes a role that grants a permission their own role doesn't, and only owners manage owners. Roles are compared by their permissions, not their names, so a role you add can't be used to climb: an admin can't give anyone a role that may delete the organisation.
 - The last owner can't leave, be demoted or be removed (409 `last_owner`). Promote another member to owner first.
@@ -109,12 +109,22 @@ One mistake in one layer shouldn't leak data. Each layer is checked by a test in
 - An owner deletes an organisation with `DELETE /v1/orgs/{orgId}`. Members lose access at once. An owner can restore it with `POST /v1/orgs/{orgId}/restore` until the `orgs.deleted_org_retention` period ends; then the `orgs_purge` job removes it with every org-scoped row. Restoring needs the same role, and the same second factor if the role requires one, as deleting.
 - Deleting an account is refused with 409 `sole_owner` while the account is the only owner of an organisation with other members. The response lists those organisations. Organisations where the account is the only member are deleted with it, and the account stops being a member everywhere, deleted organisations included. Owners whose accounts are deleted don't count toward "at least one owner".
 
+## Organisation settings
+
+Some runtime settings let each organisation choose its own value ([ADR-0056](../adr/0056-per-organisation-settings.md)). The app ships one, `orgs.invitation_ttl`: an owner or admin can make their organisation's invitation links last 2 days while the platform keeps 7.
+
+```bash
+curl -X PUT http://127.0.0.1:8080/v1/orgs/$ORG/settings/orgs.invitation_ttl   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json'   -d '{"value":"48h","version":0,"reason":"links for our event"}'
+```
+
+Members list them with `GET /v1/orgs/{orgId}/settings`, and see changes with `.../settings/{key}/history`. `DELETE` on the setting goes back to the platform value. Values stay within the platform's bounds, and a reason is required where the platform requires one. To let organisations set one of your own settings, add `settings.OrgOverridable()` to its declaration in `internal/app/settings.go`; read it after `orgs.RequireMember` so `Get(ctx)` sees the organisation. See [Runtime settings](../guides/runtime-settings.md#per-organisation-settings).
+
 ## Runtime settings
 
 | Setting | Default | Allowed |
 |---|---|---|
 | `orgs.invitation_url` | none | The frontend page invitation links open |
-| `orgs.invitation_ttl` | 7 days | 1 to 30 days |
+| `orgs.invitation_ttl` | 7 days | 1 to 30 days; each organisation may set its own |
 | `orgs.deleted_org_retention` | 30 days | 1 to 365 days |
 | `orgs.max_owned` | 20 | 1 to 10,000 organisations a user may own, personal workspace aside |
 | `orgs.user_invitations_per_hour` | 50 | 1 to 10,000 invitations a user may send or resend an hour, shared across instances |

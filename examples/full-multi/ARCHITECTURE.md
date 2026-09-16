@@ -11,7 +11,7 @@ cmd/seed/                development seed data: an administrator, their personal
 db/migrations/           one ordered goose history, including gorbital module tables
 internal/app/            composition root: builds, wires, runs and shuts down the app
   config.go              boot configuration: secrets and infrastructure from environment variables
-  settings.go            runtime settings: tunables edited through /ops/settings
+  settings.go            runtime settings: tunables edited through /ops/settings, some also per organisation
   jobs.go                one line per background job (//orb:anchor jobs)
   job_<name>.go          declares one job and its default configuration
   app.go                 construction order and lifecycle
@@ -41,7 +41,7 @@ internal/modules/<name>/ one bounded context per directory
   delivery/              HTTP adapter: Huma operations ↔ use cases
 internal/modules/auth/   sign-up, sign-in, sessions, passwords and roles: domain, usecase, repository (SQL), delivery
 internal/modules/ops/    admin APIs for runtime settings, jobs, the audit log and email
-internal/modules/orgs/   organisations, members, invitations and personal workspaces: domain, usecase, repository (SQL), delivery
+internal/modules/orgs/   organisations, members, invitations, personal workspaces and organisation settings: domain, usecase, repository (SQL), delivery
 internal/modules/projects/ example business resource that belongs to an organisation: copy it for your own
 api/openapi.json         exported API contract (committed; review changes in pull requests)
 api/surface.json         error codes, audit actions, permissions, settings and jobs: public names that may only grow
@@ -60,7 +60,7 @@ HTTP → middleware (recover, trusted proxies, request ID, tracing, access log, 
 ## Configuration
 
 - **Environment** (`config.go`): secrets and infrastructure. Changing them needs a restart.
-- **Runtime settings** (`settings.go`): non-secret tunables stored in PostgreSQL, changed with `PUT /ops/settings/{key}`, applied on every instance within moments. Modules receive them as `config.Value[T]` and call `Get` each time.
+- **Runtime settings** (`settings.go`): non-secret tunables stored in PostgreSQL, changed with `PUT /ops/settings/{key}`, applied on every instance within moments. Modules receive them as `config.Value[T]` and call `Get` each time. Settings declared `settings.OrgOverridable()` (such as `orgs.invitation_ttl`) also take a value per organisation, changed by its owners and admins with `PUT /v1/orgs/{orgId}/settings/{key}`; `Get` returns it when called with the context `orgs.RequireMember` returns.
 - **Job definitions** (`job_<name>.go`): each job's code defaults (enabled, schedule, timeout, retries, queue), overridable with `PUT /ops/jobs/definitions/{name}`. Changing a job's code still needs a deploy.
 
 A value is never in more than one layer, and secrets are never runtime settings.

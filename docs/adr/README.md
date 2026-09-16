@@ -40,7 +40,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0028](0028-local-development-environment.md) | Local development environment | Accepted |
 | [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted, amended by 0036, 0038, 0053 |
 | [0030](0030-context-and-correlation.md) | Context and correlation propagation | Accepted, amended by 0053 |
-| [0031](0031-runtime-settings.md) | Runtime settings | Accepted |
+| [0031](0031-runtime-settings.md) | Runtime settings | Accepted, amended by 0056 |
 | [0032](0032-repository-sql.md) | Hand-written SQL in repositories | Accepted |
 | [0033](0033-background-jobs.md) | Background jobs | Accepted, amended by 0053 |
 | [0034](0034-interim-ops-token.md) | Interim ops token | Superseded by 0038 |
@@ -57,7 +57,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0045](0045-sign-in-provider-setup.md) | Sign-in provider setup | Accepted, amended by 0046 |
 | [0046](0046-google-and-apple-sign-in.md) | Google and Apple sign-in | Accepted, amended by 0053 |
 | [0047](0047-client-templates.md) | Client templates: docs site, dashboard and mobile apps from separate template repositories | Proposed |
-| [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Accepted, amended by 0050, 0053 |
+| [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Accepted, amended by 0050, 0053, 0056 |
 | [0049](0049-public-docs-and-website.md) | Public website: landing page, framework docs and API reference in the gorbital look; the Go generator in `site/` was replaced by the gorbital-web Next.js repository on 2026-09-15; generated reference pages and the changelog page added 2026-09-16 | Accepted |
 | [0050](0050-upgrades-and-adding-features.md) | Upgrading apps and adding features to them (v0.5): lock v2, rebuilt merge base, `orb upgrade`, `orb add orgs` | Accepted, amended by 0053 |
 | [0051](0051-operations-v0-5.md) | Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports, `orb doctor` | Accepted, amended by 0053 |
@@ -65,3 +65,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0053](0053-internal-security-review.md) | Internal security review before the external one: six areas, severity scale, every finding fixed with a regression test or accepted in writing; report in `docs/security/` | Accepted |
 | [0054](0054-api-freeze-and-scaffold-compatibility.md) | API freeze: stability markers, API listings, public-surface inventory, `/ops` baseline, `--json` schema version, scaffold compatibility check | Accepted |
 | [0055](0055-governance-and-contribution.md) | Governance and contribution: roles, decisions, reviews, supported versions, changelog | Accepted |
+| [0056](0056-per-organisation-settings.md) | Per-organisation settings: org-overridable declarations, organisation values resolved from the context, organisation and `/ops` endpoints | Accepted |

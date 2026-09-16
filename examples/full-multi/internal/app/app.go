@@ -214,6 +214,7 @@ func (a *App) build(ctx context.Context) error {
 		DeletedOrgRetention: appSettings.orgsDeletedOrgRetention,
 		MaxOwnedOrgs:        appSettings.orgsMaxOwned,
 		InvitationLimiter:   orgsInvitations,
+		Settings:            a.settings, // settings declared OrgOverridable (settings.go)
 		Logger:              a.logger,
 	})
 	if err != nil {

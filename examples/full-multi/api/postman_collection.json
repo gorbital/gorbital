@@ -1307,6 +1307,54 @@
               ]
             }
           }
+        },
+        {
+          "name": "List organisations' own values of a runtime setting",
+          "request": {
+            "method": "GET",
+            "description": "Only settings with `org_overridable` have any (ADR-0056). Ordered by organisation ID; pass the last `org_id` as `after` for the next page.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/settings/:key/overrides",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "settings",
+                ":key",
+                "overrides"
+              ],
+              "query": [
+                {
+                  "key": "after",
+                  "value": "string",
+                  "description": "Return organisations after this organisation ID",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "orgs.invitation_ttl"
+                }
+              ]
+            }
+          }
         }
       ]
     },
@@ -3340,6 +3388,241 @@
                 {
                   "key": "orgId",
                   "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List the organisation's settings",
+          "request": {
+            "method": "GET",
+            "description": "The runtime settings an organisation may set for itself, with the value it gets. Settings it hasn't set follow the platform value.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "settings"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get an organisation setting",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/settings/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "settings",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "key",
+                  "value": "orgs.invitation_ttl"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set the organisation's own value",
+          "request": {
+            "method": "PUT",
+            "description": "Within the setting's constraints. Send the `version` you read; a newer version returns `setting_version_conflict`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/settings/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "settings",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "key",
+                  "value": "orgs.invitation_ttl"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": null,\n  \"version\": 0,\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Go back to the platform value",
+          "request": {
+            "method": "DELETE",
+            "description": "Removes the organisation's own value (`reason` in the body when required).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/settings/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "settings",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "key",
+                  "value": "orgs.invitation_ttl"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 0,\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List changes to an organisation setting",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/settings/:key/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "settings",
+                ":key",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "before",
+                  "value": "0",
+                  "description": "Return changes older than this change ID",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "key",
+                  "value": "orgs.invitation_ttl"
                 }
               ]
             }

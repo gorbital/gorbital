@@ -238,10 +238,11 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.ReasonRequired(), // where invitation links, with their tokens, go
 		),
 		orgsInvitationTTL: settings.Duration(reg, "orgs.invitation_ttl", orgsusecase.DefaultInvitationTTL,
-			settings.Describe("How long an invitation link stays valid."),
+			settings.Describe("How long an invitation link stays valid. Owners and admins may set their organisation's own value, within the same range, with PUT /v1/orgs/{orgId}/settings/orgs.invitation_ttl."),
 			settings.Group("orgs"),
 			settings.Range(24*time.Hour, 30*24*time.Hour),
 			settings.ReasonRequired(),
+			settings.OrgOverridable(), // an example organisation setting (ADR-0056)
 		),
 		orgsDeletedOrgRetention: settings.Duration(reg, "orgs.deleted_org_retention", orgsusecase.DefaultDeletedOrgRetention,
 			settings.Describe("How long a deleted organisation can be restored before the orgs_purge job removes it with its data."),

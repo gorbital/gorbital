@@ -133,6 +133,15 @@ func (s *Service) SettingHistory(ctx context.Context, key string, before int64, 
 	return s.settings.History(ctx, key, before, limit)
 }
 
+// SettingOverrides returns organisations' own values of a setting, by
+// organisation ID after after.
+func (s *Service) SettingOverrides(ctx context.Context, key, after string, limit int) ([]settings.View, error) {
+	if err := authorize(ctx, opsdomain.PermSettingsRead); err != nil {
+		return nil, err
+	}
+	return s.settings.Overrides(ctx, key, after, limit)
+}
+
 // ListJobDefinitions returns every job definition.
 func (s *Service) ListJobDefinitions(ctx context.Context) ([]jobs.DefinitionView, error) {
 	if err := authorize(ctx, opsdomain.PermJobsRead); err != nil {
