@@ -202,7 +202,9 @@ Restart the app (stop `orb dev` with Ctrl+C and start it again).
 
 From your own website, link to the start address with where to go afterwards: `/v1/auth/google/start?return_to=https://app.example.com/after-login`. That address must be your API itself or one of `APP_CORS_ORIGINS`.
 
-If the email address already has an account, signing in with Google links to it, because Google has verified the address. If that account's email was never verified, its password is removed first, so whoever registered the address without owning it can't sign in anymore.
+If the email address already has an account, signing in with Google links to it only when Google manages the address: a Gmail address, or an address on the person's own Google Workspace domain. If that account's email was never verified, its password is removed first, so whoever registered the address without owning it can't sign in anymore.
+
+For any other address, such as a personal Google account created with `ada@yourcompany.com`, Google only checked the address once, when it was added: the person may have lost the mailbox since. Signing in then returns to your site with `#error=social_link_required`. Ask the person to sign in with their password and link Google from their account settings: your website gets an ID token with [Google Identity Services](https://developers.google.com/identity/gsi/web), using a nonce from `POST /v1/auth/google/nonce`, and sends it with the password to `POST /v1/auth/identities`. After that, the Google button signs them in.
 
 ## Step 6 (optional): Your iOS app
 

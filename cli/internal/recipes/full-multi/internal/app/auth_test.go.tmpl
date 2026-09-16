@@ -13,6 +13,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"gorbital.dev/actor"
+	authlib "gorbital.dev/modules/auth"
+
 	"⟦.Module⟧/internal/app"
 )
 
@@ -240,5 +243,35 @@ func TestLogout(t *testing.T) {
 	app.WriteRoles(&out)
 	if !strings.Contains(out.String(), "platform_admin") || !strings.Contains(out.String(), "ops.jobs.run") {
 		t.Errorf("WriteRoles() = %s", out.String())
+	}
+}
+
+// TestChecksBehindASessionAreLimited is the reviewers' proof of concept over
+// HTTP: with a stolen session and a new client address for every request,
+// the password can't be guessed through the changes that check it (security
+// review AUTH-S-5, AUTH-M-2).
+func TestChecksBehindASessionAreLimited(t *testing.T) {
+	a := newApp(t, nil)
+	h := a.Handler()
+	const email = "ada@example.com"
+	if _, err := a.Auth().CreateUser(actor.With(context.Background(), actor.System("test")), email, testPassword, true); err != nil {
+		t.Fatal(err)
+	}
+	session := cookieHeader(t, do(t, h, "POST", "/v1/auth/login", fmt.Sprintf(`{"email":%q,"password":%q}`, email, testPassword)))
+	guesses := []struct{ method, path, body string }{
+		{"POST", "/v1/auth/mfa/totp", `{"password":"wrong password %d"}`},
+		{"PUT", "/v1/auth/password", `{"current_password":"wrong password %d","new_password":"a new long password"}`},
+		{"POST", "/v1/auth/passkeys/registration", `{"password":"wrong password %d"}`},
+		{"DELETE", "/v1/auth/me", `{"password":"wrong password %d"}`},
+	}
+	for i := range authlib.DefaultLoginAttempts {
+		g := guesses[i%len(guesses)]
+		if r := fromClient(t, h, g.method, g.path, fmt.Sprintf(g.body, i), fmt.Sprintf("198.51.100.%d:1234", i), session...); r.code != http.StatusUnauthorized || r.json["code"] != "invalid_credentials" {
+			t.Fatalf("wrong password %d on %s %s = %d %s, want 401 invalid_credentials", i, g.method, g.path, r.code, r.body)
+		}
+	}
+	right := fmt.Sprintf(`{"password":%q}`, testPassword)
+	if r := fromClient(t, h, "POST", "/v1/auth/mfa/totp", right, "203.0.113.200:1234", session...); r.code != http.StatusTooManyRequests || r.json["code"] != "too_many_attempts" {
+		t.Errorf("right password after the limit = %d %s, want 429 too_many_attempts, not a confirmation", r.code, r.body)
 	}
 }

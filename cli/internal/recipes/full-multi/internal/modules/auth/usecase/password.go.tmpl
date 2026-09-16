@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorbital.dev/audit"
 	authlib "gorbital.dev/modules/auth"
@@ -14,13 +15,14 @@ import (
 type auditEvent = audit.Event
 
 // RequestPasswordReset emails a reset code when the address has an account,
-// at most once a minute. It returns nil either way, so it never reveals
-// which addresses have accounts.
+// at most once a minute. It returns nil either way, and takes as long, so it
+// never reveals which addresses have accounts.
 func (s *Service) RequestPasswordReset(ctx context.Context, email string) error {
 	_, normalized, err := authlib.NormalizeEmail(email)
 	if err != nil {
 		return err
 	}
+	defer s.padResponse(ctx, time.Now())
 	ttl := authlib.ResetCodeLimits.Clamp(s.resetCode.Get(ctx))
 	var userID, to, code string
 	err = s.store.InTx(ctx, func(tx Store) error {
@@ -49,8 +51,11 @@ func (s *Service) RequestPasswordReset(ctx context.Context, email string) error 
 }
 
 // ResetPassword sets a new password when code matches the account's newest
-// reset code, verifies the address (the code proves ownership) and ends
-// every session. It returns ErrInvalidCode or an *auth.PasswordError.
+// reset code, and ends every session. For an unverified account, it verifies
+// the address (the code proves ownership) and removes what was added before
+// (claimAddress). The new password is hashed only once the code matched. It
+// returns ErrInvalidCode, an *auth.PasswordError, or a *RateLimitError after
+// auth.DefaultCodeAttempts checks for the address in a day.
 func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword string) error {
 	if err := authlib.ValidatePassword(ctx, newPassword, s.checker); err != nil {
 		return err
@@ -59,8 +64,7 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 	if err != nil {
 		return authdomain.ErrInvalidCode
 	}
-	hash, err := s.hasher.Hash(newPassword)
-	if err != nil {
+	if err := s.allowCode(ctx, authdomain.PurposeResetPassword, normalized); err != nil {
 		return err
 	}
 	var (
@@ -78,16 +82,23 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 		if valid, err = s.checkCode(ctx, tx, u.ID, authdomain.PurposeResetPassword, code); err != nil || !valid {
 			return err // commit a failed attempt
 		}
+		hash, err := s.hasher.HashContext(ctx, newPassword)
+		if err != nil {
+			return err
+		}
 		now := s.now()
 		userID, to = u.ID, u.Email
 		if err := tx.UpdatePassword(ctx, u.ID, hash, now); err != nil {
 			return err
 		}
+		if u.EmailVerified() {
+			_, err = tx.RevokeUserSessions(ctx, u.ID, "", now, "password_reset")
+			return err
+		}
 		if err := tx.MarkEmailVerified(ctx, u.ID, now); err != nil {
 			return err
 		}
-		_, err = tx.RevokeUserSessions(ctx, u.ID, "", now, "password_reset")
-		return err
+		return s.claimAddress(ctx, tx, u.ID, now, "password_reset")
 	})
 	if err != nil {
 		return dbError("reset password", err)
@@ -102,18 +113,15 @@ func (s *Service) ResetPassword(ctx context.Context, email, code, newPassword st
 
 // ChangePassword replaces the signed-in user's password after checking the
 // current one, and ends the user's other sessions. It returns
-// ErrInvalidCredentials for a wrong current password, or an
-// *auth.PasswordError.
+// ErrInvalidCredentials for a wrong current password, an
+// *auth.PasswordError, or a *RateLimitError when the user's
+// re-authentication budget is spent.
 func (s *Service) ChangePassword(ctx context.Context, currentPassword, newPassword string) error {
-	p, err := requirePrincipal(ctx)
+	p, err := s.reauthPrincipal(ctx)
 	if err != nil {
 		return err
 	}
 	if err := authlib.ValidatePassword(ctx, newPassword, s.checker); err != nil {
-		return err
-	}
-	hash, err := s.hasher.Hash(newPassword)
-	if err != nil {
 		return err
 	}
 	var to string
@@ -126,8 +134,12 @@ func (s *Service) ChangePassword(ctx context.Context, currentPassword, newPasswo
 		if err != nil || !u.HasPassword() {
 			return err
 		}
-		if valid, _ = s.hasher.Verify(currentPassword, u.PasswordHash); !valid {
-			return nil
+		if valid, err = s.passwordMatches(ctx, u, currentPassword); err != nil || !valid {
+			return err
+		}
+		hash, err := s.hasher.HashContext(ctx, newPassword)
+		if err != nil {
+			return err
 		}
 		now := s.now()
 		to = u.Email
@@ -144,7 +156,7 @@ func (s *Service) ChangePassword(ctx context.Context, currentPassword, newPasswo
 		return dbError("change password", err)
 	}
 	if !valid {
-		return authdomain.ErrInvalidCredentials
+		return s.reauthFailed(ctx, p.UserID, authdomain.ErrInvalidCredentials)
 	}
 	s.sent(ctx, "password_changed", s.emails.SendPasswordChanged(ctx, to))
 	s.audit(ctx, userEvent("auth.password.changed", p.UserID, authlib.ClientInfoFromContext(ctx)))

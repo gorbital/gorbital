@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"gorbital.dev/actor"
+	"gorbital.dev/audit"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/auth/social"
 
@@ -184,27 +185,43 @@ func (s *Service) SignInWithIDToken(ctx context.Context, provider, idToken, nonc
 	return s.signInWithIdentity(ctx, id, refresh)
 }
 
-// signInWithIdentity finds or creates the account of a verified identity,
-// then starts a session or a second-factor challenge. An unknown identity
-// links to the account with its provider-verified email, or creates one;
-// linking an account that never verified its email removes its password and
-// ends its sessions, so whoever registered the address without owning it
-// loses access (ADR-0046).
-func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, refreshToken string) (LoginResult, error) {
-	client := authlib.ClientInfoFromContext(ctx)
+// newIdentity returns the identity to store for id, with Apple's refresh
+// token encrypted when there is one.
+func (s *Service) newIdentity(ctx context.Context, id social.Identity, refreshToken string) (authdomain.Identity, error) {
 	identity := authdomain.Identity{
 		ID: authlib.NewID("idn"), Provider: id.Provider, Subject: id.Subject, Email: id.Email, PrivateEmail: id.PrivateEmail, Name: id.Name,
 	}
-	if refreshToken != "" {
-		if s.keyring == nil {
-			s.logger.WarnContext(ctx, "Apple's refresh token isn't kept without AUTH_ENCRYPTION_KEYS, so it can't be revoked when the account is deleted")
-		} else {
-			keyID, ciphertext, err := s.keyring.Encrypt([]byte(refreshToken), identityAAD(id.Provider, id.Subject))
-			if err != nil {
-				return LoginResult{}, err
-			}
-			identity.RefreshKeyID, identity.RefreshTokenCiphertext, identity.RefreshClientID = keyID, ciphertext, id.Audience
-		}
+	if refreshToken == "" {
+		return identity, nil
+	}
+	if s.keyring == nil {
+		s.logger.WarnContext(ctx, "Apple's refresh token isn't kept without AUTH_ENCRYPTION_KEYS, so it can't be revoked when the account is deleted")
+		return identity, nil
+	}
+	keyID, ciphertext, err := s.keyring.Encrypt([]byte(refreshToken), identityAAD(id.Provider, id.Subject))
+	if err != nil {
+		return authdomain.Identity{}, err
+	}
+	identity.RefreshKeyID, identity.RefreshTokenCiphertext, identity.RefreshClientID = keyID, ciphertext, id.Audience
+	return identity, nil
+}
+
+// signInWithIdentity finds or creates the account of a verified identity,
+// then starts a session or a second-factor challenge. An unknown identity
+// with a provider-verified email creates an account when the address has
+// none. It links to the address's existing account only when the provider is
+// authoritative for the address (social.Identity.AuthoritativeEmail):
+// otherwise the address may have changed hands since the provider verified
+// it, and the account's owner links the provider with LinkIdentity instead
+// (ErrSocialLinkRequired, security review AUTH-M-1). Linking an account that
+// never verified its email removes its password and whatever was added
+// before (claimAddress), so whoever registered the address without owning it
+// loses access (ADR-0046).
+func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, refreshToken string) (LoginResult, error) {
+	client := authlib.ClientInfoFromContext(ctx)
+	identity, err := s.newIdentity(ctx, id, refreshToken)
+	if err != nil {
+		return LoginResult{}, err
 	}
 	var (
 		u               authdomain.User
@@ -246,11 +263,13 @@ func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, re
 			created = true
 		case err != nil:
 			return err
+		case !id.AuthoritativeEmail():
+			return authdomain.ErrSocialLinkRequired // nothing written yet
 		case !u.EmailVerified():
 			if err := tx.VerifyEmailRemovePassword(ctx, u.ID, now); err != nil {
 				return err
 			}
-			if _, err := tx.RevokeUserSessions(ctx, u.ID, "", now, "unverified_account_linked"); err != nil {
+			if err := s.claimAddress(ctx, tx, u.ID, now, "unverified_account_linked"); err != nil {
 				return err
 			}
 			u.EmailVerifiedAt, u.PasswordHash, linked = &now, "", true
@@ -263,11 +282,13 @@ func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, re
 	}
 	// Two first sign-ins of one person can race to create the account or the
 	// identity: the loser's transaction rolls back, and its retry finds what
-	// the winner committed.
-	var err error
+	// the winner committed. The loser may also find the winner's account
+	// before its identity (each statement sees what has committed when it
+	// starts), which looks like an account to link.
 	for range 2 {
 		linked, created = false, false
-		if err = s.store.InTx(ctx, link); !errors.Is(err, authdomain.ErrEmailTaken) && !errors.Is(err, authdomain.ErrIdentityTaken) {
+		err = s.store.InTx(ctx, link)
+		if !errors.Is(err, authdomain.ErrEmailTaken) && !errors.Is(err, authdomain.ErrIdentityTaken) && !errors.Is(err, authdomain.ErrSocialLinkRequired) {
 			break
 		}
 	}
@@ -277,6 +298,11 @@ func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, re
 		return LoginResult{}, authdomain.ErrInvalidSocialToken
 	case errors.Is(err, authdomain.ErrSocialEmailUnverified):
 		s.loginFailed(ctx, "", "social_email_unverified", client)
+		return LoginResult{}, err
+	case errors.Is(err, authdomain.ErrSocialLinkRequired):
+		e := userEvent("auth.login.failed", u.ID, client)
+		e.Outcome, e.Metadata = audit.OutcomeFailure, map[string]any{"reason": "social_link_required", "provider": id.Provider}
+		s.audit(ctx, e)
 		return LoginResult{}, err
 	case err != nil:
 		return LoginResult{}, dbError("sign in", err)
@@ -296,6 +322,109 @@ func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, re
 		s.sent(ctx, "sign_in_method_added", s.emails.SendSignInMethodAdded(ctx, u.Email, providerName(id.Provider)))
 	}
 	return s.startSocialSession(ctx, u, id.Provider)
+}
+
+// LinkIdentity links a Google or Apple account to the signed-in user, with
+// an ID token the client got from the provider's SDK (native apps) or
+// library (Google Identity Services or Sign in with Apple JS in browsers),
+// requested with a nonce from SocialNonce. It checks the user as confirmUser
+// does before anything else. This is how an account adds a provider whose
+// email address the provider isn't authoritative for (ErrSocialLinkRequired),
+// or with another address. For Apple, authorizationCode (when sent) is
+// exchanged for a refresh token kept to revoke later, and name is the
+// first-time name. Linking an identity the user already has changes nothing
+// and reports added false. It returns ErrSocialUnavailable, ErrInvalidSocialToken (including a used
+// or expired nonce), ErrInvalidCredentials, ErrInvalidMFA, ErrIdentityInUse
+// or a *RateLimitError.
+func (s *Service) LinkIdentity(ctx context.Context, provider, idToken, nonce, authorizationCode, name, password string) (identity authdomain.Identity, added bool, err error) {
+	p, err := s.reauthPrincipal(ctx)
+	if err != nil {
+		return authdomain.Identity{}, false, err
+	}
+	pr := s.providers[provider]
+	if pr == nil {
+		return authdomain.Identity{}, false, authdomain.ErrSocialUnavailable
+	}
+	// Confirm the user first, so a wrong password neither uses up the nonce
+	// nor fetches a refresh token from Apple.
+	u, err := s.store.SelectUserByID(ctx, p.UserID, false)
+	if errors.Is(err, authdomain.ErrUserNotFound) {
+		return authdomain.Identity{}, false, authlib.ErrUnauthenticated
+	}
+	if err != nil {
+		return authdomain.Identity{}, false, dbError("link sign-in method", err)
+	}
+	state, err := s.confirmUser(ctx, s.store, p, u, password)
+	if err != nil {
+		return authdomain.Identity{}, false, dbError("link sign-in method", err)
+	}
+	if state != nil {
+		return authdomain.Identity{}, false, s.reauthFailed(ctx, p.UserID, state)
+	}
+
+	if idToken == "" || len(idToken) > 16_384 || nonce == "" || len(nonce) > 256 {
+		return authdomain.Identity{}, false, authdomain.ErrInvalidSocialToken
+	}
+	used, err := s.store.UseSocialNonce(ctx, provider, authlib.HashToken(nonce), s.now())
+	if err != nil {
+		return authdomain.Identity{}, false, dbError("link sign-in method", err)
+	}
+	if !used {
+		return authdomain.Identity{}, false, authdomain.ErrInvalidSocialToken
+	}
+	expected := nonce
+	if provider == social.Apple {
+		sum := sha256.Sum256([]byte(nonce))
+		expected = hex.EncodeToString(sum[:])
+	}
+	id, err := pr.VerifyIDToken(ctx, idToken, expected)
+	if err != nil {
+		return authdomain.Identity{}, false, s.socialFailed(ctx, provider, err)
+	}
+	if id.Name == "" {
+		id.Name = name
+	}
+	var refresh string
+	if provider == social.Apple && authorizationCode != "" {
+		if refresh, err = pr.ExchangeNativeCode(ctx, authorizationCode, id.Audience); err != nil {
+			return authdomain.Identity{}, false, s.socialFailed(ctx, provider, err)
+		}
+	}
+	identity, err = s.newIdentity(ctx, id, refresh)
+	if err != nil {
+		return authdomain.Identity{}, false, err
+	}
+
+	err = s.store.InTx(ctx, func(tx Store) error {
+		existing, found, err := tx.SelectIdentity(ctx, id.Provider, id.Subject, true)
+		switch {
+		case err != nil:
+			return err
+		case found && existing.UserID != p.UserID:
+			return authdomain.ErrIdentityInUse
+		case found:
+			identity = existing
+			return nil
+		}
+		identity.UserID, identity.CreatedAt = p.UserID, s.now()
+		added = true
+		return tx.InsertIdentity(ctx, identity)
+	})
+	switch {
+	case errors.Is(err, authdomain.ErrIdentityInUse), errors.Is(err, authdomain.ErrIdentityTaken):
+		return authdomain.Identity{}, false, authdomain.ErrIdentityInUse
+	case err != nil:
+		return authdomain.Identity{}, false, dbError("link sign-in method", err)
+	}
+	identity.RefreshKeyID, identity.RefreshTokenCiphertext, identity.RefreshClientID = "", nil, ""
+	if !added {
+		return identity, false, nil
+	}
+	s.sent(ctx, "sign_in_method_added", s.emails.SendSignInMethodAdded(ctx, u.Email, providerName(id.Provider)))
+	e := userEvent("auth.identity.linked", p.UserID, authlib.ClientInfoFromContext(ctx))
+	e.Metadata = map[string]any{"provider": id.Provider, "identity_id": identity.ID, "new_account": false, "signed_in": true}
+	s.audit(ctx, e)
+	return identity, true, nil
 }
 
 // startSocialSession starts a session for u, or a second-factor challenge

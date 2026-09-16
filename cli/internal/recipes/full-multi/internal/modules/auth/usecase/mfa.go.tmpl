@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"gorbital.dev/audit"
 	authlib "gorbital.dev/modules/auth"
 
 	authdomain "⟦.Module⟧/internal/modules/auth/domain"
@@ -26,9 +27,10 @@ type TOTPEnrollment struct {
 // signed-in user after checking the password (for an account without one, a
 // recent sign-in), replacing one that was never
 // confirmed. Turn two-factor authentication on with ConfirmTOTP. It returns
-// ErrInvalidCredentials, ErrMFAAlreadyEnabled or ErrMFAUnavailable.
+// ErrInvalidCredentials, ErrMFAAlreadyEnabled, ErrMFAUnavailable or a
+// *RateLimitError when the user's re-authentication budget is spent.
 func (s *Service) StartTOTPEnrollment(ctx context.Context, password string) (TOTPEnrollment, error) {
-	p, err := requirePrincipal(ctx)
+	p, err := s.reauthPrincipal(ctx)
 	if err != nil {
 		return TOTPEnrollment{}, err
 	}
@@ -49,9 +51,9 @@ func (s *Service) StartTOTPEnrollment(ctx context.Context, password string) (TOT
 		if err != nil {
 			return err // ErrUserNotFound is handled below
 		}
-		if !s.passwordOrRecentSignIn(p, u, password) {
+		if ok, err := s.passwordOrRecentSignIn(ctx, p, u, password); err != nil || !ok {
 			state = authdomain.ErrInvalidCredentials
-			return nil
+			return err
 		}
 		email = u.Email
 		stored, err := tx.UpsertPendingTOTP(ctx, authdomain.TOTP{UserID: u.ID, KeyID: keyID, SecretCiphertext: ciphertext, CreatedAt: s.now()})
@@ -66,7 +68,7 @@ func (s *Service) StartTOTPEnrollment(ctx context.Context, password string) (TOT
 	case err != nil:
 		return TOTPEnrollment{}, dbError("start two-factor setup", err)
 	case state != nil:
-		return TOTPEnrollment{}, state
+		return TOTPEnrollment{}, s.reauthFailed(ctx, p.UserID, state)
 	}
 	uri := authlib.TOTPURI(s.issuer, email, secret)
 	qr, err := authlib.TOTPQRCode(uri)
@@ -159,6 +161,9 @@ func (s *Service) DisableTOTP(ctx context.Context, password string, factor authd
 	if err != nil {
 		return err
 	}
+	if _, err := s.reauthPrincipal(ctx); err != nil {
+		return err
+	}
 	var (
 		to    string
 		state error
@@ -168,9 +173,9 @@ func (s *Service) DisableTOTP(ctx context.Context, password string, factor authd
 		if err != nil {
 			return err // ErrUserNotFound is handled below
 		}
-		if !s.passwordOrRecentSignIn(p, u, password) {
+		if ok, err := s.passwordOrRecentSignIn(ctx, p, u, password); err != nil || !ok {
 			state = authdomain.ErrInvalidCredentials
-			return nil
+			return err
 		}
 		roles, err := tx.SelectUserRoles(ctx, u.ID)
 		if err != nil {
@@ -210,7 +215,7 @@ func (s *Service) DisableTOTP(ctx context.Context, password string, factor authd
 	case err != nil:
 		return dbError("turn off two-factor authentication", err)
 	case state != nil:
-		return state
+		return s.reauthFailed(ctx, p.UserID, state)
 	}
 	s.sent(ctx, "mfa_disabled", s.emails.SendTwoFactorDisabled(ctx, to))
 	s.audit(ctx, userEvent("auth.mfa.totp_disabled", p.UserID, authlib.ClientInfoFromContext(ctx)))
@@ -267,23 +272,59 @@ func (s *Service) mfaPrincipal(ctx context.Context) (authlib.Principal, error) {
 	return p, nil
 }
 
-// passwordMatches reports whether password is u's.
-func (s *Service) passwordMatches(u authdomain.User, password string) bool {
-	if !u.HasPassword() {
-		return false
+// reauthPrincipal returns the signed-in principal for a change that checks
+// the password or a second factor, spending one attempt of the user's
+// re-authentication budget (auth.reauth_attempts): a stolen session must not
+// become a way to guess the password or codes without the sign-in limit
+// (security review AUTH-S-5, AUTH-M-2).
+func (s *Service) reauthPrincipal(ctx context.Context) (authlib.Principal, error) {
+	p, err := requirePrincipal(ctx)
+	if err != nil {
+		return authlib.Principal{}, err
 	}
-	ok, _ := s.hasher.Verify(password, u.PasswordHash)
-	return ok
+	if ok, retry := s.allow(ctx, s.reauthLimiter, p.UserID); !ok {
+		s.reauthAudit(ctx, p.UserID, "rate_limited")
+		return authlib.Principal{}, &authdomain.RateLimitError{RetryAfter: retry}
+	}
+	return p, nil
+}
+
+// reauthFailed records a wrong password or second factor given behind a
+// session, and returns state.
+func (s *Service) reauthFailed(ctx context.Context, userID string, state error) error {
+	switch {
+	case errors.Is(state, authdomain.ErrInvalidCredentials):
+		s.reauthAudit(ctx, userID, "invalid_credentials")
+	case errors.Is(state, authdomain.ErrInvalidMFA):
+		s.reauthAudit(ctx, userID, "invalid_mfa")
+	}
+	return state
+}
+
+func (s *Service) reauthAudit(ctx context.Context, userID, reason string) {
+	e := userEvent("auth.reauth.failed", userID, authlib.ClientInfoFromContext(ctx))
+	e.Outcome, e.Metadata = audit.OutcomeFailure, map[string]any{"reason": reason}
+	s.audit(ctx, e)
+}
+
+// passwordMatches reports whether password is u's. It returns
+// auth.ErrHasherBusy when it couldn't check.
+func (s *Service) passwordMatches(ctx context.Context, u authdomain.User, password string) (bool, error) {
+	if !u.HasPassword() {
+		return false, nil
+	}
+	ok, _, err := s.hasher.VerifyContext(ctx, password, u.PasswordHash)
+	return ok, err
 }
 
 // passwordOrRecentSignIn confirms the account's owner before a sensitive
 // change: the password, or for an account without one (Google or Apple
 // only), a session that started within auth.RecentVerification (ADR-0046).
-func (s *Service) passwordOrRecentSignIn(p authlib.Principal, u authdomain.User, password string) bool {
+func (s *Service) passwordOrRecentSignIn(ctx context.Context, p authlib.Principal, u authdomain.User, password string) (bool, error) {
 	if u.HasPassword() {
-		return s.passwordMatches(u, password)
+		return s.passwordMatches(ctx, u, password)
 	}
-	return p.RecentlySignedIn(s.now())
+	return p.RecentlySignedIn(s.now()), nil
 }
 
 // hasSecondFactor reports whether the user has two-factor authentication on:

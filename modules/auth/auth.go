@@ -22,9 +22,25 @@ const (
 	DefaultResetCodeTTL            = 30 * time.Minute
 	DefaultDeletedAccountRetention = 30 * 24 * time.Hour
 
-	// DefaultLoginAttempts per email address within DefaultLoginWindow.
+	// DefaultLoginAttempts per email address and client network within
+	// DefaultLoginWindow.
 	DefaultLoginAttempts = 10
 	DefaultLoginWindow   = 15 * time.Minute
+	// DefaultLoginAddressAttempts per email address from any network within
+	// DefaultLoginWindow: looser than DefaultLoginAttempts, so someone else
+	// can't cheaply lock the owner out, while credential stuffing from many
+	// networks stays bounded.
+	DefaultLoginAddressAttempts = 50
+
+	// DefaultCodeAttempts is how many verification or reset code checks one
+	// address allows within DefaultCodeWindow, across every code sent to it.
+	DefaultCodeAttempts = 20
+	DefaultCodeWindow   = 24 * time.Hour
+
+	// DefaultMinResponseTime is the shortest time registration, resending a
+	// verification code and requesting a password reset take, so their
+	// timing doesn't reveal whether an address has an account.
+	DefaultMinResponseTime = 300 * time.Millisecond
 
 	MinPasswordLength = 12
 	MaxPasswordLength = 128

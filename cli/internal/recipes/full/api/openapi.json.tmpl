@@ -380,7 +380,7 @@
           "recovery_code": {
             "description": "With two-factor authentication on, instead of code",
             "examples": [
-              "abcde-fghij"
+              "abcd-efgh-ijkl-mnop"
             ],
             "maxLength": 32,
             "type": "string"
@@ -413,7 +413,7 @@
           "recovery_code": {
             "description": "A recovery code, instead of code",
             "examples": [
-              "abcde-fghij"
+              "abcd-efgh-ijkl-mnop"
             ],
             "maxLength": 32,
             "type": "string"
@@ -1093,6 +1093,49 @@
         ],
         "type": "object"
       },
+      "LinkIdentityInputBody": {
+        "additionalProperties": true,
+        "properties": {
+          "authorization_code": {
+            "description": "Apple only: exchanged for a refresh token revoked when the account is deleted",
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "id_token": {
+            "description": "The ID token from Google's or Apple's SDK, or from Google Identity Services or Sign in with Apple JS in a browser",
+            "maxLength": 16384,
+            "type": "string"
+          },
+          "name": {
+            "description": "Apple only: the name Apple gives the first time",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "nonce": {
+            "description": "From POST /v1/auth/{provider}/nonce, as put in the request (for Apple, before hashing)",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "password": {
+            "description": "Required unless this session verified a second factor in the last 10 minutes; accounts without a password sign in again instead",
+            "maxLength": 512,
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "google",
+              "apple"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "id_token",
+          "nonce"
+        ],
+        "type": "object"
+      },
       "LoginInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -1146,7 +1189,7 @@
           "recovery_code": {
             "description": "A recovery code, instead of code",
             "examples": [
-              "abcde-fghij"
+              "abcd-efgh-ijkl-mnop"
             ],
             "maxLength": 32,
             "type": "string"
@@ -6310,6 +6353,111 @@
         "tags": [
           "Auth"
         ]
+      },
+      "post": {
+        "description": "Links the provider account of an ID token to the signed-in user: get a nonce from `POST /v1/auth/{provider}/nonce`, put it in the SDK's (or Google Identity Services' or Sign in with Apple JS's) request, then send the ID token here. Send the password unless this session verified a second factor in the last 10 minutes. Signing in with a provider links an existing account by itself only when the provider manages the address (Gmail, Google Workspace, iCloud, Apple relay); otherwise sign-in answers `social_link_required` and the user links here. 201 with the identity; 200 when it was already linked.",
+        "operationId": "auth-link-identity",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkIdentityInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Link a Google or Apple account",
+        "tags": [
+          "Auth"
+        ]
       }
     },
     "/v1/auth/identities/{id}": {
@@ -7968,7 +8116,7 @@
     },
     "/v1/auth/password/reset": {
       "post": {
-        "description": "Signs out every device. Two-factor authentication stays on.",
+        "description": "Signs out every device. Two-factor authentication stays on, except on an account whose address wasn't verified yet: the code verifies it, as `POST /v1/auth/verify-email` does. Codes share the limit of `auth.code_attempts` a day per address (429).",
         "operationId": "auth-reset-password",
         "requestBody": {
           "content": {
@@ -8013,6 +8161,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Set a new password with a reset code",
@@ -8023,7 +8181,7 @@
     },
     "/v1/auth/register": {
       "post": {
-        "description": "Emails a 6-digit verification code. The response is the same whether or not the address already has an account.",
+        "description": "Emails a 6-digit verification code. The response, and how long it takes, are the same whether or not the address already has an account. Registering again before verifying keeps the password only when it is the same; otherwise the account is left without one, and the owner sets it with `POST /v1/auth/password/forgot` after verifying.",
         "operationId": "auth-register",
         "requestBody": {
           "content": {
@@ -8075,6 +8233,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Create an account",
@@ -8204,6 +8372,7 @@
     },
     "/v1/auth/verify-email": {
       "post": {
+        "description": "Each code allows 5 attempts, and each address `auth.code_attempts` a day across codes (429). Verifying signs out every device and removes any passkey, authenticator app or Google or Apple link added before the address was proven.",
         "operationId": "auth-verify-email",
         "requestBody": {
           "content": {

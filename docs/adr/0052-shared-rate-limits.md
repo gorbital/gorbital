@@ -169,6 +169,8 @@ d, err := l.Take(ctx, "ada@example.com")
 
 ## Security review fixes (2026-09-16)
 
+### HTTP and configuration (group D)
+
 - **HTTP-8:** `docs/guides/production.md` still told operators to add their own `X-Forwarded-For` middleware and that limits were per instance. It now points to `APP_TRUSTED_PROXIES` and the shared limits; a hand-written middleware trusting every peer would have reopened client IP spoofing. The comment on `authLimitKey` in the Full apps' `routes.go` said the same and was corrected.
 - **HTTP-4:** `APP_CORS_ORIGINS` entries are trusted by cross-origin protection and as sign-in `return_to` origins, but http origins were accepted in production. `LoadConfig` now refuses non-https origins when `APP_ENV=production`, like `WEBAUTHN_ORIGINS`; `httpx.CORS` parses each origin and refuses user info, paths, queries and fragments (`https://a@evil.example` passed the old prefix check).
 - **Trusted proxies and correlation:** trace context and request IDs aren't trusted from `APP_TRUSTED_PROXIES`, because load balancers usually pass clients' `traceparent` and `X-Request-ID` through unchanged. They have their own list, `APP_TRUSTED_CALLERS`, matched on the client address this middleware resolves (ADR-0007, ADR-0030).
@@ -177,3 +179,26 @@ d, err := l.Take(ctx, "ada@example.com")
 |---|---|
 | Apps `TestLoadConfigSecureDefaults` | `https://` origins pass in production and `http://localhost:3000` in development; an `http://` origin in production fails naming `APP_CORS_ORIGINS`; `APP_TRUSTED_CALLERS=0.0.0.0/0` is refused |
 | `httpx` `TestCORS` | Origins with user info, path, query, fragment, another scheme or no host are refused; IPv6 and port origins pass |
+
+### Rate limits for authentication (group A)
+
+- **IPv6 (AUTH-S-7, OPS-1):** `ratelimit.ByRemoteIP` returned the full address, so a host with a /64 had 2^64 budgets. Core gains `ratelimit.ClientKey(ip)`: IPv4 as is, IPv4-mapped IPv6 as IPv4, other IPv6 as its /64 prefix (`2001:db8:1:2::/64`), zones ignored, anything else unchanged. `ByRemoteIP` uses it, so the app's `authLimitKey` groups by /64 without changes. /64 rather than /56 or /48: providers commonly give one customer a /64, and a coarser prefix would make neighbours on shared ranges share a budget; a configurable prefix can be added when a deployment needs it.
+- **New limiters** in `internal/app/rate_limits.go`, all shared through `ratelimitpg` and read from settings on every request (group `rate_limits`, reason required):
+
+| Limiter | Key | Setting | Default | Bounds | Finding |
+|---|---|---|---|---|---|
+| `auth_login` (changed) | normalized address and client network (`ClientKey`) | `auth.login_attempts`, `auth.login_window` | 10 per 15 min | unchanged | AUTH-S-6 |
+| `auth_login_address` | normalized address | `auth.login_address_attempts` | 50 per `auth.login_window` | 10–1000 | AUTH-S-6 |
+| `auth_reauth` | user ID | `auth.reauth_attempts` | 10 per `auth.login_window` | 3–100 | AUTH-S-5, AUTH-M-2 |
+| `auth_code` | code purpose and normalized address | `auth.code_attempts`, `auth.code_window` | 20 per 24 h | 5–100; 1 h–7 days | AUTH-S-2 |
+
+- `auth_login` buckets keyed by address alone are simply never used again and expire; no migration.
+- The use cases take `LoginAddressLimiter`, `ReauthLimiter` and `CodeLimiter`, with in-memory defaults (`auth.DefaultLoginAddressAttempts`, `auth.DefaultCodeAttempts`, `auth.DefaultCodeWindow`) like the others.
+- `TestPerIPLimitBehindTrustedProxy` now sends code checks for unknown addresses instead of forgot-password requests: forgot password takes at least 300 ms since AUTH-S-4, so 61 of them no longer fit in the per-minute budget's minute.
+
+| Check | Result |
+|---|---|
+| `TestClientKey`, `TestByRemoteIPGroupsIPv6By64` (core) | IPv4, mapped, zoned and malformed input; two addresses of one /64 share a bucket, another /64 doesn't |
+| `TestPerIPLimitGroupsIPv6` (both Full apps) | 60 requests from 60 addresses of one /64 are allowed, the 61st is 429 `rate_limited`, another /64 isn't limited |
+| `TestLoginLimitIsPerNetwork` | A /64 is limited after 3 wrong passwords while the owner signs in from another network; the address-wide limit then stops everyone |
+| `TestSignInLimitSharedAcrossInstances` | Unchanged: two instances share the per-network sign-in limit |

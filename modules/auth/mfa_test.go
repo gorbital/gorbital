@@ -126,10 +126,15 @@ func TestRecoveryCodes(t *testing.T) {
 	if len(codes) != authlib.RecoveryCodeCount || len(slices.Compact(slices.Sorted(slices.Values(codes)))) != authlib.RecoveryCodeCount {
 		t.Fatalf("NewRecoveryCodes() = %v, want %d distinct codes", codes, authlib.RecoveryCodeCount)
 	}
+	// 16 base32 characters: 80 bits, beyond offline guessing of a stolen
+	// hash (security review AUTH-M-4).
 	for _, c := range codes {
-		if len(c) != 11 || c[5] != '-' {
-			t.Errorf("recovery code %q, want xxxxx-xxxxx", c)
+		if len(c) != 19 || c[4] != '-' || c[9] != '-' || c[14] != '-' || len(authlib.NormalizeRecoveryCode(c)) != 16 {
+			t.Errorf("recovery code %q, want xxxx-xxxx-xxxx-xxxx", c)
 		}
+	}
+	if old := authlib.HashRecoveryCode("usr_1", "abcde-fghij"); !slices.Equal(old, authlib.HashRecoveryCode("usr_1", "ABCDEFGHIJ")) {
+		t.Error("HashRecoveryCode doesn't match codes made with 10 characters")
 	}
 	h := authlib.HashRecoveryCode("usr_1", codes[0])
 	for _, variant := range []string{strings.ToUpper(codes[0]), strings.ReplaceAll(codes[0], "-", " "), " " + strings.ReplaceAll(codes[0], "-", "") + " "} {

@@ -161,16 +161,19 @@ Native app: POST /v1/auth/{provider}/nonce → SDK sign-in with the nonce → PO
 | `POST /v1/auth/google/token` | | `{id_token, nonce, transport?}` from iOS or Android | 200 session or 202 challenge |
 | `POST /v1/auth/apple/token` | | `{id_token, nonce, authorization_code?, name?, transport?}` from iOS | 200 session or 202 challenge |
 | `GET /v1/auth/identities` | ✓ | Linked Google and Apple accounts | 200 `{identities}` |
+| `POST /v1/auth/identities` | ✓ | `{provider, id_token, nonce, authorization_code?, name?, password}`: link the provider account of an ID token (nonce from `POST /v1/auth/{provider}/nonce`); `password` unless the second factor is under 10 minutes old | 201 `{identity}`, 200 when already linked |
 | `DELETE /v1/auth/identities/{id}` | ✓ | `{password}` unless the second factor is under 10 minutes old; accounts without a password sign in again first | 204 |
 | `POST /v1/auth/apple/notifications` | | Apple's server-to-server notifications | 204 |
 
 - **New people** get an account with a verified email and no password (`user.has_password` false); they can set one with "forgot password".
-- **An existing account with the same email** is linked when the provider has verified the email, and the owner gets an email. If that account never verified its email, its password is removed and its sessions end, so whoever registered the address without owning it loses access.
+- **An existing account with the same email** is linked by signing in only when the provider manages the address: Google for `gmail.com`, `googlemail.com` and the account's own Google Workspace domain (the `hd` claim), Apple for iCloud (`icloud.com`, `me.com`, `mac.com`) and its private relay addresses. The owner gets an email. For any other address a provider's "verified" only means the person controlled it when they added it, maybe years ago, so sign-in answers `social_link_required` (403): the owner signs in and links the provider with `POST /v1/auth/identities`, sending an ID token from Google's or Apple's SDK in a native app, or from Google Identity Services or Sign in with Apple JS in a browser.
+- If that account never verified its email, linking by sign-in removes its password, ends its sessions, and removes any passkey, authenticator app or other identity, so whoever registered the address without owning it loses access.
 - **Two-factor authentication** still applies: an account with it on gets a challenge, as with a password.
 - **Accounts without a password** confirm sensitive changes (authenticator app setup, deleting the account, passkeys, unlinking) with a sign-in less than 10 minutes old.
 - The last way to sign in can't be unlinked. Deleting the account (or unlinking Apple) queues Apple's tokens for the `auth_revoke_tokens` job, which revokes them within a minute and retries if Apple is unavailable; Apple's "consent revoked" notification unlinks Apple too.
+- Apple's notifications are accepted for an hour after Apple signs them, each once; one about an event from before Apple was linked leaves the new link alone. A leaked notification can't be replayed later.
 
-Errors: `invalid_social_token` (401), `invalid_state` (401), `social_email_unverified` (403), `identity_not_found` (404), `last_sign_in_method` (409), `invalid_return_to` (422), `social_unavailable` (503). The web flow puts the same codes in `#error=`, plus `access_denied` when the person cancels.
+Errors: `invalid_social_token` (401), `invalid_state` (401), `social_email_unverified` (403), `social_link_required` (403), `identity_not_found` (404), `last_sign_in_method` (409), `identity_in_use` (409, linking a provider account another account has), `invalid_return_to` (422), `social_unavailable` (503). The web flow puts the same codes in `#error=`, plus `access_denied` when the person cancels.
 
 ## Browsers and native apps
 
@@ -210,12 +213,26 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 
 ## What users see
 
-- **Registration** always answers "check your email", even if the address already has an account; the owner of an existing account gets an email saying someone tried to sign up.
+- **Registration** always answers "check your email", even if the address already has an account, and takes the same time (at least 300 ms) either way; the owner of an existing account gets an email saying someone tried to sign up. Resending a code and forgot password take the same time too.
+- **Registering again before verifying** sends a new code (at most once a minute) and keeps the password only when it's the same one. With a different password the account is left without one: nobody has proven they own the address yet, so neither the first nor the last registrant gets to choose the password of the account the owner verifies. After verifying, the owner sets a password with forgot password. Show that option when sign-in answers `invalid_credentials` right after verification.
+- **Verifying an address**, with its code or with a password reset code, signs out every session and removes any passkey, authenticator app, recovery codes and Google or Apple link the account got before its address was proven.
 - **Wrong email or password** is one answer: `invalid_credentials`. `email_not_verified` appears only after the right password.
 - **Forgot password** always answers "check your email".
-- **Codes** are 6 digits, expire (15 minutes to verify, 30 to reset, adjustable), allow 5 tries, and a new one replaces the old one.
+- **Codes** are 6 digits, expire (15 minutes to verify, 30 to reset, adjustable), allow 5 tries, and a new one replaces the old one. An address gets 20 code checks a day across all its codes (`auth.code_attempts`, `auth.code_window`), whether or not it has an account; past that even the right code gets `too_many_attempts` until the window passes, so a new code every minute doesn't bring new guesses.
+- **Email addresses** with an uppercase non-ASCII letter, or a character that lowercases to another one such as the Kelvin sign (K), are refused as `invalid_email`: they would share the account of a look-alike address. Lowercase non-ASCII addresses such as `jürgen@bücher.example` work.
 - **Passwords** need 12 to 128 characters; `weak_password` says what's wrong.
-- **Too many attempts**: 10 logins per address per 15 minutes (second factors included), 60 auth requests per minute per IP address, 10 changes to two-factor authentication per user per 15 minutes; `too_many_attempts` says how long to wait. The limits are shared by every instance (PostgreSQL, [ADR-0052](../adr/0052-shared-rate-limits.md)) and are runtime settings: `auth.login_attempts`, `auth.login_window`, `auth.ip_requests_per_minute`, `auth.mfa_change_attempts`. If the database doesn't answer, each instance applies them on its own until it does. Behind a load balancer, set `APP_TRUSTED_PROXIES` so the per-IP limit applies to each client rather than to the balancer.
+- **Too many attempts**, answered with `too_many_attempts` saying how long to wait:
+
+  | Limit | Default | Setting |
+  |---|---|---|
+  | Sign-ins per address from one network (an IPv4 address or IPv6 /64), second factors included | 10 per 15 minutes | `auth.login_attempts`, `auth.login_window` |
+  | Sign-ins per address from all networks | 50 per 15 minutes | `auth.login_address_attempts` |
+  | Auth requests per client network | 60 per minute | `auth.ip_requests_per_minute` |
+  | Code checks per address | 20 per day | `auth.code_attempts`, `auth.code_window` |
+  | Changes to two-factor authentication per user | 10 per 15 minutes | `auth.mfa_change_attempts` |
+  | Changes that check the password or a second factor of a signed-in user (password change, authenticator app setup and turning it off, adding or removing a passkey, linking or unlinking Google or Apple, account deletion) | 10 per 15 minutes | `auth.reauth_attempts` |
+
+  Wrong passwords from someone else's network don't lock the owner out; reaching the address-wide limit does, for the rest of the window. A stolen session can't guess the password through the changes that check it. The limits are shared by every instance (PostgreSQL, [ADR-0052](../adr/0052-shared-rate-limits.md)); if the database doesn't answer, each instance applies them on its own until it does. Behind a load balancer, set `APP_TRUSTED_PROXIES` so the per-network limits apply to each client rather than to the balancer.
 - **Two-factor authentication** emails the user when it's turned on or off and when a recovery code is used.
 
 ## Sessions
@@ -236,6 +253,8 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 | `auth.verification_code_ttl` | 15 minutes | 5 minutes – 1 hour | Yes |
 | `auth.reset_code_ttl` | 30 minutes | 10 minutes – 2 hours | Yes |
 | `auth.deleted_account_retention` | 30 days | 1 – 365 days | Yes |
+
+Rate limit settings (group `rate_limits`, all with a reason required) are in the table under [What users see](#what-users-see): `auth.ip_requests_per_minute` (10 – 10 000), `auth.login_attempts` (3 – 100), `auth.login_address_attempts` (10 – 1000), `auth.login_window` (1 minute – 24 hours), `auth.mfa_change_attempts` (3 – 100), `auth.reauth_attempts` (3 – 100), `auth.code_attempts` (5 – 100) and `auth.code_window` (1 hour – 7 days).
 
 Change them with `PUT /ops/settings/{key}`. The auth module also enforces hard limits of its own, so no setting can make sessions or codes unsafe. Two-factor authentication has no runtime settings.
 
@@ -283,11 +302,13 @@ func (s *Service) CreateProject(ctx context.Context, name string) (Project, erro
 | `mfa_unavailable` | 503 | `AUTH_ENCRYPTION_KEYS` isn't set on this server |
 | `too_many_attempts` | 429 | Rate limited; `detail` says how long to wait |
 | `session_not_found` | 404 | Revoking a session that isn't yours or has ended |
-| `auth_unavailable` | 503 | The session store couldn't be reached |
+| `social_link_required` | 403 | Signing in with Google or Apple for the address of an existing account that provider doesn't manage; sign in and link it with `POST /v1/auth/identities` |
+| `identity_in_use` | 409 | Linking a Google or Apple account that another account has |
+| `auth_unavailable` | 503 | The session store couldn't be reached, or too many passwords are being checked at once (each waits up to 5 seconds for its turn) |
 
 ## Audit events
 
-Every sign-in (successful or not), second factor (`auth.mfa.challenge_succeeded`, `auth.mfa.challenge_failed`, `auth.mfa.recovery_code_used`), verification, password change or reset, two-factor change (`auth.mfa.totp_enabled`, `auth.mfa.totp_disabled`, `auth.mfa.recovery_codes_regenerated`, `auth.mfa.reset`, `auth.keys.rotated`), sign-out, account deletion and role change is recorded with the client's IP address and user agent. See them with `GET /ops/audit?action_prefix=auth.`. Email addresses, secrets, codes and recovery codes are never stored in event metadata.
+Every sign-in (successful or not), second factor (`auth.mfa.challenge_succeeded`, `auth.mfa.challenge_failed`, `auth.mfa.recovery_code_used`), verification, password change or reset, two-factor change (`auth.mfa.totp_enabled`, `auth.mfa.totp_disabled`, `auth.mfa.recovery_codes_regenerated`, `auth.mfa.reset`, `auth.keys.rotated`), sign-out, account deletion and role change is recorded, as is every wrong password or second factor given behind a session (`auth.reauth.failed`, `reason` `invalid_credentials`, `invalid_mfa` or `rate_limited`), with the client's IP address and user agent. See them with `GET /ops/audit?action_prefix=auth.`. Email addresses, secrets, codes and recovery codes are never stored in event metadata.
 
 ## Troubleshooting
 
@@ -301,4 +322,6 @@ Every sign-in (successful or not), second factor (`auth.mfa.challenge_succeeded`
 | `mfa_unavailable` | Set `AUTH_ENCRYPTION_KEYS` (`orb dev` does it in development) |
 | Lost authenticator app and recovery codes | `go run ./cmd/api reset-mfa <email>` |
 | Browser isn't kept signed in | Serve over HTTPS (or localhost), and call the API from the same site or an origin in `APP_CORS_ORIGINS` |
-| `too_many_attempts` in tests | Limits are per address and per IP; use different addresses per test |
+| `too_many_attempts` in tests | Limits are per address, per network, per user and per address's codes; use different addresses per test |
+| `invalid_credentials` right after verifying | The address was registered more than once with different passwords before it was verified, so the account has none: use forgot password |
+| `social_link_required` | Sign in with the password, then link the provider with `POST /v1/auth/identities` |

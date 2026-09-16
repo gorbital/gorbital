@@ -250,6 +250,12 @@ It prints an address such as `https://random-words.trycloudflare.com`. Then:
 
 A quick tunnel's address changes each time you start it, so remove old ones from the Services ID when you're done. `ngrok http 8080` works the same way.
 
+### People who already have an account
+
+Signing in with Apple links to an existing account with the same email address only when Apple manages that address: an iCloud address (`icloud.com`, `me.com`, `mac.com`) or a private relay address. For any other address, Apple only checked it once, when it was added to the Apple Account, and the person may have lost the mailbox since. Sign-in then answers `social_link_required` (in the web flow, `#error=social_link_required`). The person signs in with their password and links Apple from their account: your app gets an identity token with a nonce from `POST /v1/auth/apple/nonce` (Sign in with Apple JS on a website, `ASAuthorizationAppleIDProvider` in iOS) and sends it, with the password, to `POST /v1/auth/identities`.
+
+Your API accepts each server-to-server notification once, and only within an hour of Apple signing it, so a copy of an old notification can't unlink Apple again later.
+
 ## Check it works
 
 - `go run ./cmd/api auth-providers` shows `✓ Apple sign-in` (websites) and `✓ Apple sign-in in iOS apps`.
@@ -269,3 +275,4 @@ A quick tunnel's address changes each time you start it, so remove old ones from
 | Apple's sign-in fails with `invalid_client` | The Services ID, Team ID or Key ID doesn't match, or the key was revoked or belongs to another App ID | Check all three values, and that the key is enabled for Sign in with Apple with the Services ID's primary App ID |
 | People with hidden emails never get codes | Apple doesn't relay from your sender | Do [step 6](#step-6-let-apple-forward-emails) |
 | iOS: sign-in fails at your API | The app's bundle ID isn't in `APPLE_BUNDLE_IDS`, or the nonce wasn't hashed | Add the bundle ID; send the original value, and give Apple its SHA-256 |
+| Sign-in answers `social_link_required` | The address has an account and isn't an iCloud or relay address | Sign in with the password and link Apple with `POST /v1/auth/identities` ([above](#people-who-already-have-an-account)) |

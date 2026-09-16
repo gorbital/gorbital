@@ -36,8 +36,12 @@ type appSettings struct {
 	authDeletedAccountRetention *settings.Setting[time.Duration]
 	authIPRequestsPerMinute     *settings.Setting[int]
 	authLoginAttempts           *settings.Setting[int]
+	authLoginAddressAttempts    *settings.Setting[int]
 	authLoginWindow             *settings.Setting[time.Duration]
 	authMFAChangeAttempts       *settings.Setting[int]
+	authReauthAttempts          *settings.Setting[int]
+	authCodeAttempts            *settings.Setting[int]
+	authCodeWindow              *settings.Setting[time.Duration]
 
 	auditRetention            *settings.Setting[time.Duration]
 	historyRetention          *settings.Setting[time.Duration]
@@ -140,13 +144,19 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.ReasonRequired(),
 		),
 		authLoginAttempts: settings.Int(reg, "auth.login_attempts", authlib.DefaultLoginAttempts,
-			settings.Describe("Sign-in attempts allowed per email address within auth.login_window, second factors included."),
+			settings.Describe("Sign-in attempts allowed per email address from one client network (an IPv4 address or IPv6 /64) within auth.login_window, second factors included."),
 			settings.Group("rate_limits"),
 			settings.Range(3, 100),
 			settings.ReasonRequired(),
 		),
+		authLoginAddressAttempts: settings.Int(reg, "auth.login_address_attempts", authlib.DefaultLoginAddressAttempts,
+			settings.Describe("Sign-in attempts allowed per email address from all networks together within auth.login_window. Keep it well above auth.login_attempts: reaching it blocks the owner's sign-ins too."),
+			settings.Group("rate_limits"),
+			settings.Range(10, 1000),
+			settings.ReasonRequired(),
+		),
 		authLoginWindow: settings.Duration(reg, "auth.login_window", authlib.DefaultLoginWindow,
-			settings.Describe("The window of auth.login_attempts and auth.mfa_change_attempts."),
+			settings.Describe("The window of auth.login_attempts, auth.login_address_attempts, auth.mfa_change_attempts and auth.reauth_attempts."),
 			settings.Group("rate_limits"),
 			settings.Range(time.Minute, 24*time.Hour),
 			settings.ReasonRequired(),
@@ -155,6 +165,24 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.Describe("Changes to two-factor authentication (confirming, turning off, replacing recovery codes) allowed per user within auth.login_window."),
 			settings.Group("rate_limits"),
 			settings.Range(3, 100),
+			settings.ReasonRequired(),
+		),
+		authReauthAttempts: settings.Int(reg, "auth.reauth_attempts", authlib.DefaultLoginAttempts,
+			settings.Describe("Changes that check the password or a second factor of a signed-in user (changing the password, setting up or turning off two-factor authentication, adding or removing passkeys, linking or unlinking Google or Apple, deleting the account) allowed per user within auth.login_window."),
+			settings.Group("rate_limits"),
+			settings.Range(3, 100),
+			settings.ReasonRequired(),
+		),
+		authCodeAttempts: settings.Int(reg, "auth.code_attempts", authlib.DefaultCodeAttempts,
+			settings.Describe("Email verification and password reset code checks allowed per email address within auth.code_window, across every code sent. Reaching it blocks the owner's codes too until the window passes."),
+			settings.Group("rate_limits"),
+			settings.Range(5, 100),
+			settings.ReasonRequired(),
+		),
+		authCodeWindow: settings.Duration(reg, "auth.code_window", authlib.DefaultCodeWindow,
+			settings.Describe("The window of auth.code_attempts."),
+			settings.Group("rate_limits"),
+			settings.Range(time.Hour, 7*24*time.Hour),
 			settings.ReasonRequired(),
 		),
 

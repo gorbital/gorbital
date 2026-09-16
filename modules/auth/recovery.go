@@ -10,15 +10,15 @@ import (
 const RecoveryCodeCount = 10
 
 // NewRecoveryCodes returns [RecoveryCodeCount] single-use recovery codes,
-// each 10 base32 characters (50 random bits) shown as "xxxxx-xxxxx". Show
-// them once and store only [HashRecoveryCode].
+// each 16 base32 characters (80 random bits) shown as "xxxx-xxxx-xxxx-xxxx".
+// Show them once and store only [HashRecoveryCode].
 func NewRecoveryCodes() []string {
 	codes := make([]string, RecoveryCodeCount)
 	for i := range codes {
-		b := make([]byte, 7)
-		_, _ = rand.Read(b) // never fails (crypto/rand)
-		s := idEncoding.EncodeToString(b)[:10]
-		codes[i] = s[:5] + "-" + s[5:]
+		b := make([]byte, 10)
+		_, _ = rand.Read(b)               // never fails (crypto/rand)
+		s := idEncoding.EncodeToString(b) // exactly 16 characters
+		codes[i] = s[:4] + "-" + s[4:8] + "-" + s[8:12] + "-" + s[12:]
 	}
 	return codes
 }
@@ -30,8 +30,10 @@ func NormalizeRecoveryCode(code string) string {
 }
 
 // HashRecoveryCode returns the hash to store for a user's recovery code.
-// Codes carry 50 random bits and are single-use, so a fast hash suffices;
-// binding it to the user makes equal codes of two users hash differently.
+// Codes carry 80 random bits, so a stolen hash can't be reversed by trying
+// codes; binding it to the user makes equal codes of two users hash
+// differently. Codes made before 2026-09-16 carry 50 bits and still match
+// (security review AUTH-M-4).
 func HashRecoveryCode(userID, code string) []byte {
 	sum := sha256.Sum256([]byte(userID + ":" + NormalizeRecoveryCode(code)))
 	return sum[:]

@@ -360,6 +360,8 @@ Not a sign-in method, but every method relies on it in production: verification 
 - Authenticator apps: show `qr_code` from `POST /v1/auth/mfa/totp` as an image, then confirm a code.
 - Google and Apple: link or redirect the browser (not `fetch`) to `/v1/auth/google/start?return_to=https://app.example.com/after-login` (or `/apple/start`). The API sends the browser back to `return_to` signed in (session cookie set), with `#mfa_challenge_token=…&methods=…` to finish with `POST /v1/auth/login/mfa`, or with `#error=<code>`. Read the fragment, then clear it from the address bar.
 - Accounts created with Google or Apple have no password (`user.has_password` is false): hide "change password", and let them set one with "forgot password". Linked accounts: `GET /v1/auth/identities`, `DELETE /v1/auth/identities/{id}`.
+- `#error=social_link_required`: the address has an account, and Google or Apple doesn't manage the address (only Gmail, the person's Google Workspace domain, iCloud and Apple relay addresses link by themselves). Ask the person to sign in with their password, then link: get an ID token with Google Identity Services or Sign in with Apple JS using a nonce from `POST /v1/auth/{provider}/nonce`, and send it with the password to `POST /v1/auth/identities`.
+- `invalid_credentials` right after verifying an address: it was registered more than once with different passwords before verification, so it has none; offer "forgot password".
 - Add the frontend's origin to `WEBAUTHN_ORIGINS` and `APP_CORS_ORIGINS` (the second also allows it as a `return_to`).
 
 ## When you build the iOS app
@@ -368,7 +370,7 @@ Not a sign-in method, but every method relies on it in production: verification 
 - Use `ASAuthorizationPlatformPublicKeyCredentialProvider(relyingPartyIdentifier: "<WEBAUTHN_RP_ID>")` with the API's options, and send the results to the same endpoints as the web frontend with `"transport": "bearer"`.
 - Sign in with Apple: add the **Sign in with Apple** capability. Get a nonce from `POST /v1/auth/apple/nonce`, set `request.nonce` to its SHA-256 in hex, and send `identityToken`, `authorizationCode`, the raw nonce and `fullName` (first time only) to `POST /v1/auth/apple/token` with `"transport": "bearer"`.
 - Google: add the Google Sign-In URL scheme, get a nonce from `POST /v1/auth/google/nonce`, pass it to `GIDSignIn.signIn(withPresenting:hint:additionalScopes:nonce:)`, and send `idToken` and the nonce to `POST /v1/auth/google/token`.
-- Both return a session, or 202 with a second-factor challenge like `POST /v1/auth/login`.
+- Both return a session, or 202 with a second-factor challenge like `POST /v1/auth/login`, or 403 `social_link_required` for an existing account's address the provider doesn't manage: the person signs in with their password, and the app sends a new ID token and nonce with the password to `POST /v1/auth/identities`.
 - Store the session token in the Keychain.
 
 ## When you build the Android app

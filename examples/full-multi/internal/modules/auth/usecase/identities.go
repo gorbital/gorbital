@@ -41,10 +41,10 @@ func (s *Service) ListIdentities(ctx context.Context) ([]authdomain.Identity, er
 // accounts. It checks the user as confirmUser does, refuses to remove the
 // account's last way to sign in (no password, passkey or other identity
 // left), and queues Apple's token for revocation. It returns
-// ErrInvalidCredentials, ErrInvalidMFA, ErrIdentityNotFound or
-// ErrLastSignInMethod.
+// ErrInvalidCredentials, ErrInvalidMFA, ErrIdentityNotFound,
+// ErrLastSignInMethod or a *RateLimitError.
 func (s *Service) RemoveIdentity(ctx context.Context, id, password string) error {
-	p, err := requirePrincipal(ctx)
+	p, err := s.reauthPrincipal(ctx)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (s *Service) RemoveIdentity(ctx context.Context, id, password string) error
 	case err != nil:
 		return dbError("remove sign-in method", err)
 	case state != nil:
-		return state
+		return s.reauthFailed(ctx, p.UserID, state)
 	}
 	s.sent(ctx, "sign_in_method_removed", s.emails.SendSignInMethodRemoved(ctx, to, providerName(removed.Provider)))
 	e := userEvent("auth.identity.unlinked", p.UserID, authlib.ClientInfoFromContext(ctx))
@@ -102,8 +102,11 @@ func (s *Service) RemoveIdentity(ctx context.Context, id, password string) error
 // posts: consent-revoked and account-delete unlink the Apple identity and,
 // when the account has no other way to sign in, end its sessions; email
 // changes are recorded. Unknown people are ignored. Apple has already
-// revoked the tokens, so none are queued. It returns ErrSocialUnavailable or
-// ErrInvalidSocialToken.
+// revoked the tokens, so none are queued. A notification older than
+// social.MaxNotificationAge is refused, one seen before is ignored, and an
+// unlink event from before the identity was linked leaves it linked, so a
+// leaked payload can't be replayed (security review AUTH-M-3). It returns
+// ErrSocialUnavailable or ErrInvalidSocialToken.
 func (s *Service) HandleAppleNotification(ctx context.Context, payload string) error {
 	p := s.providers[social.Apple]
 	if p == nil {
@@ -116,16 +119,31 @@ func (s *Service) HandleAppleNotification(ctx context.Context, payload string) e
 	}
 	unlink := n.Type == social.NotificationConsentRevoked || n.Type == social.NotificationAccountDelete
 	var (
-		userID string
-		ended  bool
+		userID                  string
+		ended, replayed, before bool
 	)
+	now := s.now()
 	err = s.store.InTx(ctx, func(tx Store) error {
+		first, err := tx.RecordAppleNotification(ctx, authdomain.SocialNonce{
+			ID: authlib.NewID("snc"), TokenHash: authlib.HashToken("apple-notification:" + n.ID), Provider: social.Apple,
+			ExpiresAt: n.IssuedAt.Add(social.MaxNotificationAge + time.Minute), CreatedAt: now,
+		})
+		if err != nil || !first {
+			replayed = !first
+			return err
+		}
 		identity, found, err := tx.SelectIdentity(ctx, social.Apple, n.Subject, unlink)
 		if err != nil || !found {
 			return err
 		}
 		userID = identity.UserID
 		if !unlink {
+			return nil
+		}
+		// Clocks disagree slightly; an event a minute older than the link is
+		// about an earlier one.
+		if !n.At.IsZero() && n.At.Before(identity.CreatedAt.Add(-time.Minute)) {
+			before = true
 			return nil
 		}
 		if _, _, err := tx.DeleteIdentity(ctx, identity.ID, identity.UserID); err != nil {
@@ -147,7 +165,7 @@ func (s *Service) HandleAppleNotification(ctx context.Context, payload string) e
 			return err
 		}
 		ended = true
-		_, err = tx.RevokeUserSessions(ctx, u.ID, "", s.now(), "apple_"+n.Type)
+		_, err = tx.RevokeUserSessions(ctx, u.ID, "", now, "apple_"+n.Type)
 		return err
 	})
 	if err != nil {
@@ -156,6 +174,12 @@ func (s *Service) HandleAppleNotification(ctx context.Context, payload string) e
 	e := userEvent("auth.identity.apple_notification", userID, authlib.ClientInfo{})
 	e.ActorKind, e.ActorID = "system", "apple"
 	e.Metadata = map[string]any{"type": n.Type, "known": userID != "", "sessions_ended": ended}
+	if replayed {
+		e.Metadata["replayed"] = true
+	}
+	if before {
+		e.Metadata["before_link"] = true
+	}
 	s.audit(ctx, e)
 	return nil
 }

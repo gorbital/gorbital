@@ -97,3 +97,45 @@ func TestMiddleware(t *testing.T) {
 		t.Errorf("request from other IP = %d, want 204", got)
 	}
 }
+
+// One IPv6 host holds a whole /64, so every address in it shares a budget
+// (security review AUTH-S-7, OPS-1).
+func TestByRemoteIPGroupsIPv6By64(t *testing.T) {
+	l := ratelimit.New(0.001, 1)
+	h := ratelimit.Middleware(l, ratelimit.ByRemoteIP, nil)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	do := func(addr string) int {
+		req := httptest.NewRequest("POST", "/v1/auth/login", nil)
+		req.RemoteAddr = addr
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if got := do("[2001:db8:1:2::1]:443"); got != http.StatusNoContent {
+		t.Fatalf("first request = %d, want 204", got)
+	}
+	if got := do("[2001:db8:1:2:ffff:ffff:ffff:fffe]:443"); got != http.StatusTooManyRequests {
+		t.Errorf("request from another address of the same /64 = %d, want 429", got)
+	}
+	if got := do("[2001:db8:1:3::1]:443"); got != http.StatusNoContent {
+		t.Errorf("request from another /64 = %d, want 204", got)
+	}
+}
+
+func TestClientKey(t *testing.T) {
+	for in, want := range map[string]string{
+		"203.0.113.9":                    "203.0.113.9",
+		"::ffff:203.0.113.9":             "203.0.113.9",
+		"2001:db8:1:2:3:4:5:6":           "2001:db8:1:2::/64",
+		"2001:DB8:1:2::9":                "2001:db8:1:2::/64",
+		"fe80::1%eth0":                   "fe80::/64",
+		"not-an-ip":                      "not-an-ip",
+		"":                               "",
+		"2001:db8:1:2:ffff:ffff:ffff:ff": "2001:db8:1:2::/64",
+	} {
+		if got := ratelimit.ClientKey(in); got != want {
+			t.Errorf("ClientKey(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

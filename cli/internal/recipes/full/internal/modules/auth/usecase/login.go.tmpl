@@ -38,7 +38,9 @@ type MFAChallengeResult struct {
 // Login checks the password and starts a new session. Unknown addresses and
 // wrong passwords both return ErrInvalidCredentials after the same work. A
 // correct password for an unverified address returns ErrEmailNotVerified.
-// Too many attempts for one address return a *RateLimitError. For an account
+// Too many attempts for one address, from the client's network or from any,
+// return a *RateLimitError, and a hasher too busy to check the password
+// auth.ErrHasherBusy. For an account
 // with two-factor authentication, it returns a challenge instead of a session
 // (ADR-0043, ADR-0044), or ErrMFAUnavailable when this server can't check any
 // of the account's factors.
@@ -46,10 +48,12 @@ func (s *Service) Login(ctx context.Context, email, password string) (LoginResul
 	client := authlib.ClientInfoFromContext(ctx)
 	_, normalized, err := authlib.NormalizeEmail(email)
 	if err != nil {
-		s.hasher.VerifyDummy(password)
+		if err := s.hasher.VerifyDummyContext(ctx, password); err != nil {
+			return LoginResult{}, err
+		}
 		return LoginResult{}, authdomain.ErrInvalidCredentials
 	}
-	if ok, retry := s.allow(ctx, s.loginLimiter, normalized); !ok {
+	if ok, retry := s.allowLogin(ctx, normalized, client); !ok {
 		s.loginFailed(ctx, "", "rate_limited", client)
 		return LoginResult{}, &authdomain.RateLimitError{RetryAfter: retry}
 	}
@@ -57,17 +61,24 @@ func (s *Service) Login(ctx context.Context, email, password string) (LoginResul
 	u, err := s.store.SelectUserByEmail(ctx, normalized, false)
 	switch {
 	case errors.Is(err, authdomain.ErrUserNotFound):
-		s.hasher.VerifyDummy(password)
+		if err := s.hasher.VerifyDummyContext(ctx, password); err != nil {
+			return LoginResult{}, err
+		}
 		s.loginFailed(ctx, "", "invalid_credentials", client)
 		return LoginResult{}, authdomain.ErrInvalidCredentials
 	case err != nil:
 		return LoginResult{}, dbError("login", err)
 	case !u.HasPassword():
-		s.hasher.VerifyDummy(password)
+		if err := s.hasher.VerifyDummyContext(ctx, password); err != nil {
+			return LoginResult{}, err
+		}
 		s.loginFailed(ctx, u.ID, "invalid_credentials", client)
 		return LoginResult{}, authdomain.ErrInvalidCredentials
 	}
-	ok, rehash := s.hasher.Verify(password, u.PasswordHash)
+	ok, rehash, err := s.hasher.VerifyContext(ctx, password, u.PasswordHash)
+	if err != nil {
+		return LoginResult{}, err
+	}
 	if !ok {
 		s.loginFailed(ctx, u.ID, "invalid_credentials", client)
 		return LoginResult{}, authdomain.ErrInvalidCredentials
@@ -161,7 +172,7 @@ func (s *Service) rehash(ctx context.Context, tx Store, userID, password string,
 	if !needed {
 		return nil
 	}
-	if newHash, err := s.hasher.Hash(password); err == nil {
+	if newHash, err := s.hasher.HashContext(ctx, password); err == nil {
 		return tx.RehashPassword(ctx, userID, newHash)
 	}
 	return nil

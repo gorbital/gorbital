@@ -1547,6 +1547,48 @@
           }
         },
         {
+          "name": "Link a Google or Apple account",
+          "request": {
+            "method": "POST",
+            "description": "Links the provider account of an ID token to the signed-in user: get a nonce from `POST /v1/auth/{provider}/nonce`, put it in the SDK's (or Google Identity Services' or Sign in with Apple JS's) request, then send the ID token here. Send the password unless this session verified a second factor in the last 10 minutes. Signing in with a provider links an existing account by itself only when the provider manages the address (Gmail, Google Workspace, iCloud, Apple relay); otherwise sign-in answers `social_link_required` and the user links here. 201 with the identity; 200 when it was already linked.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/identities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "auth",
+                "identities"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_token\": \"string\",\n  \"nonce\": \"string\",\n  \"provider\": \"google\",\n  \"authorization_code\": \"string\",\n  \"name\": \"string\",\n  \"password\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "Unlink a Google or Apple account",
           "request": {
             "method": "DELETE",
@@ -1659,7 +1701,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"challenge_token\": \"string\",\n  \"code\": \"123456\",\n  \"passkey\": {\n    \"ceremony_token\": \"string\",\n    \"credential\": {}\n  },\n  \"recovery_code\": \"abcde-fghij\",\n  \"transport\": \"cookie\"\n}",
+              "raw": "{\n  \"challenge_token\": \"string\",\n  \"code\": \"123456\",\n  \"passkey\": {\n    \"ceremony_token\": \"string\",\n    \"credential\": {}\n  },\n  \"recovery_code\": \"abcd-efgh-ijkl-mnop\",\n  \"transport\": \"cookie\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1820,7 +1862,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"password\": \"string\",\n  \"code\": \"123456\",\n  \"passkey\": {\n    \"ceremony_token\": \"string\",\n    \"credential\": {}\n  },\n  \"recovery_code\": \"abcde-fghij\"\n}",
+              "raw": "{\n  \"password\": \"string\",\n  \"code\": \"123456\",\n  \"passkey\": {\n    \"ceremony_token\": \"string\",\n    \"credential\": {}\n  },\n  \"recovery_code\": \"abcd-efgh-ijkl-mnop\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1949,7 +1991,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"password\": \"string\",\n  \"code\": \"123456\",\n  \"passkey\": {\n    \"ceremony_token\": \"string\",\n    \"credential\": {}\n  },\n  \"recovery_code\": \"abcde-fghij\"\n}",
+              "raw": "{\n  \"password\": \"string\",\n  \"code\": \"123456\",\n  \"passkey\": {\n    \"ceremony_token\": \"string\",\n    \"credential\": {}\n  },\n  \"recovery_code\": \"abcd-efgh-ijkl-mnop\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2384,7 +2426,7 @@
           "name": "Set a new password with a reset code",
           "request": {
             "method": "POST",
-            "description": "Signs out every device. Two-factor authentication stays on.",
+            "description": "Signs out every device. Two-factor authentication stays on, except on an account whose address wasn't verified yet: the code verifies it, as `POST /v1/auth/verify-email` does. Codes share the limit of `auth.code_attempts` a day per address (429).",
             "auth": {
               "type": "noauth"
             },
@@ -2421,7 +2463,7 @@
           "name": "Create an account",
           "request": {
             "method": "POST",
-            "description": "Emails a 6-digit verification code. The response is the same whether or not the address already has an account.",
+            "description": "Emails a 6-digit verification code. The response, and how long it takes, are the same whether or not the address already has an account. Registering again before verifying keeps the password only when it is the same; otherwise the account is left without one, and the owner sets it with `POST /v1/auth/password/forgot` after verifying.",
             "auth": {
               "type": "noauth"
             },
@@ -2518,6 +2560,7 @@
           "name": "Verify an email address with its code",
           "request": {
             "method": "POST",
+            "description": "Each code allows 5 attempts, and each address `auth.code_attempts` a day across codes (429). Verifying signs out every device and removes any passkey, authenticator app or Google or Apple link added before the address was proven.",
             "auth": {
               "type": "noauth"
             },

@@ -86,6 +86,25 @@ func (f *socialFixture) nativeSignIn(t *testing.T, provider string, c socialtest
 	return f.svc.SignInWithIDToken(requestCtx(), provider, f.srv.IDToken(c), nonce, code, name)
 }
 
+// linkIdentity links the identity of an ID token for claims to the
+// signed-in user of ctx, as a signed-in app would.
+func (f *socialFixture) linkIdentity(t *testing.T, ctx context.Context, provider string, c socialtest.Claims, password string) (authdomain.Identity, bool, error) {
+	t.Helper()
+	nonce, _, err := f.svc.SocialNonce(requestCtx(), provider)
+	if err != nil {
+		t.Fatalf("SocialNonce(%s) error = %v", provider, err)
+	}
+	c.Nonce = nonce
+	if c.Audience == "" {
+		c.Audience = map[string]string{social.Google: "web-client", social.Apple: "com.example.web"}[provider]
+	}
+	if provider == social.Apple {
+		sum := sha256.Sum256([]byte(nonce))
+		c.Nonce = hex.EncodeToString(sum[:])
+	}
+	return f.svc.LinkIdentity(ctx, provider, f.srv.IDToken(c), nonce, "", "", password)
+}
+
 func query(t *testing.T, raw string) url.Values {
 	t.Helper()
 	u, err := url.Parse(raw)
@@ -120,11 +139,20 @@ func TestSocialWebSignIn(t *testing.T) {
 		t.Fatalf("FinishSocialSignIn(returning person) = %+v, %v", again, err)
 	}
 
-	// Apple with the same verified email links to it, with an email.
+	// Apple with the same verified email doesn't link by itself: Apple isn't
+	// authoritative for example.com. Signed in, the user links it.
 	withApple := socialtest.Claims{Subject: "001.ada", Email: "ada@example.com", Extra: map[string]any{"email_verified": "true"}}
-	linked, err := f.webSignIn(t, social.Apple, withApple, "refresh-web")
-	if err != nil || linked.User.ID != res.User.ID || f.emails.count("sign_in_method_added") != 1 {
-		t.Fatalf("FinishSocialSignIn(Apple, same email) = %+v, %v; %d emails", linked, err, f.emails.count("sign_in_method_added"))
+	if _, err := f.webSignIn(t, social.Apple, withApple, "refresh-web"); !errors.Is(err, authdomain.ErrSocialLinkRequired) || f.emails.count("sign_in_method_added") != 0 {
+		t.Fatalf("FinishSocialSignIn(Apple, same email) error = %v, %d emails; want ErrSocialLinkRequired", err, f.emails.count("sign_in_method_added"))
+	}
+	if e, _ := f.audit.find("auth.login.failed"); e.Metadata["reason"] != "social_link_required" || e.ResourceID != res.User.ID {
+		t.Errorf("refused link audit event = %+v", e)
+	}
+	if _, added, err := f.linkIdentity(t, f.principalCtx(t, res.Token), social.Apple, withApple, ""); err != nil || !added || f.emails.count("sign_in_method_added") != 1 {
+		t.Fatalf("LinkIdentity(Apple) = %t, %v; %d emails", added, err, f.emails.count("sign_in_method_added"))
+	}
+	if linked, err := f.webSignIn(t, social.Apple, withApple, ""); err != nil || linked.User.ID != res.User.ID {
+		t.Fatalf("FinishSocialSignIn(linked Apple) = %+v, %v", linked, err)
 	}
 	identities, err := f.svc.ListIdentities(f.principalCtx(t, res.Token))
 	g := slices.IndexFunc(identities, func(i authdomain.Identity) bool { return i.Provider == social.Google })
@@ -132,9 +160,10 @@ func TestSocialWebSignIn(t *testing.T) {
 		t.Errorf("ListIdentities() = %+v, %v", identities, err)
 	}
 
-	// A verified password account keeps its password when linked.
+	// A verified password account keeps its password when linked, here by
+	// its Google Workspace domain.
 	f.signUp(t, "bob@example.com")
-	bob, err := f.webSignIn(t, social.Google, socialtest.Claims{Subject: "g-bob", Email: "bob@example.com", EmailVerified: true}, "")
+	bob, err := f.webSignIn(t, social.Google, socialtest.Claims{Subject: "g-bob", Email: "bob@example.com", EmailVerified: true, Extra: map[string]any{"hd": "example.com"}}, "")
 	if err != nil || !bob.User.HasPassword() {
 		t.Fatalf("FinishSocialSignIn(verified password account) = %+v, %v", bob, err)
 	}
@@ -149,7 +178,12 @@ func TestSocialLinkRemovesUnverifiedPassword(t *testing.T) {
 	if err := f.svc.Register(requestCtx(), "eve@example.com", password); err != nil {
 		t.Fatal(err)
 	}
-	res, err := f.webSignIn(t, social.Google, socialtest.Claims{Subject: "g-eve", Email: "eve@example.com", EmailVerified: true}, "")
+	eve := socialtest.Claims{Subject: "g-eve", Email: "eve@example.com", EmailVerified: true}
+	if _, err := f.webSignIn(t, social.Google, eve, ""); !errors.Is(err, authdomain.ErrSocialLinkRequired) {
+		t.Fatalf("FinishSocialSignIn(unverified account, address Google doesn't manage) error = %v, want ErrSocialLinkRequired", err)
+	}
+	eve.Extra = map[string]any{"hd": "example.com"}
+	res, err := f.webSignIn(t, social.Google, eve, "")
 	if err != nil || res.User.HasPassword() || !res.User.EmailVerified() {
 		t.Fatalf("FinishSocialSignIn(unverified account) = %+v, %v", res, err)
 	}
@@ -303,7 +337,7 @@ func TestIdentitiesRemovalAndAccountDeletion(t *testing.T) {
 	}
 
 	// With Google linked, Google can go; an old session needs a new sign-in.
-	google := socialtest.Claims{Subject: "g-ada", Email: "ada@example.com", EmailVerified: true}
+	google := socialtest.Claims{Subject: "g-ada", Email: "ada@example.com", EmailVerified: true, Extra: map[string]any{"hd": "example.com"}}
 	if _, err := f.webSignIn(t, social.Google, google, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -439,7 +473,7 @@ func TestConcurrentFirstSignIn(t *testing.T) {
 
 func TestAppleNotifications(t *testing.T) {
 	f := newSocialFixture(t)
-	apple := socialtest.Claims{Subject: "001.ada", Audience: "com.example.app", Email: "ada@example.com", Extra: map[string]any{"email_verified": "true"}}
+	apple := socialtest.Claims{Subject: "001.ada", Audience: "com.example.app", Email: "ada@icloud.com", Extra: map[string]any{"email_verified": "true"}}
 	res, err := f.nativeSignIn(t, social.Apple, apple, "", "")
 	if err != nil {
 		t.Fatal(err)
@@ -465,5 +499,119 @@ func TestAppleNotifications(t *testing.T) {
 	}
 	if again, err := f.nativeSignIn(t, social.Apple, apple, "", ""); err != nil || again.User.ID != res.User.ID {
 		t.Errorf("sign-in after consent revoked = %+v, %v; want the same account linked again", again.User, err)
+	}
+}
+
+// TestAppleNotificationReplay: a leaked notification can't be replayed, now
+// or after the person signs in with Apple again (security review AUTH-M-3).
+func TestAppleNotificationReplay(t *testing.T) {
+	f := newSocialFixture(t)
+	// Apple signs notifications with the real clock; link at the same time.
+	f.clock.advance(time.Until(f.clock.now()) * -1)
+	ctx := context.Background()
+	apple := socialtest.Claims{Subject: "001.bob", Audience: "com.example.app", Email: "bob@icloud.com", Extra: map[string]any{"email_verified": "true"}}
+	if _, err := f.nativeSignIn(t, social.Apple, apple, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	revoked := f.srv.Notification("com.example.app", social.NotificationConsentRevoked, "001.bob")
+	if err := f.svc.HandleAppleNotification(ctx, revoked); err != nil {
+		t.Fatal(err)
+	}
+
+	// Signed in with Apple again, a replay of the same payload changes nothing.
+	f.clock.advance(time.Minute)
+	res, err := f.nativeSignIn(t, social.Apple, apple, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.HandleAppleNotification(ctx, revoked); err != nil {
+		t.Fatalf("HandleAppleNotification(replay) error = %v", err)
+	}
+	if _, err := f.svc.Authenticate(ctx, res.Token); err != nil {
+		t.Errorf("Authenticate() after a replayed notification error = %v, want the session kept", err)
+	}
+	if e, _ := f.audit.find("auth.identity.apple_notification"); e.Metadata["replayed"] != true {
+		t.Errorf("replay audit event = %+v", e)
+	}
+
+	// A new notification about an event before the identity was linked
+	// leaves it linked.
+	f.srv.Now = func() time.Time { return time.Now().Add(-10 * time.Minute) }
+	early := f.srv.Notification("com.example.app", social.NotificationAccountDelete, "001.bob")
+	f.srv.Now = time.Now
+	if err := f.svc.HandleAppleNotification(ctx, early); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.Authenticate(ctx, res.Token); err != nil {
+		t.Errorf("Authenticate() after an event from before the link error = %v, want the session kept", err)
+	}
+
+	// A year-old notification is refused.
+	f.srv.Now = func() time.Time { return time.Now().AddDate(-1, 0, 0) }
+	if err := f.svc.HandleAppleNotification(ctx, f.srv.Notification("com.example.app", social.NotificationConsentRevoked, "001.bob")); !errors.Is(err, authdomain.ErrInvalidSocialToken) {
+		t.Errorf("HandleAppleNotification(a year old) error = %v, want ErrInvalidSocialToken", err)
+	}
+}
+
+// TestSocialLinksOnlyAuthoritativeEmails: a provider links an existing
+// account by itself only when it manages the address, since a verified email
+// at any other domain may have changed hands; otherwise the owner links it
+// while signed in (security review AUTH-M-1).
+func TestSocialLinksOnlyAuthoritativeEmails(t *testing.T) {
+	f := newSocialFixture(t, func(c *authusecase.Config) { c.Passkeys = testPasskeys })
+	for _, email := range []string{"ada@gmail.com", "bob@corp.example", "cy@icloud.com", "dee@example.com"} {
+		f.signUp(t, email)
+	}
+	for name, tt := range map[string]struct {
+		provider string
+		claims   socialtest.Claims
+		link     bool
+	}{
+		"Gmail":                     {social.Google, socialtest.Claims{Subject: "g-ada", Email: "ada@gmail.com", EmailVerified: true}, true},
+		"Google Workspace":          {social.Google, socialtest.Claims{Subject: "g-bob", Email: "bob@corp.example", EmailVerified: true, Extra: map[string]any{"hd": "corp.example"}}, true},
+		"iCloud":                    {social.Apple, socialtest.Claims{Subject: "001.cy", Email: "cy@icloud.com", Extra: map[string]any{"email_verified": "true"}}, true},
+		"personal Google elsewhere": {social.Google, socialtest.Claims{Subject: "g-dee", Email: "dee@example.com", EmailVerified: true}, false},
+		"other Workspace domain":    {social.Google, socialtest.Claims{Subject: "g-dee2", Email: "dee@example.com", EmailVerified: true, Extra: map[string]any{"hd": "corp.example"}}, false},
+		"Apple, other domain":       {social.Apple, socialtest.Claims{Subject: "001.dee", Email: "dee@example.com", Extra: map[string]any{"email_verified": "true"}}, false},
+	} {
+		res, err := f.webSignIn(t, tt.provider, tt.claims, "")
+		switch {
+		case tt.link && (err != nil || res.Token == ""):
+			t.Errorf("%s: FinishSocialSignIn() = %+v, %v; want linked and signed in", name, res, err)
+		case !tt.link && (!errors.Is(err, authdomain.ErrSocialLinkRequired) || res.Token != ""):
+			t.Errorf("%s: FinishSocialSignIn() error = %v; want ErrSocialLinkRequired", name, err)
+		}
+	}
+
+	// Signed in, the owner links the provider after the password.
+	ctx, _ := f.login(t, "dee@example.com")
+	dee := socialtest.Claims{Subject: "g-dee", Email: "dee@example.com", EmailVerified: true}
+	if _, _, err := f.linkIdentity(t, ctx, social.Google, dee, "wrong password here"); !errors.Is(err, authdomain.ErrInvalidCredentials) {
+		t.Errorf("LinkIdentity(wrong password) error = %v, want ErrInvalidCredentials", err)
+	}
+	if e, _ := f.audit.find("auth.reauth.failed"); e.Metadata["reason"] != "invalid_credentials" {
+		t.Errorf("reauth audit event = %+v", e)
+	}
+	identity, added, err := f.linkIdentity(t, ctx, social.Google, dee, password)
+	if err != nil || !added || identity.Provider != social.Google || identity.Email != "dee@example.com" {
+		t.Fatalf("LinkIdentity() = %+v, %t, %v", identity, added, err)
+	}
+	if _, added, err := f.linkIdentity(t, ctx, social.Google, dee, password); err != nil || added {
+		t.Errorf("LinkIdentity(already linked) = %t, %v; want nothing added", added, err)
+	}
+	if res, err := f.webSignIn(t, social.Google, dee, ""); err != nil || res.Token == "" {
+		t.Errorf("FinishSocialSignIn(linked identity) = %+v, %v", res, err)
+	}
+	// Another account's identity can't be linked, and a token doesn't work
+	// without its nonce.
+	if _, _, err := f.linkIdentity(t, ctx, social.Google, socialtest.Claims{Subject: "g-ada", Email: "ada@gmail.com", EmailVerified: true}, password); !errors.Is(err, authdomain.ErrIdentityInUse) {
+		t.Errorf("LinkIdentity(another account's identity) error = %v, want ErrIdentityInUse", err)
+	}
+	token := f.srv.IDToken(socialtest.Claims{Subject: "g-dee3", Audience: "web-client", Nonce: "made-up"})
+	if _, _, err := f.svc.LinkIdentity(ctx, social.Google, token, "made-up", "", "", password); !errors.Is(err, authdomain.ErrInvalidSocialToken) {
+		t.Errorf("LinkIdentity(unknown nonce) error = %v, want ErrInvalidSocialToken", err)
+	}
+	if _, _, err := f.svc.LinkIdentity(requestCtx(), social.Google, token, "made-up", "", "", password); !errors.Is(err, authlib.ErrUnauthenticated) {
+		t.Errorf("LinkIdentity(signed out) error = %v, want ErrUnauthenticated", err)
 	}
 }

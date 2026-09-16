@@ -63,17 +63,34 @@ type Config struct {
 	VerificationCodeTTL     config.Value[time.Duration]
 	ResetCodeTTL            config.Value[time.Duration]
 	DeletedAccountRetention config.Value[time.Duration]
-	// LoginLimiter limits sign-in attempts per address (second factors
-	// included), MFALimiter changes to two-factor authentication per user,
-	// and NoticeLimiter "account exists" emails per address. The app passes
-	// limiters shared across instances (ADR-0052). Without them, in-memory
-	// limiters allow LoginAttempts per LoginWindow and one notice a minute,
-	// per instance.
-	LoginLimiter  ratelimit.Taker
-	MFALimiter    ratelimit.Taker
-	NoticeLimiter ratelimit.Taker
-	LoginAttempts int
-	LoginWindow   time.Duration
+	// LoginLimiter limits sign-in attempts per address from one client
+	// network, and LoginAddressLimiter per address from any network (second
+	// factors included); MFALimiter limits changes to two-factor
+	// authentication per user; ReauthLimiter password and second-factor
+	// checks behind a session per user; CodeLimiter verification and reset
+	// code checks per address; and NoticeLimiter "account exists" emails per
+	// address. The app passes limiters shared across instances (ADR-0052).
+	// Without them, in-memory limiters allow LoginAttempts per LoginWindow
+	// (auth.DefaultLoginAddressAttempts per address), auth.DefaultCodeAttempts
+	// code checks a day and one notice a minute, per instance.
+	LoginLimiter        ratelimit.Taker
+	LoginAddressLimiter ratelimit.Taker
+	MFALimiter          ratelimit.Taker
+	ReauthLimiter       ratelimit.Taker
+	CodeLimiter         ratelimit.Taker
+	NoticeLimiter       ratelimit.Taker
+	LoginAttempts       int
+	LoginWindow         time.Duration
+	// MinResponseTime is the shortest time Register, ResendVerification and
+	// RequestPasswordReset take, so their timing doesn't reveal whether an
+	// address has an account. Default: auth.DefaultMinResponseTime; a
+	// negative value turns it off, for tests.
+	MinResponseTime time.Duration
+	// HashConcurrency and HashMaxWait bound password hashing: how many
+	// hashes run at once and how long a request waits for a turn before
+	// failing with auth.ErrHasherBusy. Defaults: the auth module's.
+	HashConcurrency int
+	HashMaxWait     time.Duration
 	// Now is the clock, for tests.
 	Now func() time.Time
 }
@@ -98,10 +115,17 @@ type Service struct {
 	now             func() time.Time
 	hasher          *authlib.Hasher
 	loginLimiter    ratelimit.Taker
-	mfaLimiter      ratelimit.Taker
+	// loginAddressLimiter bounds sign-in attempts per address across
+	// networks, looser than loginLimiter so nobody can cheaply lock the
+	// owner out.
+	loginAddressLimiter ratelimit.Taker
+	mfaLimiter          ratelimit.Taker
+	reauthLimiter       ratelimit.Taker
+	codeLimiter         ratelimit.Taker
 	// noticeLimiter limits "account exists" emails per address, separately
 	// from logins, so registrations can't lock the owner out.
-	noticeLimiter ratelimit.Taker
+	noticeLimiter   ratelimit.Taker
+	minResponseTime time.Duration
 
 	sessionIdle      config.Value[time.Duration]
 	sessionAbsolute  config.Value[time.Duration]
@@ -132,6 +156,7 @@ func NewService(c Config) (*Service, error) {
 		verificationCode: orDefault(c.VerificationCodeTTL, config.Static(authlib.DefaultVerificationCodeTTL)),
 		resetCode:        orDefault(c.ResetCodeTTL, config.Static(authlib.DefaultResetCodeTTL)),
 		retention:        orDefault(c.DeletedAccountRetention, config.Static(authlib.DefaultDeletedAccountRetention)),
+		minResponseTime:  orDefault(c.MinResponseTime, authlib.DefaultMinResponseTime),
 	}
 	if s.now == nil {
 		s.now = time.Now
@@ -161,22 +186,24 @@ func NewService(c Config) (*Service, error) {
 	if err := errors.Join(errs...); err != nil {
 		return nil, fmt.Errorf("auth: invalid service: %w", err)
 	}
-	hasher, err := authlib.NewHasher()
+	hasher, err := authlib.NewHasherWith(authlib.WithHashConcurrency(c.HashConcurrency), authlib.WithHashMaxWait(c.HashMaxWait))
 	if err != nil {
 		return nil, err
 	}
 	c.Catalog.Freeze()
 	s.hasher = hasher
-	s.loginLimiter, s.mfaLimiter, s.noticeLimiter = c.LoginLimiter, c.MFALimiter, c.NoticeLimiter
-	if s.loginLimiter == nil {
-		s.loginLimiter = ratelimit.New(float64(attempts)/window.Seconds(), attempts, ratelimit.WithClock(s.now))
+	inMemory := func(taker ratelimit.Taker, n int, window time.Duration) ratelimit.Taker {
+		if taker != nil {
+			return taker
+		}
+		return ratelimit.New(float64(n)/window.Seconds(), n, ratelimit.WithClock(s.now))
 	}
-	if s.mfaLimiter == nil {
-		s.mfaLimiter = ratelimit.New(float64(attempts)/window.Seconds(), attempts, ratelimit.WithClock(s.now))
-	}
-	if s.noticeLimiter == nil {
-		s.noticeLimiter = ratelimit.New(1/authlib.CodeResendInterval.Seconds(), 1, ratelimit.WithClock(s.now))
-	}
+	s.loginLimiter = inMemory(c.LoginLimiter, attempts, window)
+	s.loginAddressLimiter = inMemory(c.LoginAddressLimiter, max(attempts, authlib.DefaultLoginAddressAttempts), window)
+	s.mfaLimiter = inMemory(c.MFALimiter, attempts, window)
+	s.reauthLimiter = inMemory(c.ReauthLimiter, attempts, window)
+	s.codeLimiter = inMemory(c.CodeLimiter, authlib.DefaultCodeAttempts, authlib.DefaultCodeWindow)
+	s.noticeLimiter = inMemory(c.NoticeLimiter, 1, authlib.CodeResendInterval)
 	return s, nil
 }
 
@@ -190,6 +217,47 @@ func (s *Service) allow(ctx context.Context, limiter ratelimit.Taker, key string
 		return true, 0
 	}
 	return d.Allowed, d.RetryAfter
+}
+
+// allowLogin charges a sign-in attempt for a normalized address: first
+// from the client's network (an IPv4 address or IPv6 /64), then from any
+// network. Keying the strict limit by network means someone else can't lock
+// the owner out with a few wrong passwords from elsewhere (security review
+// AUTH-S-6); the looser per-address limit still bounds guessing from many
+// networks.
+func (s *Service) allowLogin(ctx context.Context, normalized string, client authlib.ClientInfo) (bool, time.Duration) {
+	if ok, retry := s.allow(ctx, s.loginLimiter, normalized+" "+ratelimit.ClientKey(client.IP)); !ok {
+		return false, retry
+	}
+	return s.allow(ctx, s.loginAddressLimiter, normalized)
+}
+
+// allowCode charges one check of a verification or reset code for a
+// normalized address, whether or not it has an account, across every code
+// sent to it: a new code every minute would otherwise bring 5 new guesses
+// (security review AUTH-S-2).
+func (s *Service) allowCode(ctx context.Context, purpose, normalized string) error {
+	if ok, retry := s.allow(ctx, s.codeLimiter, purpose+" "+normalized); !ok {
+		return &authdomain.RateLimitError{RetryAfter: retry}
+	}
+	return nil
+}
+
+// padResponse waits until minResponseTime has passed since start (or ctx
+// ends). Deferred by the anonymous flows whose work differs with whether the
+// address has an account, it hides that difference (security review
+// AUTH-S-4).
+func (s *Service) padResponse(ctx context.Context, start time.Time) {
+	wait := s.minResponseTime - time.Since(start)
+	if wait <= 0 {
+		return
+	}
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+	}
 }
 
 func orDefault[T comparable](v, def T) T {
@@ -233,8 +301,12 @@ func (s *Service) sent(ctx context.Context, kind string, err error) {
 	}
 }
 
-// dbError hides driver errors, which aren't API (ADR-0018).
+// dbError hides driver errors, which aren't API (ADR-0018). A password
+// hasher too busy to answer inside a transaction stays auth.ErrHasherBusy.
 func dbError(op string, err error) error {
+	if errors.Is(err, authlib.ErrHasherBusy) {
+		return authlib.ErrHasherBusy
+	}
 	return fmt.Errorf("auth: %s: %v", op, err) //nolint:errorlint // driver errors aren't API (ADR-0018)
 }
 

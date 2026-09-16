@@ -22,6 +22,9 @@ type UserStore interface {
 	UpdatePassword(ctx context.Context, userID, passwordHash string, now time.Time) error
 	// RehashPassword replaces the hash without changing password_changed_at.
 	RehashPassword(ctx context.Context, userID, passwordHash string) error
+	// RemovePassword removes the password, as when an unverified account is
+	// registered again with another one.
+	RemovePassword(ctx context.Context, userID string, now time.Time) error
 	MarkEmailVerified(ctx context.Context, userID string, now time.Time) error
 	MarkUserDeleted(ctx context.Context, userID string, now time.Time) error
 	// DeleteDeletedUsers removes accounts deleted before before, with their
@@ -178,6 +181,9 @@ type SocialStore interface {
 	// UseSocialNonce uses up an unexpired nonce and reports whether it was
 	// usable.
 	UseSocialNonce(ctx context.Context, provider string, tokenHash []byte, now time.Time) (bool, error)
+	// RecordAppleNotification remembers a notification until n.ExpiresAt,
+	// stored used up, and reports false for one seen before.
+	RecordAppleNotification(ctx context.Context, n authdomain.SocialNonce) (bool, error)
 	DeleteOldSocialRequests(ctx context.Context, before time.Time) (int64, error)
 	// InsertTokenRevocation queues a provider token for revocation.
 	InsertTokenRevocation(ctx context.Context, r authdomain.TokenRevocation) error

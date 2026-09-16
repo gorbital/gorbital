@@ -17,10 +17,11 @@ import (
 // It unlinks Google and Apple identities and queues Apple's tokens for
 // revocation. The
 // address can register again at once; Cleanup removes the account's data
-// after the retention period. It returns ErrInvalidCredentials, ErrInvalidMFA
-// or ErrMFAUnavailable.
+// after the retention period. It returns ErrInvalidCredentials, ErrInvalidMFA,
+// ErrMFAUnavailable or a *RateLimitError when the user's re-authentication
+// budget is spent.
 func (s *Service) DeleteAccount(ctx context.Context, password string, factor authdomain.SecondFactor) error {
-	p, err := requirePrincipal(ctx)
+	p, err := s.reauthPrincipal(ctx)
 	if err != nil {
 		return err
 	}
@@ -35,9 +36,9 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 		if err != nil {
 			return err // ErrUserNotFound is handled below
 		}
-		if !s.passwordOrRecentSignIn(p, u, password) {
+		if ok, err := s.passwordOrRecentSignIn(ctx, p, u, password); err != nil || !ok {
 			state = authdomain.ErrInvalidCredentials
-			return nil
+			return err
 		}
 		if state, err = s.requireSecondFactor(ctx, tx, u.ID, factor); err != nil || state != nil {
 			return err
@@ -62,7 +63,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 	case err != nil:
 		return dbError("delete account", err)
 	case state != nil:
-		return state
+		return s.reauthFailed(ctx, p.UserID, state)
 	}
 	s.audit(ctx, userEvent("auth.account.deleted", p.UserID, authlib.ClientInfoFromContext(ctx)))
 	s.accountDeleted(ctx, p.UserID)
@@ -84,7 +85,7 @@ func (s *Service) CreateUser(ctx context.Context, email, password string, emailV
 	if err := authlib.ValidatePassword(ctx, password, s.checker); err != nil {
 		return authdomain.User{}, err
 	}
-	hash, err := s.hasher.Hash(password)
+	hash, err := s.hasher.HashContext(ctx, password)
 	if err != nil {
 		return authdomain.User{}, err
 	}

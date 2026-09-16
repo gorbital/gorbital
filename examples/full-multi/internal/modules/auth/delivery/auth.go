@@ -159,7 +159,7 @@ type deleteAccountInput struct {
 		_            struct{}       `json:"-" additionalProperties:"true"`
 		Password     string         `json:"password" maxLength:"512"`
 		Code         string         `json:"code,omitempty" maxLength:"16" example:"123456" doc:"With two-factor authentication on: a code from the authenticator app"`
-		RecoveryCode string         `json:"recovery_code,omitempty" maxLength:"32" example:"abcde-fghij" doc:"With two-factor authentication on, instead of code"`
+		RecoveryCode string         `json:"recovery_code,omitempty" maxLength:"32" example:"abcd-efgh-ijkl-mnop" doc:"With two-factor authentication on, instead of code"`
 		Passkey      *PasskeyFactor `json:"passkey,omitempty" doc:"With two-factor authentication on, a passkey's response instead of code"`
 	}
 }
@@ -190,13 +190,17 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 
 	huma.Register(api, public(huma.Operation{
 		OperationID: "auth-register", Method: http.MethodPost, Path: "/v1/auth/register",
-		Summary:       "Create an account",
-		Description:   "Emails a 6-digit verification code. The response is the same whether or not the address already has an account.",
-		DefaultStatus: http.StatusAccepted, Errors: limited,
+		Summary: "Create an account",
+		Description: "Emails a 6-digit verification code. The response, and how long it takes, are the same whether or not the address already has an account. " +
+			"Registering again before verifying keeps the password only when it is the same; otherwise the account is left without one, and the owner sets it with `POST /v1/auth/password/forgot` after verifying.",
+		DefaultStatus: http.StatusAccepted, Errors: append(limited, http.StatusServiceUnavailable),
 	}), h.register)
 	huma.Register(api, public(huma.Operation{
 		OperationID: "auth-verify-email", Method: http.MethodPost, Path: "/v1/auth/verify-email",
-		Summary: "Verify an email address with its code", DefaultStatus: http.StatusNoContent, Errors: limited,
+		Summary: "Verify an email address with its code",
+		Description: "Each code allows 5 attempts, and each address `auth.code_attempts` a day across codes (429). Verifying signs out every device and removes any passkey, " +
+			"authenticator app or Google or Apple link added before the address was proven.",
+		DefaultStatus: http.StatusNoContent, Errors: limited,
 	}), h.verify)
 	huma.Register(api, public(huma.Operation{
 		OperationID: "auth-resend-verification", Method: http.MethodPost, Path: "/v1/auth/verify-email/resend",
@@ -218,8 +222,10 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 	}), h.forgot)
 	huma.Register(api, public(huma.Operation{
 		OperationID: "auth-reset-password", Method: http.MethodPost, Path: "/v1/auth/password/reset",
-		Summary: "Set a new password with a reset code", Description: "Signs out every device. Two-factor authentication stays on.",
-		DefaultStatus: http.StatusNoContent, Errors: limited,
+		Summary: "Set a new password with a reset code",
+		Description: "Signs out every device. Two-factor authentication stays on, except on an account whose address wasn't verified yet: the code verifies it, " +
+			"as `POST /v1/auth/verify-email` does. Codes share the limit of `auth.code_attempts` a day per address (429).",
+		DefaultStatus: http.StatusNoContent, Errors: append(limited, http.StatusServiceUnavailable),
 	}), h.reset)
 
 	huma.Register(api, signedIn(huma.Operation{

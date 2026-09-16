@@ -209,6 +209,86 @@ func TestAppleSignIn(t *testing.T) {
 	}
 }
 
+// An old notification can't be replayed later, and each carries an ID to
+// refuse replays within the window (security review AUTH-M-3).
+func TestAppleNotificationFreshness(t *testing.T) {
+	ctx := context.Background()
+	srv := socialtest.New(t)
+	p := apple(t, srv, appleKey(t))
+
+	fresh := srv.Notification("com.example.app", social.NotificationConsentRevoked, "001.apple")
+	n, err := p.AppleNotification(ctx, fresh)
+	if err != nil || n.ID == "" || n.IssuedAt.IsZero() {
+		t.Fatalf("AppleNotification(fresh) = %+v, %v; want an ID and issue time", n, err)
+	}
+	again, err := p.AppleNotification(ctx, fresh)
+	if err != nil || again.ID != n.ID {
+		t.Errorf("AppleNotification(same payload) = %+v, %v; want the same ID", again, err)
+	}
+	if other, _ := p.AppleNotification(ctx, srv.Notification("com.example.app", social.NotificationConsentRevoked, "001.apple")); other.ID == n.ID {
+		t.Error("two notifications share an ID")
+	}
+
+	for name, at := range map[string]time.Time{
+		"a year old":    time.Now().AddDate(-1, 0, 0),
+		"two hours old": time.Now().Add(-2 * time.Hour),
+		"in the future": time.Now().Add(10 * time.Minute),
+	} {
+		srv.Now = func() time.Time { return at }
+		if _, err := p.AppleNotification(ctx, srv.Notification("com.example.app", social.NotificationAccountDelete, "001.apple")); !errors.Is(err, social.ErrInvalidToken) {
+			t.Errorf("AppleNotification(%s) error = %v, want ErrInvalidToken", name, err)
+		}
+	}
+}
+
+// Only an email the provider manages proves the person still owns it
+// (security review AUTH-M-1).
+func TestAuthoritativeEmail(t *testing.T) {
+	srv := socialtest.New(t)
+	p := google(t, srv)
+	ctx := context.Background()
+	verify := func(email string, extra map[string]any) social.Identity {
+		t.Helper()
+		id, err := p.VerifyIDToken(ctx, srv.IDToken(socialtest.Claims{Subject: "g1", Audience: "web.apps.googleusercontent.com", Email: email, EmailVerified: true, Nonce: "n", Extra: extra}), "n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	if id := verify("ada@corp.example", map[string]any{"hd": "corp.example"}); id.HostedDomain != "corp.example" || !id.AuthoritativeEmail() {
+		t.Errorf("Workspace identity = %+v, authoritative %t; want the hosted domain and true", id, id.AuthoritativeEmail())
+	}
+	for email, extra := range map[string]map[string]any{
+		"ada@corp.example":  nil,
+		"ada@other.example": {"hd": "corp.example"},
+	} {
+		if id := verify(email, extra); id.AuthoritativeEmail() {
+			t.Errorf("Google identity %s with %v is authoritative, want not", email, extra)
+		}
+	}
+	for _, id := range []social.Identity{
+		{Provider: social.Google, Email: "ada@gmail.com", EmailVerified: true},
+		{Provider: social.Google, Email: "ada@GoogleMail.com", EmailVerified: true},
+		{Provider: social.Apple, Email: "x1@privaterelay.appleid.com", EmailVerified: true, PrivateEmail: true},
+		{Provider: social.Apple, Email: "ada@icloud.com", EmailVerified: true},
+		{Provider: social.Apple, Email: "ada@me.com", EmailVerified: true},
+	} {
+		if !id.AuthoritativeEmail() {
+			t.Errorf("%+v isn't authoritative, want it", id)
+		}
+	}
+	for _, id := range []social.Identity{
+		{Provider: social.Google, Email: "ada@gmail.com"},
+		{Provider: social.Apple, Email: "ada@corp.example", EmailVerified: true},
+		{Provider: social.Google, Email: "not-an-address", EmailVerified: true},
+		{Provider: "other", Email: "ada@gmail.com", EmailVerified: true},
+	} {
+		if id.AuthoritativeEmail() {
+			t.Errorf("%+v is authoritative, want not", id)
+		}
+	}
+}
+
 // checkClientSecret verifies an Apple client secret JWT.
 func checkClientSecret(t *testing.T, secret string, key *ecdsa.PrivateKey, clientID string) {
 	t.Helper()
