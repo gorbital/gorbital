@@ -51,14 +51,39 @@ func RequireMember(ctx context.Context, m Memberships, catalog *auth.Catalog, or
 		}
 		return ctx, Member{}, err
 	}
-
-	p, _ := auth.PrincipalFrom(ctx)
-	a.OrgID = string(orgID)
-	a.Permissions, a.StepUp = catalog.PermissionsFor([]string{role}, p.MFAVerified)
-	ctx = actor.With(ctx, a)
 	member := Member{OrgID: orgID, UserID: a.ID, Role: role}
-	if err := actor.Require(ctx, permission); err != nil {
-		return ctx, member, err
+	ctx, err = Authorize(ctx, catalog, member, permission)
+	return ctx, member, err
+}
+
+// Authorize is [RequireMember] for a membership the caller has already
+// read, such as one in a deleted organisation, which [Memberships] doesn't
+// return: it checks that member is the signed-in user and that their role
+// grants permission, with the same two-factor step-up, and returns a
+// context whose actor acts in member's organisation. Every permission check
+// on an organisation goes through it, so roles that require two-factor
+// authentication can't be bypassed by a path that reads the role itself.
+//
+// It returns [actor.ErrUnauthenticated] without a signed-in user,
+// [ErrOrgNotFound] when member belongs to another user or has an invalid
+// organisation ID, [actor.ErrStepUpRequired] when the role grants permission
+// only to sessions verified with a second factor, and [actor.ErrForbidden]
+// when it doesn't grant it. The returned context is usable, with the role's
+// permissions, even when the error is ErrStepUpRequired or ErrForbidden.
+func Authorize(ctx context.Context, catalog *auth.Catalog, member Member, permission string) (context.Context, error) {
+	a, ok := actor.From(ctx)
+	if !ok || a.Kind != actor.KindUser || a.ID == "" {
+		return ctx, actor.ErrUnauthenticated
 	}
-	return ctx, member, nil
+	if _, err := ParseID(string(member.OrgID)); err != nil || member.UserID != a.ID {
+		return ctx, ErrOrgNotFound
+	}
+	p, _ := auth.PrincipalFrom(ctx)
+	a.OrgID = string(member.OrgID)
+	a.Permissions, a.StepUp = catalog.PermissionsFor([]string{member.Role}, p.MFAVerified)
+	ctx = actor.With(ctx, a)
+	if err := actor.Require(ctx, permission); err != nil {
+		return ctx, err
+	}
+	return ctx, nil
 }

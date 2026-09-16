@@ -41,9 +41,15 @@ var (
 	// ErrInvitationEmail reports accepting an invitation sent to another
 	// address, or with an address that isn't verified.
 	ErrInvitationEmail = errors.New("invitation is for another email address")
-	// ErrTooManyInvitations reports more invitations than an organisation
-	// may send per hour.
+	// ErrTooManyInvitations reports more invitations than an organisation,
+	// or a user across organisations, may send per hour.
 	ErrTooManyInvitations = errors.New("too many invitations")
+	// ErrEmailNotVerified reports creating an organisation or sending an
+	// invitation from an account whose email address isn't verified.
+	ErrEmailNotVerified = errors.New("email address not verified")
+	// ErrTooManyOrgs reports creating or restoring an organisation when the
+	// user already owns as many as allowed.
+	ErrTooManyOrgs = errors.New("too many organisations")
 )
 
 // SoleOwnerError lists the organisations that stop an account's deletion.

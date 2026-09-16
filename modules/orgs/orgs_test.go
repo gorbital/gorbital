@@ -115,6 +115,42 @@ func TestRequireMember(t *testing.T) {
 	}
 }
 
+// TestAuthorize checks the permission path for a membership read another
+// way, such as in a deleted organisation: the same step-up as RequireMember
+// (security review ORG-5).
+func TestAuthorize(t *testing.T) {
+	org := orgs.NewID()
+	c := catalog()
+	tests := []struct {
+		name    string
+		ctx     context.Context
+		member  orgs.Member
+		wantErr error
+	}{
+		{"owner", signedIn("usr_owner", false), orgs.Member{OrgID: org, UserID: "usr_owner", Role: orgs.RoleOwner}, nil},
+		{"member", signedIn("usr_member", false), orgs.Member{OrgID: org, UserID: "usr_member", Role: orgs.RoleMember}, actor.ErrForbidden},
+		{"role needing 2FA without it", signedIn("usr_auditor", false), orgs.Member{OrgID: org, UserID: "usr_auditor", Role: "auditor"}, actor.ErrStepUpRequired},
+		{"role needing 2FA with it", signedIn("usr_auditor", true), orgs.Member{OrgID: org, UserID: "usr_auditor", Role: "auditor"}, nil},
+		{"someone else's membership", signedIn("usr_member", false), orgs.Member{OrgID: org, UserID: "usr_owner", Role: orgs.RoleOwner}, orgs.ErrOrgNotFound},
+		{"malformed org ID", signedIn("usr_owner", false), orgs.Member{OrgID: "org_nope", UserID: "usr_owner", Role: orgs.RoleOwner}, orgs.ErrOrgNotFound},
+		{"system actor", actor.With(context.Background(), actor.System("job")), orgs.Member{OrgID: org, UserID: "job", Role: orgs.RoleOwner}, actor.ErrUnauthenticated},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, err := orgs.Authorize(tt.ctx, c, tt.member, "orgs.org.delete")
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Authorize() error = %v, want %v", err, tt.wantErr)
+			}
+			if tt.wantErr != nil {
+				return
+			}
+			if a, _ := actor.From(ctx); a.OrgID != string(org) || !a.Can("orgs.org.delete") {
+				t.Errorf("actor = %+v, want acting in %s with the role's permissions", a, org)
+			}
+		})
+	}
+}
+
 func TestRequireMemberPassesStoreErrors(t *testing.T) {
 	boom := errors.New("connection refused")
 	_, _, err := orgs.RequireMember(signedIn("usr_1", false), failingMemberships{boom}, catalog(), orgs.NewID(), "orgs.org.read")

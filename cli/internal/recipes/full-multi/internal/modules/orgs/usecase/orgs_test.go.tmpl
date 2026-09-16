@@ -107,16 +107,16 @@ func catalog() *authlib.Catalog {
 }
 
 // newFixture returns the use cases on a fresh database with verified
-// accounts usr_ada, usr_bob and usr_carol, and usr_dan, whose address isn't
-// verified.
-func newFixture(t *testing.T) *fixture {
+// accounts usr_ada, usr_bob, usr_carol and usr_erin, and usr_dan, whose
+// address isn't verified. opts change the service's configuration.
+func newFixture(t *testing.T, opts ...func(*orgsusecase.Config)) *fixture {
 	t.Helper()
 	f := &fixture{
 		emails: &fakeEmails{}, audit: &fakeRecorder{},
 		pool: pgtest.New(t, pgtest.WithMigrations(migrations.FS)),
 		now:  time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC),
 	}
-	for _, name := range []string{"ada", "bob", "carol", "dan"} {
+	for _, name := range []string{"ada", "bob", "carol", "dan", "erin"} {
 		var verified *time.Time
 		if name != "dan" {
 			verified = &f.now
@@ -128,11 +128,15 @@ func newFixture(t *testing.T) *fixture {
 			t.Fatal(err)
 		}
 	}
-	svc, err := orgsusecase.NewService(orgsusecase.Config{
+	c := orgsusecase.Config{
 		Store: orgsrepository.NewStore(f.pool), Catalog: catalog(), Recorder: f.audit, Emails: f.emails,
 		InvitationURL: config.Static("https://app.example.com/invitations/"),
 		Now:           func() time.Time { return f.now },
-	})
+	}
+	for _, opt := range opts {
+		opt(&c)
+	}
+	svc, err := orgsusecase.NewService(c)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,15 +3,16 @@ package usecase
 import (
 	"context"
 	"errors"
-	"slices"
+	"time"
 
-	"gorbital.dev/actor"
 	orgslib "gorbital.dev/modules/orgs"
 
 	orgsdomain "⟦.Module⟧/internal/modules/orgs/domain"
 )
 
-// Create adds an organisation with the signed-in user as its owner.
+// Create adds an organisation with the signed-in user as its owner. The
+// user's email address must be verified, and they may own at most
+// MaxOwnedOrgs live organisations.
 func (s *Service) Create(ctx context.Context, name string) (orgsdomain.Membership, error) {
 	uid, err := userID(ctx)
 	if err != nil {
@@ -22,7 +23,13 @@ func (s *Service) Create(ctx context.Context, name string) (orgsdomain.Membershi
 	if err != nil {
 		return orgsdomain.Membership{}, err
 	}
+	if _, err := s.requireVerified(ctx, uid); err != nil {
+		return orgsdomain.Membership{}, storeError("create", err)
+	}
 	err = s.store.InTx(ctx, func(tx Store) error {
+		if err := s.checkOwnedOrgs(ctx, tx, uid); err != nil {
+			return err
+		}
 		if o, err = tx.InsertOrg(ctx, o); err != nil {
 			return err
 		}
@@ -77,7 +84,14 @@ func (s *Service) Rename(ctx context.Context, orgID orgslib.ID, name string, ver
 	if name, err = orgsdomain.NormalizeName(name); err != nil {
 		return orgsdomain.Membership{}, err
 	}
-	o, err := s.store.UpdateOrgName(ctx, orgID, name, version, s.clock())
+	var o orgsdomain.Org
+	err = s.store.InTx(ctx, func(tx Store) error {
+		if _, me, err = s.lockOrg(ctx, tx, orgID, PermOrgUpdate); err != nil {
+			return err
+		}
+		o, err = tx.UpdateOrgName(ctx, orgID, name, version, s.clock())
+		return err
+	})
 	if err != nil {
 		return orgsdomain.Membership{}, storeError("rename", err)
 	}
@@ -96,7 +110,7 @@ func (s *Service) Delete(ctx context.Context, orgID orgslib.ID) error {
 	now := s.clock()
 	purgeAfter := now.Add(s.retention.Get(ctx))
 	err = s.store.InTx(ctx, func(tx Store) error {
-		o, err := tx.SelectOrg(ctx, orgID, true)
+		o, _, err := s.lockOrg(ctx, tx, orgID, PermOrgDelete)
 		if err != nil {
 			return err
 		}
@@ -113,7 +127,9 @@ func (s *Service) Delete(ctx context.Context, orgID orgslib.ID) error {
 }
 
 // Restore undoes Delete before the organisation is purged. Only a member
-// whose role may delete it can restore it; for anyone else it doesn't exist.
+// whose role may delete it can restore it, with the same two-factor step-up
+// as deleting; for anyone else it doesn't exist. Restoring counts toward
+// MaxOwnedOrgs like creating.
 func (s *Service) Restore(ctx context.Context, orgID orgslib.ID) (orgsdomain.Membership, error) {
 	uid, err := userID(ctx)
 	if err != nil {
@@ -135,8 +151,15 @@ func (s *Service) Restore(ctx context.Context, orgID orgslib.ID) (orgsdomain.Mem
 		if err != nil {
 			return err
 		}
-		if !slices.Contains(s.catalog.Permissions(m.Role), PermOrgDelete) {
-			return actor.ErrForbidden
+		// The same permission path as RequireMember, step-up included
+		// (security review ORG-5).
+		if _, err := orgslib.Authorize(ctx, s.catalog, orgslib.Member{OrgID: orgID, UserID: uid, Role: m.Role}, PermOrgDelete); err != nil {
+			return err
+		}
+		if m.Role == orgslib.RoleOwner {
+			if err := s.checkOwnedOrgs(ctx, tx, uid); err != nil {
+				return err
+			}
 		}
 		if err := tx.RestoreOrg(ctx, orgID, s.clock()); err != nil {
 			return err
@@ -153,24 +176,57 @@ func (s *Service) Restore(ctx context.Context, orgID orgslib.ID) (orgsdomain.Mem
 }
 
 // Purge removes organisations deleted longer ago than the retention period,
-// with every org-scoped row, and returns how many it removed. The orgs_purge
-// job runs it.
+// with every org-scoped row, and returns how many it removed. It works in
+// batches until none are left or its time budget is spent, so a backlog of
+// deleted organisations can't push legitimate purges past the retention
+// period (security review ORG-3). The orgs_purge job runs it.
 func (s *Service) Purge(ctx context.Context) (int, error) {
 	now := s.clock()
-	ids, err := s.store.SelectOrgsToPurge(ctx, now, purgeBatch)
-	if err != nil {
-		return 0, storeError("purge", err)
-	}
+	stop := time.Now().Add(purgeBudget)
 	purged := 0
-	for _, id := range ids {
-		deleted, err := s.store.DeleteOrg(ctx, id, now)
+	for time.Now().Before(stop) {
+		if err := ctx.Err(); err != nil {
+			return purged, err
+		}
+		ids, err := s.store.SelectOrgsToPurge(ctx, now, purgeBatch)
 		if err != nil {
 			return purged, storeError("purge", err)
 		}
-		if deleted {
-			purged++
-			s.audit(ctx, ActionOrgPurged, id, "org", string(id), nil)
+		removed := 0
+		for _, id := range ids {
+			deleted, err := s.store.DeleteOrg(ctx, id, now)
+			if err != nil {
+				return purged, storeError("purge", err)
+			}
+			if deleted {
+				removed++
+				s.audit(ctx, ActionOrgPurged, id, "org", string(id), nil)
+			}
+		}
+		purged += removed
+		// A short batch was the last one. A full batch that removed nothing
+		// changed under the purge; stop rather than list it again.
+		if len(ids) < purgeBatch || removed == 0 {
+			break
 		}
 	}
 	return purged, nil
+}
+
+// checkOwnedOrgs returns ErrTooManyOrgs when userID already owns as many
+// live organisations, personal workspaces aside, as MaxOwnedOrgs allows. It
+// takes a lock per user until the transaction ends, so concurrent requests
+// can't each pass the check.
+func (s *Service) checkOwnedOrgs(ctx context.Context, tx Store, userID string) error {
+	if err := tx.LockUserOrgs(ctx, userID); err != nil {
+		return err
+	}
+	owned, err := tx.CountOwnedOrgs(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if owned >= s.maxOwned.Get(ctx) {
+		return orgsdomain.ErrTooManyOrgs
+	}
+	return nil
 }

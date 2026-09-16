@@ -1,26 +1,27 @@
 package usecase
 
-import orgslib "gorbital.dev/modules/orgs"
+import (
+	"slices"
 
-// rank orders roles for what a member may assign. Roles an app adds rank
-// with members.
-func rank(role string) int {
-	switch role {
-	case orgslib.RoleOwner:
-		return 3
-	case orgslib.RoleAdmin:
-		return 2
-	default:
-		return 1
-	}
-}
+	orgslib "gorbital.dev/modules/orgs"
+)
 
 // canAssign reports whether a member with role actorRole may give someone
-// role, or change or remove a member who has it: never a role above their
-// own, and owners only by owners.
-func canAssign(actorRole, role string) bool {
+// role, or change or remove a member who has it: only owners assign owners,
+// and nobody assigns a role that grants a permission their own role
+// doesn't. Comparing permissions rather than role names keeps roles an app
+// adds in declareOrgPermissions in check: an admin can't give anyone, or
+// themselves, a custom role that may delete the organisation (security
+// review ORG-2). A role the catalog doesn't declare grants nothing.
+func (s *Service) canAssign(actorRole, role string) bool {
 	if role == orgslib.RoleOwner {
 		return actorRole == orgslib.RoleOwner
 	}
-	return rank(actorRole) >= rank(role)
+	mine := s.catalog.Permissions(actorRole)
+	for _, p := range s.catalog.Permissions(role) {
+		if !slices.Contains(mine, p) {
+			return false
+		}
+	}
+	return true
 }

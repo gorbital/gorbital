@@ -10,12 +10,16 @@ import (
 	orgsdomain "⟦.Module⟧/internal/modules/orgs/domain"
 )
 
-const selectInvitationByTokenHashSQL = `SELECT ` + invitationColumns + ` FROM org_invitations WHERE token_hash = $1 FOR UPDATE`
+const selectInvitationByTokenHashSQL = `SELECT ` + invitationColumns + ` FROM org_invitations WHERE token_hash = $1`
 
 // SelectInvitationByTokenHash returns an invitation by its token hash, or
-// ErrInvitationNotFound, and locks it.
-func (s *Store) SelectInvitationByTokenHash(ctx context.Context, tokenHash []byte) (orgsdomain.Invitation, error) {
-	rows, err := s.db.Query(ctx, selectInvitationByTokenHashSQL, tokenHash)
+// ErrInvitationNotFound. lock locks it until the transaction ends.
+func (s *Store) SelectInvitationByTokenHash(ctx context.Context, tokenHash []byte, lock bool) (orgsdomain.Invitation, error) {
+	sql := selectInvitationByTokenHashSQL
+	if lock {
+		sql += forUpdate
+	}
+	rows, err := s.db.Query(ctx, sql, tokenHash)
 	if err != nil {
 		return orgsdomain.Invitation{}, err
 	}

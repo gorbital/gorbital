@@ -35,6 +35,12 @@ type Store interface {
 	// UpdateOrgName renames an organisation at version and increments the
 	// version, or returns ErrOrgVersionConflict.
 	UpdateOrgName(ctx context.Context, id orgslib.ID, name string, version int64, now time.Time) (orgsdomain.Org, error)
+	// LockUserOrgs takes a lock on userID's owned organisations until the
+	// transaction ends, so checks of how many they own are serialized.
+	LockUserOrgs(ctx context.Context, userID string) error
+	// CountOwnedOrgs returns how many live organisations userID owns,
+	// personal workspaces aside.
+	CountOwnedOrgs(ctx context.Context, userID string) (int, error)
 	// MarkOrgDeleted soft deletes an organisation until purgeAfter.
 	MarkOrgDeleted(ctx context.Context, id orgslib.ID, now, purgeAfter time.Time) error
 	// RestoreOrg undoes MarkOrgDeleted.
@@ -62,14 +68,16 @@ type Store interface {
 	UpdateMemberRole(ctx context.Context, orgID orgslib.ID, userID, role string) error
 	// DeleteMember removes a member, or returns ErrMemberNotFound.
 	DeleteMember(ctx context.Context, orgID orgslib.ID, userID string) error
-	// CountOwners returns how many owners an organisation has.
-	CountOwners(ctx context.Context, orgID orgslib.ID) (int, error)
+	// CountOwners returns how many owners other than excludeUserID an
+	// organisation has, counting only live accounts.
+	CountOwners(ctx context.Context, orgID orgslib.ID, excludeUserID string) (int, error)
 	// SelectUserOrgs returns every organisation userID belongs to, deleted or
-	// not, with the user's role, the number of owners and of members.
+	// not, with the user's role, the number of owners and of members with
+	// live accounts.
 	SelectUserOrgs(ctx context.Context, userID string) ([]UserOrg, error)
-	// SelectEarliestMember returns the member other than excludeUserID who
-	// joined first, among those with role (any role when empty), or
-	// ErrMemberNotFound.
+	// SelectEarliestMember returns the member with a live account other than
+	// excludeUserID who joined first, among those with role (any role when
+	// empty), or ErrMemberNotFound.
 	SelectEarliestMember(ctx context.Context, orgID orgslib.ID, role, excludeUserID string) (orgsdomain.Member, error)
 
 	// SelectUserEmail returns an account's email address and whether it is
@@ -84,16 +92,17 @@ type Store interface {
 	// ErrInvitationNotFound, and locks it.
 	SelectInvitation(ctx context.Context, orgID orgslib.ID, id string) (orgsdomain.Invitation, error)
 	// SelectInvitationByTokenHash returns an invitation by its token hash,
-	// or ErrInvitationNotFound, and locks it.
-	SelectInvitationByTokenHash(ctx context.Context, tokenHash []byte) (orgsdomain.Invitation, error)
+	// or ErrInvitationNotFound. lock locks it until the transaction ends.
+	SelectInvitationByTokenHash(ctx context.Context, tokenHash []byte, lock bool) (orgsdomain.Invitation, error)
 	// SelectOpenInvitations returns an organisation's invitations that
 	// weren't accepted or revoked, newest first.
 	SelectOpenInvitations(ctx context.Context, orgID orgslib.ID) ([]orgsdomain.Invitation, error)
 	// CountInvitationsSince counts an organisation's invitations sent or
 	// resent after since.
 	CountInvitationsSince(ctx context.Context, orgID orgslib.ID, since time.Time) (int, error)
-	// ReplaceInvitationToken gives an invitation a new token and expiry.
-	ReplaceInvitationToken(ctx context.Context, id string, tokenHash []byte, now, expiresAt time.Time) error
+	// ReplaceInvitationToken gives an invitation a new token, inviter and
+	// expiry.
+	ReplaceInvitationToken(ctx context.Context, id string, tokenHash []byte, invitedBy string, now, expiresAt time.Time) error
 	// RevokeInvitation marks an invitation revoked.
 	RevokeInvitation(ctx context.Context, id string, now time.Time) error
 	// RevokeExpiredInvitation revokes the open, expired invitation for an

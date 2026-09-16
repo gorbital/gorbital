@@ -37,7 +37,7 @@ Every member has exactly one role.
 | `admin` | Rename the organisation, invite, change and remove members and admins, work with resources |
 | `member` | See the organisation and its members, work with resources |
 
-- Nobody gives, changes or removes a role above their own, and only owners manage owners.
+- Nobody gives, changes or removes a role that grants a permission their own role doesn't, and only owners manage owners. Roles are compared by their permissions, not their names, so a role you add can't be used to climb: an admin can't give anyone a role that may delete the organisation.
 - The last owner can't leave, be demoted or be removed (409 `last_owner`). Promote another member to owner first.
 - Add roles for your product, such as a read-only viewer, in `declareOrgPermissions` in `internal/app/permissions.go`.
 
@@ -51,15 +51,15 @@ Every account gets a workspace called "Personal" when it is created: at registra
 
 1. **Invite**
 
-   An owner or admin calls `POST /v1/orgs/{orgId}/invitations` with an email address and a role no higher than their own. The email links to the page in the `orgs.invitation_url` runtime setting, with a single-use token in the URL fragment. Only the token's hash is stored. An organisation can send 20 invitations an hour, resends included.
+   An owner or admin with a verified email address calls `POST /v1/orgs/{orgId}/invitations` with an email address and a role they could give. The email links to the page in the `orgs.invitation_url` runtime setting, with a single-use token in the URL fragment. Only the token's hash is stored. An organisation can send 20 invitations an hour, and a user `orgs.user_invitations_per_hour` across all their organisations, resends included.
 
 2. **Accept**
 
-   The invited person signs in, or registers, with the invited address and verifies it, then your frontend calls `POST /v1/invitations/accept` with the token. An account with a different email address can't use the link, even if it was forwarded.
+   The invited person signs in, or registers, with the invited address and verifies it, then your frontend calls `POST /v1/invitations/accept` with the token. An account with a different email address can't use the link, even if it was forwarded. The link works only while whoever sent it is still a member who may give the role: removing or demoting them, or deleting their account, ends their invitations (404 `invitation_not_found`).
 
 3. **Resend or revoke**
 
-   Resending replaces the token and the expiry, so the old link stops working. Revoking ends the invitation.
+   Resending replaces the token and the expiry, so the old link stops working, and makes you the invitation's sender. Revoking ends the invitation. Both need a role that could give the invitation's role: owners handle every invitation, admins those for admins and members.
 
 </div>
 
@@ -105,8 +105,9 @@ One mistake in one layer shouldn't leak data. Each layer is checked by a test in
 
 ## Deleting organisations and accounts
 
-- An owner deletes an organisation with `DELETE /v1/orgs/{orgId}`. Members lose access at once. An owner can restore it with `POST /v1/orgs/{orgId}/restore` until the `orgs.deleted_org_retention` period ends; then the `orgs_purge` job removes it with every org-scoped row.
-- Deleting an account is refused with 409 `sole_owner` while the account is the only owner of an organisation with other members. The response lists those organisations. Organisations where the account is the only member are deleted with it.
+- Creating an organisation needs a verified email address, and a user owns at most `orgs.max_owned` organisations besides their personal workspace (409 `too_many_orgs`). Deleted organisations don't count until they are restored.
+- An owner deletes an organisation with `DELETE /v1/orgs/{orgId}`. Members lose access at once. An owner can restore it with `POST /v1/orgs/{orgId}/restore` until the `orgs.deleted_org_retention` period ends; then the `orgs_purge` job removes it with every org-scoped row. Restoring needs the same role, and the same second factor if the role requires one, as deleting.
+- Deleting an account is refused with 409 `sole_owner` while the account is the only owner of an organisation with other members. The response lists those organisations. Organisations where the account is the only member are deleted with it, and the account stops being a member everywhere, deleted organisations included. Owners whose accounts are deleted don't count toward "at least one owner".
 
 ## Runtime settings
 
@@ -115,6 +116,8 @@ One mistake in one layer shouldn't leak data. Each layer is checked by a test in
 | `orgs.invitation_url` | none | The frontend page invitation links open |
 | `orgs.invitation_ttl` | 7 days | 1 to 30 days |
 | `orgs.deleted_org_retention` | 30 days | 1 to 365 days |
+| `orgs.max_owned` | 20 | 1 to 10,000 organisations a user may own, personal workspace aside |
+| `orgs.user_invitations_per_hour` | 50 | 1 to 10,000 invitations a user may send or resend an hour, shared across instances |
 
 ## Error codes
 
@@ -130,4 +133,6 @@ One mistake in one layer shouldn't leak data. Each layer is checked by a test in
 | `already_invited` | 409 | The address already has an open invitation; resend it instead |
 | `invitation_not_found` | 404 | The invitation doesn't exist, was used or revoked, or expired |
 | `invitation_for_another_email` | 403 | Accepting with an account whose verified address isn't the invited one |
-| `too_many_invitations` | 429 | More than 20 invitations from one organisation in an hour |
+| `too_many_invitations` | 429 | More than 20 invitations from one organisation, or `orgs.user_invitations_per_hour` from one user, in an hour |
+| `too_many_orgs` | 409 | Creating or restoring an organisation when you own `orgs.max_owned` already |
+| `email_not_verified` | 403 | Creating an organisation or sending an invitation before verifying your email address |

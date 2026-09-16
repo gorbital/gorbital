@@ -12,14 +12,17 @@ import (
 
 const selectUserOrgsSQL = `
 	SELECT o.id, o.personal, o.deleted_at IS NOT NULL, m.role,
-	       (SELECT count(*) FROM org_members x WHERE x.org_id = o.id AND x.role = 'owner'),
-	       (SELECT count(*) FROM org_members x WHERE x.org_id = o.id)
+	       (SELECT count(*) FROM org_members x JOIN auth_users u ON u.id = x.user_id
+	        WHERE x.org_id = o.id AND x.role = 'owner' AND u.deleted_at IS NULL),
+	       (SELECT count(*) FROM org_members x JOIN auth_users u ON u.id = x.user_id
+	        WHERE x.org_id = o.id AND u.deleted_at IS NULL)
 	FROM org_members m JOIN orgs o ON o.id = m.org_id
 	WHERE m.user_id = $1
 	ORDER BY o.id`
 
 // SelectUserOrgs returns every organisation userID belongs to, deleted or
-// not, with the user's role and the numbers of owners and members.
+// not, with the user's role and the numbers of owners and members with live
+// accounts.
 func (s *Store) SelectUserOrgs(ctx context.Context, userID string) ([]orgsusecase.UserOrg, error) {
 	rows, err := s.db.Query(ctx, selectUserOrgsSQL, userID)
 	if err != nil {

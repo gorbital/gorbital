@@ -25,7 +25,7 @@ func (s *Service) ListMembers(ctx context.Context, orgID orgslib.ID) ([]orgsdoma
 // above their own, only owners change owners, and the last owner can't be
 // demoted.
 func (s *Service) ChangeRole(ctx context.Context, orgID orgslib.ID, memberID, role string) (orgsdomain.Member, error) {
-	ctx, me, err := orgslib.RequireMember(ctx, s.store, s.catalog, orgID, PermMembersManage)
+	ctx, _, err := orgslib.RequireMember(ctx, s.store, s.catalog, orgID, PermMembersManage)
 	if err != nil {
 		return orgsdomain.Member{}, storeError("change role", err)
 	}
@@ -35,7 +35,8 @@ func (s *Service) ChangeRole(ctx context.Context, orgID orgslib.ID, memberID, ro
 	var target orgsdomain.Member
 	var from string
 	err = s.store.InTx(ctx, func(tx Store) error {
-		if _, err := tx.SelectOrg(ctx, orgID, true); err != nil {
+		_, me, err := s.lockOrg(ctx, tx, orgID, PermMembersManage)
+		if err != nil {
 			return err
 		}
 		if target, err = tx.SelectMember(ctx, orgID, memberID); err != nil {
@@ -45,10 +46,10 @@ func (s *Service) ChangeRole(ctx context.Context, orgID orgslib.ID, memberID, ro
 		if from == role {
 			return nil
 		}
-		if !canAssign(me.Role, from) || !canAssign(me.Role, role) {
+		if !s.canAssign(me.Role, from) || !s.canAssign(me.Role, role) {
 			return orgsdomain.ErrRoleNotAllowed
 		}
-		if err := s.keepAnOwner(ctx, tx, orgID, from); err != nil {
+		if err := s.keepAnOwner(ctx, tx, orgID, memberID, from); err != nil {
 			return err
 		}
 		target.Role = role
@@ -68,13 +69,14 @@ func (s *Service) RemoveMember(ctx context.Context, orgID orgslib.ID, memberID s
 	if uid, err := userID(ctx); err == nil && uid == memberID {
 		return s.Leave(ctx, orgID)
 	}
-	ctx, me, err := orgslib.RequireMember(ctx, s.store, s.catalog, orgID, PermMembersManage)
+	ctx, _, err := orgslib.RequireMember(ctx, s.store, s.catalog, orgID, PermMembersManage)
 	if err != nil {
 		return storeError("remove member", err)
 	}
 	var role string
 	err = s.store.InTx(ctx, func(tx Store) error {
-		if _, err := tx.SelectOrg(ctx, orgID, true); err != nil {
+		_, me, err := s.lockOrg(ctx, tx, orgID, PermMembersManage)
+		if err != nil {
 			return err
 		}
 		target, err := tx.SelectMember(ctx, orgID, memberID)
@@ -82,10 +84,10 @@ func (s *Service) RemoveMember(ctx context.Context, orgID orgslib.ID, memberID s
 			return err
 		}
 		role = target.Role
-		if !canAssign(me.Role, role) {
+		if !s.canAssign(me.Role, role) {
 			return orgsdomain.ErrRoleNotAllowed
 		}
-		if err := s.keepAnOwner(ctx, tx, orgID, role); err != nil {
+		if err := s.keepAnOwner(ctx, tx, orgID, memberID, role); err != nil {
 			return err
 		}
 		return tx.DeleteMember(ctx, orgID, memberID)
@@ -105,14 +107,15 @@ func (s *Service) Leave(ctx context.Context, orgID orgslib.ID) error {
 		return storeError("leave", err)
 	}
 	err = s.store.InTx(ctx, func(tx Store) error {
-		o, err := tx.SelectOrg(ctx, orgID, true)
+		o, current, err := s.lockOrg(ctx, tx, orgID, PermOrgRead)
 		if err != nil {
 			return err
 		}
+		me = current
 		if o.Personal {
 			return orgsdomain.ErrPersonalWorkspace
 		}
-		if err := s.keepAnOwner(ctx, tx, orgID, me.Role); err != nil {
+		if err := s.keepAnOwner(ctx, tx, orgID, me.UserID, me.Role); err != nil {
 			return err
 		}
 		return tx.DeleteMember(ctx, orgID, me.UserID)
@@ -124,17 +127,19 @@ func (s *Service) Leave(ctx context.Context, orgID orgslib.ID) error {
 	return nil
 }
 
-// keepAnOwner returns ErrLastOwner when a member with role is the only owner
-// and is about to stop being one. The organisation row must be locked.
-func (s *Service) keepAnOwner(ctx context.Context, tx Store, orgID orgslib.ID, role string) error {
+// keepAnOwner returns ErrLastOwner when userID, a member with role, is about
+// to stop being an owner and no other owner has a live account. Owners whose
+// accounts are deleted don't count (security review ORG-6), and can be
+// removed. The organisation row must be locked.
+func (s *Service) keepAnOwner(ctx context.Context, tx Store, orgID orgslib.ID, userID, role string) error {
 	if role != orgslib.RoleOwner {
 		return nil
 	}
-	owners, err := tx.CountOwners(ctx, orgID)
+	others, err := tx.CountOwners(ctx, orgID, userID)
 	if err != nil {
 		return err
 	}
-	if owners <= 1 {
+	if others == 0 {
 		return orgsdomain.ErrLastOwner
 	}
 	return nil

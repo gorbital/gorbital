@@ -65,12 +65,14 @@ func soleOwnerWithOthers(o UserOrg) bool {
 	return !o.Personal && !o.Deleted && o.Role == orgslib.RoleOwner && o.Owners == 1 && o.Members > 1
 }
 
-// RemoveAccount runs after userID's account is deleted. The personal
-// workspace and organisations where the user was the only member are
-// deleted, to be purged after the retention period. In other organisations
-// the user stops being a member; if they were the only owner (someone joined
-// after CheckAccountDeletion), the earliest admin, or else the earliest
-// member, becomes owner. It is safe to run again.
+// RemoveAccount runs after userID's account is deleted: the user stops being
+// a member of every organisation. The personal workspace and organisations
+// where the user was the only member are deleted, to be purged after the
+// retention period. Where the user was the only owner (someone joined after
+// CheckAccountDeletion), the earliest admin, or else the earliest member,
+// becomes owner. Organisations that are already deleted get no hand-over, but
+// lose the member too, so a restore can't bring a deleted account back as an
+// owner (security review ORG-6). It is safe to run again.
 func (s *Service) RemoveAccount(ctx context.Context, userID string) error {
 	orgs, err := s.store.SelectUserOrgs(ctx, userID)
 	if err != nil {
@@ -78,10 +80,7 @@ func (s *Service) RemoveAccount(ctx context.Context, userID string) error {
 	}
 	var errs []error
 	for _, o := range orgs {
-		if o.Deleted {
-			continue
-		}
-		if err := s.removeFromOrg(ctx, userID, o); err != nil {
+		if err := s.removeFromOrg(ctx, userID, o.OrgID); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -91,47 +90,70 @@ func (s *Service) RemoveAccount(ctx context.Context, userID string) error {
 	return nil
 }
 
-func (s *Service) removeFromOrg(ctx context.Context, userID string, o UserOrg) error {
+// removeFromOrg removes userID from one organisation, reading the
+// organisation and the user's role under the organisation's lock.
+func (s *Service) removeFromOrg(ctx context.Context, userID string, orgID orgslib.ID) error {
 	now := s.clock()
 	var (
-		deleted  bool
-		promoted string
+		removed, deleted bool
+		promoted, role   string
 	)
 	err := s.store.InTx(ctx, func(tx Store) error {
-		if _, err := tx.SelectOrg(ctx, o.OrgID, true); err != nil {
-			if errors.Is(err, orgslib.ErrOrgNotFound) {
-				return nil // deleted meanwhile
-			}
-			return err
+		o, err := tx.SelectOrg(ctx, orgID, true)
+		if errors.Is(err, orgslib.ErrOrgNotFound) {
+			o, err = tx.SelectDeletedOrg(ctx, orgID)
 		}
-		members, err := tx.SelectMembers(ctx, o.OrgID)
+		if errors.Is(err, orgslib.ErrOrgNotFound) {
+			return nil // purged meanwhile
+		}
 		if err != nil {
 			return err
 		}
-		if o.Personal || len(members) <= 1 {
-			deleted = true
-			return tx.MarkOrgDeleted(ctx, o.OrgID, now, now.Add(s.retention.Get(ctx)))
+		m, err := tx.SelectMember(ctx, orgID, userID)
+		if errors.Is(err, orgsdomain.ErrMemberNotFound) {
+			return nil // removed already
 		}
-		if o.Role == orgslib.RoleOwner {
-			owners, err := tx.CountOwners(ctx, o.OrgID)
+		if err != nil {
+			return err
+		}
+		role = m.Role
+		if o.DeletedAt != nil {
+			removed = true
+			return tx.DeleteMember(ctx, orgID, userID)
+		}
+		_, err = tx.SelectEarliestMember(ctx, orgID, "", userID)
+		alone := errors.Is(err, orgsdomain.ErrMemberNotFound)
+		if err != nil && !alone {
+			return err
+		}
+		if o.Personal || alone {
+			deleted = true
+			if err := tx.MarkOrgDeleted(ctx, orgID, now, now.Add(s.retention.Get(ctx))); err != nil {
+				return err
+			}
+			return tx.DeleteMember(ctx, orgID, userID)
+		}
+		if role == orgslib.RoleOwner {
+			owners, err := tx.CountOwners(ctx, orgID, userID)
 			if err != nil {
 				return err
 			}
-			if owners <= 1 {
-				next, err := tx.SelectEarliestMember(ctx, o.OrgID, orgslib.RoleAdmin, userID)
+			if owners == 0 {
+				next, err := tx.SelectEarliestMember(ctx, orgID, orgslib.RoleAdmin, userID)
 				if errors.Is(err, orgsdomain.ErrMemberNotFound) {
-					next, err = tx.SelectEarliestMember(ctx, o.OrgID, "", userID)
+					next, err = tx.SelectEarliestMember(ctx, orgID, "", userID)
 				}
 				if err != nil {
 					return err
 				}
-				if err := tx.UpdateMemberRole(ctx, o.OrgID, next.UserID, orgslib.RoleOwner); err != nil {
+				if err := tx.UpdateMemberRole(ctx, orgID, next.UserID, orgslib.RoleOwner); err != nil {
 					return err
 				}
 				promoted = next.UserID
 			}
 		}
-		return tx.DeleteMember(ctx, o.OrgID, userID)
+		removed = true
+		return tx.DeleteMember(ctx, orgID, userID)
 	})
 	if err != nil {
 		return err
@@ -139,12 +161,12 @@ func (s *Service) removeFromOrg(ctx context.Context, userID string, o UserOrg) e
 	reason := map[string]any{"reason": "account_deleted"}
 	switch {
 	case deleted:
-		s.audit(ctx, ActionOrgDeleted, o.OrgID, "org", string(o.OrgID), reason)
-	default:
+		s.audit(ctx, ActionOrgDeleted, orgID, "org", string(orgID), reason)
+	case removed:
 		if promoted != "" {
-			s.audit(ctx, ActionMemberRoleChanged, o.OrgID, "user", promoted, map[string]any{"to": orgslib.RoleOwner, "reason": "owner_account_deleted"})
+			s.audit(ctx, ActionMemberRoleChanged, orgID, "user", promoted, map[string]any{"to": orgslib.RoleOwner, "reason": "owner_account_deleted"})
 		}
-		s.audit(ctx, ActionMemberRemoved, o.OrgID, "user", userID, reason)
+		s.audit(ctx, ActionMemberRemoved, orgID, "user", userID, map[string]any{"reason": "account_deleted", "role": role})
 	}
 	return nil
 }

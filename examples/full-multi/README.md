@@ -84,10 +84,11 @@ curl http://127.0.0.1:8080/v1/orgs/$ORG/projects -H "Authorization: Bearer $TOKE
 
 | Rule | Behaviour |
 |---|---|
-| Roles | `owner`, `admin` or `member`, one per person, declared with their permissions in `internal/app/permissions.go`. Nobody gives or changes a role above their own, and only owners manage owners |
+| Roles | `owner`, `admin` or `member`, one per person, declared with their permissions in `internal/app/permissions.go`. Nobody gives or changes a role granting a permission their own role doesn't, and only owners manage owners |
 | Outsiders | Every `/v1/orgs/{orgId}/…` request by someone who isn't a member answers 404 `org_not_found`, so organisation IDs can't be probed |
-| Invitations | The link opens the page in the `orgs.invitation_url` runtime setting with `#token=…`; the page posts the token to `POST /v1/invitations/accept`. Accepting needs a signed-in account whose verified email is the invited address. Links last `orgs.invitation_ttl` (7 days); an organisation sends at most 20 an hour |
+| Invitations | The link opens the page in the `orgs.invitation_url` runtime setting with `#token=…`; the page posts the token to `POST /v1/invitations/accept`. Accepting needs a signed-in account whose verified email is the invited address, while the inviter is still a member who may give the role. Inviting needs a verified address. Links last `orgs.invitation_ttl` (7 days); an organisation sends at most 20 an hour, and a user `orgs.user_invitations_per_hour` (50) across organisations |
 | Owners | An organisation always has an owner: the last owner can't leave or be demoted, and can't delete their account while others are members (409 `sole_owner` lists the organisations) |
+| Creating | Needs a verified address; a user owns at most `orgs.max_owned` (20) organisations besides their personal workspace |
 | Deleting | Members lose access at once; an owner can `POST /v1/orgs/{orgId}/restore` until `orgs.deleted_org_retention` (30 days) ends, when the `orgs_purge` job removes it with its data |
 | Platform staff | `platform_admin` and `ops_viewer` don't see organisations' data |
 

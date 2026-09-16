@@ -2758,7 +2758,7 @@
           "name": "Create an organisation",
           "request": {
             "method": "POST",
-            "description": "You become its owner.",
+            "description": "You become its owner. Your email address must be verified, and you can own up to `orgs.max_owned` organisations.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -2948,7 +2948,7 @@
           "name": "Invite someone",
           "request": {
             "method": "POST",
-            "description": "Emails a link to the frontend page in `orgs.invitation_url`. Accepting needs an account whose verified email is the invited address.",
+            "description": "Emails a link to the frontend page in `orgs.invitation_url`. Your email address must be verified. Accepting needs an account whose verified email is the invited address, while you are still a member who may give the role.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -3036,7 +3036,7 @@
           "name": "Resend an invitation",
           "request": {
             "method": "POST",
-            "description": "Sends a new link with a new expiry; the old link stops working.",
+            "description": "Sends a new link with a new expiry; the old link stops working. You become the invitation's inviter.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -3240,6 +3240,7 @@
           "name": "Restore a deleted organisation",
           "request": {
             "method": "POST",
+            "description": "Needs the same role as deleting it. Restoring counts toward `orgs.max_owned` like creating.",
             "auth": {
               "type": "bearer",
               "bearer": [
