@@ -272,6 +272,20 @@
     const toggle = $("[data-try-toggle]");
     const saved = store.get("try-server");
     if (saved && form.elements.server) form.elements.server.value = saved;
+    // A token saved from an earlier "Try it" call (this page or another
+    // endpoint's) carries over, so signing in once fills every other
+    // endpoint's Bearer token field too. It never leaves this browser.
+    const savedToken = store.get("try-token");
+    if (savedToken && form.elements.token) form.elements.token.value = savedToken;
+    if (form.elements.token) {
+      form.elements.token.addEventListener("input", () => {
+        store.set("try-token", form.elements.token.value.trim());
+      });
+    }
+    $("[data-try-clear-token]", form)?.addEventListener("click", () => {
+      store.set("try-token", "");
+      if (form.elements.token) form.elements.token.value = "";
+    });
     const setOpen = (open) => {
       form.hidden = !open;
       toggle.setAttribute("aria-expanded", String(open));
@@ -313,7 +327,16 @@
         const res = await fetch(url, { method: form.dataset.method, headers, body: body || undefined, credentials: sameOrigin ? "same-origin" : "omit" });
         const text = await res.text();
         let shown = text;
-        try { shown = JSON.stringify(JSON.parse(text), null, 2); } catch { /* not JSON */ }
+        let parsed;
+        try { parsed = JSON.parse(text); shown = JSON.stringify(parsed, null, 2); } catch { /* not JSON */ }
+        // A response with a top-level "token" (login with transport:
+        // "bearer", or a refresh) fills the Bearer token field here and on
+        // every other endpoint's "Try it" panel, so signing in once is
+        // enough even when testing bearer auth instead of the cookie.
+        if (parsed && typeof parsed.token === "string" && parsed.token) {
+          store.set("try-token", parsed.token);
+          if (form.elements.token) form.elements.token.value = parsed.token;
+        }
         $("[data-try-status]", form).textContent = res.status + " " + res.statusText + " · " + Math.round(performance.now() - started) + " ms";
         $("[data-try-body]", form).textContent = shown || "(empty body)";
         result.hidden = false;

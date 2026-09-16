@@ -225,8 +225,9 @@ p { margin:0; text-wrap:pretty; }
 .try .copy { color:var(--dim); border-color:var(--border); }
 .try .btn { align-self:flex-start; }
 .field { display:flex; flex-direction:column; gap:6px; }
-.field label { font:500 11px/1 var(--font-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--dim); }
+.field label { display:flex; align-items:center; justify-content:space-between; gap:8px; font:500 11px/1 var(--font-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--dim); }
 .field label span { text-transform:none; letter-spacing:0; opacity:.8; }
+.field label .copy { text-transform:none; letter-spacing:0; padding:2px 8px; }
 .field input, .field textarea { width:100%; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--ground); font:400 13px/1.5 var(--font-mono); color:var(--ink); }
 .field input { height:38px; padding-inline:12px; }
 .field textarea { padding:10px 12px; resize:vertical; }

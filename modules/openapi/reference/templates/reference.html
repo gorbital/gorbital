@@ -40,7 +40,7 @@
   <div class="field"><label for="try-server">Server</label><input id="try-server" name="server" value="http://127.0.0.1:8080" autocomplete="off" spellcheck="false"></div>
   {{- end}}
   {{- if $o.Auth}}
-  <div class="field"><label for="try-token">Bearer token</label><input id="try-token" name="token" type="password" autocomplete="off" placeholder="{{if .SameOrigin}}optional when signed in with a cookie{{else}}session token{{end}}"></div>
+  <div class="field"><label for="try-token">Bearer token <button type="button" class="copy" data-try-clear-token>Clear</button></label><input id="try-token" name="token" type="password" autocomplete="off" placeholder="{{if .SameOrigin}}optional when signed in with a cookie{{else}}session token{{end}}"></div>
   {{- end}}
   {{- range $o.Try}}
   <div class="field"><label for="try-{{.In}}-{{.Name}}">{{.Name}} <span>{{.In}}</span></label><input id="try-{{.In}}-{{.Name}}" data-in="{{.In}}" data-name="{{.Name}}" value="{{.Example}}" autocomplete="off" spellcheck="false"{{if .Required}} required{{end}}></div>
