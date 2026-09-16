@@ -150,3 +150,14 @@ Seed also enrolls the administrator: it creates and confirms a TOTP secret and r
 | New Full app (`ORB_E2E=1`) | Passes its own suite, including the tests above |
 | `orb dev` with Docker (`ORB_E2E_DOCKER=1`) | Writes a development `AUTH_ENCRYPTION_KEYS`; seed enrolls the administrator; the printed password and a code from the printed key sign in; API ready in 9 s with warm caches |
 | Lint | golangci-lint clean in `actor`, `modules/auth`, `examples/full-single` and `cli`; no new module dependencies |
+
+## Security review fixes (2026-09-16)
+
+- **Recovery codes (AUTH-M-4):** new codes carry 80 random bits, 16 base32 characters shown as `xxxx-xxxx-xxxx-xxxx`, instead of 50 bits in 10 characters; `HashRecoveryCode` stays `SHA-256(user_id:normalized code)`, so codes made before keep working until replaced. An unkeyed hash of 50 bits could be reversed from a database dump in GPU-hours; 80 bits take about 10^13 GPU-seconds.
+- The triage proposed an HMAC keyed from `AUTH_ENCRYPTION_KEYS`. Rejected: a recovery code can't be re-hashed without the code, so `rotate-auth-keys` couldn't move codes to a new key, and removing the old key after rotation, as the key guide says to, would silently break the codes of every user, the one way back for someone who lost their authenticator app. Passkey-only accounts also have recovery codes on servers without encryption keys. More entropy protects every code with no key to manage.
+- **Checks behind a session (AUTH-M-2):** setting up and turning off the authenticator app, and account deletion's second factor, also spend the per-user `auth.reauth_attempts` budget (ADR-0038 security review fixes).
+
+| Check | Result |
+|---|---|
+| `TestRecoveryCodes` | 10 distinct codes of 16 base32 characters in four groups; a 10-character code still hashes like its variants |
+| `TestChecksBehindASessionAreLimited` | Wrong passwords through authenticator app setup and deletion count toward one per-user limit |

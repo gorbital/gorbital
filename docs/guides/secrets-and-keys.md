@@ -108,7 +108,7 @@ Hashed with argon2id (m = 19 MiB, t = 2, p = 1, 16-byte salt, 32-byte key; [ADR-
 
 ### Verification and reset codes
 
-6 random digits (`authlib.NewCode`), emailed to the user. Stored as `SHA-256(code_id:code)` in `auth_codes`, single use, attempt-limited, valid 15 minutes for email verification (`auth.verification_code_ttl`) and 30 minutes for password reset (`auth.reset_code_ttl`). A 6-digit code is only safe because of the short lifetime, the attempt limit and the per-IP rate limit.
+6 random digits (`authlib.NewCode`), emailed to the user. Stored as `SHA-256(code_id:code)` in `auth_codes`, single use, attempt-limited, valid 15 minutes for email verification (`auth.verification_code_ttl`) and 30 minutes for password reset (`auth.reset_code_ttl`). A 6-digit code is only safe because of the short lifetime, the attempt limit, and a limit of 20 checks a day per address across every code sent to it (`auth.code_attempts`), which a new code doesn't reset.
 
 ### TOTP secrets
 
@@ -116,7 +116,7 @@ Created when a user starts `POST /v1/auth/mfa/totp`, returned once as a base32 k
 
 ### Recovery codes
 
-10 codes like `hibtq-ysrvv`, shown once when TOTP is confirmed (and by `cmd/seed`). Stored as `SHA-256(user_id:normalized code)` in `auth_recovery_codes`; each works once. `POST /v1/auth/mfa/recovery-codes` replaces the set.
+10 codes like `hibt-qysr-vv45-ly5l`, 16 base32 characters (80 random bits), shown once when TOTP is confirmed (and by `cmd/seed`). Stored as `SHA-256(user_id:normalized code)` in `auth_recovery_codes`; each works once. 80 bits keep a leaked hash from being reversed by trying codes (codes made before 2026-09-16 have 10 characters, 50 bits; users replace them with a new set). `POST /v1/auth/mfa/recovery-codes` replaces the set.
 
 ### Passkeys
 

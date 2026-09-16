@@ -166,3 +166,26 @@ d, err := l.Take(ctx, "ada@example.com")
 | Failure | With the pool closed, decisions keep the burst in memory and log one warning; requests past twice the burst are refused locally without touching the database |
 | Trusted proxies | Direct clients, spoofed headers from untrusted peers, one and several proxies, client-supplied hops left of the proxy, IPv6 and IPv4-mapped peers, malformed hops, all-trusting ranges |
 | Apps | Two instances on one database share the sign-in limit (`TestSignInLimitSharedAcrossInstances`); behind a trusted proxy two clients get separate per-IP budgets while an untrusted peer claiming new addresses is still limited (`TestPerIPLimitBehindTrustedProxy`); `APP_TRUSTED_PROXIES` validation |
+
+## Security review fixes (2026-09-16)
+
+- **IPv6 (AUTH-S-7, OPS-1):** `ratelimit.ByRemoteIP` returned the full address, so a host with a /64 had 2^64 budgets. Core gains `ratelimit.ClientKey(ip)`: IPv4 as is, IPv4-mapped IPv6 as IPv4, other IPv6 as its /64 prefix (`2001:db8:1:2::/64`), zones ignored, anything else unchanged. `ByRemoteIP` uses it, so the app's `authLimitKey` groups by /64 without changes. /64 rather than /56 or /48: providers commonly give one customer a /64, and a coarser prefix would make neighbours on shared ranges share a budget; a configurable prefix can be added when a deployment needs it.
+- **New limiters** in `internal/app/rate_limits.go`, all shared through `ratelimitpg` and read from settings on every request (group `rate_limits`, reason required):
+
+| Limiter | Key | Setting | Default | Bounds | Finding |
+|---|---|---|---|---|---|
+| `auth_login` (changed) | normalized address and client network (`ClientKey`) | `auth.login_attempts`, `auth.login_window` | 10 per 15 min | unchanged | AUTH-S-6 |
+| `auth_login_address` | normalized address | `auth.login_address_attempts` | 50 per `auth.login_window` | 10–1000 | AUTH-S-6 |
+| `auth_reauth` | user ID | `auth.reauth_attempts` | 10 per `auth.login_window` | 3–100 | AUTH-S-5, AUTH-M-2 |
+| `auth_code` | code purpose and normalized address | `auth.code_attempts`, `auth.code_window` | 20 per 24 h | 5–100; 1 h–7 days | AUTH-S-2 |
+
+- `auth_login` buckets keyed by address alone are simply never used again and expire; no migration.
+- The use cases take `LoginAddressLimiter`, `ReauthLimiter` and `CodeLimiter`, with in-memory defaults (`auth.DefaultLoginAddressAttempts`, `auth.DefaultCodeAttempts`, `auth.DefaultCodeWindow`) like the others.
+- `TestPerIPLimitBehindTrustedProxy` now sends code checks for unknown addresses instead of forgot-password requests: forgot password takes at least 300 ms since AUTH-S-4, so 61 of them no longer fit in the per-minute budget's minute.
+
+| Check | Result |
+|---|---|
+| `TestClientKey`, `TestByRemoteIPGroupsIPv6By64` (core) | IPv4, mapped, zoned and malformed input; two addresses of one /64 share a bucket, another /64 doesn't |
+| `TestPerIPLimitGroupsIPv6` (both Full apps) | 60 requests from 60 addresses of one /64 are allowed, the 61st is 429 `rate_limited`, another /64 isn't limited |
+| `TestLoginLimitIsPerNetwork` | A /64 is limited after 3 wrong passwords while the owner signs in from another network; the address-wide limit then stops everyone |
+| `TestSignInLimitSharedAcrossInstances` | Unchanged: two instances share the per-network sign-in limit |
