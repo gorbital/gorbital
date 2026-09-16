@@ -39,7 +39,7 @@ AccessLog writes one line; the span ends
 
 ## 2. Middleware
 
-`buildHTTP` wraps the mux with `httpx.Chain(telemetry.RecordRoute(observability.RecordRoute(mux)), middlewares...)`; the first in the list runs first. The two `RecordRoute` wrappers hand the matched route pattern back to the telemetry and request-count middleware, because the session middleware passes a copy of the request to the mux and `http.ServeMux` sets the pattern on that copy.
+`buildHTTP` wraps the mux with `httpx.Chain(telemetry.RecordRoute(observability.RecordRoute(mux)), middlewares...)`; the first in the list runs first. In development with `DEV_CONSOLE_TOKEN` (set by `orb dev`), `console.Mount` puts the [dev console APIs](dev-console.md) in front of the whole chain: requests to `/_dev/` never reach this middleware (no CORS, maintenance mode, authentication or request counts) and pass the console's own Host, loopback and token checks instead; every other path goes through the chain unchanged. Without the token, `Mount` returns the chain itself. The two `RecordRoute` wrappers hand the matched route pattern back to the telemetry and request-count middleware, because the session middleware passes a copy of the request to the mux and `http.ServeMux` sets the pattern on that copy.
 
 | # | Middleware | Package | What it does | Can answer |
 |---|---|---|---|---|

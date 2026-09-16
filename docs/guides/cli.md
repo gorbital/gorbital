@@ -428,6 +428,8 @@ In an app with a database (Full preset), before the first start it:
 4. Applies migrations (`go run ./cmd/migrate`) and runs seed data (`go run ./cmd/seed`). The first run prints the administrator's password once ([ADR-0042](../adr/0042-development-seed-data.md)); later runs change nothing.
 5. Prints the API, docs and email inbox addresses, then starts the app.
 
+In every app whose `.env.example` declares `DEV_CONSOLE_TOKEN` and that runs with `APP_ENV=development`, `orb dev` also generates a random dev console token (256 bits) for the run, passes it to the app in its environment only (never to `.env` or any file), and prints the [dev console APIs](dev-console.md) address and the token. Rebuilds keep the token; the next run gets a new one. A `DEV_CONSOLE_TOKEN` already set in `orb dev`'s own environment is passed instead and not printed.
+
 While it runs, a changed or new migration is applied before the restart; if it fails, the previous version keeps running. Services keep running after `orb dev` stops, so the next start is fast: `docker compose down` stops them, and `docker compose down -v` also deletes the database.
 
 | Flag | Default |

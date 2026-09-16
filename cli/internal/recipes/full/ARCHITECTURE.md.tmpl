@@ -29,6 +29,7 @@ internal/app/            composition root: builds, wires, runs and shuts down th
   rate_limits.go         rate limits every instance shares (ratelimitpg), read from runtime settings
   idempotency.go         Idempotency-Key on POST and PATCH: stored responses replayed per caller (modules/idempotency)
   observability.go       request counts per route for /ops/observability, stream limits and incident detection (modules/observability)
+  devconsole.go          DEV_CONSOLE_TOKEN: development-only /_dev/ APIs (requests, logs, routes, configuration without secrets, mail, migrations, jobs; modules/devconsole)
   seed.go                development seed data (cmd/seed)
   mail.go                email delivery: Mailpit in development or the provider
   infra_mail.go          the email provider's configuration (replaced by `orb add mail`)

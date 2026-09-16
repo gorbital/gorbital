@@ -11,6 +11,7 @@ import (
 
 	"gorbital.dev/config"
 	"gorbital.dev/httpx"
+	"gorbital.dev/modules/devconsole"
 )
 
 // Config is every setting of the application. Each field maps to an
@@ -34,6 +35,12 @@ type Config struct {
 	// MetricsAddr is the separate listener serving Prometheus metrics
 	// (METRICS_ADDR; empty: off; metrics.go).
 	MetricsAddr string
+	// DevConsoleToken turns on the development console's APIs under /_dev/
+	// in development (DEV_CONSOLE_TOKEN, set by orb dev; devconsole.go).
+	DevConsoleToken config.Secret
+	// EnvKeys are the environment variables LoadConfig read, secrets as set
+	// or unset only, listed by GET /_dev/config.
+	EnvKeys []devconsole.EnvKey
 }
 
 // Production reports whether the app runs in production mode.
@@ -60,12 +67,24 @@ func LoadConfig(src config.Source) (Config, error) {
 		MaxBodyBytes: 1 << 20,
 	}
 	var errs []error
+	var read devconsole.EnvKeys // what the dev console lists
 	get := func(key string) string {
 		v, err := src.Get(key)
 		if err != nil {
 			errs = append(errs, err)
 		}
-		return strings.TrimSpace(v)
+		v = strings.TrimSpace(v)
+		read.Read(key, v)
+		return v
+	}
+	secret := func(key string) config.Secret {
+		v, err := src.Secret(key)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		v = config.NewSecret(strings.TrimSpace(v.Reveal()))
+		read.ReadSecret(key, !v.IsZero())
+		return v
 	}
 
 	// No default: a deployment that forgets APP_ENV must not run with
@@ -137,6 +156,12 @@ func LoadConfig(src config.Source) (Config, error) {
 	if err := checkMetricsAddr(cfg.MetricsAddr, cfg.Addr); err != nil {
 		errs = append(errs, err)
 	}
+
+	var err error
+	if cfg.DevConsoleToken, err = loadDevConsoleToken(secret, cfg.Production()); err != nil {
+		errs = append(errs, err)
+	}
+	cfg.EnvKeys = read.List()
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, fmt.Errorf("invalid configuration:\n%w", err)

@@ -1,0 +1,1474 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "gorbital dev console",
+    "version": "1",
+    "description": "Development-only APIs of a gorbital app (ADR-0065), served when APP_ENV is development and DEV_CONSOLE_TOKEN is set; orb dev sets a new token on every run and prints it. Every request needs a Host header of localhost, 127.0.0.1 or [::1] with the app's port, a connection from a loopback address, and Authorization: Bearer <token>. Responses carry no CORS headers and say Cache-Control: no-store. Fields may be added."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8080"
+    }
+  ],
+  "security": [
+    {
+      "devConsoleToken": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Dev console"
+    }
+  ],
+  "paths": {
+    "/_dev/": {
+      "get": {
+        "operationId": "dev-index",
+        "summary": "Endpoints",
+        "description": "The console endpoints this app serves. Minimal apps have no mail, migrations or jobs.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Index"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/openapi.json": {
+      "get": {
+        "operationId": "dev-openapi",
+        "summary": "This document",
+        "description": "This OpenAPI document.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/app": {
+      "get": {
+        "operationId": "dev-app",
+        "summary": "The running app",
+        "description": "Name, version, environment, linked gorbital libraries, API areas, job definitions, runtime settings with current values, feature flags and permission catalogs.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/App"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/routes": {
+      "get": {
+        "operationId": "dev-routes",
+        "summary": "Routes",
+        "description": "Every operation in the app's OpenAPI document and the plain handlers outside it (health checks, docs, well-known files).",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/config": {
+      "get": {
+        "operationId": "dev-config",
+        "summary": "Environment variables",
+        "description": "The environment variables the app read at startup. Secrets, and variables whose names look secret, are shown as set or unset only.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/requests": {
+      "get": {
+        "operationId": "dev-requests",
+        "summary": "Recent requests",
+        "description": "The most recent requests (500), newest first, without query strings, headers or bodies. The console's own requests aren't included.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/requests/stream": {
+      "get": {
+        "operationId": "dev-requests-stream",
+        "summary": "Live requests",
+        "description": "Server-Sent Events: `retry: 3000`, then `event: request` with a Request for each new item, `event: dropped` with a StreamDropped when the client was too slow, `: keep-alive` comments every 15 seconds, and a final `event: end` with a StreamEnd after 30 minutes or when the app shuts down. EventSource can't send the Authorization header: read the stream with fetch. At most 8 streams at once.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The console already serves its maximum number of streams (code rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/logs": {
+      "get": {
+        "operationId": "dev-logs",
+        "summary": "Recent log records",
+        "description": "The most recent log records at info level and above (1,000), newest first.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/logs/stream": {
+      "get": {
+        "operationId": "dev-logs-stream",
+        "summary": "Live log records",
+        "description": "Server-Sent Events: `retry: 3000`, then `event: log` with a Log for each new item, `event: dropped` with a StreamDropped when the client was too slow, `: keep-alive` comments every 15 seconds, and a final `event: end` with a StreamEnd after 30 minutes or when the app shuts down. EventSource can't send the Authorization header: read the stream with fetch. At most 8 streams at once.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "The console already serves its maximum number of streams (code rate_limited)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/mail": {
+      "get": {
+        "operationId": "dev-mail",
+        "summary": "Captured email",
+        "description": "The newest messages Mailpit captured, when MAIL_DELIVERY is mailpit.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The source's service isn't reachable (code unavailable)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/migrations": {
+      "get": {
+        "operationId": "dev-migrations",
+        "summary": "Migration state",
+        "description": "The database's migration version and pending migration files.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Migrations"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/jobs": {
+      "get": {
+        "operationId": "dev-jobs",
+        "summary": "Recent job runs",
+        "description": "The 50 most recent jobs, newest first, without their arguments.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRunList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "devConsoleToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The token orb dev prints (DEV_CONSOLE_TOKEN)"
+      }
+    },
+    "schemas": {
+      "Index": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The paths this app serves, sorted"
+          }
+        },
+        "required": [
+          "endpoints"
+        ]
+      },
+      "App": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Service name"
+          },
+          "version": {
+            "type": "string"
+          },
+          "commit": {
+            "type": "string"
+          },
+          "go_version": {
+            "type": "string"
+          },
+          "env": {
+            "type": "string",
+            "description": "APP_ENV"
+          },
+          "libraries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Library"
+            },
+            "description": "gorbital library modules linked into the binary"
+          },
+          "modules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The API's areas: OpenAPI tags"
+          },
+          "jobs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Job"
+            },
+            "description": "Empty in apps without jobs"
+          },
+          "settings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Setting"
+            },
+            "description": "Empty in apps without runtime settings"
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Flag"
+            },
+            "description": "Empty in apps without feature flags"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PermissionCatalog"
+            },
+            "description": "Empty in apps without authentication"
+          }
+        },
+        "required": [
+          "name",
+          "version",
+          "go_version",
+          "env",
+          "libraries",
+          "modules",
+          "jobs",
+          "settings",
+          "flags",
+          "permissions"
+        ]
+      },
+      "Library": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "replaced": {
+            "type": "boolean",
+            "description": "Replaced by a local directory or another module"
+          }
+        },
+        "required": [
+          "path",
+          "version"
+        ]
+      },
+      "Job": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "schedule": {
+            "type": "string",
+            "description": "Cron expression or descriptor; empty for on-demand jobs"
+          },
+          "modified": {
+            "type": "boolean"
+          },
+          "next_run_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "enabled",
+          "schedule",
+          "modified"
+        ]
+      },
+      "Setting": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "value": {
+            "description": "Effective value (any JSON)"
+          },
+          "default": {
+            "description": "Declared default (any JSON)"
+          },
+          "modified": {
+            "type": "boolean"
+          },
+          "org_overridable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "group",
+          "description",
+          "kind",
+          "value",
+          "default",
+          "modified",
+          "org_overridable"
+        ]
+      },
+      "Flag": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "group": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "client": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "default": {
+            "type": "boolean"
+          },
+          "percentage": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Rollout percentage; null without a rollout"
+          },
+          "targets": {
+            "type": "integer",
+            "description": "Organisation and user IDs in allow and deny lists"
+          },
+          "modified": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "group",
+          "description",
+          "client",
+          "enabled",
+          "default",
+          "percentage",
+          "targets",
+          "modified"
+        ]
+      },
+      "PermissionCatalog": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Permission"
+            }
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Role"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "permissions",
+          "roles"
+        ]
+      },
+      "Permission": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "description"
+        ]
+      },
+      "Role": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "permissions"
+        ]
+      },
+      "RouteList": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "routes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Route"
+            }
+          }
+        },
+        "required": [
+          "routes"
+        ]
+      },
+      "Route": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "Route pattern, such as /v1/projects/{id}"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "secured": {
+            "type": "boolean",
+            "description": "The operation declares a security requirement"
+          },
+          "source": {
+            "type": "string",
+            "description": "openapi: in the OpenAPI document; handler: a plain handler outside it",
+            "enum": [
+              "openapi",
+              "handler"
+            ]
+          }
+        },
+        "required": [
+          "method",
+          "path",
+          "tags",
+          "secured",
+          "source"
+        ]
+      },
+      "ConfigList": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvKey"
+            }
+          }
+        },
+        "required": [
+          "variables"
+        ]
+      },
+      "EnvKey": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "boolean",
+            "description": "Read as a secret, or its name looks secret; the value is never shown"
+          },
+          "set": {
+            "type": "boolean",
+            "description": "The value is non-empty"
+          },
+          "value": {
+            "type": "string",
+            "description": "Only for variables that aren't secret; URL user information and queries are replaced by [redacted]"
+          }
+        },
+        "required": [
+          "name",
+          "secret",
+          "set"
+        ]
+      },
+      "RequestList": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "max": {
+            "type": "integer",
+            "description": "How many requests the console keeps"
+          },
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Request"
+            },
+            "description": "Newest first"
+          }
+        },
+        "required": [
+          "max",
+          "requests"
+        ]
+      },
+      "Request": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "time": {
+            "type": "string",
+            "description": "When the request finished",
+            "format": "date-time"
+          },
+          "method": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string",
+            "description": "Matched route pattern; empty when none matched"
+          },
+          "path": {
+            "type": "string",
+            "description": "Path without the query string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "duration_ms": {
+            "type": "number"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "time",
+          "method",
+          "route",
+          "path",
+          "status",
+          "duration_ms"
+        ],
+        "description": "A finished request. Never holds query strings, headers, cookies or bodies."
+      },
+      "LogList": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "max": {
+            "type": "integer",
+            "description": "How many records the console keeps"
+          },
+          "logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Log"
+            },
+            "description": "Newest first"
+          }
+        },
+        "required": [
+          "max",
+          "logs"
+        ]
+      },
+      "Log": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "level": {
+            "type": "string",
+            "description": "INFO, WARN or ERROR (with an offset such as INFO+2)"
+          },
+          "message": {
+            "type": "string"
+          },
+          "attrs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attr"
+            },
+            "description": "In order; groups flattened into dotted keys"
+          },
+          "dropped_attrs": {
+            "type": "integer",
+            "description": "Attributes over the limit of 50"
+          }
+        },
+        "required": [
+          "time",
+          "level",
+          "message",
+          "attrs"
+        ]
+      },
+      "Attr": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ]
+      },
+      "Mail": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "web_url": {
+            "type": "string",
+            "description": "Mailpit's web interface"
+          },
+          "total": {
+            "type": "integer",
+            "description": "Every captured message"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            },
+            "description": "The newest 50"
+          }
+        },
+        "required": [
+          "web_url",
+          "total",
+          "messages"
+        ]
+      },
+      "Message": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Mailpit's message ID"
+          },
+          "from": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "to": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Address"
+            }
+          },
+          "subject": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": "string"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "attachments": {
+            "type": "integer"
+          },
+          "read": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "to",
+          "subject",
+          "snippet",
+          "created",
+          "size",
+          "attachments",
+          "read"
+        ]
+      },
+      "Address": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "address"
+        ]
+      },
+      "Migrations": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "type": "integer",
+            "description": "Highest applied version"
+          },
+          "latest": {
+            "type": "integer",
+            "description": "Newest migration file's version"
+          },
+          "pending": {
+            "type": "integer",
+            "description": "Files not applied yet"
+          }
+        },
+        "required": [
+          "current",
+          "latest",
+          "pending"
+        ]
+      },
+      "JobRunList": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobRun"
+            },
+            "description": "Newest first"
+          }
+        },
+        "required": [
+          "runs"
+        ]
+      },
+      "JobRun": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "queue": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "attempt": {
+            "type": "integer"
+          },
+          "max_attempts": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "attempted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finalized_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Failed attempts' messages, oldest first"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "queue",
+          "state",
+          "attempt",
+          "max_attempts",
+          "created_at",
+          "scheduled_at",
+          "errors"
+        ],
+        "description": "A job, without its arguments"
+      },
+      "StreamEnd": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "max_duration",
+              "shutdown"
+            ]
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "StreamDropped": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Events the client was too slow to receive"
+          }
+        },
+        "required": [
+          "count"
+        ]
+      },
+      "Problem": {
+        "type": "object",
+        "description": "RFC 9457 problem details",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "code"
+        ]
+      }
+    }
+  }
+}

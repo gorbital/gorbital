@@ -11,6 +11,7 @@ import (
 
 	"gorbital.dev/config"
 	"gorbital.dev/httpx"
+	"gorbital.dev/modules/devconsole"
 )
 
 // Config is every boot setting of the application: secrets and
@@ -55,6 +56,13 @@ type Config struct {
 	MailDelivery string     // MAIL_DELIVERY: mailpit or provider (mail.go)
 	MailpitAddr  string     // MAILPIT_SMTP_ADDR
 	Mail         mailConfig // the email provider's secrets (infra_mail.go)
+
+	// DevConsole turns on the development console's APIs under /_dev/ in
+	// development (DEV_CONSOLE_TOKEN, set by orb dev; devconsole.go).
+	DevConsole devConsoleConfig
+	// EnvKeys are the environment variables LoadConfig read, secrets as set
+	// or unset only, listed by GET /_dev/config.
+	EnvKeys []devconsole.EnvKey
 }
 
 // Production reports whether the app runs in production mode.
@@ -83,19 +91,24 @@ func LoadConfig(src config.Source) (Config, error) {
 		JobWorkers:   10,
 	}
 	var errs []error
+	var read devconsole.EnvKeys // what the dev console lists
 	get := func(key string) string {
 		v, err := src.Get(key)
 		if err != nil {
 			errs = append(errs, err)
 		}
-		return strings.TrimSpace(v)
+		v = strings.TrimSpace(v)
+		read.Read(key, v)
+		return v
 	}
 	secret := func(key string) config.Secret {
 		v, err := src.Secret(key)
 		if err != nil {
 			errs = append(errs, err)
 		}
-		return config.NewSecret(strings.TrimSpace(v.Reveal()))
+		v = config.NewSecret(strings.TrimSpace(v.Reveal()))
+		read.ReadSecret(key, !v.IsZero())
+		return v
 	}
 
 	// No default: a deployment that forgets APP_ENV must not run with
@@ -229,6 +242,11 @@ func LoadConfig(src config.Source) (Config, error) {
 	var mailErrs []error
 	cfg.Mail, mailErrs = loadMailConfig(get, secret, cfg.MailDelivery == mailDeliveryProvider)
 	errs = append(errs, mailErrs...)
+
+	var devConsoleErrs []error
+	cfg.DevConsole, devConsoleErrs = loadDevConsoleConfig(get, secret, cfg.Production())
+	errs = append(errs, devConsoleErrs...)
+	cfg.EnvKeys = read.List()
 
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, fmt.Errorf("invalid configuration:\n%w", err)

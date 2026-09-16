@@ -6,6 +6,7 @@ require (
 	gorbital.dev v0.0.0
 	gorbital.dev/modules/auditpg v0.0.0
 	gorbital.dev/modules/auth v0.0.0
+	gorbital.dev/modules/devconsole v0.0.0
 	gorbital.dev/modules/flags v0.0.0
 	gorbital.dev/modules/idempotency v0.0.0
 	gorbital.dev/modules/jobs v0.0.0
@@ -100,6 +101,7 @@ replace (
 	gorbital.dev => ../..
 	gorbital.dev/modules/auditpg => ../../modules/auditpg
 	gorbital.dev/modules/auth => ../../modules/auth
+	gorbital.dev/modules/devconsole => ../../modules/devconsole
 	gorbital.dev/modules/flags => ../../modules/flags
 	gorbital.dev/modules/idempotency => ../../modules/idempotency
 	gorbital.dev/modules/jobs => ../../modules/jobs

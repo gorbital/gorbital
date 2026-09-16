@@ -15,6 +15,7 @@ pkg gorbital.dev/modules/telemetry, func RecordRoute(http.Handler) http.Handler
 pkg gorbital.dev/modules/telemetry, func Setup(context.Context, string, string, ...Option) (*Telemetry, error)
 pkg gorbital.dev/modules/telemetry, func WithLogFormat(LogFormat) Option
 pkg gorbital.dev/modules/telemetry, func WithLogLevel(slog.Leveler) Option
+pkg gorbital.dev/modules/telemetry, func WithLogTee(slog.Handler) Option
 pkg gorbital.dev/modules/telemetry, func WithLogWriter(io.Writer) Option
 pkg gorbital.dev/modules/telemetry, func WithOTLPExport(bool) Option
 pkg gorbital.dev/modules/telemetry, func WithPrometheus(bool) Option

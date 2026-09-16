@@ -152,5 +152,8 @@ func (a *App) buildHTTP(svc services) error {
 	// pattern, which the auth middleware's request copy would otherwise hide
 	// from them.
 	a.handler = httpx.Chain(telemetry.RecordRoute(observability.RecordRoute(mux)), middlewares...)
+	// /_dev/ in development with DEV_CONSOLE_TOKEN, before every middleware
+	// (devconsole.go); otherwise the app unchanged.
+	a.handler = a.console.Mount(a.handler, a.logger)
 	return nil
 }

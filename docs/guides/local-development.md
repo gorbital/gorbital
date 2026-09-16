@@ -93,7 +93,7 @@ cd examples/full-single
 orb dev      # .env, its own PostgreSQL on 127.0.0.1:5432 and Mailpit on http://127.0.0.1:8025, migrations, seed data
 ```
 
-The first run prints the seeded administrator's password (`admin@example.com`) once. Without the CLI:
+The first run prints the seeded administrator's password (`admin@example.com`) once. Every run also prints a new token for the development-only `/_dev/` APIs (recent requests and logs, routes, configuration without secrets, captured email): see [dev console APIs](dev-console.md). Without the CLI:
 
 ```bash
 cp .env.example .env
@@ -102,7 +102,7 @@ go run ./cmd/migrate && go run ./cmd/seed
 go run ./cmd/api
 ```
 
-The app reads `.env` only through `orb dev`; with plain `go run`, export the variables first (for example `set -a; . ./.env; set +a`).
+The app reads `.env` only through `orb dev`; with plain `go run`, export the variables first (for example `set -a; . ./.env; set +a`). The dev console APIs stay off unless you also export `DEV_CONSOLE_TOKEN` (at least 32 characters, such as `openssl rand -base64 32`); never put it in `.env`.
 
 ## CI
 

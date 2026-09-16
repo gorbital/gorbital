@@ -77,6 +77,11 @@ type devRunner struct {
 	observability bool     // start Grafana and send telemetry to it
 	extraEnv      []string // set for the app over the environment and .env
 
+	// consoleToken is the dev console token given to the app, or "";
+	// consoleTokenFromEnv reports one taken from orb dev's environment.
+	consoleToken        string
+	consoleTokenFromEnv bool
+
 	// run runs a command with env, streaming its output; output runs one and
 	// returns its standard output; lookPath finds a program. Tests replace
 	// them.
@@ -146,6 +151,16 @@ func (d *devRunner) prepare(ctx context.Context) error {
 		return err
 	}
 	env = withAppEnv(env)
+
+	// The dev console's token: in the app's environment only, printed once
+	// below, never written to .env or any other file (ADR-0065).
+	d.consoleToken, d.consoleTokenFromEnv, err = devConsoleToken(env, ".env.example")
+	if err != nil {
+		return err
+	}
+	if d.consoleToken != "" {
+		d.extraEnv = append(d.extraEnv, devConsoleTokenVar+"="+d.consoleToken)
+	}
 
 	var services []composeService
 	if d.database && d.services {
@@ -275,6 +290,14 @@ func (d *devRunner) banner(env []string) {
 	if d.database && d.services {
 		fmt.Fprintf(d.out, "  ✓ Emails     http://127.0.0.1:%s\n", envValue(env, "MAILPIT_WEB_PORT", "8025"))
 	}
+	if d.consoleToken != "" {
+		fmt.Fprintf(d.out, "  ✓ Dev APIs   %s/_dev/ (docs/guides/dev-console.md)\n", api)
+		if d.consoleTokenFromEnv {
+			fmt.Fprintf(d.out, "    Token      %s from your environment\n", devConsoleTokenVar)
+		} else {
+			fmt.Fprintf(d.out, "    Token      %s (Authorization: Bearer; new on every orb dev run)\n", d.consoleToken)
+		}
+	}
 	if d.observability {
 		fmt.Fprintf(d.out, "  ✓ Grafana    http://127.0.0.1:%s (traces, metrics and logs)\n", envValue(env, "GRAFANA_PORT", "3000"))
 	} else if _, err := os.Stat("compose.yaml"); err == nil {
@@ -368,7 +391,7 @@ func (d *devRunner) start() error {
 		return err
 	}
 	cmd := exec.Command(d.bin)
-	cmd.Env = append(withAppEnv(env), d.extraEnv...) // later values win
+	cmd.Env = d.appEnv(env)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, d.out
 	configureProcess(cmd)
 	if err := cmd.Start(); err != nil {
@@ -378,6 +401,12 @@ func (d *devRunner) start() error {
 	go func() { done <- cmd.Wait() }()
 	d.cmd, d.done = cmd, done
 	return nil
+}
+
+// appEnv returns the app process's environment: env with APP_ENV, then
+// extraEnv, whose later values win.
+func (d *devRunner) appEnv(env []string) []string {
+	return append(withAppEnv(env), d.extraEnv...)
 }
 
 // stop asks the app to shut down gracefully and kills it after 10 seconds.
