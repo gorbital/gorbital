@@ -2,6 +2,7 @@ package devmail
 
 import (
 	"context"
+	"errors"
 	"net/smtp"
 	"strings"
 	"testing"
@@ -115,13 +116,13 @@ func TestServerAndStore(t *testing.T) {
 	if err := again.Delete(d.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := again.Get(d.ID); err != ErrNotFound {
+	if _, err := again.Get(d.ID); !errors.Is(err, ErrNotFound) {
 		t.Errorf("Get(deleted) = %v", err)
 	}
 	if err := again.Clear(); err != nil || again.Count() != 0 {
 		t.Errorf("Clear() = %v, count %d", err, again.Count())
 	}
-	if _, err := again.Get("../../etc/passwd"); err != ErrNotFound {
+	if _, err := again.Get("../../etc/passwd"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("traversal = %v", err)
 	}
 

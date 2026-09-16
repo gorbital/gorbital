@@ -27,7 +27,7 @@ Each phase lives on its own branch, `dev-portal/phase-N`, in both repositories (
 | [8](#phase-8-observability) | Observability | 🔨 In progress (2026-09-16): backend done ([ADR-0073](adr/0073-observability-screen.md)); no OTLP receiver, the screen builds on the request minutes, `/ops/system`, `pgmeta` statistics and a machine sampler | `dev-portal/phase-8` |
 | [9](#phase-9-mail-env-configuration) | Mail, env, configuration | 🔨 In progress (2026-09-16): backend done ([ADR-0074](adr/0074-dev-mail-previews-and-env-editor.md)) | `dev-portal/phase-9` |
 | [10](#phase-10-storage) | Storage | 🔨 In progress (2026-09-17): backend done ([ADR-0075](adr/0075-file-storage.md)) | `dev-portal/phase-10` |
-| [11](#phase-11-git) | Git | Planned | `dev-portal/phase-11` |
+| [11](#phase-11-git) | Git | 🔨 In progress (2026-09-17): backend done ([ADR-0076](adr/0076-git-screen.md)) | `dev-portal/phase-11` |
 | [12](#phase-12-generators-and-scaffolding) | Generators and scaffolding | Planned | `dev-portal/phase-12` |
 | [13](#phase-13-advanced) | Advanced | ⏸ Skipped for now (2026-09-16, by decision): the work stops after Phase 12 | — |
 
@@ -252,7 +252,7 @@ Runs the `git` on the developer's machine through `orb dev`; the portal never em
 | 80 | Merge preview, then merge; conflicts listed and opened in the editor | Backend, frontend |
 | 81 | Log and history graph. Every destructive action (delete branch, discard changes, force operations) is confirmed with what it will lose | Backend, frontend |
 
-Docs: a Git page in the guides, including what the portal never does (rewrite history, push with force).
+Docs: a Git page in the guides, including what the portal never does (rewrite history, push with force). Decided in [ADR-0076](adr/0076-git-screen.md).
 
 ## Phase 12: Generators and scaffolding
 

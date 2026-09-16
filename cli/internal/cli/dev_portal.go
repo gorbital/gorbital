@@ -224,6 +224,8 @@ func (d *devRunner) portalConfig() portal.Config {
 		System:       d.system,
 		Mail:         portal.MailConfig{Store: d.mailStore, SMTPAddr: d.mailAddr},
 		Env:          portal.NewEnvEditor(d.dir),
+		Git:          portal.NewGit(d.dir),
+		OpenInEditor: func(path string, line int) error { return openInEditor(d.dir, path, line) },
 		Health:       d.health,
 		Database:     d.databaseConfig(),
 		SQL:          d.sqlStore(),
@@ -776,4 +778,40 @@ func (d *devRunner) composeServices(ctx context.Context, env []string) []portal.
 		}
 	}
 	return out
+}
+
+// openInEditor opens a file of the app in the developer's editor: the
+// command in ORB_EDITOR or VISUAL (with a :line suffix for editors that
+// take one), else VS Code's `code --goto` when installed, else the
+// system's opener (open, xdg-open).
+func openInEditor(dir, path string, line int) error {
+	abs := filepath.Join(dir, filepath.FromSlash(path))
+	target := abs
+	if line > 0 {
+		target = fmt.Sprintf("%s:%d", abs, line)
+	}
+	if editor := firstEnv("ORB_EDITOR", "VISUAL"); editor != "" {
+		parts := strings.Fields(editor)
+		return exec.Command(parts[0], append(parts[1:], target)...).Start() //nolint:gosec // the developer's own editor
+	}
+	if code, err := exec.LookPath("code"); err == nil {
+		return exec.Command(code, "--goto", target).Start()
+	}
+	switch runtime.GOOS {
+	case "darwin":
+		return exec.Command("open", abs).Start()
+	case "windows":
+		return exec.Command("cmd", "/c", "start", "", abs).Start()
+	default:
+		return exec.Command("xdg-open", abs).Start()
+	}
+}
+
+func firstEnv(keys ...string) string {
+	for _, k := range keys {
+		if v := strings.TrimSpace(os.Getenv(k)); v != "" {
+			return v
+		}
+	}
+	return ""
 }

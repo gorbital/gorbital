@@ -147,6 +147,11 @@ type Config struct {
 	Mail MailConfig
 	// Env edits the app's .env (ADR-0074); nil answers 404.
 	Env *EnvEditor
+	// Git runs git in the app directory (ADR-0076); nil answers 404.
+	Git *Git
+	// OpenInEditor opens a file (at a line, when positive) in the
+	// developer's editor; nil answers 404.
+	OpenInEditor func(path string, line int) error
 	// Database connects the Table Editor and Schema pages to the app's
 	// database; an empty Open means the app has none.
 	Database DatabaseConfig

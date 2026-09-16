@@ -93,6 +93,7 @@
             { "title": "API keys and service accounts", "slug": "technical/api-keys", "source": "docs/guides/api-keys.md" },
             { "title": "Email", "slug": "technical/email", "source": "docs/guides/email.md" },
             { "title": "File storage", "slug": "technical/storage", "source": "docs/guides/storage.md" },
+            { "title": "Git in the Dev Portal", "slug": "technical/git", "source": "docs/guides/git.md" },
             { "title": "Error handling", "slug": "technical/error-handling", "source": "docs/guides/error-handling.md" },
             { "title": "Ops API", "slug": "technical/ops-api", "source": "docs/guides/ops-api.md" },
             { "title": "Local development", "slug": "technical/local-development", "source": "docs/guides/local-development.md" },

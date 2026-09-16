@@ -104,6 +104,7 @@ func (s *Server) apiHandler() http.Handler {
 	mux.HandleFunc("GET "+APIPrefix+"system", s.serveSystem)
 	s.mailRoutes(mux)
 	s.envRoutes(mux)
+	s.gitRoutes(mux)
 	mux.HandleFunc(APIPrefix, func(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, http.StatusNotFound, "not_found", "no portal endpoint "+r.Method+" "+r.URL.Path)
 	})
