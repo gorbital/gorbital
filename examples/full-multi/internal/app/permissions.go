@@ -40,6 +40,9 @@ func declarePermissions() *authlib.Catalog {
 	c.Permission(opsdomain.PermMailWrite, "Remove addresses from the email suppression list")
 	c.Permission(opsdomain.PermAuthRead, "See which sign-in methods are configured")
 	c.Permission(opsdomain.PermSystemRead, "See an instance's health checks, database pool, migrations and runtime")
+	c.Permission(opsdomain.PermObservabilityRead, "See request rates, errors and latency across instances, and stream them")
+	c.Permission(opsdomain.PermIncidentsRead, "Read incidents, their timelines and reports")
+	c.Permission(opsdomain.PermIncidentsWrite, "Open, update and resolve incidents")
 	c.Permission(authusecase.PermServiceAccountsRead, "See service accounts and their API keys")
 	c.Permission(authusecase.PermServiceAccountsWrite, "Create, change and delete service accounts and their API keys")
 
@@ -61,7 +64,7 @@ func declarePermissions() *authlib.Catalog {
 		append(opsdomain.AllPermissions(), authusecase.PermServiceAccountsRead, authusecase.PermServiceAccountsWrite)...)
 	c.Role(roleOpsViewer, "Reads operational data without changing anything",
 		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead, opsdomain.PermAuthRead,
-		opsdomain.PermSystemRead, opsdomain.PermFlagsRead, authusecase.PermServiceAccountsRead)
+		opsdomain.PermSystemRead, opsdomain.PermFlagsRead, opsdomain.PermObservabilityRead, opsdomain.PermIncidentsRead, authusecase.PermServiceAccountsRead)
 
 	// Ops roles grant their permissions only to sessions signed in with a
 	// second factor (ADR-0043), so never to API keys (ADR-0058).

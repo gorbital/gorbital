@@ -1,6 +1,6 @@
 # ADR-0051: Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports and `orb doctor`
 
-**Status:** Accepted (2026-09-15) · **Amends:** ADR-0026, ADR-0027 · **Amended by:** ADR-0053 (reasons, limits and timeouts on ops operations; accepted items)
+**Status:** Accepted (2026-09-15) · **Amends:** ADR-0026, ADR-0027 · **Amended by:** ADR-0053 (reasons, limits and timeouts on ops operations; accepted items), ADR-0064 (a cluster view in `/ops/observability`; `observability_minutes` retention)
 
 ## Context
 

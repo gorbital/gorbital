@@ -26,6 +26,7 @@ import (
 	"gorbital.dev/modules/flags"
 	"gorbital.dev/modules/jobs"
 	"gorbital.dev/modules/mail/suppressionpg"
+	"gorbital.dev/modules/observability"
 	"gorbital.dev/modules/openapi"
 	orgslib "gorbital.dev/modules/orgs"
 	"gorbital.dev/modules/postgres"
@@ -36,6 +37,7 @@ import (
 
 	"example.com/acme-api/internal/jobs/authcleanup"
 	"example.com/acme-api/internal/jobs/idempotencycleanup"
+	"example.com/acme-api/internal/jobs/observabilitycleanup"
 	"example.com/acme-api/internal/jobs/orgspurge"
 	"example.com/acme-api/internal/jobs/retention"
 	authmodule "example.com/acme-api/internal/modules/auth"
@@ -65,6 +67,8 @@ type App struct {
 	auth        *authmodule.Module
 	orgs        *orgsmodule.Module
 	releases    *releases.Tracker
+	collector   *observability.Collector
+	streams     *observability.Streams
 	api         huma.API
 	handler     http.Handler
 	started     time.Time
@@ -185,12 +189,22 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
+	// Request minutes and incidents (observability.go, ADR-0064).
+	observabilityStore, err := newObservabilityStore(pool)
+	if err != nil {
+		return err
+	}
+
 	defs := jobs.NewDefinitions()
 	defineJobs(defs, jobDeps{
 		logger:             a.logger,
 		recorder:           recorder,
 		rateLimitCleanup:   limits.store.DeleteExpired,
 		idempotencyCleanup: idempotencyStore.DeleteExpired,
+		// Request minutes and automatic incidents (ADR-0064).
+		observabilityCleanup:   observabilityStore.DeleteBefore,
+		observabilityRetention: appSettings.observabilityRetention.Get,
+		detectIncidents:        detectIncidents(observabilityStore, appSettings),
 		// a.auth, a.orgs and a.jobsManager are built below, before any job runs.
 		authCleanup: func(ctx context.Context) (authdomain.CleanupResult, error) { return a.auth.Service().Cleanup(ctx) },
 		authRevokeTokens: func(ctx context.Context) (authdomain.RevocationResult, error) {
@@ -302,6 +316,15 @@ func (a *App) build(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// This instance counts its requests under its release instance ID.
+	a.collector, err = newCollector(observabilityStore, a.releases.InstanceID(), a.logger)
+	if err != nil {
+		return err
+	}
+	a.streams, err = newStreams()
+	if err != nil {
+		return err
+	}
 
 	// Business modules such as projects build themselves from these in their
 	// module_<name>.go files.
@@ -328,6 +351,11 @@ func (a *App) build(ctx context.Context) error {
 			TestEmailLimiter: limits.testEmail,
 			// Suppressed addresses for /ops/mail/suppressions (ADR-0062).
 			Suppressions: suppressions,
+			// Live observability and incidents (ADR-0064).
+			Observability:  observabilityStore,
+			Incidents:      observabilityStore,
+			Streams:        a.streams,
+			Reauthenticate: reauthenticate(a.auth),
 			// What /ops/system reports (ADR-0051).
 			System: systemReporter{pool: pool, health: a.health, tracker: a.releases, started: a.started, workers: a.cfg.JobWorkers},
 			// What /ops/retention reports (ADR-0051).
@@ -336,6 +364,7 @@ func (a *App) build(ctx context.Context) error {
 				{data: "settings_history", setting: appSettings.historyRetention.Key(), retention: appSettings.historyRetention.Get, job: retention.Name, oldest: a.settings.OldestHistory},
 				{data: "flags_history", setting: appSettings.historyRetention.Key(), retention: appSettings.historyRetention.Get, job: retention.Name, oldest: a.flags.OldestHistory},
 				{data: "job_definition_history", setting: appSettings.historyRetention.Key(), retention: appSettings.historyRetention.Get, job: retention.Name, oldest: a.jobsManager.OldestHistory},
+				{data: "observability_minutes", setting: appSettings.observabilityRetention.Key(), retention: appSettings.observabilityRetention.Get, job: observabilitycleanup.Name, oldest: observabilityStore.Oldest},
 				{data: "idempotency_keys", setting: appSettings.idempotencyRetention.Key(), retention: appSettings.idempotencyRetention.Get, job: idempotencycleanup.Name, oldest: idempotencyStore.Oldest},
 				{data: "release_instances", setting: appSettings.releasesInstanceRetention.Key(), retention: appSettings.releasesInstanceRetention.Get, enforcedBy: "each instance, when it starts"},
 				{data: "deleted_accounts", setting: appSettings.authDeletedAccountRetention.Key(), retention: appSettings.authDeletedAccountRetention.Get, job: authcleanup.Name},
@@ -347,6 +376,7 @@ func (a *App) build(ctx context.Context) error {
 		mailEvents: maileventsusecase.Deps{Reader: a.cfg.Mail.webhookReader(), Suppressions: suppressions, Recorder: recorder, Logger: a.logger},
 		pingTime:   appFlags.pingTime,
 		flags:      a.flags,
+		collector:  a.collector,
 	})
 }
 
@@ -359,6 +389,7 @@ func (a *App) Run(ctx context.Context) error {
 		lifecycle.WithCleanup(a.cleanup),
 		lifecycle.WithLogger(a.logger),
 		lifecycle.OnShutdown(a.health.SetShuttingDown),
+		lifecycle.OnShutdown(a.streams.Close), // live streams would hold the server open
 	}
 	if !a.cfg.Production() {
 		opts = append(opts, lifecycle.WithDrainDelay(0)) // no load balancer to drain locally
@@ -375,10 +406,10 @@ func (a *App) Run(ctx context.Context) error {
 }
 
 // Workers returns the background runners: the settings, feature flag and
-// job definition listeners, the job client and the release tracker. Run
-// starts them; tests start them directly.
+// job definition listeners, the job client, the release tracker and the
+// request collector. Run starts them; tests start them directly.
 func (a *App) Workers() []lifecycle.Runner {
-	return []lifecycle.Runner{a.settings, a.flags, a.jobs, a.jobsManager, a.releases}
+	return []lifecycle.Runner{a.settings, a.flags, a.jobs, a.jobsManager, a.releases, a.collector}
 }
 
 // Auth returns the authentication service, for tests and commands.

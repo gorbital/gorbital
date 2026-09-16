@@ -34,6 +34,9 @@ Platform roles are held across the whole app; the ops roles grant access to `/op
 | `ops.mail.write` | Remove addresses from the email suppression list. | | yes | |
 | `ops.auth.read` | See which sign-in methods are configured. | | yes | yes |
 | `ops.system.read` | See an instance's health checks, database pool, migrations and runtime. | | yes | yes |
+| `ops.observability.read` | See request rates, errors and latency across instances, and stream them. | | yes | yes |
+| `ops.incidents.read` | Read incidents, their timelines and reports. | | yes | yes |
+| `ops.incidents.write` | Open, update and resolve incidents. | | yes | |
 | `ops.service_accounts.read` | See service accounts and their API keys. | | yes | yes |
 | `ops.service_accounts.write` | Create, change and delete service accounts and their API keys. | | yes | |
 | `orgs.org.create` | Create organisations. *Multi-tenant apps only.* | yes | | |

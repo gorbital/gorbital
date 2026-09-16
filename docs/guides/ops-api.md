@@ -1,6 +1,6 @@
 # Ops API reference
 
-Admin APIs of the Full preset (`internal/modules/ops`), implemented in `examples/full-single`. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0036](../adr/0036-audit-storage.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md), [ADR-0038](../adr/0038-authentication-v0-2.md), [ADR-0040](../adr/0040-release-tracking.md).
+Admin APIs of the Full preset (`internal/modules/ops`), implemented in `examples/full-single`. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0036](../adr/0036-audit-storage.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md), [ADR-0038](../adr/0038-authentication-v0-2.md), [ADR-0040](../adr/0040-release-tracking.md), [ADR-0064](../adr/0064-live-observability-and-incidents.md).
 
 ## Authentication
 
@@ -18,7 +18,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/settings
 | No or invalid session | 401 `unauthenticated` |
 | Signed in without the operation's permission | 403 `forbidden` |
 | Role `platform_admin` | Every ops permission |
-| Role `ops_viewer` | `ops.settings.read`, `ops.jobs.read`, `ops.audit.read`, `ops.releases.read`, `ops.mail.read`, `ops.auth.read`, `ops.system.read`, `ops.flags.read` |
+| Role `ops_viewer` | `ops.settings.read`, `ops.jobs.read`, `ops.audit.read`, `ops.releases.read`, `ops.mail.read`, `ops.auth.read`, `ops.system.read`, `ops.flags.read`, `ops.observability.read`, `ops.incidents.read`, `ops.service_accounts.read` |
 
 Changes are attributed to the signed-in user in history, job metadata and audit events.
 
@@ -42,6 +42,9 @@ Changes are attributed to the signed-in user in history, job metadata and audit 
 | `ops.service_accounts.write` | Create, change, disable and delete service accounts; create and revoke their keys (`platform_admin`) |
 | `ops.flags.read` | List and read feature flags and their history |
 | `ops.flags.write` | Change and reset feature flags |
+| `ops.observability.read` | See request rates, errors and latency across instances, and stream them |
+| `ops.incidents.read` | Read incidents, their timelines and reports |
+| `ops.incidents.write` | Open, update and resolve incidents |
 
 Missing permission: 403 `forbidden`.
 
@@ -175,6 +178,7 @@ How long data is kept is a runtime setting per kind of data ([ADR-0051](../adr/0
 | `settings_history`, `flags_history`, `job_definition_history` | `ops.history_retention` | 365 days (30 days to 10 years) | `retention` job |
 | `release_instances` | `releases.instance_retention` | 90 days (1 day to 3 years) | each instance, when it starts |
 | `deleted_accounts` | `auth.deleted_account_retention` | 30 days | `auth_cleanup` job |
+| `observability_minutes` | `observability.retention` | 24 hours (1 hour to 7 days) | `observability_cleanup` job, hourly ([observability](observability.md)) |
 | `idempotency_keys` | `idempotency.retention` | 24 hours (1 hour to 7 days) | `idempotency_cleanup` job, hourly ([idempotency](idempotency.md)) |
 | `deleted_organisations` (multi-tenant apps) | `orgs.deleted_org_retention` | 30 days | `orgs_purge` job |
 
@@ -379,6 +383,54 @@ A failing database still returns 200, with `database.status` and the `postgres` 
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/system
 ```
 
+## Observability
+
+Request rates, errors and latency across every instance ([ADR-0064](../adr/0064-live-observability-and-incidents.md), [observability guide](observability.md)). Each instance counts its requests per minute and route pattern and writes them to PostgreSQL every 15 seconds, so the latest minute can lag by that much. Permission `ops.observability.read` (`ops_viewer`, `platform_admin`).
+
+| Endpoint | Purpose | Success |
+|---|---|---|
+| `GET /ops/observability/overview` | Query `window` (whole minutes from `1m` to `24h`, default `15m`; 422 `invalid_observability_window`). Totals over the window up to the current minute: `requests`, `requests_per_minute`, `client_errors`, `server_errors`, `error_rate` (server errors per request), `latency_ms` (`mean`, `p50`, `p95`, `p99` estimated, `max` exact); `instances` (by `instance_id`, with `last_minute` and `last_write`); `top_routes` (`by_requests`, `by_errors`, `by_latency`, 10 each); `minutes` (requests, server errors and p95 per minute) | 200 |
+| `GET /ops/observability/routes` | Every route over `window`, sorted by `sort` (`requests`, `errors`, `error_rate`, `p95`, `p99`), at most `limit` (1–500, default 100) | 200 `{window, from, to, routes}` |
+| `GET /ops/observability/stream` | Server-Sent Events: `retry: 5000`, an `overview` event now and every 5 seconds (the overview's body), and a last `end` event with `reason` (`max_duration` after 10 minutes, `unauthorized` when the session ends or loses the permission, `shutting_down`, `unavailable`). 2 streams per user and 20 per instance (429 `observability_streams_limited`) | 200 `text/event-stream` |
+
+Routes are the patterns registered in code (`/v1/projects/{id}`), with the method; `""` is requests no route matched (such as maintenance-mode 503s and rate-limited requests, answered before routing), `_overflow` requests beyond 500 routes a minute. Requested paths and query strings are never stored. A query over a long window that takes more than 5 seconds answers 503 `observability_query_timeout`.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" 'http://127.0.0.1:8080/ops/observability/overview?window=1h'
+curl -N -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/observability/stream
+```
+
+## Incidents
+
+Incidents record what went wrong, when, and what operators did, as a timeline ([ADR-0064](../adr/0064-live-observability-and-incidents.md)). Operators open them; the `incidents_detect` job opens automatic ones when the server error rate crosses `incidents.error_rate_threshold` ([observability guide](observability.md#automatic-incidents)). Reading needs `ops.incidents.read` (`ops_viewer`, `platform_admin`), changes `ops.incidents.write` (`platform_admin`).
+
+| Endpoint | Purpose | Success |
+|---|---|---|
+| `POST /ops/incidents` | Open: `{title, severity, summary?, status?, started_at?, message?}`. `severity` `sev1`–`sev4`; `status` `investigating` (default), `identified` or `monitoring`; `started_at` up to 90 days ago (default now). Audit `ops.incident.opened` | 201 with the incident and its timeline |
+| `GET /ops/incidents` | Most recently opened first. Query `status` (a status, or `open` for every status but resolved), `severity`, `source` (`manual`, `automatic`), `started_from`, `started_to`, `limit` (1–100, default 50), `cursor` | 200 `{incidents, next_cursor}` |
+| `GET /ops/incidents/{id}` | The incident with its `updates`, oldest first | 200 |
+| `POST /ops/incidents/{id}/updates` | A timeline update: `{message, status?, severity?}`; status and severity change when given. Audit `ops.incident.updated` | 201 with the incident and its timeline |
+| `POST /ops/incidents/{id}/resolve` | `{message}`: status `resolved`, `resolved_at` now. Audit `ops.incident.resolved` | 200 |
+| `GET /ops/incidents/{id}/report` | The report: `format=json` (default) or `format=markdown`, or `Accept: text/markdown` | 200 |
+
+An incident has `id`, `title`, `summary`, `severity`, `status`, `source`, `started_at`, `resolved_at`, `recovered_at` (automatic incidents, while detection sees the error rate recovered), `created_by` (`kind` and `id`), `created_at`, `updated_at`. Each update has `kind` (`opened`, `update`, `resolved`, or `recovered` and `breaching` from detection), `message`, the `status` and `severity` after it, `actor` and `created_at`. Resolved incidents can't change (409 `incident_resolved`); an incident keeps at most 500 updates (409 `incident_updates_limited`).
+
+The report covers 15 minutes before the incident started until 15 minutes after it was resolved, or now, at most 24 hours. Besides the incident and its timeline, each section needs its own read permission, and a section the caller can't read (or that failed) is left out with a `*_note`:
+
+| Section | Needs | Holds |
+|---|---|---|
+| `requests` | `ops.observability.read` | Totals, latency, `instances`, `error_routes` (10 with the most server errors) and `minutes` of the window |
+| `audit_events` | `ops.audit.read` | Up to 200 events, newest first: `id`, `occurred_at`, `action`, `outcome`, `actor`, `resource_type`, `resource_id`, `request_id`. Never IP addresses, user agents, actor labels or metadata: read those with `GET /ops/audit/{id}` |
+| `releases` | `ops.releases.read` | Builds instances started in the window: `version`, `commit`, `modified`, `first_started_at`, `starts` |
+
+The Markdown version has the same sections as tables; titles, messages and other stored text are escaped so they can't add Markdown or HTML to a page that renders the report.
+
+```bash
+curl -X POST http://127.0.0.1:8080/ops/incidents -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"title":"Checkout requests failing","severity":"sev1","summary":"Payments time out."}'
+curl -H "Authorization: Bearer $TOKEN" -H 'Accept: text/markdown' http://127.0.0.1:8080/ops/incidents/1/report
+```
+
 ## Email
 
 | Method and path | Purpose | Success |
@@ -454,6 +506,13 @@ Errors: `service_account_not_found` (404), `api_key_not_found` (404), `invalid_s
 | `audit_query_timeout` | 503 | An audit listing or stats query took longer than 5 seconds; narrow the filters or the window |
 | `invalid_recipient` | 422 | The test email recipient isn't an email address |
 | `rate_limited` | 429 | More than 5 test emails an hour from one operator |
+| `invalid_observability_window` | 422 | `window` isn't whole minutes from `1m` to `24h` |
+| `observability_query_timeout` | 503 | Reading request counts took longer than 5 seconds; use a shorter window |
+| `observability_streams_limited` | 429 | The user already holds 2 streams on the instance, or the instance 20 |
+| `incident_not_found` | 404 | Unknown incident ID |
+| `invalid_incident` | 422 | Title, summary, severity, status, start time or message missing or out of bounds |
+| `incident_resolved` | 409 | Update or resolve of a resolved incident |
+| `incident_updates_limited` | 409 | The incident has 500 updates |
 | `maintenance` | 503 | Maintenance mode is on; `detail` is `maintenance.message` and `Retry-After` is set. Any route but health checks, docs, sign-in and `/ops` |
 
 Error codes are public API: new ones are added, existing ones never change.
@@ -474,5 +533,6 @@ The ops APIs record these. Every action a Full app records, with its metadata: [
 | `jobs.queue.paused` | `job_queue` (metadata: `reason`) |
 | `jobs.queue.resumed` | `job_queue` |
 | `mail.test.requested` | `mail` (ID: the provider; the recipient is not recorded) |
+| `ops.incident.opened`, `ops.incident.updated`, `ops.incident.resolved` | `incident` (metadata: `source`, `status`, `severity`, `update_id`, `update_kind`; never titles or messages) |
 
 `examples/full-single` stores these events in the `audit_events` table (`modules/auditpg`) and lists them with `GET /ops/audit`. Reading the audit log is not itself audited.

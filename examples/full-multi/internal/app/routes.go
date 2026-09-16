@@ -12,6 +12,7 @@ import (
 	"gorbital.dev/buildinfo"
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/idempotency"
+	"gorbital.dev/modules/observability"
 	"gorbital.dev/modules/openapi"
 	"gorbital.dev/modules/telemetry"
 	"gorbital.dev/page"
@@ -129,6 +130,7 @@ func (a *App) buildHTTP(svc services) error {
 		httpx.TrustedProxies(a.cfg.TrustedProxies), // the client's address behind load balancers (APP_TRUSTED_PROXIES)
 		httpx.RequestIDFrom(a.cfg.TrustedCallers),  // clients' own X-Request-ID only from APP_TRUSTED_CALLERS
 		a.tel.HTTPMiddleware(),
+		observabilityMiddleware(svc.collector), // requests per route for /ops/observability (ADR-0064)
 		httpx.AccessLog(a.logger),
 		httpx.SecureHeaders(httpx.SecureHeadersOptions{HSTSMaxAge: hsts}),
 		cors,
@@ -146,8 +148,9 @@ func (a *App) buildHTTP(svc services) error {
 		)
 	}
 	a.api = api
-	// RecordRoute gives spans and metrics the matched route pattern, which
-	// the auth middleware's request copy would otherwise hide from them.
-	a.handler = httpx.Chain(telemetry.RecordRoute(mux), middlewares...)
+	// RecordRoute gives spans, metrics and request counts the matched route
+	// pattern, which the auth middleware's request copy would otherwise hide
+	// from them.
+	a.handler = httpx.Chain(telemetry.RecordRoute(observability.RecordRoute(mux)), middlewares...)
 	return nil
 }

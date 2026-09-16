@@ -134,7 +134,7 @@ func TestAPIKeysEndToEnd(t *testing.T) {
 	// authentication.
 	admin, _ := signIn(t, a, "admin@example.com", "platform_admin")
 	adminKey, _ := createKey(t, h, "/v1/auth/api-keys", body(""), admin) // the session verified a second factor just now
-	for _, path := range []string{"/ops/settings", "/ops/audit"} {
+	for _, path := range []string{"/ops/settings", "/ops/audit", "/ops/observability/overview", "/ops/observability/stream", "/ops/incidents"} {
 		if r := do(t, h, "GET", path, "", "Authorization", "Bearer "+adminKey); r.code != http.StatusForbidden || r.json["code"] != "forbidden" {
 			t.Errorf("GET %s with a platform admin's key = %d %s, want 403 forbidden", path, r.code, r.body)
 		}

@@ -1,7 +1,8 @@
 // Package ops is the operations module: admin APIs for runtime settings,
-// background jobs, the audit log, releases, email and system health, composed
-// from the gorbital settings, jobs, auditpg, releases and mail modules
-// (ADR-0026, ADR-0031, ADR-0033, ADR-0036, ADR-0037, ADR-0040, ADR-0051).
+// background jobs, the audit log, releases, email, system health, live
+// observability and incidents, composed from the gorbital settings, jobs,
+// auditpg, releases, mail and observability modules (ADR-0026, ADR-0031,
+// ADR-0033, ADR-0036, ADR-0037, ADR-0040, ADR-0051, ADR-0064).
 package ops
 
 import (
@@ -34,4 +35,6 @@ func (m *Module) Register(api huma.API) {
 	opsdelivery.RegisterAuditStats(api, m.svc)
 	opsdelivery.RegisterJobsOverview(api, m.svc)
 	opsdelivery.RegisterRetention(api, m.svc)
+	opsdelivery.RegisterObservability(api, m.svc)
+	opsdelivery.RegisterIncidents(api, m.svc)
 }

@@ -28,6 +28,9 @@ These are the codes of a Full app as generated, including the example `projects`
 | `idempotency_key_reused` | 422 | This idempotency key was used for a different request; use a new key for a new request. | Any endpoint |
 | `identity_in_use` | 409 | This Google, Apple or GitHub account is linked to another account. | `/v1/auth` |
 | `identity_not_found` | 404 | No linked account of yours has this ID. | `/v1/auth` |
+| `incident_not_found` | 404 | No incident has this ID. | `/ops` |
+| `incident_resolved` | 409 | The incident is resolved and can't change. | `/ops` |
+| `incident_updates_limited` | 409 | The incident has the most updates allowed. | `/ops` |
 | `internal_error` | 500, any other 5xx | An unexpected error. The detail never includes the cause; it is logged once with the request ID. | Any endpoint |
 | `invalid_api_key_expiry` | 422 | expires_at must be at least an hour away and within auth.api_key_max_ttl. | `/v1/auth` |
 | `invalid_api_key_name` | 422 | An API key name must be 1 to 100 characters on one line. | `/v1/auth` |
@@ -39,10 +42,12 @@ These are the codes of a Full app as generated, including the example `projects`
 | `invalid_email` | 422 | The email address is not valid. | `/v1/auth` |
 | `invalid_flag_state` | 422 | The state is not valid for a feature flag. | `/ops` |
 | `invalid_idempotency_key` | 400 | Send one Idempotency-Key header of 1 to 255 visible ASCII characters. | Any endpoint |
+| `invalid_incident` | 422 | The incident or update is not valid: check the title, severity, status, start time and message. | `/ops` |
 | `invalid_job_config` | 422 | The job configuration is outside the allowed bounds, such as a schedule more often than once a minute or a timeout that isn't a duration. | `/ops` |
 | `invalid_job_state` | 422 | State must be one of available, cancelled, completed, discarded, pending, retryable, running, scheduled. | `/ops` |
 | `invalid_limit` | 400 | Limit must be between 1 and 100. | List endpoints |
 | `invalid_mfa` | 401 | The second factor is wrong or already used, or the sign-in expired. | `/v1/auth` |
+| `invalid_observability_window` | 422 | The window must be whole minutes from 1m to 24h, such as 15m. | `/ops` |
 | `invalid_org_name` | 422 | An organisation name must be 1 to 100 characters on one line. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `invalid_passkey` | 401 | The passkey couldn't be verified, or the ceremony was used or expired. | `/v1/auth` |
 | `invalid_passkey_name` | 422 | A passkey name must be 1 to 100 characters. | `/v1/auth` |
@@ -79,6 +84,8 @@ These are the codes of a Full app as generated, including the example `projects`
 | `mfa_required_by_role` | 409 | A role of this account requires two-factor authentication. | `/v1/auth` |
 | `mfa_unavailable` | 503 | Two-factor authentication isn't configured on this server. | `/v1/auth` |
 | `not_found` | 404 | No route matches the method and path, or a resource wasn't found and no more specific code applies. | Any endpoint |
+| `observability_query_timeout` | 503 | The request counts took too long to read; try a shorter window. | `/ops` |
+| `observability_streams_limited` | 429 | Too many open streams; close one or try another instance. | `/ops` |
 | `org_not_found` | 404 | You aren't a member of an organisation with this ID. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `org_version_conflict` | 409 | The organisation changed since you read it; get it again and retry. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `passkey_limit_reached` | 409 | An account can have at most 10 passkeys. | `/v1/auth` |

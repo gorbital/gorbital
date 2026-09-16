@@ -12,6 +12,7 @@ import (
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/flags"
 	"gorbital.dev/modules/idempotency"
+	"gorbital.dev/modules/observability"
 	"gorbital.dev/ratelimit"
 
 	authmodule "⟦.Module⟧/internal/modules/auth"
@@ -36,6 +37,9 @@ type services struct {
 	idempotency *idempotency.Store
 	// mailEvents receives the email provider's webhooks (ADR-0062).
 	mailEvents maileventsusecase.Deps
+	// collector counts requests for /ops/observability (ADR-0064); nil
+	// when exporting the OpenAPI document.
+	collector *observability.Collector
 	// pingTime is the example feature flag, and flags the feature flags
 	// store (flags.go, ADR-0057).
 	pingTime config.Value[bool]

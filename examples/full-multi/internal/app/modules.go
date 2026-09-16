@@ -12,6 +12,7 @@ import (
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/flags"
 	"gorbital.dev/modules/idempotency"
+	"gorbital.dev/modules/observability"
 	"gorbital.dev/ratelimit"
 
 	authmodule "example.com/acme-api/internal/modules/auth"
@@ -37,6 +38,9 @@ type services struct {
 	idempotency *idempotency.Store
 	// mailEvents receives the email provider's webhooks (ADR-0062).
 	mailEvents maileventsusecase.Deps
+	// collector counts requests for /ops/observability (ADR-0064); nil
+	// when exporting the OpenAPI document.
+	collector *observability.Collector
 	// orgs gives org-scoped modules the org catalog and memberships.
 	orgs *orgsmodule.Module
 	// pingTime is the example feature flag, and flags the feature flags

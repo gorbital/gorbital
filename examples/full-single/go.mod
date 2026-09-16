@@ -12,6 +12,7 @@ require (
 	gorbital.dev/modules/mail/resend v0.0.0
 	gorbital.dev/modules/mail/smtp v0.0.0
 	gorbital.dev/modules/mail/suppressionpg v0.0.0
+	gorbital.dev/modules/observability v0.0.0
 	gorbital.dev/modules/openapi v0.0.0
 	gorbital.dev/modules/postgres v0.0.0
 	gorbital.dev/modules/ratelimitpg v0.0.0
@@ -105,6 +106,7 @@ replace (
 	gorbital.dev/modules/mail/resend => ../../modules/mail/resend
 	gorbital.dev/modules/mail/smtp => ../../modules/mail/smtp
 	gorbital.dev/modules/mail/suppressionpg => ../../modules/mail/suppressionpg
+	gorbital.dev/modules/observability => ../../modules/observability
 	gorbital.dev/modules/openapi => ../../modules/openapi
 	gorbital.dev/modules/postgres => ../../modules/postgres
 	gorbital.dev/modules/ratelimitpg => ../../modules/ratelimitpg

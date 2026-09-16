@@ -1,7 +1,9 @@
 package app
 
 import (
+	"context"
 	"log/slog"
+	"time"
 
 	"gorbital.dev/audit"
 	"gorbital.dev/modules/jobs"
@@ -9,6 +11,8 @@ import (
 	"example.com/acme-api/internal/jobs/authcleanup"
 	"example.com/acme-api/internal/jobs/authrevoke"
 	"example.com/acme-api/internal/jobs/idempotencycleanup"
+	"example.com/acme-api/internal/jobs/incidentsdetect"
+	"example.com/acme-api/internal/jobs/observabilitycleanup"
 	"example.com/acme-api/internal/jobs/ratelimitcleanup"
 	"example.com/acme-api/internal/jobs/retention"
 )
@@ -23,6 +27,12 @@ type jobDeps struct {
 	rateLimitCleanup ratelimitcleanup.DeleteExpired
 	// idempotencyCleanup deletes expired idempotency keys (ADR-0060).
 	idempotencyCleanup idempotencycleanup.DeleteExpired
+	// observabilityCleanup deletes request minutes older than
+	// observabilityRetention, and detectIncidents opens automatic incidents
+	// (ADR-0064).
+	observabilityCleanup   observabilitycleanup.DeleteBefore
+	observabilityRetention func(context.Context) time.Duration
+	detectIncidents        incidentsdetect.Detect
 	// retentionTargets are the data the retention job deletes (ADR-0051).
 	retentionTargets []retention.Target
 }
@@ -37,5 +47,7 @@ func defineJobs(defs *jobs.Definitions, deps jobDeps) {
 	defineAuthRevokeTokensJob(defs, deps)
 	defineRateLimitCleanupJob(defs, deps)
 	defineIdempotencyCleanupJob(defs, deps)
+	defineObservabilityCleanupJob(defs, deps)
+	defineIncidentsDetectJob(defs, deps)
 	defineRetentionJob(defs, deps)
 }

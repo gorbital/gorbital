@@ -14,7 +14,7 @@ What a Full app talks to while it runs.
 |---|---|
 | **What** | The relational database |
 | **Why** | The only required service ([ADR-0005](../adr/0005-database-strategy.md)). It stores application data, users and sessions, runtime settings, feature flags, the job queue (River), the audit log and release records, so a production app needs nothing else: no Redis, no message broker |
-| **Where** | `modules/postgres` (pool, transactions, migrations), every repository, `modules/settings`, `modules/flags` (feature flags), `modules/jobs`, `modules/auditpg`, `modules/releases`, `modules/ratelimitpg` (rate limits shared by every instance, in an unlogged table), `modules/idempotency` (responses to retried POST and PATCH requests), `modules/mail/suppressionpg` (the email suppression list) |
+| **Where** | `modules/postgres` (pool, transactions, migrations), every repository, `modules/settings`, `modules/flags` (feature flags), `modules/jobs`, `modules/auditpg`, `modules/releases`, `modules/ratelimitpg` (rate limits shared by every instance, in an unlogged table), `modules/idempotency` (responses to retried POST and PATCH requests), `modules/mail/suppressionpg` (the email suppression list), `modules/observability` (request counts per minute shared by every instance, incidents) |
 | **Version** | `postgres:18` in `compose.yaml`; CI tests against the same image |
 | **Without it** | A Full app doesn't start: `DATABASE_URL is required` |
 | **Setup** | Development: `orb dev` or `docker compose up -d --wait`. Production: any managed PostgreSQL; set `DATABASE_URL` and run `cmd/migrate` before each release. Always in Docker locally, never installed on the machine ([ADR-0028](../adr/0028-local-development-environment.md)) |

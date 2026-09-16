@@ -1,0 +1,81 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"gorbital.dev/actor"
+	"gorbital.dev/httpx"
+	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/observability"
+
+	"example.com/acme-api/internal/jobs/incidentsdetect"
+	authmodule "example.com/acme-api/internal/modules/auth"
+	opsdomain "example.com/acme-api/internal/modules/ops/domain"
+	opsusecase "example.com/acme-api/internal/modules/ops/usecase"
+)
+
+// newObservabilityStore builds the store of request minutes and incidents
+// on pool (ADR-0064).
+func newObservabilityStore(pool *pgxpool.Pool) (*observability.Store, error) {
+	return observability.NewStore(pool)
+}
+
+// newCollector builds this instance's request collector, which writes its
+// minutes to store every 15 seconds under the release tracker's instance
+// ID, so /ops/observability and /ops/releases/instances name instances
+// alike.
+func newCollector(store *observability.Store, instanceID string, logger *slog.Logger) (*observability.Collector, error) {
+	return observability.NewCollector(
+		observability.WithInstance(instanceID),
+		observability.WithSink(store),
+		observability.WithLogger(logger),
+	)
+}
+
+// newStreams bounds this instance's live overview streams.
+func newStreams() (*observability.Streams, error) {
+	return observability.NewStreams(opsusecase.MaxStreams, opsusecase.MaxStreamsPerUser, opsusecase.MaxStreamDuration)
+}
+
+// observabilityMiddleware counts every request in collector, by route
+// pattern. Without a collector (exporting the OpenAPI document) it does
+// nothing.
+func observabilityMiddleware(collector *observability.Collector) httpx.Middleware {
+	if collector == nil {
+		return func(next http.Handler) http.Handler { return next }
+	}
+	return collector.Middleware()
+}
+
+// reauthenticate checks a stream's session token again while the stream
+// runs: a signed-out, expired or revoked session ends it.
+func reauthenticate(auth *authmodule.Module) func(ctx context.Context, token string) (context.Context, error) {
+	return func(ctx context.Context, token string) (context.Context, error) {
+		p, err := auth.Service().Authenticate(ctx, token)
+		if errors.Is(err, authlib.ErrUnauthenticated) {
+			return nil, opsdomain.ErrUnauthenticated
+		}
+		if err != nil {
+			return nil, err
+		}
+		return authlib.WithPrincipal(ctx, p), nil
+	}
+}
+
+// detectIncidents runs automatic incident detection with the incidents.*
+// settings, for the incidents_detect job.
+func detectIncidents(store *observability.Store, s appSettings) incidentsdetect.Detect {
+	return func(ctx context.Context) (observability.DetectionResult, error) {
+		return store.DetectIncident(ctx, observability.Detection{
+			Window:      s.incidentsDetectionWindow.Get(ctx),
+			Threshold:   s.incidentsErrorRateThreshold.Get(ctx) / 100,
+			MinRequests: int64(s.incidentsMinRequests.Get(ctx)),
+			Actor:       actor.System(incidentsdetect.Name),
+		})
+	}
+}

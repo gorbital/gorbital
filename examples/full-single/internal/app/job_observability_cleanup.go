@@ -1,0 +1,27 @@
+package app
+
+import (
+	"time"
+
+	"gorbital.dev/modules/jobs"
+
+	"example.com/acme-api/internal/jobs/observabilitycleanup"
+)
+
+// defineObservabilityCleanupJob declares the observability_cleanup job with
+// its code defaults. Operators can override them in
+// /ops/jobs/definitions/observability_cleanup.
+func defineObservabilityCleanupJob(defs *jobs.Definitions, deps jobDeps) {
+	jobs.Define(defs, jobs.Definition[observabilitycleanup.Args]{
+		Name:        observabilitycleanup.Name,
+		Description: "Deletes request minutes, which /ops/observability reads, once they are older than observability.retention.",
+		Worker:      observabilitycleanup.NewWorker(deps.observabilityCleanup, deps.observabilityRetention, deps.logger),
+		NewArgs:     func() observabilitycleanup.Args { return observabilitycleanup.Args{} },
+		Enabled:     true,
+		Schedule:    "@every 1h",
+		Timeout:     5 * time.Minute,
+		MaxAttempts: 3,
+		Queue:       "default",
+		Priority:    3,
+	})
+}

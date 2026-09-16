@@ -7,11 +7,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"gorbital.dev/actor"
 	"gorbital.dev/mail"
 	"gorbital.dev/modules/auditpg"
 	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/observability"
 	"gorbital.dev/modules/settings"
 	"gorbital.dev/ratelimit"
 
@@ -41,6 +43,19 @@ type Deps struct {
 	TestEmailLimiter ratelimit.Taker
 	// Suppressions is the email suppression list (ADR-0062).
 	Suppressions SuppressionList
+	// Observability reads request minutes and Incidents keeps incidents
+	// (ADR-0064); *observability.Store implements both.
+	Observability ObservabilityStore
+	Incidents     IncidentStore
+	// Streams bounds the live overview streams of this instance.
+	Streams *observability.Streams
+	// Reauthenticate returns ctx carrying the actor of a session token, or
+	// ErrUnauthenticated when the session ended, for streams to check the
+	// session while they run.
+	Reauthenticate func(ctx context.Context, token string) (context.Context, error)
+	// StreamInterval is how often a stream sends an overview; zero means
+	// DefaultStreamInterval.
+	StreamInterval time.Duration
 }
 
 // TestEmailsPerHour is how many test emails each operator may send an hour.
@@ -61,6 +76,12 @@ type Service struct {
 
 	testEmailLimiter ratelimit.Taker
 	suppressions     SuppressionList
+
+	observability  ObservabilityStore
+	incidents      IncidentStore
+	streams        *observability.Streams
+	reauthenticate func(ctx context.Context, token string) (context.Context, error)
+	streamInterval time.Duration
 }
 
 // NewService returns a Service.
@@ -69,6 +90,8 @@ func NewService(d Deps) *Service {
 		settings: d.Settings, flags: d.Flags, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail,
 		signInMethods: d.SignInMethods, system: d.System, retention: d.Retention,
 		testEmailLimiter: d.TestEmailLimiter, suppressions: d.Suppressions,
+		observability: d.Observability, incidents: d.Incidents, streams: d.Streams,
+		reauthenticate: d.Reauthenticate, streamInterval: d.StreamInterval,
 	}
 }
 

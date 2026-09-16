@@ -1,0 +1,453 @@
+package app_test
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"gorbital.dev/modules/observability"
+
+	"example.com/acme-api/internal/app"
+)
+
+// flushRequests writes the requests an instance counted so far, as its
+// collector does every 15 seconds.
+func flushRequests(t *testing.T, a *app.App) {
+	t.Helper()
+	for _, r := range a.Workers() {
+		if c, ok := r.(*observability.Collector); ok {
+			if err := c.Flush(context.Background()); err != nil {
+				t.Fatalf("Flush() error = %v", err)
+			}
+			return
+		}
+	}
+	t.Fatal("the app runs no request collector")
+}
+
+func findRoute(list any, method, route string) map[string]any {
+	items, _ := list.([]any)
+	for _, item := range items {
+		if r, ok := item.(map[string]any); ok && r["method"] == method && r["route"] == route {
+			return r
+		}
+	}
+	return nil
+}
+
+// TestObservabilityOverview sends a scripted load (successes, unmatched
+// paths with secrets in them, and 503s from maintenance mode) and checks
+// the overview's numbers per route, instance and minute, without any
+// requested path or query.
+func TestObservabilityOverview(t *testing.T) {
+	a := newApp(t, nil)
+	h := a.Handler()
+	admin, _ := signIn(t, a, "admin@example.com", "platform_admin")
+	viewer, _ := signIn(t, a, "viewer@example.com", "ops_viewer")
+	user, _ := signIn(t, a, "user@example.com", "")
+
+	for range 40 {
+		if r := do(t, h, "GET", "/v1/ping", ""); r.code != http.StatusOK {
+			t.Fatalf("GET /v1/ping = %d", r.code)
+		}
+	}
+	for i := range 12 {
+		do(t, h, "GET", fmt.Sprintf("/v1/secret-path-%d?token=hunter2", i), "")
+	}
+	if r := do(t, h, "PUT", "/ops/settings/maintenance.enabled", `{"value":true,"version":0,"reason":"load test"}`, admin...); r.code != http.StatusOK {
+		t.Fatalf("maintenance on = %d %s", r.code, r.body)
+	}
+	for range 10 {
+		if r := do(t, h, "GET", "/v1/ping", ""); r.code != http.StatusServiceUnavailable {
+			t.Fatalf("GET /v1/ping in maintenance = %d", r.code)
+		}
+	}
+	if r := do(t, h, "DELETE", "/ops/settings/maintenance.enabled", `{"version":1,"reason":"done"}`, admin...); r.code != http.StatusOK {
+		t.Fatalf("maintenance off = %d %s", r.code, r.body)
+	}
+	flushRequests(t, a)
+
+	for _, headers := range [][]string{nil, user} {
+		if r := do(t, h, "GET", "/ops/observability/overview", "", headers...); r.code != http.StatusUnauthorized && r.code != http.StatusForbidden {
+			t.Errorf("GET /ops/observability/overview without the permission = %d", r.code)
+		}
+	}
+	r := do(t, h, "GET", "/ops/observability/overview?window=5m", "", viewer...)
+	if r.code != http.StatusOK {
+		t.Fatalf("GET /ops/observability/overview = %d %s", r.code, r.body)
+	}
+	for _, secret := range []string{"secret-path", "hunter2", "token="} {
+		if strings.Contains(r.body, secret) {
+			t.Errorf("the overview holds the requested path or query %q: %s", secret, r.body)
+		}
+	}
+	total := r.json["requests"].(float64)
+	if r.json["window"] != "5m0s" || r.json["server_errors"] != float64(10) || r.json["error_rate"] != float64(int64(10/total*10000+0.5))/10000 ||
+		r.json["requests_per_minute"] != float64(int64(total/5*10+0.5))/10 {
+		t.Errorf("totals = requests %v, server errors %v, error rate %v, per minute %v", total, r.json["server_errors"], r.json["error_rate"], r.json["requests_per_minute"])
+	}
+	latency := r.json["latency_ms"].(map[string]any)
+	if p50, p95, p99, maxMS := latency["p50"].(float64), latency["p95"].(float64), latency["p99"].(float64), latency["max"].(float64); p50 <= 0 || p95 < p50 || p99 < p95 || maxMS < p99 {
+		t.Errorf("latency = %v, want 0 < p50 ≤ p95 ≤ p99 ≤ max", latency)
+	}
+
+	top := r.json["top_routes"].(map[string]any)
+	if ping := findRoute(top["by_requests"], "GET", "/v1/ping"); ping == nil || ping["requests"] != float64(40) || ping["server_errors"] != float64(0) {
+		t.Errorf("GET /v1/ping = %v, want 40 requests without errors (the 503s had no route)", ping)
+	}
+	if unmatched := findRoute(top["by_requests"], "GET", "/"); unmatched == nil || unmatched["requests"] != float64(12) || unmatched["client_errors"] != float64(12) {
+		t.Errorf("the catch-all route = %v, want 12 requests, all 404", unmatched)
+	}
+	byErrors, _ := top["by_errors"].([]any)
+	if len(byErrors) != 1 || findRoute(byErrors, "GET", "") == nil || findRoute(byErrors, "GET", "")["server_errors"] != float64(10) {
+		t.Errorf("by_errors = %v, want the 10 maintenance responses, answered before routing", byErrors)
+	}
+
+	system := do(t, h, "GET", "/ops/system", "", viewer...)
+	instances, _ := r.json["instances"].([]any)
+	if len(instances) != 1 || instances[0].(map[string]any)["instance_id"] != system.json["instance"].(map[string]any)["id"] ||
+		instances[0].(map[string]any)["requests"] != total {
+		t.Errorf("instances = %v, want this instance with every request", instances)
+	}
+	var perMinute float64
+	for _, m := range r.json["minutes"].([]any) {
+		perMinute += m.(map[string]any)["requests"].(float64)
+	}
+	if perMinute != total {
+		t.Errorf("minutes add up to %v requests, want %v", perMinute, total)
+	}
+
+	routes := do(t, h, "GET", "/ops/observability/routes?window=1h&sort=errors&limit=1", "", viewer...)
+	if list, _ := routes.json["routes"].([]any); routes.code != http.StatusOK || len(list) != 1 || findRoute(list, "GET", "") == nil {
+		t.Errorf("GET /ops/observability/routes?sort=errors&limit=1 = %d %s", routes.code, routes.body)
+	}
+	for _, window := range []string{"90s", "25h", "0m", "soon"} {
+		if bad := do(t, h, "GET", "/ops/observability/overview?window="+window, "", viewer...); bad.code != http.StatusUnprocessableEntity || bad.json["code"] != "invalid_observability_window" {
+			t.Errorf("window=%s: %d %s, want 422 invalid_observability_window", window, bad.code, bad.body)
+		}
+	}
+}
+
+// TestObservabilityAcrossInstances runs two instances on one database: the
+// overview on either counts both.
+func TestObservabilityAcrossInstances(t *testing.T) {
+	ctx := context.Background()
+	first, url := newAppWithURL(t, nil)
+	second, err := app.New(ctx, testConfig(t, map[string]string{"DATABASE_URL": url}))
+	if err != nil {
+		t.Fatalf("New() second instance error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := second.Close(ctx); err != nil {
+			t.Errorf("Close() second instance error = %v", err)
+		}
+	})
+	viewer, _ := signIn(t, first, "viewer@example.com", "ops_viewer")
+	for range 7 {
+		do(t, first.Handler(), "GET", "/v1/ping", "")
+	}
+	for range 5 {
+		do(t, second.Handler(), "GET", "/v1/ping", "")
+	}
+	flushRequests(t, first)
+	flushRequests(t, second)
+
+	r := do(t, second.Handler(), "GET", "/ops/observability/overview", "", viewer...)
+	instances, _ := r.json["instances"].([]any)
+	ping := findRoute(r.json["top_routes"].(map[string]any)["by_requests"], "GET", "/v1/ping")
+	if r.code != http.StatusOK || len(instances) != 2 || ping == nil || ping["requests"] != float64(12) {
+		t.Fatalf("overview on the second instance = %d, %d instances, ping %v; want both instances and 12 pings", r.code, len(instances), ping)
+	}
+	var sum float64
+	for _, in := range instances {
+		sum += in.(map[string]any)["requests"].(float64)
+	}
+	if sum != r.json["requests"] {
+		t.Errorf("instances add up to %v requests, total %v", sum, r.json["requests"])
+	}
+}
+
+// event is one Server-Sent Event.
+type event struct{ name, data string }
+
+// readEvents reads a stream's events into a channel until it ends.
+func readEvents(body io.Reader) <-chan event {
+	events := make(chan event, 16)
+	go func() {
+		defer close(events)
+		scanner := bufio.NewScanner(body)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1<<20)
+		var e event
+		for scanner.Scan() {
+			line := scanner.Text()
+			switch {
+			case strings.HasPrefix(line, "event: "):
+				e.name = strings.TrimPrefix(line, "event: ")
+			case strings.HasPrefix(line, "data: "):
+				e.data = strings.TrimPrefix(line, "data: ")
+			case strings.HasPrefix(line, "retry: "):
+				events <- event{name: "retry", data: strings.TrimPrefix(line, "retry: ")}
+			case line == "" && e.name != "":
+				events <- e
+				e = event{}
+			}
+		}
+	}()
+	return events
+}
+
+func nextEvent(t *testing.T, events <-chan event, within time.Duration) event {
+	t.Helper()
+	select {
+	case e, ok := <-events:
+		if !ok {
+			t.Fatal("the stream ended without an event")
+		}
+		return e
+	case <-time.After(within):
+		t.Fatalf("no event within %v", within)
+	}
+	return event{}
+}
+
+// TestObservabilityStream checks the live stream over a real server: the
+// permission on connect, the per-user limit, events flushed as they come,
+// and the end of the stream when the session signs out.
+func TestObservabilityStream(t *testing.T) {
+	a := newApp(t, nil)
+	srv := httptest.NewServer(a.Handler())
+	defer srv.Close()
+	viewer, _ := signIn(t, a, "viewer@example.com", "ops_viewer")
+	user, _ := signIn(t, a, "user@example.com", "")
+
+	open := func(query string, headers []string) *http.Response {
+		t.Helper()
+		req, err := http.NewRequest("GET", srv.URL+"/ops/observability/stream"+query, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i+1 < len(headers); i += 2 {
+			req.Header.Set(headers[i], headers[i+1])
+		}
+		resp, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp
+	}
+	problem := func(resp *http.Response) string {
+		defer resp.Body.Close()
+		var p struct{ Code string }
+		_ = json.NewDecoder(resp.Body).Decode(&p)
+		return fmt.Sprint(resp.StatusCode, " ", p.Code)
+	}
+	if got := problem(open("", nil)); got != "401 unauthenticated" {
+		t.Errorf("stream without a session = %s, want 401 unauthenticated", got)
+	}
+	if got := problem(open("", user)); got != "403 forbidden" {
+		t.Errorf("stream without the permission = %s, want 403 forbidden", got)
+	}
+	if got := problem(open("?window=30s", viewer)); got != "422 invalid_observability_window" {
+		t.Errorf("stream with a 30s window = %s, want 422", got)
+	}
+
+	resp := open("?window=1h", viewer)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != "text/event-stream" ||
+		resp.Header.Get("X-Accel-Buffering") != "no" || resp.Header.Get("Cache-Control") != "no-store" {
+		t.Fatalf("stream = %d %v", resp.StatusCode, resp.Header)
+	}
+	events := readEvents(resp.Body)
+	if e := nextEvent(t, events, 5*time.Second); e.name != "retry" || e.data != "5000" {
+		t.Errorf("first line = %+v, want retry: 5000", e)
+	}
+	e := nextEvent(t, events, 5*time.Second)
+	var overview map[string]any
+	if err := json.Unmarshal([]byte(e.data), &overview); e.name != "overview" || err != nil || overview["window"] != "1h0m0s" {
+		t.Fatalf("first event = %+v (%v), want an overview of 1h", e, err)
+	}
+
+	// A user may hold two streams on an instance.
+	second := open("", viewer)
+	defer second.Body.Close()
+	if got := problem(open("", viewer)); got != "429 observability_streams_limited" {
+		t.Errorf("third stream = %s, want 429 observability_streams_limited", got)
+	}
+
+	// Signing out ends the stream at its next check.
+	if r := do(t, a.Handler(), "POST", "/v1/auth/logout", "", viewer...); r.code != http.StatusNoContent && r.code != http.StatusOK {
+		t.Fatalf("POST /v1/auth/logout = %d %s", r.code, r.body)
+	}
+	for {
+		e := nextEvent(t, events, 12*time.Second)
+		if e.name == "overview" {
+			continue // sent before the check noticed
+		}
+		if e.name != "end" || e.data != `{"reason":"unauthorized"}` {
+			t.Errorf("after signing out: %+v, want end with reason unauthorized", e)
+		}
+		break
+	}
+	if _, ok := <-events; ok {
+		t.Error("the stream stayed open after its end event")
+	}
+}
+
+// TestIncidentsThroughOps opens, updates and resolves an incident through
+// /ops, checks permissions, errors and audit events, and reads its report
+// as JSON and Markdown.
+func TestIncidentsThroughOps(t *testing.T) {
+	a := newApp(t, nil)
+	startWorkers(t, a) // the release tracker records this instance
+	h := a.Handler()
+	admin, adminID := signIn(t, a, "admin@example.com", "platform_admin")
+	viewer, _ := signIn(t, a, "viewer@example.com", "ops_viewer")
+	const open = `{"title":"Checkout <b>failing</b> | now","severity":"sev1","summary":"Payments time out."}`
+
+	if r := do(t, h, "POST", "/ops/incidents", open, viewer...); r.code != http.StatusForbidden {
+		t.Errorf("POST /ops/incidents as ops_viewer = %d, want 403", r.code)
+	}
+	future := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+	if r := do(t, h, "POST", "/ops/incidents", `{"title":"Later","severity":"sev2","started_at":"`+future+`"}`, admin...); r.code != http.StatusUnprocessableEntity || r.json["code"] != "invalid_incident" {
+		t.Errorf("POST /ops/incidents starting in the future = %d %s, want 422 invalid_incident", r.code, r.body)
+	}
+	created := do(t, h, "POST", "/ops/incidents", open, admin...)
+	if created.code != http.StatusCreated || created.json["status"] != "investigating" || created.json["source"] != "manual" ||
+		created.json["created_by"].(map[string]any)["id"] != adminID || len(created.json["updates"].([]any)) != 1 {
+		t.Fatalf("POST /ops/incidents = %d %s", created.code, created.body)
+	}
+	id := int64(created.json["id"].(float64))
+	path := fmt.Sprintf("/ops/incidents/%d", id)
+
+	if r := do(t, h, "POST", path+"/updates", `{"message":"Provider outage confirmed.","status":"identified","severity":"sev2"}`, admin...); r.code != http.StatusCreated ||
+		r.json["status"] != "identified" || r.json["severity"] != "sev2" || len(r.json["updates"].([]any)) != 2 {
+		t.Errorf("POST %s/updates = %d %s", path, r.code, r.body)
+	}
+	for query, want := range map[string]int{"?status=open": 1, "?status=resolved": 0, "?severity=sev2": 1, "?source=automatic": 0, "": 1} {
+		if r := do(t, h, "GET", "/ops/incidents"+query, "", viewer...); r.code != http.StatusOK || len(r.json["incidents"].([]any)) != want {
+			t.Errorf("GET /ops/incidents%s = %d %s, want %d incidents", query, r.code, r.body, want)
+		}
+	}
+	if r := do(t, h, "POST", path+"/resolve", `{"message":"Provider recovered."}`, admin...); r.code != http.StatusOK || r.json["status"] != "resolved" || r.json["resolved_at"] == nil {
+		t.Errorf("POST %s/resolve = %d %s", path, r.code, r.body)
+	}
+	if r := do(t, h, "POST", path+"/updates", `{"message":"late"}`, admin...); r.code != http.StatusConflict || r.json["code"] != "incident_resolved" {
+		t.Errorf("updating a resolved incident = %d %s, want 409 incident_resolved", r.code, r.body)
+	}
+	if r := do(t, h, "GET", "/ops/incidents/999999", "", viewer...); r.code != http.StatusNotFound || r.json["code"] != "incident_not_found" {
+		t.Errorf("GET /ops/incidents/999999 = %d %s", r.code, r.body)
+	}
+	if r := do(t, h, "GET", path, "", viewer...); r.code != http.StatusOK || len(r.json["updates"].([]any)) != 3 {
+		t.Errorf("GET %s = %d %s, want 3 updates", path, r.code, r.body)
+	}
+
+	audit := do(t, h, "GET", "/ops/audit?action_prefix=ops.incident.", "", viewer...)
+	events, _ := audit.json["events"].([]any)
+	if len(events) != 3 {
+		t.Fatalf("incident audit events = %s, want 3", audit.body)
+	}
+	for i, action := range []string{"ops.incident.resolved", "ops.incident.updated", "ops.incident.opened"} {
+		e := events[i].(map[string]any)
+		if e["action"] != action || e["resource_id"] != fmt.Sprint(id) || e["actor_id"] != adminID || strings.Contains(fmt.Sprint(e), "Checkout") {
+			t.Errorf("audit event %d = %v, want %s by the admin without the title", i, e, action)
+		}
+	}
+
+	flushRequests(t, a)
+	report := do(t, h, "GET", path+"/report", "", viewer...)
+	if report.code != http.StatusOK || !strings.HasPrefix(report.header.Get("Content-Type"), "application/json") {
+		t.Fatalf("GET %s/report = %d %v %s", path, report.code, report.header, report.body)
+	}
+	requests, _ := report.json["requests"].(map[string]any)
+	releases, _ := report.json["releases"].([]any)
+	auditEvents, _ := report.json["audit_events"].([]any)
+	if requests == nil || requests["requests"].(float64) < 5 || len(releases) != 1 || len(auditEvents) < 3 ||
+		len(report.json["incident"].(map[string]any)["updates"].([]any)) != 3 {
+		t.Errorf("report = requests %v, releases %v, %d audit events", requests, releases, len(auditEvents))
+	}
+	// Audit events carry what identifies them, never the client's address
+	// or user agent that audit stores.
+	for _, leak := range []string{"192.0.2.1", `"ip"`, "user_agent", "metadata", "actor_label"} {
+		if strings.Contains(report.body, leak) {
+			t.Errorf("the report holds %q", leak)
+		}
+	}
+
+	for _, headers := range [][]string{append([]string{"Accept", "text/markdown"}, viewer...), viewer} {
+		target := path + "/report"
+		if len(headers) == len(viewer) {
+			target += "?format=markdown"
+		}
+		md := do(t, h, "GET", target, "", headers...)
+		if md.code != http.StatusOK || md.header.Get("Content-Type") != "text/markdown; charset=utf-8" {
+			t.Fatalf("GET %s = %d %v", target, md.code, md.header)
+		}
+		for _, want := range []string{
+			fmt.Sprintf("# Incident %d: Checkout &lt;b&gt;failing&lt;/b&gt; \\| now", id),
+			"| Severity | sev2 |", "## Timeline", "Provider outage confirmed.", "## Requests", "## Releases", "ops.incident.opened",
+		} {
+			if !strings.Contains(md.body, want) {
+				t.Errorf("Markdown report lacks %q:\n%s", want, md.body)
+			}
+		}
+		if strings.Contains(md.body, "<b>") {
+			t.Error("Markdown report holds unescaped HTML from the title")
+		}
+	}
+}
+
+// TestIncidentDetectionThroughJob writes a minute of failing requests and
+// runs incidents_detect: an automatic incident opens, recorded by the job.
+func TestIncidentDetectionThroughJob(t *testing.T) {
+	a, url := newAppWithURL(t, nil)
+	startWorkers(t, a)
+	h := a.Handler()
+	admin, _ := signIn(t, a, "admin@example.com", "platform_admin")
+
+	pool, err := pgxpool.New(context.Background(), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	store, err := observability.NewStore(pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	minute := observability.Minute{
+		Start: time.Now().Truncate(time.Minute), Instance: "other-instance", Method: "GET", Route: "/v1/ping",
+		Stats: observability.Stats{Requests: 400, ServerErrors: 100},
+	}
+	if err := store.WriteMinutes(context.Background(), []observability.Minute{minute}); err != nil {
+		t.Fatal(err)
+	}
+
+	def := do(t, h, "GET", "/ops/jobs/definitions/incidents_detect", "", admin...)
+	if config, _ := def.json["config"].(map[string]any); def.code != http.StatusOK || config["schedule"] != "@every 1m" || config["enabled"] != true {
+		t.Errorf("incidents_detect definition = %d %s", def.code, def.body)
+	}
+	if r := do(t, h, "POST", "/ops/jobs/definitions/incidents_detect/run", "", admin...); r.code >= 300 {
+		t.Fatalf("run incidents_detect = %d %s", r.code, r.body)
+	}
+	var incidents []any
+	waitFor(t, "an automatic incident", func() bool {
+		incidents, _ = do(t, h, "GET", "/ops/incidents?source=automatic", "", admin...).json["incidents"].([]any)
+		return len(incidents) == 1
+	})
+	inc := incidents[0].(map[string]any)
+	if inc["severity"] != "sev2" || inc["status"] != "investigating" || inc["created_by"].(map[string]any)["id"] != "incidents_detect" {
+		t.Errorf("automatic incident = %v", inc)
+	}
+	events, _ := do(t, h, "GET", "/ops/audit?action=ops.incident.opened", "", admin...).json["events"].([]any)
+	if len(events) != 1 || events[0].(map[string]any)["actor_id"] != "incidents_detect" || events[0].(map[string]any)["actor_kind"] != "system" {
+		t.Errorf("audit events = %v, want ops.incident.opened by system incidents_detect", events)
+	}
+}

@@ -35,7 +35,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033, 0048 |
 | [0024](0024-authentication-methods.md) | Authentication methods | Accepted, amended by 0038, 0043, 0044, 0046, 0058, 0059 |
 | [0025](0025-email-providers.md) | Email providers | Accepted, amended by 0033, 0037, 0062 |
-| [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038, 0051 |
+| [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038, 0051, 0064 |
 | [0027](0027-api-contract-and-docs.md) | API contract and documentation | Accepted, amended by 0049, 0051, 0053 |
 | [0028](0028-local-development-environment.md) | Local development environment | Accepted |
 | [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted, amended by 0036, 0038, 0053 |
@@ -60,7 +60,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0048](0048-organisations-v0-4.md) | Organisations (v0.4): tables, org roles, requests, invitations, personal workspaces, lifecycle, generation | Accepted, amended by 0050, 0053, 0056, 0058 |
 | [0049](0049-public-docs-and-website.md) | Public website: landing page, framework docs and API reference in the gorbital look; the Go generator in `site/` was replaced by the gorbital-web Next.js repository on 2026-09-15; generated reference pages and the changelog page added 2026-09-16 | Accepted |
 | [0050](0050-upgrades-and-adding-features.md) | Upgrading apps and adding features to them (v0.5): lock v2, rebuilt merge base, `orb upgrade`, `orb add orgs` | Accepted, amended by 0053 |
-| [0051](0051-operations-v0-5.md) | Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports, `orb doctor` | Accepted, amended by 0053 |
+| [0051](0051-operations-v0-5.md) | Operations in v0.5: audit stats, system health, jobs overview, retention, maintenance mode, API exports, `orb doctor` | Accepted, amended by 0053, 0064 |
 | [0052](0052-shared-rate-limits.md) | Shared rate limits and trusted proxies | Accepted, amended by 0053 |
 | [0053](0053-internal-security-review.md) | Internal security review before the external one: six areas, severity scale, every finding fixed with a regression test or accepted in writing; report in `docs/security/` | Accepted |
 | [0054](0054-api-freeze-and-scaffold-compatibility.md) | API freeze: stability markers, API listings, public-surface inventory, `/ops` baseline, `--json` schema version, scaffold compatibility check | Accepted |
@@ -68,3 +68,4 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0056](0056-per-organisation-settings.md) | Per-organisation settings: org-overridable declarations, organisation values resolved from the context, organisation and `/ops` endpoints | Accepted |
 | [0058](0058-api-keys-and-service-accounts.md) | API keys and service accounts: `gbk_` keys stored as hashes with expiry, scopes and last use, platform and organisation service accounts, never 2FA-required permissions | Accepted |
 | [0059](0059-github-sign-in.md) | GitHub sign-in: OAuth without OpenID Connect, verified primary email, never authoritative, links bound to the browser and session, `AUTH_DEFAULT_RETURN_TO` | Accepted |
+| [0064](0064-live-observability-and-incidents.md) | Live observability and incidents: `modules/observability` request minutes shared through PostgreSQL, `/ops/observability` with a live stream, incidents with timelines, automatic detection and reports | Accepted |

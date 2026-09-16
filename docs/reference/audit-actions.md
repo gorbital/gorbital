@@ -77,6 +77,14 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | `mail.suppression.removed` | An operator removed an address from the suppression list through `DELETE /ops/mail/suppressions/{id}`, with a reason. | `reason`, `source`, `suppression_reason` |
 | `mail.test.requested` | An operator sent a test email through `POST /ops/mail/test`. | `delivery`, `provider` |
 
+## ops
+
+| Action | Recorded when | Metadata |
+|---|---|---|
+| `ops.incident.opened` | An operator opened an incident (`POST /ops/incidents`), or the `incidents_detect` job opened an automatic one because the server error rate crossed `incidents.error_rate_threshold`. Metadata holds the source, status and severity, never the title. |  |
+| `ops.incident.resolved` | An operator resolved an incident (`POST /ops/incidents/{id}/resolve`). |  |
+| `ops.incident.updated` | An operator added a timeline update to an incident (`POST /ops/incidents/{id}/updates`), or `incidents_detect` noted that an automatic incident's error rate recovered or rose again. Metadata holds the status, severity and update kind, never the message. |  |
+
 ## Organisations
 
 *Multi-tenant apps only.*
