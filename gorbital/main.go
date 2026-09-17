@@ -147,6 +147,8 @@ func runCommand(ctx context.Context, name string, args []string, src config.Sour
 				return json.NewEncoder(stdout).Encode(s)
 			}
 			switch {
+			case cfgErr != nil:
+				return cfgErr // already "invalid configuration:" and one line per variable
 			case s.ConfigError != "":
 				return fmt.Errorf("%w: %s", errInvalidConfig, s.ConfigError)
 			case s.DatabaseError != "":

@@ -97,6 +97,23 @@ func TestMainExitCodes(t *testing.T) {
 	}
 }
 
+// TestMigrateStatusReportsTheConfigurationOnce: LoadConfig's error already
+// begins with "invalid configuration:", so migrate --status must print it as
+// it is instead of wrapping it in the same words again.
+func TestMigrateStatusReportsTheConfigurationOnce(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	vars := map[string]string{"APP_ENV": "staging", "APP_ADDR": "8080"}
+	code := run(context.Background(), []string{"migrate", "--status"}, env(vars), &stdout, &stderr,
+		[]Option{WithName("shelfie")})
+	out := stderr.String()
+	if code != 2 || !strings.Contains(out, "APP_ADDR") || !strings.Contains(out, "APP_ENV") {
+		t.Fatalf("migrate --status with a bad configuration = %d, stderr %q", code, out)
+	}
+	if strings.Count(out, "invalid configuration:") != 1 {
+		t.Errorf("stderr = %q, want one \"invalid configuration:\"", out)
+	}
+}
+
 // TestOpenAPIExportIsStable: the document needs no database and no
 // environment, and is the same on every run.
 func TestOpenAPIExportIsStable(t *testing.T) {

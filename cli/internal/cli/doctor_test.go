@@ -48,6 +48,20 @@ func fakeDoctorCommands(t *testing.T, status string) *[]string {
 	return &calls
 }
 
+// copyEnvExample writes .env from .env.example with an encryption key in
+// it, the way orb dev leaves a Full app: the key is the one value the app
+// can't start without that .env.example leaves for orb to fill.
+func copyEnvExample(t *testing.T, extra string) {
+	t.Helper()
+	t.Setenv(encryptionKeysVar, "") // never inherit a key from the environment
+	example := readFile(t, envExamplePath)
+	env := strings.Replace(example, encryptionKeysVar+"=\n", encryptionKeysVar+"=k1:"+strings.Repeat("A", 42)+"==\n", 1)
+	if env == example {
+		t.Fatalf("%s doesn't declare %s:\n%s", envExamplePath, encryptionKeysVar, example)
+	}
+	writeFile(t, envPath, env+extra)
+}
+
 func doctorRun(t *testing.T, wantCode int, args ...string) doctorResult {
 	t.Helper()
 	code, out, errOut := runOrb(t, append([]string{"doctor", "--json"}, args...)...)
@@ -77,7 +91,7 @@ func check(res doctorResult, name string) doctorCheck {
 
 func TestDoctorOnANewApp(t *testing.T) {
 	newV01GitApp(t, recipes.TenancySingle)
-	writeFile(t, ".env", readFile(t, ".env.example"))
+	copyEnvExample(t, "")
 	calls := fakeDoctorCommands(t, `{"current":9,"latest":9,"pending":0}`)
 
 	res := doctorRun(t, 0)
@@ -152,6 +166,76 @@ func TestDoctorFindsProblems(t *testing.T) {
 	fakeDoctorCommands(t, `{"current":12,"latest":11}`)
 	if c := check(doctorRun(t, 1), "database"); c.Status != doctorFail || !strings.Contains(c.Detail, "newest file") {
 		t.Errorf("database ahead of the code = %+v", c)
+	}
+}
+
+// TestDoctorReportsEveryConfigurationProblem: an app's LoadConfig joins its
+// problems under an "invalid configuration:" line that says nothing itself,
+// so the report has to keep the lines under it, not just the first one
+// (CLI-12d).
+func TestDoctorReportsEveryConfigurationProblem(t *testing.T) {
+	newV01GitApp(t, recipes.TenancySingle)
+	copyEnvExample(t, "")
+	fakeDoctorCommands(t, `{"config_error":"invalid configuration:\nAPP_ADDR \"8080\" is not host:port\nAPP_DB_MAX_CONNS must be between 1 and 1000, got \"nope\"\nMAIL_DELIVERY must be devmail, mailpit or provider, got \"post\""}`)
+
+	c := check(doctorRun(t, 1), "configuration")
+	if c.Status != doctorFail {
+		t.Fatalf("configuration check = %+v, want a failure", c)
+	}
+	for _, want := range []string{"APP_ADDR", "APP_DB_MAX_CONNS", "MAIL_DELIVERY"} {
+		if !strings.Contains(c.Detail, want) {
+			t.Errorf("configuration detail = %q, want it to name %s", c.Detail, want)
+		}
+	}
+	if strings.Contains(c.Detail, "\n") {
+		t.Errorf("configuration detail = %q, want one line", c.Detail)
+	}
+
+	// The prefix carries nothing, and apps repeat it; neither reaches the
+	// report.
+	for _, in := range []string{
+		"invalid configuration:\nAPP_ENV is required",
+		"invalid configuration: invalid configuration:\nAPP_ENV is required",
+		"invalid configuration: APP_ENV is required",
+	} {
+		if got := configProblems(in); got != "APP_ENV is required" {
+			t.Errorf("configProblems(%q) = %q", in, got)
+		}
+	}
+}
+
+// TestDoctorLooksAtEnvValues: .env can hold every variable .env.example has
+// and still be unusable, so the key sets matching isn't enough (CLI-12d).
+func TestDoctorLooksAtEnvValues(t *testing.T) {
+	newV01GitApp(t, recipes.TenancySingle)
+	fakeDoctorCommands(t, `{"current":9,"latest":9,"pending":0}`)
+
+	// A plain cp .env.example .env: every variable is there, and seed
+	// refuses because the encryption key has no value.
+	t.Setenv(encryptionKeysVar, "")
+	writeFile(t, envPath, readFile(t, envExamplePath))
+	c := check(doctorRun(t, 0), ".env")
+	if c.Status != doctorWarn || !strings.Contains(c.Detail, encryptionKeysVar) || c.Fix == "" {
+		t.Errorf(".env with an empty %s = %+v, want a warning naming it with a fix", encryptionKeysVar, c)
+	}
+
+	// An example value left in place is no value at all.
+	for _, value := range []string{"changeme", "CHANGE-ME", "<your-resend-key>", "TODO"} {
+		copyEnvExample(t, "RESEND_API_KEY="+value+"\n")
+		c := check(doctorRun(t, 1), ".env")
+		if c.Status != doctorFail || !strings.Contains(c.Detail, "RESEND_API_KEY") {
+			t.Errorf(".env with RESEND_API_KEY=%s = %+v, want a failure naming it", value, c)
+		}
+		if strings.Contains(c.Detail, value) || strings.Contains(c.Fix, value) {
+			t.Errorf(".env check printed the value: %+v", c)
+		}
+	}
+
+	// Optional variables .env.example leaves empty stay green, and a real
+	// value that reads like an example isn't one.
+	copyEnvExample(t, "STORAGE_BUCKET=your-company-uploads\nGOOGLE_CLIENT_SECRET=\n")
+	if c := check(doctorRun(t, 0), ".env"); c.Status != doctorOK {
+		t.Errorf(".env with empty optional variables = %+v, want ok", c)
 	}
 }
 

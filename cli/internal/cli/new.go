@@ -232,7 +232,11 @@ func nextSteps(s styles, dir string, preset recipes.Preset) string {
 		rows = append(rows, [][2]string{
 			{"email", "Resend outside development; orb add mail switches to SMTP"},
 			{"port 5432", "taken? set POSTGRES_PORT in .env and the same port in DATABASE_URL"},
-			{"without orb", "cp .env.example .env, docker compose up -d --wait,"},
+			// The steps README.md lists, in the same order: without the
+			// export, the app starts with no environment at all, and
+			// without a key seed refuses to run.
+			{"without orb", `cp .env.example .env, then set AUTH_ENCRYPTION_KEYS: echo "k1:$(openssl rand -base64 32)"`},
+			{"", "docker compose up -d --wait, set -a; . ./.env; set +a,"},
 			{"", "go run ./cmd/api migrate, go run ./cmd/api seed, go run ./cmd/api"},
 		}...)
 	}

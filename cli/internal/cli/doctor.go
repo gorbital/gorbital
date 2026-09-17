@@ -331,7 +331,68 @@ func (d *doctor) environment(ctx context.Context) {
 		d.add(doctorWarn, ".env", "lacks variables .env.example has: "+strings.Join(missing, ", "), "copy them from .env.example; the app uses its defaults until then")
 		return
 	}
+	if status, detail, fix := unusableEnvValue(env, example); detail != "" {
+		d.add(status, ".env", detail, fix)
+		return
+	}
 	d.add(doctorOK, ".env", "has every variable .env.example has", "")
+}
+
+// envPlaceholders are values nobody means: a variable still carrying one is
+// unset in effect. Kept to values that can't be anyone's real setting, and
+// matched whole, so a real value that begins like an example (a bucket
+// named your-company-uploads) is never mistaken for one.
+var envPlaceholders = []string{"changeme", "change-me", "change_me", "replaceme", "replace-me", "replace-this", "todo", "tbd"}
+
+// unusableEnvValue reports the first .env value the app can't work with, how
+// to fix it, and how bad it is, or "". Two things count as unusable, both
+// decided by the value alone, never by what the variable means:
+//
+//   - a placeholder, whole or in <angle brackets>: nobody means one, so the
+//     variable is unset however it looks (fail).
+//   - AUTH_ENCRYPTION_KEYS empty, when .env.example declares it and the
+//     environment doesn't set it. It is the one variable orb itself knows
+//     an app needs a value for: orb dev writes one (ensureEncryptionKey),
+//     and without one seed refuses to create the administrator and nobody
+//     can set up two-factor authentication. A warning, not a failure: a
+//     Full app still starts and serves in development without it, and it is
+//     the state orb new leaves behind until the first orb dev.
+//
+// Everything else is left alone on purpose. A variable .env.example leaves
+// empty is an optional one (Google, Apple, GitHub, WebAuthn, storage,
+// Resend) and stays green. Blanking a variable .env.example gives a value
+// isn't reported either: the app either falls back to its default or
+// refuses to start, and then the configuration check reports it in the
+// app's own words. Nor is a value that is wrong rather than unset — an
+// expired key, a database that isn't there — which only the app can judge.
+// Values are never printed, only names.
+func unusableEnvValue(env, example map[string]string) (status, detail, fix string) {
+	var placeholders []string
+	for key, value := range env {
+		if isEnvPlaceholder(value) {
+			placeholders = append(placeholders, key)
+		}
+	}
+	if len(placeholders) > 0 {
+		slices.Sort(placeholders)
+		return doctorFail, "still holds an example value for " + strings.Join(placeholders, ", "),
+			"set what each needs; .env.example documents them"
+	}
+	if _, declared := example[encryptionKeysVar]; declared &&
+		strings.TrimSpace(env[encryptionKeysVar]) == "" && os.Getenv(encryptionKeysVar) == "" {
+		return doctorWarn, encryptionKeysVar + " has no value, so seed and two-factor authentication refuse to run",
+			`orb dev writes a development key into .env, or set one: echo "k1:$(openssl rand -base64 32)"`
+	}
+	return "", "", ""
+}
+
+// isEnvPlaceholder reports whether value was never filled in.
+func isEnvPlaceholder(value string) bool {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if strings.HasPrefix(v, "<") && strings.HasSuffix(v, ">") && len(v) > 2 {
+		return true
+	}
+	return slices.Contains(envPlaceholders, v)
 }
 
 // apiFiles checks that api/ matches the code, by exporting to a temporary
@@ -391,7 +452,7 @@ func (d *doctor) database(ctx context.Context, env []string) {
 	}
 	switch {
 	case s.ConfigError != "":
-		d.add(doctorFail, "configuration", firstLine(s.ConfigError), "set the variables in .env or the environment; .env.example documents each")
+		d.add(doctorFail, "configuration", configProblems(s.ConfigError), "set the variables in .env or the environment; .env.example documents each")
 	case s.DatabaseError != "":
 		d.add(doctorWarn, "database", "unreachable: "+firstLine(s.DatabaseError), "start it with orb dev (or docker compose up -d --wait) and check DATABASE_URL")
 	case s.Current > s.Latest && isGorbitalApp(d.dir):
@@ -469,4 +530,35 @@ func versionAtLeast(have, want string) bool {
 func firstLine(s string) string {
 	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
 	return line
+}
+
+// configErrorPrefix is what an app's LoadConfig puts in front of the
+// per-variable problems, on a line of its own.
+const configErrorPrefix = "invalid configuration:"
+
+// configProblems turns an app's configuration error into one line naming
+// every variable. LoadConfig joins the problems under an "invalid
+// configuration:" line that carries nothing itself, so firstLine would throw
+// the detail away; older apps (and migrate --status without --json) repeat
+// the prefix. Whatever is left of the message is kept, so a shape this
+// doesn't know still reaches the report.
+func configProblems(s string) string {
+	rest := strings.TrimSpace(s)
+	for {
+		trimmed := strings.TrimSpace(strings.TrimPrefix(rest, configErrorPrefix))
+		if trimmed == rest {
+			break
+		}
+		rest = trimmed
+	}
+	var problems []string
+	for _, line := range strings.Split(rest, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			problems = append(problems, line)
+		}
+	}
+	if len(problems) == 0 {
+		return firstLine(s) // nothing but the prefix: keep the message as it is
+	}
+	return strings.Join(problems, "; ")
 }
