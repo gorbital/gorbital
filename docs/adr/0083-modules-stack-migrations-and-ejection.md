@@ -1,6 +1,7 @@
 # ADR-0083: Modules, the default stack, migrations and ejection
 
 **Status:** Accepted (2026-09-17); amended in Phase 3 (2026-09-17): the layered module layout, the authenticator's optional methods, and [implementation notes](#phase-3-implementation-notes-2026-09-17); amended in Phase 4 (2026-09-17): how built-in modules reach what the app built, rate limiters and retention declared by modules ([implementation notes](#phase-4-implementation-notes-2026-09-17)) · **Amends:** ADR-0017, ADR-0022, ADR-0039, ADR-0050 · **Builds on:** ADR-0081, ADR-0082
+**Status:** Accepted (2026-09-17); amended in Phase 3 (2026-09-17): the layered module layout, the authenticator's optional methods, and [implementation notes](#phase-3-implementation-notes-2026-09-17); amended in Phase 5 (2026-09-17): `AuthSetup`, and [notes on moving sign-in with its threat model](#phase-5-implementation-notes-moving-sign-in-2026-09-17) · **Amends:** ADR-0017, ADR-0022, ADR-0039, ADR-0050 · **Builds on:** ADR-0081, ADR-0082
 
 ## Context
 
@@ -321,6 +322,83 @@ The contract is proven by tests rather than asserted: `gorbital/internal/contrac
 | `Customize` removes a route's authentication or guards | Changes to security, middleware, method, path or operation ID fail registration |
 | A revoked session keeps streaming | `Authenticate` runs on a context without the request's values, so the actor comes only from the credentials; streams end within one interval, tested by signing out |
 | The dev console's token operates `/ops` outside development | The console exists only with `APP_ENV=development`, `LoadConfig` refuses the token in production, and the operator checks loopback and a localhost `Host` |
+## Phase 5 implementation notes: moving sign-in (2026-09-17)
+
+The generated auth module of the golden apps moved into `gorbital.dev/gorbital/authhttp` with no behaviour change: the same 74 operations (66 mounted, 8 for organisations' service accounts kept unmounted for Phase 7), use cases, SQL (one file per operation), migrations, error codes, audit actions, permissions, roles, runtime settings, jobs, rate limiters, cookies, emails and commands. Customisation is Phase 6. Items are in the [roadmap](../v0.2-roadmap.md#phase-5-sign-in-extracted-unchanged).
+
+### Layout
+
+| Path | Holds |
+|---|---|
+| `authhttp/authhttp.go`, `module.go`, `config.go`, `limits.go`, `settings.go`, `commands.go`, `providers.go` | The public type and what a v0.1 app's `internal/app` did for sign-in: `module_auth.go` (error mappings), `permissions.go` (sign-in's permissions and roles), `settings.go` (`auth.*`), `rate_limits.go` (sign-in's limiters), `social.go`, `passkeys.go`, `keys.go` (configuration), `admin.go`, `admin_mfa.go`, `providers.go` (commands), `jobs.go` (the two jobs) |
+| `authhttp/internal/{domain,usecase,repository,delivery}` | The golden app's `internal/modules/auth` layers, byte for byte except import paths, doc comments naming where declarations live, and route registration (below) |
+| `authhttp/internal/jobs/{authcleanup,authrevoke}` | The golden app's job packages, unchanged |
+| `authhttp/internal/migrations` | The eight migrations, numbered `00001`–`00008`, declared in `Module.Migrations` under `20260915000001`, `…04`, `…05`, `…06`, `20260917000001`, `20260918000020`, `…030` and `…070` |
+
+The first commit of the phase copies the layers unchanged, so `git diff` of the later commits shows every change made to them.
+
+### Public surface
+
+`authhttp.New() *Authenticator` and the methods of `*Authenticator`: `Middleware(*slog.Logger)`, `Module() gorbital.Module`, `Commands() []gorbital.Command`, `CheckConfig(gorbital.Config) error` and `Setup(context.Context, gorbital.AuthSetup) error`. Nothing else is exported; the layers are internal. Phase 6 adds `New(opts ...Option)` compatibly with calls to `New()`, and hooks and `Deps.Auth` without changing these methods.
+
+In `gorbital`: the type `AuthSetup` (`Name`, `Config`, `Deps`, `Permissions`, `DevConsole`, `Handle`, `MailPreviews`) and two more optional authenticator methods found by type assertion, like `Module` and `Commands`.
+
+### How the app hands sign-in its configuration and dependencies
+
+An explicit method, called by the app, once:
+
+| Caller | Order | What it passes |
+|---|---|---|
+| `gorbital.New` | `CheckConfig(cfg)` after the modules are validated and before `DATABASE_URL` is checked or anything connects; `Setup` after the stores, the shared rate limits and `Deps` exist and every module's permissions and roles are declared, before `Module.Jobs`, the routes and the stack | `AuthSetup` with the app's `Deps`, the unfrozen permission catalog, whether the dev console is on, and `Handle` and `MailPreviews` |
+| `gorbital.Main`, before a command the authenticator contributes | `CheckConfig`, then `Setup` with zero `Deps` and a catalog built from the modules' declarations without a database | The command opens its own pool, as v0.1's `openCommandDeps` did |
+
+Rejected: a service locator in `Deps`; passing `Config` to `Middleware` (a breaking change to `Authenticator`, and `Routes` and `Jobs` need the use cases too); building sign-in lazily on the first request (configuration errors would surface on a request instead of at start). `CheckConfig` errors are configuration errors, exit code 2, reported after `LoadConfig`'s: a deployment with problems of both kinds sees `LoadConfig`'s first, where v0.1 listed them in one message.
+
+`Setup` refuses a second call with a database (an `Authenticator` serves one app) and a missing dependency; `Middleware` panics before `Setup`, which `gorbital.New` can't do.
+
+### Configuration
+
+The checks Phase 3 moved out of `LoadConfig` run in `CheckConfig` with v0.1's messages: `AUTH_ENCRYPTION_KEYS` required in production; `WEBAUTHN_APPLE_APP_IDS` and `WEBAUTHN_ANDROID_APPS` parsed; `WEBAUTHN_ORIGINS` on `WEBAUTHN_RP_ID` (`passkey.New`); the Apple private key parsed once every Apple variable is present. Providers, the passkey relying party and the keyring are built from `Config.Auth` as the golden app's `social.go`, `passkeys.go` and `keys.go` build them; the app's name (`WithName`) is the passkey display name, the authenticator app issuer and the email brand, as `ServiceName` was.
+
+### Routes
+
+The delivery files register v0.1's `huma.Operation` literals through one helper, `route`, which passes the operation ID, method, path, tags, summary, description, success status and error statuses to `gorbital.Get`/`Post`/… and panics on any other field set (none is), so nothing is dropped silently. An operation without `Security` gets `guard.Public()`.
+
+**Order of responses on signed-in routes.** gorbital's routes check for an actor before parsing the input (ADR-0082); v0.1's sign-in routes parse first and their use cases answer 401. An unauthenticated request with an invalid body got 422 `validation_failed` in v0.1 and would get 401 through `requireActor`. To keep v0.1's behaviour, `delivery.route` sets `route.Config.ActorCheckedByHandler`, an internal field of `gorbital/internal/route` that keeps the security requirement and the 401 in the document but leaves the check to the use case. No public option sets it. Every signed-in operation called without credentials answers 401 `unauthenticated`, or 400 or 422 for a missing or invalid body, never anything else (`TestSignedInRoutesRefuseAnonymous`), and `x-gorbital-guards` still says `authenticated`. Checking before parsing for sign-in too is a deliberate follow-up with its own changelog entry, and ejected code (Phase 9), which can't import the internal package, gets that behaviour.
+
+### What moved into gorbital, and what waits for Phase 4
+
+| v0.1 `internal/app` | Now |
+|---|---|
+| The dev operator after authentication on `/ops/` (`devconsole.go`, `routes.go`) | `gorbital.New`'s `Auth` step: the authenticator's middleware, then the operator with `platform_admin`'s permissions, when the dev console is on |
+| Email previews (`mail_previews.go`) | The dev console previews what `AuthSetup.MailPreviews` adds, and a test message branded with the app's name and `APP_PUBLIC_URL` |
+| `.well-known` files for passkeys in apps (`passkeys.go`, `routes.go`) | `AuthSetup.Handle` mounts them on the mux behind the stack; `/_dev/routes` lists them |
+| Role descriptions of `user`, `platform_admin` and `ops_viewer` (`permissions.go`) | `gorbital` declares those roles with v0.1's descriptions; `authhttp` declares `user` when no module grants it anything and requires a second factor for `platform_admin` and `ops_viewer` |
+| `ops.auth.read` declared by the ops module | Declared by `authhttp`, whose `/ops/auth/users` reads check it. Phase 4's `opshttp` uses it for `/ops/auth/providers` and must not declare it again |
+| `/ops/auth/providers`, `/ops/auth/rate-limits`, `/ops/retention` rows for accounts, the ops module's reauthentication | Phase 4. `authhttp` keeps what they read, unexported: `signInMethods`, the `limiters` table, the `auth.*` retention settings and the use cases' reauthentication; `opshttp` gets them through the interfaces Phase 4 defines for modules |
+| The sign-in methods table printed at start in development | Logged at start, one info line per method, in every environment: `New` also builds apps in tests. `auth-providers` prints the table |
+| `cmd/seed` | Not in `gorbital.Main`; the golden apps keep it |
+
+### Threat model: moving sign-in
+
+| Threat | v0.1 | After the move | Proven by |
+|---|---|---|---|
+| **Session fixation** | A session token is generated at every sign-in (password, second factor, passkey, Google, Apple, GitHub) and never taken from the client; verifying an address or resetting a password ends every session | Same code | `TestAuthenticationEndToEnd`, `TestTwoFactorEndToEnd`, `TestPasskeysEndToEnd`, `TestSocialSignInEndToEnd` |
+| **Cookie flags** | `__Host-session`: `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`, expiring with the session; cleared with the same attributes. `__Host-oauth`: `SameSite=None` for Apple's form post, single use, bound to the state | Same code; cookie names are constants of the moved packages | `TestCookies`, `TestSocialSignInEndToEnd` |
+| **CSRF with `CrossOrigin`** | Cross-site writes with cookies refused, except `POST /v1/auth/apple/callback` and `/v1/auth/apple/notifications` (single-use state with the `__Host-oauth` cookie; Apple's signature) | `gorbital`'s stack has the same step and the same two exceptions (Phase 3) | `TestSocialSignInEndToEnd` (cross-site Apple posts pass, a cross-site GitHub link start is 403), gorbital's stack tests |
+| **Timing and account enumeration** | Unknown addresses do a dummy password hash; registration, resend and reset requests wait `auth.DefaultMinResponseTime`; the same response whether an account exists | Same code | The use-case tests, moved with the code |
+| **Guessing through rate-limit keys** | `auth_ip` per client address (IPv6 /64) on changing `/v1/auth/` requests and redirects; `auth_login` per address and network, `auth_login_address` per address; `auth_mfa`, `auth_reauth` per user; `auth_code` per purpose and address; `auth_notice`; `auth_api_key` per network for failed keys; shared through PostgreSQL | Same names, keys and settings; `auth_ip` is gorbital's `RateLimit` step with v0.1's key function | `TestSignInLimitSharedAcrossInstances`, `TestPerIPLimitBehindTrustedProxy`, `TestPerIPLimitGroupsIPv6`, `TestChecksBehindASessionAreLimited`, `TestAPIKeysEndToEnd`, `TestSurfaceKeepsV010Names` |
+| **API key hashing and scopes** | `gbk_<lookup>_<secret>`, only a SHA-256 hash stored, shown once with `Cache-Control: no-store`; scopes limit the owner's permissions; never the permissions of roles requiring a second factor; keys can't manage accounts, sessions or keys | Same code (`modules/auth` unchanged) | `TestAPIKeysEndToEnd` (no secret in audit events or jobs), `TestAPIKeyScopesCoverOwnData`, `TestServiceAccountsThroughOps` |
+| **Second-factor step-up** | `platform_admin` and `ops_viewer` grant their permissions only to sessions verified with a second factor (`RequireMFA`), so never to API keys; recent reauthentication for sensitive changes | `authhttp.Setup` requires it for both roles whenever a module grants them anything, as `permissions.go` did. A module on `gorbital.Main` granting other roles can't require it until Phase 6 | `TestTwoFactorEndToEnd`, `TestAuthenticationEndToEnd` (403 `mfa_required`), `TestCommands` |
+| **Impersonation outside development** | `POST /ops/auth/users/{id}/impersonate` works only with the dev console, which production refuses | `Setup` turns it on from `AuthSetup.DevConsole` (`APP_ENV=development` and `DEV_CONSOLE_TOKEN`); `LoadConfig` still refuses the token in production | `TestOpsImpersonationOffWithoutTheConsole`, `TestOpsUsers` |
+| **The dev operator** | The console token acts as a system actor with `platform_admin`'s permissions on `/ops/` only, from a loopback peer with a localhost `Host`, never in a cookie | Same middleware (`devconsole.Operator`), after the authenticator in the `Auth` step, only with an authenticator and the console | `TestDevOperator`, `TestAuthSetupFromNew` |
+| **Key rotation** | `rotate-auth-keys` re-encrypts second-factor secrets with the first key of `AUTH_ENCRYPTION_KEYS`; production requires keys | Same use case; the production requirement is in `CheckConfig` (exit 2) | `TestCommands`, `ExampleAuthenticator_CheckConfig` |
+| **Provider token revocation** | `auth_revoke_tokens` every minute revokes Apple refresh tokens of unlinked identities and deleted accounts, with backoff | Same job, same name and schedule, defined by `Module.Jobs` | The job and use-case tests, `TestSurfaceKeepsV010Names` |
+| **A route loses its protection in the move** | Signed-in operations declare `security`; their use cases refuse without an actor | The same use cases; `TestOpenAPIMatchesV010` compares each of the 66 operations and every schema they reference with the frozen v0.1.0 document, and checks `x-gorbital-guards` is `authenticated` exactly where `security` is set | `TestOpenAPIMatchesV010`, `TestSignedInRoutesRefuseAnonymous` |
+| **Schema drift in a released database** | — | Migrations are byte for byte the golden apps', under the same versions; a database migrated by either golden app's `cmd/migrate` applies nothing | `TestModuleMigrationsMatchV01Apps`, `TestMigrateOnV01DatabaseIsNoOp` |
+| **Misconfiguration passes silently** | `LoadConfig` refused it | `CheckConfig` runs before `New` connects and before commands | `TestAuthSetupFromMain`, `TestWebAuthnConfiguration`, `TestSocialConfiguration` |
+
+**What changed compared with v0.1**, all outside the HTTP contract: sign-in's configuration errors are reported after `LoadConfig`'s instead of in the same list; wrong command arguments exit with 2 instead of 1 (`gorbital.Main`'s convention); the sign-in methods are logged at start instead of printed; `roles` lists the roles in the catalog's order (declared by name, `user` last when `authhttp` adds it) and the permissions of the modules the app mounts (no `/ops` permissions until Phase 4); the OpenAPI document gains `x-gorbital-guards` on sign-in's operations. **No HTTP response, cookie, audit event, stored row or name differs**: the golden app's HTTP tests pass against the library with only the operations module's endpoints replaced, and the contract tests compare the rest with the frozen fixtures.
 
 ## Why
 

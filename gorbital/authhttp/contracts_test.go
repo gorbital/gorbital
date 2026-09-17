@@ -374,3 +374,62 @@ func TestCookies(t *testing.T) {
 		t.Errorf("logout = %d, Set-Cookie %q, want the cookie cleared with the same attributes", out.code, out.header.Get("Set-Cookie"))
 	}
 }
+
+// TestSignedInRoutesRefuseAnonymous: sign-in's signed-in operations leave
+// the actor check to their use cases, after the input is validated, as in
+// v0.1 (route.Config.ActorCheckedByHandler). Every one of them, called
+// without credentials, with no body and with an empty object, answers 401
+// unauthenticated or, for a missing or invalid body, 400 bad_request or 422
+// validation_failed: never a success, another refusal or a server error. A
+// valid body then reaches the use case's refusal, which the golden app's
+// HTTP tests exercise route by route.
+func TestSignedInRoutesRefuseAnonymous(t *testing.T) {
+	a := newApp(t, socialEnvForContracts(t))
+	h := a.Handler()
+	var doc openAPIDoc
+	r := do(t, h, "GET", "/openapi.json", "")
+	if err := json.Unmarshal([]byte(r.body), &doc); err != nil {
+		t.Fatal(err)
+	}
+	checked, invalid := 0, 0
+	for path, item := range doc.Paths {
+		if !strings.HasPrefix(path, "/v1/auth/") && !strings.HasPrefix(path, "/ops/") {
+			continue
+		}
+		for method, raw := range item {
+			var op struct {
+				Security []any `json:"security"`
+			}
+			if err := json.Unmarshal(raw, &op); err != nil {
+				t.Fatal(err)
+			}
+			if len(op.Security) == 0 {
+				continue
+			}
+			checked++
+			url := strings.NewReplacer("{id}", "usr_x", "{provider}", "github", "{sessionId}", "ses_x", "{passkeyId}", "pk_x",
+				"{identityId}", "idn_x", "{role}", "ops_viewer", "{keyId}", "key_x").Replace(path)
+			for _, body := range []string{"", "{}"} {
+				got := do(t, h, strings.ToUpper(method), url, body)
+				code, _ := got.json["code"].(string)
+				switch {
+				case got.code == http.StatusUnauthorized && code == "unauthenticated":
+				case got.code == http.StatusUnprocessableEntity && code == "validation_failed", got.code == http.StatusBadRequest && code == "bad_request":
+					invalid++
+				default:
+					t.Errorf("%s %s without credentials, body %q = %d %s, want 401 unauthenticated, or 422 validation_failed or 400 bad_request for the body", strings.ToUpper(method), url, body, got.code, got.body)
+				}
+			}
+		}
+	}
+	if checked < 40 || invalid >= 2*checked {
+		t.Errorf("checked %d signed-in operations, %d answers about the body, want every operation and most refused as unauthenticated", checked, invalid)
+	}
+	t.Logf("%d signed-in operations; %d of %d answers were about the body", checked, invalid, 2*checked)
+}
+
+// socialEnvForContracts turns on GitHub sign-in, so its signed-in link
+// operation runs its use case instead of answering social_unavailable.
+func socialEnvForContracts(*testing.T) map[string]string {
+	return map[string]string{"GITHUB_CLIENT_ID": "client", "GITHUB_CLIENT_SECRET": "secret"}
+}
