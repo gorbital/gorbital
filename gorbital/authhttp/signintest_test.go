@@ -266,6 +266,76 @@ func TestSignInTestsRefusals(t *testing.T) {
 	}
 }
 
+// TestSignInTestsGate pins the gate the tests hang on (ADR-0087): an app
+// built with the dev console off serves none of their surface and runs none
+// of their code. The same app with the console on is the control, so a
+// refactor that takes the feature away can't leave this test passing.
+func TestSignInTestsGate(t *testing.T) {
+	srv := socialtest.New(t)
+	endpoints := func(_ *gorbital.Config, a *Authenticator) {
+		a.endpoints.Google, a.endpoints.Apple, a.endpoints.GitHub = srv.Endpoints(), srv.Endpoints(), srv.GitHubEndpoints()
+	}
+	offApp := newApp(t, signInTestEnv(t, map[string]string{"DEV_CONSOLE_TOKEN": ""}), endpoints)
+	onApp := newApp(t, signInTestEnv(t, nil), endpoints)
+	off, on := offApp.Handler(), onApp.Handler()
+
+	// The console's endpoints: the overview under both spellings, and a
+	// deeper path that a console mounted but empty would answer 404 itself.
+	// These are held by two gates -- mountSignInTests and the AuthSetup's
+	// own DevEndpoints -- so they stay 404 even if the first one goes.
+	start := `{"result_url":"` + testResultURL + `"}`
+	for _, c := range []struct {
+		method, path, body string
+		on                 int // what the console serves when it is on
+	}{
+		{"GET", "/_dev/auth/test", "", http.StatusOK},
+		{"GET", "/_dev/auth/test/", "", http.StatusOK},
+		{"POST", "/_dev/auth/test/google/start", start, http.StatusCreated},
+	} {
+		if r := devRequest(t, off, c.method, c.path, c.body, true); r.code != http.StatusNotFound {
+			t.Errorf("%s %s with the console off = %d %s, want 404", c.method, c.path, r.code, r.body)
+		}
+		if r := devRequest(t, on, c.method, c.path, c.body, true); r.code != c.on {
+			t.Errorf("%s %s with the console on = %d %s, want %d", c.method, c.path, r.code, r.body, c.on)
+		}
+		if r := devRequest(t, on, c.method, c.path, c.body, false); r.code != http.StatusUnauthorized {
+			t.Errorf("%s %s with the console on and no token = %d %s, want 401", c.method, c.path, r.code, r.body)
+		}
+	}
+
+	// The ceremony page, which the console's checks never see: it is there
+	// with the console on and nowhere with it off.
+	if r := do(t, off, "GET", "/_signin-test/passkey", ""); r.code != http.StatusNotFound {
+		t.Errorf("the ceremony page with the console off = %d, want 404", r.code)
+	}
+	if r := do(t, on, "GET", "/_signin-test/passkey", ""); r.code != http.StatusOK {
+		t.Errorf("the ceremony page with the console on = %d %s, want 200", r.code, r.body)
+	}
+
+	// The one route outside /_dev/: the interceptor isn't on sign-in's
+	// callbacks at all, so a provider's return is sign-in's own. An unknown
+	// state is sign-in's invalid_state, never a test's result page.
+	if tester := offApp.auth.signInTester(); tester != nil {
+		t.Error("the callback interceptor is installed with the console off")
+	}
+	if tester := onApp.auth.signInTester(); tester == nil {
+		t.Error("the callback interceptor is missing with the console on")
+	}
+	cb := do(t, off, "GET", "/v1/auth/google/callback?state=signin-test-state&code=signin-test-code", "")
+	if cb.code != http.StatusSeeOther || !strings.HasSuffix(cb.header.Get("Location"), "#error=invalid_state") {
+		t.Errorf("a callback with the console off = %d %q, want sign-in's invalid_state", cb.code, cb.header.Get("Location"))
+	}
+	// And a real round trip on the same callback signs in.
+	signIn := do(t, off, "GET", "/v1/auth/google/start", "")
+	location, _ := url.Parse(signIn.header.Get("Location"))
+	q := location.Query()
+	code := srv.Code(socialtest.Claims{Subject: "g-gate", Audience: "web-client", Email: "gate@gmail.com", EmailVerified: true, Nonce: q.Get("nonce")}, "")
+	cb = do(t, off, "GET", "/v1/auth/google/callback?code="+url.QueryEscape(code)+"&state="+url.QueryEscape(q.Get("state")), "", "Cookie", "__Host-oauth="+cookieValue(signIn, "__Host-oauth"))
+	if cb.code != http.StatusSeeOther || cookieValue(cb, "__Host-session") == "" || strings.Contains(cb.header.Get("Location"), "#error=") || strings.HasPrefix(cb.header.Get("Location"), testResultURL) {
+		t.Errorf("sign-in with the console off = %d %q %v", cb.code, cb.header.Get("Location"), cb.header.Values("Set-Cookie"))
+	}
+}
+
 // TestSignInTestsLeaveTheOpenAPIDocument: the interception adds no
 // operation, parameter or response to sign-in's document.
 func TestSignInTestsLeaveTheOpenAPIDocument(t *testing.T) {
