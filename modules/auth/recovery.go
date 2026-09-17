@@ -26,7 +26,9 @@ func NewRecoveryCodes() []string {
 // NormalizeRecoveryCode returns code lowercased without spaces or hyphens,
 // so "ABCDE-FGHIJ", "abcde fghij" and "abcdefghij" match.
 func NormalizeRecoveryCode(code string) string {
-	return strings.NewReplacer(" ", "", "-", "").Replace(strings.ToLower(strings.TrimSpace(code)))
+	// Trim after removing separators, so whitespace such as a tab next to
+	// one is trimmed however the code was separated.
+	return strings.TrimSpace(strings.NewReplacer(" ", "", "-", "").Replace(strings.ToLower(code)))
 }
 
 // HashRecoveryCode returns the hash to store for a user's recovery code.
