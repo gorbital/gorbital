@@ -251,7 +251,7 @@ gorbital.New calls it once; gorbital.Main calls it with zero Deps before one of 
 type auditedAuth struct{ *authhttp.Authenticator }
 setup := func(ctx context.Context, a auditedAuth, s gorbital.AuthSetup) error {
 	s.Deps.Logger.InfoContext(ctx, "sign-in starting", "app", s.Name, "dev_console", s.DevConsole)
-	return a.Authenticator.Setup(ctx, s)
+	return a.Setup(ctx, s)
 }
 _ = setup
 ```
