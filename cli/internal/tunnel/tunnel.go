@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -144,11 +145,14 @@ type Config struct {
 	// before its group is killed; zero means 5 seconds.
 	StopTimeout time.Duration
 	// Client makes reachability checks; nil uses a client with a 10 second
-	// timeout. Redirects are never followed.
+	// timeout that resolves names with Go's own DNS client, so a lookup
+	// made before a new quick tunnel's name existed isn't answered from the
+	// system's negative cache. Redirects are never followed.
 	Client *http.Client
 	// CheckAttempts and CheckInterval shape the check after connecting,
-	// which retries while DNS and Cloudflare catch up; zero means 6 and 5
-	// seconds, and negative attempts turn the automatic check off.
+	// which waits an interval first and retries while DNS and Cloudflare
+	// catch up; zero means 12 and 5 seconds, and negative attempts turn the
+	// automatic check off.
 	CheckAttempts int
 	CheckInterval time.Duration
 }
@@ -207,13 +211,15 @@ func New(cfg Config) *Manager {
 		cfg.StopTimeout = 5 * time.Second
 	}
 	if cfg.Client == nil {
-		cfg.Client = &http.Client{Timeout: 10 * time.Second}
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.DialContext = (&net.Dialer{Timeout: 5 * time.Second, Resolver: &net.Resolver{PreferGo: true}}).DialContext
+		cfg.Client = &http.Client{Timeout: 10 * time.Second, Transport: transport}
 	}
 	client := *cfg.Client
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	cfg.Client = &client
 	if cfg.CheckAttempts == 0 {
-		cfg.CheckAttempts = 6
+		cfg.CheckAttempts = 12
 	}
 	if cfg.CheckInterval <= 0 {
 		cfg.CheckInterval = 5 * time.Second
@@ -496,6 +502,7 @@ func (m *Manager) line(p *process, text string) {
 		now := time.Now().UTC()
 		m.status.State, m.status.ConnectedAt, m.status.Problem, connected = StateConnected, &now, "", true
 	}
+	stopping := p.stopping
 	status := m.snapshot()
 	m.publish()
 	m.mu.Unlock()
@@ -507,7 +514,8 @@ func (m *Manager) line(p *process, text string) {
 		m.cfg.Logf("orb: tunnel connected: %s is on the internet while it runs (/_dev and the Dev Portal are not)", status.PublicURL)
 		go m.autoCheck(p)
 	}
-	if level == "ERR" || level == "FTL" {
+	// Errors while stopping are cloudflared closing its connections.
+	if (level == "ERR" || level == "FTL") && !stopping {
 		m.cfg.Logf("orb: cloudflared: %s", messageOf(text))
 	}
 }
@@ -687,12 +695,10 @@ func (m *Manager) Close() {
 // Cloudflare's edge catch up.
 func (m *Manager) autoCheck(p *process) {
 	for attempt := 0; attempt < m.cfg.CheckAttempts; attempt++ {
-		if attempt > 0 {
-			select {
-			case <-p.done:
-				return
-			case <-time.After(m.cfg.CheckInterval):
-			}
+		select {
+		case <-p.done:
+			return
+		case <-time.After(m.cfg.CheckInterval):
 		}
 		m.mu.Lock()
 		current := m.run == p && m.status.State == StateConnected
