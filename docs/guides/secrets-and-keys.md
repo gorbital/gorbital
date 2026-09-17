@@ -8,11 +8,11 @@ For step-by-step instructions for the values you provide, see the beginner guide
 
 | Secret | Created by | Where it lives | Exposed if leaked? |
 |---|---|---|---|
-| [`AUTH_ENCRYPTION_KEYS`](#auth-encryption-keys) | You (`openssl`); `orb dev` in development | Environment | TOTP secrets, if the database leaks too |
-| [`DATABASE_URL` credentials](#database-url) | Your database provider; `compose.yaml` locally | Environment | Everything |
-| [`GOOGLE_CLIENT_SECRET`](#google-client-secret) | Google Cloud Console | Environment | Impersonating your app at Google's token endpoint |
+| [`AUTH_ENCRYPTION_KEYS`](#auth_encryption_keys) | You (`openssl`); `orb dev` in development | Environment | TOTP secrets, if the database leaks too |
+| [`DATABASE_URL` credentials](#database_url) | Your database provider; `compose.yaml` locally | Environment | Everything |
+| [`GOOGLE_CLIENT_SECRET`](#google_client_secret) | Google Cloud Console | Environment | Impersonating your app at Google's token endpoint |
 | [Apple `.p8` key](#apple-private-key) | Apple Developer | File or environment | Impersonating your app at Apple, revoking users' Apple tokens |
-| [`RESEND_API_KEY`](#resend-api-key-and-smtp-password) / `SMTP_PASSWORD` | Your email provider | Environment | Sending email as your domain |
+| [`RESEND_API_KEY`](#resend_api_key-and-smtp_password) / `SMTP_PASSWORD` | Your email provider | Environment | Sending email as your domain |
 | [Passwords](#passwords) | Users | `auth_users`, argon2id hash | Offline cracking of weak passwords |
 | [Session tokens](#session-tokens) | The app | Client; SHA-256 in `auth_sessions` | Acting as that user until the session ends |
 | [API keys](#api-keys) | The app, when a user or operator asks | The program's secret store; SHA-256 in `auth_api_keys` | Acting as the user or service account, within the key's scopes, until revoked or expired |

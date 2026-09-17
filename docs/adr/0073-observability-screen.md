@@ -6,7 +6,7 @@
 
 Phase 8 of the [Dev Portal roadmap](../dev-portal-roadmap.md) is the Observability screen: service health, the API's rates and percentiles per route, the database's connections, cache, sizes and locks, query performance from `pg_stat_statements` with `EXPLAIN` and index suggestions, the machine and the Go runtime, and jobs and sign-ins. The roadmap sketched an OTLP receiver inside `orb dev` with a local store, replacing `orb dev --observability` (Grafana) for local viewing.
 
-What exists: `/ops/observability/overview` and `/routes` answer request rate, error rate and p50, p95 and p99 per route from the app's request minutes ([ADR-0064](0064-observability.md)); `/ops/system` answers the readiness checks, the pool's counters, the migration state and the Go runtime; `/ops/jobs/overview` the jobs; the audit statistics the sign-ins by method. The log store ([ADR-0072](0072-local-log-store.md)) has every record. What is missing is the database's own statistics, the machine, a health table across services, and the query performance view.
+What exists: `/ops/observability/overview` and `/routes` answer request rate, error rate and p50, p95 and p99 per route from the app's request minutes ([ADR-0064](0064-live-observability-and-incidents.md)); `/ops/system` answers the readiness checks, the pool's counters, the migration state and the Go runtime; `/ops/jobs/overview` the jobs; the audit statistics the sign-ins by method. The log store ([ADR-0072](0072-local-log-store.md)) has every record. What is missing is the database's own statistics, the machine, a health table across services, and the query performance view.
 
 ## Options
 

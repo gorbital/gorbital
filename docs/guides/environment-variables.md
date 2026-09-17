@@ -82,7 +82,7 @@ Full preset only.
 
 | Variable | Required | Default | Example | Secret | Description |
 |---|---|---|---|---|---|
-| `AUTH_ENCRYPTION_KEYS` | **Prod**; also `cmd/seed` | empty | `k2:…,k1:…` | **Secret** | AES-256-GCM keys that encrypt TOTP secrets. Format: comma-separated `id:base64`, each key exactly 32 bytes after base64 decoding; ids unique. The first key encrypts, all decrypt. Empty in development turns authenticator apps off (503 `mfa_unavailable`) and `orb dev` fills it. Generate: `echo "k1:$(openssl rand -base64 32)"`. Rotate with `cmd/api rotate-auth-keys` ([secrets and keys](secrets-and-keys.md#auth-encryption-keys)) |
+| `AUTH_ENCRYPTION_KEYS` | **Prod**; also `cmd/seed` | empty | `k2:…,k1:…` | **Secret** | AES-256-GCM keys that encrypt TOTP secrets. Format: comma-separated `id:base64`, each key exactly 32 bytes after base64 decoding; ids unique. The first key encrypts, all decrypt. Empty in development turns authenticator apps off (503 `mfa_unavailable`) and `orb dev` fills it. Generate: `echo "k1:$(openssl rand -base64 32)"`. Rotate with `cmd/api rotate-auth-keys` ([secrets and keys](secrets-and-keys.md#auth_encryption_keys)) |
 
 ### Passkeys
 
