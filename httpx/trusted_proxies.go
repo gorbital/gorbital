@@ -21,6 +21,10 @@ var ErrTrustAll = errors.New("httpx: a trusted proxy range can't cover every add
 // never match one. It refuses ranges covering every IPv4 or IPv6 address
 // ([ErrTrustAll]), including "::ffff:0.0.0.0/96", which is every IPv4
 // address written in IPv6 form.
+//
+// A mapped range shorter than /96 mixes the two families and is refused:
+// netip would re-base it on a range the operator never wrote
+// ("::ffff:10.0.0.0/8" masks to "::/8", which covers ::1).
 func ParseTrustedProxies(list string) ([]netip.Prefix, error) {
 	var out []netip.Prefix
 	for item := range strings.SplitSeq(list, ",") {
