@@ -244,3 +244,38 @@ func TestRenderText(t *testing.T) {
 		t.Error("non-log lines changed")
 	}
 }
+
+func TestRenderPretty(t *testing.T) {
+	req := `{"time":"2026-09-17T04:23:35.643366+03:00","level":"INFO","msg":"http request","service":"portal-demo","source":"http","method":"GET","path":"/ops/settings","route":"/ops/settings","status":200,"duration_ms":2,"bytes":13267,"request_id":"req_1ea7d5be455144b9","trace_id":"b5ef922fa515b1d2ff3ab2cd42c248bc","span_id":"6debdb9ef5d25efd","user_id":"usr_1"}`
+	got := RenderPretty(req, false)
+	for _, want := range []string{"INFO  GET /ops/settings → 200 · 2 ms · 13 KB · req_1ea7d5be455144b9", "user_id=usr_1"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("RenderPretty = %q, want %q", got, want)
+		}
+	}
+	for _, dont := range []string{"trace_id", "span_id", "service=", "source=", "route="} {
+		if strings.Contains(got, dont) {
+			t.Errorf("RenderPretty = %q, shouldn't mention %s", got, dont)
+		}
+	}
+	if colored := RenderPretty(req, true); !strings.Contains(colored, "\x1b[32m200\x1b[0m") {
+		t.Errorf("colored = %q", colored)
+	}
+	warn := RenderPretty(`{"time":"2026-09-17T04:23:35Z","level":"WARN","msg":"job ran","job":"heartbeat","job_id":7,"service":"x"}`, false)
+	if !strings.HasSuffix(warn, "WARN  job ran  job=heartbeat  job_id=7") {
+		t.Errorf("warn = %q", warn)
+	}
+	if RenderPretty("plain line", false) != "plain line" {
+		t.Error("a plain line changed")
+	}
+
+	// The store's writer ingests lines as they arrive.
+	s := newTestLogStore(t)
+	w := s.Writer("app")
+	_, _ = w.Write([]byte(req[:40]))
+	_, _ = w.Write([]byte(req[40:] + "\nplain\n"))
+	page, _ := s.Query(LogQuery{})
+	if len(page.Logs) != 2 || page.Logs[1].Source != SourceHTTP || page.Logs[0].Raw != "plain" {
+		t.Errorf("writer ingested %+v", page.Logs)
+	}
+}

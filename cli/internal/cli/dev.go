@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/term"
+
 	"gorbital.dev/cli/internal/devmail"
 	"gorbital.dev/cli/internal/pgmeta"
 	"gorbital.dev/cli/internal/portal"
@@ -592,10 +594,17 @@ func (d *devRunner) start() error {
 	}
 	cmd := exec.Command(d.bin)
 	cmd.Env = d.appEnv(env)
-	// The app's output goes to the terminal as before, and to the portal.
-	// The app logs JSON (appEnv), which the terminal shows as text.
-	appOut := d.hub.Writer("app")
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, io.MultiWriter(newTextRenderer(os.Stdout), appOut), io.MultiWriter(newTextRenderer(d.rawOut), appOut)
+	// The app logs JSON (appEnv). The log store gets the JSON as it is;
+	// the terminal and the portal's console get it rendered for people
+	// (portal.RenderPretty), with colours only on a terminal.
+	console := newTextRenderer(d.hub.Writer("app"), false)
+	stdout := io.Writer(newTextRenderer(os.Stdout, isTerminal(os.Stdout)))
+	stderr := io.Writer(newTextRenderer(d.rawOut, isTerminal(d.rawOut)))
+	if d.logs != nil {
+		stdout = io.MultiWriter(stdout, d.logs.Writer("app"))
+		stderr = io.MultiWriter(stderr, d.logs.Writer("app"))
+	}
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, io.MultiWriter(stdout, console), io.MultiWriter(stderr, console)
 	configureProcess(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start app: %w", err)
@@ -625,15 +634,22 @@ func (d *devRunner) appEnv(env []string) []string {
 	return append(env, d.extraEnv...)
 }
 
-// textRenderer writes JSON log lines to the terminal as text (see
-// portal.RenderText); other lines pass unchanged. Partial lines wait for
-// their newline.
+// textRenderer writes JSON log lines as readable text (see
+// portal.RenderPretty), with colours when color; other lines pass
+// unchanged. Partial lines wait for their newline.
 type textRenderer struct {
-	w   io.Writer
-	buf []byte
+	w     io.Writer
+	buf   []byte
+	color bool
 }
 
-func newTextRenderer(w io.Writer) *textRenderer { return &textRenderer{w: w} }
+func newTextRenderer(w io.Writer, color bool) *textRenderer { return &textRenderer{w: w, color: color} }
+
+// isTerminal reports whether w is a terminal, for colours.
+func isTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	return ok && term.IsTerminal(int(f.Fd())) //nolint:gosec // a file descriptor fits
+}
 
 func (t *textRenderer) Write(p []byte) (int, error) {
 	t.buf = append(t.buf, p...)
@@ -644,7 +660,7 @@ func (t *textRenderer) Write(p []byte) (int, error) {
 		}
 		line := string(t.buf[:i])
 		t.buf = t.buf[i+1:]
-		if _, err := io.WriteString(t.w, portal.RenderText(line)+"\n"); err != nil {
+		if _, err := io.WriteString(t.w, portal.RenderPretty(line, t.color)+"\n"); err != nil {
 			return len(p), err
 		}
 	}
