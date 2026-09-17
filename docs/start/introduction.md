@@ -3,7 +3,7 @@
 gorbital builds the backend of your app: the API your website or mobile app talks to. One command creates a complete Go project with sign-in, a database, email and background jobs already working. The code lands in your own repository, and every file is yours to read and change.
 
 > [!NOTE]
-> `v0.1.0` is the first public release. Install `orb` with `go install gorbital.dev/cli/cmd/orb@latest` ([Quickstart](quickstart.md)). v0 carries no compatibility promise; `v1.0.0` follows the external security review ([stability](../guides/stability.md)).
+> `v0.1.0` is the first public release, and this section describes what a new app looks like on the v0.2 layout: `cmd/api/main.go` on `gorbital.Main`, with sign-in, `/ops`, organisations and feature flags coming from the library ([your main.go](../guides/main-go.md)). Apps created with v0.1 keep their own `internal/app` and work unchanged. Install `orb` with `go install gorbital.dev/cli/cmd/orb@latest` ([Quickstart](quickstart.md)). v0 carries no compatibility promise; `v1.0.0` follows the external security review ([stability](../guides/stability.md)).
 
 ## Two kinds of docs
 

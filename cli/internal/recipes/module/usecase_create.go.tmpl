@@ -1,0 +1,36 @@
+package usecase
+
+import (
+	"context"
+
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+)
+
+⟦- if .Org⟧
+// Create⟦.Ident⟧ adds ⟦.A⟧ ⟦.Human⟧ to the organisation orgID, created by the member
+// acting in it.
+func (s *Service) Create⟦.Ident⟧(ctx context.Context, orgID string, f domain.⟦.Ident⟧Fields) (domain.⟦.Ident⟧, error) {
+	member, err := memberID(ctx, orgID)
+	if err != nil {
+		return domain.⟦.Ident⟧{}, err
+	}
+	⟦.Var⟧, err := domain.New⟦.Ident⟧(s.newID(), orgID, member, f, s.clock())
+⟦- else⟧
+// Create⟦.Ident⟧ adds ⟦.A⟧ ⟦.Human⟧ owned by the signed-in user.
+func (s *Service) Create⟦.Ident⟧(ctx context.Context, f domain.⟦.Ident⟧Fields) (domain.⟦.Ident⟧, error) {
+	owner, err := ownerID(ctx)
+	if err != nil {
+		return domain.⟦.Ident⟧{}, err
+	}
+	⟦.Var⟧, err := domain.New⟦.Ident⟧(s.newID(), owner, f, s.clock())
+⟦- end⟧
+	if err != nil {
+		return domain.⟦.Ident⟧{}, err
+	}
+	created, err := s.store.Insert⟦.Ident⟧(ctx, ⟦.Var⟧)
+	if err != nil {
+		return domain.⟦.Ident⟧{}, storeError("create", err)
+	}
+	s.audit(ctx, ActionCreated, created.ID, nil)
+	return created, nil
+}

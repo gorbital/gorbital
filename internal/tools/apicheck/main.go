@@ -61,7 +61,7 @@ func run(root string, write bool, out io.Writer) error {
 		}
 		path := filepath.Join(root, "api", listingName(modulePath))
 		if write {
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 				return err
 			}
 			if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil { //nolint:gosec // committed to the repository
@@ -102,7 +102,7 @@ func findRoot() (string, error) {
 		return "", err
 	}
 	for {
-		data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+		data, err := os.ReadFile(filepath.Join(dir, "go.mod")) //nolint:gosec // the repository's own files
 		if err == nil && modulePathOf(data) == "gorbital.dev" {
 			return dir, nil
 		}
@@ -115,7 +115,7 @@ func findRoot() (string, error) {
 }
 
 // libraryModules returns the library modules by directory relative to root:
-// "." and every module under modules/.
+// ".", every module under modules/, and the composition module in gorbital/.
 func libraryModules(root string) ([]string, error) {
 	modules := []string{"."}
 	err := filepath.WalkDir(filepath.Join(root, "modules"), func(path string, d os.DirEntry, err error) error {
@@ -135,7 +135,14 @@ func libraryModules(root string) ([]string, error) {
 		return nil
 	})
 	slices.Sort(modules[1:])
-	return modules, err
+	if err != nil {
+		return nil, err
+	}
+	// The composition module (ADR-0081) sits beside modules/.
+	if _, err := os.Stat(filepath.Join(root, "gorbital", "go.mod")); err == nil {
+		modules = append(modules, "gorbital")
+	}
+	return modules, nil
 }
 
 func modulePathOf(gomod []byte) string {
@@ -157,7 +164,7 @@ func listingName(modulePath string) string {
 }
 
 func readListing(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // the repository's own files
 	if err != nil {
 		return nil, err
 	}

@@ -48,16 +48,48 @@ func TestJSONOutputs(t *testing.T) {
 			newMigrationApp(t)
 			return runOrb(t, "gen", "migration", "AddCustomerPhone", "--json")
 		}},
+		{"gen-modules", func(t *testing.T) (int, string, string) {
+			newModulesApp(t)
+			return runOrb(t, "gen", "modules", "--json")
+		}},
+		{"gen-module", func(t *testing.T) (int, string, string) {
+			newMainApp(t, false)
+			return runOrb(t, append(shelvesArgs, "--allow-dirty", "--json")...)
+		}},
+		{"gen-middleware", func(t *testing.T) (int, string, string) {
+			newMainApp(t, false)
+			return runOrb(t, "gen", "middleware", "ActiveSubscription", "--module", "profiles", "--guard", "--dry-run", "--json")
+		}},
+		{"routes", func(t *testing.T) (int, string, string) {
+			newMainApp(t, false)
+			return runOrb(t, "routes", "--openapi", "api/openapi.json", "--app", "--json")
+		}},
+		{"eject", func(t *testing.T) (int, string, string) {
+			copyExampleApp(t, "shelfie")
+			code, out, errOut := runOrb(t, "eject", "orgs", "--dry-run", "--json")
+			// The library version Shelfie requires.
+			var res ejectResult
+			if json.Unmarshal([]byte(out), &res) == nil && res.Version != "" {
+				out = strings.ReplaceAll(out, `"`+res.Version+`"`, `"{version}"`)
+			}
+			return code, out, errOut
+		}},
+		{"doctor-main", func(t *testing.T) (int, string, string) {
+			newMainApp(t, true)
+			writeFile(t, ".env", readFile(t, ".env.example"))
+			fakeDoctorCommands(t, `{"current":20260920000001,"latest":20260920000001,"pending":0}`)
+			return runOrb(t, "doctor", "--fast", "--json")
+		}},
 		{"add-mail", func(t *testing.T) (int, string, string) {
 			newMailApp(t)
 			return runOrb(t, "add", "mail", "--provider", "smtp", "--smtp-host", "smtp.example.com", "--skip-tidy", "--json")
 		}},
 		{"add-orgs", func(t *testing.T) (int, string, string) {
-			newGitApp(t, "--preset", "full")
+			newV01GitApp(t, recipes.TenancySingle)
 			return runOrb(t, "add", "orgs", "--dry-run", "--skip-tidy", "--json")
 		}},
 		{"add-rls", func(t *testing.T) (int, string, string) {
-			newGitApp(t, "--preset", "full", "--tenancy", "multi")
+			newV01GitApp(t, recipes.TenancyMulti)
 			return runOrb(t, "add", "rls", "--dry-run", "--json")
 		}},
 		{"upgrade", func(t *testing.T) (int, string, string) {
@@ -65,8 +97,12 @@ func TestJSONOutputs(t *testing.T) {
 			useRelease(t, recipes.Embedded())
 			return runOrb(t, "upgrade", "--dry-run", "--skip-tidy", "--json")
 		}},
+		{"upgrade-layout", func(t *testing.T) (int, string, string) {
+			newV01GitApp(t, recipes.TenancySingle)
+			return runOrb(t, "upgrade", "--layout", "v0.2", "--dry-run", "--json")
+		}},
 		{"doctor", func(t *testing.T) (int, string, string) {
-			newGitApp(t, "--preset", "full")
+			newV01GitApp(t, recipes.TenancySingle)
 			writeFile(t, ".env", readFile(t, ".env.example"))
 			fakeDoctorCommands(t, `{"current":9,"latest":9,"pending":0}`)
 			return runOrb(t, "doctor", "--fast", "--json")

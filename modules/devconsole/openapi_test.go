@@ -57,6 +57,7 @@ func fullSources() devconsole.Sources {
 		Migrations: func(context.Context) (devconsole.Migrations, error) {
 			return devconsole.Migrations{Current: 2, Latest: 3, Pending: 1}, nil
 		},
+		Extensions: []devconsole.Extension{{Prefix: "/_dev/auth/test/", Handler: http.NotFoundHandler()}},
 		Jobs: func(context.Context) ([]devconsole.JobRun, error) {
 			return []devconsole.JobRun{{ID: 1, Kind: "retention", Queue: "default", State: "completed", Attempt: 1, MaxAttempts: 3,
 				CreatedAt: now, ScheduledAt: now, AttemptedAt: &now, FinalizedAt: &now, Errors: []string{"e"}, RequestID: "req"}}, nil

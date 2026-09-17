@@ -1,7 +1,8 @@
-// Package usecase holds the projects module's application logic. Each
-// operation finds the signed-in user, who owns the projects it reads or
-// changes, checks the permission (ADR-0058), applies the domain rules, stores
-// the result and records an audit event (ADR-0039). Change it freely.
+// Package usecase holds the projects module's operations, one file each:
+// each finds the signed-in user, who owns the projects it reads or changes,
+// applies the domain rules, stores the result through the Store port and
+// records an audit event. Routes check permissions with guards before a use
+// case runs (delivery/routes.go).
 package usecase
 
 import (
@@ -17,21 +18,23 @@ import (
 	"gorbital.dev/audit"
 	"gorbital.dev/page"
 
-	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
+	"example.com/acme-api/internal/modules/projects/domain"
 )
 
-// Config holds the Service's dependencies.
-type Config struct {
-	// Required.
-	Store    Store
-	Recorder audit.Recorder
+// Permissions the projects routes require. Every signed-in user holds them
+// through the user role (module.go); an API key only when its scopes include
+// them. Permission names are public API.
+const (
+	PermRead  = "projects.project.read"
+	PermWrite = "projects.project.write"
+)
 
-	// Optional.
-	Logger *slog.Logger
-	// Now is the clock and NewID makes IDs, for tests.
-	Now   func() time.Time
-	NewID func() string
-}
+// Audit actions, public API: add new ones, never rename.
+const (
+	ActionCreated = "projects.project.created"
+	ActionUpdated = "projects.project.updated"
+	ActionDeleted = "projects.project.deleted"
+)
 
 // Service runs the projects use cases. It is safe for concurrent use.
 type Service struct {
@@ -42,22 +45,14 @@ type Service struct {
 	newID    func() string
 }
 
-// NewService returns a Service.
-func NewService(c Config) (*Service, error) {
-	if c.Store == nil || c.Recorder == nil {
-		return nil, errors.New("projects: invalid service: store and audit recorder are required")
+// NewService returns a Service storing projects in store and recording
+// changes in recorder. Both may be nil while the OpenAPI document is
+// exported, when no use case runs.
+func NewService(store Store, recorder audit.Recorder, logger *slog.Logger) *Service {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
 	}
-	s := &Service{store: c.Store, recorder: c.Recorder, logger: c.Logger, now: c.Now, newID: c.NewID}
-	if s.logger == nil {
-		s.logger = slog.New(slog.DiscardHandler)
-	}
-	if s.now == nil {
-		s.now = time.Now
-	}
-	if s.newID == nil {
-		s.newID = newID
-	}
-	return s, nil
+	return &Service{store: store, recorder: recorder, logger: logger, now: time.Now, newID: newID}
 }
 
 var idEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
@@ -73,18 +68,13 @@ func newID() string {
 // time equals the one returned.
 func (s *Service) clock() time.Time { return s.now().UTC().Truncate(time.Microsecond) }
 
-// ownerID returns the signed-in user's ID when they hold permission. Only
-// users own projects; system and anonymous actors get
-// ErrUnauthenticated. Every user holds the permissions through the user
-// role, but an API key only when its scopes include them, so a key limited
-// to reading can't change anything (ADR-0058); it gets ErrForbidden.
-func ownerID(ctx context.Context, permission string) (string, error) {
+// ownerID returns the signed-in user, who owns the projects an operation
+// reads or changes. The routes let only authenticated callers through; a
+// service account's API key owns no projects.
+func ownerID(ctx context.Context) (string, error) {
 	a, ok := actor.From(ctx)
 	if !ok || a.Kind != actor.KindUser || a.ID == "" {
-		return "", projectsdomain.ErrUnauthenticated
-	}
-	if err := actor.Require(ctx, permission); err != nil {
-		return "", projectsdomain.ErrForbidden
+		return "", domain.ErrUnauthenticated
 	}
 	return a.ID, nil
 }
@@ -98,12 +88,12 @@ func (s *Service) audit(ctx context.Context, action, id string, metadata map[str
 	}
 }
 
-// storeError returns the module's own errors as they are and hides the rest,
-// such as driver errors, which aren't API (ADR-0018).
+// storeError returns the module's own errors as they are and hides the
+// rest, such as driver errors, which aren't API.
 func storeError(op string, err error) error {
 	known := []error{
-		projectsdomain.ErrInvalidProject, projectsdomain.ErrProjectNotFound,
-		projectsdomain.ErrProjectNameTaken, projectsdomain.ErrProjectVersionConflict,
+		domain.ErrInvalidProject, domain.ErrProjectNotFound,
+		domain.ErrProjectNameTaken, domain.ErrProjectVersionConflict,
 		page.ErrInvalidSort,
 	}
 	for _, k := range known {
@@ -111,5 +101,5 @@ func storeError(op string, err error) error {
 			return err
 		}
 	}
-	return fmt.Errorf("projects: %s: %v", op, err) //nolint:errorlint // driver errors aren't API (ADR-0018)
+	return fmt.Errorf("projects: %s: %v", op, err) //nolint:errorlint // driver errors aren't API
 }

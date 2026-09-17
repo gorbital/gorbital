@@ -96,3 +96,35 @@ func TestChangeJSONRoundTrip(t *testing.T) {
 		t.Errorf("Describe() = %q", got)
 	}
 }
+
+func TestDiff(t *testing.T) {
+	before := "package modules\n\nimport (\n\t\"a\"\n\t\"b\"\n)\n\nfunc All() {\n\ta()\n\tb()\n}\n"
+	after := "package modules\n\nimport (\n\t\"a\"\n\t\"b\"\n\t\"c\"\n)\n\nfunc All() {\n\ta()\n\tb()\n\tc()\n}\n"
+	p := Plan{Changes: []Change{
+		{Path: "x/new.go", Kind: Create, Content: []byte("package x\n")},
+		{Path: "modules.gen.go", Kind: Modify, Before: []byte(before), Content: []byte(after)},
+		{Path: "same.go", Kind: Modify, Before: []byte("a\n"), Content: []byte("a\n")},
+	}}
+	want := `--- /dev/null
++++ b/x/new.go
+@@ -0,0 +1,1 @@
++package x
+--- a/modules.gen.go
++++ b/modules.gen.go
+@@ -3,9 +3,11 @@
+ import (
+ 	"a"
+ 	"b"
++	"c"
+ )
+ 
+ func All() {
+ 	a()
+ 	b()
++	c()
+ }
+`
+	if got := Diff(p); got != want {
+		t.Errorf("Diff() =\n%s\nwant\n%s", got, want)
+	}
+}

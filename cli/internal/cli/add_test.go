@@ -15,14 +15,14 @@ import (
 	"gorbital.dev/cli/internal/recipes"
 )
 
-// goldenApp returns the absolute path of examples/full-single.
+// goldenApp returns the absolute path of examples/v0.1/full-single.
 func goldenApp(t *testing.T) string {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(file), "..", "..", "..", "examples", "full-single")
+	return filepath.Join(filepath.Dir(file), "..", "..", "..", "examples", "v0.1", "full-single")
 }
 
-// newMailApp copies the files orb add mail reads from examples/full-single
+// newMailApp copies the files orb add mail reads from examples/v0.1/full-single
 // into a temporary directory and makes it the working directory.
 func newMailApp(t *testing.T) string {
 	t.Helper()
@@ -139,7 +139,7 @@ func TestAddMailSwitchesBackToResend(t *testing.T) {
 		t.Errorf("result = %+v, want the Resend module added", res)
 	}
 	goMod := readFile(t, "go.mod")
-	for _, want := range []string{"gorbital.dev/modules/mail/resend v0.1.0", "gorbital.dev/modules/mail/resend => ../../modules/mail/resend"} {
+	for _, want := range []string{"gorbital.dev/modules/mail/resend " + recipes.LibraryVersion, "gorbital.dev/modules/mail/resend => ../../../modules/mail/resend"} {
 		if !strings.Contains(goMod, want) {
 			t.Errorf("go.mod lacks %q:\n%s", want, goMod)
 		}
@@ -351,7 +351,7 @@ func TestPromptMailSkipsQuestionsAnsweredByFlags(t *testing.T) {
 	}
 }
 
-// TestAddMailAppBuilds switches a copy of examples/full-single to SMTP and
+// TestAddMailAppBuilds switches a copy of examples/v0.1/full-single to SMTP and
 // back to Resend, building, vetting and testing it each time; tests that need
 // PostgreSQL skip without it. Set ORB_E2E=1 to run it.
 func TestAddMailAppBuilds(t *testing.T) {

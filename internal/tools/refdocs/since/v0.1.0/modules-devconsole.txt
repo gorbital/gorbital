@@ -1,0 +1,215 @@
+pkg gorbital.dev/modules/devconsole, const DefaultMaxLogs = 1000
+pkg gorbital.dev/modules/devconsole, const DefaultMaxLogs ideal-int
+pkg gorbital.dev/modules/devconsole, const DefaultMaxRequests = 500
+pkg gorbital.dev/modules/devconsole, const DefaultMaxRequests ideal-int
+pkg gorbital.dev/modules/devconsole, const DefaultMaxStreams = 8
+pkg gorbital.dev/modules/devconsole, const DefaultMaxStreams ideal-int
+pkg gorbital.dev/modules/devconsole, const DefaultStreamDuration = 1800000000000
+pkg gorbital.dev/modules/devconsole, const DefaultStreamDuration time.Duration
+pkg gorbital.dev/modules/devconsole, const MaxTokenLength = 512
+pkg gorbital.dev/modules/devconsole, const MaxTokenLength ideal-int
+pkg gorbital.dev/modules/devconsole, const MinTokenLength = 32
+pkg gorbital.dev/modules/devconsole, const MinTokenLength ideal-int
+pkg gorbital.dev/modules/devconsole, const Prefix = "/_dev/"
+pkg gorbital.dev/modules/devconsole, const Prefix ideal-string
+pkg gorbital.dev/modules/devconsole, const RouteHandler = "handler"
+pkg gorbital.dev/modules/devconsole, const RouteHandler ideal-string
+pkg gorbital.dev/modules/devconsole, const RouteOpenAPI = "openapi"
+pkg gorbital.dev/modules/devconsole, const RouteOpenAPI ideal-string
+pkg gorbital.dev/modules/devconsole, func CheckToken(string) error
+pkg gorbital.dev/modules/devconsole, func Libraries() []Library
+pkg gorbital.dev/modules/devconsole, func LooksSecret(string) bool
+pkg gorbital.dev/modules/devconsole, func MailpitSource(string, *http.Client) (func(context.Context) (Mail, error), error)
+pkg gorbital.dev/modules/devconsole, func New(string, ...Option) (*Console, error)
+pkg gorbital.dev/modules/devconsole, func NewLogs(int) (*Logs, error)
+pkg gorbital.dev/modules/devconsole, func OpenAPI() []byte
+pkg gorbital.dev/modules/devconsole, func RecordRoute(http.Handler) http.Handler
+pkg gorbital.dev/modules/devconsole, func RoutesFromOpenAPI([]byte) ([]Route, error)
+pkg gorbital.dev/modules/devconsole, func SortRoutes([]Route)
+pkg gorbital.dev/modules/devconsole, func WithAddr(string) Option
+pkg gorbital.dev/modules/devconsole, func WithLogs(*Logs) Option
+pkg gorbital.dev/modules/devconsole, func WithMaxRequests(int) Option
+pkg gorbital.dev/modules/devconsole, func WithSources(Sources) Option
+pkg gorbital.dev/modules/devconsole, func WithStreams(int, time.Duration) Option
+pkg gorbital.dev/modules/devconsole, method (*Console) Close()
+pkg gorbital.dev/modules/devconsole, method (*Console) Middleware() func(http.Handler) http.Handler
+pkg gorbital.dev/modules/devconsole, method (*Console) Mount(http.Handler, *slog.Logger) http.Handler
+pkg gorbital.dev/modules/devconsole, method (*Console) Operator(string, actor.Actor, *slog.Logger) func(http.Handler) http.Handler
+pkg gorbital.dev/modules/devconsole, method (*Console) RecordRequest(Request)
+pkg gorbital.dev/modules/devconsole, method (*EnvKeys) List() []EnvKey
+pkg gorbital.dev/modules/devconsole, method (*EnvKeys) Read(string, string)
+pkg gorbital.dev/modules/devconsole, method (*EnvKeys) ReadSecret(string, bool)
+pkg gorbital.dev/modules/devconsole, method (*Logs) Handler() slog.Handler
+pkg gorbital.dev/modules/devconsole, method (*Logs) List() []Log
+pkg gorbital.dev/modules/devconsole, type Address struct
+pkg gorbital.dev/modules/devconsole, type Address struct, Address string
+pkg gorbital.dev/modules/devconsole, type Address struct, Name string
+pkg gorbital.dev/modules/devconsole, type App struct
+pkg gorbital.dev/modules/devconsole, type App struct, Commit string
+pkg gorbital.dev/modules/devconsole, type App struct, Env string
+pkg gorbital.dev/modules/devconsole, type App struct, Flags []Flag
+pkg gorbital.dev/modules/devconsole, type App struct, GoVersion string
+pkg gorbital.dev/modules/devconsole, type App struct, Jobs []Job
+pkg gorbital.dev/modules/devconsole, type App struct, Libraries []Library
+pkg gorbital.dev/modules/devconsole, type App struct, Modules []string
+pkg gorbital.dev/modules/devconsole, type App struct, Name string
+pkg gorbital.dev/modules/devconsole, type App struct, Permissions []PermissionCatalog
+pkg gorbital.dev/modules/devconsole, type App struct, Settings []Setting
+pkg gorbital.dev/modules/devconsole, type App struct, Version string
+pkg gorbital.dev/modules/devconsole, type Attr struct
+pkg gorbital.dev/modules/devconsole, type Attr struct, Key string
+pkg gorbital.dev/modules/devconsole, type Attr struct, Value string
+pkg gorbital.dev/modules/devconsole, type ConfigList struct
+pkg gorbital.dev/modules/devconsole, type ConfigList struct, Variables []EnvKey
+pkg gorbital.dev/modules/devconsole, type Console struct
+pkg gorbital.dev/modules/devconsole, type EnvKey struct
+pkg gorbital.dev/modules/devconsole, type EnvKey struct, Name string
+pkg gorbital.dev/modules/devconsole, type EnvKey struct, Secret bool
+pkg gorbital.dev/modules/devconsole, type EnvKey struct, Set bool
+pkg gorbital.dev/modules/devconsole, type EnvKey struct, Value string
+pkg gorbital.dev/modules/devconsole, type EnvKeys struct
+pkg gorbital.dev/modules/devconsole, type Flag struct
+pkg gorbital.dev/modules/devconsole, type Flag struct, Client bool
+pkg gorbital.dev/modules/devconsole, type Flag struct, Default bool
+pkg gorbital.dev/modules/devconsole, type Flag struct, Description string
+pkg gorbital.dev/modules/devconsole, type Flag struct, Enabled bool
+pkg gorbital.dev/modules/devconsole, type Flag struct, Group string
+pkg gorbital.dev/modules/devconsole, type Flag struct, Key string
+pkg gorbital.dev/modules/devconsole, type Flag struct, Modified bool
+pkg gorbital.dev/modules/devconsole, type Flag struct, Percentage *int
+pkg gorbital.dev/modules/devconsole, type Flag struct, Targets int
+pkg gorbital.dev/modules/devconsole, type Index struct
+pkg gorbital.dev/modules/devconsole, type Index struct, Endpoints []string
+pkg gorbital.dev/modules/devconsole, type Job struct
+pkg gorbital.dev/modules/devconsole, type Job struct, Description string
+pkg gorbital.dev/modules/devconsole, type Job struct, Enabled bool
+pkg gorbital.dev/modules/devconsole, type Job struct, Modified bool
+pkg gorbital.dev/modules/devconsole, type Job struct, Name string
+pkg gorbital.dev/modules/devconsole, type Job struct, NextRunAt *time.Time
+pkg gorbital.dev/modules/devconsole, type Job struct, Schedule string
+pkg gorbital.dev/modules/devconsole, type JobRun struct
+pkg gorbital.dev/modules/devconsole, type JobRun struct, Attempt int
+pkg gorbital.dev/modules/devconsole, type JobRun struct, AttemptedAt *time.Time
+pkg gorbital.dev/modules/devconsole, type JobRun struct, CreatedAt time.Time
+pkg gorbital.dev/modules/devconsole, type JobRun struct, Errors []string
+pkg gorbital.dev/modules/devconsole, type JobRun struct, FinalizedAt *time.Time
+pkg gorbital.dev/modules/devconsole, type JobRun struct, ID int64
+pkg gorbital.dev/modules/devconsole, type JobRun struct, Kind string
+pkg gorbital.dev/modules/devconsole, type JobRun struct, MaxAttempts int
+pkg gorbital.dev/modules/devconsole, type JobRun struct, Queue string
+pkg gorbital.dev/modules/devconsole, type JobRun struct, RequestID string
+pkg gorbital.dev/modules/devconsole, type JobRun struct, ScheduledAt time.Time
+pkg gorbital.dev/modules/devconsole, type JobRun struct, State string
+pkg gorbital.dev/modules/devconsole, type JobRunList struct
+pkg gorbital.dev/modules/devconsole, type JobRunList struct, Runs []JobRun
+pkg gorbital.dev/modules/devconsole, type Library struct
+pkg gorbital.dev/modules/devconsole, type Library struct, Path string
+pkg gorbital.dev/modules/devconsole, type Library struct, Replaced bool
+pkg gorbital.dev/modules/devconsole, type Library struct, Version string
+pkg gorbital.dev/modules/devconsole, type Log struct
+pkg gorbital.dev/modules/devconsole, type Log struct, Attrs []Attr
+pkg gorbital.dev/modules/devconsole, type Log struct, DroppedAttrs int
+pkg gorbital.dev/modules/devconsole, type Log struct, Level string
+pkg gorbital.dev/modules/devconsole, type Log struct, Message string
+pkg gorbital.dev/modules/devconsole, type Log struct, Time time.Time
+pkg gorbital.dev/modules/devconsole, type LogList struct
+pkg gorbital.dev/modules/devconsole, type LogList struct, Logs []Log
+pkg gorbital.dev/modules/devconsole, type LogList struct, Max int
+pkg gorbital.dev/modules/devconsole, type Logs struct
+pkg gorbital.dev/modules/devconsole, type Mail struct
+pkg gorbital.dev/modules/devconsole, type Mail struct, Messages []Message
+pkg gorbital.dev/modules/devconsole, type Mail struct, Total int
+pkg gorbital.dev/modules/devconsole, type Mail struct, WebURL string
+pkg gorbital.dev/modules/devconsole, type MailPreview struct
+pkg gorbital.dev/modules/devconsole, type MailPreview struct, Category string
+pkg gorbital.dev/modules/devconsole, type MailPreview struct, Description string
+pkg gorbital.dev/modules/devconsole, type MailPreview struct, Name string
+pkg gorbital.dev/modules/devconsole, type MailPreviewList struct
+pkg gorbital.dev/modules/devconsole, type MailPreviewList struct, Previews []MailPreview
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct, HTML string
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct, Subject string
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct, Text string
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct, To string
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct, embedded MailPreview
+pkg gorbital.dev/modules/devconsole, type MailPreviewSent struct
+pkg gorbital.dev/modules/devconsole, type MailPreviewSent struct, Name string
+pkg gorbital.dev/modules/devconsole, type MailPreviewSent struct, Sent bool
+pkg gorbital.dev/modules/devconsole, type MailPreviewSent struct, To string
+pkg gorbital.dev/modules/devconsole, type MailPreviewer struct
+pkg gorbital.dev/modules/devconsole, type MailPreviewer struct, Build func(context.Context, string, string) (mail.Message, error)
+pkg gorbital.dev/modules/devconsole, type MailPreviewer struct, Previews []MailPreview
+pkg gorbital.dev/modules/devconsole, type MailPreviewer struct, Send func(context.Context, mail.Message) error
+pkg gorbital.dev/modules/devconsole, type Message struct
+pkg gorbital.dev/modules/devconsole, type Message struct, Attachments int
+pkg gorbital.dev/modules/devconsole, type Message struct, Created time.Time
+pkg gorbital.dev/modules/devconsole, type Message struct, From Address
+pkg gorbital.dev/modules/devconsole, type Message struct, ID string
+pkg gorbital.dev/modules/devconsole, type Message struct, Read bool
+pkg gorbital.dev/modules/devconsole, type Message struct, Size int
+pkg gorbital.dev/modules/devconsole, type Message struct, Snippet string
+pkg gorbital.dev/modules/devconsole, type Message struct, Subject string
+pkg gorbital.dev/modules/devconsole, type Message struct, To []Address
+pkg gorbital.dev/modules/devconsole, type Migrations struct
+pkg gorbital.dev/modules/devconsole, type Migrations struct, Current int64
+pkg gorbital.dev/modules/devconsole, type Migrations struct, Latest int64
+pkg gorbital.dev/modules/devconsole, type Migrations struct, Pending int
+pkg gorbital.dev/modules/devconsole, type Option func(*options)
+pkg gorbital.dev/modules/devconsole, type Permission struct
+pkg gorbital.dev/modules/devconsole, type Permission struct, Description string
+pkg gorbital.dev/modules/devconsole, type Permission struct, Name string
+pkg gorbital.dev/modules/devconsole, type PermissionCatalog struct
+pkg gorbital.dev/modules/devconsole, type PermissionCatalog struct, Name string
+pkg gorbital.dev/modules/devconsole, type PermissionCatalog struct, Permissions []Permission
+pkg gorbital.dev/modules/devconsole, type PermissionCatalog struct, Roles []Role
+pkg gorbital.dev/modules/devconsole, type Request struct
+pkg gorbital.dev/modules/devconsole, type Request struct, DurationMS float64
+pkg gorbital.dev/modules/devconsole, type Request struct, Method string
+pkg gorbital.dev/modules/devconsole, type Request struct, Path string
+pkg gorbital.dev/modules/devconsole, type Request struct, RequestID string
+pkg gorbital.dev/modules/devconsole, type Request struct, Route string
+pkg gorbital.dev/modules/devconsole, type Request struct, Status int
+pkg gorbital.dev/modules/devconsole, type Request struct, Time time.Time
+pkg gorbital.dev/modules/devconsole, type Request struct, TraceID string
+pkg gorbital.dev/modules/devconsole, type RequestList struct
+pkg gorbital.dev/modules/devconsole, type RequestList struct, Max int
+pkg gorbital.dev/modules/devconsole, type RequestList struct, Requests []Request
+pkg gorbital.dev/modules/devconsole, type Role struct
+pkg gorbital.dev/modules/devconsole, type Role struct, Description string
+pkg gorbital.dev/modules/devconsole, type Role struct, Name string
+pkg gorbital.dev/modules/devconsole, type Role struct, Permissions []string
+pkg gorbital.dev/modules/devconsole, type Route struct
+pkg gorbital.dev/modules/devconsole, type Route struct, Method string
+pkg gorbital.dev/modules/devconsole, type Route struct, OperationID string
+pkg gorbital.dev/modules/devconsole, type Route struct, Path string
+pkg gorbital.dev/modules/devconsole, type Route struct, Secured bool
+pkg gorbital.dev/modules/devconsole, type Route struct, Source string
+pkg gorbital.dev/modules/devconsole, type Route struct, Summary string
+pkg gorbital.dev/modules/devconsole, type Route struct, Tags []string
+pkg gorbital.dev/modules/devconsole, type RouteList struct
+pkg gorbital.dev/modules/devconsole, type RouteList struct, Routes []Route
+pkg gorbital.dev/modules/devconsole, type Setting struct
+pkg gorbital.dev/modules/devconsole, type Setting struct, Default json.RawMessage
+pkg gorbital.dev/modules/devconsole, type Setting struct, Description string
+pkg gorbital.dev/modules/devconsole, type Setting struct, Group string
+pkg gorbital.dev/modules/devconsole, type Setting struct, Key string
+pkg gorbital.dev/modules/devconsole, type Setting struct, Kind string
+pkg gorbital.dev/modules/devconsole, type Setting struct, Modified bool
+pkg gorbital.dev/modules/devconsole, type Setting struct, OrgOverridable bool
+pkg gorbital.dev/modules/devconsole, type Setting struct, Value json.RawMessage
+pkg gorbital.dev/modules/devconsole, type Sources struct
+pkg gorbital.dev/modules/devconsole, type Sources struct, App func(context.Context) (App, error)
+pkg gorbital.dev/modules/devconsole, type Sources struct, Config func(context.Context) ([]EnvKey, error)
+pkg gorbital.dev/modules/devconsole, type Sources struct, Jobs func(context.Context) ([]JobRun, error)
+pkg gorbital.dev/modules/devconsole, type Sources struct, Mail func(context.Context) (Mail, error)
+pkg gorbital.dev/modules/devconsole, type Sources struct, MailPreviews *MailPreviewer
+pkg gorbital.dev/modules/devconsole, type Sources struct, Migrations func(context.Context) (Migrations, error)
+pkg gorbital.dev/modules/devconsole, type Sources struct, Routes func(context.Context) ([]Route, error)
+pkg gorbital.dev/modules/devconsole, type StreamDropped struct
+pkg gorbital.dev/modules/devconsole, type StreamDropped struct, Count int
+pkg gorbital.dev/modules/devconsole, type StreamEnd struct
+pkg gorbital.dev/modules/devconsole, type StreamEnd struct, Reason string
+pkg gorbital.dev/modules/devconsole, var ErrInvalidToken error
+pkg gorbital.dev/modules/devconsole, var ErrStreamsClosed error
+pkg gorbital.dev/modules/devconsole, var ErrUnavailable error
+pkg gorbital.dev/modules/devconsole, var ErrUnknownPreview error

@@ -11,7 +11,7 @@ import (
 
 // devConsoleTokenVar turns on an app's development console APIs under
 // /_dev/ (ADR-0065).
-const devConsoleTokenVar = "DEV_CONSOLE_TOKEN"
+const devConsoleTokenVar = "DEV_CONSOLE_TOKEN" //nolint:gosec // the name of an environment variable, not a token
 
 // devConsoleToken returns the token orb dev gives the app's dev console:
 // DEV_CONSOLE_TOKEN from orb dev's own environment when set, else 256

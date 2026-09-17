@@ -16,9 +16,12 @@ import (
 )
 
 // Version is the orb version. Release builds set it with
-// -ldflags "-X gorbital.dev/cli/internal/cli.Version=v0.1.0"; go install
-// gorbital.dev/cli/cmd/orb@v0.1.0 gets it from the module version.
-var Version = moduleVersion("v0.1.0-dev", debug.ReadBuildInfo)
+// -ldflags "-X gorbital.dev/cli/internal/cli.Version=v0.2.0"; go install
+// gorbital.dev/cli/cmd/orb@v0.2.0 gets it from the module version. The
+// fallback is what an unstamped build of this tree reports, so it names the
+// release being prepared: it reaches users' apps through gorbital.lock and
+// orb upgrade's branch and commit names.
+var Version = moduleVersion("v0.2.0-dev", debug.ReadBuildInfo)
 
 // cliModulePath is the module orb is built from.
 const cliModulePath = "gorbital.dev/cli"
@@ -53,11 +56,20 @@ Usage:
                                  generate a module, table and API for users' records (Full preset apps)
   orb gen migration [<name>] [flags]
                                  generate an empty database migration (Full preset apps)
+  orb gen module [<Name> <field:type>...] [flags]
+                                 generate a layered module with its table and API (apps using gorbital.Main)
+  orb gen middleware <Name> [flags]
+                                 generate middleware or a guard with its test (apps using gorbital.Main)
+  orb gen modules [flags]        list internal/modules in modules.gen.go (apps using gorbital.Main)
+  orb routes [flags]             list every route: guards, public routes, handlers and source
+  orb eject <module> [flags]     copy a built-in module (auth, flags, mailevents, ops, orgs) into the app
+                                 as code it owns (apps using gorbital.Main)
   orb add mail [flags]           set up email with Resend or SMTP (Full preset apps)
   orb add orgs [flags]           turn a single-tenant app multi-tenant on a branch (Full preset apps)
   orb add rls [flags]            turn on row-level security for organisations' data (multi-tenant apps)
   orb dev [flags]                run the application with live reload and the Dev Portal
   orb upgrade [flags]            merge this release's templates into the app on a branch
+  orb upgrade --layout v0.2      move a v0.1 app (internal/app) to the v0.2 layout (gorbital.Main)
   orb doctor [flags]             check the app, its environment and database, and say what to fix
   orb version [--json]           print version information
   orb help                       show this help
@@ -139,7 +151,11 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io
 	case "dev":
 		err = runDev(ctx, args[1:], stderr)
 	case "upgrade":
-		err = runUpgrade(ctx, args[1:], stdout, stderr)
+		err = runUpgrade(ctx, args[1:], stdin, stdout, stderr)
+	case "routes":
+		err = runRoutes(ctx, args[1:], stdout, stderr)
+	case "eject":
+		err = runEject(ctx, args[1:], stdin, stdout, stderr)
 	case "doctor":
 		err = runDoctor(ctx, args[1:], stdout, stderr)
 	case "version", "-version", "--version":

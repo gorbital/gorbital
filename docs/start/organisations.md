@@ -25,7 +25,132 @@ created acme-api
 
 </div>
 
-Start it with `orb dev`. Seed data creates `admin@example.com` with a personal workspace holding three example projects, so `GET /v1/orgs` and `GET /v1/orgs/{orgId}/projects` return data straight away.
+Start it with `orb dev`. Seed data creates `admin@example.com`; its personal workspace is created the first time it calls `GET /v1/orgs`, and the example `projects` module serves `GET /v1/orgs/{orgId}/projects`. (An app created by orb v0.1 seeds three example projects in the workspace.)
+
+## In an app on gorbital.Main
+
+Organisations are one line of `main.go`, with the app's sign-in passed to them. The code is in the library, `gorbital.dev/gorbital/orgshttp` ([Methods](../methods/gorbital-orgshttp.md)), not in your app:
+
+```go cmd/api/main.go
+func main() {
+	auth := authhttp.New()
+	gorbital.Main(
+		gorbital.WithAuth(auth),
+		gorbital.WithModules(opshttp.Module(), orgshttp.Module(auth)), // organisations need the app's sign-in
+		gorbital.WithModules(modules.All()...),
+		gorbital.WithMigrations(migrations.FS),
+	)
+}
+```
+
+It is full-multi's `internal/modules/orgs` moved into the library, with v0.1's paths under `/v1/orgs` and `/v1/invitations`, operation IDs, schemas, error codes, audit actions, permissions and roles, the `orgs.*` settings, the `orgs_purge` job, and its two migrations under the versions v0.1 apps hold them under, so a database migrated by a v0.1 multi-tenant app migrates as a no-op. Contract tests compare the whole app's OpenAPI and public names with full-multi's frozen v0.1.0 contract. `orgshttp.Module(auth)` also:
+
+- gives every new account its personal workspace, and handles account deletion (409 `sole_owner`), through `authhttp`;
+- serves organisations' service accounts under `/v1/orgs/{orgId}/service-accounts`, which sign-in stores and authenticates;
+- lists `deleted_organisations` in `/ops/retention` and the `orgs_invitations` limiter in `/ops/auth/rate-limits`.
+
+`gorbital.New` refuses to start when `auth` isn't the authenticator given to `WithAuth`. Invitation emails carry the app's name and `APP_PUBLIC_URL`; pass the same `mail.Brand` to `authhttp.Brand` and `orgshttp.Brand` to change both.
+
+### Organisation-scoped modules
+
+Your modules scope routes to an organisation with [`guard.OrgMember`](../methods/gorbital-guard.md#OrgMember) and declare organisation permissions with `OrgRoles`. `orb gen module --org` writes such a module ([Generating code](../guides/generating-code.md)):
+
+```go internal/modules/invoices/module.go
+Permissions: []gorbital.Permission{
+	{Name: usecase.PermRead, Description: "See invoices", OrgRoles: []string{"owner", "admin", "member"}},
+	{Name: usecase.PermWrite, Description: "Create, change and delete invoices", OrgRoles: []string{"owner", "admin"}},
+},
+```
+
+```go internal/modules/invoices/delivery/routes.go
+invoices := r.Group("/v1/orgs/{orgId}/invoices", gorbital.Tags("Invoices"))
+gorbital.Get(invoices, "/{id}", h.getInvoice, guard.OrgMember(usecase.PermRead))
+gorbital.Post(invoices, "", h.createInvoice, guard.OrgMember(usecase.PermWrite))
+```
+
+The guard runs before the request's body is read. It asks organisations whether the caller is a member of `{orgId}` whose role grants the permission, on every request, with the semantics of `orgs.RequireMember`:
+
+| Caller | Answer |
+|---|---|
+| Not a member, or the organisation is deleted, doesn't exist or has a malformed ID | 404 `org_not_found`, the same for all four |
+| A member whose role doesn't grant the permission | 403 `forbidden` |
+| A member whose role grants it only with a second factor, without one or with an API key | 403 `mfa_required` |
+| A member's API key | The role's permissions, limited to the key's scopes |
+| A service account of the organisation, with its key | Its role's permissions, limited to the key's scopes; never another organisation's routes |
+
+Then the actor acts in the organisation: `actor.Actor.OrgID` is set and its permissions are the role's, so audit events record the organisation, and the request's database connections carry it (`postgres.WithOrg`) for [row-level security](../guides/row-level-security.md#in-an-app-on-gorbitalmain). Platform roles grant nothing inside an organisation. Registration fails for a route without `{orgId}` in its path or with `guard.Public()`, and `gorbital.New` fails when routes use the guard and the app has no `orgshttp.Module`.
+
+A permission with `OrgRoles` is declared in the organisation catalog, not the platform's: no platform role holds it, and the `roles` command doesn't list it. A role name you use that isn't `owner`, `admin` or `member` becomes an organisation role, such as `billing`; nobody gives it unless their own role holds every permission it grants, as in v0.1.
+
+The guard replaces the `orgs.RequireMember` call at the start of each use case in v0.1's generated resources. Keep `org_id` in every query anyway: the guard checks who may act in the organisation, the query decides which rows belong to it.
+
+In tests, `gorbitaltest.App.SignUp` creates real accounts, whose personal workspaces are organisations ([Testing with gorbitaltest](../guides/testing-with-gorbitaltest.md)):
+
+```go
+auth := authhttp.New()
+app := gorbitaltest.NewWithEnv(t, map[string]string{"AUTH_ENCRYPTION_KEYS": authlib.NewKeyringKey("test")},
+	gorbital.WithAuth(auth), gorbital.WithModules(orgshttp.Module(auth), invoices.Module()), gorbital.WithMigrations(migrations.FS))
+ada, _ := app.SignUp(t, "ada@example.com")
+bob, _ := app.SignUp(t, "bob@example.com")
+// ada's personal workspace from GET /v1/orgs, then:
+bob.Get("/v1/orgs/" + adaWorkspace + "/invoices").AssertProblem(t, http.StatusNotFound, "org_not_found")
+```
+
+What differs from a v0.1 app:
+
+- A request without credentials to an organisation operation gets 401 before its body is parsed, where v0.1 answered 422 to an invalid body first.
+- The organisation settings operations answer `setting_not_found`, `setting_version_conflict`, `setting_reason_required` and `invalid_setting_value` themselves, so they work without `opshttp`.
+- The dev console doesn't preview the invitation email yet.
+- There is no `seed` command: create data through the API, or with SQL in your own command.
+- The organisations module's migrations have v0.1's versions (`20260916000001`, `20260918000002`), older than the built-in migrations every app on `gorbital.Main` already runs. A database that has been migrated before refuses them; see [Adding organisations to a database that already exists](#adding-organisations-to-a-database-that-already-exists).
+
+### Adding organisations to a database that already exists
+
+`orgshttp` brings its two migrations under the versions v0.1 multi-tenant apps hold them under, `20260916000001` and `20260918000002`, so a database migrated by such an app sees them as applied and nothing runs twice. The price is that they are older than the library's own built-in migrations, whose newest is `20260918000070`, and goose refuses a migration older than the database's version. A database that has already been migrated therefore fails at the next migrate:
+
+```
+postgres: migrate: detected 2 missing (out-of-order) migrations lower than database version (20260918000070): versions 20260916000001,20260918000002
+```
+
+The number in brackets is whatever the database's newest applied version happens to be.
+
+`orb add orgs` says so in its report, and only writes files, so nothing is broken by running it; the refusal comes later, from the app's own `migrate` command. A database created after the change is unaffected, and so are the tests, which start from a fresh database. The `migrate` command has no flag that turns goose's out-of-order check off, so the two routes below are the supported ones.
+
+**A development database: start again.** This is the answer for a database you can throw away, and the one the [Shelfie](../examples/shelfie/08-book-clubs.md) chapter uses:
+
+```bash
+docker compose down -v && docker compose up -d --wait
+go run ./cmd/api migrate
+```
+
+**A database you have to keep.** Read both files before you decide, and take a backup. `00001_orgs.sql` only creates `orgs`, `org_members` and `org_invitations` with their indexes, referencing `orgs` and `auth_users`, which the database already has. `00002_settings_org_purge.sql` only adds two foreign keys, from `settings_values.org_id` and `settings_history.org_id` to `orgs`; in a single-tenant app those columns hold no organisation, so PostgreSQL validates them against an empty `orgs` and has no row to reject (if it does reject one, nothing has been changed). Neither file reads or rewrites existing data, so applying them after the later migrations leaves the same schema as applying them before. That argument is about these two files, not a general licence to run migrations out of order. With the app stopped:
+
+1. Read the two files out of the module cache, where `go mod download` put them:
+
+   ```bash
+   ls "$(go env GOMODCACHE)"/gorbital.dev@*/gorbital/orgshttp/internal/repository/migrations/
+   ```
+
+   They are `00001_orgs.sql` and `00002_settings_org_purge.sql`. Each is a goose file: apply the part after `-- +goose Up`, stopping at `-- +goose Down` if the file has one.
+
+2. Apply that SQL in one transaction, then record both versions as applied, in the same transaction, so a migrate run can never see the tables without the rows:
+
+   ```sql
+   BEGIN;
+   -- the Up section of 00001_orgs.sql, then of 00002_settings_org_purge.sql
+   INSERT INTO goose_db_version (version_id, is_applied) VALUES (20260916000001, true), (20260918000002, true);
+   COMMIT;
+   ```
+
+   `goose_db_version` is the table this app's migrations already use; `id` and `tstamp` fill themselves.
+
+3. Run the app's migrate command. Only `orb add orgs`'s conversion migration is left, and it runs in order:
+
+   ```bash
+   go run ./cmd/api migrate
+   ```
+
+`orb doctor` and `database.migrations` in [`GET /ops/system`](../guides/ops-api.md#system) then report `pending` as 0. If the record and the schema ever disagree — a version marked applied without its tables, or the reverse — restore the backup rather than patching `goose_db_version` further.
 
 ## Roles
 
@@ -39,7 +164,7 @@ Every member has exactly one role.
 
 - Nobody gives, changes or removes a role that grants a permission their own role doesn't, and only owners manage owners. Roles are compared by their permissions, not their names, so a role you add can't be used to climb: an admin can't give anyone a role that may delete the organisation.
 - The last owner can't leave, be demoted or be removed (409 `last_owner`). Promote another member to owner first.
-- Add roles for your product, such as a read-only viewer, in `declareOrgPermissions` in `internal/app/permissions.go`.
+- Add roles for your product, such as a read-only viewer, in `declareOrgPermissions` in `internal/app/permissions.go`, or in an app on `gorbital.Main` by naming them in a permission's `OrgRoles`.
 
 ## Personal workspaces
 
@@ -63,15 +188,17 @@ Every account gets a workspace called "Personal" when it is created: at registra
 
 </div>
 
-## Add an org-scoped resource
+## Add an org-scoped module
 
-In a multi-tenant app, `orb gen resource` scopes resources to organisations by default:
+In an app on `gorbital.Main`, `orb gen module --org` writes a module whose records belong to organisations (`orb gen resource` does the same without the flag in a multi-tenant app):
 
 ```bash
-orb gen resource Invoice number:string:unique 'status:enum(draft,sent,paid)'
+orb gen module Invoice number:string:unique 'status:enum(draft,sent,paid)' --org
 ```
 
-It writes endpoints under `/v1/orgs/{orgId}/invoices`, declares `invoices.invoice.read` and `invoices.invoice.write`, and adds one line at `//orb:anchor org-permissions` so every organisation role holds them. Change which roles hold them in `declareOrgPermissions`.
+It writes endpoints under `/v1/orgs/{orgId}/invoices`, each guarded by `guard.OrgMember`, and declares `invoices.invoice.read` and `invoices.invoice.write` with `OrgRoles` owner, admin and member in the module's `module.go`; change which roles hold them there.
+
+In an app on the v0.1 layout, `orb gen resource` scopes resources to organisations by default, and adds one line at `//orb:anchor org-permissions` in `internal/app/permissions.go` so every organisation role holds them. The rest of this section shows that layout.
 
 ## Check membership in a use case
 

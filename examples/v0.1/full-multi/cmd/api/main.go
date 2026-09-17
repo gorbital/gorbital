@@ -1,0 +1,95 @@
+// The api command runs acme-api.
+//
+// Usage:
+//
+//	api                              run the API server
+//	api openapi [--dir api]          print the OpenAPI document, or write it with the Postman collection and llms.txt
+//	api roles                        list the platform roles
+//	api grant-role <email> <role>    give an account a platform role
+//	api revoke-role <email> <role>   take a platform role away
+//	api reset-mfa <email>            turn off an account's two-factor authentication
+//	api rotate-auth-keys             re-encrypt 2FA secrets with the first AUTH_ENCRYPTION_KEYS key
+//	api auth-providers               show which sign-in methods are configured
+//	api maintenance on|off [--message <text>]
+//	                                 turn maintenance mode on or off when /ops can't be reached
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+
+	"gorbital.dev/config"
+
+	"example.com/acme-api/internal/app"
+)
+
+func main() {
+	if err := run(context.Background(), os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, "acme-api:", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, args []string) error {
+	src := config.OS
+	if len(args) > 0 && args[0] == "openapi" {
+		src = app.ExportSource // the same document everywhere, without APP_ENV
+	}
+	cfg, err := app.LoadConfig(src)
+	if err != nil {
+		return err
+	}
+	if len(args) > 0 {
+		switch args[0] {
+		case "openapi":
+			flags := flag.NewFlagSet("openapi", flag.ContinueOnError)
+			dir := flags.String("dir", "", "write openapi.json, postman_collection.json and llms.txt into this directory")
+			if flags.Parse(args[1:]) != nil || flags.NArg() > 0 {
+				return fmt.Errorf("usage: api openapi [--dir <directory>]")
+			}
+			if *dir != "" {
+				return app.WriteAPIFiles(ctx, cfg, *dir)
+			}
+			return app.WriteOpenAPI(ctx, cfg, os.Stdout)
+		case "roles":
+			app.WriteRoles(os.Stdout)
+			return nil
+		case "grant-role", "revoke-role":
+			if len(args) != 3 {
+				return fmt.Errorf("usage: api %s <email> <role>", args[0])
+			}
+			if args[0] == "grant-role" {
+				return app.GrantRole(ctx, cfg, args[1], args[2], os.Stdout)
+			}
+			return app.RevokeRole(ctx, cfg, args[1], args[2], os.Stdout)
+		case "reset-mfa":
+			if len(args) != 2 {
+				return fmt.Errorf("usage: api reset-mfa <email>")
+			}
+			return app.ResetMFA(ctx, cfg, args[1], os.Stdout)
+		case "rotate-auth-keys":
+			return app.RotateAuthKeys(ctx, cfg, os.Stdout)
+		case "auth-providers":
+			// LoadConfig has already refused an invalid or partial configuration.
+			app.WriteSignInMethods(os.Stdout, cfg)
+			return nil
+		case "maintenance":
+			flags := flag.NewFlagSet("maintenance", flag.ContinueOnError)
+			message := flags.String("message", "", "what clients see while it is on")
+			if len(args) < 2 || (args[1] != "on" && args[1] != "off") || flags.Parse(args[2:]) != nil || flags.NArg() > 0 {
+				return fmt.Errorf("usage: api maintenance on|off [--message <text>]")
+			}
+			return app.SetMaintenance(ctx, cfg, args[1] == "on", *message, os.Stdout)
+		default:
+			return fmt.Errorf("unknown command %q", args[0])
+		}
+	}
+
+	a, err := app.New(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	return a.Run(ctx)
+}

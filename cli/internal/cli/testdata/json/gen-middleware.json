@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "name": "ActiveSubscription",
+  "kind": "guard",
+  "module": "profiles",
+  "package": "delivery",
+  "file": "internal/modules/profiles/delivery/active_subscription.go",
+  "test": "internal/modules/profiles/delivery/active_subscription_test.go",
+  "files": [
+    "internal/modules/profiles/delivery/active_subscription.go",
+    "internal/modules/profiles/delivery/active_subscription_test.go"
+  ],
+  "wire": "ActiveSubscription()",
+  "dry_run": true
+}

@@ -1,12 +1,12 @@
 # Authentication
 
-The app's accounts as an operator sees them: search and paging, one account's sessions, passkeys, linked providers, second factors and pending codes, with every operator action; the sign-in methods; and the rate limiters. Reads `/ops/`, so a Full app with the `auth` feature.
+The app's accounts as an operator sees them: search and paging, one account's sessions, passkeys, linked providers, second factors and pending codes, with every operator action; the sign-in methods; the rate limiters; and [tests of each sign-in method](testing-sign-in.md) against your configuration. Reads `/ops/`, so a Full app with the `auth` feature.
 
 ![The Authentication screen](screenshots/auth.png)
 
 ## What you see
 
-Three tabs (`?tab=users|providers|rate-limits`); the open account is `?user=`.
+Four tabs (`?tab=users|providers|rate-limits|tests`); the open account is `?user=`.
 
 | Tab | What it shows |
 |---|---|
@@ -14,6 +14,7 @@ Three tabs (`?tab=users|providers|rate-limits`); the open account is `?user=`.
 | An account | The profile and its actions; roles (granted from the app's permission catalogs, revoked from chips); sessions; passkeys; linked providers; second factors; pending verification and reset codes with their purpose, attempts and expiry, and a link to Mail, where the code is |
 | Providers | A card per sign-in method: enabled with its detail, or the `.env` lines that turn it on and the guide section |
 | Rate limits | The limiters (name, what the key is, the limits) and a reset form: limiter and key |
+| Test sign-in | Each method's configuration checks with fixes, network checks, and **Test now** through Google, Apple and GitHub, a passkey ceremony, an authenticator app code or a test email, creating no account or session: [Testing sign-in](testing-sign-in.md) |
 
 ## What you can do
 

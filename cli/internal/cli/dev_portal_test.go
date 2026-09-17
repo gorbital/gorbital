@@ -14,6 +14,7 @@ import (
 
 	"gorbital.dev/cli/internal/genplan"
 	"gorbital.dev/cli/internal/portal"
+	"gorbital.dev/cli/internal/routes"
 )
 
 // preparePortalApp runs prepare in a stand-in Minimal app with the portal
@@ -177,7 +178,7 @@ func TestDevPortalServesStatusAndOutput(t *testing.T) {
 	if status.Project.Name != "shop" || status.Project.Module != "example.com/shop" || status.Project.Preset != "minimal" || status.Project.Database ||
 		status.App.State != portal.StatePreparing || status.App.Addr != "127.0.0.1:"+ports.app || status.App.URL != "http://127.0.0.1:"+ports.app ||
 		status.Links["api"] != "http://127.0.0.1:"+ports.app || status.Links["docs"] != "http://127.0.0.1:"+ports.app+"/docs" ||
-		status.Portal.Version != Version || (status.Portal.UI != "placeholder" && status.Portal.UI != "bundled") || strings.Join(status.Generators, ",") != "add-mail,add-orgs,add-rls,add-storage,job,migration,resource" {
+		status.Portal.Version != Version || (status.Portal.UI != "placeholder" && status.Portal.UI != "bundled") || strings.Join(status.Generators, ",") != "add-mail,add-orgs,add-rls,add-storage,job,middleware,migration,module,resource" {
 		t.Errorf("status = %+v", status)
 	}
 	if _, ok := status.Links["mail"]; ok {
@@ -347,5 +348,68 @@ func TestPortalJobInputDefaults(t *testing.T) {
 	}
 	if _, _, err := portalJobInput(app, json.RawMessage(`not json`)); err == nil {
 		t.Error("bad JSON accepted")
+	}
+}
+
+// TestPortalModuleAndMiddlewareGenerators plans and applies the Phase 8
+// generators as the portal's hub does, with the CLI's plans.
+func TestPortalModuleAndMiddlewareGenerators(t *testing.T) {
+	dir := newMainApp(t, false)
+	d := newDevRunner(&bytes.Buffer{})
+	d.dir = dir
+	gens := d.generators()
+	ctx := context.Background()
+
+	plan, err := gens["module"].Plan(ctx, json.RawMessage(`{"name":"Shelf","fields":["name:string:unique","description:text","visibility:enum(private,shared)"],"plural":"Shelves"}`))
+	if err != nil || plan.Generator != "module" || len(plan.Changes) != 27 || plan.Result.(genModuleResult).Route != "/v1/shelves" {
+		t.Fatalf("module plan = %+v, %v", plan, err)
+	}
+	if plan, err := gens["module"].Plan(ctx, json.RawMessage(`{"name":"Shelf","fields":["name:string"],"plural":"Shelves","org":true}`)); err != nil ||
+		plan.Result.(genModuleResult).Route != "/v1/orgs/{orgId}/shelves" || plan.Result.(genModuleResult).Scope != "org" {
+		t.Errorf("module plan with org = %+v, %v", plan, err)
+	}
+	if _, err := gens["module"].Apply(ctx, json.RawMessage(`{"name":"Shelf","fields":["name:string:unique","description:text","visibility:enum(private,shared)"],"plural":"Shelves"}`), true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "internal", "modules", "shelves", "delivery", "routes.go")); err != nil {
+		t.Errorf("module not applied: %v", err)
+	}
+
+	plan, err = gens["middleware"].Plan(ctx, json.RawMessage(`{"name":"RequireClientVersion","module":"shelves"}`))
+	if err != nil || plan.Result.(genMiddlewareResult).Wire != "gorbital.Use(RequireClientVersion)" {
+		t.Fatalf("middleware plan = %+v, %v", plan, err)
+	}
+	for input, want := range map[string]string{
+		`{"module":"shelves"}`:                    "missing middleware name",
+		`{"name":"X","global":true,"guard":true}`: "--guard needs --module",
+		`{"name":"X"}`:                            "--module <name>",
+	} {
+		if _, err := gens["middleware"].Plan(ctx, json.RawMessage(input)); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("middleware plan %s = %v, want %q", input, err, want)
+		}
+	}
+	if _, err := gens["middleware"].Apply(ctx, json.RawMessage(`{"name":"TenantHeader","global":true}`), true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "internal", "middleware", "tenant_header.go")); err != nil {
+		t.Errorf("middleware not applied: %v", err)
+	}
+
+	// Routes: the app isn't running, so they come from the export.
+	fakeRoutesExport(t, nil)
+	// Every route of the document, the library modules' too; the app's own
+	// are the books, phone sign-in, profile and new shelves routes, with
+	// their source.
+	doc, _, err := routes.FromOpenAPI([]byte(readFile(t, filepath.Join(dir, "api", "openapi.json"))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := d.routes(ctx)
+	if err != nil || list.Source != "export" || list.Total != len(doc) {
+		t.Errorf("routes = %+v, %v", list, err)
+	}
+	app := list.Filter("", false, true)
+	if app.Total != 20 || app.Filter("shelves", false, false).Total != 5 {
+		t.Errorf("the app's routes = %+v", app)
 	}
 }

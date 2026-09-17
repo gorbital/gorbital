@@ -1,29 +1,63 @@
-// Package ping is an example module showing the layered structure: domain
-// rules, use cases, and an HTTP delivery adapter. Copy it to start a module.
+// Package ping is an example module: a public endpoint whose reply is a
+// runtime setting and whose extra field a feature flag turns on, in the
+// layers every module uses (domain, usecase, delivery) with one file per
+// operation. A module without a table has no repository. Copy it to start a
+// module by hand, or generate one with orb gen module.
 package ping
 
 import (
-	"github.com/danielgtaylor/huma/v2"
+	"errors"
+	"net/http"
+	"strings"
 
-	"gorbital.dev/config"
+	"gorbital.dev/gorbital"
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/flags"
+	"gorbital.dev/modules/settings"
 
-	pingdelivery "example.com/acme-api/internal/modules/ping/delivery"
-	pingusecase "example.com/acme-api/internal/modules/ping/usecase"
+	"example.com/acme-api/internal/modules/ping/delivery"
+	"example.com/acme-api/internal/modules/ping/domain"
+	"example.com/acme-api/internal/modules/ping/usecase"
 )
 
-// Module is the ping example module.
-type Module struct {
-	svc *pingusecase.Service
+// Module returns the ping module. main.go adds it with every other module
+// through modules.All. Error codes, setting keys and flag keys are public
+// API: add new ones, never change existing ones.
+func Module() gorbital.Module {
+	// Declared in Settings and Flags, before the stores exist, and used in
+	// Routes: no lookup by key.
+	var (
+		message    *settings.Setting[string]
+		serverTime *flags.Flag
+	)
+	return gorbital.Module{
+		Name: "ping",
+		Errors: []httpx.Mapping{
+			{Err: domain.ErrMessageRequired, Status: http.StatusUnprocessableEntity, Code: "message_required"},
+		},
+		Settings: func(r *settings.Registry) {
+			message = settings.String(r, "example.ping_message", "pong",
+				settings.Describe("Reply of GET /v1/ping. An example runtime setting: change it with PUT /ops/settings/example.ping_message."),
+				settings.MaxLen(100),
+				settings.Validate(notBlank),
+			)
+		},
+		Flags: func(r *flags.Registry) {
+			serverTime = flags.Bool(r, "example.ping_time",
+				flags.Describe("Adds the server's time to GET /v1/ping replies. An example feature flag: turn it on with PUT /ops/flags/example.ping_time."),
+				flags.Client(), // listed by GET /v1/flags
+			)
+		},
+		Routes: func(r *gorbital.Router, _ gorbital.Deps) {
+			delivery.Register(r, usecase.NewService(message, serverTime))
+		},
+	}
 }
 
-// New builds the module. message is the ping reply, usually a runtime
-// setting, and serverTime whether replies include the server's time, usually
-// a feature flag.
-func New(message config.Value[string], serverTime config.Value[bool]) *Module {
-	return &Module{svc: pingusecase.NewService(message, serverTime)}
-}
-
-// Register adds the module's HTTP operations to api.
-func (m *Module) Register(api huma.API) {
-	pingdelivery.Register(api, m.svc)
+// notBlank refuses a blank ping reply.
+func notBlank(s string) error {
+	if strings.TrimSpace(s) == "" {
+		return errors.New("must not be blank")
+	}
+	return nil
 }

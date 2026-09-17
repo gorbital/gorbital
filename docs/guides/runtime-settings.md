@@ -6,14 +6,14 @@
 
 | Put it in | When | Examples |
 |---|---|---|
-| **Environment** (`internal/app/config.go`, `.env.example`) | It is a secret, infrastructure, or needed before the database connects | `DATABASE_URL`, API keys such as `RESEND_API_KEY`, listen address, pool size |
-| **Runtime setting** (`internal/app/settings.go`) | An operator should change it without a deploy | Code expiry, rate limits, sender name, frontend URL, maintenance mode |
+| **Environment** (`.env.example`; read by `gorbital.LoadConfig`, or `internal/app/config.go` in a v0.1 app) | It is a secret, infrastructure, or needed before the database connects | `DATABASE_URL`, API keys such as `RESEND_API_KEY`, listen address, pool size |
+| **Runtime setting** (a module's `Settings`, or `internal/app/settings.go` in a v0.1 app) | An operator should change it without a deploy | Code expiry, rate limits, sender name, frontend URL, maintenance mode |
 
 A value is never in both, and secrets are never runtime settings.
 
 ## Declaring settings
 
-Declare every setting before building the store, usually in `internal/app/settings.go`:
+Declare every setting before building the store — in the module that owns it in an app on [`gorbital.Main`](main-go.md) ([below](#in-an-app-on-gorbitalmain)), in `internal/app/settings.go` in a v0.1 app:
 
 ```go
 reg := settings.NewRegistry()
@@ -70,6 +70,36 @@ runners := []app.Runner{server, store}
 - `NewStore` loads every stored value and freezes the registry.
 - The tables come from `settings.Migrations`, copied into `db/migrations`.
 - `Store.Run` listens with PostgreSQL `LISTEN/NOTIFY` on a dedicated connection, reloads after every reconnect, and reloads everything every 5 minutes (`WithResyncInterval`).
+
+## In an app on gorbital.Main
+
+`gorbital.New` does all of the wiring above: it creates the registry, calls each module's `Settings` func with it, builds the store, runs it and hands modules the result as `Deps.Settings`. A module declares its own settings and keeps the handles in the closure its `Module` function returns, so `Routes` uses them without a lookup by name:
+
+```go
+// internal/modules/books/module.go
+func Module() gorbital.Module {
+	var pageSize *settings.Setting[int]
+	return gorbital.Module{
+		Name: "books",
+		Settings: func(r *settings.Registry) {
+			pageSize = settings.Int(r, "books.page_size", 20,
+				settings.Describe("How many books one page of GET /v1/books returns."),
+				settings.Group("books"),
+				settings.Range(1, 100),
+			)
+		},
+		Routes: func(r *gorbital.Router, d gorbital.Deps) {
+			svc := usecase.NewService(repository.NewStore(d.DB), pageSize)
+			delivery.Register(r, svc)
+		},
+	}
+}
+```
+
+- `New` calls `Settings` once, in module order, before the store exists. Declare there and nothing else: a handle's `Get` returns the default until the store has loaded.
+- Keys are still global and still public API. Namespace them with the module's name, as the library's own modules do (`auth.*`, `orgs.*`, `mail.*`).
+- An invalid declaration doesn't panic out of the app: `New` reports it as an error naming the module.
+- `gorbital.Declare` is the same step on its own, for an app that composes the pieces by hand rather than through `Main`.
 
 ## Reading settings
 
@@ -135,7 +165,7 @@ settings.Duration(reg, "orgs.invitation_ttl", 7*24*time.Hour,
 - Purging an organisation deletes its values and history through foreign keys (`20260918000002_settings_org_purge.sql`).
 
 > [!DONT]
-> Don't mark a setting `OrgOverridable` if it protects accounts or the platform: sign-in, rate limits, retention, maintenance, email senders, or where links go. `TestSecuritySettingsArentOrgOverridable` in `internal/app/settings_test.go` fails for those groups and keys; extend its lists when you add a security-relevant group.
+> Don't mark a setting `OrgOverridable` if it protects accounts or the platform: sign-in, rate limits, retention, maintenance, email senders, or where links go. A v0.1 app has `TestSecuritySettingsArentOrgOverridable` in `internal/app/settings_test.go`, which fails for those groups and keys; extend its lists when you add a security-relevant group. An app on `gorbital.Main` has no such test of its own: the library holds the rule for its modules' settings, and the judgement is yours for your modules'.
 
 ## Storage
 

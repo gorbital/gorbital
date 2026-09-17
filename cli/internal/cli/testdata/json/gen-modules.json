@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "file": "internal/modules/modules.gen.go",
+  "modules": [
+    "books",
+    "gorbital_admin"
+  ],
+  "changed": true,
+  "dry_run": false
+}

@@ -22,8 +22,10 @@ import (
 	"golang.org/x/term"
 
 	"gorbital.dev/cli/internal/devmail"
+	"gorbital.dev/cli/internal/genplan"
 	"gorbital.dev/cli/internal/pgmeta"
 	"gorbital.dev/cli/internal/portal"
+	"gorbital.dev/cli/internal/tunnel"
 )
 
 const devUsage = `Usage: orb dev [flags]
@@ -40,6 +42,16 @@ It also serves the Dev Portal at http://127.0.0.1:3100 (DEV_PORTAL_PORT or
 output, its routes, jobs, logs and email, and the generators, in one place
 (docs/guides/dev-portal.md). Its link carries a token that is new on every
 run; the portal answers only this machine.
+
+--tunnel quick or --tunnel named also exposes the app, and only the app, on
+a public HTTPS address with your own cloudflared (docs/dev-portal/tunnel.md):
+quick gets a random trycloudflare.com URL that changes on every run (for
+webhooks and phones); named uses the tunnel you created in the Cloudflare
+dashboard, its token from CLOUDFLARE_TUNNEL_TOKEN in .env and its hostname
+from --tunnel-hostname or ORB_TUNNEL_HOSTNAME (for Google, Apple and GitHub
+sign-in and passkeys). The Dev Portal's Tunnel screen starts and stops it
+too. Exit status 2 for a wrong --tunnel value, 1 when the tunnel can't start
+(cloudflared missing, APP_ENV not development, a missing token or hostname).
 `
 
 // watchIgnored are directories never watched for changes.
@@ -58,6 +70,8 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 	portalPort := flags.String("portal-port", "", "port the Dev Portal listens on (default DEV_PORTAL_PORT in .env, or "+defaultPortalPort+")")
 	noPortal := flags.Bool("no-portal", false, "don't serve the Dev Portal")
 	noOpen := flags.Bool("no-open", false, "don't open the Dev Portal in a browser")
+	tunnelMode := flags.String("tunnel", "", "expose the app on a public HTTPS address with cloudflared: quick or named")
+	tunnelHostname := flags.String("tunnel-hostname", "", "a named tunnel's public hostname (default ORB_TUNNEL_HOSTNAME, or the one saved from the Dev Portal)")
 	flags.Usage = func() {
 		fmt.Fprint(stderr, devUsage+"\nFlags:\n")
 		flags.PrintDefaults()
@@ -67,6 +81,14 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 	}
 	if flags.NArg() > 0 {
 		return usageError("orb dev takes no arguments")
+	}
+	if *tunnelMode != "" {
+		if _, err := tunnel.ParseMode(*tunnelMode); err != nil {
+			return usageError("--tunnel: " + err.Error())
+		}
+	}
+	if *tunnelHostname != "" && *tunnelMode != string(tunnel.ModeNamed) {
+		return usageError("--tunnel-hostname is for --tunnel named")
 	}
 	manifest, err := os.ReadFile("gorbital.yaml")
 	if err != nil {
@@ -81,6 +103,7 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 	d.portal = !*noPortal
 	d.portalPortFlag = *portalPort
 	d.openBrowser = !*noOpen
+	d.tunnelMode = tunnel.Mode(*tunnelMode)
 	if err := d.prepare(ctx); err != nil {
 		return err
 	}
@@ -89,6 +112,13 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 		return err
 	}
 	defer stopPortal()
+	// The tunnel stops before the portal, on every way out of orb dev.
+	defer d.tunnel.Close()
+	if d.tunnelMode != "" {
+		if err := d.tunnel.Start(ctx, tunnel.StartOptions{Mode: d.tunnelMode, Hostname: *tunnelHostname}); err != nil {
+			return fmt.Errorf("the tunnel can't start: %w", err)
+		}
+	}
 	return d.loop(ctx, !*noReload, *interval)
 }
 
@@ -132,8 +162,11 @@ type devRunner struct {
 	mailStore          *devmail.Store        // the mail catcher's inbox, when it runs (ADR-0074)
 	mailServer         *devmail.Server
 	mailAddr           string
-	server             *portal.Server
-	open               func(url string) error // opens a URL in the browser; tests replace it
+	// tunnel runs cloudflared (ADR-0086); tunnelMode is --tunnel's.
+	tunnel     *tunnel.Manager
+	tunnelMode tunnel.Mode
+	server     *portal.Server
+	open       func(url string) error // opens a URL in the browser; tests replace it
 	// db is the portal's connection to the app's database, opened on the
 	// first request that needs it (ADR-0067).
 	dbMu sync.Mutex
@@ -180,7 +213,7 @@ const (
 func newDevRunner(out io.Writer) *devRunner {
 	hub := portal.NewHub()
 	dir, _ := os.Getwd()
-	return &devRunner{
+	d := &devRunner{
 		out:      io.MultiWriter(out, hub.Writer("orb")),
 		rawOut:   out,
 		bin:      filepath.Join(".orb", "api"),
@@ -204,6 +237,17 @@ func newDevRunner(out io.Writer) *devRunner {
 		},
 		lookPath: exec.LookPath,
 	}
+	d.tunnel = tunnel.New(tunnel.Config{
+		Dir: dir,
+		Env: func() []string {
+			env, _ := devEnv(".env")
+			return withAppEnv(env)
+		},
+		Target:   func() (string, error) { return d.Status().URL, nil },
+		OnChange: hub.SetTunnel,
+		Logf:     func(format string, args ...any) { fmt.Fprintf(d.out, format+"\n", args...) },
+	})
+	return d
 }
 
 // composeService is a service in the app's compose.yaml and the .env
@@ -369,23 +413,80 @@ func checkServicePort(service, envVar, port string) error {
 // --redo (development only, ADR-0069). runMigrate wraps it with the schema
 // status (ADR-0080).
 func (d *devRunner) migrateWith(ctx context.Context, env []string, args ...string) error {
-	all := append([]string{"run", "./cmd/migrate"}, args...)
-	fmt.Fprintf(d.out, "orb: applying migrations (go %s)\n", strings.Join(all, " "))
-	if err := d.run(ctx, env, "go", all...); err != nil {
-		return fmt.Errorf("migrations failed: %w", err)
+	for _, all := range migrateCommands(".", args) {
+		fmt.Fprintf(d.out, "orb: applying migrations (go %s)\n", strings.Join(all, " "))
+		if err := d.run(ctx, env, "go", all...); err != nil {
+			return fmt.Errorf("migrations failed: %w", err)
+		}
 	}
 	return nil
 }
 
+// migrateCommand is the command that applies the migrations of the app in
+// dir, for next steps.
+func migrateCommand(dir string) string {
+	return "go " + strings.Join(migrateCommands(dir, nil)[0], " ")
+}
+
+// migrateCommands returns the go commands that run the app's migrations
+// with cmd/migrate's flags: cmd/migrate itself in v0.1 apps, and the
+// migrate and migrate-down commands of gorbital.Main in apps without it.
+func migrateCommands(dir string, args []string) [][]string {
+	if _, err := os.Stat(filepath.Join(dir, "cmd", "migrate")); err == nil || !isGorbitalApp(dir) {
+		return [][]string{append([]string{"run", "./cmd/migrate"}, args...)}
+	}
+	switch {
+	case slices.Contains(args, "--down"):
+		return [][]string{{"run", "./cmd/api", "migrate-down"}}
+	case slices.Contains(args, "--redo"):
+		return [][]string{{"run", "./cmd/api", "migrate-down"}, {"run", "./cmd/api", "migrate"}}
+	}
+	return [][]string{append([]string{"run", "./cmd/api", "migrate"}, args...)}
+}
+
+// generateModules rewrites internal/modules/modules.gen.go before a build
+// when the app has one and a module was added or removed (orb gen modules).
+func (d *devRunner) generateModules() {
+	if _, err := os.Stat(filepath.FromSlash(modulesGenPath)); err != nil {
+		return
+	}
+	app, err := findAppIn(".")
+	if err == nil {
+		var plan genplan.Plan
+		if plan, err = planModules(app); err == nil && len(plan.Changes) > 0 {
+			if err = genplan.Apply(app.dir, plan); err == nil {
+				fmt.Fprintf(d.out, "orb: updated %s (%s)\n", modulesGenPath, moduleCount(plan.Result.(genModulesResult).Modules))
+			}
+		}
+	}
+	if err != nil {
+		fmt.Fprintf(d.out, "orb: couldn't update %s: %v\n", modulesGenPath, err)
+	}
+}
+
 // seed runs the app's seed data command, which does nothing when its data
-// is already there (ADR-0042). Apps without cmd/seed skip it.
+// is already there (ADR-0042): cmd/seed in v0.1 apps, and in apps on
+// gorbital.Main with sign-in the seed command authhttp adds to cmd/api
+// (or its ejected copy). Other apps skip it.
 func (d *devRunner) seed(ctx context.Context, env []string) error {
-	if _, err := os.Stat(filepath.Join("cmd", "seed")); errors.Is(err, fs.ErrNotExist) {
+	args := seedCommand(".")
+	if args == nil {
 		return nil
 	}
-	fmt.Fprintln(d.out, "orb: seed data (go run ./cmd/seed)")
-	if err := d.run(ctx, env, "go", "run", "./cmd/seed"); err != nil {
+	fmt.Fprintf(d.out, "orb: seed data (go %s)\n", strings.Join(args, " "))
+	if err := d.run(ctx, env, "go", args...); err != nil {
 		return fmt.Errorf("seed data failed: %w", err)
+	}
+	return nil
+}
+
+// seedCommand returns the go arguments that seed the app in dir, or nil.
+func seedCommand(dir string) []string {
+	if _, err := os.Stat(filepath.Join(dir, "cmd", "seed")); err == nil {
+		return []string{"run", "./cmd/seed"}
+	}
+	if isGorbitalApp(dir) && (mainMentions(dir, "gorbital.dev/gorbital/authhttp") || mainMentions(dir, "/internal/modules/auth\"")) {
+		return []string{"run", "./cmd/api", "seed"}
 	}
 	return nil
 }
@@ -420,6 +521,9 @@ func (d *devRunner) banner(env []string) {
 		} else if !d.openBrowser {
 			fmt.Fprintln(d.out, "    Open the link above; it holds this run's token")
 		}
+	}
+	if d.tunnelMode != "" {
+		fmt.Fprintf(d.out, "  ✓ Tunnel     a %s tunnel to the app starts next; its URL follows (docs/dev-portal/tunnel.md)\n", d.tunnelMode)
 	}
 	if d.observability {
 		fmt.Fprintf(d.out, "  ✓ Grafana    http://127.0.0.1:%s (traces, metrics and logs)\n", envValue(env, "GRAFANA_PORT", "3000"))
@@ -573,6 +677,7 @@ func (d *devRunner) keepRunning(what string) {
 }
 
 func (d *devRunner) build(ctx context.Context) error {
+	d.generateModules()
 	cmd := exec.CommandContext(ctx, "go", "build", "-o", d.bin, "./cmd/api")
 	cmd.Stdout, cmd.Stderr = d.out, d.out
 	return cmd.Run()
@@ -645,6 +750,8 @@ func (d *devRunner) start() error {
 	d.pid, d.startedAt, d.addr = cmd.Process.Pid, time.Now(), appAddr(env)
 	d.mu.Unlock()
 	d.setState(portal.StateRunning, "")
+	// A quick tunnel follows the app to a new port.
+	d.tunnel.TargetChanged(context.Background())
 	return nil
 }
 
@@ -657,6 +764,10 @@ func (d *devRunner) appEnv(env []string) []string {
 	if envValue(env, "APP_LOG_FORMAT", "") == "" {
 		env = append(env, "APP_LOG_FORMAT=json")
 	}
+	// The tunnel's token is cloudflared's, not the app's (ADR-0086).
+	env = slices.DeleteFunc(env, func(kv string) bool {
+		return strings.HasPrefix(kv, tunnel.TokenVar+"=") || strings.HasPrefix(kv, tunnel.TokenFileVar+"=")
+	})
 	return append(env, d.extraEnv...)
 }
 

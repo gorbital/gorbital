@@ -1,75 +1,11 @@
-// Package delivery is the HTTP adapter of the ping module.
 package delivery
 
-import (
-	"context"
-	"net/http"
-	"time"
+import "context"
 
-	"github.com/danielgtaylor/huma/v2"
-
-	pingusecase "example.com/acme-api/internal/modules/ping/usecase"
-)
-
-// MessageResponse is a message returned by the API.
-type MessageResponse struct {
-	Message string `json:"message" doc:"Message text" example:"pong"`
-	// ServerTime shows a feature rolled out with a flag (ADR-0057).
-	ServerTime *time.Time `json:"server_time,omitempty" doc:"The server's time: only in GET /v1/ping replies, while the example.ping_time feature flag is on for the caller"`
-}
-
-// PingOutput is the ping response.
-type PingOutput struct {
-	Body MessageResponse
-}
-
-// EchoInput is the echo request.
-type EchoInput struct {
-	Body struct {
-		_       struct{} `json:"-" additionalProperties:"true"` // ignore unknown fields
-		Message string   `json:"message" maxLength:"500" doc:"Message to echo back" example:"hello"`
-	}
-}
-
-type handler struct {
-	svc *pingusecase.Service
-}
-
-// Register adds the ping operations to api.
-func Register(api huma.API, svc *pingusecase.Service) {
-	h := &handler{svc: svc}
-
-	huma.Register(api, huma.Operation{
-		OperationID: "ping",
-		Method:      http.MethodGet,
-		Path:        "/v1/ping",
-		Summary:     "Check the API is reachable",
-		Tags:        []string{"Example"},
-	}, h.ping)
-
-	huma.Register(api, huma.Operation{
-		OperationID: "echo",
-		Method:      http.MethodPost,
-		Path:        "/v1/echo",
-		Summary:     "Echo a message",
-		Description: "Returns the trimmed message. Blank messages are rejected with the `message_required` error code.",
-		Tags:        []string{"Example"},
-		Errors:      []int{http.StatusUnprocessableEntity},
-	}, h.echo)
-}
-
-func (h *handler) ping(ctx context.Context, _ *struct{}) (*PingOutput, error) {
+func (h handlers) ping(ctx context.Context, _ *struct{}) (*PingOutput, error) {
 	out := &PingOutput{Body: MessageResponse{Message: h.svc.Ping(ctx)}}
 	if now, ok := h.svc.ServerTime(ctx); ok {
 		out.Body.ServerTime = &now
 	}
 	return out, nil
-}
-
-func (h *handler) echo(ctx context.Context, in *EchoInput) (*PingOutput, error) {
-	m, err := h.svc.Echo(ctx, in.Body.Message)
-	if err != nil {
-		return nil, err
-	}
-	return &PingOutput{Body: MessageResponse{Message: m.Text()}}, nil
 }

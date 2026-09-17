@@ -22,7 +22,15 @@
         {
           "name": "Build your API",
           "pages": [
-            { "title": "Add your first resource", "slug": "guides/first-resource", "source": "docs/start/first-resource.md" },
+            { "title": "Add your first module", "slug": "guides/first-resource", "source": "docs/start/first-resource.md" },
+            { "title": "Modules and routes", "slug": "guides/modules-and-routes", "source": "docs/guides/modules-and-routes.md" },
+            { "title": "Guards and middleware", "slug": "guides/guards-and-middleware", "source": "docs/guides/guards-and-middleware.md" },
+            { "title": "Your main.go", "slug": "guides/main-go", "source": "docs/guides/main-go.md" },
+            { "title": "The middleware stack", "slug": "guides/middleware-stack", "source": "docs/guides/middleware-stack.md" },
+            { "title": "Testing with gorbitaltest", "slug": "guides/testing-with-gorbitaltest", "source": "docs/guides/testing-with-gorbitaltest.md" },
+            { "title": "Generating code", "slug": "guides/generating-code", "source": "docs/guides/generating-code.md" },
+            { "title": "Ejecting a module", "slug": "guides/ejecting-a-module", "source": "docs/guides/ejecting-a-module.md" },
+            { "title": "Security layers", "slug": "guides/security-layers", "source": "docs/guides/security-layers.md" },
             { "title": "Organisations", "slug": "guides/organisations", "source": "docs/start/organisations.md" },
             { "title": "Upgrading apps", "slug": "guides/upgrading", "source": "docs/start/upgrading.md" }
           ]
@@ -40,6 +48,15 @@
             { "title": "Apple sign-in", "slug": "sign-in/apple", "source": "docs/sign-in/apple.md" },
             { "title": "GitHub sign-in", "slug": "sign-in/github", "source": "docs/sign-in/github.md" },
             { "title": "Go-live checklist", "slug": "sign-in/go-live", "source": "docs/sign-in/go-live.md" }
+          ]
+        },
+        {
+          "name": "Sign-in",
+          "pages": [
+            { "title": "Configuring sign-in", "slug": "guides/configuring-sign-in", "source": "docs/guides/configuring-sign-in.md" },
+            { "title": "Sign-in hooks", "slug": "guides/sign-in-hooks", "source": "docs/guides/sign-in-hooks.md" },
+            { "title": "Extra registration fields", "slug": "guides/extra-registration-fields", "source": "docs/guides/extra-registration-fields.md" },
+            { "title": "Adding a sign-in method", "slug": "guides/adding-a-sign-in-method", "source": "docs/guides/adding-a-sign-in-method.md" }
           ]
         },
         {
@@ -77,6 +94,8 @@
             { "title": "Settings and flags", "slug": "dev-portal/settings-and-flags", "source": "docs/dev-portal/settings-and-flags.md" },
             { "title": "Environment", "slug": "dev-portal/environment", "source": "docs/dev-portal/environment.md" },
             { "title": "Authentication", "slug": "dev-portal/authentication", "source": "docs/dev-portal/authentication.md" },
+            { "title": "Testing sign-in", "slug": "dev-portal/testing-sign-in", "source": "docs/dev-portal/testing-sign-in.md" },
+            { "title": "Tunnel", "slug": "dev-portal/tunnel", "source": "docs/dev-portal/tunnel.md" },
             { "title": "Database", "slug": "dev-portal/database", "source": "docs/dev-portal/database.md" },
             { "title": "Storage", "slug": "dev-portal/storage", "source": "docs/dev-portal/storage.md" },
             { "title": "Git", "slug": "dev-portal/git", "source": "docs/dev-portal/git.md" },
@@ -119,7 +138,8 @@
           "name": "Security",
           "pages": [
             { "title": "Security overview", "slug": "technical/security", "source": "docs/security/README.md" },
-            { "title": "Internal review, September 2026", "slug": "technical/security/2026-09-internal-review", "source": "docs/security/2026-09-internal-review.md" }
+            { "title": "Internal review, September 2026", "slug": "technical/security/2026-09-internal-review", "source": "docs/security/2026-09-internal-review.md" },
+            { "title": "Internal review of the v0.2 diff, September 2026", "slug": "technical/security/2026-09-v0.2-internal-review", "source": "docs/security/2026-09-v0.2-internal-review.md" }
           ]
         },
         {
@@ -151,6 +171,7 @@
           "pages": [
             { "title": "Testing", "slug": "technical/testing", "source": "docs/guides/testing.md" },
             { "title": "Stability and compatibility", "slug": "technical/stability", "source": "docs/guides/stability.md" },
+            { "title": "Benchmarks", "slug": "technical/benchmarks", "source": "docs/benchmarks.md" },
             { "title": "Running in production", "slug": "technical/production", "source": "docs/guides/production.md" },
             { "title": "Upgrade notes", "slug": "technical/upgrade-notes", "source": "docs/guides/upgrade-notes.md" }
           ]
@@ -176,6 +197,117 @@
         }
       ]
     },
+    {
+      "name": "Methods",
+      "groups": [
+        {
+          "name": "Methods",
+          "pages": [{ "title": "All packages", "slug": "methods", "source": "docs/methods/index.md" }]
+        },
+        {
+          "name": "Framework",
+          "pages": [
+            { "title": "gorbital", "slug": "methods/gorbital", "source": "docs/methods/gorbital.md" },
+            { "title": "guard", "slug": "methods/gorbital-guard", "source": "docs/methods/gorbital-guard.md" },
+            { "title": "gorbitaltest", "slug": "methods/gorbital-gorbitaltest", "source": "docs/methods/gorbital-gorbitaltest.md" },
+            { "title": "opshttp", "slug": "methods/gorbital-opshttp", "source": "docs/methods/gorbital-opshttp.md" },
+            { "title": "flagshttp", "slug": "methods/gorbital-flagshttp", "source": "docs/methods/gorbital-flagshttp.md" },
+            { "title": "mailevents", "slug": "methods/gorbital-mailevents", "source": "docs/methods/gorbital-mailevents.md" },
+            { "title": "orgshttp", "slug": "methods/gorbital-orgshttp", "source": "docs/methods/gorbital-orgshttp.md" },
+            { "title": "authhttp", "slug": "methods/gorbital-authhttp", "source": "docs/methods/gorbital-authhttp.md" },
+            { "title": "operation", "slug": "methods/gorbital-operation", "source": "docs/methods/gorbital-operation.md" }
+          ]
+        },
+        {
+          "name": "Core",
+          "pages": [
+            { "title": "actor", "slug": "methods/actor", "source": "docs/methods/actor.md" },
+            { "title": "app", "slug": "methods/app", "source": "docs/methods/app.md" },
+            { "title": "audit", "slug": "methods/audit", "source": "docs/methods/audit.md" },
+            { "title": "buildinfo", "slug": "methods/buildinfo", "source": "docs/methods/buildinfo.md" },
+            { "title": "config", "slug": "methods/config", "source": "docs/methods/config.md" },
+            { "title": "health", "slug": "methods/health", "source": "docs/methods/health.md" },
+            { "title": "httpx", "slug": "methods/httpx", "source": "docs/methods/httpx.md" },
+            { "title": "httpx/ipfilter", "slug": "methods/httpx-ipfilter", "source": "docs/methods/httpx-ipfilter.md" },
+            { "title": "httpx/timeout", "slug": "methods/httpx-timeout", "source": "docs/methods/httpx-timeout.md" },
+            { "title": "mail", "slug": "methods/mail", "source": "docs/methods/mail.md" },
+            { "title": "page", "slug": "methods/page", "source": "docs/methods/page.md" },
+            { "title": "ratelimit", "slug": "methods/ratelimit", "source": "docs/methods/ratelimit.md" },
+            { "title": "requestid", "slug": "methods/requestid", "source": "docs/methods/requestid.md" },
+            { "title": "webhook", "slug": "methods/webhook", "source": "docs/methods/webhook.md" }
+          ]
+        },
+        {
+          "name": "Modules",
+          "pages": [
+            { "title": "modules/auditpg", "slug": "methods/modules-auditpg", "source": "docs/methods/modules-auditpg.md" },
+            { "title": "modules/auth", "slug": "methods/modules-auth", "source": "docs/methods/modules-auth.md" },
+            { "title": "modules/auth/passkey", "slug": "methods/modules-auth-passkey", "source": "docs/methods/modules-auth-passkey.md" },
+            { "title": "modules/auth/passkey/passkeytest", "slug": "methods/modules-auth-passkey-passkeytest", "source": "docs/methods/modules-auth-passkey-passkeytest.md" },
+            { "title": "modules/auth/social", "slug": "methods/modules-auth-social", "source": "docs/methods/modules-auth-social.md" },
+            { "title": "modules/auth/social/socialtest", "slug": "methods/modules-auth-social-socialtest", "source": "docs/methods/modules-auth-social-socialtest.md" },
+            { "title": "modules/devconsole", "slug": "methods/modules-devconsole", "source": "docs/methods/modules-devconsole.md" },
+            { "title": "modules/flags", "slug": "methods/modules-flags", "source": "docs/methods/modules-flags.md" },
+            { "title": "modules/idempotency", "slug": "methods/modules-idempotency", "source": "docs/methods/modules-idempotency.md" },
+            { "title": "modules/jobs", "slug": "methods/modules-jobs", "source": "docs/methods/modules-jobs.md" },
+            { "title": "modules/jwt", "slug": "methods/modules-jwt", "source": "docs/methods/modules-jwt.md" },
+            { "title": "modules/mail/resend", "slug": "methods/modules-mail-resend", "source": "docs/methods/modules-mail-resend.md" },
+            { "title": "modules/mail/smtp", "slug": "methods/modules-mail-smtp", "source": "docs/methods/modules-mail-smtp.md" },
+            { "title": "modules/mail/suppressionpg", "slug": "methods/modules-mail-suppressionpg", "source": "docs/methods/modules-mail-suppressionpg.md" },
+            { "title": "modules/observability", "slug": "methods/modules-observability", "source": "docs/methods/modules-observability.md" },
+            { "title": "modules/openapi", "slug": "methods/modules-openapi", "source": "docs/methods/modules-openapi.md" },
+            { "title": "modules/openapi/reference", "slug": "methods/modules-openapi-reference", "source": "docs/methods/modules-openapi-reference.md" },
+            { "title": "modules/orgs", "slug": "methods/modules-orgs", "source": "docs/methods/modules-orgs.md" },
+            { "title": "modules/postgres", "slug": "methods/modules-postgres", "source": "docs/methods/modules-postgres.md" },
+            { "title": "modules/postgres/pgtest", "slug": "methods/modules-postgres-pgtest", "source": "docs/methods/modules-postgres-pgtest.md" },
+            { "title": "modules/ratelimitpg", "slug": "methods/modules-ratelimitpg", "source": "docs/methods/modules-ratelimitpg.md" },
+            { "title": "modules/releases", "slug": "methods/modules-releases", "source": "docs/methods/modules-releases.md" },
+            { "title": "modules/settings", "slug": "methods/modules-settings", "source": "docs/methods/modules-settings.md" },
+            { "title": "modules/storage", "slug": "methods/modules-storage", "source": "docs/methods/modules-storage.md" },
+            { "title": "modules/storage/local", "slug": "methods/modules-storage-local", "source": "docs/methods/modules-storage-local.md" },
+            { "title": "modules/storage/logarchive", "slug": "methods/modules-storage-logarchive", "source": "docs/methods/modules-storage-logarchive.md" },
+            { "title": "modules/storage/s3", "slug": "methods/modules-storage-s3", "source": "docs/methods/modules-storage-s3.md" },
+            { "title": "modules/telemetry", "slug": "methods/modules-telemetry", "source": "docs/methods/modules-telemetry.md" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Examples",
+      "groups": [
+        {
+          "name": "Examples",
+          "pages": [{ "title": "Overview", "slug": "examples", "source": "docs/examples/index.md" }]
+        },
+        {
+          "name": "Shelfie",
+          "pages": [
+            { "title": "0. Start a project", "slug": "examples/shelfie/start-a-project", "source": "docs/examples/shelfie/00-start-a-project.md" },
+            { "title": "1. A books module", "slug": "examples/shelfie/books-module", "source": "docs/examples/shelfie/01-books-module.md" },
+            { "title": "2. Protecting routes", "slug": "examples/shelfie/protecting-routes", "source": "docs/examples/shelfie/02-protecting-routes.md" },
+            { "title": "3. Your own middleware and guards", "slug": "examples/shelfie/your-own-middleware", "source": "docs/examples/shelfie/03-your-own-middleware.md" },
+            { "title": "4. Tests", "slug": "examples/shelfie/tests", "source": "docs/examples/shelfie/04-tests.md" },
+            { "title": "5. Operations", "slug": "examples/shelfie/operations", "source": "docs/examples/shelfie/05-operations.md" },
+            { "title": "6. Accounts", "slug": "examples/shelfie/accounts", "source": "docs/examples/shelfie/06-accounts.md" },
+            { "title": "7. Phone-code sign-in", "slug": "examples/shelfie/phone-code-sign-in", "source": "docs/examples/shelfie/07-phone-code-sign-in.md" },
+            { "title": "8. Book clubs", "slug": "examples/shelfie/book-clubs", "source": "docs/examples/shelfie/08-book-clubs.md" },
+            { "title": "9. Generators", "slug": "examples/shelfie/generators", "source": "docs/examples/shelfie/09-generators.md" },
+            { "title": "10. Hardening and partners", "slug": "examples/shelfie/hardening", "source": "docs/examples/shelfie/10-hardening.md" },
+            { "title": "11. Deploy", "slug": "examples/shelfie/deploy", "source": "docs/examples/shelfie/11-deploy.md" }
+          ]
+        },
+        {
+          "name": "Recipes",
+          "pages": [
+            { "title": "Internal admin tool", "slug": "examples/recipes/internal-admin-tool", "source": "docs/examples/recipes/internal-admin-tool.md" },
+            { "title": "Multi-tenant invoicing", "slug": "examples/recipes/multi-tenant-invoicing", "source": "docs/examples/recipes/multi-tenant-invoicing.md" },
+            { "title": "Receiving payment webhooks", "slug": "examples/recipes/receiving-payment-webhooks", "source": "docs/examples/recipes/receiving-payment-webhooks.md" },
+            { "title": "Mobile backend with an external identity provider", "slug": "examples/recipes/mobile-backend-with-an-idp", "source": "docs/examples/recipes/mobile-backend-with-an-idp.md" },
+            { "title": "Upgrading a v0.1 app", "slug": "examples/recipes/upgrading-a-v0.1-app", "source": "docs/examples/recipes/upgrading-a-v0.1-app.md" }
+          ]
+        }
+      ]
+    },
     { "name": "API reference", "slug": "api-reference", "generate": "openapi", "source": "examples/full-multi/api/openapi.json" },
     { "name": "Decisions", "slug": "decisions", "generate": "decisions", "source": "docs/adr" },
     {
@@ -185,6 +317,7 @@
           "name": "Roadmap",
           "pages": [
             { "title": "Roadmap", "slug": "roadmap", "source": "docs/roadmap.md" },
+            { "title": "v0.2 roadmap", "slug": "v0.2-roadmap", "source": "docs/v0.2-roadmap.md" },
             { "title": "Changelog", "slug": "changelog", "source": "CHANGELOG.md" }
           ]
         }

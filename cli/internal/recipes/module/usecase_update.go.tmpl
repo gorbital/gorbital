@@ -1,0 +1,67 @@
+package usecase
+
+import (
+	"context"
+
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+)
+
+// Update⟦.Ident⟧Input changes ⟦.A⟧ ⟦.Human⟧. Version is the version the caller read.
+type Update⟦.Ident⟧Input struct {
+	Version int64
+	Changes domain.Changes
+}
+
+⟦- if .Org⟧
+// Update⟦.Ident⟧ changes one of the organisation orgID's ⟦.PluralHuman⟧. It returns
+// Err⟦.Ident⟧VersionConflict when in.Version is no longer current. An update
+// that changes nothing returns the ⟦.Human⟧ as it is.
+func (s *Service) Update⟦.Ident⟧(ctx context.Context, orgID, id string, in Update⟦.Ident⟧Input) (domain.⟦.Ident⟧, error) {
+	if _, err := memberID(ctx, orgID); err != nil {
+		return domain.⟦.Ident⟧{}, err
+	}
+	var updated domain.⟦.Ident⟧
+	var changed []string
+	err := s.store.InTx(ctx, func(tx Store) error {
+		current, err := tx.Select⟦.Ident⟧(ctx, orgID, id, true)
+⟦- else⟧
+// Update⟦.Ident⟧ changes one of the signed-in user's ⟦.PluralHuman⟧. It returns
+// Err⟦.Ident⟧VersionConflict when in.Version is no longer current. An update
+// that changes nothing returns the ⟦.Human⟧ as it is.
+func (s *Service) Update⟦.Ident⟧(ctx context.Context, id string, in Update⟦.Ident⟧Input) (domain.⟦.Ident⟧, error) {
+	owner, err := ownerID(ctx)
+	if err != nil {
+		return domain.⟦.Ident⟧{}, err
+	}
+	var updated domain.⟦.Ident⟧
+	var changed []string
+	err = s.store.InTx(ctx, func(tx Store) error {
+		current, err := tx.Select⟦.Ident⟧(ctx, owner, id, true)
+⟦- end⟧
+		if err != nil {
+			return err
+		}
+		if current.Version != in.Version {
+			return domain.Err⟦.Ident⟧VersionConflict
+		}
+		next, fields, err := current.Apply(in.Changes, s.clock())
+		if err != nil {
+			return err
+		}
+		if len(fields) == 0 {
+			updated = current
+			return nil
+		}
+		changed = fields
+		updated, err = tx.Update⟦.Ident⟧(ctx, next)
+		return err
+	})
+	if err != nil {
+		return domain.⟦.Ident⟧{}, storeError("update", err)
+	}
+	if len(changed) > 0 {
+		// Field names only: values may be personal data.
+		s.audit(ctx, ActionUpdated, id, map[string]any{"fields": changed})
+	}
+	return updated, nil
+}

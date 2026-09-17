@@ -1,6 +1,6 @@
 # Dev console APIs
 
-While you run an app with `orb dev`, it serves development-only JSON APIs under `/_dev/`: what the app wired, its routes, the environment variables it read (secrets only as set or unset), recent requests and log records with live streams, email captured by Mailpit, migration state and recent job runs. They are for local tools, such as a console UI, scripts or an editor extension. Decision: [ADR-0065](../adr/0065-local-dev-console-apis.md). Library: `gorbital.dev/modules/devconsole`.
+While you run an app with `orb dev`, it serves development-only JSON APIs under `/_dev/`: what the app wired, its routes, the environment variables it read (secrets only as set or unset), recent requests and log records with live streams, email previews, migration state and recent job runs. They are for local tools, such as a console UI, scripts or an editor extension. Decision: [ADR-0065](../adr/0065-local-dev-console-apis.md). Library: `gorbital.dev/modules/devconsole`.
 
 The APIs never exist in production, and nothing about them appears in the app's OpenAPI document. They have their own small OpenAPI document at `/_dev/openapi.json`.
 
@@ -11,7 +11,7 @@ The APIs never exist in production, and nothing about them appears in the app's 
 ```text
   ✓ API        http://127.0.0.1:8080
   ✓ API docs   http://127.0.0.1:8080/docs
-  ✓ Emails     http://127.0.0.1:8025
+  ✓ Emails     http://127.0.0.1:3100/mail (caught at 127.0.0.1:1025)
   ✓ Dev APIs   http://127.0.0.1:8080/_dev/ (docs/guides/dev-console.md)
     Token      q3Jt0tBq0Xvqf7i5Tq1hYw2m9x8Zr4Kc6Lp2Nd5Vb3E (Authorization: Bearer; new on every orb dev run)
 ```
@@ -42,13 +42,14 @@ Every request must pass three checks, in this order:
 |---|---|
 | The `Host` header is exactly `localhost`, `127.0.0.1` or `[::1]` with the port the app listens on | 403 `forbidden` |
 | The connection comes from a loopback address (so an app listening on `0.0.0.0` doesn't serve the console to your network) | 403 `forbidden` |
+| The request carries no forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host`, `X-Real-IP`, `True-Client-IP`, `CF-Connecting-IP`, `CF-Ray`, `CDN-Loop`): a tunnel or proxy on your machine connects from loopback, so this is what keeps [`orb dev --tunnel`](../dev-portal/tunnel.md) from opening the console to the internet ([ADR-0086](../adr/0086-dev-portal-tunnel.md)) | 403 `forbidden` |
 | `Authorization: Bearer <token>` holds the token | 401 `unauthorized` |
 
 Responses are JSON (errors are problem+json like the rest of the API), say `Cache-Control: no-store`, and never carry CORS headers. Only GET (and HEAD) is accepted. The token is never accepted in a query string or cookie.
 
 ### Acting on `/ops/` with the token
 
-In Full apps the token also opens the [operations APIs](ops-api.md) in development ([ADR-0066](../adr/0066-dev-portal.md)): a request under `/ops/` with `Authorization: Bearer <token>` that passes the same Host and loopback checks runs as the system actor `dev-console` with the platform administrator's permissions, and audit events record it that way. The Dev Portal uses this through `orb dev`'s proxy; scripts can too:
+In Full apps the token also opens the [operations APIs](ops-api.md) in development ([ADR-0066](../adr/0066-dev-portal.md)): a request under `/ops/` with `Authorization: Bearer <token>` that passes the same Host, loopback and forwarding checks runs as the system actor `dev-console` with the platform administrator's permissions, and audit events record it that way. The Dev Portal uses this through `orb dev`'s proxy; scripts can too:
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/jobs/definitions
@@ -76,7 +77,7 @@ The [Dev Portal](dev-portal.md) is the UI built on these APIs: `orb dev` serves 
 
 | Endpoint | Presets | Returns |
 |---|---|---|
-| `GET /_dev/` | All | `{"endpoints": [...]}`: the paths this app serves |
+| `GET /_dev/` | All | `{"endpoints": [...], "extensions": [...]}`: the paths this app serves, and the prefixes extensions serve |
 | `GET /_dev/openapi.json` | All | The console's OpenAPI 3.1 document |
 | `GET /_dev/app` | All | Name, version, commit, Go version, `env`, linked gorbital `libraries`, API `modules` (OpenAPI tags); Full apps also `jobs` (definitions with schedule and next run), `settings` (current and default values), `flags` (state, with allow and deny lists as a count) and `permissions` (catalogs with roles) |
 | `GET /_dev/routes` | All | Every OpenAPI operation (method, path, operation ID, summary, tags, `secured`) and the plain handlers outside the document (health checks, docs, OpenAPI files, well-known files), `source` telling which |
@@ -86,13 +87,15 @@ The [Dev Portal](dev-portal.md) is the UI built on these APIs: `orb dev` serves 
 | `GET /_dev/logs` | All | The 1,000 most recent log records at info level and above, newest first |
 | `GET /_dev/logs/stream` | All | Server-Sent Events: each log record |
 | `GET /_dev/mail` | Full, with `MAIL_DELIVERY=mailpit` | The 50 newest messages in Mailpit (sender, recipients, subject, snippet, time, size) and Mailpit's web address to read them; 503 `unavailable` when Mailpit doesn't answer. With the default `devmail`, the inbox is the Dev Portal's (`/_portal/api/mail`, [ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)) |
-| `GET /_dev/mail/previews` | Full | The app's email previews: name, description, category (`internal/app/mail_previews.go`) |
+| `GET /_dev/mail/previews` | Full | The app's email previews: name, description, category. A v0.1 app lists them in `internal/app/mail_previews.go`; in an app on `gorbital.Main` they come from the modules, which add them during `Setup` through `gorbital.AuthSetup.MailPreviews` — sign-in's own messages come from `authhttp` that way — plus the plain test message the library adds |
 | `GET /_dev/mail/preview?name=&to=` | Full | One preview rendered with sample data for `to` (default `preview@example.com`): subject, text, HTML; 404 `preview_not_found` |
 | `POST /_dev/mail/preview/send?name=&to=` | Full | Sends the rendered preview through the app's mailer, so it lands in the development inbox; the console's one POST endpoint |
 | `GET /_dev/migrations` | Full | `{"current", "latest", "pending"}` |
 | `GET /_dev/jobs` | Full | The 50 most recent jobs, newest first, without their arguments: kind, queue, state, attempts, times, error messages, request ID |
 
 An endpoint the app doesn't have (such as `/_dev/mail` in a Minimal app) answers 404 and isn't in the index.
+
+Built-in modules can add endpoints behind the same checks (`devconsole.Sources.Extensions`, `gorbital.AuthSetup.DevEndpoints`); the index lists their prefixes as `extensions`. Sign-in from `gorbital.dev/gorbital/authhttp` serves its tests under `/_dev/auth/test/` ([Testing sign-in](../dev-portal/testing-sign-in.md#where-it-comes-from), [ADR-0087](../adr/0087-testing-sign-in-from-the-dev-portal.md)).
 
 ### Requests
 
@@ -162,11 +165,13 @@ A stream sends each new item (`request` or `log`), a `: keep-alive` comment ever
 | Symptom | Cause |
 |---|---|
 | 404 `no route matches GET /_dev/…` | The console is off: run through `orb dev`, or set `DEV_CONSOLE_TOKEN` with `APP_ENV=development`. Apps created with a development build before the dev console need the upgrade ([upgrade notes](upgrade-notes.md#before-v010-development-builds)) |
-| 403 `forbidden` | Use `http://127.0.0.1:<port>`, `http://localhost:<port>` or `http://[::1]:<port>`, from the same machine. Proxies must send one of those as `Host` |
+| 403 `forbidden` | Use `http://127.0.0.1:<port>`, `http://localhost:<port>` or `http://[::1]:<port>`, from the same machine. Proxies must send one of those as `Host` and add no forwarding headers (`X-Forwarded-For` and the like); requests through a tunnel are always refused |
 | 401 `unauthorized` | The token is missing or from an earlier `orb dev` run |
 | 503 on `/_dev/mail` | Mailpit isn't running, or `MAILPIT_WEB_PORT` doesn't match `compose.yaml`; with `MAIL_DELIVERY=devmail` the endpoint isn't served at all (the inbox is the portal's) |
 | Stream shows nothing through a proxy | The proxy buffers the response; `X-Accel-Buffering: no` is set for nginx |
 
 ## In your app
 
-The wiring is in `internal/app/devconsole.go`, and the checks and buffers are in `gorbital.dev/modules/devconsole`. To list more plain handlers in `/_dev/routes` when you add them in `routes.go`, add their paths to `handlerRoutes`; `TestDevConsoleRoutes` checks that each listed route is served.
+In a v0.1 app the wiring is in `internal/app/devconsole.go`, and the checks and buffers are in `gorbital.dev/modules/devconsole`. To list more plain handlers in `/_dev/routes` when you add them in `routes.go`, add their paths to `handlerRoutes`; `TestDevConsoleRoutes` checks that each listed route is served.
+
+An app on `gorbital.Main` has none of this in its own code: the library wires the console in `gorbital/devconsole.go`, from the same `modules/devconsole`, and lists the handlers modules registered through `gorbital.AuthSetup.Handle`.

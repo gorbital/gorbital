@@ -10,7 +10,7 @@ Work through this list before real people use your app. Each line names the valu
 - [ ] `APP_ENV=production`. It turns on JSON logs and HSTS, refuses Mailpit, turns docs off by default, and makes the settings below required. The Docker image sets it for you; without `APP_ENV` the app refuses to start.
 - [ ] `APP_ADDR=0.0.0.0:8080` when the app runs in a container behind a load balancer. The Docker image sets it for you. The default `127.0.0.1:8080` only accepts connections from the same machine.
 - [ ] `DATABASE_URL` points at your production PostgreSQL, with `sslmode=require` (or stricter) and a strong password. Store it as a secret, or mount it as a file and set `DATABASE_URL_FILE`.
-- [ ] Migrations run **before** each new version starts: `docker run --entrypoint /migrate <image>` with the same environment, or `go run ./cmd/migrate`. The app never migrates itself.
+- [ ] Migrations run **before** each new version starts: `docker run <image> migrate` with the same environment, or `go run ./cmd/api migrate`. In an app created with `orb` v0.1 it is a separate binary: `docker run --entrypoint /migrate <image>`, or `go run ./cmd/migrate`. The app never migrates itself.
 - [ ] `APP_CORS_ORIGINS` lists your web frontends, such as `https://app.example.com`, all https. Empty means browsers on other sites can't call the API.
 - [ ] Decide on `APP_DOCS_ENABLED`. `/docs` and `/openapi.json` are off in production; set it to `true` if your API reference is meant to be public.
 
@@ -42,7 +42,7 @@ Work through this list before real people use your app. Each line names the valu
 
 ## 6. Your first administrator
 
-Seed data only exists in development: `cmd/seed` refuses to run in production. Create the first administrator by hand:
+Seed data only exists in development: a v0.1 app's `cmd/seed` and the `seed` command of an app on `gorbital.Main` both refuse to run when `APP_ENV` is production, and neither is in the image. Create the first administrator by hand:
 
 1. Sign up through your frontend or `POST /v1/auth/register`, and verify the email.
 2. In the production environment, run `/api grant-role you@example.com platform_admin` (or `go run ./cmd/api grant-role …` from a machine with the production environment).

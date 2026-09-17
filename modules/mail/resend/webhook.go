@@ -1,18 +1,17 @@
 package resend
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"gorbital.dev/config"
+	"gorbital.dev/webhook"
 )
 
 // Webhook headers. Resend signs its webhooks with Svix
@@ -35,10 +34,6 @@ const WebhookTolerance = 5 * time.Minute
 
 // Webhook secret format: "whsec_" followed by base64.
 const webhookSecretPrefix = "whsec_"
-
-// maxWebhookIDLength bounds the delivery ID a receiver stores to refuse
-// replays.
-const maxWebhookIDLength = 255
 
 // Errors returned by [VerifyWebhook]. Check them with [errors.Is]; answer
 // both with 401 so the sender doesn't learn which check failed.
@@ -89,42 +84,27 @@ func VerifyWebhook(secret config.Secret, header http.Header, body []byte, now ti
 	if err != nil {
 		return err
 	}
-	id, timestamp, signatures := header.Get(HeaderWebhookID), header.Get(HeaderWebhookTimestamp), header.Get(HeaderWebhookSignature)
-	if id == "" || len(id) > maxWebhookIDLength || strings.ContainsAny(id, ". \t\r\n") || signatures == "" {
-		return ErrInvalidWebhook
+	v, err := webhook.NewHMAC(webhook.HMACConfig{
+		Secrets:         [][]byte{key},
+		SignatureHeader: HeaderWebhookSignature,
+		SignaturePrefix: "v1,",
+		Encoding:        webhook.Base64,
+		IDHeader:        HeaderWebhookID,
+		TimestampHeader: HeaderWebhookTimestamp,
+		Tolerance:       WebhookTolerance,
+		Now:             func() time.Time { return now },
+	})
+	if err != nil {
+		return err
 	}
-	seconds, err := strconv.ParseInt(timestamp, 10, 64)
-	if err != nil || seconds <= 0 {
-		return ErrInvalidWebhook
-	}
-	signedAt := time.Unix(seconds, 0)
-	if signedAt.Before(now.Add(-WebhookTolerance)) || signedAt.After(now.Add(WebhookTolerance)) {
+	switch err := v.Verify(context.Background(), header, body); {
+	case err == nil:
+		return nil
+	case errors.Is(err, webhook.ErrTimestamp):
 		return ErrWebhookTimestamp
-	}
-
-	mac := hmac.New(sha256.New, key)
-	mac.Write([]byte(id + "." + timestamp + "."))
-	mac.Write(body)
-	expected := mac.Sum(nil)
-	valid := false
-	for _, entry := range strings.Fields(signatures) {
-		version, encoded, ok := strings.Cut(entry, ",")
-		if !ok || version != "v1" {
-			continue
-		}
-		sig, err := base64.StdEncoding.DecodeString(encoded)
-		if err != nil {
-			continue
-		}
-		// Check every entry, so timing doesn't tell which one matched.
-		if hmac.Equal(sig, expected) {
-			valid = true
-		}
-	}
-	if !valid {
+	default:
 		return ErrInvalidWebhook
 	}
-	return nil
 }
 
 // Webhook event types gorbital acts on. Resend sends others too (sent,

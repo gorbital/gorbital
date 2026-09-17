@@ -1,0 +1,25 @@
+package usecase
+
+import "context"
+
+⟦- if .Org⟧
+// Delete⟦.Ident⟧ removes one of the organisation orgID's ⟦.PluralHuman⟧.
+func (s *Service) Delete⟦.Ident⟧(ctx context.Context, orgID, id string) error {
+	if _, err := memberID(ctx, orgID); err != nil {
+		return err
+	}
+	if err := s.store.Delete⟦.Ident⟧(ctx, orgID, id); err != nil {
+⟦- else⟧
+// Delete⟦.Ident⟧ removes one of the signed-in user's ⟦.PluralHuman⟧.
+func (s *Service) Delete⟦.Ident⟧(ctx context.Context, id string) error {
+	owner, err := ownerID(ctx)
+	if err != nil {
+		return err
+	}
+	if err := s.store.Delete⟦.Ident⟧(ctx, owner, id); err != nil {
+⟦- end⟧
+		return storeError("delete", err)
+	}
+	s.audit(ctx, ActionDeleted, id, nil)
+	return nil
+}

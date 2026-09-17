@@ -1,95 +1,44 @@
-// The api command runs acme-api.
+// Command api runs acme-api, built on gorbital.Main: the server, and the
+// commands its modules add.
 //
-// Usage:
-//
-//	api                              run the API server
-//	api openapi [--dir api]          print the OpenAPI document, or write it with the Postman collection and llms.txt
-//	api roles                        list the platform roles
-//	api grant-role <email> <role>    give an account a platform role
-//	api revoke-role <email> <role>   take a platform role away
-//	api reset-mfa <email>            turn off an account's two-factor authentication
-//	api rotate-auth-keys             re-encrypt 2FA secrets with the first AUTH_ENCRYPTION_KEYS key
-//	api auth-providers               show which sign-in methods are configured
-//	api maintenance on|off [--message <text>]
-//	                                 turn maintenance mode on or off when /ops can't be reached
+//	go run ./cmd/api                     serve the API (APP_ENV and DATABASE_URL from the environment)
+//	go run ./cmd/api migrate             apply migrations; --status reports pending ones
+//	go run ./cmd/api openapi --dir api   write the OpenAPI document, the Postman collection and llms.txt
+//	go run ./cmd/api seed                create the development administrator (orb dev runs it)
+//	go run ./cmd/api grant-role <email> <role>
+//	                                     give an account a platform role
+//	go run ./cmd/api help                list every command
 package main
 
 import (
-	"context"
-	"flag"
-	"fmt"
-	"os"
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/authhttp"
+	"gorbital.dev/gorbital/flagshttp"
+	"gorbital.dev/gorbital/mailevents"
+	"gorbital.dev/gorbital/opshttp"
 
-	"gorbital.dev/config"
-
-	"example.com/acme-api/internal/app"
+	"example.com/acme-api/db/migrations"
+	"example.com/acme-api/internal/modules"
 )
 
 func main() {
-	if err := run(context.Background(), os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "acme-api:", err)
-		os.Exit(1)
-	}
+	gorbital.Main(options()...)
 }
 
-func run(ctx context.Context, args []string) error {
-	src := config.OS
-	if len(args) > 0 && args[0] == "openapi" {
-		src = app.ExportSource // the same document everywhere, without APP_ENV
+// options are the app: what main.go runs and the tests build.
+func options() []gorbital.Option {
+	auth := authhttp.New() // sign-in: accounts, sessions, 2FA, passkeys, Google, Apple, GitHub, API keys
+	return []gorbital.Option{
+		gorbital.WithName("acme-api"),
+		gorbital.WithAuth(auth),
+		gorbital.WithModules(
+			opshttp.Module(opshttp.MailProvider(mailProvider)), // /ops/: settings, flags, jobs, audit, email, observability
+			flagshttp.Module(),  // GET /v1/flags: client feature flags
+			mailevents.Module(), // POST /v1/webhooks/resend: bounces and complaints
+		),
+		gorbital.WithModules(modules.All()...), // internal/modules/modules.gen.go: ping, projects
+		gorbital.WithMigrations(migrations.FS), // db/migrations: the app's own tables
+		gorbital.WithMailerFunc(mailer),        // mail.go: the email provider, set by orb add mail
+		gorbital.WithStorageFunc(fileStorage),  // storage.go: S3-compatible file storage
 	}
-	cfg, err := app.LoadConfig(src)
-	if err != nil {
-		return err
-	}
-	if len(args) > 0 {
-		switch args[0] {
-		case "openapi":
-			flags := flag.NewFlagSet("openapi", flag.ContinueOnError)
-			dir := flags.String("dir", "", "write openapi.json, postman_collection.json and llms.txt into this directory")
-			if flags.Parse(args[1:]) != nil || flags.NArg() > 0 {
-				return fmt.Errorf("usage: api openapi [--dir <directory>]")
-			}
-			if *dir != "" {
-				return app.WriteAPIFiles(ctx, cfg, *dir)
-			}
-			return app.WriteOpenAPI(ctx, cfg, os.Stdout)
-		case "roles":
-			app.WriteRoles(os.Stdout)
-			return nil
-		case "grant-role", "revoke-role":
-			if len(args) != 3 {
-				return fmt.Errorf("usage: api %s <email> <role>", args[0])
-			}
-			if args[0] == "grant-role" {
-				return app.GrantRole(ctx, cfg, args[1], args[2], os.Stdout)
-			}
-			return app.RevokeRole(ctx, cfg, args[1], args[2], os.Stdout)
-		case "reset-mfa":
-			if len(args) != 2 {
-				return fmt.Errorf("usage: api reset-mfa <email>")
-			}
-			return app.ResetMFA(ctx, cfg, args[1], os.Stdout)
-		case "rotate-auth-keys":
-			return app.RotateAuthKeys(ctx, cfg, os.Stdout)
-		case "auth-providers":
-			// LoadConfig has already refused an invalid or partial configuration.
-			app.WriteSignInMethods(os.Stdout, cfg)
-			return nil
-		case "maintenance":
-			flags := flag.NewFlagSet("maintenance", flag.ContinueOnError)
-			message := flags.String("message", "", "what clients see while it is on")
-			if len(args) < 2 || (args[1] != "on" && args[1] != "off") || flags.Parse(args[2:]) != nil || flags.NArg() > 0 {
-				return fmt.Errorf("usage: api maintenance on|off [--message <text>]")
-			}
-			return app.SetMaintenance(ctx, cfg, args[1] == "on", *message, os.Stdout)
-		default:
-			return fmt.Errorf("unknown command %q", args[0])
-		}
-	}
-
-	a, err := app.New(ctx, cfg)
-	if err != nil {
-		return err
-	}
-	return a.Run(ctx)
 }

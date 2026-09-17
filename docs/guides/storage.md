@@ -25,13 +25,37 @@ It rewrites the `storage` block of `.env.example`, sets the values in `.env` and
 
 ## In code
 
+A module gets the store as `gorbital.Deps.Storage`, a `storage.Store`, alongside the pool and the logger:
+
 ```go
-// app.storage is a storage.Store (internal/app/storage.go).
-obj, err := a.storage.Put(ctx, "invoices/2026/inv_42.pdf", body, size, storage.PutOptions{ContentType: "application/pdf", Metadata: map[string]string{"invoice": "inv_42"}})
-r, obj, err := a.storage.Get(ctx, key)   // io.ReadCloser and the object
-page, err := a.storage.List(ctx, storage.ListOptions{Prefix: "invoices/2026/"})
-url, err := a.storage.SignedURL(ctx, key, http.MethodGet, time.Hour)
+Routes: func(r *gorbital.Router, d gorbital.Deps) {
+	svc := usecase.NewService(repository.NewStore(d.DB), d.Storage, d.Logger)
+	delivery.Register(r, svc)
+},
 ```
+
+`Deps.Storage` is nil unless the app configures storage, so a module registers the same routes either way and uses the store only when handling a request. In a v0.1 app the store is `app.storage`, built in `internal/app/storage.go`, and passed to the module the same way.
+
+The methods are the same wherever the store came from:
+
+```go
+obj, err := store.Put(ctx, "invoices/2026/inv_42.pdf", body, size, storage.PutOptions{ContentType: "application/pdf", Metadata: map[string]string{"invoice": "inv_42"}})
+r, obj, err := store.Get(ctx, key)   // io.ReadCloser and the object
+page, err := store.List(ctx, storage.ListOptions{Prefix: "invoices/2026/"})
+url, err := store.SignedURL(ctx, key, http.MethodGet, time.Hour)
+```
+
+### Where the store comes from
+
+In an app on [`gorbital.Main`](main-go.md), `main.go` supplies it:
+
+| Option | When |
+|---|---|
+| Nothing | `STORAGE_DRIVER=local`, development's default: `gorbital.New` opens the local driver and serves its signed links itself |
+| `gorbital.WithStorageFunc(open)` | The S3-compatible drivers, whose client gorbital doesn't import. `open` receives the loaded `gorbital.Config` and builds the store from `cfg.Storage`; returning a nil store and a nil error keeps the built-in choice, so one function serves every `STORAGE_DRIVER`. A Full app is created with that function in `cmd/api/storage.go` (`internal/app/storage.go` in a v0.1 app), and `orb add storage` fills in the `STORAGE_*` variables it reads |
+| `gorbital.WithStorage(s)` | A store you already have, such as a fake in a test |
+
+An error from `open` fails `New` as a configuration error, before anything connects.
 
 Keys are paths: 1 to 1024 characters, segments without `.` or `..`, no leading slash (`storage.ValidKey`). Object stores have no directories: `List` folds keys at the next slash into `Prefixes`, and an empty directory exists through the marker `<prefix>/.keep` (`storage.DirectoryMarker`), hidden in one-level listings and shown in recursive ones so a folder can be emptied. `storage.Move` copies and deletes, since stores have no rename.
 

@@ -123,6 +123,15 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	if err != nil {
 		return err
 	}
+	if appLayout(app.dir) == layoutMain {
+		// In an app on gorbital.Main, orb gen resource is orb gen module
+		// (ADR-0083): the same fields and flags, the new layout. As in v0.1,
+		// records belong to organisations by default in a multi-tenant app.
+		fmt.Fprintln(stderr, "orb: this app is on gorbital.Main, so orb gen resource runs orb gen module")
+		org := *scope == recipes.ScopeOrg || (*scope == "" && appTenancy(app.dir) == recipes.TenancyMulti)
+		in := moduleInput{name: name, specs: specs, plural: *plural, idPrefix: *idPrefix, org: org}
+		return genModule(ctx, app, in, genModuleRun{dryRun: *dryRun, asJSON: *asJSON, allowDirty: *allowDirty, prompts: p}, stdin, stdout, stderr)
+	}
 	if _, err := checkResourceApp(app, *scope); err != nil {
 		return err
 	}
@@ -227,11 +236,24 @@ func promptResource(name *string, specs *[]string, p promptFlags, stdin io.Reade
 	return nil
 }
 
+// latestBuiltinMigration is the newest version of the migrations gorbital's
+// built-in modules and frozen table serve (gorbital.Migrate), checked
+// against the library by TestLatestBuiltinMigration.
+const latestBuiltinMigration int64 = 20260918000070
+
 // nextMigrationVersion returns now as a migration version, or one more than
 // the newest migration's version when that isn't earlier, so the new
 // migration always runs last.
 func nextMigrationVersion(dir string, now time.Time) (string, error) {
 	version := now.UTC().Format("20060102150405")
+	// An app on gorbital.Main doesn't hold the built-in modules' migrations,
+	// which run in the same history: a new migration must still come after
+	// the newest of them, or goose refuses it on a database that ran them.
+	if isGorbitalApp(dir) {
+		if floor := strconv.FormatInt(latestBuiltinMigration+1, 10); version < floor {
+			version = floor
+		}
+	}
 	entries, err := os.ReadDir(filepath.Join(dir, "db", "migrations"))
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", fmt.Errorf("%s has no db/migrations: migrations and resources are generated in apps created with the Full preset", dir)

@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
+	"example.com/acme-api/internal/modules/projects/domain"
 )
 
 const deleteProjectSQL = `DELETE FROM projects WHERE id = $1 AND owner_id = $2`
@@ -16,7 +16,7 @@ func (s *Store) DeleteProject(ctx context.Context, ownerID, id string) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return projectsdomain.ErrProjectNotFound
+		return domain.ErrProjectNotFound
 	}
 	return nil
 }

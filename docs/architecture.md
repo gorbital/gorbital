@@ -34,7 +34,7 @@ Three products, versioned together ([ADR-0014](adr/0014-product-shape-and-preset
 
 1. **Readable over clever.** A request can be traced from `main.go` to SQL with "go to definition". No reflection wiring, no hidden registration.
 2. **Owned code is sacred.** The CLI never silently overwrites developer code; changes are previewed, recorded and merged.
-3. **Library for behaviour, generation for wiring.**
+3. **Library for behaviour and default wiring; generation for scaffolding and the module list** (from v0.2, [ADR-0081](adr/0081-a-framework-you-import.md); v0.1 apps keep their generated wiring).
 4. **Standard first:** stdlib, then de facto standards (pgx, goose, OpenTelemetry, River), then our own code.
 5. **Only PostgreSQL required** in production.
 6. **Secure and observable by default,** every default visible in code.
@@ -102,6 +102,12 @@ generated app ──► modules/* ──► core ──► stdlib (+ OpenTelemet
                   modules never import other modules
 ```
 
+From v0.2 ([ADR-0081](adr/0081-a-framework-you-import.md), in progress on the [v0.2 roadmap](v0.2-roadmap.md)) a composition layer sits between the app and the modules: `gorbital.dev/gorbital` (router, guards, default stack, `Module`, `Deps`, `Main`) and its built-in modules (`authhttp`, `opshttp`, `orgshttp`, `flagshttp`, `mailevents`). It is the only library code allowed to import several modules.
+
+```text
+app ──► gorbital.dev/gorbital (+ guard, built-in modules) ──► modules/* ──► core ──► stdlib
+```
+
 - A contract enters **core** only when at least two official modules consume it.
 - **Core dependency budget:** standard library, OpenTelemetry API (and its tiny dependencies), `golang.org/x` packages. `internal/archtest` fails the build otherwise.
 - Cross-module needs are solved at the composition root. Example: auth takes a `mail.Sender`; the app passes `jobs.AsyncSender(resend)`.
@@ -125,7 +131,8 @@ gorbital/
 ├── buildinfo/               version, commit, build time
 ├── internal/archtest/       dependency budget, stability markers, golden apps don't drift
 ├── internal/tools/apicheck/  module: records and checks the exported API in api/*.txt (ADR-0054)
-├── internal/tools/refdocs/   module: generates and checks docs/reference from the golden apps
+├── internal/tools/refdocs/   module: generates and checks docs/reference from the golden apps, and docs/methods from the library source
+├── internal/tools/contracts/ module: checks the golden apps against the frozen v0.1.0 contracts in internal/contracts/v0.1.0
 ├── api/                     exported Go API listings per library module (gorbital.dev.txt, modules-auth.txt, …)
 ├── modules/
 │   ├── openapi/             Huma integration, problem errors, /docs API reference (reference/)
@@ -177,9 +184,11 @@ gorbital/
 
 ## 6. The generated application ([ADR-0022](adr/0022-generated-application-layout.md))
 
-Layered modules (`domain / usecase / repository / delivery`) inside `internal/modules/`, with `internal/app` as the composition root.
+Layered modules (`domain / usecase / repository / delivery`) inside `internal/modules/`.
 
-The tree of a new single-tenant Full app, as generated from `examples/full-single`:
+From v0.2, a new Full app runs on `gorbital.Main` ([ADR-0083](adr/0083-modules-stack-migrations-and-ejection.md#3-app-layout)): `cmd/api/main.go` adds the built-in modules and the app's own, the library is the composition root, and the app's code is its modules and migrations ([examples/full-single](../examples/full-single), its `ARCHITECTURE.md`). The rest of this section describes the v0.1 layout, with `internal/app` as the composition root, which apps created by orb v0.1 keep.
+
+The tree of a single-tenant Full app on the v0.1 layout, as generated from `examples/v0.1/full-single`:
 
 ```text
 my-api/
@@ -255,7 +264,7 @@ Added in the operations and integrations milestone:
 
 Resend or SMTP behind `mail.Sender`. Development always delivers to Mailpit. Sends run as jobs with idempotency; permanent refusals (`mail.ErrRejected`) are cancelled instead of retried.
 
-Built in the data and identity milestone ([ADR-0037](adr/0037-email-setup-and-delivery.md), [email guide](guides/email.md)): `orb add mail` asks Resend or SMTP, saves typed secrets only to `.env`, writes `internal/app/infra_mail.go` and the `.env.example` block, and prints next steps; running it again switches provider. The Resend API key and SMTP credentials are environment variables; the sender name, address and reply-to are runtime settings (`mail.*`) filled into each message by `mail.WithDefaults`. `MAIL_DELIVERY` picks Mailpit (development default) or the provider (always in production).
+Built in the data and identity milestone ([ADR-0037](adr/0037-email-setup-and-delivery.md), [email guide](guides/email.md)): `orb add mail` asks Resend or SMTP, saves typed secrets only to `.env`, writes the app's mail file (`cmd/api/mail.go` on `gorbital.Main`, `internal/app/infra_mail.go` in a v0.1 app) and the `.env.example` block, and prints next steps; running it again switches provider. The Resend API key and SMTP credentials are environment variables; the sender name, address and reply-to are runtime settings (`mail.*`) filled into each message by `mail.WithDefaults`. `MAIL_DELIVERY` picks `devmail` (the development default: `orb dev`'s own catcher, read in the Dev Portal's Mail screen), `mailpit` or the provider (always in production).
 
 Added in the operations and integrations milestone ([ADR-0062](adr/0062-resend-webhooks-and-suppression-list.md)): the mail worker's sender is wrapped with `mail.WithSuppressionList`, so addresses on the suppression list (`modules/mail/suppressionpg`) get no email and their jobs are cancelled. Resend's signed webhook `POST /v1/webhooks/resend` (app module `mailevents`, on only with `RESEND_WEBHOOK_SECRET`) adds the recipients of hard bounces and complaints, once per delivery ID; operators list and remove them with `/ops/mail/suppressions`.
 
@@ -287,7 +296,7 @@ Two layers. **Environment** holds secrets, credentials and infrastructure (datab
 
 ### 7.8 Background jobs ([ADR-0033](adr/0033-background-jobs.md))
 
-Jobs run on PostgreSQL with River, in the API process: every instance serves HTTP and works jobs (the library allows a separate worker process, but generated apps don't include one). Each job is a **definition**, like a serverless function: developers write and deploy the code, and operators change its configuration at runtime (enabled, schedule, timeout, max attempts, queue, priority) through `/ops/jobs`, with versions, reasons, history and audit events. Schedules are 5-field cron in UTC or `@every` intervals, run once across instances by River's elected leader, and never more often than once a minute. Jobs carry the enqueuing request ID, trace and actor but never permissions, and run as the `jobs` system actor. Email is sent through `jobs.AsyncSender` with job-ID idempotency keys. River's tables are migrated by River's migrator from `cmd/migrate`. Guide: [background jobs](guides/background-jobs.md).
+Jobs run on PostgreSQL with River, in the API process: every instance serves HTTP and works jobs (the library allows a separate worker process, but generated apps don't include one). Each job is a **definition**, like a serverless function: developers write and deploy the code, and operators change its configuration at runtime (enabled, schedule, timeout, max attempts, queue, priority) through `/ops/jobs`, with versions, reasons, history and audit events. Schedules are 5-field cron in UTC or `@every` intervals, run once across instances by River's elected leader, and never more often than once a minute. Jobs carry the enqueuing request ID, trace and actor but never permissions, and run as the `jobs` system actor. Email is sent through `jobs.AsyncSender` with job-ID idempotency keys. River's tables are migrated by River's migrator with the rest of the history (`go run ./cmd/api migrate`, `./cmd/migrate` in a v0.1 app). Guide: [background jobs](guides/background-jobs.md).
 
 ### 7.9 Database ([ADR-0005](adr/0005-database-strategy.md), [ADR-0028](adr/0028-local-development-environment.md), [ADR-0032](adr/0032-repository-sql.md))
 
@@ -366,7 +375,7 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Publish the library at `gorbital.dev`~~ | Resolved: `v0.1.0` published on 2026-09-17; `go install gorbital.dev/cli/cmd/orb@latest` |
 | External security review | Open: the stability and security review work is built (in v0.1.0) and `v1.0.0` awaits a third party's sign-off; maintainer actions (GitHub teams and branch protection, `release` environment, tag rulesets, code of conduct contact) are listed in [ADR-0053](adr/0053-internal-security-review.md) |
 | ~~Row-level security~~ | Resolved: optional fifth isolation layer, `orb add rls` ([ADR-0061](adr/0061-row-level-security.md)) |
-| Local dev console | APIs resolved: `/_dev/` in `modules/devconsole` ([ADR-0065](adr/0065-local-dev-console-apis.md)). Open: no console UI is built; the Dev Portal in gorbital-dashboards stays on mock data |
+| ~~Local dev console~~ | Resolved: the APIs are `/_dev/` in `modules/devconsole` ([ADR-0065](adr/0065-local-dev-console-apis.md)), and the UI is the Dev Portal ([ADR-0066](adr/0066-dev-portal.md), [guide](dev-portal/index.md)), built in gorbital-dashboards and embedded in `orb`, which `orb dev` serves on 127.0.0.1:3100 against the running app |
 | ~~`/ops/*` protection before authentication~~ | Resolved: sessions and platform roles replaced the interim `OPS_TOKEN` ([ADR-0038](adr/0038-authentication-v0-2.md)); ops roles require two-factor authentication ([ADR-0043](adr/0043-two-factor-authentication.md)) |
 | ~~Example business module with its own repository~~ | Resolved: `examples/full-single/internal/modules/projects` owns the `projects` table with all four layers, user ownership and cross-owner tests ([ADR-0039](adr/0039-resource-module-template.md)); `orb gen resource` reproduces it exactly |
 | ~~`orb new --preset=full`~~ | Resolved: templates generated from `examples/full-single`, reproduced byte for byte, with `go.mod` derived from the golden `go.mod` ([ADR-0041](adr/0041-full-preset-generation.md)) |

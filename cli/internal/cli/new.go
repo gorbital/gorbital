@@ -45,7 +45,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	module := flags.String("module", "", "Go module path (default: the app name)")
 	preset := flags.String("preset", "minimal", "preset: minimal (HTTP API, no database) or full (PostgreSQL, authentication, jobs, email, audit, ops APIs)")
 	tenancy := flags.String("tenancy", recipes.TenancySingle, "who owns the data (Full preset): single (users) or multi (organisations with members, roles and invitations)")
-	local := flags.String("local", "", "path to an gorbital checkout, used through replace directives (default: the checkout you are in, if any)")
+	local := flags.String("local", "", "path to a gorbital checkout, used through replace directives (default: the checkout you are in, if any)")
 	noGit := flags.Bool("no-git", false, "don't initialise a git repository")
 	start := flags.Bool("start", false, "run orb dev in the new app and open the Dev Portal when it is created (the default in a terminal; --no-start turns it off)")
 	noStart := flags.Bool("no-start", false, "don't run orb dev afterwards")
@@ -217,7 +217,9 @@ func nextSteps(s styles, dir string, preset recipes.Preset) string {
 	if preset.Name == "full" {
 		rows = [][2]string{
 			{"api docs", "http://localhost:8080/docs (localhost, not 127.0.0.1, for passkeys)"},
-			{"emails", "http://127.0.0.1:8025 (Mailpit catches every email in development)"},
+			{"main.go", "cmd/api/main.go runs the app on gorbital.Main; your code goes in internal/modules"},
+			{"modules", "orb gen module <Name> <field:type>... adds a table and its API"},
+			{"emails", "http://127.0.0.1:3100/mail (the Dev Portal catches every email in development)"},
 			{"admin", "admin@example.com; orb dev prints its password, 2FA key and recovery codes once"},
 			{"sign-in", "AUTH_PROVIDERS.md lists what to set for passkeys, Google and Apple"},
 		}
@@ -230,8 +232,12 @@ func nextSteps(s styles, dir string, preset recipes.Preset) string {
 		rows = append(rows, [][2]string{
 			{"email", "Resend outside development; orb add mail switches to SMTP"},
 			{"port 5432", "taken? set POSTGRES_PORT in .env and the same port in DATABASE_URL"},
-			{"without orb", "cp .env.example .env, docker compose up -d --wait,"},
-			{"", "go run ./cmd/migrate, go run ./cmd/seed, go run ./cmd/api"},
+			// The steps README.md lists, in the same order: without the
+			// export, the app starts with no environment at all, and
+			// without a key seed refuses to run.
+			{"without orb", `cp .env.example .env, then set AUTH_ENCRYPTION_KEYS: echo "k1:$(openssl rand -base64 32)"`},
+			{"", "docker compose up -d --wait, set -a; . ./.env; set +a,"},
+			{"", "go run ./cmd/api migrate, go run ./cmd/api seed, go run ./cmd/api"},
 		}...)
 	}
 	var b strings.Builder
@@ -419,7 +425,7 @@ func resolveLocal(local string) (string, error) {
 	}
 	goMod, err := os.ReadFile(filepath.Join(abs, "go.mod"))
 	if err != nil || !strings.HasPrefix(string(goMod), "module gorbital.dev\n") {
-		return "", usageError(fmt.Sprintf("--local %s is not an gorbital checkout (no go.mod with module gorbital.dev)", local))
+		return "", usageError(fmt.Sprintf("--local %s is not a gorbital checkout (no go.mod with module gorbital.dev)", local))
 	}
 	return filepath.ToSlash(abs), nil
 }

@@ -19,7 +19,7 @@ The Database overview: the migration state, the pool and the health checks, and 
 
 | Action | What it does |
 |---|---|
-| Apply pending migrations | `POST /_portal/api/app/migrate`: `orb dev` runs `go run ./cmd/migrate` through the supervisor, without a restart. 202, then the outcome arrives on the Overview's stream; 409 in an app without a database. It changes the database, not the files |
+| Apply pending migrations | `POST /_portal/api/app/migrate`: `orb dev` runs the app's migrate command through the supervisor — `go run ./cmd/api migrate`, or `go run ./cmd/migrate` in a v0.1 app — without a restart. 202, then the outcome arrives on the Overview's stream; 409 in an app without a database. It changes the database, not the files |
 
 No confirmation: applying a file that is already in `db/migrations` is what `orb dev` does on every file change anyway.
 

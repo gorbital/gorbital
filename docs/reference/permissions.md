@@ -20,6 +20,10 @@ Platform roles are held across the whole app; the ops roles grant access to `/op
 
 | Permission | Description | `user` | `platform_admin` | `ops_viewer` |
 |---|---|---|---|---|
+| `ops.auth.read` | See which sign-in methods are configured. | | yes | yes |
+| `ops.auth.write` | Manage accounts: create, ban, delete, end sessions, remove passkeys and links, reset second factors, impersonate in development. | | yes | |
+| `ops.service_accounts.read` | See service accounts and their API keys. | | yes | yes |
+| `ops.service_accounts.write` | Create, change and delete service accounts and their API keys. | | yes | |
 | `ops.settings.read` | Read runtime settings and their history. | | yes | yes |
 | `ops.settings.write` | Change and reset runtime settings. | | yes | |
 | `ops.flags.read` | Read feature flags and their history. | | yes | yes |
@@ -34,17 +38,13 @@ Platform roles are held across the whole app; the ops roles grant access to `/op
 | `ops.mail.write` | Remove addresses from the email suppression list. | | yes | |
 | `ops.storage.read` | Browse file storage. | | yes | yes |
 | `ops.storage.write` | Upload, move and delete files and create signed URLs. | | yes | |
-| `ops.auth.read` | See which sign-in methods are configured. | | yes | yes |
 | `ops.system.read` | See an instance's health checks, database pool, migrations and runtime. | | yes | yes |
 | `ops.observability.read` | See request rates, errors and latency across instances, and stream them. | | yes | yes |
 | `ops.incidents.read` | Read incidents, their timelines and reports. | | yes | yes |
 | `ops.incidents.write` | Open, update and resolve incidents. | | yes | |
-| `ops.auth.write` | Manage accounts: create, ban, delete, end sessions, remove passkeys and links, reset second factors, impersonate in development. | | yes | |
-| `ops.service_accounts.read` | See service accounts and their API keys. | | yes | yes |
-| `ops.service_accounts.write` | Create, change and delete service accounts and their API keys. | | yes | |
+| `flags.flag.read` | Read the feature flags shown to clients. | yes | | |
 | `orgs.org.create` | Create organisations. *Multi-tenant apps only.* | yes | | |
 | `orgs.org.list` | See the organisations you belong to. *Multi-tenant apps only.* | yes | | |
-| `flags.flag.read` | Read the feature flags shown to clients. | yes | | |
 | `projects.project.read` | See your projects. *Single-tenant apps only.* | yes | | |
 | `projects.project.write` | Create, change and delete your projects. *Single-tenant apps only.* | yes | | |
 
@@ -70,5 +70,5 @@ Platform roles are held across the whole app; the ops roles grant access to `/op
 | `orgs.settings.read` | See the organisation's settings and their history. | yes | yes | yes |
 | `orgs.settings.write` | Change the organisation's settings. | yes | yes | |
 | `orgs.service_accounts.manage` | Create and manage service accounts and their API keys, up to your own role. | yes | yes | |
-| `projects.project.read` | See projects. | yes | yes | yes |
-| `projects.project.write` | Create, change and delete projects. | yes | yes | yes |
+| `projects.project.read` | See the organisation's projects. | yes | yes | yes |
+| `projects.project.write` | Create, change and delete the organisation's projects. | yes | yes | yes |

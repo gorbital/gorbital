@@ -68,6 +68,9 @@ pkg gorbital.dev/modules/devconsole, type EnvKey struct, Secret bool
 pkg gorbital.dev/modules/devconsole, type EnvKey struct, Set bool
 pkg gorbital.dev/modules/devconsole, type EnvKey struct, Value string
 pkg gorbital.dev/modules/devconsole, type EnvKeys struct
+pkg gorbital.dev/modules/devconsole, type Extension struct
+pkg gorbital.dev/modules/devconsole, type Extension struct, Handler http.Handler
+pkg gorbital.dev/modules/devconsole, type Extension struct, Prefix string
 pkg gorbital.dev/modules/devconsole, type Flag struct
 pkg gorbital.dev/modules/devconsole, type Flag struct, Client bool
 pkg gorbital.dev/modules/devconsole, type Flag struct, Default bool
@@ -80,6 +83,7 @@ pkg gorbital.dev/modules/devconsole, type Flag struct, Percentage *int
 pkg gorbital.dev/modules/devconsole, type Flag struct, Targets int
 pkg gorbital.dev/modules/devconsole, type Index struct
 pkg gorbital.dev/modules/devconsole, type Index struct, Endpoints []string
+pkg gorbital.dev/modules/devconsole, type Index struct, Extensions []string
 pkg gorbital.dev/modules/devconsole, type Job struct
 pkg gorbital.dev/modules/devconsole, type Job struct, Description string
 pkg gorbital.dev/modules/devconsole, type Job struct, Enabled bool
@@ -200,6 +204,7 @@ pkg gorbital.dev/modules/devconsole, type Setting struct, Value json.RawMessage
 pkg gorbital.dev/modules/devconsole, type Sources struct
 pkg gorbital.dev/modules/devconsole, type Sources struct, App func(context.Context) (App, error)
 pkg gorbital.dev/modules/devconsole, type Sources struct, Config func(context.Context) ([]EnvKey, error)
+pkg gorbital.dev/modules/devconsole, type Sources struct, Extensions []Extension
 pkg gorbital.dev/modules/devconsole, type Sources struct, Jobs func(context.Context) ([]JobRun, error)
 pkg gorbital.dev/modules/devconsole, type Sources struct, Mail func(context.Context) (Mail, error)
 pkg gorbital.dev/modules/devconsole, type Sources struct, MailPreviews *MailPreviewer

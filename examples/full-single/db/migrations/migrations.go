@@ -1,6 +1,6 @@
-// Package migrations embeds the app's goose migrations: one ordered history
-// for the app's own tables and the gorbital modules' tables (ADR-0005).
-// River's job tables are migrated separately by jobs.Migrate (ADR-0033).
+// Package migrations embeds the app's own goose migrations. gorbital.Migrate
+// runs them in one history with the migrations of gorbital's modules,
+// ordered by version (ADR-0083); River's job tables come after.
 package migrations
 
 import "embed"

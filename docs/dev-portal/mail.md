@@ -12,7 +12,7 @@ Three tabs (`?tab=inbox|previews|delivery`).
 |---|---|
 | Inbox | Search over subject, address and code; the list (unread marked, subject, verification-code chips, from → to, snippet, time and size, attachment count), newest first, updated live as messages arrive; Clear all. The page header counts what was caught, the catcher's address and `MAIL_DELIVERY` |
 | A message (`?id=`) | From, To, Cc, Reply-To; the codes bar with copy; HTML (sandboxed, light or dark), Text, Source and Headers; the links (open, copy), the attachments, the SMTP envelope |
-| Previews | The app's email previews grouped by category (the auth module's messages and a plain test message, listed in `internal/app/mail_previews.go`, where you add your own), one rendered for a recipient you type, as HTML and text, with the subject and text to copy |
+| Previews | The app's email previews grouped by category: sign-in's messages and a plain test message. An app on `gorbital.Main` gets them from its modules, which register them during `Setup` with `gorbital.AuthSetup.MailPreviews` — `authhttp` does it for sign-in's — and a v0.1 app lists them in `internal/app/mail_previews.go`, where you add your own. Each is rendered for a recipient you type, as HTML and text, with the subject and text to copy |
 | Delivery | The app's mail status from `/ops/mail`, a test email, and the suppression list |
 
 ## What you can do

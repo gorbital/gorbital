@@ -1,0 +1,22 @@
+{
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/books/{id}": {
+      "parameters": [],
+      "get": {"operationId": "books_catalog-get-v1-books-by-id", "summary": "Get a book", "tags": ["Books"], "security": [{"bearer": []}], "x-gorbital-guards": ["authenticated", "permission:catalog.book.read"]},
+      "delete": {"operationId": "books_catalog-delete-v1-books-by-id", "security": [{"bearer": []}], "x-gorbital-guards": ["authenticated"], "deprecated": true}
+    },
+    "/v1/books": {
+      "post": {"operationId": "catalog-create", "summary": "Add a book", "tags": ["Books"], "security": [{"bearer": []}], "x-gorbital-guards": ["authenticated"]}
+    },
+    "/v1/public/{id}": {
+      "get": {"operationId": "books_catalog-get-v1-public-by-id", "x-gorbital-guards": ["public"]}
+    },
+    "/v1/ping": {
+      "get": {"operationId": "books_catalog-get-v1-ping", "security": [{"bearer": []}], "x-gorbital-guards": ["authenticated"]}
+    },
+    "/version": {
+      "get": {"operationId": "get-version", "tags": ["System"]}
+    }
+  }
+}

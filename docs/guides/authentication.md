@@ -1,6 +1,6 @@
 # Authentication guide
 
-How a Full preset app signs people up and in, keeps them signed in, and decides what they may do. Implemented in `examples/full-single` (`internal/modules/auth`) on the building blocks of `modules/auth`. Decisions: [ADR-0024](../adr/0024-authentication-methods.md), [ADR-0038](../adr/0038-authentication-v0-2.md), [ADR-0043](../adr/0043-two-factor-authentication.md) (two-factor authentication).
+How a Full preset app signs people up and in, keeps them signed in, and decides what they may do. Implemented in `examples/full-single` (`internal/modules/auth`) on the building blocks of `modules/auth`, and for apps on [`gorbital.Main`](main-go.md) in the library as `gorbital.dev/gorbital/authhttp` ([Methods](../methods/gorbital-authhttp.md)), with the same behaviour. Decisions: [ADR-0024](../adr/0024-authentication-methods.md), [ADR-0038](../adr/0038-authentication-v0-2.md), [ADR-0043](../adr/0043-two-factor-authentication.md) (two-factor authentication).
 
 ## The flow
 
@@ -12,7 +12,7 @@ register ──► email with a 6-digit code ──► verify-email ──► lo
                                          /v1/auth/me, /ops/* (with a role and 2FA), your endpoints
 ```
 
-Start the app with `orb dev` (or `docker compose up -d --wait`, `go run ./cmd/migrate`, `go run ./cmd/api`). Emails land in Mailpit at http://127.0.0.1:8025.
+Start the app with `orb dev` (or `docker compose up -d --wait`, `go run ./cmd/api migrate` — `go run ./cmd/migrate` in a v0.1 app — then `go run ./cmd/api`). Emails land in the Dev Portal's Mail screen at http://127.0.0.1:3100/mail.
 
 ```bash
 # 1. Create an account
@@ -51,9 +51,46 @@ Your app owns authentication like any other module, with all four layers. The go
 
 Change a rule, such as allowing only your company's email domain, in the use case (`register.go`); add a column with a new migration and a repository file.
 
+### In an app on gorbital.Main
+
+Sign-in is one line of `main.go`, and the code is in the library, not in your app:
+
+```go
+gorbital.Main(
+	gorbital.WithAuth(authhttp.New()),
+	gorbital.WithModules(modules.All()...),
+)
+```
+
+| Where | What's in it |
+|---|---|
+| `gorbital.dev/gorbital/authhttp` | `New`, the `Authenticator` (its middleware, `Module`, `Commands`, `CheckConfig` and `Setup`), permissions and roles, runtime settings, rate limiters, the `auth_cleanup` and `auth_revoke_tokens` jobs, configuration checks |
+| `gorbital/authhttp/internal/{domain,usecase,repository,delivery}` | The auth module of a v0.1 app, moved unchanged: the 74 operations under `/v1/auth/*`, `/ops/auth/users/*` and `/ops/service-accounts/*`, plus organisations' service accounts under `/v1/orgs/{orgId}/service-accounts`, which [`orgshttp`](../start/organisations.md#in-an-app-on-gorbitalmain) mounts |
+| `gorbital/authhttp/internal/repository/migrations` | The same migrations, under the versions v0.1 apps hold them under: a database migrated by a v0.1 app migrates as a no-op |
+| `gorbital.dev/modules/auth` | The building blocks, as in a v0.1 app |
+
+Nothing about the API changes: the endpoints, request and response bodies, error codes, audit actions, permissions, roles, `auth.*` settings, jobs, rate limiter names (`auth_login`, `auth_login_address`, `auth_mfa`, `auth_reauth`, `auth_code`, `auth_notice`, `auth_api_key`), cookies (`__Host-session`, `__Host-oauth`) and environment variables are v0.1's. `auth.ip_requests_per_minute` and the `auth_ip` limiter belong to gorbital's middleware stack. Contract tests compare the library's OpenAPI operations with v0.1.0's byte for byte.
+
+Your app doesn't own or edit this code; taking it back into your app as owned code is `orb eject` ([ejecting a module](ejecting-a-module.md)). A v0.1 app keeps `internal/modules/auth`, `internal/app` and `cmd/api` unchanged, and needs to do nothing.
+
+#### Changing sign-in
+
+What a v0.1 app changed by editing its auth module, an app on `gorbital.Main` changes with options of `authhttp.New`. Without options, sign-in is v0.1's.
+
+| To | Use | Guide |
+|---|---|---|
+| Raise the password minimum, add a password check, require a second factor for your roles, cap API key lifetimes, close sign-up, brand emails, add middleware to `/v1/auth/` | `MinPasswordLength`, `PasswordPolicy`, `RequireMFA`, `APIKeyMaxTTL`, `WithoutRegistration`, `Brand`, `RouteMiddleware` | [Configuring sign-in](configuring-sign-in.md) |
+| Refuse a sign-in, react to one, or create the app's rows for a new account | `BeforeLogin`, `AfterLogin`, `OnRegister` | [Sign-in hooks](sign-in-hooks.md) |
+| Ask for more than email and password at registration | `RegisterFields` | [Extra registration fields](extra-registration-fields.md) |
+| Sign in with a method of your own, such as a code sent to a phone | `Authenticator.SignIn` in a module | [Adding a sign-in method](adding-a-sign-in-method.md) |
+
+Provider credentials, passkeys and encryption keys stay in environment variables ([sign-in provider setup](auth-providers.md)).
+
 ## Your first administrator
 
-`/ops/*` needs a platform role, and a session signed in with two-factor authentication. In development, seed data already created one: the first `orb dev` (or `go run ./cmd/seed`) creates `admin@example.com` with `platform_admin` and two-factor authentication on, and prints its random password, authenticator app key and recovery codes once, without saving them ([ADR-0042](../adr/0042-development-seed-data.md)). Add the key to an authenticator app and sign in as in [Two-factor authentication](#two-factor-authentication).
+`/ops/*` needs a platform role, and a session signed in with two-factor authentication. In a v0.1 app in development, seed data already created one: the first `orb dev` (or `go run ./cmd/seed`) creates `admin@example.com` with `platform_admin` and two-factor authentication on, and prints its random password, authenticator app key and recovery codes once, without saving them ([ADR-0042](../adr/0042-development-seed-data.md)). Add the key to an authenticator app and sign in as in [Two-factor authentication](#two-factor-authentication).
+
+An app on `gorbital.Main` has no `cmd/seed` directory: sign-in adds the same seed data as a `seed` command of `cmd/api`, and `orb dev` runs `go run ./cmd/api seed` on every start ([sign-in commands](main-go.md#sign-in-commands)). Run it by hand with `go run ./cmd/api seed`, or `--email you@example.com` for another address. It needs `AUTH_ENCRYPTION_KEYS`, which `orb dev` fills in `.env`, and refuses to run when `APP_ENV` is production: there, create the first administrator as below, then turn on two-factor authentication (`POST /v1/auth/mfa/totp`, then `/confirm`).
 
 To give your own account a role, in development or production, register and verify it as above, then grant the role from the app's directory:
 
@@ -62,7 +99,7 @@ go run ./cmd/api roles                                        # list roles and t
 go run ./cmd/api grant-role you@example.com platform_admin    # recorded in the audit log as "cli"
 ```
 
-The role applies to your next request. `platform_admin` and `ops_viewer` require two-factor authentication: until the account turns it on and the session is verified with a second factor, `/ops/*` answers 403 `mfa_required`. `go run ./cmd/api revoke-role <email> <role>` takes a role away.
+The role applies to your next request. `platform_admin` and `ops_viewer` require two-factor authentication: until the account turns it on and the session is verified with a second factor, `/ops/*` answers 403 `mfa_required`. `go run ./cmd/api revoke-role <email> <role>` takes a role away. The commands are the same in an app on `gorbital.Main` ([sign-in commands](main-go.md#sign-in-commands)), except that wrong arguments exit with status 2 instead of 1.
 
 | Role | Can | Requires 2FA |
 |---|---|---|
@@ -70,6 +107,15 @@ The role applies to your next request. `platform_admin` and `ops_viewer` require
 | `ops_viewer` | Read settings, feature flags, jobs, the audit log and email status; change nothing | Yes |
 
 Add roles and permissions in `internal/app/permissions.go`; `c.RequireMFA("role")` makes a role require two-factor authentication. It's code, not a runtime setting, so nobody can switch it off from `/ops/settings`.
+
+In an app on `gorbital.Main`, roles come from modules' permissions: a role exists when a module's `gorbital.Permission` names it in `Roles` ([Modules and routes](modules-and-routes.md)). `authhttp` declares the ops permissions below, the `user` role every account holds when no module grants it anything, and the two-factor requirement for `platform_admin` and `ops_viewer`, with v0.1's role descriptions. A module gives signed-in users a permission with `Roles: []string{"user"}`, as Shelfie's books module does. With `opshttp.Module()` in the app, the ops roles reach the rest of `/ops` too, and `/ops` lists sign-in's methods, rate limiters and accounts retention; without it, they reach `/ops/auth/users` and `/ops/service-accounts` only. To require a second factor for your own roles, name them in `authhttp.RequireMFA("billing_admin")` when the app builds its authenticator ([second factors for your roles](configuring-sign-in.md#second-factors-for-your-roles)).
+
+| Permission | Roles on `gorbital.Main` |
+|---|---|
+| `ops.auth.read` | `platform_admin`, `ops_viewer` |
+| `ops.auth.write` | `platform_admin` |
+| `ops.service_accounts.read` | `platform_admin`, `ops_viewer` |
+| `ops.service_accounts.write` | `platform_admin` |
 
 ## Two-factor authentication
 
@@ -275,7 +321,7 @@ Operators manage accounts through `/ops/auth/users…` ([ops API](ops-api.md#acc
 
 Rate limit settings (group `rate_limits`, all with a reason required) are in the table under [What users see](#what-users-see): `auth.ip_requests_per_minute` (10 – 10 000), `auth.login_attempts` (3 – 100), `auth.login_address_attempts` (10 – 1000), `auth.login_window` (1 minute – 24 hours), `auth.mfa_change_attempts` (3 – 100), `auth.reauth_attempts` (3 – 100), `auth.code_attempts` (5 – 100), `auth.code_window` (1 hour – 7 days) and `auth.api_key_failures_per_minute` (5 – 10 000; wrong API keys per client network, see [API keys](api-keys.md#limits-and-settings)).
 
-Change them with `PUT /ops/settings/{key}`. The auth module also enforces hard limits of its own, so no setting can make sessions or codes unsafe. Two-factor authentication has no runtime settings.
+Change them with `PUT /ops/settings/{key}` (in an app on `gorbital.Main`, with `opshttp.Module()`). The auth module also enforces hard limits of its own, so no setting can make sessions or codes unsafe. Two-factor authentication has no runtime settings.
 
 ## In your own code
 
@@ -298,7 +344,7 @@ func (s *Service) CreateProject(ctx context.Context, name string) (Project, erro
 }
 ```
 
-1. Declare the permission in `internal/app/permissions.go` and add it to a role.
+1. Declare the permission in `internal/app/permissions.go` and add it to a role (in an app on `gorbital.Main`, in the module's `Permissions`, with the roles in `Roles`).
 2. Check it in the use case with `actor.Require` (or `actor.Can` when you only need yes or no).
 3. Map your module's errors to `unauthenticated` (401), `mfa_required` (403) and `forbidden` (403) in `module_<name>.go`.
 
@@ -323,8 +369,11 @@ func (s *Service) CreateProject(ctx context.Context, name string) (Project, erro
 | `session_not_found` | 404 | Revoking a session that isn't yours or has ended |
 | `social_link_required` | 403 | Signing in with Google, Apple or GitHub for the address of an existing account that provider doesn't manage; sign in and link it with `POST /v1/auth/identities` (GitHub: `POST /v1/auth/github/link`) |
 | `identity_in_use` | 409 | Linking a Google, Apple or GitHub account that another account has |
+| `registration_closed` | 403 | Apps on `gorbital.Main` with `authhttp.WithoutRegistration()`: a first Google, Apple or GitHub sign-in of an address without an account ([configuring sign-in](configuring-sign-in.md#closing-sign-up)) |
 | `session_required` | 403 | An API key used where a signed-in session is needed; other API key and service account codes are in the [API keys guide](api-keys.md#error-codes) |
 | `auth_unavailable` | 503 | The session store couldn't be reached, or too many passwords are being checked at once (each waits up to 5 seconds for its turn) |
+
+In an app on `gorbital.Main`, sign-in's hooks can refuse with codes of the app's (403), which are never one of these ([sign-in hooks](sign-in-hooks.md#refusal-codes)).
 
 ## Audit events
 

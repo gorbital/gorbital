@@ -1,0 +1,41 @@
+package ⟦.Package⟧
+
+import (
+	"net/http"
+
+	"gorbital.dev/httpx"
+)
+
+⟦if eq .Kind "global" -⟧
+// ⟦.Ident⟧ is middleware for every route: add it in cmd/api/main.go with
+// gorbital.WithMiddleware. It runs after the built-in stack, so after
+// authentication, and before the routes' guards.
+⟦- else -⟧
+// ⟦.Ident⟧ is middleware for the ⟦.ModuleName⟧ module: add it to a group
+// or a route in routes.go with gorbital.Use, or to every route of the
+// module with Middleware in module.go. It runs before the sign-in check and
+// the guards, so for anonymous callers too.
+⟦- end⟧
+func ⟦.Ident⟧(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if problem := ⟦.Check⟧(r); problem != nil {
+			// A refused request stops here: next never runs.
+			httpx.WriteProblem(w, r, problem)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ⟦.Check⟧ is the middleware's rule.
+// It returns why r is refused, as a problem with its status and code, or
+// nil to let it through; until you write it, every request passes. Pass
+// r.Context() to anything that waits, and never log secrets.
+func ⟦.Check⟧(r *http.Request) *httpx.Problem {
+	// For example, refuse clients that don't say which version they are:
+	//
+	//	if r.Header.Get("X-App-Version") == "" {
+	//		return httpx.NewProblem(http.StatusBadRequest, "app_version_required", "send the X-App-Version header")
+	//	}
+	return nil
+}

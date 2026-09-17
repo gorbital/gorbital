@@ -132,6 +132,8 @@ pkg gorbital.dev/health, type Status struct, Checks map[string]CheckStatus
 pkg gorbital.dev/health, type Status struct, Status string
 pkg gorbital.dev/httpx, const DefaultIdleTimeout = 120000000000
 pkg gorbital.dev/httpx, const DefaultIdleTimeout time.Duration
+pkg gorbital.dev/httpx, const DefaultMaintenanceMessage = "the service is down for maintenance; try again later"
+pkg gorbital.dev/httpx, const DefaultMaintenanceMessage ideal-string
 pkg gorbital.dev/httpx, const DefaultMaxHeaderBytes = 1048576
 pkg gorbital.dev/httpx, const DefaultMaxHeaderBytes ideal-int
 pkg gorbital.dev/httpx, const DefaultReadHeaderTimeout = 5000000000
@@ -148,9 +150,11 @@ pkg gorbital.dev/httpx, func AccessLog(*slog.Logger) Middleware
 pkg gorbital.dev/httpx, func AccessNoteFrom(context.Context) *AccessNote
 pkg gorbital.dev/httpx, func BodyLimit(int64) Middleware
 pkg gorbital.dev/httpx, func CORS(CORSOptions) (Middleware, error)
+pkg gorbital.dev/httpx, func Capture(http.ResponseWriter) *Captured
 pkg gorbital.dev/httpx, func Chain(http.Handler, ...Middleware) http.Handler
 pkg gorbital.dev/httpx, func CrossOrigin(...string) (Middleware, error)
 pkg gorbital.dev/httpx, func DefaultCode(int) string
+pkg gorbital.dev/httpx, func Maintenance(MaintenanceOptions) Middleware
 pkg gorbital.dev/httpx, func NewMapper(*slog.Logger, ...Mapping) (*Mapper, error)
 pkg gorbital.dev/httpx, func NewProblem(int, string, string) *Problem
 pkg gorbital.dev/httpx, func NewServer(string, http.Handler, ...ServerOption) *Server
@@ -165,6 +169,12 @@ pkg gorbital.dev/httpx, func WithShutdownTimeout(time.Duration) ServerOption
 pkg gorbital.dev/httpx, func WithTimeouts(time.Duration, time.Duration, time.Duration, time.Duration) ServerOption
 pkg gorbital.dev/httpx, func WriteProblem(http.ResponseWriter, *http.Request, *Problem)
 pkg gorbital.dev/httpx, method (*AccessNote) Add(...slog.Attr)
+pkg gorbital.dev/httpx, method (*Captured) Bytes() int64
+pkg gorbital.dev/httpx, method (*Captured) Status() int
+pkg gorbital.dev/httpx, method (*Captured) Unwrap() http.ResponseWriter
+pkg gorbital.dev/httpx, method (*Captured) Write([]byte) (int, error)
+pkg gorbital.dev/httpx, method (*Captured) WriteHeader(int)
+pkg gorbital.dev/httpx, method (*Captured) WroteHeader() bool
 pkg gorbital.dev/httpx, method (*Mapper) Add(...Mapping) error
 pkg gorbital.dev/httpx, method (*Mapper) Match(error) (*Problem, bool)
 pkg gorbital.dev/httpx, method (*Mapper) Problem(context.Context, error) *Problem
@@ -174,6 +184,7 @@ pkg gorbital.dev/httpx, method (*Problem) Error() string
 pkg gorbital.dev/httpx, method (*Problem) GetStatus() int
 pkg gorbital.dev/httpx, method (*Server) Addr(context.Context) (string, error)
 pkg gorbital.dev/httpx, method (*Server) Run(context.Context) error
+pkg gorbital.dev/httpx, method (Captured) Header() http.Header
 pkg gorbital.dev/httpx, type AccessNote struct
 pkg gorbital.dev/httpx, type CORSOptions struct
 pkg gorbital.dev/httpx, type CORSOptions struct, AllowCredentials bool
@@ -182,9 +193,16 @@ pkg gorbital.dev/httpx, type CORSOptions struct, AllowedMethods []string
 pkg gorbital.dev/httpx, type CORSOptions struct, AllowedOrigins []string
 pkg gorbital.dev/httpx, type CORSOptions struct, ExposedHeaders []string
 pkg gorbital.dev/httpx, type CORSOptions struct, MaxAge time.Duration
+pkg gorbital.dev/httpx, type Captured struct
+pkg gorbital.dev/httpx, type Captured struct, embedded http.ResponseWriter
 pkg gorbital.dev/httpx, type FieldError struct
 pkg gorbital.dev/httpx, type FieldError struct, Location string
 pkg gorbital.dev/httpx, type FieldError struct, Message string
+pkg gorbital.dev/httpx, type MaintenanceOptions struct
+pkg gorbital.dev/httpx, type MaintenanceOptions struct, Enabled config.Value[bool]
+pkg gorbital.dev/httpx, type MaintenanceOptions struct, Message config.Value[string]
+pkg gorbital.dev/httpx, type MaintenanceOptions struct, Open []string
+pkg gorbital.dev/httpx, type MaintenanceOptions struct, RetryAfter config.Value[time.Duration]
 pkg gorbital.dev/httpx, type Mapper struct
 pkg gorbital.dev/httpx, type Mapping struct
 pkg gorbital.dev/httpx, type Mapping struct, Code string
@@ -205,6 +223,10 @@ pkg gorbital.dev/httpx, type SecureHeadersOptions struct, HSTSMaxAge time.Durati
 pkg gorbital.dev/httpx, type Server struct
 pkg gorbital.dev/httpx, type ServerOption interface { apply }
 pkg gorbital.dev/httpx, var ErrTrustAll error
+pkg gorbital.dev/httpx/ipfilter, func New([]netip.Prefix, []netip.Prefix) (httpx.Middleware, error)
+pkg gorbital.dev/httpx/ipfilter, func ParsePrefixes(string) ([]netip.Prefix, error)
+pkg gorbital.dev/httpx/ipfilter, var ErrDenyAll error
+pkg gorbital.dev/httpx/timeout, func New(time.Duration) httpx.Middleware
 pkg gorbital.dev/mail, const RedactedAddress = "[email]"
 pkg gorbital.dev/mail, const RedactedAddress ideal-string
 pkg gorbital.dev/mail, func NormalizeAddress(string) string
@@ -324,3 +346,40 @@ pkg gorbital.dev/requestid, func From(context.Context) string
 pkg gorbital.dev/requestid, func New() string
 pkg gorbital.dev/requestid, func Valid(string) bool
 pkg gorbital.dev/requestid, func With(context.Context, string) context.Context
+pkg gorbital.dev/webhook, const Base64 = 0
+pkg gorbital.dev/webhook, const Base64 Encoding
+pkg gorbital.dev/webhook, const DefaultTolerance = 300000000000
+pkg gorbital.dev/webhook, const DefaultTolerance time.Duration
+pkg gorbital.dev/webhook, const Hex = 1
+pkg gorbital.dev/webhook, const Hex Encoding
+pkg gorbital.dev/webhook, const MaxIDLength = 255
+pkg gorbital.dev/webhook, const MaxIDLength ideal-int
+pkg gorbital.dev/webhook, const MinSecretBytes = 16
+pkg gorbital.dev/webhook, const MinSecretBytes ideal-int
+pkg gorbital.dev/webhook, const StandardSecretPrefix = "whsec_"
+pkg gorbital.dev/webhook, const StandardSecretPrefix ideal-string
+pkg gorbital.dev/webhook, func DecodeStandardSecret(string) ([]byte, error)
+pkg gorbital.dev/webhook, func NewHMAC(HMACConfig) (*HMAC, error)
+pkg gorbital.dev/webhook, func NewStandard(StandardConfig) (*HMAC, error)
+pkg gorbital.dev/webhook, method (*HMAC) Verify(context.Context, http.Header, []byte) error
+pkg gorbital.dev/webhook, type Encoding int
+pkg gorbital.dev/webhook, type HMAC struct
+pkg gorbital.dev/webhook, type HMACConfig struct
+pkg gorbital.dev/webhook, type HMACConfig struct, Encoding Encoding
+pkg gorbital.dev/webhook, type HMACConfig struct, IDHeader string
+pkg gorbital.dev/webhook, type HMACConfig struct, Now func() time.Time
+pkg gorbital.dev/webhook, type HMACConfig struct, Secrets [][]byte
+pkg gorbital.dev/webhook, type HMACConfig struct, SignatureHeader string
+pkg gorbital.dev/webhook, type HMACConfig struct, SignaturePrefix string
+pkg gorbital.dev/webhook, type HMACConfig struct, Signed func(io.Writer, string, string, []byte)
+pkg gorbital.dev/webhook, type HMACConfig struct, TimestampHeader string
+pkg gorbital.dev/webhook, type HMACConfig struct, Tolerance time.Duration
+pkg gorbital.dev/webhook, type StandardConfig struct
+pkg gorbital.dev/webhook, type StandardConfig struct, HeaderPrefix string
+pkg gorbital.dev/webhook, type StandardConfig struct, Now func() time.Time
+pkg gorbital.dev/webhook, type StandardConfig struct, Secrets []string
+pkg gorbital.dev/webhook, type StandardConfig struct, Tolerance time.Duration
+pkg gorbital.dev/webhook, type Verifier interface { Verify }
+pkg gorbital.dev/webhook, type Verifier interface, Verify(context.Context, http.Header, []byte) error
+pkg gorbital.dev/webhook, var ErrInvalidSignature error
+pkg gorbital.dev/webhook, var ErrTimestamp error

@@ -1,8 +1,9 @@
-// Package usecase holds the projects module's application logic. Each
-// operation checks that the signed-in user belongs to the project's
-// organisation with a role granting the permission (orgs.RequireMember),
-// applies the domain rules, stores the result and records an audit event
-// (ADR-0039, ADR-0048). Change it freely.
+// Package usecase holds the projects module's operations, one file each:
+// each works in the organisation of the request's path, finds the member
+// acting in it, applies the domain rules, stores the result through the
+// Store port, limited to that organisation, and records an audit event.
+// Routes check membership and permissions with guard.OrgMember before a use
+// case runs (delivery/routes.go).
 package usecase
 
 import (
@@ -16,57 +17,43 @@ import (
 
 	"gorbital.dev/actor"
 	"gorbital.dev/audit"
-	authlib "gorbital.dev/modules/auth"
-	orgslib "gorbital.dev/modules/orgs"
 	"gorbital.dev/page"
 
-	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
+	"example.com/acme-api/internal/modules/projects/domain"
 )
 
-// Config holds the Service's dependencies.
-type Config struct {
-	// Required.
-	Store    Store
-	Recorder audit.Recorder
-	// Catalog is the org catalog and Memberships reads members, both from
-	// the orgs module.
-	Catalog     *authlib.Catalog
-	Memberships orgslib.Memberships
+// Permissions the projects routes require in an organisation. Every member
+// holds them through their role (module.go); an API key only when its scopes
+// include them. Permission names are public API.
+const (
+	PermRead  = "projects.project.read"
+	PermWrite = "projects.project.write"
+)
 
-	// Optional.
-	Logger *slog.Logger
-	// Now is the clock and NewID makes IDs, for tests.
-	Now   func() time.Time
-	NewID func() string
-}
+// Audit actions, public API: add new ones, never rename.
+const (
+	ActionCreated = "projects.project.created"
+	ActionUpdated = "projects.project.updated"
+	ActionDeleted = "projects.project.deleted"
+)
 
 // Service runs the projects use cases. It is safe for concurrent use.
 type Service struct {
 	store    Store
 	recorder audit.Recorder
-	catalog  *authlib.Catalog
-	members  orgslib.Memberships
 	logger   *slog.Logger
 	now      func() time.Time
 	newID    func() string
 }
 
-// NewService returns a Service.
-func NewService(c Config) (*Service, error) {
-	if c.Store == nil || c.Recorder == nil || c.Catalog == nil || c.Memberships == nil {
-		return nil, errors.New("projects: invalid service: store, audit recorder, org catalog and memberships are required")
+// NewService returns a Service storing projects in store and recording
+// changes in recorder. Both may be nil while the OpenAPI document is
+// exported, when no use case runs.
+func NewService(store Store, recorder audit.Recorder, logger *slog.Logger) *Service {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
 	}
-	s := &Service{store: c.Store, recorder: c.Recorder, catalog: c.Catalog, members: c.Memberships, logger: c.Logger, now: c.Now, newID: c.NewID}
-	if s.logger == nil {
-		s.logger = slog.New(slog.DiscardHandler)
-	}
-	if s.now == nil {
-		s.now = time.Now
-	}
-	if s.newID == nil {
-		s.newID = newID
-	}
-	return s, nil
+	return &Service{store: store, recorder: recorder, logger: logger, now: time.Now, newID: newID}
 }
 
 var idEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
@@ -82,15 +69,23 @@ func newID() string {
 // time equals the one returned.
 func (s *Service) clock() time.Time { return s.now().UTC().Truncate(time.Microsecond) }
 
-// member checks that the signed-in user belongs to orgID with a role
-// granting permission, and returns the context acting in the organisation.
-func (s *Service) member(ctx context.Context, orgID orgslib.ID, permission string) (context.Context, orgslib.Member, error) {
-	return orgslib.RequireMember(ctx, s.members, s.catalog, orgID, permission)
+// memberID returns the member acting in orgID, the organisation in the
+// request's path: a user, or the organisation's own service account.
+// guard.OrgMember checked the membership and the permission, and left the
+// organisation in the actor; a request acting in no organisation or in
+// another one, such as on a route without the guard, gets
+// ErrUnauthenticated.
+func memberID(ctx context.Context, orgID string) (string, error) {
+	a, ok := actor.From(ctx)
+	if !ok || a.ID == "" || orgID == "" || a.OrgID != orgID {
+		return "", domain.ErrUnauthenticated
+	}
+	return a.ID, nil
 }
 
 // audit records an event after the change it describes; a failed audit
-// write is logged, not returned. The recorder adds the actor, organisation
-// and request.
+// write is logged, not returned. The recorder adds the actor, the
+// organisation and the request.
 func (s *Service) audit(ctx context.Context, action, id string, metadata map[string]any) {
 	e := audit.Event{Action: action, ResourceType: "project", ResourceID: id, Outcome: audit.OutcomeSuccess, Metadata: metadata}
 	if err := s.recorder.Record(context.WithoutCancel(ctx), e); err != nil {
@@ -98,13 +93,12 @@ func (s *Service) audit(ctx context.Context, action, id string, metadata map[str
 	}
 }
 
-// storeError returns the module's own errors as they are and hides the rest,
-// such as driver errors, which aren't API (ADR-0018).
+// storeError returns the module's own errors as they are and hides the
+// rest, such as driver errors, which aren't API.
 func storeError(op string, err error) error {
 	known := []error{
-		projectsdomain.ErrInvalidProject, projectsdomain.ErrProjectNotFound,
-		projectsdomain.ErrProjectNameTaken, projectsdomain.ErrProjectVersionConflict,
-		orgslib.ErrOrgNotFound, actor.ErrUnauthenticated, actor.ErrForbidden, actor.ErrStepUpRequired,
+		domain.ErrInvalidProject, domain.ErrProjectNotFound,
+		domain.ErrProjectNameTaken, domain.ErrProjectVersionConflict,
 		page.ErrInvalidSort,
 	}
 	for _, k := range known {
@@ -112,5 +106,5 @@ func storeError(op string, err error) error {
 			return err
 		}
 	}
-	return fmt.Errorf("projects: %s: %v", op, err) //nolint:errorlint // driver errors aren't API (ADR-0018)
+	return fmt.Errorf("projects: %s: %v", op, err) //nolint:errorlint // driver errors aren't API
 }

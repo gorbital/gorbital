@@ -1,0 +1,53 @@
+name: Fuzz
+
+# Runs every Go fuzz test (func FuzzXxx(f *testing.F)) in every module with
+# scripts/fuzz.sh: 15 seconds per target on pull requests and pushes, 5
+# minutes per target nightly. Failing inputs are uploaded as the
+# fuzz-failures artifact; commit one under the package's testdata/fuzz with
+# the fix, as a regression seed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "23 2 * * *"
+  workflow_dispatch:
+    inputs:
+      fuzztime:
+        description: Time per fuzz target, such as 15s or 10m
+        required: false
+        default: 5m
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: fuzz every target
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+          cache-dependency-path: "**/go.sum"
+      - name: go test -run='^$' -fuzz='^FuzzXxx$' for each target
+        env:
+          FUZZTIME: ${{ github.event_name == 'schedule' && '5m' || github.event_name == 'workflow_dispatch' && inputs.fuzztime || '15s' }}
+          FUZZ_FAILURES: ${{ runner.temp }}/fuzz-failures
+        run: scripts/fuzz.sh
+      - name: upload failing inputs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-failures
+          path: ${{ runner.temp }}/fuzz-failures/
+          if-no-files-found: ignore

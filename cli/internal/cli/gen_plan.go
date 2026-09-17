@@ -32,6 +32,9 @@ func planJob(app appInfo, in jobInput) (genplan.Plan, error) {
 	jobsGo := filepath.Join("internal", "app", "jobs.go")
 	src, err := os.ReadFile(filepath.Join(app.dir, jobsGo))
 	if errors.Is(err, fs.ErrNotExist) {
+		if appLayout(app.dir) == layoutMain {
+			return genplan.Plan{}, usageError("this app is on gorbital.Main, and orb gen job writes jobs into a v0.1 app's internal/app; define the job in a module's Jobs in its module.go instead (docs/guides/modules-and-routes.md)")
+		}
 		return genplan.Plan{}, fmt.Errorf("%s has no %s: orb gen job works in apps created with the Full preset", app.dir, jobsGo)
 	} else if err != nil {
 		return genplan.Plan{}, err
@@ -186,7 +189,7 @@ func planResource(app appInfo, in resourceInput, now time.Time) (genplan.Plan, r
 	case errors.Is(err, recipes.ErrLinePresent):
 		return genplan.Plan{}, recipes.ResourceData{}, fmt.Errorf("%s: the %s module is already registered", modulesGo, data.PluralHuman)
 	case err != nil:
-		return genplan.Plan{}, recipes.ResourceData{}, fmt.Errorf("%s: can't register the %s module after %q; registerModules must return errors.Join of the modules, as in examples/full-single: %w",
+		return genplan.Plan{}, recipes.ResourceData{}, fmt.Errorf("%s: can't register the %s module after %q; registerModules must return errors.Join of the modules, as in examples/v0.1/full-single: %w",
 			modulesGo, data.PluralHuman, recipes.ModulesAnchor, err)
 	}
 
@@ -200,9 +203,9 @@ func planResource(app appInfo, in resourceInput, now time.Time) (genplan.Plan, r
 	permissions, err := recipes.InsertAfterAnchor(permissionsSrc, data.PermissionsAnchor(), data.PermissionsLine())
 	switch {
 	case errors.Is(err, recipes.ErrAnchorMissing) && data.Org:
-		return genplan.Plan{}, recipes.ResourceData{}, fmt.Errorf("%s has no %q line; add it as the first line inside orgResourcePermissions, as in examples/full-multi, then run orb gen resource again", permissionsGo, recipes.OrgPermissionsAnchor)
+		return genplan.Plan{}, recipes.ResourceData{}, fmt.Errorf("%s has no %q line; add it as the first line inside orgResourcePermissions, as in examples/v0.1/full-multi, then run orb gen resource again", permissionsGo, recipes.OrgPermissionsAnchor)
 	case errors.Is(err, recipes.ErrAnchorMissing):
-		return genplan.Plan{}, recipes.ResourceData{}, fmt.Errorf("%s has no %q line; add userResourcePermissions and the user role as in examples/full-single (see the upgrade notes for ADR-0058), then run orb gen resource again", permissionsGo, recipes.UserPermissionsAnchor)
+		return genplan.Plan{}, recipes.ResourceData{}, fmt.Errorf("%s has no %q line; add userResourcePermissions and the user role as in examples/v0.1/full-single (see the upgrade notes for ADR-0058), then run orb gen resource again", permissionsGo, recipes.UserPermissionsAnchor)
 	case errors.Is(err, recipes.ErrLinePresent):
 		return genplan.Plan{}, recipes.ResourceData{}, fmt.Errorf("%s: the %s permissions are already declared", permissionsGo, data.PluralHuman)
 	case err != nil:

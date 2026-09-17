@@ -1,0 +1,74 @@
+package usecase_test
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"reflect"
+	"testing"
+
+	"gorbital.dev/actor"
+
+	opsdomain "gorbital.dev/gorbital/opshttp/internal/domain"
+	opsusecase "gorbital.dev/gorbital/opshttp/internal/usecase"
+)
+
+// TestEveryOperationAuthorizesFirst calls every exported Service method, as
+// every /ops endpoint does, without a session, without permissions, and
+// with permissions that need two-factor authentication. The service has no
+// dependencies, so a method that reaches one before checking the actor
+// panics and fails here: a new operation can't forget authorisation
+// (ADR-0051).
+func TestEveryOperationAuthorizesFirst(t *testing.T) {
+	svc := reflect.ValueOf(opsusecase.NewService(opsusecase.Deps{}))
+	ctxType := reflect.TypeFor[context.Context]()
+	errType := reflect.TypeFor[error]()
+
+	cases := []struct {
+		name string
+		ctx  context.Context
+		want error
+	}{
+		{"without a session", context.Background(), opsdomain.ErrUnauthenticated},
+		{"without permissions", actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_1"}), opsdomain.ErrForbidden},
+		{"without two-factor authentication", actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_1", StepUp: opsdomain.AllPermissions()}), opsdomain.ErrMFARequired},
+	}
+
+	methods := 0
+	for i := range svc.NumMethod() {
+		method := svc.Type().Method(i)
+		fn := svc.Method(i)
+		typ := fn.Type()
+		if typ.NumIn() == 0 || typ.In(0) != ctxType || typ.NumOut() == 0 || typ.Out(typ.NumOut()-1) != errType {
+			continue
+		}
+		methods++
+		for _, c := range cases {
+			args := []reflect.Value{reflect.ValueOf(c.ctx)}
+			for j := 1; j < typ.NumIn(); j++ {
+				args = append(args, reflect.Zero(typ.In(j)))
+			}
+			err := call(fn, args)
+			if !errors.Is(err, c.want) {
+				t.Errorf("%s %s: error = %v, want %v", method.Name, c.name, err, c.want)
+			}
+		}
+	}
+	if methods < 20 {
+		t.Errorf("checked %d operations; the test no longer finds the Service methods", methods)
+	}
+}
+
+// call runs fn and returns its error result, or a panic as an error.
+func call(fn reflect.Value, args []reflect.Value) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("used a dependency before checking the actor: %v", r)
+		}
+	}()
+	out := fn.Call(args)
+	if e, _ := out[len(out)-1].Interface().(error); e != nil {
+		return e
+	}
+	return nil
+}

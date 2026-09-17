@@ -6,10 +6,11 @@
 // Golden app code lives in internal packages that nothing outside the app may
 // import, and the apps must not carry repository-specific code (they are the
 // templates of generated apps). So refdocs adds a test file to
-// examples/<app>/internal/app for one run with go test -overlay, without
-// writing into the app: the test builds the app on a migrated test database,
-// reads the permission catalogs, the settings store, the job definitions and
-// the source, and writes JSON that refdocs renders. It runs on
+// examples/<app>/cmd/api for one run with go test -overlay, without writing
+// into the app: the test builds the app with main.go's options on a migrated
+// test database, reads the permission catalogs, the settings store, the job
+// definitions and the source of the app and of the gorbital packages it
+// links, and writes JSON that refdocs renders. It runs on
 // examples/full-multi, the superset, and on examples/full-single to mark what
 // only multi-tenant apps have.
 //
@@ -22,6 +23,20 @@
 //
 //	go run -C internal/tools/refdocs .          # check (CI)
 //	go run -C internal/tools/refdocs . -write   # after adding codes, actions, permissions, settings or jobs
+//
+// With -methods it generates the Methods pages instead: docs/methods/<slug>.md
+// for every public package of the library (the root module and every module
+// under modules/, the packages apicheck lists) and docs/methods/index.md,
+// from doc comments and Example functions, read with go/parser and go/doc.
+// Each identifier shows the release it arrived in, from the API listings of
+// each release frozen in since/<version>/. Curated text for a package goes in
+// overlay/methods/<slug>.md. It needs no database. Without -write it checks
+// the pages and fails on an exported identifier without a doc comment, on
+// a function, type or method added since the last release without an
+// Example function, and on a page docs/docs.json doesn't list:
+//
+//	go run -C internal/tools/refdocs . -methods          # check (CI)
+//	go run -C internal/tools/refdocs . -methods -write   # after changing exported API or its doc comments
 package main
 
 import (
@@ -38,9 +53,16 @@ import (
 
 func main() {
 	root := flag.String("root", "", "repository root (default: found from the working directory)")
-	write := flag.Bool("write", false, "rewrite the pages in docs/reference")
+	write := flag.Bool("write", false, "rewrite the pages in docs/reference (docs/methods with -methods)")
+	methods := flag.Bool("methods", false, "generate or check the Methods pages in docs/methods from the library source")
 	flag.Parse()
-	if err := run(*root, *write, os.Stdout); err != nil {
+	var err error
+	if *methods {
+		err = runMethodsIn(*root, *write, os.Stdout)
+	} else {
+		err = run(*root, *write, os.Stdout)
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "refdocs:", err)
 		os.Exit(1)
 	}
@@ -84,7 +106,7 @@ func run(root string, write bool, out io.Writer) error {
 	for _, p := range ref.pages() {
 		path := filepath.Join(root, referenceDir, p.file)
 		if write {
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 				return err
 			}
 			if err := os.WriteFile(path, p.content, 0o644); err != nil { //nolint:gosec // committed documentation
@@ -106,6 +128,18 @@ func run(root string, write bool, out io.Writer) error {
 		return errStale
 	}
 	return nil
+}
+
+// runMethodsIn runs the Methods mode from root, or the repository found from
+// the working directory.
+func runMethodsIn(root string, write bool, out io.Writer) error {
+	if root == "" {
+		var err error
+		if root, err = findRoot(); err != nil {
+			return err
+		}
+	}
+	return runMethods(root, write, out)
 }
 
 // findRoot walks up from the working directory to the gorbital.dev module.

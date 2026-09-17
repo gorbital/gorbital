@@ -1,0 +1,37 @@
+package middleware
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func TestTenantHeader(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		header     http.Header
+		wantStatus int
+		wantNext   bool
+	}{
+		{"a request passes through", http.Header{}, http.StatusNoContent, true},
+		// Add the requests your rule refuses, with the status it answers and
+		// wantNext false.
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			reached := false
+			next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				reached = true
+				w.WriteHeader(http.StatusNoContent)
+			})
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.Header = tt.header
+			rec := httptest.NewRecorder()
+
+			TenantHeader(next).ServeHTTP(rec, req)
+
+			if rec.Code != tt.wantStatus || reached != tt.wantNext {
+				t.Errorf("status %d, next reached %t; want %d, %t", rec.Code, reached, tt.wantStatus, tt.wantNext)
+			}
+		})
+	}
+}

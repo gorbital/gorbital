@@ -1,0 +1,6 @@
+
+# Binaries the tools build when run with `go build` in their own directory.
+internal/tools/apicheck/apicheck
+internal/tools/docscheck/docscheck
+internal/tools/refdocs/refdocs
+internal/tools/contracts/contracts

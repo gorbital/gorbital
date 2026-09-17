@@ -499,8 +499,8 @@
         ],
         "type": "object"
       },
-      "CreateInputBody": {
-        "additionalProperties": true,
+      "CreateProjectInputBody": {
+        "additionalProperties": false,
         "properties": {
           "description": {
             "maxLength": 2000,
@@ -509,6 +509,7 @@
           "name": {
             "description": "Unique among your projects, ignoring case",
             "maxLength": 100,
+            "minLength": 1,
             "type": "string"
           },
           "status": {
@@ -5298,8 +5299,8 @@
         ],
         "type": "object"
       },
-      "UpdateInputBody": {
-        "additionalProperties": true,
+      "UpdateProjectInputBody": {
+        "additionalProperties": false,
         "properties": {
           "description": {
             "maxLength": 2000,
@@ -5307,6 +5308,7 @@
           },
           "name": {
             "maxLength": 100,
+            "minLength": 1,
             "type": "string"
           },
           "status": {
@@ -5655,6 +5657,9 @@
         "summary": "List audit events, newest first",
         "tags": [
           "Ops: audit"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -5832,6 +5837,9 @@
         "summary": "Count audit events",
         "tags": [
           "Ops: audit"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -5920,6 +5928,9 @@
         "summary": "Get an audit event",
         "tags": [
           "Ops: audit"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -5977,6 +5988,9 @@
         "summary": "List sign-in methods and what they need",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -6034,6 +6048,9 @@
         "summary": "List the rate limiters",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -6135,6 +6152,9 @@
         "summary": "Forget a key's budget under a limiter",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -6246,6 +6266,9 @@
         "summary": "List accounts",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "post": {
@@ -6345,6 +6368,9 @@
         "summary": "Create an account",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -6436,6 +6462,9 @@
         "summary": "Delete an account",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "get": {
@@ -6522,6 +6551,9 @@
         "summary": "Get an account",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -6625,6 +6657,9 @@
         "summary": "Ban an account",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -6714,6 +6749,9 @@
         "summary": "Unlink a Google, Apple or GitHub account",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -6824,6 +6862,9 @@
         "summary": "Start a session as an account (development only)",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -6944,6 +6985,9 @@
         "summary": "Turn on an authenticator app for an account",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -7037,6 +7081,9 @@
         "summary": "Reset an account's second factors",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -7126,6 +7173,9 @@
         "summary": "Remove a passkey from an account",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -7236,6 +7286,9 @@
         "summary": "Grant a platform role",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -7332,6 +7385,9 @@
         "summary": "Revoke a platform role",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -7419,6 +7475,9 @@
         "summary": "End every session of an account",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -7508,6 +7567,9 @@
         "summary": "End one session of an account",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -7600,6 +7662,9 @@
         "summary": "Lift a ban",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -7692,6 +7757,9 @@
         "summary": "Mark an address verified",
         "tags": [
           "Ops: auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -7771,6 +7839,9 @@
         "summary": "List feature flags",
         "tags": [
           "Ops: flags"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -7881,6 +7952,9 @@
         "summary": "Reset a feature flag to its declared state",
         "tags": [
           "Ops: flags"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "get": {
@@ -7969,6 +8043,9 @@
         "summary": "Get a feature flag",
         "tags": [
           "Ops: flags"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "put": {
@@ -8078,6 +8155,9 @@
         "summary": "Change a feature flag",
         "tags": [
           "Ops: flags"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -8192,6 +8272,9 @@
         "summary": "List a feature flag's changes",
         "tags": [
           "Ops: flags"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -8358,6 +8441,9 @@
         "summary": "List incidents, most recently opened first",
         "tags": [
           "Ops: incidents"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "post": {
@@ -8447,6 +8533,9 @@
         "summary": "Open an incident",
         "tags": [
           "Ops: incidents"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -8535,6 +8624,9 @@
         "summary": "Get an incident with its timeline",
         "tags": [
           "Ops: incidents"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -8662,6 +8754,9 @@
         "summary": "Get an incident report",
         "tags": [
           "Ops: incidents"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -8783,6 +8878,9 @@
         "summary": "Resolve an incident",
         "tags": [
           "Ops: incidents"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -8904,6 +9002,9 @@
         "summary": "Add a timeline update",
         "tags": [
           "Ops: incidents"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -8960,6 +9061,9 @@
         "summary": "List job definitions",
         "tags": [
           "Ops: job definitions"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -9070,6 +9174,9 @@
         "summary": "Reset a job to its code defaults",
         "tags": [
           "Ops: job definitions"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "get": {
@@ -9158,6 +9265,9 @@
         "summary": "Get a job definition",
         "tags": [
           "Ops: job definitions"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "put": {
@@ -9267,6 +9377,9 @@
         "summary": "Change a job's configuration",
         "tags": [
           "Ops: job definitions"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -9379,6 +9492,9 @@
         "summary": "List a job definition's changes",
         "tags": [
           "Ops: job definitions"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -9502,6 +9618,9 @@
         "summary": "Run a job now",
         "tags": [
           "Ops: job definitions"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -9559,6 +9678,9 @@
         "summary": "Summarise job work",
         "tags": [
           "Ops: job runs"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -9696,6 +9818,9 @@
         "summary": "List job runs, newest first",
         "tags": [
           "Ops: job runs"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -9784,6 +9909,9 @@
         "summary": "Get a job run",
         "tags": [
           "Ops: job runs"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -9884,6 +10012,9 @@
         "summary": "Cancel a job run",
         "tags": [
           "Ops: job runs"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -9995,6 +10126,9 @@
         "summary": "Retry a job run now",
         "tags": [
           "Ops: job runs"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -10051,6 +10185,9 @@
         "summary": "List enabled scheduled jobs, soonest first",
         "tags": [
           "Ops: job definitions"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -10108,6 +10245,9 @@
         "summary": "Show how the app sends email",
         "tags": [
           "Ops: email"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -10224,6 +10364,9 @@
         "summary": "List suppressed addresses",
         "tags": [
           "Ops: email"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -10323,6 +10466,9 @@
         "summary": "Remove a suppressed address",
         "tags": [
           "Ops: email"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -10424,6 +10570,9 @@
         "summary": "Send a test email",
         "tags": [
           "Ops: email"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -10518,6 +10667,9 @@
         "summary": "Show request rates, errors and latency",
         "tags": [
           "Ops: observability"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -10640,6 +10792,9 @@
         "summary": "List routes by traffic, errors or latency",
         "tags": [
           "Ops: observability"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -10748,6 +10903,9 @@
         "summary": "Stream the overview",
         "tags": [
           "Ops: observability"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -10804,6 +10962,9 @@
         "summary": "List active job queues",
         "tags": [
           "Ops: job queues"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -10899,6 +11060,9 @@
         "summary": "Pause a queue on every instance",
         "tags": [
           "Ops: job queues"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -10993,6 +11157,9 @@
         "summary": "Resume a paused queue",
         "tags": [
           "Ops: job queues"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -11095,6 +11262,9 @@
         "summary": "List releases, newest first",
         "tags": [
           "Ops: releases"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -11152,6 +11322,9 @@
         "summary": "List the releases running now",
         "tags": [
           "Ops: releases"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -11284,6 +11457,9 @@
         "summary": "List instance starts, newest first",
         "tags": [
           "Ops: releases"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -11341,6 +11517,9 @@
         "summary": "List retention policies",
         "tags": [
           "Ops: settings"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -11398,6 +11577,9 @@
         "summary": "List service accounts",
         "tags": [
           "Ops: service accounts"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "post": {
@@ -11497,6 +11679,9 @@
         "summary": "Create a service account",
         "tags": [
           "Ops: service accounts"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -11581,6 +11766,9 @@
         "summary": "Delete a service account",
         "tags": [
           "Ops: service accounts"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "get": {
@@ -11669,6 +11857,9 @@
         "summary": "Get a service account",
         "tags": [
           "Ops: service accounts"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "patch": {
@@ -11780,6 +11971,9 @@
         "summary": "Change a service account",
         "tags": [
           "Ops: service accounts"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -11870,6 +12064,9 @@
         "summary": "List a service account's API keys",
         "tags": [
           "Ops: service accounts"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "post": {
@@ -12008,6 +12205,9 @@
         "summary": "Create an API key for a service account",
         "tags": [
           "Ops: service accounts"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -12103,6 +12303,9 @@
         "summary": "Revoke a service account's API key",
         "tags": [
           "Ops: service accounts"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -12182,6 +12385,9 @@
         "summary": "List runtime settings",
         "tags": [
           "Ops: settings"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -12292,6 +12498,9 @@
         "summary": "Reset a runtime setting to its default",
         "tags": [
           "Ops: settings"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "get": {
@@ -12380,6 +12589,9 @@
         "summary": "Get a runtime setting",
         "tags": [
           "Ops: settings"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "put": {
@@ -12489,6 +12701,9 @@
         "summary": "Change a runtime setting",
         "tags": [
           "Ops: settings"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -12603,6 +12818,9 @@
         "summary": "List a runtime setting's changes",
         "tags": [
           "Ops: settings"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -12717,6 +12935,9 @@
         "summary": "List organisations' own values of a runtime setting",
         "tags": [
           "Ops: settings"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -12794,6 +13015,9 @@
         "summary": "Describe file storage",
         "tags": [
           "Ops: storage"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -12905,6 +13129,9 @@
         "summary": "Create a directory",
         "tags": [
           "Ops: storage"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -13000,6 +13227,9 @@
         "summary": "Delete an object",
         "tags": [
           "Ops: storage"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "get": {
@@ -13100,6 +13330,9 @@
         "summary": "Describe an object",
         "tags": [
           "Ops: storage"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "put": {
@@ -13217,6 +13450,9 @@
         "summary": "Upload an object",
         "tags": [
           "Ops: storage"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -13312,6 +13548,9 @@
         "summary": "Download an object",
         "tags": [
           "Ops: storage"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -13423,6 +13662,9 @@
         "summary": "Move an object",
         "tags": [
           "Ops: storage"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -13553,6 +13795,9 @@
         "summary": "List objects",
         "tags": [
           "Ops: storage"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -13664,6 +13909,9 @@
         "summary": "Create a signed URL",
         "tags": [
           "Ops: storage"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -13721,6 +13969,9 @@
         "summary": "Describe this instance",
         "tags": [
           "Ops: system"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -13777,6 +14028,9 @@
         "summary": "List your API keys",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "post": {
@@ -13879,6 +14133,9 @@
         "summary": "Create an API key",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -13963,6 +14220,9 @@
         "summary": "Revoke an API key",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -14023,6 +14283,9 @@
         "summary": "Apple's return to the API",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -14088,6 +14351,9 @@
         "summary": "Apple's server-to-server notifications",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -14177,6 +14443,9 @@
         "summary": "Sign in with an Apple ID token",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -14252,6 +14521,9 @@
         "summary": "GitHub's return to the API",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -14327,6 +14599,9 @@
         "summary": "Google's return to the API",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -14416,6 +14691,9 @@
         "summary": "Sign in with a Google ID token",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -14462,6 +14740,9 @@
         "summary": "List linked Google, Apple and GitHub accounts",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "post": {
@@ -14567,6 +14848,9 @@
         "summary": "Link a Google or Apple account",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -14660,6 +14944,9 @@
         "summary": "Unlink a Google, Apple or GitHub account",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -14759,6 +15046,9 @@
         "summary": "Sign in",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -14848,6 +15138,9 @@
         "summary": "Finish signing in with a second factor",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -14920,6 +15213,9 @@
         "summary": "Start a passkey second factor",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -14966,6 +15262,9 @@
         "summary": "Sign out this device",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -15019,6 +15318,9 @@
         "summary": "Sign out every device",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -15096,6 +15398,9 @@
         "summary": "Delete the account",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "get": {
@@ -15140,6 +15445,9 @@
         "summary": "Get the signed-in user",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -15237,6 +15545,9 @@
         "summary": "Replace the recovery codes",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -15327,6 +15638,9 @@
         "summary": "Turn off the authenticator app",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "post": {
@@ -15422,6 +15736,9 @@
         "summary": "Start setting up an authenticator app",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -15519,6 +15836,9 @@
         "summary": "Turn on the authenticator app",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -15565,6 +15885,9 @@
         "summary": "List passkeys",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "post": {
@@ -15650,6 +15973,9 @@
         "summary": "Add a passkey",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -15729,6 +16055,9 @@
         "summary": "Sign in with a passkey",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -15771,6 +16100,9 @@
         "summary": "Start signing in with a passkey",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -15858,6 +16190,9 @@
         "summary": "Start adding a passkey",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -15925,6 +16260,9 @@
         "summary": "Confirm a change with a passkey",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -16018,6 +16356,9 @@
         "summary": "Remove a passkey",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       },
       "patch": {
@@ -16099,6 +16440,9 @@
         "summary": "Rename a passkey",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -16159,6 +16503,9 @@
         "summary": "Change the password",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -16221,6 +16568,9 @@
         "summary": "Email a password reset code",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -16286,6 +16636,9 @@
         "summary": "Set a new password with a reset code",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -16358,6 +16711,9 @@
         "summary": "Create an account",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -16404,6 +16760,9 @@
         "summary": "List signed-in devices",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -16477,6 +16836,9 @@
         "summary": "Sign out one device",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -16532,6 +16894,9 @@
         "summary": "Verify an email address with its code",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -16594,6 +16959,9 @@
         "summary": "Send a new verification code",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -16715,6 +17083,9 @@
         "summary": "Start linking a GitHub account",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -16781,6 +17152,9 @@
         "summary": "Get a nonce for a native sign-in",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -16864,6 +17238,9 @@
         "summary": "Sign in with Google, Apple or GitHub in a browser",
         "tags": [
           "Auth"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -16930,6 +17307,9 @@
         "summary": "Echo a message",
         "tags": [
           "Example"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -16994,6 +17374,9 @@
         "summary": "List your feature flags",
         "tags": [
           "Feature flags"
+        ],
+        "x-gorbital-guards": [
+          "authenticated"
         ]
       }
     },
@@ -17025,6 +17408,9 @@
         "summary": "Check the API is reachable",
         "tags": [
           "Example"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },
@@ -17156,6 +17542,10 @@
         "summary": "List your projects",
         "tags": [
           "Projects"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:projects.project.read"
         ]
       },
       "post": {
@@ -17178,7 +17568,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateInputBody"
+                "$ref": "#/components/schemas/CreateProjectInputBody"
               }
             }
           },
@@ -17254,6 +17644,10 @@
         "summary": "Create a project",
         "tags": [
           "Projects"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:projects.project.write"
         ]
       }
     },
@@ -17337,6 +17731,10 @@
         "summary": "Delete a project",
         "tags": [
           "Projects"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:projects.project.write"
         ]
       },
       "get": {
@@ -17425,6 +17823,10 @@
         "summary": "Get a project",
         "tags": [
           "Projects"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:projects.project.read"
         ]
       },
       "patch": {
@@ -17460,7 +17862,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateInputBody"
+                "$ref": "#/components/schemas/UpdateProjectInputBody"
               }
             }
           },
@@ -17546,6 +17948,10 @@
         "summary": "Update a project",
         "tags": [
           "Projects"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:projects.project.write"
         ]
       }
     },
@@ -17667,6 +18073,9 @@
         "summary": "Resend's email events",
         "tags": [
           "Webhooks"
+        ],
+        "x-gorbital-guards": [
+          "public"
         ]
       }
     },

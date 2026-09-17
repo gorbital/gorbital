@@ -1,0 +1,63 @@
+pkg gorbital.dev/modules/openapi, const BearerScheme = "bearer"
+pkg gorbital.dev/modules/openapi, const BearerScheme ideal-string
+pkg gorbital.dev/modules/openapi, func CheckCompatible([]byte, []byte, string) ([]Incompatibility, error)
+pkg gorbital.dev/modules/openapi, func InstallErrors(*httpx.Mapper)
+pkg gorbital.dev/modules/openapi, func MountDocs(*http.ServeMux, DocsOptions)
+pkg gorbital.dev/modules/openapi, func New(*http.ServeMux, string, string, ...Option) huma.API
+pkg gorbital.dev/modules/openapi, func WithBearerAuth(string) Option
+pkg gorbital.dev/modules/openapi, func WithDescription(string) Option
+pkg gorbital.dev/modules/openapi, func WithoutSpecEndpoints() Option
+pkg gorbital.dev/modules/openapi, func WriteSpec(io.Writer, huma.API) error
+pkg gorbital.dev/modules/openapi, method (Incompatibility) String() string
+pkg gorbital.dev/modules/openapi, type DocsOptions struct
+pkg gorbital.dev/modules/openapi, type DocsOptions struct, Path string
+pkg gorbital.dev/modules/openapi, type DocsOptions struct, SpecURL string
+pkg gorbital.dev/modules/openapi, type DocsOptions struct, Title string
+pkg gorbital.dev/modules/openapi, type Incompatibility struct
+pkg gorbital.dev/modules/openapi, type Incompatibility struct, Change string
+pkg gorbital.dev/modules/openapi, type Incompatibility struct, Operation string
+pkg gorbital.dev/modules/openapi, type Incompatibility struct, Where string
+pkg gorbital.dev/modules/openapi, type Option interface { apply }
+pkg gorbital.dev/modules/openapi, var Bearer []map[string][]string
+pkg gorbital.dev/modules/openapi/reference, const ContentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+pkg gorbital.dev/modules/openapi/reference, const ContentSecurityPolicy ideal-string
+pkg gorbital.dev/modules/openapi/reference, func Assets() []AssetFile
+pkg gorbital.dev/modules/openapi/reference, func Build([]byte, Options) (*Reference, error)
+pkg gorbital.dev/modules/openapi/reference, func LLMs([]byte, ExportOptions) ([]byte, error)
+pkg gorbital.dev/modules/openapi/reference, func Postman([]byte, ExportOptions) ([]byte, error)
+pkg gorbital.dev/modules/openapi/reference, method (*Reference) Handler() (http.Handler, error)
+pkg gorbital.dev/modules/openapi/reference, method (*Reference) SearchIndex() ([]byte, error)
+pkg gorbital.dev/modules/openapi/reference, type AssetFile struct
+pkg gorbital.dev/modules/openapi/reference, type AssetFile struct, Data []byte
+pkg gorbital.dev/modules/openapi/reference, type AssetFile struct, Name string
+pkg gorbital.dev/modules/openapi/reference, type AssetFile struct, Source string
+pkg gorbital.dev/modules/openapi/reference, type ExportOptions struct
+pkg gorbital.dev/modules/openapi/reference, type ExportOptions struct, BaseURL string
+pkg gorbital.dev/modules/openapi/reference, type ExportOptions struct, DocsPath string
+pkg gorbital.dev/modules/openapi/reference, type Heading struct
+pkg gorbital.dev/modules/openapi/reference, type Heading struct, ID string
+pkg gorbital.dev/modules/openapi/reference, type Heading struct, Level int
+pkg gorbital.dev/modules/openapi/reference, type Heading struct, Text string
+pkg gorbital.dev/modules/openapi/reference, type Options struct
+pkg gorbital.dev/modules/openapi/reference, type Options struct, BasePath string
+pkg gorbital.dev/modules/openapi/reference, type Options struct, Intro string
+pkg gorbital.dev/modules/openapi/reference, type Options struct, SameOrigin bool
+pkg gorbital.dev/modules/openapi/reference, type Options struct, SpecURL string
+pkg gorbital.dev/modules/openapi/reference, type Options struct, Title string
+pkg gorbital.dev/modules/openapi/reference, type Options struct, TrailingSlash bool
+pkg gorbital.dev/modules/openapi/reference, type Page struct
+pkg gorbital.dev/modules/openapi/reference, type Page struct, Description string
+pkg gorbital.dev/modules/openapi/reference, type Page struct, Main template.HTML
+pkg gorbital.dev/modules/openapi/reference, type Page struct, Markdown string
+pkg gorbital.dev/modules/openapi/reference, type Page struct, Method string
+pkg gorbital.dev/modules/openapi/reference, type Page struct, Panel template.HTML
+pkg gorbital.dev/modules/openapi/reference, type Page struct, Path string
+pkg gorbital.dev/modules/openapi/reference, type Page struct, TOC []Heading
+pkg gorbital.dev/modules/openapi/reference, type Page struct, Tag string
+pkg gorbital.dev/modules/openapi/reference, type Page struct, Text string
+pkg gorbital.dev/modules/openapi/reference, type Page struct, Title string
+pkg gorbital.dev/modules/openapi/reference, type Page struct, URL string
+pkg gorbital.dev/modules/openapi/reference, type Reference struct
+pkg gorbital.dev/modules/openapi/reference, type Reference struct, Pages []*Page
+pkg gorbital.dev/modules/openapi/reference, type Reference struct, Title string
+pkg gorbital.dev/modules/openapi/reference, type Reference struct, Version string

@@ -1,0 +1,5 @@
+// Package middleware holds the app's own HTTP middleware, which main.go adds
+// to every route with gorbital.WithMiddleware: it runs after the built-in
+// stack, so after authentication. orb gen middleware --global writes one file
+// per middleware here, with its test.
+package middleware

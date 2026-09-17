@@ -2,6 +2,7 @@ package observability_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,11 +13,15 @@ import (
 	"gorbital.dev/modules/observability"
 )
 
+// copiedKey is the key copyRequest stores under: a package-local type, so
+// it can't collide with another package's context value.
+type copiedKey struct{}
+
 // copyRequest stands in for middleware such as authentication that
 // replaces the request with r.WithContext before the router.
 func copyRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), struct{}{}, "copied")))
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), copiedKey{}, "copied")))
 	})
 }
 
@@ -168,18 +173,18 @@ func TestStreams(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, doneA2, _ := s.Open(ctx, "a")
-	if _, _, err := s.Open(ctx, "a"); err != observability.ErrTooManyStreams {
+	if _, _, err := s.Open(ctx, "a"); !errors.Is(err, observability.ErrTooManyStreams) {
 		t.Errorf("third stream for one subject: error = %v, want ErrTooManyStreams", err)
 	}
 	expiring, doneB, err := s.Open(ctx, "b")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.Open(ctx, "c"); err != observability.ErrTooManyStreams {
+	if _, _, err := s.Open(ctx, "c"); !errors.Is(err, observability.ErrTooManyStreams) {
 		t.Errorf("fourth stream: error = %v, want ErrTooManyStreams", err)
 	}
 	<-expiring.Done()
-	if cause := context.Cause(expiring); cause != observability.ErrStreamExpired {
+	if cause := context.Cause(expiring); !errors.Is(cause, observability.ErrStreamExpired) {
 		t.Errorf("expired stream cause = %v, want ErrStreamExpired", cause)
 	}
 	doneB()
@@ -194,10 +199,10 @@ func TestStreams(t *testing.T) {
 	defer done()
 	longer.Close()
 	<-open.Done()
-	if cause := context.Cause(open); cause != observability.ErrStreamsClosed {
+	if cause := context.Cause(open); !errors.Is(cause, observability.ErrStreamsClosed) {
 		t.Errorf("closed stream cause = %v, want ErrStreamsClosed", cause)
 	}
-	if _, _, err := longer.Open(ctx, "a"); err != observability.ErrStreamsClosed {
+	if _, _, err := longer.Open(ctx, "a"); !errors.Is(err, observability.ErrStreamsClosed) {
 		t.Errorf("Open after Close error = %v, want ErrStreamsClosed", err)
 	}
 	doneA1()

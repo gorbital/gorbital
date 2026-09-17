@@ -60,9 +60,31 @@ Renaming a parameter doesn't change the listing. A changed listing is part of th
 
 At release, `.github/workflows/release-library.yml` runs `gorelease` for the tagged module against its previous release tag: it fails on incompatible changes and on a version number that doesn't match the change. Run it before tagging from the Actions tab ("Run workflow" with the module directory and version). It works once `gorbital.dev` and the previous release can be downloaded.
 
+## Methods pages: `docs/methods`
+
+The [Methods](../methods/index.md) tab documents the same packages the API listings cover, one page per package, generated from the source by `internal/tools/refdocs`: each identifier's signature, doc comment and `Example` functions, and *Since*, the first release whose listing has it. The listings of each release are frozen in `internal/tools/refdocs/since/<version>/` (copied from `api/` at the release tag), so anything not in them shows `v0.2.0 (unreleased)`.
+
+```bash
+go run -C internal/tools/refdocs . -methods          # check (CI, no database needed)
+go run -C internal/tools/refdocs . -methods -write   # regenerate after changing exported API or its doc comments
+```
+
+| Output | Means | Do |
+|---|---|---|
+| `<file>:<line>: <pkg>.<Name> has no doc comment` | An exported identifier isn't documented | Write the doc comment |
+| `<file>:<line>: <pkg>.<Name> is new in v0.2.0 (unreleased) and has no Example function` | A function, type or method added since the last release has no `Example` | Add one to the package's `example_test.go` |
+| `docs/methods/<page>.md: stale` | The page doesn't match the source | Regenerate with `-write` and commit the page |
+| `docs/docs.json: docs/methods/<page>.md isn't in the Methods tab` | A new package has no page in the navigation | Add it to the Core or Modules group |
+
+At each release, maintainers copy `api/*.txt` into `internal/tools/refdocs/since/<version>/` and bump the unreleased version in `internal/tools/refdocs/methods.go`. How to write doc comments and examples: [CONTRIBUTING.md](../../CONTRIBUTING.md#documenting-methods).
+
 ## Public surface of an app: `api/surface.json`
 
-Full apps (the golden apps and every app generated from them) record the names clients, operators and stored data depend on:
+Full apps (the golden apps and every app generated from them) record the names clients, operators and stored data depend on.
+
+**In an app on `gorbital.Main`** (every Full app `orb new` creates from v0.2 on), `api/surface.json` records only the app's own names: what the modules in `modules.All()` declare (permissions and the roles they name, runtime settings, feature flags, jobs, error mappings) and the error codes and audit actions written in the app's source. `TestPublicSurface` is in `internal/modules/surface_test.go`, needs no database, and fails on a recorded name that disappears or a new name not recorded yet; record with `go test ./internal/modules -run TestPublicSurface -update`. The names of gorbital's built-in modules and packages aren't the app's to record: a library release that adds one can't fail the app's tests, and the library's own contract tests keep every released name ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#the-apps-public-surface-apisurfacejson)).
+
+**In a v0.1-layout app** the file records every name the app can return, its own and those of every gorbital package it links:
 
 ```json
 {
@@ -81,7 +103,7 @@ Full apps (the golden apps and every app generated from them) record the names c
 | Failure | Means | Do |
 |---|---|---|
 | `… is recorded in api/surface.json but no longer exists` | A client, dashboard, stored override or queued job may depend on it | Restore it. If it really must go (you deleted your own resource before anyone used it), record with `-update` and say so in the pull request |
-| `new … isn't recorded` | You added a code, action, permission, setting, job or feature flag | `go test ./internal/app -run TestPublicSurface -update`, then commit `api/surface.json` |
+| `new … isn't recorded` | You added a code, action, permission, setting, job or feature flag | `go test ./internal/modules -run TestPublicSurface -update` (`./internal/app` in a v0.1 app), then commit `api/surface.json` |
 
 How names are found:
 
@@ -95,9 +117,19 @@ How names are found:
 
 Write codes and actions in one of those forms, not built with `fmt.Sprintf`, so the inventory sees them. `orb gen resource` and `orb gen job` print the record step in their next steps; `orb upgrade` and `orb add orgs` record the file themselves after building, so the upgrade commit shows what changed. Minimal apps have no inventory.
 
+### Adding error codes
+
+Because the inventory reads the source of every `gorbital.dev` package an app links, a new error code or audit action in one of those packages is a new name in every existing app's surface: its `TestPublicSurface` fails with `new … isn't recorded` after a plain `go get`, which breaks the scaffold compatibility promise (below). So:
+
+- **Don't add problem codes or audit actions to packages apps generated by `orb` v0.1.0 link.** Today those are `actor`, `app`, `audit`, `buildinfo`, `config`, `health`, `httpx`, `mail`, `page`, `ratelimit`, `requestid` and `webhook` in the root module, and `modules/auditpg`, `auth` (with `auth/passkey` and `auth/social`), `devconsole`, `flags`, `idempotency`, `jobs`, `mail/resend`, `mail/smtp`, `mail/suppressionpg`, `observability`, `openapi` (with `openapi/reference`), `orgs`, `postgres`, `ratelimitpg`, `releases`, `settings`, `storage` (with `storage/local`, `storage/logarchive` and `storage/s3`) and `telemetry` (`go list -deps ./...` in `examples/full-single` and `examples/full-multi`).
+- **Put middleware or features that need a new code in a new package**, which an existing app links only once it chooses to use it and records the code then. `request_timeout` and `ip_not_allowed` live in `gorbital.dev/httpx/timeout` and `gorbital.dev/httpx/ipfilter` for this reason, not in `httpx`; `invalid_token` in `gorbital.dev/modules/jwt`.
+- Packages of `gorbital.dev/gorbital` (the composition module) aren't linked by v0.1 apps, so they may add codes; they are recorded when an app moves to `gorbital.Main`.
+
+The v0.1.0 scaffold compatibility check below catches a mistake: it runs the generated apps' `TestPublicSurface` against your checkout.
+
 ## Reference pages: `docs/reference`
 
-The [error codes](../reference/error-codes.md), [audit actions](../reference/audit-actions.md), [permissions and roles](../reference/permissions.md), [runtime settings](../reference/settings.md) and [jobs](../reference/jobs.md) pages are generated from the golden apps, so the documented surface is the real one. `internal/tools/refdocs` adds a test file to `examples/full-multi/internal/app` and `examples/full-single/internal/app` for one `go test -overlay` run (nothing is written into the apps, and generated apps carry no documentation code): it builds each app on a migrated test database and reads the permission catalogs, the settings store, the job definitions and, from the source, the error mappings and audit actions. Names only `full-multi` has are marked *multi-tenant apps only*.
+The [error codes](../reference/error-codes.md), [audit actions](../reference/audit-actions.md), [permissions and roles](../reference/permissions.md), [runtime settings](../reference/settings.md) and [jobs](../reference/jobs.md) pages are generated from the golden apps, so the documented surface is the real one. `internal/tools/refdocs` adds a test file to `examples/full-multi/cmd/api` and `examples/full-single/cmd/api` for one `go test -overlay` run (nothing is written into the apps, and generated apps carry no documentation code): it builds each app with `main.go`'s options on a migrated test database and reads the permission catalogs and job definitions (through `gorbital.Platform`), the settings store and, from the source of the app and every gorbital package it links, the error mappings and audit actions. Names only `full-multi` has are marked *multi-tenant apps only*.
 
 Descriptions the code doesn't carry are in `internal/tools/refdocs/descriptions.json`: when each audit action is recorded, and the meaning of error codes whose mappings have no single detail. The tool warns about a name without one; add it there.
 
@@ -119,7 +151,7 @@ Full apps carry `api/openapi.baseline.json`, the recorded OpenAPI document of go
 
 Additions pass. **Never edit the baseline to make the test pass.** Maintainers copy the released `api/openapi.json` over it at each release, after the check passes, so later additions are protected too.
 
-The comparison is `openapi.CheckCompatible(baseline, current, prefix)` in `gorbital.dev/modules/openapi`. To hold your own API to the same rule, record a baseline when you release (`cp api/openapi.json api/openapi.baseline.json`) and add `"/v1/"` to the prefixes in `internal/app/api_compat_test.go`.
+The comparison is `openapi.CheckCompatible(baseline, current, prefix)` in `gorbital.dev/modules/openapi`. To hold your own API to the same rule, record a baseline when you release (`cp api/openapi.json api/openapi.baseline.json`) and add `"/v1/"` to the prefixes in the test that holds the check: `cmd/api/main_test.go` in an app on `gorbital.Main`, `internal/app/api_compat_test.go` in a v0.1 app.
 
 ## `orb --json`
 
@@ -143,18 +175,35 @@ git fetch --tags
 cd cli && ORB_COMPAT=1 go test -run TestScaffoldCompatibility -count=1 -timeout 30m ./internal/cli/
 ```
 
-It skips until a `v1.*` tag exists. `ORB_COMPAT_FROM=<tag>` checks another release; v0 releases aren't bound by the promise and may fail. CI runs it in the `compatibility` job.
+It skips until a `v1.*` tag exists. `ORB_COMPAT_FROM=<tag>` checks another release; v0 releases aren't bound by the v1 promise, but v0.1.0 is held to v0.2's additive rule (below). CI runs it in the `compatibility` job.
 
 A failure means a library change broke code that apps already have. Fix the library (keep the old API, keep the old behaviour behind it), not the templates: existing apps don't get template changes until they upgrade.
 
 `orb upgrade --major` comes with the first v2 bridge release.
 
+### v0.2 compatibility: apps generated by orb v0.1.0
+
+v0.2 is additive ([roadmap](../v0.2-roadmap.md), decision D2): no exported identifier of v0.1 changes meaning or is removed, so an app created with `orb v0.1.0` builds and passes its tests against the v0.2 library without changes. The same test checks it the way a user of the release would meet it:
+
+1. `go install gorbital.dev/cli/cmd/orb@v0.1.0` from the module proxy;
+2. `orb new --preset full --tenancy single` and `--tenancy multi`, with `--no-input --no-start --no-git --skip-tidy`, outside any checkout, so the apps require the published `gorbital.dev` modules at `v0.1.0`;
+3. `go mod edit -replace` for every library module of your checkout (the root and every `go.mod` under `modules/`), then `go mod tidy`, `go build ./...`, `go vet ./...` and `go test ./...` in each app.
+
+```bash
+cd cli && ORB_COMPAT=1 ORB_COMPAT_FROM=v0.1.0 ORB_COMPAT_PUBLISHED=1 \
+  go test -run TestScaffoldCompatibility -count=1 -timeout 30m -v ./internal/cli/
+```
+
+It needs the network (or a module cache holding `orb` v0.1.0) and the test database and Mailpit exported as above, but no tags in the checkout. CI runs it in the `compatibility` job on every pull request. The OpenAPI documents and `api/surface.json` names of v0.1.0 are held separately by the frozen fixtures in `internal/contracts/v0.1.0` (`go test -C internal/tools/contracts ./...`, the `contracts` job).
+
 ## Checklist for a change
 
 | You changed | Run |
 |---|---|
-| Exported Go API | `go run -C internal/tools/apicheck .` (`-write` to record additions) |
-| A golden Full app's error codes, audit actions, permissions, settings or jobs | `go test ./internal/app -run TestPublicSurface -update` in both Full apps, `go run -C internal/tools/refdocs . -write` (with a description in its `descriptions.json` for a new audit action), then `cd cli && go generate ./internal/recipes/` |
-| `/ops` endpoints | `go test ./internal/app -run TestOpsAPICompatible` in both Full apps |
+| Exported Go API | `go run -C internal/tools/apicheck .` (`-write` to record additions), then `go run -C internal/tools/refdocs . -methods -write` |
+| Doc comments or `Example` functions | `go run -C internal/tools/refdocs . -methods -write` |
+| A golden Full app's error codes, audit actions, permissions, settings or jobs | `go test ./internal/modules -run TestPublicSurface -update` in both Full apps (when the app's own names change), `go run -C internal/tools/refdocs . -write` (with a description in its `descriptions.json` for a new audit action), then `cd cli && go generate ./internal/recipes/` |
+| `/ops` endpoints | `go test ./cmd/api -run TestOpsAPICompatible` in both Full apps (`./internal/app` in the v0.1 apps under `examples/v0.1/`) |
 | `orb` JSON output | `cd cli && go test ./internal/cli -run TestJSONOutputs` (`-update` for additions) |
-| The library in a way old scaffolds might notice | The scaffold compatibility check above |
+| The library in a way old scaffolds might notice | The scaffold compatibility check above, with `ORB_COMPAT_FROM=v0.1.0 ORB_COMPAT_PUBLISHED=1` |
+| A golden app's built-in endpoints or surface names | `go test -C internal/tools/contracts ./...` (the v0.1.0 fixtures never change: [internal/contracts/v0.1.0](../../internal/contracts/v0.1.0/README.md)) |

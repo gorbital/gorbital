@@ -34,6 +34,7 @@ type InvalidStateError struct {
 	Reason string
 }
 
+// Error names the flag key and the reason the state was rejected.
 func (e *InvalidStateError) Error() string {
 	return fmt.Sprintf("flags: invalid state for %s: %s", e.Key, e.Reason)
 }

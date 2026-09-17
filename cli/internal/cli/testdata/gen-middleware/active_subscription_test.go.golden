@@ -1,0 +1,60 @@
+package delivery
+
+import (
+	"context"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"gorbital.dev/gorbital"
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/auth"
+	"gorbital.dev/modules/openapi"
+)
+
+func TestActiveSubscription(t *testing.T) {
+	// A test API with one route behind the guard, mapping its error as
+	// module.go does.
+	mux := http.NewServeMux()
+	api := openapi.New(mux, "test", "1.0.0", openapi.WithBearerAuth("session"))
+	mapper, err := httpx.NewMapper(slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	openapi.InstallErrors(mapper)
+	guarded := gorbital.Module{
+		Name:   "test",
+		Errors: []httpx.Mapping{{Err: ErrActiveSubscriptionRefused, Status: http.StatusForbidden, Code: "active_subscription_refused", Detail: "refused"}},
+		Routes: func(r *gorbital.Router, _ gorbital.Deps) {
+			gorbital.Get(r, "/guarded", func(context.Context, *struct{}) (*struct{}, error) { return nil, nil }, ActiveSubscription())
+		},
+	}
+	if err := gorbital.Mount(api, mapper, gorbital.Deps{}, guarded); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tt := range []struct {
+		name     string
+		signedIn bool
+		header   http.Header
+		want     int
+	}{
+		{"a signed-in request passes", true, http.Header{}, http.StatusNoContent},
+		{"the sign-in check runs first", false, http.Header{}, http.StatusUnauthorized},
+		// Add the requests your rule refuses, with want http.StatusForbidden.
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/guarded", nil)
+			req.Header = tt.header
+			if tt.signedIn {
+				req = req.WithContext(auth.WithPrincipal(req.Context(), auth.Principal{UserID: "usr_1", SessionID: "ses_1"}))
+			}
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+			if rec.Code != tt.want {
+				t.Errorf("status = %d, want %d: %s", rec.Code, tt.want, rec.Body)
+			}
+		})
+	}
+}

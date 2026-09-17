@@ -1,12 +1,14 @@
 //go:build ignore
 
 // This file isn't built into refdocs: refdocs adds it to a golden app's
-// internal/app package for one go test -overlay run (removing the build
+// cmd/api package for one go test -overlay run (removing the build
 // constraint above), so it reads the app's real declarations while the app
-// carries no documentation code. It uses the app's unexported
-// permissionCatalogs, settings store and jobs manager, and the test database.
+// carries no documentation code. It builds the app with main.go's options()
+// on the test database through gorbitaltest, and reads what New built: the
+// permission catalogs and job definitions through a module's Platform, the
+// settings through Deps.
 
-package app
+package main
 
 import (
 	"context"
@@ -14,18 +16,19 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
 
-	"gorbital.dev/config"
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/gorbitaltest"
 	"gorbital.dev/httpx"
+	"gorbital.dev/modules/auth"
 	"gorbital.dev/modules/jobs"
-	"gorbital.dev/modules/postgres/pgtest"
 )
 
 type refDump struct {
@@ -84,6 +87,9 @@ type refCode struct {
 	Detail   string `json:"detail,omitempty"`
 	Generic  bool   `json:"generic,omitempty"`
 	Location string `json:"location"`
+	// Module names the library module an app must add to get this code,
+	// for the codes of refExtraModules; empty for everything the app has.
+	Module string `json:"module,omitempty"`
 }
 
 type refAction struct {
@@ -98,45 +104,35 @@ func TestReferenceDump(t *testing.T) {
 		t.Skip("run by gorbital's internal/tools/refdocs")
 	}
 	ctx := context.Background()
-	d := refDump{ServiceName: ServiceName}
+	var platform *gorbital.Platform
+	capture := gorbital.Module{Name: "refdocs_dump", Platform: func(p *gorbital.Platform) error { platform = p; return nil }}
+	app := gorbitaltest.New(t, append(options(), gorbital.WithModules(capture))...)
+	if platform == nil {
+		t.Fatal("the app built no Platform")
+	}
+	d := refDump{ServiceName: platform.Name}
 
-	for name, c := range permissionCatalogs() {
-		rc := refCatalog{Name: name}
-		for _, p := range c.AllPermissions() {
+	for _, c := range []struct {
+		name    string
+		catalog *auth.Catalog
+	}{{"platform", platform.Permissions}, {"org", platform.OrgPermissions}} {
+		if c.catalog == nil || len(c.catalog.AllPermissions()) == 0 {
+			continue
+		}
+		rc := refCatalog{Name: c.name}
+		for _, p := range c.catalog.AllPermissions() {
 			rc.Permissions = append(rc.Permissions, refPermission{p.Name, p.Description})
 		}
-		for _, r := range c.Roles() {
-			rc.Roles = append(rc.Roles, refRole{r.Name, r.Description, r.Permissions, c.RequiresMFA(r.Name)})
+		for _, r := range c.catalog.Roles() {
+			rc.Roles = append(rc.Roles, refRole{r.Name, r.Description, r.Permissions, c.catalog.RequiresMFA(r.Name)})
 		}
 		d.Catalogs = append(d.Catalogs, rc)
 	}
 
-	url := pgtest.NewDatabase(t)
-	cfg, err := LoadConfig(config.Source{Getenv: func(key string) string {
-		switch key {
-		case "APP_ENV":
-			return "development"
-		case "DATABASE_URL":
-			return url
-		}
-		return ""
-	}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := Migrate(ctx, cfg, io.Discard); err != nil {
-		t.Fatal(err)
-	}
-	a, err := New(ctx, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer a.Close(ctx)
-
-	for _, v := range a.settings.List() {
+	for _, v := range app.App().Deps().Settings.List() {
 		d.Settings = append(d.Settings, refSetting{v.Key, string(v.Kind), v.Group, v.Description, v.Default, v.ReasonRequired, v.RestartRequired, v.Constraints})
 	}
-	defs, err := a.jobsManager.Definitions(ctx)
+	defs, err := platform.Jobs.Definitions(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,6 +156,17 @@ func TestReferenceDump(t *testing.T) {
 	}
 }
 
+// refListFormat prints, per package, the fields scanPackages reads.
+const refListFormat = `{{if .Module}}{{.Module.Path}}|{{.Module.Dir}}|{{.ImportPath}}|{{.Dir}}|{{join .GoFiles ","}}{{end}}`
+
+// refExtraModules are library modules no golden app links, so the app's
+// dependency graph below never reaches them and their error codes would be
+// missing from the reference. Each is scanned on its own, from the checkout
+// next to the app, and its codes are marked in the page as belonging to a
+// module an app adds. Add a module here when it returns problem codes of its
+// own and no golden app uses it.
+var refExtraModules = []string{"gorbital.dev/modules/jwt"}
+
 // scanReference finds error codes and audit actions the way
 // TestPublicSurface does, keeping each one's status, detail, metadata keys
 // and where it is written.
@@ -167,7 +174,24 @@ func scanReference(t *testing.T, d *refDump) {
 	t.Helper()
 	statuses := httpStatuses(t)
 	module := goOutput(t, "list", "-m")
-	for _, line := range strings.Split(goOutput(t, "list", "-deps", "-f", `{{if .Module}}{{.Module.Path}}|{{.Module.Dir}}|{{.ImportPath}}|{{.Dir}}|{{join .GoFiles ","}}{{end}}`, "./..."), "\n") {
+	scanPackages(t, goOutput(t, "list", "-deps", "-f", refListFormat, "./..."), module, "", statuses, d)
+	for _, extra := range refExtraModules {
+		// The checkout's copy, not the published one: examples/<app> is two
+		// directories below the root, and every gorbital.dev module lives
+		// under it at its import path's tail.
+		dir := filepath.Join("..", "..", filepath.FromSlash(strings.TrimPrefix(extra, "gorbital.dev/")))
+		scanPackages(t, goOutput(t, "list", "-C", dir, "-f", refListFormat, "./..."), module, extra, statuses, d)
+	}
+}
+
+// scanPackages parses every package of a go list run that belongs to the app
+// or to the library, and records what it declares. With extra set, the
+// packages come from a module the app doesn't link, and every code is marked
+// with it.
+func scanPackages(t *testing.T, list, module, extra string, statuses map[string]int, d *refDump) {
+	t.Helper()
+	before := len(d.Codes)
+	for _, line := range strings.Split(list, "\n") {
 		parts := strings.SplitN(line, "|", 5)
 		if len(parts) != 5 || parts[4] == "" {
 			continue
@@ -224,6 +248,11 @@ func scanReference(t *testing.T, d *refDump) {
 			scanFile(f, location, statuses, actionParams, actionConsts, d)
 		}
 	}
+	if extra != "" {
+		for i := before; i < len(d.Codes); i++ {
+			d.Codes[i].Module = extra
+		}
+	}
 }
 
 func scanFile(f *ast.File, location string, statuses map[string]int, actionParams map[string][]int, actionConsts map[string]string, d *refDump) {
@@ -271,7 +300,7 @@ func scanFile(f *ast.File, location string, statuses map[string]int, actionParam
 		}
 		return keys
 	}
-	isAction := func(s string) bool { return actionPattern.MatchString(s) }
+	isAction := func(s string) bool { return refActionPattern.MatchString(s) }
 
 	// Metadata keys set on a variable after it was built, such as
 	// e := userEvent(...); e.Metadata["method"] = "password".
@@ -324,6 +353,9 @@ func scanFile(f *ast.File, location string, statuses map[string]int, actionParam
 			body = fn.Body
 		}
 		assigned := map[ast.Node]string{} // expression → variable it is assigned to
+		// Elements of a []httpx.Mapping literal, whose type is elided, such as
+		// a built-in module's Errors.
+		elided := map[*ast.CompositeLit]bool{}
 		ast.Inspect(decl, func(n ast.Node) bool {
 			switch n := n.(type) {
 			case *ast.AssignStmt:
@@ -333,7 +365,14 @@ func scanFile(f *ast.File, location string, statuses map[string]int, actionParam
 					}
 				}
 			case *ast.CompositeLit:
-				mapping := isName(n.Type, "httpx", "Mapping", f.Name.Name)
+				if array, ok := n.Type.(*ast.ArrayType); ok && refIsName(array.Elt, "httpx", "Mapping", f.Name.Name) {
+					for _, elt := range n.Elts {
+						if lit, ok := elt.(*ast.CompositeLit); ok && lit.Type == nil {
+							elided[lit] = true
+						}
+					}
+				}
+				mapping := refIsName(n.Type, "httpx", "Mapping", f.Name.Name) || elided[n]
 				var code, detail, action string
 				var st int
 				var meta []string
@@ -359,15 +398,15 @@ func scanFile(f *ast.File, location string, statuses map[string]int, actionParam
 						meta = mapKeys(kv.Value)
 					}
 				}
-				if code != "" && codePattern.MatchString(code) {
+				if code != "" && refCodePattern.MatchString(code) {
 					d.Codes = append(d.Codes, refCode{Code: code, Status: st, Detail: detail, Location: location})
 				}
 				if isAction(action) {
 					d.Actions = append(d.Actions, refAction{Action: action, Metadata: append(meta, laterKeys(body, assigned[n], n.Pos())...), Location: location})
 				}
 			case *ast.CallExpr:
-				if isName(n.Fun, "httpx", "NewProblem", f.Name.Name) && len(n.Args) == 3 {
-					if code, ok := literal(n.Args[1]); ok && codePattern.MatchString(code) {
+				if refIsName(n.Fun, "httpx", "NewProblem", f.Name.Name) && len(n.Args) == 3 {
+					if code, ok := literal(n.Args[1]); ok && refCodePattern.MatchString(code) {
 						detail, _ := literal(n.Args[2])
 						d.Codes = append(d.Codes, refCode{Code: code, Status: status(n.Args[0]), Detail: detail, Location: location})
 					}
@@ -462,4 +501,22 @@ func goOutput(t *testing.T, args ...string) string {
 		t.Fatalf("go %s: %v", strings.Join(args, " "), err)
 	}
 	return strings.TrimSpace(string(out))
+}
+
+var (
+	refCodePattern   = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
+	refActionPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$`)
+)
+
+// refIsName reports whether e names pkg.name, or name inside package pkg
+// itself.
+func refIsName(e ast.Expr, pkg, name, filePkg string) bool {
+	switch e := e.(type) {
+	case *ast.SelectorExpr:
+		x, ok := e.X.(*ast.Ident)
+		return ok && x.Name == pkg && e.Sel.Name == name
+	case *ast.Ident:
+		return filePkg == pkg && e.Name == name
+	}
+	return false
 }

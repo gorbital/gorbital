@@ -3,6 +3,7 @@
   "app": "shop-api",
   "preset": "full",
   "tenancy": "single",
+  "layout": "v0.1",
   "checks": [
     {
       "name": "go",

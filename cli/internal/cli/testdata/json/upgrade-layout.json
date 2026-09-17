@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "name": "shop-api",
+  "from": "v0.1",
+  "to": "v0.2",
+  "orb": "{version}",
+  "dry_run": true,
+  "items": [
+    {
+      "kind": "library",
+      "subject": "internal/modules/auth",
+      "detail": "{text}"
+    },
+    {
+      "kind": "library",
+      "subject": "internal/modules/flags",
+      "detail": "{text}"
+    }
+  ],
+  "changes": [
+    {
+      "path": ".env.example",
+      "action": "update"
+    },
+    {
+      "path": "AGENTS.md",
+      "action": "update"
+    }
+  ],
+  "modules": [
+    {
+      "name": "projects",
+      "wiring": "internal/app/module_projects.go",
+      "routes": [
+        "projects-create: POST /v1/projects",
+        "projects-list: GET /v1/projects"
+      ],
+      "errors": 0,
+      "permissions": [
+        "projectsusecase.PermRead",
+        "projectsusecase.PermWrite"
+      ],
+      "notes": [
+        "the module's Module type is now Wiring, so the package can declare func Module() gorbital.Module"
+      ]
+    }
+  ],
+  "ejected": [],
+  "conflicts": [],
+  "manual": [],
+  "blocked": false,
+  "tidied": false,
+  "built": false,
+  "api_exported": false,
+  "surface_recorded": false,
+  "written": false,
+  "next": [
+    "go test ./...   (database tests need orb dev or docker compose up -d --wait)",
+    "git diff api/openapi.json   (re-exported: every route gains x-gorbital-guards, and the /ops instance example takes this app's name)"
+  ]
+}

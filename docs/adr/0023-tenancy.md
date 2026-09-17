@@ -1,6 +1,6 @@
 # ADR-0023: Tenancy
 
-**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0013 · **Amended by:** ADR-0033, ADR-0048 (org roles in `org_members`, 404 for non-members, invitation and personal workspace rules, `orb add orgs` moved to v0.5), ADR-0061 (the optional row-level security layer)
+**Status:** Accepted (2026-09-14) · **Supersedes:** ADR-0013 · **Amended by:** ADR-0033, ADR-0048 (org roles in `org_members`, 404 for non-members, invitation and personal workspace rules, `orb add orgs` moved to v0.5), ADR-0061 (the optional row-level security layer), ADR-0083 (organisations as a library module and `guard.OrgMember` for apps on `gorbital.Main`, [Phase 7 notes](0083-modules-stack-migrations-and-ejection.md#phase-7-implementation-notes-organisations-and-tenancy-2026-09-17))
 
 ## Context
 

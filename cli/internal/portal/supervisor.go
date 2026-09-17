@@ -5,6 +5,8 @@ import (
 	"io"
 	"sync"
 	"time"
+
+	"gorbital.dev/cli/internal/tunnel"
 )
 
 // State is what the app under orb dev is doing.
@@ -79,14 +81,15 @@ type OutputLine struct {
 }
 
 // Event is what the portal streams to the UI: a state change, an output
-// line or a schema status (ADR-0080).
+// line, a schema status (ADR-0080) or the tunnel's status (ADR-0086).
 type Event struct {
-	// Type is "state", "output" or "schema".
-	Type   string        `json:"type"`
-	Time   time.Time     `json:"time"`
-	State  *AppStatus    `json:"state,omitempty"`
-	Output *OutputLine   `json:"output,omitempty"`
-	Schema *SchemaStatus `json:"schema,omitempty"`
+	// Type is "state", "output", "schema" or "tunnel".
+	Type   string         `json:"type"`
+	Time   time.Time      `json:"time"`
+	State  *AppStatus     `json:"state,omitempty"`
+	Output *OutputLine    `json:"output,omitempty"`
+	Schema *SchemaStatus  `json:"schema,omitempty"`
+	Tunnel *tunnel.Status `json:"tunnel,omitempty"`
 }
 
 // Limits of the output buffer.
@@ -113,6 +116,8 @@ type Hub struct {
 	now   func() time.Time
 	// schema is the latest schema status, served to new subscribers.
 	schema *SchemaStatus
+	// tunnel is the latest tunnel status, served to new subscribers.
+	tunnel *tunnel.Status
 }
 
 // Subscription receives events added after it subscribed. Events that don't
@@ -179,6 +184,24 @@ func (h *Hub) Schema() (SchemaStatus, bool) {
 		return SchemaStatus{}, false
 	}
 	return *h.schema, true
+}
+
+// SetTunnel keeps s as the latest tunnel status and tells subscribers.
+func (h *Hub) SetTunnel(s tunnel.Status) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.tunnel = &s
+	h.publish(Event{Type: "tunnel", Time: h.now(), Tunnel: &s})
+}
+
+// Tunnel returns the latest tunnel status, if one was set.
+func (h *Hub) Tunnel() (tunnel.Status, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.tunnel == nil {
+		return tunnel.Status{}, false
+	}
+	return *h.tunnel, true
 }
 
 // publish offers e to every subscriber. The caller holds the mutex.

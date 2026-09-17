@@ -152,9 +152,15 @@ type Config struct {
 	Git *Git
 	// ProjectSettings feeds the Project Settings screen (ADR-0077).
 	ProjectSettings ProjectConfig
+	// Routes lists the app's routes (GET /_portal/api/routes); nil answers
+	// 404.
+	Routes func(ctx context.Context) (RouteList, error)
 	// OpenInEditor opens a file (at a line, when positive) in the
 	// developer's editor; nil answers 404.
 	OpenInEditor func(path string, line int) error
+	// Tunnel runs cloudflared for the Tunnel screen (ADR-0086); a nil
+	// Manager answers 404.
+	Tunnel TunnelConfig
 	// Database connects the Table Editor and Schema pages to the app's
 	// database; an empty Open means the app has none.
 	Database DatabaseConfig

@@ -1,0 +1,8 @@
+# gorbital project file. orb dev reads features: postgres starts the
+# database from compose.yaml and migrates it before the app starts.
+apiVersion: gorbital.dev/v1
+name: mobile-backend
+module: example.com/mobile-backend
+preset: full
+tenancy: single
+features: [postgres]

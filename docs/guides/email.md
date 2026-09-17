@@ -128,7 +128,7 @@ Sending again to an address that doesn't exist, or to someone who marked your em
 
 ### Connect Resend's webhook
 
-Your API must be reachable from the internet over https (in development, use a tunnel such as `cloudflared tunnel --url http://127.0.0.1:8080`).
+Your API must be reachable from the internet over https (in development, use a tunnel such as `cloudflared tunnel --url http://127.0.0.1:8080`). A v0.1 app serves the webhook from `internal/modules/mailevents`; an app on `gorbital.Main` adds `gorbital.WithModules(mailevents.Module())` in `main.go` ([Methods](../methods/gorbital-mailevents.md)), which refuses to start with a malformed secret.
 
 1. Open [resend.com/webhooks](https://resend.com/webhooks) and choose **Add Webhook**.
 2. Endpoint URL: `https://<your API>/v1/webhooks/resend`.
@@ -175,7 +175,7 @@ Listing needs `ops.mail.read` (`platform_admin`, `ops_viewer`); removing needs `
 
 With `MAIL_DELIVERY` empty (or `devmail`), every email the app sends, whatever the provider, goes to `orb dev`'s mail catcher ([ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)): an SMTP server `orb dev` runs on `DEV_MAIL_SMTP_ADDR` (default `127.0.0.1:1025`), whose inbox is the Dev Portal's **Mail** screen (http://127.0.0.1:3100/mail): the message as HTML, text or source, verification codes with a copy button, links, attachments. Messages are kept under `.orb/portal/mail` (the last 500), so they survive the app's restarts; nobody real is emailed. Without the portal (`orb dev --no-portal`) the catcher doesn't run: use Mailpit or the provider.
 
-The Mail screen also renders the app's **email previews** with sample data and sends one to the inbox: the auth module's messages (`auth.BrandedEmailPreviews`), in multi-tenant apps the organisation invitation, and the test message, all in the app's [email layout](#email-templates), listed in `internal/app/mail_previews.go`, where you add your own. The dev console serves them at `GET /_dev/mail/previews`, `GET /_dev/mail/preview?name=` and `POST /_dev/mail/preview/send?name=&to=`.
+The Mail screen also renders the app's **email previews** with sample data and sends one to the inbox: the auth module's messages (`auth.BrandedEmailPreviews`), in multi-tenant apps the organisation invitation, and the test message, all in the app's [email layout](#email-templates). A v0.1 app lists them in `internal/app/mail_previews.go`, where you add your own; an app on `gorbital.Main` gets them from its modules, which register them during `Setup` with `gorbital.AuthSetup.MailPreviews`, as `authhttp` does for sign-in's messages. The dev console serves them at `GET /_dev/mail/previews`, `GET /_dev/mail/preview?name=` and `POST /_dev/mail/preview/send?name=&to=`.
 
 Prefer Mailpit? Run it yourself (or keep the `mailpit` service an older `compose.yaml` has), set `MAIL_DELIVERY=mailpit` and `MAILPIT_SMTP_ADDR`; `/_dev/mail` then proxies its inbox. To try the real provider while developing, set `MAIL_DELIVERY=provider` in `.env` with its credentials, and restart.
 

@@ -17,7 +17,8 @@ import (
 const genMigrationUsage = `Usage: orb gen migration <name> [flags]
 
 Creates an empty SQL migration in db/migrations that runs after every existing
-one. Write the change under "-- +goose Up", then run go run ./cmd/migrate.
+one. Write the change under "-- +goose Up", then run go run ./cmd/api migrate
+(go run ./cmd/migrate in an app on the v0.1 layout).
 Migrations only go forward: once one is released, change the schema with a
 new migration instead of editing it. Run it inside an app created with the
 Full preset.
@@ -104,7 +105,7 @@ func runGenMigration(ctx context.Context, args []string, stdin io.Reader, stdout
 	}
 	fmt.Fprintf(stdout, "✓ %s migration %s\n", verb, result.File)
 	if !*dryRun {
-		fmt.Fprint(stdout, "\nNext:\n  1. Write the SQL under -- +goose Up\n  2. go run ./cmd/migrate\n  3. go test ./...\n\n"+
+		fmt.Fprint(stdout, "\nNext:\n  1. Write the SQL under -- +goose Up\n  2. "+migrateCommand(app.dir)+"\n  3. go test ./...\n\n"+
 			"Write the SQL before migrating: an empty migration is recorded as applied, and\n"+
 			"SQL added to it afterwards never runs. Change the migration freely until it is\n"+
 			"released; afterwards, add a new one.\n")

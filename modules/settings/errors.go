@@ -41,6 +41,7 @@ type InvalidValueError struct {
 	Reason string
 }
 
+// Error names the setting key and the reason the value was rejected.
 func (e *InvalidValueError) Error() string {
 	return fmt.Sprintf("settings: invalid value for %s: %s", e.Key, e.Reason)
 }

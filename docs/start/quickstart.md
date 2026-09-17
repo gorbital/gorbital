@@ -12,7 +12,7 @@ Keep two terminal windows open and a browser:
 |---|---|
 | **Terminal 1** | `orb dev`: your API and its logs. Leave it running |
 | **Terminal 2** | Commands: `curl` requests, `orb gen`, `go test`, `git` |
-| **Browser** | Your API's docs at http://localhost:8080/docs and emails at http://127.0.0.1:8025 |
+| **Browser** | Your API's docs at http://localhost:8080/docs and the Dev Portal at http://127.0.0.1:3100, where every email lands |
 
 ## 1. Install `orb`
 
@@ -23,7 +23,7 @@ go install gorbital.dev/cli/cmd/orb@latest
 orb version
 ```
 
-`go install` downloads and builds `orb` and puts it in Go's `bin` folder. Your app will use the library at the same version, `gorbital.dev` `v0.1.0`, from the Go module proxy.
+`go install` downloads and builds `orb` and puts it in Go's `bin` folder. Your app will use the library at the same version from the Go module proxy: `gorbital.dev` and `gorbital.dev/gorbital`, the framework your `main.go` imports.
 
 If you see `command not found: orb`, Go's `bin` folder isn't on your `PATH`: add `export PATH="$(go env GOPATH)/bin:$PATH"` to `~/.zshrc` or `~/.bashrc`, and open a new terminal.
 
@@ -61,51 +61,49 @@ cd acme-api
 orb dev
 ```
 
-The first run does six things, and prints each one:
+The first run does these things, and prints each one:
 
 ```text
 orb: created .env from .env.example
 orb: wrote a random development AUTH_ENCRYPTION_KEYS to .env
 orb: starting services (docker compose up -d --wait)
  ✔ Container acme-api-postgres-1  Healthy
- ✔ Container acme-api-mailpit-1   Healthy
-orb: applying migrations (go run ./cmd/migrate)
+orb: applying migrations (go run ./cmd/api migrate)
 applied migration 20260914000001
 …
 applied job queue migration 7
-orb: seed data (go run ./cmd/seed)
+orb: seed data (go run ./cmd/api seed)
 ✓ Seed data created
   Administrator:   admin@example.com (platform_admin)
-  Password:        OHNP6LPWSZNHUM5YECQ4FQN23U
-  2FA key:         4VQHMNAWGHDQ4DM23BQKWVBTRIURFU4T
+  Password:        U6XD5HYMTTCFI2YT22CCZ2SPTT
+  2FA key:         VZ2PQS6RLRH5N6YYMCHEUTNG7OND4YXO
   2FA QR code URI: otpauth://totp/acme-api:admin@example.com?…
-  Recovery codes:  hibt-qysr-vv45-ly5l  ofww-2c3k-7mza-q4xe  …
-  Projects:        3 examples owned by the administrator
+  Recovery codes:  rkv2-su7t-fm4v-h5hu  2dfs-seda-zgrd-zokx  …
 
   ✓ API        http://127.0.0.1:8080
   ✓ API docs   http://127.0.0.1:8080/docs
-  ✓ Emails     http://127.0.0.1:8025
+  ✓ Emails     http://127.0.0.1:3100/mail (caught at 127.0.0.1:1025)
   ✓ Dev APIs   http://127.0.0.1:8080/_dev/ (docs/guides/dev-console.md)
-    Token      q3Jt0tBq0Xvqf7i5Tq1hYw2m9x8Zr4Kc6Lp2Nd5Vb3E (Authorization: Bearer; new on every orb dev run)
+    Token      C2WxUze1qCCitPkg7EYAoA-10p1JK0fUywwmye1WScY (Authorization: Bearer; new on every orb dev run)
+  ✓ Dev Portal http://127.0.0.1:3100/_portal/auth?t=… (docs/guides/dev-portal.md)
 
-Sign-in methods
-  ✓ Email and password
-  ✓ Authenticator apps (2FA)
-  ✓ Passkeys in browsers            RP ID localhost; origins http://localhost:8080, http://localhost:3000
-  – Google sign-in                  set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET in .env
-  …
-level=INFO msg=starting service=acme-api addr=http://127.0.0.1:8080
+19:50:26 INFO  sign-in method  configured=true  method=email_password
+19:50:26 INFO  sign-in method  configured=true  method=authenticator_app
+19:50:26 INFO  sign-in method  configured=true  method=passkeys
+19:50:26 INFO  sign-in method  configured=false  method=google
+…
+19:50:26 INFO  starting  addr=http://127.0.0.1:8080  dev_console=true  docs_enabled=true  mail_delivery=devmail
 ```
 
 What happened:
 
 1. **`.env` created.** Your app's settings for this computer, copied from `.env.example`. Git ignores it.
 2. **Encryption key written.** `AUTH_ENCRYPTION_KEYS` encrypts two-factor secrets; `orb` generated a random one for development ([what it is](../sign-in/encryption-key.md)).
-3. **PostgreSQL and Mailpit started** in Docker. The first time, Docker downloads their images.
-4. **Migrations applied.** Migrations are SQL files that create your tables, in order; the job queue has its own.
-5. **Seed data created.** An administrator account and three example projects, so you have something to sign in with.
+3. **PostgreSQL started** in Docker. The first time, Docker downloads its image.
+4. **Migrations applied.** Migrations are SQL files that create tables, in order: gorbital's own (accounts, sessions, settings, jobs) and your app's, in one history; the job queue has its own. `go run ./cmd/api migrate` is a command of your app, served by `gorbital.Main`.
+5. **Seed data created.** An administrator account, so you have something to sign in with. `seed` is a command the built-in sign-in module adds; it does nothing when the account exists.
 6. **API started.** It rebuilds and restarts each time you save a Go file.
-7. **Dev console token printed.** A new random token for this run opens the development-only [dev console APIs](../guides/dev-console.md) under `/_dev/`. It's never written to a file; you can ignore it until you need it.
+7. **Dev console token and Dev Portal link printed.** Open the Dev Portal link: it shows your routes, database, jobs, logs and every email the app sends. The token is new on every run and never written to a file.
 
 > [!WARNING]
 > **Save the administrator's password, 2FA key and recovery codes now.** They're printed once and stored nowhere. Your values will differ from the ones above. If you lose them, see [step 6](#6-sign-in-as-the-administrator).
@@ -127,7 +125,7 @@ In your browser:
 | Open | You see |
 |---|---|
 | http://localhost:8080/docs | Every endpoint of your API, with a **Try it** button |
-| http://127.0.0.1:8025 | Mailpit, the inbox for every email your app sends. Empty for now |
+| http://127.0.0.1:3100/mail | The Dev Portal's Mail screen: every email your app sends. Empty for now |
 | http://127.0.0.1:8080/v1/ping | `{"message":"pong"}` |
 
 Use `localhost` rather than `127.0.0.1` for the docs if you try passkeys: browsers don't allow passkeys on IP addresses.
@@ -146,7 +144,7 @@ curl -X POST http://127.0.0.1:8080/v1/auth/register \
 {"status":"check_your_email","message":"Check your email for a 6-digit code to verify your address."}
 ```
 
-Open Mailpit at http://127.0.0.1:8025. There's an email, **Verify your email for acme-api**, with a 6-digit code. Nothing was sent to a real address. Send the code back:
+Open the Dev Portal's Mail screen at http://127.0.0.1:3100/mail. There's an email, **Verify your email for acme-api**, with a 6-digit code. Nothing was sent to a real address. Send the code back:
 
 ```bash
 curl -X POST http://127.0.0.1:8080/v1/auth/verify-email \
@@ -207,7 +205,7 @@ ADMIN=$(curl -s -X POST http://127.0.0.1:8080/v1/auth/login/mfa \
 curl http://127.0.0.1:8080/ops/settings -H "Authorization: Bearer $ADMIN"
 ```
 
-Now `/ops/settings` answers with the runtime settings. Send yourself a test email and look for it in Mailpit:
+Now `/ops/settings` answers with the runtime settings. Send yourself a test email and look for it in the Dev Portal's Mail screen:
 
 ```bash
 curl -X POST http://127.0.0.1:8080/ops/mail/test -H "Authorization: Bearer $ADMIN" \
@@ -218,7 +216,7 @@ Lost something?
 
 | Lost | Do this |
 |---|---|
-| The password | `POST /v1/auth/password/forgot` with `{"email": "admin@example.com"}`, then `POST /v1/auth/password/reset` with the code from Mailpit |
+| The password | `POST /v1/auth/password/forgot` with `{"email": "admin@example.com"}`, then `POST /v1/auth/password/reset` with the emailed code from the Mail screen |
 | The authenticator app | Send one of the recovery codes as `"recovery_code"` instead of `"code"`, or run `go run ./cmd/api reset-mfa admin@example.com` with the environment loaded (see [without the CLI](#without-the-cli)) |
 | Everything | Delete the database and start again: `docker compose down -v`, then `orb dev` |
 
@@ -226,27 +224,49 @@ To make your own account an administrator instead: `go run ./cmd/api grant-role 
 
 ## 7. Change some code
 
-In **Terminal 2**, add your own kind of data:
+Open `cmd/api/main.go`. It is the whole wiring of your app, one line per part:
 
-```bash
-orb gen resource Invoice number:string:unique 'status:enum(draft,sent,paid)'
+```go
+func options() []gorbital.Option {
+	auth := authhttp.New() // sign-in: accounts, sessions, 2FA, passkeys, Google, Apple, GitHub, API keys
+	return []gorbital.Option{
+		gorbital.WithName("acme-api"),
+		gorbital.WithAuth(auth),
+		gorbital.WithModules(
+			opshttp.Module(opshttp.MailProvider(mailProvider)), // /ops/: settings, flags, jobs, audit, email, observability
+			flagshttp.Module(),  // GET /v1/flags: client feature flags
+			mailevents.Module(), // POST /v1/webhooks/resend: bounces and complaints
+		),
+		gorbital.WithModules(modules.All()...), // internal/modules/modules.gen.go: ping, projects
+		gorbital.WithMigrations(migrations.FS), // db/migrations: the app's own tables
+		gorbital.WithMailerFunc(mailer),        // mail.go: the email provider, set by orb add mail
+		gorbital.WithStorageFunc(fileStorage),  // storage.go: S3-compatible file storage
+	}
+}
 ```
 
-`orb dev` in Terminal 1 notices the new migration, applies it, and restarts. `/docs` now lists `/v1/invoices`. Run the tests, which use their own temporary databases:
+Sign-in, `/ops` and the rest come from the library; your code goes in `internal/modules`. In **Terminal 2**, add your own kind of data:
 
 ```bash
+orb gen module Invoice number:string:unique 'status:enum(draft,sent,paid)'
+```
+
+It writes `internal/modules/invoices` and a migration, and adds the module to `internal/modules/modules.gen.go`. `orb dev` in Terminal 1 notices the new migration, applies it, and restarts. `/docs` now lists `/v1/invoices`. Record the new public names and run the tests, which use their own temporary databases:
+
+```bash
+go test ./internal/modules -run TestPublicSurface -update
 GORBITAL_TEST_DATABASE_URL='postgres://acme-api:acme-api@127.0.0.1:5432/acme-api?sslmode=disable' go test ./...
 ```
 
-Then commit: `git add -A && git commit -m "Add invoices"`. [Add your first resource](first-resource.md) explains every file it created.
+Then commit: `git add -A && git commit -m "Add invoices"`. [Add your first module](first-resource.md) explains every file it created.
 
 ## Stop, restart, reset
 
 | Want | Do |
 |---|---|
-| Stop the API | Ctrl+C in Terminal 1. PostgreSQL and Mailpit keep running, so the next start is fast |
+| Stop the API | Ctrl+C in Terminal 1. PostgreSQL keeps running, so the next start is fast |
 | Start again | `orb dev`. Seed data is left as it is: `✓ Seed data is in place` |
-| Stop PostgreSQL and Mailpit | `docker compose down` in the app's folder. Your data stays |
+| Stop PostgreSQL | `docker compose down` in the app's folder. Your data stays |
 | Delete all data and start fresh | `docker compose down -v`, then `orb dev`. `-v` deletes the database volume; you get a new administrator password |
 
 ## If a port is taken
@@ -277,8 +297,8 @@ DATABASE_URL=postgres://acme-api:acme-api@127.0.0.1:5433/acme-api?sslmode=disabl
 | Port in use | Change in `.env` |
 |---|---|
 | 5432 | `POSTGRES_PORT`, and the port in `DATABASE_URL` |
-| 1025 | `MAILPIT_SMTP_PORT`, and the port in `MAILPIT_SMTP_ADDR` |
-| 8025 | `MAILPIT_WEB_PORT`; Mailpit's inbox moves to that port |
+| 1025 | `DEV_MAIL_SMTP_ADDR`, orb dev's mail catcher |
+| 3100 | `DEV_PORTAL_PORT`, or `orb dev --portal-port` |
 | 8080 | `APP_ADDR=127.0.0.1:8081`; open the docs on 8081. For Google sign-in also set `APP_PUBLIC_URL=http://localhost:8081`, and for passkeys `WEBAUTHN_RP_ID=localhost` and `WEBAUTHN_ORIGINS=http://localhost:8081` |
 
 Then run `orb dev` again. More problems and fixes: [Troubleshooting](troubleshooting.md).
@@ -290,10 +310,10 @@ Then run `orb dev` again. More problems and fixes: [Troubleshooting](troubleshoo
 ```bash
 cp .env.example .env
 sed -i.bak "s|^AUTH_ENCRYPTION_KEYS=.*|AUTH_ENCRYPTION_KEYS=k1:$(openssl rand -base64 32)|" .env && rm .env.bak
-docker compose up -d --wait        # PostgreSQL and Mailpit
+docker compose up -d --wait        # PostgreSQL
 set -a; . ./.env; set +a           # export every line of .env into this shell
-go run ./cmd/migrate               # create and update tables
-go run ./cmd/seed                  # administrator and example projects
+go run ./cmd/api migrate           # create and update tables
+go run ./cmd/api seed              # the administrator
 go run ./cmd/api                   # the API; no reload on change
 ```
 

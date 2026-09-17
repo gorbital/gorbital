@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"gorbital.dev/cli/internal/genplan"
+	"gorbital.dev/cli/internal/tunnel"
 )
 
 // Status is GET /_portal/api/status.
@@ -99,6 +100,7 @@ func (s *Server) apiHandler() http.Handler {
 	mux.HandleFunc("POST "+APIPrefix+"generators/{name}/plan", s.serveGenerator(false))
 	mux.HandleFunc("POST "+APIPrefix+"generators/{name}/apply", s.serveGenerator(true))
 	mux.HandleFunc("GET "+APIPrefix+"jobs", s.serveJobs)
+	mux.HandleFunc("GET "+APIPrefix+"routes", s.serveRoutes)
 	s.logRoutes(mux)
 	mux.HandleFunc("GET "+APIPrefix+"health", s.serveHealth)
 	mux.HandleFunc("GET "+APIPrefix+"system", s.serveSystem)
@@ -106,6 +108,7 @@ func (s *Server) apiHandler() http.Handler {
 	s.envRoutes(mux)
 	s.gitRoutes(mux)
 	s.projectRoutes(mux)
+	s.tunnelRoutes(mux)
 	mux.HandleFunc(APIPrefix, func(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, http.StatusNotFound, "not_found", "no portal endpoint "+r.Method+" "+r.URL.Path)
 	})
@@ -213,6 +216,11 @@ func (s *Server) serveEvents(w http.ResponseWriter, r *http.Request) {
 	// pending and edited migrations without waiting for the next change.
 	if schema, ok := s.cfg.Hub.Schema(); ok {
 		if err := write("schema", Event{Type: "schema", Time: time.Now(), Schema: &schema}); err != nil {
+			return
+		}
+	}
+	if t, ok := s.cfg.Hub.Tunnel(); ok && t.State != tunnel.StateOff {
+		if err := write("tunnel", Event{Type: "tunnel", Time: time.Now(), Tunnel: &t}); err != nil {
 			return
 		}
 	}

@@ -657,3 +657,100 @@ func post(t *testing.T, base, path, body string) result {
 	out, _ := io.ReadAll(resp.Body)
 	return result{resp.StatusCode, resp.Header, string(out)}
 }
+
+// TestConsoleRefusesTunnelledRequests simulates requests arriving through a
+// tunnel on this machine (orb dev --tunnel, ADR-0086): cloudflared connects
+// from loopback, forwards the public Host (or, configured to, a local one)
+// and adds Cloudflare's forwarding headers. None may reach the console, even
+// with the token.
+func TestConsoleRefusesTunnelledRequests(t *testing.T) {
+	base, _ := newServer(t, appHandler())
+	_, port, _ := net.SplitHostPort(strings.TrimPrefix(base, "http://"))
+	cloudflare := []string{
+		"Cf-Connecting-Ip", "203.0.113.7",
+		"X-Forwarded-For", "203.0.113.7",
+		"X-Forwarded-Proto", "https",
+		"Cf-Ray", "8c0ffee000000000-AMS",
+		"Cf-Visitor", `{"scheme":"https"}`,
+		"Cdn-Loop", "cloudflare",
+	}
+	for _, host := range []string{"calm-river-demo.trycloudflare.com", "dev-api.example.com", "localhost:" + port, "127.0.0.1:" + port} {
+		for _, path := range []string{"/_dev/", "/_dev/config", "/_dev"} {
+			r := get(t, base, path, host, true, cloudflare...)
+			if r.code != http.StatusForbidden || problemCode(t, r.body) != "forbidden" || strings.Contains(r.body, "endpoints") {
+				t.Errorf("tunnelled %s%s = %d %s, want 403 forbidden", host, path, r.code, r.body)
+			}
+		}
+	}
+	// Any one forwarding header is enough, whatever its value.
+	for _, header := range []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Real-Ip", "True-Client-Ip", "Cf-Connecting-Ip", "Cf-Ray", "Cdn-Loop"} {
+		if r := get(t, base, "/_dev/", "localhost:"+port, true, header, "127.0.0.1"); r.code != http.StatusForbidden || !strings.Contains(r.body, "forwarded by a proxy or tunnel") {
+			t.Errorf("local request with %s = %d %s, want 403", header, r.code, r.body)
+		}
+	}
+	// A direct local request still works, and the app's own routes go
+	// through the tunnel as before.
+	if r := get(t, base, "/_dev/", "localhost:"+port, true); r.code != http.StatusOK {
+		t.Errorf("direct local request = %d %s", r.code, r.body)
+	}
+	if r := get(t, base, "/v1/ping", "calm-river-demo.trycloudflare.com", false, cloudflare...); r.code != http.StatusOK || r.body != "app" {
+		t.Errorf("app route through the tunnel = %d %q", r.code, r.body)
+	}
+}
+
+// TestExtensions: an extension answers under its prefix, for any method,
+// only after the console's checks, with the console's headers; the index
+// lists it; New refuses prefixes that aren't directories under /_dev/ or
+// overlap the console's own endpoints.
+func TestExtensions(t *testing.T) {
+	var calls int
+	ext := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_, _ = io.WriteString(w, r.Method+" "+r.URL.Path)
+	})
+	base, _ := newServer(t, appHandler(), devconsole.WithSources(devconsole.Sources{
+		Extensions: []devconsole.Extension{{Prefix: "/_dev/auth/test/", Handler: ext}},
+	}))
+
+	if r := get(t, base, "/_dev/auth/test/results/x", "", true); r.code != 200 || r.body != "GET /_dev/auth/test/results/x" || r.header.Get("Cache-Control") != "no-store" {
+		t.Errorf("GET extension = %d %q %v", r.code, r.body, r.header)
+	}
+	if r := post(t, base, "/_dev/auth/test/google/start", `{}`); r.code != 200 || r.body != "POST /_dev/auth/test/google/start" {
+		t.Errorf("POST extension = %d %q", r.code, r.body)
+	}
+	calls = 0
+	for name, r := range map[string]result{
+		"no token":  get(t, base, "/_dev/auth/test/", "", false),
+		"tunnelled": get(t, base, "/_dev/auth/test/", "", true, "Cf-Connecting-Ip", "203.0.113.7"),
+		"public":    get(t, base, "/_dev/auth/test/", "dev.example.com", true),
+	} {
+		if r.code != http.StatusUnauthorized && r.code != http.StatusForbidden {
+			t.Errorf("%s: extension = %d, want refused", name, r.code)
+		}
+	}
+	if calls != 0 {
+		t.Errorf("the extension ran %d times for refused requests", calls)
+	}
+	if r := get(t, base, "/_dev/auth/test", "", true); r.code != 200 || r.body != "GET /_dev/auth/test" {
+		t.Errorf("GET the prefix without its slash = %d %q", r.code, r.body)
+	}
+	if r := get(t, base, "/_dev/auth/other", "", true); r.code != http.StatusNotFound {
+		t.Errorf("outside the prefix = %d, want 404", r.code)
+	}
+	var index devconsole.Index
+	_ = json.Unmarshal([]byte(get(t, base, "/_dev/", "", true).body), &index)
+	if len(index.Extensions) != 1 || index.Extensions[0] != "/_dev/auth/test/" {
+		t.Errorf("index extensions = %v", index.Extensions)
+	}
+
+	for _, prefix := range []string{"", "/_dev/", "/_dev/auth", "/auth/test/", "/_dev/mail/", "/_dev/logs/x/", "/_dev//x/"} {
+		_, err := devconsole.New(token, devconsole.WithSources(devconsole.Sources{Extensions: []devconsole.Extension{{Prefix: prefix, Handler: ext}}}))
+		if err == nil {
+			t.Errorf("New with extension prefix %q: no error", prefix)
+		}
+	}
+	twice := []devconsole.Extension{{Prefix: "/_dev/a/", Handler: ext}, {Prefix: "/_dev/a/", Handler: ext}}
+	if _, err := devconsole.New(token, devconsole.WithSources(devconsole.Sources{Extensions: twice})); err == nil {
+		t.Error("New with the same extension twice: no error")
+	}
+}

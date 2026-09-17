@@ -1,0 +1,584 @@
+{
+  "components": {
+    "schemas": {
+      "AddTripInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "destination": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "notes": {
+            "maxLength": 2000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "destination"
+        ],
+        "type": "object"
+      },
+      "FieldError": {
+        "additionalProperties": false,
+        "properties": {
+          "location": {
+            "description": "Where the error occurred",
+            "examples": [
+              "body.name"
+            ],
+            "type": "string"
+          },
+          "message": {
+            "description": "What is wrong",
+            "examples": [
+              "expected length \u003e= 1"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object"
+      },
+      "Info": {
+        "additionalProperties": false,
+        "properties": {
+          "build_time": {
+            "examples": [
+              "2026-09-14T12:00:00Z"
+            ],
+            "type": "string"
+          },
+          "commit": {
+            "examples": [
+              "3f9a1c2b7d4e"
+            ],
+            "type": "string"
+          },
+          "go_version": {
+            "examples": [
+              "go1.25.3"
+            ],
+            "type": "string"
+          },
+          "modified": {
+            "type": "boolean"
+          },
+          "version": {
+            "examples": [
+              "v1.2.3"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "go_version"
+        ],
+        "type": "object"
+      },
+      "Problem": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "Stable machine-readable error code",
+            "examples": [
+              "project_name_taken"
+            ],
+            "type": "string"
+          },
+          "detail": {
+            "description": "Human-readable explanation",
+            "examples": [
+              "project name is already taken"
+            ],
+            "type": "string"
+          },
+          "errors": {
+            "description": "Field-level validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "request_id": {
+            "description": "Correlates with server logs and traces",
+            "examples": [
+              "req_9f86d081884c7d65"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "description": "HTTP status code",
+            "examples": [
+              409
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Short summary of the problem type",
+            "examples": [
+              "Conflict"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "description": "URI identifying the problem type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "status",
+          "code"
+        ],
+        "type": "object"
+      },
+      "TripListOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TripResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "TripResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "destination": {
+            "examples": [
+              "Lisbon"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "trp_mfrggzdfmztwq2lkmfrggzdfmy"
+            ],
+            "type": "string"
+          },
+          "notes": {
+            "examples": [
+              "Three nights in Alfama."
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "destination",
+          "notes",
+          "created_at"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "description": "Session token from POST /v1/auth/login with \"transport\": \"bearer\", or an API key (gbk_…) from POST /v1/auth/api-keys. Browsers use the session cookie that login sets instead.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "mobile-backend",
+    "version": "dev"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/trips": {
+      "get": {
+        "operationId": "trips-get-v1-trips",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripListOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List your trips",
+        "tags": [
+          "Trips"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:trips.trip.read"
+        ]
+      },
+      "post": {
+        "operationId": "trips-post-v1-trips",
+        "parameters": [
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTripInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a trip",
+        "tags": [
+          "Trips"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:trips.trip.write",
+          "rate_limit:60/1h0m0s"
+        ]
+      }
+    },
+    "/v1/trips/{id}": {
+      "delete": {
+        "operationId": "trips-delete-v1-trips-by-id",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "examples": [
+                "trp_mfrggzdfmztwq2lkmfrggzdfmy"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Delete one of your trips",
+        "tags": [
+          "Trips"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:trips.trip.write"
+        ]
+      },
+      "get": {
+        "operationId": "trips-get-v1-trips-by-id",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "examples": [
+                "trp_mfrggzdfmztwq2lkmfrggzdfmy"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get one of your trips",
+        "tags": [
+          "Trips"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:trips.trip.read"
+        ]
+      }
+    },
+    "/version": {
+      "get": {
+        "operationId": "get-version",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Info"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Build information",
+        "tags": [
+          "System"
+        ]
+      }
+    }
+  }
+}

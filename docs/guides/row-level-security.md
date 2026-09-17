@@ -6,8 +6,21 @@ It is optional. Turn it on with one command:
 
 ```bash
 orb add rls
-go run ./cmd/migrate
+go run ./cmd/api migrate   # go run ./cmd/migrate in a v0.1 app
 ```
+
+## In an app on gorbital.Main
+
+Everything below holds in an app built with `gorbital.Main` and [`orgshttp`](../start/organisations.md#in-an-app-on-gorbitalmain), with two things worth saying plainly:
+
+- **The organisation comes from the guard.** [`guard.OrgMember`](../methods/gorbital-guard.md#OrgMember) sets the actor's organisation and `postgres.WithOrg` before the handler runs, so every query the handler and its use cases run carries the organisation of the path they were authorized for. The organisations module's own use cases set it through `orgs.RequireMember`, as in v0.1.
+- **`orb add rls` is the same command.** It reads the app's `gorbital.lock` and `db/row_level_security.sql` and writes `db/migrations/<version>_row_level_security.sql`, none of which depends on the layout; its end-to-end test runs it on an app of each. Apply it with `go run ./cmd/api migrate`. Modules generated afterwards with `orb gen module --org` carry the policy at the end of their own migration.
+
+A **single-tenant** app has no organisations to separate, so `orb add rls` refuses and tells you to run `orb add orgs` first. Only an app outside that path — one without a `gorbital.lock`, or without `db/row_level_security.sql` — adds the migration by hand: name it `<version>_row_level_security.sql` (the name `orb gen module --org` looks for) and give it the `DO` block a multi-tenant app keeps in `db/row_level_security.sql` (the [invoicing recipe](../examples/recipes/multi-tenant-invoicing.md) shows it); it protects every table with `org_id NOT NULL` except `org_members` and `org_invitations`, the organisations module's own.
+
+`gorbital.New` logs the same warnings at start as a v0.1 app (a role that bypasses the policies, tables not forced, organisation tables without a policy), and `go run ./cmd/api migrate --status` reports what `cmd/migrate --status` did.
+
+Only one path in the library bypasses the policies: `postgres.Migrate`, for migrations. Requests, `guard.OrgMember`, the organisations module and the `orgs_purge` job never do; the purge removes an organisation's rows through `ON DELETE CASCADE`. A test lists every call to `postgres.WithoutRowLevelSecurity` in the repository, so a new one needs a review ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#threat-model-phase-7)).
 
 ## How it works
 
@@ -29,7 +42,7 @@ go run ./cmd/migrate
 
 3. **New tables get it too**
 
-   After `orb add rls`, `gorbital.yaml` says `rls: true`, and `orb gen resource --scope org` adds the same statements to the new resource's migration. A table you write by hand needs them in its migration; the app warns at startup about organisation tables without a policy.
+   After `orb add rls`, `gorbital.yaml` says `rls: true`, and the generator adds the same statements to the new migration: `orb gen resource --scope org` in a v0.1 app, `orb gen module --org` in an app on `gorbital.Main`. A table you write by hand needs them in its migration; the app warns at startup about organisation tables without a policy.
 
 </div>
 
@@ -57,7 +70,7 @@ The app checks at startup and logs a warning when row-level security is on and:
 - a table has row-level security on but not forced,
 - a table with `org_id NOT NULL` has no row-level security.
 
-`orb doctor` reports the same, through `go run ./cmd/migrate --status`.
+`orb doctor` reports the same, through the app's own `migrate --status --json`: `go run ./cmd/api migrate --status --json`, or `go run ./cmd/migrate --status --json` in a v0.1 app.
 
 ## Code that works across organisations
 
@@ -85,19 +98,19 @@ The organisation purge needs no bypass: deleting a row from `orgs` removes its p
 | Library tables with a nullable `org_id` (settings, audit events, jobs, sessions, roles, service accounts) | They hold platform rows beside organisation rows, and the library reads across organisations |
 | `orgs` | The organisation registry itself |
 
-Every query on these tables is written by gorbital and covered by cross-organisation tests. To leave out one of your own tables, add it to the `NOT IN` list in `db/row_level_security.sql` before running `orb add rls`, and to `rlsLeftOut` in `internal/app/rls.go`.
+Every query on these tables is written by gorbital and covered by cross-organisation tests. To leave out one of your own tables, add it to the `NOT IN` list in `db/row_level_security.sql` before running `orb add rls`. In a v0.1 app, add it to `rlsLeftOut` in `internal/app/rls.go` as well. In an app on `gorbital.Main` that list is the library's, unexported in `gorbital/app.go`, and it only decides which tables the startup warning passes over: your table will be named in a warning at start, and nothing else changes.
 
 ## Testing
 
 Multi-tenant apps' tests connect the app as `gorbital_app_test`, a role without `BYPASSRLS` that the tests create and grant, so once `orb add rls` has run, every test runs under the policies. `TestRowLevelSecurity` checks requests, seed data, migrations and the purge with the policies on, and that a query without `org_id` sees only one organisation.
 
-Before running `orb add rls`, you can run the whole suite as it would be after:
+In a v0.1 app, `internal/app/rls_test.go` holds that test, and you can run the whole suite before `orb add rls` as it would be after:
 
 ```bash
 GORBITAL_TEST_RLS=1 go test ./internal/app
 ```
 
-The test server's user must be able to create roles, as Docker PostgreSQL's superuser can.
+`GORBITAL_TEST_RLS` and `rls_test.go` come from the v0.1 templates; an app on `gorbital.Main` has neither, and its tests run under the policies once the migration is applied. Either way, the test server's user must be able to create roles, as Docker PostgreSQL's superuser can.
 
 ## Cost
 

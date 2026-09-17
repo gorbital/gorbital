@@ -1,25 +1,26 @@
 # Email sending
 
-Your app sends email for sign-up codes, password reset codes and security alerts, such as "a passkey was added to your account". On your computer, nothing leaves your machine: every email goes to a local inbox called Mailpit. In production, the app sends real email through a provider: **Resend** or any **SMTP** server.
+Your app sends email for sign-up codes, password reset codes and security alerts, such as "a passkey was added to your account". On your computer, nothing leaves your machine: every email goes to a local inbox, the Dev Portal's **Mail** screen. In production, the app sends real email through a provider: **Resend** or any **SMTP** server.
 
 | Where | Where email goes | What you set |
 |---|---|---|
-| Your computer | Mailpit, at http://127.0.0.1:8025 | Nothing |
+| Your computer | The Dev Portal's Mail screen, at http://127.0.0.1:3100/mail | Nothing |
 | Your computer, trying the real provider | The provider | `MAIL_DELIVERY=provider`, plus the provider's values |
 | Production | The provider, always | The provider's values |
 
-## What Mailpit is
+## Where development email goes
 
-Mailpit is a small program that pretends to be an email server. Your app hands it emails exactly as it would hand them to a real provider, and Mailpit keeps them in an inbox you open in your browser, instead of delivering them.
+`orb dev` runs a small email server of its own, the mail catcher. Your app hands it emails exactly as it would hand them to a real provider, and it keeps them in an inbox you open in your browser instead of delivering them ([ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)).
 
-- **Why you need it:** to sign up on your own app you need the 6-digit code from the verification email. Mailpit shows it to you without a real email account, and you can't email a real person by mistake.
-- **Where it comes from:** `orb dev` starts it in Docker from your app's `compose.yaml`, next to PostgreSQL (image `axllent/mailpit`).
-- **Where to see it:** http://127.0.0.1:8025. The app sends to it on port 1025.
-- **If you removed it:** in development, emails would fail to send and stay queued for retries; nobody could finish sign-up locally.
-- **In production:** never. The app refuses to start with `MAIL_DELIVERY=mailpit` when `APP_ENV=production`.
+- **Why you need it:** to sign up on your own app you need the 6-digit code from the verification email. The inbox shows it to you without a real email account, and you can't email a real person by mistake.
+- **Where it comes from:** `orb dev` starts it, with no Docker service and nothing to install. It runs whenever `MAIL_DELIVERY` is empty or `devmail`, which is development's default.
+- **Where to see it:** the Dev Portal's **Mail** screen, http://127.0.0.1:3100/mail. The app sends to the catcher on `DEV_MAIL_SMTP_ADDR`, `127.0.0.1:1025` by default.
+- **What it keeps:** the last 500 messages, under `.orb/portal/mail`, so they survive restarts of the app.
+- **If you run `orb dev --no-portal`:** the catcher doesn't run. Use Mailpit (`MAIL_DELIVERY=mailpit`, and run Mailpit yourself) or the real provider instead.
+- **In production:** never. The app refuses to start with `MAIL_DELIVERY=devmail` or `mailpit` when `APP_ENV=production`.
 
 > [!NOTE]
-> No key is needed for Mailpit. It has no password and only listens on your own computer (`127.0.0.1`).
+> No key is needed. The catcher has no password and only listens on your own computer (`127.0.0.1`).
 
 ## Option 1: Resend (recommended)
 
@@ -69,7 +70,7 @@ SMTP is the standard way to send email, supported by every provider: Amazon SES,
 orb add mail --provider smtp
 ```
 
-`orb` asks for each value, hides the password as you type it, and saves secrets only in `.env`. Run it inside your app, with no uncommitted changes. It changes `internal/app/infra_mail.go`, the email block of `.env.example`, `gorbital.yaml` and `go.mod`; commit the result.
+`orb` asks for each value, hides the password as you type it, and saves secrets only in `.env`. Run it inside your app, with no uncommitted changes. It changes the file that builds the provider — `cmd/api/mail.go` in an app on `gorbital.Main`, `internal/app/infra_mail.go` in a v0.1 app — the email block of `.env.example`, `gorbital.yaml` and `go.mod`; commit the result.
 
 | Variable | Required? | Secret? | Example | What it is |
 |---|---|---|---|---|
@@ -119,10 +120,10 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/mail.from_email \
    ```
 
    ```json
-   {"provider": "resend", "delivery": "mailpit", "details": {"api_key": "missing"}, "from_name": "acme-api", "from_email": "no-reply@example.com"}
+   {"provider": "resend", "delivery": "devmail", "details": {"api_key": "missing"}, "from_name": "acme-api", "from_email": "no-reply@example.com"}
    ```
 
-   `delivery` is `mailpit` or `provider`. `details` says whether the key or SMTP login is set, never its value.
+   `delivery` is `devmail` (the development default, `orb dev`'s catcher), `mailpit` (a Mailpit you run yourself) or `provider`. `details` says whether the key or SMTP login is set, never its value.
 
 2. Send yourself a test email:
 
@@ -132,7 +133,7 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/mail.from_email \
      -d '{"to": "you@example.com"}'
    ```
 
-   The answer is `202` with `{"status": "queued", …}`: the email is queued, and a background job delivers it within seconds. In development, open http://127.0.0.1:8025 to see it.
+   The answer is `202` with `{"status": "queued", …}`: the email is queued, and a background job delivers it within seconds. In development, open http://127.0.0.1:3100/mail to see it.
 
 3. If it doesn't arrive, look at the delivery job:
 
@@ -146,7 +147,7 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/mail.from_email \
 |---|---|---|
 | The app won't start: `RESEND_API_KEY is required to send email with Resend` | Delivery is `provider` (always in production) and the key is empty | Set `RESEND_API_KEY`, or in development leave `MAIL_DELIVERY` empty |
 | The app won't start: `MAIL_DELIVERY=mailpit is for development` | Production can't use Mailpit | Remove `MAIL_DELIVERY` or set it to `provider` |
-| Nothing in Mailpit | Mailpit isn't running, or the app sends to another port | `docker compose ps` should show `mailpit` as healthy; `MAILPIT_SMTP_ADDR` must match `MAILPIT_SMTP_PORT` |
+| Nothing in the Mail screen | The catcher isn't running, or the app sends somewhere else | Run `orb dev` without `--no-portal`; its banner shows the Emails line. `MAIL_DELIVERY` must be empty or `devmail`, and `DEV_MAIL_SMTP_ADDR` must be the address the banner names |
 | Job run cancelled with `403 … domain is not verified` | Resend refuses your sender address | Finish domain verification, or set `mail.from_email` to an address on a verified domain |
 | Job run retrying with `401 … check RESEND_API_KEY` | Wrong or deleted key | Put the right key in the environment and restart; waiting retries then succeed |
 | Job run retrying with `authenticate … check the SMTP username and password` | Wrong SMTP login | Fix `SMTP_USERNAME` and `SMTP_PASSWORD`, restart |

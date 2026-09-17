@@ -31,8 +31,18 @@ var derivedPaths = []string{"api/openapi.json", "api/postman_collection.json", "
 // TestPublicSurface test (ADR-0054).
 const surfacePath = "api/surface.json"
 
-// surfaceTest is the test that records surfacePath.
-const surfaceTest = "internal/app/surface_test.go"
+// surfaceTests are the packages whose TestPublicSurface records surfacePath:
+// internal/app in the v0.1 layout, internal/modules in the v0.2 layout.
+var surfaceTests = []string{"internal/app", "internal/modules"}
+
+// surfaceCommand is the command that records surfacePath in an app of
+// layout.
+func surfaceCommand(layout string) string {
+	if layout == recipes.LayoutV02 {
+		return "go test ./internal/modules -run TestPublicSurface -update"
+	}
+	return "go test ./internal/app -run TestPublicSurface -update"
+}
 
 // errConflicts reports an upgrade that left conflicts to resolve.
 var errConflicts = errors.New("the upgrade has conflicts to resolve; see the files listed above")
@@ -53,9 +63,44 @@ type upgradeResult struct {
 	// UserScoped lists modules the developer generated that orb add orgs
 	// leaves owned by users.
 	UserScoped []string `json:"user_scoped_modules,omitempty"`
+	// Layout is the app's layout, whose templates the move used: v0.1 apps
+	// keep theirs (ADR-0083).
+	Layout string `json:"layout"`
+	// MigrationOrder warns that the move brings migrations older than the
+	// ones the app's database already has, which goose refuses; nil when
+	// every migration the move adds is newer.
+	MigrationOrder *migrationOrderWarning `json:"migration_order_warning,omitempty"`
 
 	title   string // first line of the report
 	message string // commit message
+}
+
+// migrationOrderWarning says that a move adds migrations under versions
+// older than the app's newest, so an existing database refuses them
+// (ADR-0083). A database created after the move is unaffected.
+type migrationOrderWarning struct {
+	// Versions are the older migrations' versions, oldest first.
+	Versions []string `json:"versions"`
+	// Newest is the newest version the app's database already holds, the
+	// one these are older than.
+	Newest string `json:"newest"`
+	// Summary is one sentence naming the problem.
+	Summary string `json:"summary"`
+	// Error is the message the app's migrate command prints when it
+	// happens, so a script can recognise it.
+	Error string `json:"error"`
+	// Options are the ways out, in the order to consider them.
+	Options []migrationOrderOption `json:"options"`
+}
+
+// migrationOrderOption is one way to deal with the older migrations.
+type migrationOrderOption struct {
+	Label string `json:"label"`
+	// Commands are what to run, in order; empty when the option is a
+	// procedure the documentation spells out.
+	Commands []string `json:"commands,omitempty"`
+	// Doc is the page explaining it.
+	Doc string `json:"doc,omitempty"`
 }
 
 const upgradeUsage = `Usage: orb upgrade [flags]
@@ -67,9 +112,15 @@ It rebuilds what orb wrote before from the release recorded in gorbital.lock
 (ADR-0050).
 `
 
-func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+func runUpgrade(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	if layout, ok := layoutFlag(args); ok {
+		// Moving to another layout is a different move, with its own flags
+		// and report (ADR-0083).
+		return runUpgradeLayout(ctx, layout, args, stdin, stdout, stderr)
+	}
 	flags := flag.NewFlagSet("orb upgrade", flag.ContinueOnError)
 	flags.SetOutput(stderr)
+	flags.String("layout", "", "convert the app to another layout: v0.2 moves a v0.1 app to gorbital.Main (ADR-0083)")
 	from := flags.String("from", "", "release or commit that created or last upgraded the app, such as v0.1.0 (needed for apps created by development builds)")
 	local := flags.String("local", "", "gorbital checkout to read earlier releases from (default: the app's replace directive, or the checkout you are in)")
 	dryRun := flags.Bool("dry-run", false, "show what would change, without writing or creating a branch")
@@ -96,6 +147,9 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		return fmt.Errorf("%s has no %s: orb upgrade works in apps created with orb new", app.dir, lockPath)
 	} else if err != nil {
 		return err
+	}
+	if !lock.rendered() && lock.APIVersion == LockAPIVersion {
+		return fmt.Errorf("%s records only modules orb eject copied: orb upgrade works in apps created with orb new", lockPath)
 	}
 	if !insideGitRepo(ctx, app.dir) {
 		return errors.New("orb upgrade works on a git branch; put the app in git first: git init && git add -A && git commit -m 'Create app'")
@@ -137,7 +191,9 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
-	next, err := lockFromTree(inputs, theirs).encode()
+	nextLock := lockFromTree(inputs, theirs)
+	nextLock.Ejected = lock.Ejected // ejected modules stay the app's (orb eject)
+	next, err := nextLock.encode()
 	if err != nil {
 		return err
 	}
@@ -158,7 +214,7 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	}
 
 	res := upgradeResult{
-		Name: filepath.Base(app.dir), From: ref, To: Version, DryRun: *dryRun, Unproven: len(unproven),
+		Name: filepath.Base(app.dir), From: ref, To: Version, DryRun: *dryRun, Unproven: len(unproven), Layout: inputs.layout(),
 		title:   fmt.Sprintf("upgrade %s from %s to gorbital %s", filepath.Base(app.dir), ref, Version),
 		message: "Upgrade gorbital to " + Version,
 	}
@@ -223,6 +279,28 @@ func applyMove(ctx context.Context, dir string, root *os.Root, res *upgradeResul
 	return nil
 }
 
+// layoutFlag returns the value of --layout in args, before the flags are
+// parsed: orb upgrade --layout is a different command, with its own flags.
+func layoutFlag(args []string) (string, bool) {
+	for i, arg := range args {
+		name, value, hasValue := strings.Cut(strings.TrimLeft(arg, "-"), "=")
+		if arg == "--" {
+			return "", false
+		}
+		if !strings.HasPrefix(arg, "-") || name != "layout" {
+			continue
+		}
+		switch {
+		case hasValue:
+			return value, true
+		case i+1 < len(args):
+			return args[i+1], true
+		}
+		return "", true
+	}
+	return "", false
+}
+
 // upgradeSource returns the app's template inputs and the release that
 // wrote its tracked files.
 func upgradeSource(dir string, lock lockFile, from string) (lockInputs, string, error) {
@@ -279,6 +357,8 @@ func readManifest(dir string) (lockInputs, error) {
 			in.Mail = value
 		case recipes.RowLevelSecurityKey:
 			in.RLS = value == "true"
+		case "layout":
+			in.Layout = layoutValue(value)
 		}
 	}
 	if in.Name == "" || in.Module == "" || in.Preset == "" {
@@ -335,7 +415,7 @@ func releaseCheckout(ctx context.Context, appDir, local string) (string, error) 
 func checkoutOutsideApp(ctx context.Context, appDir, checkout string) error {
 	appTop, err := gitOutput(ctx, appDir, "rev-parse", "--show-toplevel")
 	if err != nil {
-		return nil // not in git: orb upgrade refuses such apps before this
+		return nil //nolint:nilerr // not in git: orb upgrade refuses such apps before this
 	}
 	appTop, err = filepath.EvalSymlinks(appTop)
 	if err != nil {
@@ -391,7 +471,7 @@ func rebuildBase(release recipes.Release, lock lockFile, in lockInputs, d recipe
 // email with mail, at release: the preset's tree, and row-level security in
 // gorbital.yaml when orb add rls recorded it (ADR-0061).
 func inputsTree(release recipes.Release, in lockInputs, mail string, d recipes.Data) (map[string][]byte, error) {
-	tree, err := release.Tree(in.Preset, in.Tenancy, mail, d)
+	tree, err := release.Tree(in.Preset, in.Tenancy, in.layout(), mail, d)
 	if err == nil && in.RLS {
 		recipes.SetRowLevelSecurity(tree)
 	}
@@ -511,9 +591,12 @@ func finishUpgrade(ctx context.Context, dir string, root *os.Root, message strin
 			}
 		}
 	}
-	if _, err := root.Stat(surfaceTest); err == nil {
+	for _, pkg := range surfaceTests {
+		if _, err := root.Stat(pkg + "/surface_test.go"); err != nil {
+			continue
+		}
 		var errOut bytes.Buffer
-		cmd := exec.CommandContext(ctx, "go", "test", "./internal/app", "-run", "^TestPublicSurface$", "-count=1", "-update")
+		cmd := exec.CommandContext(ctx, "go", "test", "./"+pkg, "-run", "^TestPublicSurface$", "-count=1", "-update")
 		cmd.Dir, cmd.Stdout, cmd.Stderr = dir, &errOut, &errOut
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("record %s: %w\n%s", surfacePath, err, errOut.String())
@@ -560,9 +643,18 @@ func reportUpgrade(w io.Writer, asJSON bool, res upgradeResult) error {
 		fmt.Fprintf(w, "\n%s\n", s.dim.Render(fmt.Sprintf("%d files couldn't be proven against gorbital.lock and were compared as yours versus the release", res.Unproven)))
 	}
 	if len(res.UserScoped) > 0 {
+		again := "orb gen resource --scope org"
+		if res.Layout == recipes.LayoutV02 {
+			again = "orb gen module --org"
+		}
 		fmt.Fprintf(w, "\n  modules you generated stay owned by users: %s\n  %s\n", strings.Join(res.UserScoped, ", "),
-			s.dim.Render("they keep working; to move one to organisations, generate it again with orb gen resource --scope org and move its data"))
+			s.dim.Render("they keep working; to move one to organisations, generate it again with "+again+" and move its data"))
 	}
+	if res.Layout == recipes.LayoutV01 {
+		fmt.Fprintf(w, "\n  %s\n", s.dim.Render("this app keeps the v0.1 layout (internal/app) and its templates; new apps run on gorbital.Main. "+
+			"To move it: orb upgrade --layout v0.2 (docs/guides/upgrade-notes.md)"))
+	}
+	reportMigrationOrder(w, s, res.MigrationOrder)
 
 	fmt.Fprintln(w)
 	switch {
@@ -573,11 +665,55 @@ func reportUpgrade(w io.Writer, asJSON bool, res upgradeResult) error {
 		for _, p := range res.Conflicts {
 			fmt.Fprintf(w, "    %s\n", p)
 		}
-		fmt.Fprintf(w, "\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        go test ./internal/app -run TestPublicSurface -update\n        go test ./...\n        git add -A && git commit -m '%s'\n", s.dim.Render("next:"), res.message)
+		fmt.Fprintf(w, "\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        %s\n        go test ./...\n        git add -A && git commit -m '%s'\n", s.dim.Render("next:"), surfaceCommand(res.Layout), res.message)
 	case res.Committed:
 		fmt.Fprintf(w, "  committed on branch %s\n\n  %s go test ./...   (database tests need orb dev or docker compose up -d --wait)\n        then merge %s\n", res.Branch, s.dim.Render("next:"), res.Branch)
 	default:
-		fmt.Fprintf(w, "  on branch %s, not committed\n\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        go test ./internal/app -run TestPublicSurface -update\n        git add -A && git commit -m '%s'\n", res.Branch, s.dim.Render("next:"), res.message)
+		fmt.Fprintf(w, "  on branch %s, not committed\n\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        %s\n        git add -A && git commit -m '%s'\n", res.Branch, s.dim.Render("next:"), surfaceCommand(res.Layout), res.message)
 	}
 	return nil
+}
+
+// reportMigrationOrder prints the warning about migrations older than the
+// app's newest, which an existing database refuses.
+func reportMigrationOrder(w io.Writer, s styles, warning *migrationOrderWarning) {
+	if warning == nil {
+		return
+	}
+	fmt.Fprintf(w, "\n  %s\n", s.accent.Render("! an existing database will refuse these migrations"))
+	for _, line := range wrapText(warning.Summary, 92) {
+		fmt.Fprintf(w, "    %s\n", line)
+	}
+	fmt.Fprintf(w, "    %s\n", s.dim.Render("the next migrate fails with: "+warning.Error))
+	for _, o := range warning.Options {
+		fmt.Fprintf(w, "    • %s\n", o.Label)
+		for _, c := range o.Commands {
+			fmt.Fprintf(w, "        %s\n", c)
+		}
+		if o.Doc != "" {
+			fmt.Fprintf(w, "        %s\n", s.dim.Render(o.Doc))
+		}
+	}
+}
+
+// wrapText breaks s into lines of at most width characters, on spaces; a
+// word longer than width keeps its own line.
+func wrapText(s string, width int) []string {
+	var lines []string
+	line := ""
+	for _, word := range strings.Fields(s) {
+		switch {
+		case line == "":
+			line = word
+		case len(line)+1+len(word) <= width:
+			line += " " + word
+		default:
+			lines = append(lines, line)
+			line = word
+		}
+	}
+	if line != "" {
+		lines = append(lines, line)
+	}
+	return lines
 }

@@ -162,7 +162,10 @@ func (h *Hasher) Verify(password, encoded string) (ok, rehash bool) {
 func (h *Hasher) VerifyContext(ctx context.Context, password, encoded string) (ok, rehash bool, err error) {
 	p, salt, key, err := decodeHash(encoded)
 	if err != nil {
-		return false, false, nil
+		// A stored hash this package can't decode is not a match. err is
+		// reserved for ErrHasherBusy: the caller asked about the password,
+		// and the answer is no.
+		return false, false, nil //nolint:nilerr // an undecodable hash matches nothing; err reports only ErrHasherBusy
 	}
 	if err := h.acquire(ctx); err != nil {
 		return false, false, err

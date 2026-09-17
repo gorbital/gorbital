@@ -91,7 +91,7 @@ Why not Mintlify: its components can be recoloured but not reshaped, it charges 
 ## Implementation notes (2026-09-15)
 
 - `modules/openapi/reference`: `Build`, `Reference.Handler`, `Reference.SearchIndex`, `Assets`, `ContentSecurityPolicy`; templates and assets embedded.
-- `site/` module: `cmd/site` (build and serve), `internal/build` (pages, Markdown, outputs, and the build and link test), `templates/`, `assets/`, `content/`. See [site/README.md](../../site/README.md) for writing pages and the Cloudflare Pages settings.
+- `site/` module: `cmd/site` (build and serve), `internal/build` (pages, Markdown, outputs, and the build and link test), `templates/`, `assets/`, `content/`. Its `README.md` covered writing pages and the Cloudflare Pages settings; the module was removed when gorbital-web replaced it (the status above).
 - First build: 152 pages, including every decision record and every operation of `examples/full-multi`.
 - Decision numbers come from file names, since early records title themselves `ADR-001`.
 

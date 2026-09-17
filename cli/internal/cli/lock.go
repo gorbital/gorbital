@@ -34,6 +34,43 @@ type lockFile struct {
 	Orb        lockOrb      `json:"orb"`
 	Inputs     lockInputs   `json:"inputs"`
 	Files      []lockedFile `json:"files"`
+	// Ejected are the built-in modules orb eject copied into the app, which
+	// the app owns from then on (ADR-0083). A lock orb eject creates in an
+	// app orb new didn't write has only these.
+	Ejected []lockEjected `json:"ejected,omitempty"`
+}
+
+// lockEjected records a built-in module orb eject copied into the app.
+type lockEjected struct {
+	// Module is the name orb eject takes, such as auth; the code is in
+	// internal/modules/<Module>.
+	Module string `json:"module"`
+	// Package is the library package it was copied from, such as
+	// gorbital.dev/gorbital/authhttp.
+	Package string `json:"package"`
+	// Version is the gorbital.dev/gorbital version the app required.
+	Version string `json:"version"`
+	// Date is the day of the ejection, as YYYY-MM-DD.
+	Date string `json:"date"`
+	// SHA256 hashes the package's source as orb eject read it, so orb doctor
+	// notices when the library's module has changed since.
+	SHA256 string `json:"sha256"`
+}
+
+// rendered reports whether orb new wrote the lock's app, as opposed to a
+// lock orb eject created that records only ejected modules.
+func (l lockFile) rendered() bool {
+	return l.Inputs != (lockInputs{}) || len(l.Files) > 0
+}
+
+// ejected returns the ejection of module, if the lock records one.
+func (l lockFile) ejected(module string) (lockEjected, bool) {
+	for _, e := range l.Ejected {
+		if e.Module == module {
+			return e, true
+		}
+	}
+	return lockEjected{}, false
 }
 
 // lockOrb is the orb release that rendered the tracked files.
@@ -54,6 +91,27 @@ type lockInputs struct {
 	Mail    string `json:"mail,omitempty"`
 	// RLS records orb add rls: gorbital.yaml says rls: true (ADR-0061).
 	RLS bool `json:"rls,omitempty"`
+	// Layout is the layout whose templates wrote the app: empty for the
+	// v0.1 layout (every lock before v0.2, and Minimal apps), or
+	// recipes.LayoutV02 for apps on gorbital.Main (ADR-0083).
+	Layout string `json:"layout,omitempty"`
+}
+
+// layout returns the app's layout, recipes.LayoutV01 or recipes.LayoutV02.
+func (in lockInputs) layout() string {
+	if in.Layout == "" {
+		return recipes.LayoutV01
+	}
+	return in.Layout
+}
+
+// layoutValue is how a lock records layout: v0.1 as no layout, so locks
+// of v0.1 apps stay readable by orb v0.1.
+func layoutValue(layout string) string {
+	if layout == recipes.LayoutV01 {
+		return ""
+	}
+	return layout
 }
 
 // validate checks inputs read from source (gorbital.lock or gorbital.yaml)
@@ -73,6 +131,15 @@ func (in lockInputs) validate(source string) error {
 	}
 	if in.RLS && (in.Preset != "full" || in.Tenancy != recipes.TenancyMulti) {
 		return fmt.Errorf("%s records row-level security for an app without organisations", source)
+	}
+	switch in.Layout {
+	case "":
+	case recipes.LayoutV02:
+		if p, _ := recipes.LookupPreset(in.Preset, in.Tenancy); p.Layout() != recipes.LayoutV02 {
+			return fmt.Errorf("%s records the %s layout for the %s preset, which has none", source, in.Layout, in.Preset)
+		}
+	default:
+		return fmt.Errorf("%s has an unknown layout %q", source, in.Layout)
 	}
 	switch in.Mail {
 	case "", recipes.MailResend, recipes.MailSMTP:
@@ -96,7 +163,7 @@ func newLock(preset recipes.Preset, d recipes.Data, files []recipes.File) lockFi
 	l := lockFile{
 		APIVersion: LockAPIVersion,
 		Orb:        lockOrb{Version: Version, Revision: buildRevision()},
-		Inputs:     lockInputs{Name: d.Name, Module: d.Module, Preset: preset.Name, Tenancy: preset.Tenancy},
+		Inputs:     lockInputs{Name: d.Name, Module: d.Module, Preset: preset.Name, Tenancy: preset.Tenancy, Layout: layoutValue(preset.Layout())},
 	}
 	if preset.Name == "full" {
 		l.Inputs.Mail = recipes.MailResend // the golden apps send with Resend
@@ -176,7 +243,14 @@ func readLock(dir string) (lockFile, error) {
 		if err := dec.Decode(&l); err != nil {
 			return lockFile{}, fmt.Errorf("read %s: %w", lockPath, err)
 		}
-		if err := l.Inputs.validate(lockPath); err != nil {
+		// A lock orb eject wrote in an app orb new didn't create has only
+		// ejected modules.
+		if l.rendered() || len(l.Ejected) == 0 {
+			if err := l.Inputs.validate(lockPath); err != nil {
+				return lockFile{}, err
+			}
+		}
+		if err := validateEjected(l.Ejected); err != nil {
 			return lockFile{}, err
 		}
 	case lockAPIVersionV1:
@@ -241,4 +315,24 @@ func revisionOf(info *debug.BuildInfo) string {
 func sha256Hex(content []byte) string {
 	sum := sha256.Sum256(content)
 	return hex.EncodeToString(sum[:])
+}
+
+// validateEjected checks the ejected modules a lock records: orb doctor and
+// orb gen modules read directories from their names, so a name must be one
+// orb eject knows, recorded once.
+func validateEjected(ejected []lockEjected) error {
+	seen := map[string]bool{}
+	for _, e := range ejected {
+		m, ok := lookupEjectable(e.Module)
+		switch {
+		case !ok:
+			return fmt.Errorf("%s records an unknown ejected module %q", lockPath, e.Module)
+		case seen[e.Module]:
+			return fmt.Errorf("%s records the ejected module %q twice", lockPath, e.Module)
+		case e.Package != m.importPath():
+			return fmt.Errorf("%s records the ejected module %q from %q, want %s", lockPath, e.Module, e.Package, m.importPath())
+		}
+		seen[e.Module] = true
+	}
+	return nil
 }

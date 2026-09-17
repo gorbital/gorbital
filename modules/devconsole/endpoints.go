@@ -16,6 +16,9 @@ import (
 type Index struct {
 	// Endpoints are the paths this app serves, sorted.
 	Endpoints []string `json:"endpoints"`
+	// Extensions are the path prefixes extensions serve, sorted
+	// ([Sources.Extensions]).
+	Extensions []string `json:"extensions"`
 }
 
 // RequestList is the most recent requests, newest first: GET
@@ -90,7 +93,11 @@ func (c *Console) endpoints() map[string]endpoint {
 		section(Prefix+"jobs", s.Jobs, func(v []JobRun) any { return JobRunList{Runs: nonNil(v)} }),
 	}
 	list = append(list, c.previewEndpoints()...)
-	index := Index{Endpoints: []string{Prefix}}
+	index := Index{Endpoints: []string{Prefix}, Extensions: []string{}}
+	for _, e := range s.Extensions {
+		index.Extensions = append(index.Extensions, e.Prefix)
+	}
+	slices.Sort(index.Extensions)
 	out := map[string]endpoint{}
 	for _, e := range list {
 		out[e.path] = e

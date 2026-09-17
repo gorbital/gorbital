@@ -116,7 +116,7 @@ func planFile(ctx context.Context, in Input, p string) (Change, error) {
 	if isMigration(p) {
 		switch {
 		case hasBase && hasTheirs && proven && !bytes.Equal(base, theirs):
-			return Change{}, errors.New("the new release changes a released migration; released migrations must never change (report this as an gorbital bug)")
+			return Change{}, errors.New("the new release changes a released migration; released migrations must never change (report this as a gorbital bug)")
 		case hasTheirs && !hasBase && !hasOurs:
 			c.Action, c.Content = Create, theirs
 		case hasTheirs && hasOurs && !bytes.Equal(ours, theirs) && !hasBase:

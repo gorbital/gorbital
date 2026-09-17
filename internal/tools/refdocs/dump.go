@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// dumpTest is the test file added to a golden app's internal/app package.
+// dumpTest is the test file added to a golden app's cmd/api package.
 //
 //go:embed overlay/reference_dump_test.go
 var dumpTest []byte
@@ -73,6 +73,10 @@ type code struct {
 	Detail   string `json:"detail"`
 	Generic  bool   `json:"generic"`
 	Location string `json:"location"`
+	// Module names the library module an app adds to get this code, for a
+	// module no golden app links (refExtraModules in the overlay test);
+	// empty for everything a Full app has.
+	Module string `json:"module,omitempty"`
 }
 
 type action struct {
@@ -97,7 +101,7 @@ func dumpApp(root, app string) (dump, error) {
 		return dump{}, err
 	}
 	overlay, err := json.Marshal(map[string]map[string]string{
-		"Replace": {filepath.Join(appDir, "internal", "app", "zz_refdocs_dump_test.go"): testFile},
+		"Replace": {filepath.Join(appDir, "cmd", "api", "zz_refdocs_dump_test.go"): testFile},
 	})
 	if err != nil {
 		return dump{}, err
@@ -108,7 +112,7 @@ func dumpApp(root, app string) (dump, error) {
 	}
 	outFile := filepath.Join(tmp, "dump.json")
 
-	cmd := exec.Command("go", "test", "-overlay", overlayFile, "-run", "^TestReferenceDump$", "-count=1", "./internal/app") //nolint:gosec // fixed arguments
+	cmd := exec.Command("go", "test", "-overlay", overlayFile, "-run", "^TestReferenceDump$", "-count=1", "./cmd/api") //nolint:gosec // fixed arguments
 	cmd.Dir = appDir
 	// A missing database fails the test instead of skipping it.
 	cmd.Env = append(os.Environ(), "REFDOCS_OUT="+outFile, "GORBITAL_REQUIRE_DB=1")

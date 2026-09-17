@@ -23,7 +23,7 @@ import (
 // gorbital repository and to the gorbital.dev/cli module.
 const recipesDir = "cli/internal/recipes"
 
-// cliModule is the module an gorbital release publishes orb in.
+// cliModule is the module a gorbital release publishes orb in.
 const cliModule = "gorbital.dev/cli"
 
 // refPattern matches the git revisions and tags orb passes to git: never an
@@ -166,7 +166,7 @@ func releaseFromProxy(ctx context.Context, version string) (recipes.Release, fun
 	out, err := goOutput(ctx, "mod", "download", "-json", cliModule+"@"+version)
 	var info struct{ Dir, Error string }
 	if jsonErr := json.Unmarshal([]byte(out), &info); jsonErr != nil || info.Error != "" || err != nil {
-		return recipes.Release{}, nil, fmt.Errorf("download %s@%s: %s (with an gorbital checkout, pass --local <path>)", cliModule, version, strings.TrimSpace(info.Error+" "+errString(err)))
+		return recipes.Release{}, nil, fmt.Errorf("download %s@%s: %s (with a gorbital checkout, pass --local <path>)", cliModule, version, strings.TrimSpace(info.Error+" "+errString(err)))
 	}
 	return recipes.ReleaseFS(os.DirFS(path.Join(info.Dir, "internal", "recipes"))), func() {}, nil
 }

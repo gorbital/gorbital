@@ -7,7 +7,7 @@ import (
 
 	"gorbital.dev/modules/postgres"
 
-	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
+	"example.com/acme-api/internal/modules/projects/domain"
 )
 
 const updateProjectSQL = `
@@ -16,19 +16,19 @@ const updateProjectSQL = `
 	WHERE id = $1 AND org_id = $2 AND version = $7
 	RETURNING ` + projectColumns
 
-// UpdateProject saves p when the stored version is still p.Version and
-// returns it with the next version. It returns ErrProjectVersionConflict
-// when no row has that version (changed, deleted or in another
-// organisation), and ErrProjectNameTaken.
-func (s *Store) UpdateProject(ctx context.Context, p projectsdomain.Project) (projectsdomain.Project, error) {
+// UpdateProject saves project when the stored version is still project.Version and
+// returns it with the next version. It returns ErrProjectVersionConflict when
+// no row has that version (changed, deleted or not the organisation's), and
+// ErrProjectNameTaken.
+func (s *Store) UpdateProject(ctx context.Context, project domain.Project) (domain.Project, error) {
 	rows, err := s.db.Query(ctx, updateProjectSQL,
-		p.ID, p.OrgID, p.Name, p.Description, p.Status, p.UpdatedAt, p.Version)
+		project.ID, project.OrgID, project.Name, project.Description, project.Status, project.UpdatedAt, project.Version)
 	if err != nil {
-		return projectsdomain.Project{}, constraintError(err)
+		return domain.Project{}, constraintError(err)
 	}
 	updated, err := pgx.CollectExactlyOneRow(rows, scanProject)
 	if postgres.IsNoRows(err) {
-		return projectsdomain.Project{}, projectsdomain.ErrProjectVersionConflict
+		return domain.Project{}, domain.ErrProjectVersionConflict
 	}
 	return updated, constraintError(err)
 }

@@ -1,0 +1,77 @@
+package opshttp
+
+import (
+	"net/http"
+
+	"gorbital.dev/httpx"
+	"gorbital.dev/modules/auditpg"
+	"gorbital.dev/modules/flags"
+	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/mail/suppressionpg"
+	"gorbital.dev/modules/observability"
+	"gorbital.dev/modules/releases"
+	"gorbital.dev/modules/settings"
+	"gorbital.dev/modules/storage"
+
+	opsdomain "gorbital.dev/gorbital/opshttp/internal/domain"
+	opsusecase "gorbital.dev/gorbital/opshttp/internal/usecase"
+)
+
+// errorMappings map the operations API's errors to problem responses, as a
+// v0.1 app's module_ops.go does. Error codes are public API: add new ones,
+// never change existing ones.
+func errorMappings() []httpx.Mapping {
+	return []httpx.Mapping{
+		{Err: opsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+		{Err: opsdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
+		{Err: opsusecase.ErrStorageOff, Status: http.StatusNotFound, Code: "storage_off", Detail: "the app has no file storage configured (STORAGE_DRIVER)"},
+		{Err: storage.ErrNotFound, Status: http.StatusNotFound, Code: "storage_object_not_found", Detail: "no object has this key"},
+		{Err: storage.ErrInvalidKey, Status: http.StatusUnprocessableEntity, Code: "invalid_storage_key", Detail: "keys are 1 to 1024 characters of path segments without \".\", \"..\" or a leading slash"},
+		{Err: storage.ErrUnavailable, Status: http.StatusServiceUnavailable, Code: "storage_unavailable", Detail: "the storage service didn't answer"},
+		{Err: opsdomain.ErrMFARequired, Status: http.StatusForbidden, Code: "mfa_required", Detail: "sign in with two-factor authentication to use this operation; turn it on first if needed"},
+
+		{Err: settings.ErrUnknownSetting, Status: http.StatusNotFound, Code: "setting_not_found", Detail: "no setting has this key"},
+		{Err: settings.ErrVersionConflict, Status: http.StatusConflict, Code: "setting_version_conflict", Detail: "the setting changed since it was read; read it again"},
+		{Err: settings.ErrReasonRequired, Status: http.StatusUnprocessableEntity, Code: "setting_reason_required", Detail: "a reason is required to change this setting"},
+		{Err: settings.ErrInvalidValue, Status: http.StatusUnprocessableEntity, Code: "invalid_setting_value", Detail: "the value is not valid for this setting"},
+
+		{Err: flags.ErrUnknownFlag, Status: http.StatusNotFound, Code: "flag_not_found", Detail: "no feature flag has this key"},
+		{Err: flags.ErrVersionConflict, Status: http.StatusConflict, Code: "flag_version_conflict", Detail: "the feature flag changed since it was read; read it again"},
+		{Err: flags.ErrReasonRequired, Status: http.StatusUnprocessableEntity, Code: "flag_reason_required", Detail: "a reason is required to change a feature flag"},
+		{Err: flags.ErrInvalidState, Status: http.StatusUnprocessableEntity, Code: "invalid_flag_state", Detail: "the state is not valid for a feature flag"},
+
+		{Err: jobs.ErrUnknownDefinition, Status: http.StatusNotFound, Code: "job_definition_not_found", Detail: "no job definition has this name"},
+		{Err: jobs.ErrVersionConflict, Status: http.StatusConflict, Code: "job_definition_version_conflict", Detail: "the job definition changed since it was read; read it again"},
+		{Err: jobs.ErrReasonRequired, Status: http.StatusUnprocessableEntity, Code: "job_reason_required", Detail: "a reason is required to disable or reschedule a job, change its timeout, attempts or queue, or pause a queue"},
+		{Err: jobs.ErrInvalidConfig, Status: http.StatusUnprocessableEntity, Code: "invalid_job_config", Detail: "the job configuration is not valid"},
+		{Err: jobs.ErrDefinitionDisabled, Status: http.StatusConflict, Code: "job_definition_disabled", Detail: "the job is disabled"},
+		{Err: jobs.ErrRunLimited, Status: http.StatusTooManyRequests, Code: "job_run_limited", Detail: "the job is queued or running, or ran less than a minute ago"},
+		{Err: jobs.ErrJobNotRetryable, Status: http.StatusConflict, Code: "job_not_retryable", Detail: "only runs waiting to retry, discarded or cancelled can be retried"},
+		{Err: jobs.ErrJobNotFound, Status: http.StatusNotFound, Code: "job_not_found", Detail: "no job has this ID"},
+		{Err: jobs.ErrUnknownQueue, Status: http.StatusUnprocessableEntity, Code: "queue_not_active", Detail: "no worker runs this queue"},
+		{Err: jobs.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
+
+		{Err: auditpg.ErrEventNotFound, Status: http.StatusNotFound, Code: "audit_event_not_found", Detail: "no audit event has this ID"},
+		{Err: auditpg.ErrInvalidFilter, Status: http.StatusUnprocessableEntity, Code: "invalid_audit_filter", Detail: "the audit filter is not valid"},
+		{Err: auditpg.ErrQueryTimeout, Status: http.StatusServiceUnavailable, Code: "audit_query_timeout", Detail: "the audit query took too long; narrow the filters or the time range"},
+
+		{Err: releases.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
+
+		{Err: opsusecase.ErrUnknownRateLimiter, Status: http.StatusNotFound, Code: "rate_limiter_not_found", Detail: "no rate limiter has this name, or the key is empty"},
+		{Err: opsdomain.ErrInvalidRecipient, Status: http.StatusUnprocessableEntity, Code: "invalid_recipient", Detail: "the recipient is not an email address"},
+		{Err: opsdomain.ErrTooManyTestEmails, Status: http.StatusTooManyRequests, Code: "rate_limited", Detail: "too many test emails; try again later"},
+		{Err: opsdomain.ErrSuppressionReasonRequired, Status: http.StatusUnprocessableEntity, Code: "mail_suppression_reason_required", Detail: "a reason is required to remove a suppressed address"},
+		{Err: suppressionpg.ErrNotFound, Status: http.StatusNotFound, Code: "mail_suppression_not_found", Detail: "no suppression has this ID"},
+		{Err: suppressionpg.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
+
+		{Err: opsdomain.ErrInvalidWindow, Status: http.StatusUnprocessableEntity, Code: "invalid_observability_window", Detail: "the window must be whole minutes from 1m to 24h, such as 15m"},
+		{Err: observability.ErrQueryTimeout, Status: http.StatusServiceUnavailable, Code: "observability_query_timeout", Detail: "the request counts took too long to read; try a shorter window"},
+		{Err: observability.ErrTooManyStreams, Status: http.StatusTooManyRequests, Code: "observability_streams_limited", Detail: "too many open streams; close one or try another instance"},
+		{Err: observability.ErrStreamsClosed, Status: http.StatusServiceUnavailable, Code: "unavailable", Detail: "the instance is shutting down"},
+		{Err: observability.ErrIncidentNotFound, Status: http.StatusNotFound, Code: "incident_not_found", Detail: "no incident has this ID"},
+		{Err: observability.ErrInvalidIncident, Status: http.StatusUnprocessableEntity, Code: "invalid_incident", Detail: "the incident or update is not valid: check the title, severity, status, start time and message"},
+		{Err: observability.ErrIncidentResolved, Status: http.StatusConflict, Code: "incident_resolved", Detail: "the incident is resolved and can't change"},
+		{Err: observability.ErrTooManyUpdates, Status: http.StatusConflict, Code: "incident_updates_limited", Detail: "the incident has the most updates allowed"},
+		{Err: observability.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
+	}
+}

@@ -29,7 +29,7 @@ func addRLS(t *testing.T, wantCode int, args ...string) (addRLSResult, string, s
 // into a new migration, records rls: true in gorbital.yaml and the lock, is
 // a no-op the second time, and orb upgrade and orb gen resource keep it.
 func TestAddRLSWritesTheMigration(t *testing.T) {
-	newGitApp(t, "--preset", "full", "--tenancy", "multi")
+	newV01GitApp(t, recipes.TenancyMulti)
 
 	dry, _, _ := addRLS(t, 0, "--dry-run", "--json")
 	if !dry.DryRun || !strings.HasSuffix(dry.Migration, "_row_level_security.sql") || git(t, "status", "--porcelain") != "" {
@@ -92,7 +92,7 @@ func TestAddRLSWritesTheMigration(t *testing.T) {
 
 func TestAddRLSRefuses(t *testing.T) {
 	t.Run("single-tenant", func(t *testing.T) {
-		newGitApp(t, "--preset", "full")
+		newV01GitApp(t, recipes.TenancySingle)
 		if _, _, errOut := addRLS(t, 1); !strings.Contains(errOut, "single-tenant") || !strings.Contains(errOut, "orb add orgs") {
 			t.Errorf("stderr = %q", errOut)
 		}
@@ -104,7 +104,7 @@ func TestAddRLSRefuses(t *testing.T) {
 		}
 	})
 	t.Run("older release", func(t *testing.T) {
-		newGitApp(t, "--preset", "full", "--tenancy", "multi")
+		newV01GitApp(t, recipes.TenancyMulti)
 		l, _ := readLock(".")
 		l.Orb = lockOrb{Version: "v0.0.9"}
 		b, _ := l.encode()
@@ -115,7 +115,7 @@ func TestAddRLSRefuses(t *testing.T) {
 		}
 	})
 	t.Run("dirty tree", func(t *testing.T) {
-		newGitApp(t, "--preset", "full", "--tenancy", "multi")
+		newV01GitApp(t, recipes.TenancyMulti)
 		writeFile(t, "scratch.txt", "x")
 		if _, _, errOut := addRLS(t, 1); !strings.Contains(errOut, "uncommitted changes") {
 			t.Errorf("stderr = %q", errOut)
@@ -125,7 +125,7 @@ func TestAddRLSRefuses(t *testing.T) {
 		}
 	})
 	t.Run("lock recording it for a single-tenant app", func(t *testing.T) {
-		newGitApp(t, "--preset", "full")
+		newV01GitApp(t, recipes.TenancySingle)
 		l, _ := readLock(".")
 		l.Inputs.RLS = true
 		b, _ := l.encode()
@@ -143,7 +143,7 @@ func TestAddRLSRefuses(t *testing.T) {
 }
 
 func TestDoctorReportsRowLevelSecurity(t *testing.T) {
-	newGitApp(t, "--preset", "full", "--tenancy", "multi")
+	newV01GitApp(t, recipes.TenancyMulti)
 	writeFile(t, ".env", readFile(t, ".env.example"))
 	fakeDoctorCommands(t, `{"current":9,"latest":9,"pending":0,"row_level_security":["row-level security is on, but the database role app is a superuser or has BYPASSRLS"]}`)
 	res := doctorRun(t, 0)

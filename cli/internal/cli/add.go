@@ -142,8 +142,8 @@ func runAddMail(ctx context.Context, args []string, stdin io.Reader, stdout, std
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(filepath.Join(app.dir, "internal", "app", "mail.go")); err != nil {
-		return fmt.Errorf("%s has no internal/app/mail.go: orb add mail works in apps created with the Full preset", app.dir)
+	if _, err := mailLayout(app.dir); err != nil {
+		return fmt.Errorf("%s %w", app.dir, err)
 	}
 	example, err := os.ReadFile(filepath.Join(app.dir, envExamplePath))
 	if err != nil {
@@ -441,6 +441,19 @@ func (p mailPlan) writesEnv() bool {
 	return slices.ContainsFunc(p.writes, func(w fileWrite) bool { return w.path == envPath })
 }
 
+// mailLayout returns the layout of the app in dir as orb add mail sees it:
+// the v0.1 layout's internal/app/mail.go, or the v0.2 layout's
+// cmd/api/mail.go.
+func mailLayout(dir string) (string, error) {
+	if _, err := os.Stat(filepath.Join(dir, "internal", "app", "mail.go")); err == nil {
+		return recipes.LayoutV01, nil
+	}
+	if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(recipes.MainMailPath))); err == nil {
+		return recipes.LayoutV02, nil
+	}
+	return "", fmt.Errorf("has neither internal/app/mail.go nor %s: orb add mail works in apps created with the Full preset", recipes.MainMailPath)
+}
+
 func planMail(dir string, example []byte, r recipes.MailRecipe, goMod goModInfo, in mailInput) (mailPlan, error) {
 	plan := mailPlan{goMod: goMod}
 	change := func(path string, old, updated []byte, perm fs.FileMode) {
@@ -448,11 +461,23 @@ func planMail(dir string, example []byte, r recipes.MailRecipe, goMod goModInfo,
 			plan.writes = append(plan.writes, fileWrite{path: path, content: updated, perm: perm})
 		}
 	}
-
-	for _, f := range []struct {
+	layout, err := mailLayout(dir)
+	if err != nil {
+		return mailPlan{}, fmt.Errorf("the app %w", err)
+	}
+	type providerFile struct {
 		path    string
 		content []byte
-	}{{recipes.InfraMailPath, r.InfraMail}, {recipes.InfraMailTestPath, r.InfraMailTest}} {
+	}
+	files := []providerFile{{recipes.InfraMailPath, r.InfraMail}, {recipes.InfraMailTestPath, r.InfraMailTest}}
+	modules := r.Modules
+	if layout == recipes.LayoutV02 {
+		// gorbital delivers development email itself, so the app needs only
+		// the provider's module.
+		files, modules = []providerFile{{recipes.MainMailPath, r.MainMail}}, []string{"gorbital.dev/modules/mail/" + r.Provider}
+	}
+
+	for _, f := range files {
 		old, _, err := readOptional(filepath.Join(dir, f.path))
 		if err != nil {
 			return mailPlan{}, err
@@ -498,7 +523,7 @@ func planMail(dir string, example []byte, r recipes.MailRecipe, goMod goModInfo,
 	// can't record it; gorbital.yaml holds the provider for those apps.
 	lock, err := readLock(dir)
 	switch {
-	case err == nil && lock.APIVersion == LockAPIVersion:
+	case err == nil && lock.APIVersion == LockAPIVersion && lock.rendered():
 		lock.Inputs.Mail = r.Provider
 		for _, w := range plan.writes {
 			lock.record(w.path, w.content)
@@ -516,7 +541,7 @@ func planMail(dir string, example []byte, r recipes.MailRecipe, goMod goModInfo,
 		return mailPlan{}, err
 	}
 
-	for _, module := range r.Modules {
+	for _, module := range modules {
 		if !slices.ContainsFunc(plan.goMod.Require, func(req goModRequire) bool { return req.Path == module }) {
 			plan.modules = append(plan.modules, module)
 		}

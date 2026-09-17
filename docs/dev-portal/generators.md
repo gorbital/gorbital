@@ -1,17 +1,19 @@
 # Generators
 
-Every generator and `orb add` command as a card with a form, a diff preview and Apply, through the same plans the CLI prints with `--dry-run`: `resource`, `job`, `migration`, `add-mail`, `add-storage`, `add-rls` and `add-orgs`. Nothing is written until you apply, and what the preview shows is what gets written.
+Every generator and `orb add` command as a card with a form, a diff preview and Apply, through the same plans the CLI prints with `--dry-run`: `module`, `middleware`, `resource`, `job`, `migration`, `add-mail`, `add-storage`, `add-rls` and `add-orgs`. Nothing is written until you apply, and what the preview shows is what gets written.
 
 ![The Generators screen](screenshots/generators.png)
 
 ## What you see
 
-A card per generator the status lists (the count is the sidebar's badge): Resource, Job, Migration, Email provider, File storage, Organisations and Row-level security, each with its CLI command, what it writes (or, for Organisations, what it does), what it needs (a database, a multi-tenant app) and what follows (`then migrate`, `then restart`, `on a branch`). Open (Preview for Organisations) opens a sheet (`?generator=`): the form on top, the equivalent command with a copy button, then the plan. New job in the header goes to the Jobs screen.
+A card per generator the status lists (the count is the sidebar's badge): Module, Middleware, Resource, Job, Migration, Email provider, File storage, Organisations and Row-level security, each with its CLI command, what it writes (or, for Organisations, what it does), what it needs (a database, a multi-tenant app) and what follows (`then migrate`, `then restart`, `on a branch`). Open (Preview for Organisations) opens a sheet (`?generator=`): the form on top, the equivalent command with a copy button, then the plan. New job in the header goes to the Jobs screen.
 
 | Generator | Form | After apply |
 |---|---|---|
+| `module` | For apps on `gorbital.Main`: the record name, the fields (name, type including optional `string?`, enum values, unique; paste specs such as `name:string:unique`), plural and ID prefix; and organisation scope (`orb gen module --org`: routes under `/v1/orgs/{orgId}/…` with `guard.OrgMember`, which needs `orgshttp.Module` in `main.go`). Writes the layered module, its migration and tests, and `modules.gen.go` ([Generating code](../guides/generating-code.md)). In an app on the v0.1 layout the plan answers 422 and points at Resource | Apply migrations, then restart |
+| `middleware` | For apps on `gorbital.Main`: the name and the kind: module middleware (a module name), a guard (a module name) or global middleware. The plan's next steps give the line that wires it (`gorbital.Use(…)`, the error mapping for a guard, `gorbital.WithMiddleware(…)`); nothing else is edited | Restart |
 | `resource` | Name, belongs to (user or organisation), the fields (name, type, enum values, unique), plural, ID prefix. The rules are the CLI's: snake_case, reserved names, unique on strings only, at least one string, at most 20 fields | Apply migrations, then restart |
-| `job` | A link to the Jobs screen's New job sheet ([Jobs](jobs.md)) | Restart |
+| `job` | A link to the Jobs screen's New job sheet ([Jobs](jobs.md)). For v0.1-layout apps only: in an app on `gorbital.Main` the plan is refused and the job goes in its module's `Jobs` ([background jobs](../guides/background-jobs.md#adding-a-job-in-an-app-on-gorbitalmain)) | Restart |
 | `migration` | The name, and the file it becomes | Apply migrations |
 | `add-mail` | Provider (Resend or SMTP); for SMTP the host, port, encryption and username. Secrets stay out | Restart |
 | `add-storage` | Driver (local, MinIO, S3, Spaces, R2) and the fields the driver reads, with MinIO's defaults as placeholders | Restart |
@@ -35,5 +37,6 @@ A card per generator the status lists (the count is the sidebar's badge): Resour
 ## Notes
 
 - A generator that needs the database is gated on the Minimal preset ("needs the Full preset").
+- Inputs of the Phase 8 generators: `module` takes `{"name", "fields": ["name:string:unique", …], "plural", "id_prefix", "org"}` (`org: true` plans an organisation module, as `--org` does); `middleware` takes `{"name", "module", "global", "guard"}` (exactly one of `module` and `global`; `guard` needs `module`). Their `plan.result` is `orb gen module --json`'s and `orb gen middleware --json`'s result.
 - The portal's usage errors (422 `generator_failed`) are the CLI's own messages, shown under the field the flag names.
 - Every generated file is yours from then on; `orb upgrade` merges newer templates into your edits ([upgrading apps](../start/upgrading.md)).

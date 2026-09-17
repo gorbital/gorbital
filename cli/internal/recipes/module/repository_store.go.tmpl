@@ -1,0 +1,71 @@
+// Package repository stores the ⟦.PluralHuman⟧ module's ⟦.PluralHuman⟧ in PostgreSQL
+// with hand-written SQL, one file per operation. The table comes from
+// db/migrations.
+package repository
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"gorbital.dev/modules/postgres"
+
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+// Store implements usecase.Store. It runs on the pool, or on a transaction
+// inside InTx.
+type Store struct {
+	db   postgres.DBTX
+	pool *pgxpool.Pool // nil inside a transaction
+}
+
+var _ usecase.Store = (*Store)(nil)
+
+// NewStore returns a store on pool.
+func NewStore(pool *pgxpool.Pool) *Store {
+	return &Store{db: pool, pool: pool}
+}
+
+// InTx runs fn with a store bound to one transaction. Inside a transaction,
+// fn joins it.
+func (s *Store) InTx(ctx context.Context, fn func(tx usecase.Store) error) error {
+	if s.pool == nil {
+		return fn(s)
+	}
+	return postgres.InTx(ctx, s.pool, func(tx pgx.Tx) error {
+		return fn(&Store{db: tx})
+	})
+}
+
+// ⟦.Var⟧Columns are the columns scan⟦.Ident⟧ reads, in its order.
+const ⟦.Var⟧Columns = `id, ⟦if .Org⟧org_id, created_by⟦else⟧owner_id⟦end⟧, ⟦.Columns⟧, version, created_at, updated_at`
+
+func scan⟦.Ident⟧(row pgx.CollectableRow) (domain.⟦.Ident⟧, error) {
+	var ⟦.Var⟧ domain.⟦.Ident⟧
+	err := row.Scan(&⟦.Var⟧.ID, ⟦if .Org⟧&⟦.Var⟧.OrgID, &⟦.Var⟧.CreatedBy⟦else⟧&⟦.Var⟧.OwnerID⟦end⟧, ⟦range .Fields⟧&⟦$.Var⟧.⟦.Ident⟧, ⟦end⟧&⟦.Var⟧.Version, &⟦.Var⟧.CreatedAt, &⟦.Var⟧.UpdatedAt)
+	⟦.Var⟧.CreatedAt, ⟦.Var⟧.UpdatedAt = ⟦.Var⟧.CreatedAt.UTC(), ⟦.Var⟧.UpdatedAt.UTC()
+	return ⟦.Var⟧, err
+}
+⟦if .HasUniques⟧
+// constraintError turns the constraint violations the use cases handle into
+// domain errors.
+func constraintError(err error) error {
+	if constraint, ok := postgres.UniqueViolation(err); ok {
+		switch constraint {
+⟦- range .Uniques⟧
+		case "⟦$.Table⟧_⟦if $.Org⟧org⟦else⟧owner⟦end⟧_⟦.Name⟧":
+			return domain.Err⟦$.Ident⟧⟦.Ident⟧Taken
+⟦- end⟧
+		}
+	}
+	return err
+}
+⟦- else⟧
+// constraintError turns the constraint violations the use cases handle into
+// domain errors. The table has none yet: translate new unique constraints
+// here.
+func constraintError(err error) error { return err }
+⟦- end⟧

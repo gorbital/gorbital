@@ -25,6 +25,10 @@ const (
 	// InfraMailTestPath holds the provider's side of the app's tests, so the
 	// rest of them pass with any provider. orb add mail replaces it too.
 	InfraMailTestPath = "internal/app/infra_mail_test.go"
+	// MainMailPath is the provider file orb add mail replaces in apps on
+	// gorbital.Main (the v0.2 layout): the function main.go passes to
+	// gorbital.WithMailerFunc.
+	MainMailPath = "cmd/api/mail.go"
 	// MailBlock names the block of .env.example holding the provider's
 	// variables: from "# orb:begin mail" to "# orb:end mail".
 	MailBlock = "mail"
@@ -39,6 +43,9 @@ type MailRecipe struct {
 	InfraMail []byte
 	// InfraMailTest is the content of internal/app/infra_mail_test.go.
 	InfraMailTest []byte
+	// MainMail is the content of cmd/api/mail.go in the v0.2 layout; nil in
+	// releases before it.
+	MainMail []byte
 	// EnvBlock is the provider's block of .env.example, markers included.
 	EnvBlock []byte
 	// EnvKeys are the variables EnvBlock assigns, in order.
@@ -70,6 +77,11 @@ func (r Release) Mail(provider, module string) (MailRecipe, error) {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return MailRecipe{}, err
 	}
+	// Releases before the v0.2 layout have no template for it.
+	mainMail, err := r.renderMailGo(provider, MainMailPath, module)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return MailRecipe{}, err
+	}
 	block, err := fs.ReadFile(r.fsys, "mail/"+provider+".env.tmpl")
 	if err != nil {
 		return MailRecipe{}, err
@@ -86,7 +98,7 @@ func (r Release) Mail(provider, module string) (MailRecipe, error) {
 		modules = append(modules, "gorbital.dev/modules/mail/resend")
 	}
 	return MailRecipe{
-		Provider: provider, Label: label, InfraMail: infra, InfraMailTest: infraTest,
+		Provider: provider, Label: label, InfraMail: infra, InfraMailTest: infraTest, MainMail: mainMail,
 		EnvBlock: block, EnvKeys: keys, Modules: modules,
 	}, nil
 }

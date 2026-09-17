@@ -2,8 +2,11 @@ package cli
 
 import (
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -169,5 +172,45 @@ func TestNextMigrationVersion(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "db", "migrations", "20260916083000_same_second.sql"), "")
 	if got, err := nextMigrationVersion(dir, now); err != nil || got != "20260916083001" {
 		t.Errorf("nextMigrationVersion() with a migration at now = %q, %v, want one later", got, err)
+	}
+}
+
+// TestLatestBuiltinMigration: latestBuiltinMigration is the newest migration
+// version the library in this checkout serves, and apps on gorbital.Main get
+// migrations after it.
+func TestLatestBuiltinMigration(t *testing.T) {
+	version := regexp.MustCompile(`\b20[0-9]{12}\b`)
+	var newest int64
+	err := filepath.WalkDir(filepath.Join(repoRoot(t), "gorbital"), func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return err
+		}
+		src, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, m := range version.FindAllString(string(src), -1) {
+			if n, _ := strconv.ParseInt(m, 10, 64); n > newest {
+				newest = n
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newest != latestBuiltinMigration {
+		t.Errorf("the library's newest migration is %d, latestBuiltinMigration %d: update it", newest, latestBuiltinMigration)
+	}
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/shop\n\ngo 1.26.0\n\nrequire gorbital.dev/gorbital v0.2.0\n")
+	writeFile(t, filepath.Join(dir, "db", "migrations", "20260915000002_projects.sql"), "-- projects\n")
+	early := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
+	if got, err := nextMigrationVersion(dir, early); err != nil || got != "20260918000071" {
+		t.Errorf("nextMigrationVersion(Main app, before the library's newest) = %s, %v; want 20260918000071", got, err)
+	}
+	if got, _ := nextMigrationVersion(dir, time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)); got != "20261001000000" {
+		t.Errorf("nextMigrationVersion(Main app, later) = %s", got)
 	}
 }

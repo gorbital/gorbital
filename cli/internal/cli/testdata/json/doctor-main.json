@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "app": "shelfie",
+  "preset": "full",
+  "tenancy": "single",
+  "layout": "main",
+  "checks": [
+    {
+      "name": "go",
+      "status": "ok",
+      "detail": "{text}"
+    },
+    {
+      "name": "git",
+      "status": "ok",
+      "detail": "{text}"
+    }
+  ],
+  "failures": 0,
+  "warnings": 0
+}

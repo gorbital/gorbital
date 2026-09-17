@@ -55,6 +55,7 @@ type InvalidConfigError struct {
 	Reason string
 }
 
+// Error names the job and the reason its configuration was rejected.
 func (e *InvalidConfigError) Error() string {
 	return fmt.Sprintf("jobs: invalid configuration for %s: %s", e.Name, e.Reason)
 }

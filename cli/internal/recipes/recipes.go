@@ -1,8 +1,11 @@
 // Package recipes renders the project templates used by orb new.
 //
 // Each preset's templates are generated from a hand-written golden app by
-// `go generate`: minimal/ from examples/minimal, full/ from
-// examples/full-single and full-multi/ from examples/full-multi (ADR-0041,
+// `go generate`: minimal/ from examples/minimal; v0.2/full/ and
+// v0.2/full-multi/, the layout orb new writes (apps on gorbital.Main,
+// ADR-0083), from examples/full-single and examples/full-multi; and full/
+// and full-multi/, the v0.1 layout that v0.1 apps keep, from
+// examples/v0.1/full-single and examples/v0.1/full-multi (ADR-0041,
 // ADR-0048). Never edit them by hand.
 package recipes
 
@@ -28,7 +31,7 @@ import (
 // templatesFS holds this directory's preset and email templates, laid out
 // like an older release's cli/internal/recipes (ADR-0050).
 //
-//go:embed all:minimal all:full all:full-multi mail/*.tmpl
+//go:embed all:minimal all:full all:full-multi all:v0.2 mail/*.tmpl
 var templatesFS embed.FS
 
 // Recipe identities: the names of the preset template trees.
@@ -37,7 +40,21 @@ const (
 	FullName      = "base-full"
 	FullMultiName = "base-full-multi"
 	// LibraryVersion is the gorbital library version generated apps require.
-	LibraryVersion = "v0.1.0"
+	LibraryVersion = "v0.2.0"
+)
+
+// App layouts. A layout is how an app's code is organised, and which
+// templates wrote it: orb upgrade and orb add rebuild and merge an app from
+// the templates of its own layout.
+const (
+	// LayoutV01 is the layout of v0.1: a composition root in internal/app
+	// wiring generated modules, with cmd/migrate and cmd/seed. Minimal apps
+	// keep it (roadmap decision D17). gorbital.lock records it as no layout.
+	LayoutV01 = "v0.1"
+	// LayoutV02 is the layout of v0.2: cmd/api/main.go on gorbital.Main, the
+	// app's modules in internal/modules and its migrations in db/migrations
+	// (ADR-0083). orb new writes it for the Full preset.
+	LayoutV02 = "v0.2"
 )
 
 // Tenancy values of orb new --tenancy (ADR-0023).
@@ -55,14 +72,41 @@ type Preset struct {
 	Tenancy string
 	// Recipe names the preset's template tree.
 	Recipe string
-	// dir is the tree's directory in every release.
+	// dir is the v0.1 layout's tree, in the same directory in every
+	// release.
 	dir string
+	// mainDir is the v0.2 layout's tree, in releases from v0.2 on; "" for
+	// presets without one.
+	mainDir string
 }
 
 var presets = []Preset{
 	{Name: "minimal", Tenancy: TenancySingle, Recipe: MinimalName, dir: "minimal"},
-	{Name: "full", Tenancy: TenancySingle, Recipe: FullName, dir: "full"},
-	{Name: "full", Tenancy: TenancyMulti, Recipe: FullMultiName, dir: "full-multi"},
+	{Name: "full", Tenancy: TenancySingle, Recipe: FullName, dir: "full", mainDir: "v0.2/full"},
+	{Name: "full", Tenancy: TenancyMulti, Recipe: FullMultiName, dir: "full-multi", mainDir: "v0.2/full-multi"},
+}
+
+// Layout returns the layout orb new writes for the preset: LayoutV02 for
+// the Full preset, LayoutV01 for Minimal, which keeps composing core
+// packages directly.
+func (p Preset) Layout() string {
+	if p.mainDir != "" {
+		return LayoutV02
+	}
+	return LayoutV01
+}
+
+// treeDir returns the directory of the preset's templates in layout.
+func (p Preset) treeDir(layout string) (string, error) {
+	switch {
+	case layout == LayoutV01:
+		return p.dir, nil
+	case layout == LayoutV02 && p.mainDir != "":
+		return p.mainDir, nil
+	case layout == LayoutV02:
+		return "", fmt.Errorf("recipes: the %s preset has no %s layout", p.Name, LayoutV02)
+	}
+	return "", fmt.Errorf("recipes: unknown layout %q (want %s or %s)", layout, LayoutV01, LayoutV02)
 }
 
 // LookupPreset returns the preset orb new --preset name --tenancy tenancy
@@ -95,10 +139,15 @@ func PresetNames() []string {
 	return names
 }
 
-// Render writes the preset into root and returns the files written, sorted
-// by path. Go files are validated with gofmt before writing.
+// Render writes the preset, in the layout orb new writes (Layout), into
+// root and returns the files written, sorted by path. Go files are
+// validated with gofmt before writing.
 func (p Preset) Render(root *os.Root, d Data) ([]File, error) {
-	tree, err := renderTree(templatesFS, p.dir, d)
+	dir, err := p.treeDir(p.Layout())
+	if err != nil {
+		return nil, err
+	}
+	tree, err := renderTree(templatesFS, dir, d)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +159,7 @@ type Data struct {
 	Name           string // app name, for example "my-api"
 	Module         string // Go module path
 	LibraryVersion string
-	// Local, when set, is a path to an gorbital checkout used through
+	// Local, when set, is a path to a gorbital checkout used through
 	// replace directives (development before a release is published).
 	Local string
 }

@@ -83,7 +83,10 @@ type Field struct {
 	Human  string // words, such as due date
 	Kind   string
 	Unique bool
-	Values []EnumValue // enum fields only
+	// Optional marks a string field written name:string? (orb gen module
+	// only): 0 to StringMaxLength characters, and never the title.
+	Optional bool
+	Values   []EnumValue // enum fields only
 }
 
 // IsEnum reports whether f is an enum field.
@@ -99,7 +102,7 @@ func (f Field) GoType() string {
 
 // MinLength is the fewest characters a text field accepts.
 func (f Field) MinLength() int {
-	if f.Kind == KindString {
+	if f.Kind == KindString && !f.Optional {
 		return 1
 	}
 	return 0
@@ -149,29 +152,37 @@ func (f Field) ValueIdents() string {
 }
 
 // Sample is a Go expression for a valid value; enum constants are qualified
-// with pkg's domain package.
-func (f Field) Sample(pkg string) string {
+// with qualifier, the domain package's name and a dot.
+func (f Field) Sample(qualifier string) string {
 	if f.IsEnum() {
-		return pkg + "domain." + f.Ident + f.FirstValue().Ident
+		return qualifier + f.Ident + f.FirstValue().Ident
 	}
 	return strconv.Quote("Example " + f.Human)
 }
 
 // Constraint is the column definition after the column's type.
 func (f Field) Constraint() string {
-	switch f.Kind {
-	case KindString:
+	switch {
+	case f.Kind == KindString && f.Optional:
+		return fmt.Sprintf("NOT NULL DEFAULT '' CHECK (char_length(%s) <= %d)", f.Name, StringMaxLength)
+	case f.Kind == KindString:
 		return fmt.Sprintf("NOT NULL CHECK (char_length(%s) BETWEEN 1 AND %d)", f.Name, StringMaxLength)
-	case KindText:
+	case f.Kind == KindText:
 		return fmt.Sprintf("NOT NULL DEFAULT '' CHECK (char_length(%s) <= %d)", f.Name, TextMaxLength)
 	}
 	values := strings.Join(f.values(func(v EnumValue) string { return "'" + v.Value + "'" }), ", ")
 	return fmt.Sprintf("NOT NULL DEFAULT '%s' CHECK (%s IN (%s))", f.FirstValue().Value, f.Name, values)
 }
 
-// ParseFields parses field specs such as name:string:unique, notes:text and
-// status:enum(active,archived).
-func ParseFields(specs []string) ([]Field, error) {
+// ParseFields parses orb gen resource's field specs, such as
+// name:string:unique, notes:text and status:enum(active,archived).
+func ParseFields(specs []string) ([]Field, error) { return parseFields(specs, false) }
+
+// ParseModuleFields parses orb gen module's field specs: those of
+// ParseFields, and optional strings such as nickname:string?.
+func ParseModuleFields(specs []string) ([]Field, error) { return parseFields(specs, true) }
+
+func parseFields(specs []string, allowOptional bool) ([]Field, error) {
 	if len(specs) == 0 {
 		return nil, errors.New("add at least one field, such as name:string")
 	}
@@ -181,7 +192,7 @@ func ParseFields(specs []string) ([]Field, error) {
 	fields := make([]Field, 0, len(specs))
 	seen := map[string]bool{}
 	for _, spec := range specs {
-		f, err := parseField(strings.TrimSpace(spec))
+		f, err := parseField(strings.TrimSpace(spec), allowOptional)
 		if err != nil {
 			return nil, err
 		}
@@ -191,13 +202,20 @@ func ParseFields(specs []string) ([]Field, error) {
 		seen[f.Name] = true
 		fields = append(fields, f)
 	}
-	if !slices.ContainsFunc(fields, func(f Field) bool { return f.Kind == KindString }) {
+	if !slices.ContainsFunc(fields, Field.required) {
+		if allowOptional {
+			return nil, errors.New("add at least one required string field, such as name:string (not string?); the first one is the title lists sort by")
+		}
 		return nil, errors.New("add at least one string field, such as name:string; the first one is the title lists sort by")
 	}
 	return fields, nil
 }
 
-func parseField(spec string) (Field, error) {
+// required reports whether f is a required string field, which can be the
+// title.
+func (f Field) required() bool { return f.Kind == KindString && !f.Optional }
+
+func parseField(spec string, allowOptional bool) (Field, error) {
 	name, rest, ok := strings.Cut(spec, ":")
 	if !ok || rest == "" {
 		return Field{}, fmt.Errorf("field %q: write it as name:type, such as title:string, notes:text or status:enum(open,closed)", spec)
@@ -223,6 +241,15 @@ func parseField(spec string) (Field, error) {
 		f.Kind, f.Values, options = KindEnum, values, after
 	} else {
 		kind, after, hasOptions := strings.Cut(rest, ":")
+		if base, ok := strings.CutSuffix(kind, "?"); ok {
+			switch {
+			case base != KindString:
+				return Field{}, fmt.Errorf("field %s: only string fields take ?; text and enum fields are already optional", name)
+			case !allowOptional:
+				return Field{}, fmt.Errorf("field %s: optional strings (string?) are for orb gen module; use text here", name)
+			}
+			kind, f.Optional = base, true
+		}
 		if kind != KindString && kind != KindText {
 			return Field{}, fmt.Errorf("field %s: type must be string, text or enum(a,b), got %q", name, kind)
 		}
@@ -240,6 +267,8 @@ func parseField(spec string) (Field, error) {
 	}
 	for _, option := range strings.Split(options[1:], ":") {
 		switch {
+		case option == "unique" && f.Optional:
+			return Field{}, fmt.Errorf("field %s: an optional string can't be unique; drop the ?", name)
 		case option == "unique" && f.Kind == KindString:
 			f.Unique = true
 		case option == "unique":
@@ -388,8 +417,8 @@ func ValidateResourceName(name string) error {
 // checkIdentifiers rejects fields whose generated Go names would clash with
 // each other or with the names every resource has.
 func (d ResourceData) checkIdentifiers() error {
-	if len(d.Strings()) == 0 {
-		return errors.New("add at least one string field, such as name:string")
+	if !slices.ContainsFunc(d.Fields, Field.required) {
+		return errors.New("add at least one required string field, such as name:string")
 	}
 	members := map[string]bool{
 		"ID": true, "OwnerID": true, "OrgID": true, "CreatedBy": true, "Version": true, "CreatedAt": true, "UpdatedAt": true, "Apply": true,
@@ -475,8 +504,9 @@ func (d ResourceData) HasEnums() bool { return len(d.Enums()) > 0 }
 // HasUniques reports whether the resource has a unique field.
 func (d ResourceData) HasUniques() bool { return len(d.Uniques()) > 0 }
 
-// Title is the first string field, which lists sort by in the tests.
-func (d ResourceData) Title() Field { return d.Strings()[0] }
+// Title is the first required string field, which lists sort by in the
+// tests.
+func (d ResourceData) Title() Field { return d.fieldsWhere(Field.required)[0] }
 
 // FirstEnum is the first enum field, or the zero Field.
 func (d ResourceData) FirstEnum() Field {
@@ -624,9 +654,14 @@ func (d ResourceData) InvalidFields() string {
 // title expression, the title field is set to it and other unique fields
 // are made from it, so samples with different titles don't clash.
 func (d ResourceData) SampleFields(title string) string {
+	return d.sampleFields(title, d.Package+"domain.")
+}
+
+// sampleFields is SampleFields with enum constants qualified by qualifier.
+func (d ResourceData) sampleFields(title, qualifier string) string {
 	members := make([]string, len(d.Fields))
 	for i, f := range d.Fields {
-		value := f.Sample(d.Package)
+		value := f.Sample(qualifier)
 		switch {
 		case title == "" || f.IsEnum():
 		case f.Name == d.Title().Name:

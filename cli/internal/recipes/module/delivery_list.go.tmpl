@@ -1,0 +1,48 @@
+package delivery
+
+import (
+	"context"
+
+	"gorbital.dev/page"
+⟦if .HasEnums⟧
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+⟦- end⟧
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+type list⟦.Plural⟧Input struct {
+⟦- if .Org⟧
+	OrgID string `path:"orgId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy"`
+⟦- end⟧
+	page.Params
+⟦- range .Enums⟧
+	⟦.Ident⟧ string `query:"⟦.Name⟧" enum:"⟦.EnumTag⟧" doc:"Only ⟦$.PluralHuman⟧ with this ⟦.Human⟧"`
+⟦- end⟧
+}
+
+// ⟦.Ident⟧Page is a page of ⟦.PluralHuman⟧.
+type ⟦.Ident⟧Page struct {
+	Items      []⟦.Ident⟧Response `json:"items"`
+	NextCursor string `json:"next_cursor,omitempty" doc:"Pass as cursor to get the next page; absent on the last page"`
+}
+
+type ⟦.Var⟧PageOutput struct {
+	Body ⟦.Ident⟧Page
+}
+
+func (h handlers) list⟦.Plural⟧(ctx context.Context, in *list⟦.Plural⟧Input) (*⟦.Var⟧PageOutput, error) {
+	res, err := h.svc.List⟦.Plural⟧(ctx, ⟦if .Org⟧in.OrgID, ⟦end⟧usecase.List⟦.Plural⟧Input{
+		Page: in.Params,
+⟦- range .Enums⟧
+		⟦.Ident⟧: domain.⟦.Ident⟧(in.⟦.Ident⟧),
+⟦- end⟧
+	})
+	if err != nil {
+		return nil, fieldErrors(err, "query")
+	}
+	out := &⟦.Var⟧PageOutput{Body: ⟦.Ident⟧Page{Items: make([]⟦.Ident⟧Response, len(res.Items)), NextCursor: res.NextCursor}}
+	for i, ⟦.Var⟧ := range res.Items {
+		out.Body.Items[i] = toResponse(⟦.Var⟧)
+	}
+	return out, nil
+}

@@ -4,7 +4,7 @@
 // records with live streams, captured email, migration state and recent job
 // runs.
 //
-// The console exposes an app's internals, so every request must pass three
+// The console exposes an app's internals, so every request must pass four
 // checks before anything else runs:
 //
 //   - the Host header names localhost, 127.0.0.1 or [::1] with the port the
@@ -12,6 +12,11 @@
 //     site that rebinds its own name to 127.0.0.1 still sends its own name;
 //   - the connection comes from a loopback address, so an app listening on
 //     every interface doesn't serve the console to its network;
+//   - the request carries no forwarding headers (Forwarded, X-Forwarded-For,
+//     X-Forwarded-Host, X-Real-IP, True-Client-IP, CF-Connecting-IP, CF-Ray,
+//     CDN-Loop): a reverse proxy or tunnel on this machine, such as
+//     cloudflared for orb dev --tunnel, connects from loopback and may even
+//     send a local Host, but adds them (ADR-0086);
 //   - an Authorization: Bearer header carries the console token (at least
 //     [MinTokenLength] characters; orb dev generates 256 bits per run),
 //     compared in constant time.
@@ -134,6 +139,21 @@ type Sources struct {
 	// /_dev/mail/previews, /_dev/mail/preview, POST /_dev/mail/preview/send);
 	// see [MailPreviewer].
 	MailPreviews *MailPreviewer
+	// Extensions serve more endpoints under /_dev/, such as sign-in's
+	// tests at /_dev/auth/test/ (ADR-0087), behind the same checks.
+	Extensions []Extension
+}
+
+// Extension serves the console endpoints under Prefix (and Prefix without its
+// final slash) with Handler, after
+// the console's Host, loopback, forwarding and token checks and with its
+// response headers (Cache-Control: no-store, no CORS). The handler answers
+// every method itself. The index lists Prefix in Index.Extensions.
+type Extension struct {
+	// Prefix is a path under /_dev/ ending in a slash, such as
+	// "/_dev/auth/test/". It must not contain a built-in endpoint.
+	Prefix  string
+	Handler http.Handler
 }
 
 // Option configures a [Console].
@@ -213,6 +233,9 @@ func New(token string, opts ...Option) (*Console, error) {
 	case o.maxStreams < 1 || o.streamDuration <= 0:
 		return nil, errors.New("devconsole: stream limits must be positive")
 	}
+	if err := checkExtensions(o.sources.Extensions); err != nil {
+		return nil, err
+	}
 	return &Console{
 		tokenHash:      sha256.Sum256([]byte(token)),
 		port:           o.port,
@@ -282,7 +305,7 @@ func (c *Console) handler(logger *slog.Logger) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		defer func() {
 			if v := recover(); v != nil {
-				if v == http.ErrAbortHandler {
+				if err, ok := v.(error); ok && errors.Is(err, http.ErrAbortHandler) {
 					panic(v)
 				}
 				logger.ErrorContext(r.Context(), "dev console: panic", "path", r.URL.Path, "panic", fmt.Sprint(v))
@@ -292,6 +315,10 @@ func (c *Console) handler(logger *slog.Logger) http.Handler {
 
 		if reason := c.refuse(r); reason != "" {
 			c.logRefusal(r, logger, reason)
+			if reason == refusedForwarded {
+				httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusForbidden, "forbidden", "the dev console answers only direct local connections, not requests forwarded by a proxy or tunnel"))
+				return
+			}
 			if reason == refusedToken {
 				h.Set("WWW-Authenticate", `Bearer realm="dev console"`)
 				httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusUnauthorized, "unauthorized", "send the dev console token printed by orb dev as Authorization: Bearer <token>"))
@@ -307,6 +334,10 @@ func (c *Console) handler(logger *slog.Logger) http.Handler {
 		}
 		e, ok := endpoints[path]
 		if !ok || !e.present {
+			if ext := c.extension(path); ext != nil {
+				ext.ServeHTTP(w, r)
+				return
+			}
 			httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, "not_found", "no dev console endpoint "+path))
 			return
 		}
@@ -331,11 +362,52 @@ func (c *Console) handler(logger *slog.Logger) http.Handler {
 	})
 }
 
+// checkExtensions reports an extension whose prefix isn't a directory under
+// /_dev/, holds a built-in endpoint, or is served twice.
+func checkExtensions(exts []Extension) error {
+	seen := map[string]bool{}
+	for _, e := range exts {
+		rest, ok := strings.CutPrefix(e.Prefix, Prefix)
+		switch {
+		case !ok || rest == "" || rest[0] == '/' || !strings.HasSuffix(rest, "/") || strings.Contains(rest, "//") || e.Handler == nil:
+			return fmt.Errorf("devconsole: extension %q must have a handler and a prefix under %s ending in a slash", e.Prefix, Prefix)
+		case seen[e.Prefix]:
+			return fmt.Errorf("devconsole: extension %q is served twice", e.Prefix)
+		}
+		for _, builtin := range builtinPaths {
+			if strings.HasPrefix(builtin, e.Prefix) || strings.HasPrefix(e.Prefix, builtin+"/") {
+				return fmt.Errorf("devconsole: extension %q overlaps the console's %s", e.Prefix, builtin)
+			}
+		}
+		seen[e.Prefix] = true
+	}
+	return nil
+}
+
+// builtinPaths are the console's own endpoints, which extensions can't
+// shadow.
+var builtinPaths = []string{
+	Prefix + "openapi.json", Prefix + "requests", Prefix + "logs", Prefix + "app", Prefix + "routes", Prefix + "config",
+	Prefix + "mail", Prefix + "migrations", Prefix + "jobs",
+}
+
+// extension returns the handler of the extension serving path (under its
+// prefix, or the prefix without its final slash), or nil.
+func (c *Console) extension(path string) http.Handler {
+	for _, e := range c.sources.Extensions {
+		if strings.HasPrefix(path, e.Prefix) || path == strings.TrimSuffix(e.Prefix, "/") {
+			return e.Handler
+		}
+	}
+	return nil
+}
+
 // Reasons a request is refused.
 const (
-	refusedHost  = "host"
-	refusedPeer  = "peer"
-	refusedToken = "token"
+	refusedHost      = "host"
+	refusedPeer      = "peer"
+	refusedForwarded = "forwarded"
+	refusedToken     = "token"
 )
 
 // refuse returns why r may not use the console, or "".
@@ -345,6 +417,9 @@ func (c *Console) refuse(r *http.Request) string {
 	}
 	if !loopbackPeer(r.RemoteAddr) {
 		return refusedPeer
+	}
+	if forwarded(r.Header) {
+		return refusedForwarded
 	}
 	if !c.validToken(r.Header.Get("Authorization")) {
 		return refusedToken
@@ -405,6 +480,22 @@ func allowedHost(host, port string) bool {
 	switch strings.ToLower(name) {
 	case "localhost", "127.0.0.1", "[::1]":
 		return hostPort == port
+	}
+	return false
+}
+
+// forwardingHeaders are set by reverse proxies, CDNs and tunnels to pass on
+// the client they received a request from. Cloudflare's tunnel (cloudflared)
+// sends CF-Connecting-IP, CF-Ray, CDN-Loop and X-Forwarded-For.
+var forwardingHeaders = []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Real-Ip", "True-Client-Ip", "Cf-Connecting-Ip", "Cf-Ray", "Cdn-Loop"}
+
+// forwarded reports whether a request came through a proxy or tunnel: it
+// carries any forwarding header, even an empty one.
+func forwarded(h http.Header) bool {
+	for _, name := range forwardingHeaders {
+		if _, ok := h[name]; ok {
+			return true
+		}
 	}
 	return false
 }

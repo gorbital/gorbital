@@ -11,10 +11,40 @@ import (
 )
 
 // multiTenantChanges are the paths examples/full-multi may change or add
-// compared with examples/full-single (ADR-0048). A path ending in / covers a
-// directory. Every other file must be identical, so the two golden apps
-// can't drift apart: fix a shared file in both.
+// compared with examples/full-single, the golden apps on gorbital.Main
+// (ADR-0048, ADR-0083). A path ending in / covers a directory. Every other
+// file must be identical, so the two golden apps can't drift apart: fix a
+// shared file in both.
 var multiTenantChanges = []string{
+	// main.go adds the organisations module.
+	"cmd/api/main.go",
+	"cmd/api/app_test.go", // tests the app with organisations
+	// Projects belong to an organisation instead of a user, and run after
+	// the organisations module's migrations.
+	"db/migrations/20260915000002_projects.sql",
+	"db/migrations/20260916000002_projects.sql",
+	"internal/modules/projects/",
+	// Row-level security (ADR-0061): the policies orb add rls turns into a
+	// migration.
+	"db/row_level_security.sql",
+
+	"go.mod",
+	"gorbital.yaml",
+	// Generated or written for each app.
+	"api/openapi.json",
+	"api/postman_collection.json",
+	"api/llms.txt",
+	"api/openapi.baseline.json",
+	"api/surface.json",
+	"README.md",
+	"ARCHITECTURE.md",
+	"AGENTS.md",
+}
+
+// v01MultiTenantChanges are the paths examples/v0.1/full-multi may change or
+// add compared with examples/v0.1/full-single, the frozen v0.1-layout golden
+// apps.
+var v01MultiTenantChanges = []string{
 	// Organisations: the module, its job, wiring, migration and tests.
 	"internal/modules/orgs/",
 	"internal/jobs/orgspurge/",
@@ -67,8 +97,8 @@ var multiTenantChanges = []string{
 	"AGENTS.md",
 }
 
-func allowedChange(path string) bool {
-	return slices.ContainsFunc(multiTenantChanges, func(p string) bool {
+func allowedChange(changes []string, path string) bool {
+	return slices.ContainsFunc(changes, func(p string) bool {
 		return path == p || (strings.HasSuffix(p, "/") && strings.HasPrefix(path, p))
 	})
 }
@@ -99,9 +129,21 @@ func appFiles(t *testing.T, dir string) map[string][]byte {
 }
 
 // TestGoldenAppsDontDrift checks that examples/full-multi is
-// examples/full-single plus organisations and nothing else.
+// examples/full-single plus organisations and nothing else, and the same of
+// the v0.1-layout golden apps in examples/v0.1.
 func TestGoldenAppsDontDrift(t *testing.T) {
-	root := filepath.Join("..", "..", "examples")
+	for _, pair := range []struct {
+		dir     string
+		changes []string
+	}{
+		{filepath.Join("..", "..", "examples"), multiTenantChanges},
+		{filepath.Join("..", "..", "examples", "v0.1"), v01MultiTenantChanges},
+	} {
+		t.Run(pair.dir, func(t *testing.T) { checkDrift(t, pair.dir, pair.changes) })
+	}
+}
+
+func checkDrift(t *testing.T, root string, changes []string) {
 	single, multi := appFiles(t, filepath.Join(root, "full-single")), appFiles(t, filepath.Join(root, "full-multi"))
 
 	paths := make([]string, 0, len(single)+len(multi))
@@ -118,27 +160,27 @@ func TestGoldenAppsDontDrift(t *testing.T) {
 	for _, p := range paths {
 		a, inSingle := single[p]
 		b, inMulti := multi[p]
-		if allowedChange(p) {
+		if allowedChange(changes, p) {
 			continue
 		}
 		switch {
 		case !inMulti:
-			t.Errorf("%s is in full-single but not full-multi; add it to both, or to multiTenantChanges if organisations remove it", p)
+			t.Errorf("%s is in full-single but not full-multi; add it to both, or to the allowed changes if organisations remove it", p)
 		case !inSingle:
-			t.Errorf("%s is only in full-multi; add it to full-single too, or to multiTenantChanges if only organisations need it", p)
+			t.Errorf("%s is only in full-multi; add it to full-single too, or to the allowed changes if only organisations need it", p)
 		case !bytes.Equal(a, b):
-			t.Errorf("%s differs between full-single and full-multi; make the same change in both, or add it to multiTenantChanges", p)
+			t.Errorf("%s differs between full-single and full-multi; make the same change in both, or add it to the allowed changes", p)
 		}
 	}
 
 	// An allowed file that no longer differs should come off the list.
-	for _, p := range multiTenantChanges {
+	for _, p := range changes {
 		if strings.HasSuffix(p, "/") {
 			continue
 		}
 		if a, ok := single[p]; ok {
 			if b, ok := multi[p]; ok && bytes.Equal(a, b) {
-				t.Errorf("%s is in multiTenantChanges but is identical in both apps; remove it from the list", p)
+				t.Errorf("%s is in the allowed changes but is identical in both apps; remove it from the list", p)
 			}
 		}
 	}

@@ -3,6 +3,7 @@
 # under modules/ and the CLI, all at one version on the current commit.
 #
 #   scripts/release.sh v0.1.0          check, then create the tags locally
+#   scripts/release.sh v0.1.0 --check  check only; create nothing
 #   scripts/release.sh v0.1.0 --push   also push them to origin
 #
 # It refuses a dirty tree, a commit that isn't on origin/main, a version
@@ -10,6 +11,10 @@
 # go.mod requires another gorbital module at a different version. Tags pushed
 # to a public repository reach the Go module proxy, which keeps them for good,
 # so check the list before --push.
+#
+# --push pushes in batches of three: GitHub creates no push event at all when
+# more than three tags arrive in one push, and the release workflows are
+# triggered by those events.
 set -euo pipefail
 
 version=${1:-}
@@ -18,7 +23,7 @@ if [[ ! $version =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
   echo "usage: scripts/release.sh vX.Y.Z [--push]" >&2
   exit 2
 fi
-if [[ -n $push && $push != --push ]]; then
+if [[ -n $push && $push != --push && $push != --check ]]; then
   echo "unknown option $push" >&2
   exit 2
 fi
@@ -36,11 +41,13 @@ if ! git merge-base --is-ancestor "$commit" origin/main; then
   exit 1
 fi
 
-# Library modules: the root and every go.mod under modules/.
+# Library modules: the root, every go.mod under modules/, and gorbital/.
 dirs=(.)
 while IFS= read -r mod; do
   dirs+=("$(dirname "$mod")")
 done < <(find modules -name go.mod -not -path '*/testdata/*' | sort)
+# The composition module (ADR-0081).
+[[ -f gorbital/go.mod ]] && dirs+=(gorbital)
 
 tags=()
 status=0
@@ -69,13 +76,24 @@ done
 echo "Release $version at $(git log -1 --format='%h %s')"
 printf '  %s\n' "${tags[@]}"
 
+if [[ $push == --check ]]; then
+  echo "Checked ${#tags[@]} tags. Nothing created."
+  exit 0
+fi
+
 for tag in "${tags[@]}"; do
   git tag -a "$tag" -m "gorbital $version" "$commit"
 done
 echo "Created ${#tags[@]} tags."
 
 if [[ $push == --push ]]; then
-  git push origin "${tags[@]/#/refs/tags/}"
+  # Three at a time: GitHub creates no push event when a single push carries
+  # more than three tags, and the release workflows run on those events.
+  for ((i = 0; i < ${#tags[@]}; i += 3)); do
+    batch=("${tags[@]:i:3}")
+    echo "Pushing ${batch[*]}"
+    git push origin "${batch[@]/#/refs/tags/}"
+  done
   echo "Pushed. Ask the proxy for each module so pkg.go.dev picks it up:"
   for tag in "${tags[@]}"; do
     dir=${tag%/"$version"}

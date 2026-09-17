@@ -6,13 +6,12 @@ Background jobs run on River in PostgreSQL ([Background jobs](../guides/backgrou
 
 | Job | Default schedule | Enabled | Timeout | Attempts | Queue | Priority | What it does |
 |---|---|---|---|---|---|---|---|
-| `heartbeat` | `@every 1h` (every hour) | yes | 1 minute | 3 | `default` | 1 | Logs a heartbeat. An example job: change its schedule in /ops/jobs. |
-| `auth_cleanup` | `30 3 * * *` (daily at 03:30) | yes | 5 minutes | 3 | `default` | 2 | Removes ended sessions, old email codes and accounts deleted longer ago than auth.deleted_account_retention. |
-| `auth_revoke_tokens` | `@every 1m` (every minute) | yes | 5 minutes | 1 | `default` | 2 | Revokes the Apple refresh tokens of unlinked identities and deleted accounts, retrying failures with backoff. |
-| `orgs_purge` | `45 3 * * *` (daily at 03:45) | yes | 10 minutes | 3 | `default` | 2 | Removes organisations deleted longer ago than orgs.deleted_org_retention, with their members, invitations and data. *Multi-tenant apps only.* |
 | `ratelimit_cleanup` | `@every 1h` (every hour) | yes | 5 minutes | 3 | `default` | 3 | Deletes shared rate limit buckets whose keys are back to a full budget. |
 | `idempotency_cleanup` | `@every 1h` (every hour) | yes | 5 minutes | 3 | `default` | 3 | Deletes idempotency keys and their stored responses once they are older than idempotency.retention. |
 | `observability_cleanup` | `@every 1h` (every hour) | yes | 5 minutes | 3 | `default` | 3 | Deletes request minutes, which /ops/observability reads, once they are older than observability.retention. |
 | `incidents_detect` | `@every 1m` (every minute) | yes | 30 seconds | 1 | `default` | 2 | Opens an automatic incident when the server error rate over incidents.detection_window is above incidents.error_rate_threshold, and notes when it recovers. |
 | `retention` | `15 4 * * *` (daily at 04:15) | yes | 30 minutes | 3 | `default` | 3 | Deletes audit events older than audit.retention and setting and job configuration history older than ops.history_retention. |
+| `auth_cleanup` | `30 3 * * *` (daily at 03:30) | yes | 5 minutes | 3 | `default` | 2 | Removes ended sessions, old email codes and accounts deleted longer ago than auth.deleted_account_retention. |
+| `auth_revoke_tokens` | `@every 1m` (every minute) | yes | 5 minutes | 1 | `default` | 2 | Revokes the Apple refresh tokens of unlinked identities and deleted accounts, retrying failures with backoff. |
+| `orgs_purge` | `45 3 * * *` (daily at 03:45) | yes | 10 minutes | 3 | `default` | 2 | Removes organisations deleted longer ago than orgs.deleted_org_retention, with their members, invitations and data. *Multi-tenant apps only.* |
 | `gorbital.mail.send` | none | always | | | | | Delivers queued email through the configured provider: up to 8 attempts of 30 seconds each on the `default` queue, and a message the provider rejects is cancelled instead of retried. The app enqueues one for every email it sends; it has no schedule and isn't a job definition, so `/ops/jobs/definitions` doesn't list it, but its runs appear in `/ops/jobs/runs`. |

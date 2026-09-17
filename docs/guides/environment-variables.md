@@ -6,13 +6,14 @@ Three groups of programs read the environment, and each has its own variables:
 
 | Reader | Where | Variables |
 |---|---|---|
-| A generated app (`cmd/api`, `cmd/migrate`, `cmd/seed`) | `internal/app/config.go`, `social.go`, `passkeys.go`, `infra_mail.go` | [App](#app-server), [database](#database), [authentication](#authentication), [email](#email), [telemetry](#telemetry) |
+| A v0.1 app (`cmd/api`, `cmd/migrate`, `cmd/seed`) | `internal/app/config.go`, `social.go`, `passkeys.go`, `infra_mail.go` | [App](#app-server), [database](#database), [authentication](#authentication), [file storage](#file-storage), [email](#email), [telemetry](#telemetry) |
+| A v0.2 app on `gorbital.Main` (`cmd/api`) | `gorbital.LoadConfig`, and the modules it is built with | The same, with [a few checks moved](#apps-on-gorbitalmain) |
 | Docker Compose, from the app's `compose.yaml` | Interpolated by `docker compose`, which reads `.env` itself | [Compose ports](#compose-ports) |
 | `orb`, and the gorbital repository's tests | `cli/`, `modules/postgres/pgtest`, root `compose.yaml` | [CLI](#cli), [tests](#tests) |
 
 ## How the app reads configuration
 
-- **Only `internal/app` reads the environment** (`LoadConfig` in `config.go`). Libraries take values as constructor arguments; `architecture_test.go` enforces it.
+- **One place reads the environment.** In a v0.1 app it is `internal/app` (`LoadConfig` in `config.go`), and `internal/app/architecture_test.go` enforces it. In an app on `gorbital.Main` it is the library's `gorbital.LoadConfig`, which hands `Config` to the app and its modules; the app's own `internal/modules/architecture_test.go` checks only that a module's layers import each other in one direction. Either way, libraries take values as constructor arguments.
 - **The app reads the process environment, not `.env`.** `orb dev` parses `.env` and passes it to the processes it starts, with variables already set in your shell taking precedence. With plain `go run`, run `set -a; . ./.env; set +a` first. Docker Compose reads `.env` on its own, for the port variables.
 - **Every error is reported at once.** `LoadConfig` collects all problems and fails with `invalid configuration:` followed by one line per variable, so one start shows everything to fix.
 - **Secrets can come from files.** For variables marked **Secret** below, `NAME_FILE=/path` reads the value from the file (`config.Source.Secret`, trailing newline trimmed). Setting both `NAME` and `NAME_FILE` fails with `config: both variable and _FILE variant are set: NAME`. Secrets are held as `config.Secret`, whose `String` and `LogValue` print `[redacted]`.
@@ -20,6 +21,24 @@ Three groups of programs read the environment, and each has its own variables:
 - **`APP_ENV` is required.** Without it the app refuses to start, so a deployment that forgets it can't run with development's relaxed checks. `orb dev` sets `development` when neither your shell nor `.env` sets it. `api openapi` reads no variables: the OpenAPI document describes the code, not a deployment.
 - **`APP_ENV=production` tightens rules.** Marked **Prod** below: required values, https-only URLs, Mailpit refused, docs off by default.
 - **Environment holds secrets and infrastructure only.** Tunables such as code lifetimes and the email sender are runtime settings in PostgreSQL, changed through `/ops/settings` ([runtime settings](runtime-settings.md)). A value is never in both.
+
+## Apps on gorbital.Main
+
+A v0.2 app built with [`gorbital.Main`](main-go.md) has no `internal/app/config.go`: `gorbital.LoadConfig` reads every variable on this page that a Full app reads, with the same names, defaults, messages and production refusals, and reports every problem at once, one line per variable ([Methods](../methods/gorbital.md#LoadConfig)). A v0.1 deployment's environment works unchanged. The configuration errors end the program with exit code 2.
+
+A few checks belong to the driver, provider or authenticator an app passes instead of to `LoadConfig`, so an app that doesn't use one doesn't compile it ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#configuration-what-moved-out-of-loadconfig)):
+
+| Variable | In a v0.1 app | In an app on `gorbital.Main` |
+|---|---|---|
+| `AUTH_ENCRYPTION_KEYS` | Required in production | Its format is checked by `LoadConfig` when set; required in production, checked by `authhttp` at start. An app without sign-in, or with external identity tokens, needs none |
+| `APPLE_PRIVATE_KEY` (or `APPLE_PRIVATE_KEY_FILE`), `WEBAUTHN_APPLE_APP_IDS`, `WEBAUTHN_ANDROID_APPS` | Parsed at start | Read and required together by `LoadConfig` as before; the Apple key and the app lists are checked by `authhttp` at start |
+| `WEBAUTHN_ORIGINS` | Each origin on `WEBAUTHN_RP_ID` | Checked by `authhttp` at start |
+| `STORAGE_DRIVER` other than `local` | The app opens S3 | Checked as before; the app passes the store: `gorbital.WithStorageFunc(func(cfg gorbital.Config) (storage.Store, error) { … cfg.Storage … })`. Without it, the start fails naming the option |
+| `RESEND_API_KEY` | Required with `MAIL_DELIVERY=provider` | The app passes its provider with `gorbital.WithMailer` or `WithMailerFunc` (reading `cfg.Mail.ResendAPIKey`), which production requires; the provider checks its key |
+| `RESEND_WEBHOOK_SECRET` | Format checked at start | Read; its format is checked at start by `mailevents.Module()` when the app has it, as a configuration error (exit code 2) |
+| `SMTP_*` | Read by `infra_mail.go` after `orb add mail --provider smtp` | Not read by gorbital: build the sender with `gorbital.dev/modules/mail/smtp` in `WithMailerFunc` |
+
+`authhttp`'s checks run in `gorbital.New` and `gorbital.Main` before anything connects, with v0.1's messages, and end the program with exit code 2 like `LoadConfig`'s ([Methods](../methods/gorbital-authhttp.md#Authenticator.CheckConfig)). `openapi` reads no variables, as `api openapi` doesn't in v0.1 apps.
 
 ## App server
 
@@ -34,9 +53,18 @@ Read in `config.go` by both presets.
 | `LOG_ARCHIVE_DIR` | No | `.orb/logs` | `/var/lib/acme/logs` | path | Full presets only. Where the hourly log archive spools the current hour before storing it gzipped in file storage under `logs/`; created on demand. **Prod**: in the generated image the default is `/home/nonroot/.orb/logs` inside the container, which a graceful stop empties into the bucket; point it at a mounted volume to keep a crashed instance's hour for the next start. Nothing is written until the `logs.archive.enabled` runtime setting is on ([ADR-0079](../adr/0079-hourly-log-archive.md), [observability guide](observability.md#the-hourly-log-archive)) |
 | `APP_DOCS_ENABLED` | No | `true` in development, `false` in production | `true` | `true` or `false` | Serves `/docs` and the OpenAPI document (`/openapi.json`, `/openapi.yaml`). Off, both answer 404; `api openapi` still exports the document. Set `true` in production for a public API reference |
 | `APP_CORS_ORIGINS` | No | empty | `https://app.example.com,http://localhost:3000` | Comma-separated origins (scheme, host, optional port; no user, path, query or trailing slash). **Prod:** https only | Browser origins allowed by CORS, trusted by the cross-origin protection, and accepted as `return_to` for Google and Apple web sign-in. Empty disables CORS |
-| `APP_TRUSTED_PROXIES` | No | empty | `10.0.0.0/8,192.0.2.10` | Comma-separated CIDR ranges or IP addresses; ranges covering every address (`0.0.0.0/0`, `::/0`) are refused | Load balancers and reverse proxies whose `X-Forwarded-For` names the client, for rate limits, logs and audit events ([ADR-0052](../adr/0052-shared-rate-limits.md)). Requests from other addresses keep their own address and their forwarding headers are ignored. Empty trusts no header: correct only when clients connect directly |
+| `APP_TRUSTED_PROXIES` | No | empty | `10.0.0.0/8,192.0.2.10` | Comma-separated CIDR ranges or IP addresses: a range is masked (`10.0.0.5/8` is `10.0.0.0/8`), IPv4 written as IPv6 becomes IPv4 (`::ffff:10.0.0.5` is `10.0.0.5`), and IPv4-mapped ranges shorter than `/96` and zoned addresses (`fe80::1%en0`) are refused; ranges covering every address (`0.0.0.0/0`, `::/0`, `::ffff:0.0.0.0/96`) are refused | Load balancers and reverse proxies whose `X-Forwarded-For` names the client, for rate limits, logs and audit events ([ADR-0052](../adr/0052-shared-rate-limits.md)). Requests from other addresses keep their own address and their forwarding headers are ignored. Empty trusts no header: correct only when clients connect directly |
 | `APP_TRUSTED_CALLERS` | No | empty | `10.1.0.0/16` | Same as `APP_TRUSTED_PROXIES` | Gateways and internal services whose `X-Request-ID` and W3C trace context (`traceparent`, `tracestate`, `baggage`) the app keeps. Other clients get a generated request ID and a new trace linked to theirs, so they can't hide from tracing, force sampling or reuse another request's IDs. Matched against the client address after `APP_TRUSTED_PROXIES`: list your load balancer only if it sets those headers itself and drops clients' values |
 | `APP_MAX_BODY_BYTES` | No | `1048576` | `5242880` | Positive integer | Request body limit; larger bodies get 413 `request_too_large` |
+| `APP_REQUEST_TIMEOUT` | No | `30s` | `10s` | Go duration shorter than `60s` (the server's write timeout), or `0` | Apps on `gorbital.Main` only: a handler that hasn't started its response by then gets 503 `request_timeout`, and its context is cancelled |
+
+## Operations
+
+Apps on `gorbital.Main` with the operations API (`opshttp.Module()`, [ops API](ops-api.md#adding-it-to-an-app)).
+
+| Variable | Required | Default | Example | Validation | Description |
+|---|---|---|---|---|---|
+| `OPS_ALLOWED_IPS` | No | empty | `10.8.0.0/16,2001:db8:42::/48,203.0.113.7` | Comma-separated CIDR ranges or IP addresses (`ipfilter.ParsePrefixes` in `gorbital.dev/httpx/ipfilter`): a range is masked (`10.0.0.5/8` is `10.0.0.0/8`), IPv4 written as IPv6 becomes IPv4, and IPv4-mapped ranges shorter than `/96` are refused; every bad entry is reported at once | Client addresses allowed to call `/ops/`; others get 403 `ip_not_allowed` before the sign-in check. Matched against the address after `APP_TRUSTED_PROXIES`, so set that behind a load balancer. Empty allows every address ([security layers](security-layers.md#ip-filter), [ADR-0085](../adr/0085-security-layers.md)) |
 
 ## Database
 
@@ -54,7 +82,7 @@ Full preset only.
 
 | Variable | Required | Default | Example | Secret | Description |
 |---|---|---|---|---|---|
-| `AUTH_ENCRYPTION_KEYS` | **Prod**; also `cmd/seed` | empty | `k2:…,k1:…` | **Secret** | AES-256-GCM keys that encrypt TOTP secrets. Format: comma-separated `id:base64`, each key exactly 32 bytes after base64 decoding; ids unique. The first key encrypts, all decrypt. Empty in development turns authenticator apps off (503 `mfa_unavailable`) and `orb dev` fills it. Generate: `echo "k1:$(openssl rand -base64 32)"`. Rotate with `cmd/api rotate-auth-keys` ([secrets and keys](secrets-and-keys.md#auth-encryption-keys)) |
+| `AUTH_ENCRYPTION_KEYS` | **Prod**; also `cmd/seed` | empty | `k2:…,k1:…` | **Secret** | AES-256-GCM keys that encrypt TOTP secrets. Format: comma-separated `id:base64`, each key exactly 32 bytes after base64 decoding; ids unique. The first key encrypts, all decrypt. Empty in development turns authenticator apps off (503 `mfa_unavailable`) and `orb dev` fills it. Generate: `echo "k1:$(openssl rand -base64 32)"`. Rotate with `cmd/api rotate-auth-keys` ([secrets and keys](secrets-and-keys.md#auth_encryption_keys)) |
 
 ### Passkeys
 
@@ -91,9 +119,7 @@ Read in `social.go` ([ADR-0046](../adr/0046-google-and-apple-sign-in.md), [ADR-0
 
 `.env.example` lists `APPLE_PRIVATE_KEY_FILE` and mentions `APPLE_PRIVATE_KEY` in its comment: a file is the recommended form, because multi-line values don't survive most `.env` parsers and environment dashboards.
 
-## Email
-
-Read in `config.go` and `infra_mail.go`. `infra_mail.go` is replaced by `orb add mail`, so exactly one provider's variables apply.
+## File storage
 
 | Variable | Required | Default | Example | Secret | Description |
 |---|---|---|---|---|---|
@@ -101,6 +127,13 @@ Read in `config.go` and `infra_mail.go`. `infra_mail.go` is replaced by `orb add
 | `STORAGE_LOCAL_DIR` | No | `.orb/storage` | `/var/lib/acme/files` | path | The local driver's directory |
 | `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` | For the S3 drivers | derived endpoint for `s3` and `spaces` | `s3.eu-west-1.amazonaws.com` | | The service and its credentials; `STORAGE_SECRET_KEY` is a secret |
 | `STORAGE_PUBLIC_URL`, `STORAGE_PATH_STYLE`, `STORAGE_SIGNING_KEY` | No | none, `true` for minio, random | | | A public bucket's URL; bucket in the path; the key signing local links |
+
+## Email
+
+Read in the app's configuration and in the file `orb add mail` replaces — `cmd/api/mail.go` in an app on `gorbital.Main`, `internal/app/infra_mail.go` in a v0.1 app — so exactly one provider's variables apply.
+
+| Variable | Required | Default | Example | Secret | Description |
+|---|---|---|---|---|---|
 | `DEV_MAIL_SMTP_ADDR` | No | `127.0.0.1:1025` | `127.0.0.1:1035` | host:port | Where `orb dev`'s mail catcher listens and the app sends with `MAIL_DELIVERY=devmail` ([ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)) |
 | `MAIL_DELIVERY` | No | `devmail` in development, `provider` in production | `provider` | No | `devmail`, `mailpit` or `provider`. **Prod**: `devmail` and `mailpit` are refused. Provider credentials are only required when delivery is `provider` |
 | `MAILPIT_SMTP_ADDR` | No | `127.0.0.1:1025` | `127.0.0.1:1035` | No | `host:port` of Mailpit's SMTP server, used when delivery is `mailpit` |
@@ -123,6 +156,9 @@ The sender (`mail.from_name`, `mail.from_email`, `mail.reply_to`) is a runtime s
 | `DEV_CONSOLE_TOKEN` | No | empty | set by `orb dev` | Secret. Turns on the development-only [dev console APIs](dev-console.md) under `/_dev/` when `APP_ENV` is `development`; requests need it as `Authorization: Bearer`, a localhost `Host` and a loopback connection. 32 to 512 visible ASCII characters (`DEV_CONSOLE_TOKEN must be 32 to 512 visible ASCII characters`). Set in production, the app refuses to start (`DEV_CONSOLE_TOKEN is for local development only`). `orb dev` generates a new one per run and never writes it to a file: leave it empty in `.env` ([ADR-0065](../adr/0065-local-dev-console-apis.md)). All presets |
 | `DEV_PORTAL_TOKEN` | No | random per run | set by `orb dev` | Secret, `orb dev`'s own (not the app's): the Dev Portal's session token, in the link it prints; the portal sets it as the `orb_portal` cookie ([Dev Portal](dev-portal.md)) |
 | `DEV_PORTAL_PORT` | No | `3100` | `3101` | `orb dev`'s own: the port the Dev Portal listens on, at 127.0.0.1 (`orb dev --portal-port` overrides it) |
+| `CLOUDFLARE_TUNNEL_TOKEN` | For a named tunnel | empty | `eyJhIjoi…` | **Secret**, `orb dev`'s own: the token of your Cloudflare tunnel, passed to cloudflared in its environment and never to the app ([Tunnel](../dev-portal/tunnel.md)). `CLOUDFLARE_TUNNEL_TOKEN_FILE` names a file holding it instead (not both) |
+| `ORB_TUNNEL_HOSTNAME` | No | empty | `dev-api.example.com` | `orb dev`'s own: the named tunnel's public hostname (`--tunnel-hostname` or the Tunnel screen otherwise) |
+| `ORB_CLOUDFLARED` | No | `cloudflared` on `PATH` | `/opt/homebrew/bin/cloudflared` | `orb dev`'s own: the cloudflared program to run for tunnels |
 
 ## Compose ports
 
@@ -176,3 +212,4 @@ Both Full golden apps' `.env.example` files (`examples/full-single`, `examples/f
 | `APPLE_PRIVATE_KEY` | Read by the code; mentioned in the comment above `APPLE_PRIVATE_KEY_FILE` rather than as its own line, by design |
 | `*_FILE` variants | Supported for every secret; listed only for `DATABASE_URL` and the Apple key |
 | `SMTP_*` | Appear in the `orb:begin mail` block only after `orb add mail --provider smtp`; a new app lists `RESEND_API_KEY` there |
+| `OPS_ALLOWED_IPS`, `APP_REQUEST_TIMEOUT` | Read by apps on `gorbital.Main` only. Both v0.2 golden apps list them, as does Shelfie's `.env.example`; the v0.1 golden apps under `examples/v0.1/` don't |

@@ -9,13 +9,13 @@ import (
 
 	"gorbital.dev/page"
 
-	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
-	projectsusecase "example.com/acme-api/internal/modules/projects/usecase"
+	"example.com/acme-api/internal/modules/projects/domain"
+	"example.com/acme-api/internal/modules/projects/usecase"
 )
 
 // selectProjectsSQL holds one fixed query per sort, keyed "created_at",
 // "-created_at" and so on. Only the allowlisted sort expressions below become
-// SQL text; every value is a placeholder (ADR-0032). Pages use keyset
+// SQL text; every value is a placeholder. Pages use keyset
 // pagination: the next page starts after the last row's (sort value, id).
 var selectProjectsSQL = func() map[string]string {
 	sorts := []struct{ field, key, after string }{
@@ -44,9 +44,9 @@ var selectProjectsSQL = func() map[string]string {
 	return queries
 }()
 
-// SelectProjects returns up to q.Limit of an organisation's projects in
-// q.Sort order, starting after q.After.
-func (s *Store) SelectProjects(ctx context.Context, q projectsusecase.ListQuery) ([]projectsdomain.Project, error) {
+// SelectProjects returns up to q.Limit of an organisation's projects in q.Sort
+// order, starting after q.After.
+func (s *Store) SelectProjects(ctx context.Context, q usecase.ListQuery) ([]domain.Project, error) {
 	name := q.Sort.Field
 	if q.Sort.Desc {
 		name = "-" + name

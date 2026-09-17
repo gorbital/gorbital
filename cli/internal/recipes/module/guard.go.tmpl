@@ -1,0 +1,43 @@
+package delivery
+
+import (
+	"context"
+	"errors"
+	"net/http"
+
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/guard"
+)
+
+// ⟦.Err⟧ is the error
+// ⟦.Ident⟧ refuses a request with. Map it in module.go's Errors,
+// so the refusal has a status and a stable code:
+//
+//	⟦.ErrorMapping⟧
+var ⟦.Err⟧ = errors.New(⟦quote (print .ModuleName ": " .Human " refused the request")⟧)
+
+// ⟦.Ident⟧ is a guard for the ⟦.ModuleName⟧ routes: add it to a route or
+// a group in routes.go, next to guard.Permission. It runs after the sign-in
+// check and before the request body is read, and x-gorbital-guards lists it
+// as ⟦quote .Snake⟧.
+func ⟦.Ident⟧() gorbital.RouteOption {
+	return guard.New(guard.Spec{
+		Name:     ⟦quote .Snake⟧,
+		Statuses: []int{http.StatusForbidden},
+		Check:    ⟦.Check⟧,
+	})
+}
+
+// ⟦.Check⟧ is the guard's rule.
+// It returns nil to let a request through, or the error above to refuse
+// it; until you write it, every request passes.
+// req has the path parameters, query and headers, not the body; ctx has the
+// caller (actor.From). Any other error is a 500, logged once.
+func ⟦.Check⟧(ctx context.Context, req guard.Request) error {
+	// For example, only callers that say which version they are:
+	//
+	//	if req.Header("X-App-Version") == "" {
+	//		return ⟦.Err⟧
+	//	}
+	return nil
+}

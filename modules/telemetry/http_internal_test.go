@@ -46,7 +46,7 @@ func TestHTTPMetricsIgnoreHost(t *testing.T) {
 			for _, dp := range hist.DataPoints {
 				for _, key := range []attribute.Key{"server.address", "server.port"} {
 					if v, ok := dp.Attributes.Value(key); ok {
-						t.Errorf("%s has %s=%s, want none", m.Name, key, v.Emit())
+						t.Errorf("%s has %s=%s, want none", m.Name, key, v.String())
 					}
 				}
 			}

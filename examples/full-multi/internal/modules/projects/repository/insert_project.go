@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	projectsdomain "example.com/acme-api/internal/modules/projects/domain"
+	"example.com/acme-api/internal/modules/projects/domain"
 )
 
 const insertProjectSQL = `
@@ -13,13 +13,13 @@ const insertProjectSQL = `
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	RETURNING ` + projectColumns
 
-// InsertProject creates a project, or returns ErrProjectNameTaken
-// when the organisation already uses the value, ignoring case.
-func (s *Store) InsertProject(ctx context.Context, p projectsdomain.Project) (projectsdomain.Project, error) {
+// InsertProject stores a new project, or returns ErrProjectNameTaken when the
+// organisation already uses the value, ignoring case.
+func (s *Store) InsertProject(ctx context.Context, project domain.Project) (domain.Project, error) {
 	rows, err := s.db.Query(ctx, insertProjectSQL,
-		p.ID, p.OrgID, p.CreatedBy, p.Name, p.Description, p.Status, p.Version, p.CreatedAt, p.UpdatedAt)
+		project.ID, project.OrgID, project.CreatedBy, project.Name, project.Description, project.Status, project.Version, project.CreatedAt, project.UpdatedAt)
 	if err == nil {
-		p, err = pgx.CollectExactlyOneRow(rows, scanProject)
+		project, err = pgx.CollectExactlyOneRow(rows, scanProject)
 	}
-	return p, constraintError(err)
+	return project, constraintError(err)
 }

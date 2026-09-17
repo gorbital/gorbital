@@ -40,6 +40,8 @@ Every change is audited as the dev operator. A stale version answers 409; the pa
 
 ### New job
 
+> The `job` generator behind this sheet is `orb gen job`, which writes into a v0.1 app's `internal/app`. In an app on `gorbital.Main` it refuses, and the job belongs in its module's `Jobs` in `module.go` instead ([background jobs](../guides/background-jobs.md#adding-a-job-in-an-app-on-gorbitalmain)). Everything above — definitions, runs, queues and the controls — works on both layouts.
+
 One form state, three tabs.
 
 - **Form**: name (the derived identifier, definition file and package are shown), description, trigger (a schedule with presets or a raw cron, an interval with presets or a raw duration, or on demand; the plain-English reading under it), timeout, attempts, queue, priority, enabled, and the kind. Preview posts the plan and shows every file the generator would write: a created file in full, a modified one (`internal/app/jobs.go`) as a diff, and the next steps. Create writes them.

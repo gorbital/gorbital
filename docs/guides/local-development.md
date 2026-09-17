@@ -70,7 +70,7 @@ export GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:58025
 | A module | `cd modules/jobs && go test -race ./...` |
 | An example app | `cd examples/full-single && go test -race ./...` |
 | The CLI | `cd cli && go test -race ./...` |
-| The website | `cd site && go test ./...` (builds both sites, fails on broken links) |
+| The documentation | `go run -C internal/tools/docscheck .` (links, anchors, includes and `docs/docs.json`) |
 
 What each kind of test covers, the helpers, and drift checks: [testing](testing.md).
 
@@ -110,7 +110,7 @@ The first run prints the seeded administrator's password (`admin@example.com`) o
 ```bash
 cp .env.example .env
 docker compose up -d --wait
-go run ./cmd/migrate && go run ./cmd/seed
+go run ./cmd/api migrate && go run ./cmd/api seed
 go run ./cmd/api
 ```
 
@@ -118,7 +118,7 @@ The app reads `.env` only through `orb dev`; with plain `go run`, export the var
 
 ## CI
 
-`.github/workflows/ci.yml` runs, per module: gofmt, `go vet`, `go test -race` against PostgreSQL and Mailpit service containers, golangci-lint, govulncheck, OpenAPI drift checks for the example apps, recipe drift for the Minimal, Full and multi-tenant Full presets, the API listings (`internal/tools/apicheck`) and reference pages (`internal/tools/refdocs`), end-to-end generated-app tests, the scaffold compatibility check, and a gitleaks secret scan.
+`.github/workflows/ci.yml` runs, per module: gofmt, `go vet`, `go test -race` against PostgreSQL and Mailpit service containers, golangci-lint, govulncheck, OpenAPI drift checks for the example apps, recipe drift for the Minimal, Full and multi-tenant Full presets, the API listings (`internal/tools/apicheck`), the reference and Methods pages (`internal/tools/refdocs`), the documentation's links, includes and navigation (`internal/tools/docscheck`), end-to-end generated-app tests, the scaffold compatibility check, and a gitleaks secret scan.
 
 The workflows are currently **disabled on GitHub** during active development. Re-enable them with:
 

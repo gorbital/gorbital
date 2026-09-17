@@ -22,26 +22,31 @@ go test ./...
 
 The URL names your development server, but tests never touch your development database: `pgtest` creates `pgtest_…` databases next to it from a template migrated with `db/migrations`, and drops them.
 
-Add a Mailpit (for example the repository's, on 51025 and 58025) to test email delivery end to end; the apps' e2e tests send through it with `MAIL_DELIVERY=mailpit`:
+Add a Mailpit to test email delivery end to end; the apps' e2e tests send through it with `MAIL_DELIVERY=mailpit`. The repository's own `compose.yaml` runs one on 51025 and 58025:
 
 ```bash
-export GORBITAL_TEST_MAILPIT_SMTP=127.0.0.1:1025
-export GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:8025
+export GORBITAL_TEST_MAILPIT_SMTP=127.0.0.1:51025
+export GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:58025
 ```
+
+Point them at another Mailpit if you run your own. `orb dev`'s mail catcher isn't one: it listens on `127.0.0.1:1025` but has no web API for the tests to read.
 
 | Package | What its tests cover | Needs |
 |---|---|---|
 | `internal/modules/<m>/domain` | Rules and validation | Nothing |
 | `internal/modules/<m>/repository` | Every SQL operation, constraint mapping, ordering and pagination | PostgreSQL |
 | `internal/modules/<m>/usecase` | Flows, authorization, ownership, audit events, transactions | PostgreSQL |
-| `internal/app` | Whole-app HTTP tests through `App.Handler()` with `httptest`: sign-up and email codes, sessions, 2FA, passkeys (`passkeytest`), Google and Apple (`socialtest`), ops endpoints, settings across two app instances, jobs through `/ops/jobs`, seed data, OpenAPI export, docs, configuration errors | PostgreSQL; Mailpit for delivery checks |
+| `cmd/api` (apps on `gorbital.Main`) | The app as `main.go` builds it, through `gorbitaltest`: health, deny by default, a signed-up account using a module, `/ops` refused to users; `api/openapi.json` current; `/ops` compatible with `api/openapi.baseline.json`; the commands `Main` serves | PostgreSQL |
+| `internal/modules/surface_test.go`, `internal/modules/architecture_test.go` (apps on `gorbital.Main`) | The app's own public names match `api/surface.json`; the layer import rules | Nothing |
+| `internal/modules/<m>/<m>_test.go` (apps on `gorbital.Main`) | The module's routes through the real stack on a database per test: guards, errors, pages, versions, audit events | PostgreSQL |
+| `internal/app` (v0.1 layout) | Whole-app HTTP tests through `App.Handler()` with `httptest`: sign-up and email codes, sessions, 2FA, passkeys (`passkeytest`), Google and Apple (`socialtest`), ops endpoints, settings across two app instances, jobs through `/ops/jobs`, seed data, OpenAPI export, docs, configuration errors | PostgreSQL; Mailpit for delivery checks |
 | `internal/app/surface_test.go` | Error codes, audit actions, permissions, roles, settings, jobs and feature flags match `api/surface.json`: nothing recorded may disappear, and new names must be recorded with `go test ./internal/app -run TestPublicSurface -update` ([stability](stability.md)) | Nothing |
 | `internal/app/api_compat_test.go` | `/ops/*` doesn't break clients of `api/openapi.baseline.json` | Nothing |
 | `internal/app/architecture_test.go` | Layer import rules: `domain` imports only the standard library, `delivery` never imports `repository`, modules don't import each other, only `internal/app` reads the environment | Nothing |
 
 In multi-tenant apps, `internal/app` tests connect the app as `gorbital_app_test`, a role without `BYPASSRLS` the tests create, so row-level security policies apply to them once `orb add rls` has run. `GORBITAL_TEST_RLS=1 go test ./internal/app` runs them with the policies before that ([row-level security](row-level-security.md#testing)).
 
-Useful flags: `go test -race ./...` (CI always uses it), `go test -run TestProjectsEndToEnd ./internal/app`, `go test -count=1` to bypass the cache after changing migrations.
+Useful flags: `go test -race ./...` (CI always uses it), `go test -run TestProjectsEndToEnd ./internal/modules/projects` (`./internal/app` in a v0.1 app), `go test -count=1` to bypass the cache after changing migrations.
 
 ## Test helpers
 
@@ -58,6 +63,10 @@ pool := pgtest.New(t, pgtest.WithMigrations(migrations.FS))
 | `pgtest.URL(t)` | The server URL itself |
 
 `WithMigrations(fsys)` migrates a template once per distinct set of files; each test's database is `CREATE DATABASE … TEMPLATE …`, which takes milliseconds. `WithMaxConns(n)` defaults to 4. Stale templates from old migration sets are removed by `docker compose down -v`.
+
+### `gorbitaltest`
+
+`gorbital.dev/gorbital/gorbitaltest` builds an app on `gorbital.Main`'s options per test, on its own migrated database, and sends requests through the whole middleware stack as a user or API key you name, with problem assertions and the email and jobs the app queued. See [Testing with gorbitaltest](testing-with-gorbitaltest.md).
 
 ### `passkeytest`
 
@@ -90,13 +99,29 @@ export GORBITAL_REQUIRE_MAILPIT=1
 | CLI end to end | `cd cli && ORB_E2E=1 go test ./...` | Generates Minimal and Full apps, runs their suites; `orb add mail` round trip |
 | Scaffold compatibility | `cd cli && ORB_COMPAT=1 go test -run TestScaffoldCompatibility ./internal/cli/` | Apps generated by the latest `v1.*` release build and pass their tests against this library; skips without a v1 tag; `ORB_COMPAT_FROM=<tag>` checks another release |
 | `orb dev` with Docker | `cd cli && ORB_E2E_DOCKER=1 go test ./...` | Runs `orb dev` in a new Full app on free ports, signs in as the seeded administrator, checks email reaches Mailpit, removes its containers |
-| Website | `cd site && go test ./...` | Builds both sites and fails on broken links |
+| Documentation | `go run -C internal/tools/docscheck .` at the root | Links, `#anchors`, `<!-- include -->` markers and `docs/docs.json` resolve; needs no database. The site itself is built in gorbital-web (`pnpm sync-docs && pnpm --filter docs build`) |
 
 Each module has its own list; to run everything, loop over the `go.mod` files:
 
 ```bash
 for m in $(git ls-files '*go.mod' | xargs -n1 dirname); do (cd "$m" && go test -race ./...) || break; done
 ```
+
+## Fuzz tests
+
+Parsers of untrusted input have `Fuzz*` tests next to their table tests (trusted proxy lists, request IDs, page queries and cursors, API keys, email and recovery code normalization, address redaction, Resend webhook signatures). They assert properties, not examples: round trips, idempotence, and that anything accepted meets the documented constraints. A new parser of untrusted input gets one.
+
+```bash
+cd modules/auth && go test -run '^$' -fuzz '^FuzzParseAPIKey$' -fuzztime 30s .   # one target
+scripts/fuzz.sh -list                                                            # every target
+FUZZTIME=1m scripts/fuzz.sh                                                      # every target, 1 minute each
+```
+
+Seeds come from the table tests (`f.Add`). An input that failed is saved under the package's `testdata/fuzz/FuzzXxx/`; commit it with the fix, and plain `go test` replays it from then on. The `Fuzz` workflow runs every target for 15 seconds on pull requests and 5 minutes nightly, and uploads failing inputs as an artifact.
+
+## Benchmarks
+
+`scripts/bench.sh` runs every benchmark for benchstat, and `scripts/bench-baseline.sh` measures a golden app's dependencies, binary size, startup and memory. Budgets and the v0.1.0 baselines: [Benchmarks](../benchmarks.md).
 
 ## Drift checks
 
@@ -108,10 +133,11 @@ Generated artifacts are committed, and tests fail when they're stale:
 | `examples/*/api/openapi.json` | `go run ./cmd/api openapi > api/openapi.json` in the app | CI's OpenAPI drift job |
 | `full-multi` vs `full-single` | Edit both | A drift test keeps them identical outside the files organisations change |
 | `docs/reference/*.md` | `go run -C internal/tools/refdocs . -write` (needs the test database) | `go run -C internal/tools/refdocs .` in CI ([Stability](stability.md#reference-pages-docsreference)) |
-| Generated resources | `orb gen resource` | CLI tests generate `projects` and compare it with each golden app's module |
+| Generated modules | `orb gen module` (`orb gen resource` in `examples/v0.1`) | CLI tests generate `projects` and compare it with each golden app's module (`TestModuleMatchesGoldenApps`, `TestResourceMatchesGoldenApp`) |
 | `api/*.txt` (exported Go API) | `go run -C internal/tools/apicheck . -write` | CI's API listing step; missing lines are breaking changes |
-| `examples/full-*/api/surface.json` | `go test ./internal/app -run TestPublicSurface -update` in the app | `TestPublicSurface`; removals fail even after regenerating the file, in review |
+| `examples/full-*/api/surface.json` | `go test ./internal/modules -run TestPublicSurface -update` in the app (`./internal/app` in `examples/v0.1/*`) | `TestPublicSurface`; removals fail even after regenerating the file, in review |
 | `cli/internal/cli/testdata/json` | `cd cli && go test ./internal/cli -run TestJSONOutputs -update` | `TestJSONOutputs` |
+| `internal/contracts/v0.1.0` | Never: frozen v0.1.0 contracts ([README](../../internal/contracts/v0.1.0/README.md)) | `go test -C internal/tools/contracts ./...` |
 
 ## Checks before committing
 
@@ -126,4 +152,4 @@ GOTOOLCHAIN=go1.26.8 go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
 ## CI
 
-`.github/workflows/ci.yml` runs the jobs above on Go 1.26 and 1.27 with PostgreSQL and Mailpit service containers and `GORBITAL_REQUIRE_DB=1`: tests with `-race` for every module, golangci-lint, recipe and OpenAPI drift, API listings, reference pages, end-to-end generation, govulncheck, the scaffold compatibility check and gitleaks. Library tags run `gorelease` in `release-library.yml`. The workflows are currently disabled on GitHub during active development, so run the commands locally ([local development](local-development.md#ci)).
+`.github/workflows/ci.yml` runs the jobs above on Go 1.26 and 1.27 with PostgreSQL and Mailpit service containers and `GORBITAL_REQUIRE_DB=1`: tests with `-race` for every module, golangci-lint, recipe and OpenAPI drift, API listings, reference pages, end-to-end generation, govulncheck, the scaffold compatibility check (including apps generated by the published orb v0.1.0), the frozen v0.1.0 contracts, the apps in `examples/apps`, and gitleaks. `fuzz.yml` runs the fuzz tests and `bench.yml` compares benchmarks on pull requests. Library tags run `gorelease` in `release-library.yml`. The workflows are currently disabled on GitHub during active development, so run the commands locally ([local development](local-development.md#ci)).

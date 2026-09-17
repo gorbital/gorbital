@@ -1,6 +1,6 @@
 # Secrets and keys
 
-Every secret, key, token and code in a Full app: what it is, why it exists, who creates it, how it's stored, whether it's safe to expose, how to rotate it, and what an attacker could do with it. Verified against `modules/auth`, `modules/auth/social`, `config` and `examples/full-single/internal/app`.
+Every secret, key, token and code in a Full app: what it is, why it exists, who creates it, how it's stored, whether it's safe to expose, how to rotate it, and what an attacker could do with it. Verified against `modules/auth`, `modules/auth/social`, `config`, `gorbital/authhttp` and the golden apps.
 
 For step-by-step instructions for the values you provide, see the beginner guides: [Encryption key](../sign-in/encryption-key.md), [Google](../sign-in/google.md), [Apple](../sign-in/apple.md), [Email](../sign-in/email.md), and [Every key and credential](../sign-in/all-keys.md).
 
@@ -8,11 +8,11 @@ For step-by-step instructions for the values you provide, see the beginner guide
 
 | Secret | Created by | Where it lives | Exposed if leaked? |
 |---|---|---|---|
-| [`AUTH_ENCRYPTION_KEYS`](#auth-encryption-keys) | You (`openssl`); `orb dev` in development | Environment | TOTP secrets, if the database leaks too |
-| [`DATABASE_URL` credentials](#database-url) | Your database provider; `compose.yaml` locally | Environment | Everything |
-| [`GOOGLE_CLIENT_SECRET`](#google-client-secret) | Google Cloud Console | Environment | Impersonating your app at Google's token endpoint |
+| [`AUTH_ENCRYPTION_KEYS`](#auth_encryption_keys) | You (`openssl`); `orb dev` in development | Environment | TOTP secrets, if the database leaks too |
+| [`DATABASE_URL` credentials](#database_url) | Your database provider; `compose.yaml` locally | Environment | Everything |
+| [`GOOGLE_CLIENT_SECRET`](#google_client_secret) | Google Cloud Console | Environment | Impersonating your app at Google's token endpoint |
 | [Apple `.p8` key](#apple-private-key) | Apple Developer | File or environment | Impersonating your app at Apple, revoking users' Apple tokens |
-| [`RESEND_API_KEY`](#resend-api-key-and-smtp-password) / `SMTP_PASSWORD` | Your email provider | Environment | Sending email as your domain |
+| [`RESEND_API_KEY`](#resend_api_key-and-smtp_password) / `SMTP_PASSWORD` | Your email provider | Environment | Sending email as your domain |
 | [Passwords](#passwords) | Users | `auth_users`, argon2id hash | Offline cracking of weak passwords |
 | [Session tokens](#session-tokens) | The app | Client; SHA-256 in `auth_sessions` | Acting as that user until the session ends |
 | [API keys](#api-keys) | The app, when a user or operator asks | The program's secret store; SHA-256 in `auth_api_keys` | Acting as the user or service account, within the key's scopes, until revoked or expired |
@@ -22,7 +22,7 @@ For step-by-step instructions for the values you provide, see the beginner guide
 | [Passkeys](#passkeys) | The user's device | Device; public key in `auth_passkeys` | Nothing (public keys only) |
 | [OAuth state, PKCE and nonces](#oauth-state-pkce-and-nonces) | The app | Database and a cookie, minutes | Nothing after use |
 | [Apple client secret](#apple-client-secret) | The app, per request | Memory, 5 minutes | Short-lived impersonation at Apple |
-| [Seed administrator credentials](#seed-administrator) | `cmd/seed` | Printed once | The local administrator |
+| [Seed administrator credentials](#seed-administrator) | The seed command | Printed once | The local administrator |
 
 **Not used, so never create them:** a JWT signing secret (sessions are opaque tokens), a session or cookie secret (cookies hold the opaque token), a CSRF secret (cross-site requests are blocked with `Sec-Fetch-Site` and `Origin` through `http.CrossOriginProtection`), a passkey server key, a webhook secret (Apple's notifications are verified with Apple's public keys), and an Apple client secret (generated per request).
 
@@ -36,7 +36,7 @@ For step-by-step instructions for the values you provide, see the beginner guide
 | **Why** | TOTP secrets must be readable by the server to check codes, so they can't be hashed. Encrypting them means a database dump alone doesn't let anyone generate users' second-factor codes |
 | **Format** | Each id is unique; each key decodes to exactly 32 bytes (`key "k1" must be 32 bytes in base64` otherwise). Parsed by `authlib.ParseKeyring` |
 | **Generate** | `echo "k1:$(openssl rand -base64 32)"`; in PowerShell 7: `"k1:" + [Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`. `orb dev` writes one to `.env` when empty (`cli/internal/cli/dev_keys.go`) |
-| **Env** | `AUTH_ENCRYPTION_KEYS` or `AUTH_ENCRYPTION_KEYS_FILE`. Required in production and by `cmd/seed`. Empty in development: 503 `mfa_unavailable` |
+| **Env** | `AUTH_ENCRYPTION_KEYS` or `AUTH_ENCRYPTION_KEYS_FILE`. Required in production and by the seed command. Empty in development: 503 `mfa_unavailable` |
 | **Public-safe?** | No |
 | **How it's used** | The first key encrypts; the key id is stored in a column next to each ciphertext, and any listed key decrypts. Encrypts TOTP secrets (`auth_totp`, with the user ID as AES-GCM additional data, so a ciphertext copied to another user's row doesn't decrypt) and Apple refresh tokens (`auth_identities`, and `auth_token_revocations` while they wait to be revoked, bound to provider and subject), which are needed to revoke Apple's tokens when an account is deleted |
 | **Rotate** | 1. Add the new key first on every instance: `k2:…,k1:…`. 2. `cmd/api rotate-auth-keys` re-encrypts every secret with `k2`. 3. Remove `k1` |
@@ -128,7 +128,7 @@ Created when a user starts `POST /v1/auth/mfa/totp`, returned once as a base32 k
 
 ### Recovery codes
 
-10 codes like `hibt-qysr-vv45-ly5l`, 16 base32 characters (80 random bits), shown once when TOTP is confirmed (and by `cmd/seed`). Stored as `SHA-256(user_id:normalized code)` in `auth_recovery_codes`; each works once. 80 bits keep a leaked hash from being reversed by trying codes (codes made before 2026-09-16 have 10 characters, 50 bits; users replace them with a new set). `POST /v1/auth/mfa/recovery-codes` replaces the set.
+10 codes like `hibt-qysr-vv45-ly5l`, 16 base32 characters (80 random bits), shown once when TOTP is confirmed (and by the seed command). Stored as `SHA-256(user_id:normalized code)` in `auth_recovery_codes`; each works once. 80 bits keep a leaked hash from being reversed by trying codes (codes made before 2026-09-16 have 10 characters, 50 bits; users replace them with a new set). `POST /v1/auth/mfa/recovery-codes` replaces the set.
 
 ### Passkeys
 
@@ -148,7 +148,7 @@ Public identifiers such as `usr_…`, `ses_…`, `prj_…` are a type prefix and
 
 ### Seed administrator
 
-`cmd/seed` (development only; it refuses when `APP_ENV=production`) creates `admin@example.com` with a random password, a TOTP secret and 10 recovery codes, and prints them once. Only the argon2id hash, the encrypted TOTP secret and the recovery code hashes are stored. Lost: `POST /v1/auth/password/forgot`, `cmd/api reset-mfa`, or `docker compose down -v`.
+The seed command (development only; it refuses when `APP_ENV=production`) creates `admin@example.com` with a random password, a TOTP secret and 10 recovery codes, and prints them once. It is `go run ./cmd/api seed` in an app on `gorbital.Main`, where sign-in adds it, and `go run ./cmd/seed` in a v0.1 app; `orb dev` runs it on every start. Only the argon2id hash, the encrypted TOTP secret and the recovery code hashes are stored. Lost: `POST /v1/auth/password/forgot`, `cmd/api reset-mfa`, or `docker compose down -v`.
 
 ## Storing secrets in production
 

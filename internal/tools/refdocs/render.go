@@ -111,7 +111,7 @@ func (r *reference) errorCodes() []byte {
 	var b bytes.Buffer
 	header(&b, "Error codes",
 		"Every error response is `application/problem+json` with a stable `code` clients can branch on; the `detail` text may change. Codes are public API: they are added, never renamed or removed ([Stability](../guides/stability.md)). How errors become responses, and how to add one: [Error handling](../guides/error-handling.md).",
-		"These are the codes of a Full app as generated, including the example `projects` resource and the generic codes any status without its own code gets. Resources you add with `orb gen resource` add `<resource>_not_found`, `<resource>_version_conflict` and, for unique fields, `<resource>_<field>_taken`.",
+		"These are the codes of a Full app as generated, including the example `projects` resource and the generic codes any status without its own code gets, together with the codes of the library modules a Full app doesn't have, marked with the module to add. Resources you add with `orb gen resource` add `<resource>_not_found`, `<resource>_version_conflict` and, for unique fields, `<resource>_<field>_taken`.",
 	)
 	single := map[string]bool{}
 	for _, c := range r.single.Codes {
@@ -124,9 +124,33 @@ func (r *reference) errorCodes() []byte {
 		if !single[name] {
 			meaning += " " + multiOnly
 		}
+		if m := codeModule(groups[name]); m != "" {
+			meaning += " " + moduleOnly(m)
+		}
 		fmt.Fprintf(&b, "| `%s` | %s | %s | %s |\n", name, statuses(groups[name]), cell(meaning), cell(r.codeWhere(name, groups[name])))
 	}
 	return b.Bytes()
+}
+
+// codeModule returns the library module an app adds to get this code, when
+// every place that writes it is in one module no golden app links, and ""
+// when a Full app already has the code from somewhere else.
+func codeModule(cs []code) string {
+	module := ""
+	for _, c := range cs {
+		if c.Module == "" || (module != "" && c.Module != module) {
+			return ""
+		}
+		module = c.Module
+	}
+	return module
+}
+
+// moduleOnly is the note for a name an app only has once it adds a library
+// module, with a link to the module's Methods page.
+func moduleOnly(module string) string {
+	name := strings.TrimPrefix(module, "gorbital.dev/")
+	return fmt.Sprintf("*Only in apps that add [`%s`](../methods/%s.md).*", name, strings.ReplaceAll(name, "/", "-"))
 }
 
 // statuses lists a code's statuses: those it is written with, then the
@@ -199,8 +223,24 @@ func (r *reference) codeWhere(name string, cs []code) string {
 	return strings.Join(labels, "; ")
 }
 
-// area returns the module a source location belongs to, or "app".
+// libraryAreas are the built-in modules of gorbital.dev/gorbital, by the
+// area of the v0.1 module they replace.
+var libraryAreas = map[string]string{
+	"gorbital.dev/gorbital/authhttp":   "auth",
+	"gorbital.dev/gorbital/flagshttp":  "flags",
+	"gorbital.dev/gorbital/mailevents": "mailevents",
+	"gorbital.dev/gorbital/opshttp":    "ops",
+	"gorbital.dev/gorbital/orgshttp":   "orgs",
+}
+
+// area returns the module a source location belongs to, or "app": an app
+// module (internal/modules/<name>) or a built-in module of the library.
 func area(location string) string {
+	for pkg, name := range libraryAreas {
+		if location == pkg || strings.HasPrefix(location, pkg+"/") {
+			return name
+		}
+	}
 	switch {
 	case strings.HasPrefix(location, "internal/modules/"):
 		name, _, _ := strings.Cut(strings.TrimPrefix(location, "internal/modules/"), "/")
@@ -313,6 +353,8 @@ func (r *reference) permissions() []byte {
 		if inSingle {
 			c, marks = mergeCatalogs(c, sc)
 		}
+		// Roles in the order v0.1 apps declared them; others after, by name.
+		slices.SortStableFunc(c.Roles, func(a, b role) int { return roleRank(a.Name) - roleRank(b.Name) })
 		title, intro := c.Name, ""
 		if known, ok := catalogIntros[c.Name]; ok {
 			title, intro = known[0], known[1]
@@ -352,6 +394,16 @@ func (r *reference) permissions() []byte {
 		b.WriteString("\n")
 	}
 	return bytes.TrimSuffix(b.Bytes(), []byte("\n"))
+}
+
+// roleOrder is the order v0.1 apps declared the built-in roles in.
+var roleOrder = []string{"user", "platform_admin", "ops_viewer", "owner", "admin", "member"}
+
+func roleRank(name string) int {
+	if i := slices.Index(roleOrder, name); i >= 0 {
+		return i
+	}
+	return len(roleOrder)
 }
 
 // mergeCatalogs returns multi's catalog with the permissions and role grants

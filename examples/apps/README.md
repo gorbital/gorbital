@@ -1,0 +1,76 @@
+# Example applications
+
+Runnable applications for the documentation's **Examples** tab ([roadmap](../../docs/v0.2-roadmap.md#the-examples-tab)), such as Shelfie, the reading-tracker API. Every code block on an Examples page comes from an app here, so the text can't drift from code that compiles and passes its tests.
+
+Unlike the golden apps next to this directory (`examples/minimal`, `examples/full-single`, `examples/full-multi`), which are the templates `orb new` renders, these apps are only documentation.
+
+## Apps
+
+| App | What it shows |
+|---|---|
+| [`shelfie`](shelfie/README.md) | The reading-tracker API of the Shelfie chapters: `gorbital.Main`, a module in four layers with one file per operation, `gorbitaltest` |
+| [`admin-tool`](admin-tool/README.md) | The *Internal admin tool* recipe: the built-in `/ops` and flags modules, a module's runtime setting, client flag, retention and named rate limiter |
+| [`invoicing`](invoicing/README.md) | The *Multi-tenant invoicing* recipe: `orgshttp`, a module generated with `orb gen module --org`, and the row-level security migration, tested as a database role without bypass |
+| [`mobile-backend`](mobile-backend/README.md) | The *Mobile backend with an external identity provider* recipe: `modules/jwt` as the app's authenticator, claims as actors and permissions, per-user scoping, tested against a local JWKS |
+| [`payments`](payments/README.md) | The *Receiving payment webhooks* recipe: `guard.Webhook` with a `webhook.NewStandard` verifier, idempotency by the provider's event ID, and a job enqueued with `jobs.Client.InsertTx` in the write's transaction |
+
+## Layout
+
+One directory per app, each its own Go module:
+
+```text
+examples/apps/
+└── shelfie/
+    ├── go.mod             module example.com/shelfie
+    ├── cmd/api/main.go    gorbital.Main with the app's modules and migrations
+    ├── db/migrations/
+    ├── internal/modules/
+    └── ...
+```
+
+The `go.mod` uses the library in this checkout through `replace` directives, like the golden apps (see `examples/full-single/go.mod`). Require the published version and replace every `gorbital.dev` module the app uses, with paths relative to the app:
+
+```text
+require (
+	gorbital.dev v0.1.0
+	gorbital.dev/modules/postgres v0.1.0
+)
+
+replace (
+	gorbital.dev => ../../..
+	gorbital.dev/modules/postgres => ../../../modules/postgres
+)
+```
+
+Then `go mod tidy` in the app's directory.
+
+## Including code in a page
+
+Mark a region in any source file with a name that is unique in the app:
+
+```go
+// docs:start create-book
+func (h *Handlers) CreateBook(ctx context.Context, in *CreateBookInput) (*BookOutput, error) {
+	...
+}
+// docs:end create-book
+```
+
+The page includes the region by app, file and name; the lines between the markers are shown, without the markers. `go run -C internal/tools/docscheck .` and the docs site's build both fail when a file or a marker a page names is missing, so renaming or deleting a region breaks a build instead of the page.
+
+## Checks
+
+CI's `example apps` job finds every `examples/apps/*/go.mod` and, in each app, runs:
+
+```bash
+gofmt -l .           # must print nothing
+go vet ./...
+go build ./...
+go test -race ./...  # against Docker PostgreSQL and Mailpit, like the library
+```
+
+Run the same locally with the test database from [CONTRIBUTING.md](../../CONTRIBUTING.md#set-up) (`GORBITAL_TEST_DATABASE_URL` and the Mailpit variables). The job passes when there are no apps yet.
+
+It doesn't regenerate an app's `api/`, as the golden apps' job does: after changing a route, run `go run ./cmd/api openapi --dir api` in the app, which its own `TestOpenAPIIsCurrent` checks.
+
+It does not regenerate an app's `api/`, as the golden apps' job does: after changing a route, run `go run ./cmd/api openapi --dir api` in the app, which its own `TestOpenAPIIsCurrent` checks.

@@ -17,5 +17,6 @@
   "conflicts": [],
   "unproven": 0,
   "committed": false,
-  "dry_run": true
+  "dry_run": true,
+  "layout": "v0.1"
 }

@@ -25,7 +25,7 @@
       "get": {
         "operationId": "dev-index",
         "summary": "Endpoints",
-        "description": "The console endpoints this app serves. Minimal apps have no mail, migrations or jobs.",
+        "description": "The console endpoints this app serves. Minimal apps have no mail, migrations or jobs. Extensions (such as sign-in's tests under /_dev/auth/test/) are listed by prefix.",
         "tags": [
           "Dev console"
         ],
@@ -901,10 +901,18 @@
               "type": "string"
             },
             "description": "The paths this app serves, sorted"
+          },
+          "extensions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Path prefixes served by extensions, such as /_dev/auth/test/ for sign-in tests (ADR-0087), sorted; each describes its own endpoints"
           }
         },
         "required": [
-          "endpoints"
+          "endpoints",
+          "extensions"
         ]
       },
       "App": {

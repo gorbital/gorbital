@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	pingdomain "example.com/acme-api/internal/modules/ping/domain"
+	"example.com/acme-api/internal/modules/ping/domain"
 )
 
 func TestNewMessage(t *testing.T) {
@@ -15,11 +15,11 @@ func TestNewMessage(t *testing.T) {
 	}{
 		{"hello", "hello", nil},
 		{"  padded  ", "padded", nil},
-		{"   ", "", pingdomain.ErrMessageRequired},
-		{"", "", pingdomain.ErrMessageRequired},
+		{"   ", "", domain.ErrMessageRequired},
+		{"", "", domain.ErrMessageRequired},
 	}
 	for _, tt := range tests {
-		m, err := pingdomain.NewMessage(tt.in)
+		m, err := domain.NewMessage(tt.in)
 		if !errors.Is(err, tt.wantErr) || m.Text() != tt.want {
 			t.Errorf("NewMessage(%q) = %q, %v; want %q, %v", tt.in, m.Text(), err, tt.want, tt.wantErr)
 		}
