@@ -34,6 +34,7 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -336,12 +337,28 @@ func (s *Server) serveAuth(w http.ResponseWriter, r *http.Request) {
 		Name: CookieName, Value: r.URL.Query().Get("t"), Path: "/",
 		HttpOnly: true, SameSite: http.SameSiteStrictMode,
 	})
-	// next chooses the page to land on: a path of this portal only.
-	target := "/"
-	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") && !strings.Contains(next, "\\") {
-		target = next
+	http.Redirect(w, r, landingPath(r.URL.Query().Get("next")), http.StatusSeeOther) //nolint:gosec // G710: landingPath only returns a path of this portal
+}
+
+// landingPath is the page the sign-in link lands on: next when it is a path
+// of this portal, else "/". Anything a browser could read as another origin
+// is refused: a scheme or host, "//" or a backslash, and control characters,
+// which browsers drop from URLs ("/\t/evil.example" becomes
+// "//evil.example").
+func landingPath(next string) string {
+	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") || strings.ContainsAny(next, "\\") {
+		return "/"
 	}
-	http.Redirect(w, r, target, http.StatusSeeOther)
+	for _, r := range next {
+		if r < 0x20 || r == 0x7f {
+			return "/"
+		}
+	}
+	u, err := url.Parse(next)
+	if err != nil || u.Scheme != "" || u.Host != "" || u.User != nil || !strings.HasPrefix(u.Path, "/") || strings.HasPrefix(u.Path, "//") {
+		return "/"
+	}
+	return next
 }
 
 // logRefusal logs a refused request at most once per refusalLogEvery.
