@@ -18,7 +18,7 @@ The app is in `examples/apps/payments/`. It has one module, `payments`, laid out
 
 <!-- include examples/apps/payments/cmd/api/main.go#main -->
 
-There is no sign-in module: the provider has no account, and staff reading a payment is a permission the app declares and a later phase's sign-in grants. `opshttp.Module()` is here for one reason — the receipt job below is operated in `/ops/jobs`, where its timeout and retries are changed and a failed receipt is retried ([Ops API reference](../../guides/ops-api.md#job-definitions)).
+There is no sign-in module, to keep the recipe to its subject: the provider has no account, and `payments.payment.read` is a permission the app declares but nothing grants, so `GET /v1/payments/{id}` answers 401 until the app adds `gorbital.WithAuth(authhttp.New())` ([Your main.go](../../guides/main-go.md)). The tests say who is calling instead. `opshttp.Module()` is here for one reason — the receipt job below is operated in `/ops/jobs`, where its timeout and retries are changed and a failed receipt is retried ([Ops API reference](../../guides/ops-api.md#job-definitions)).
 
 ## The module and the table
 
