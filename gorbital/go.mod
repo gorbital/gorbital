@@ -26,7 +26,9 @@ replace (
 
 require (
 	github.com/danielgtaylor/huma/v2 v2.39.1
+	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/jackc/pgx/v5 v5.11.0
+	golang.org/x/net v0.58.0
 	gorbital.dev v0.1.0
 	gorbital.dev/modules/flags v0.1.0
 	gorbital.dev/modules/jobs v0.1.0
@@ -42,7 +44,6 @@ require (
 	github.com/coreos/go-oidc/v3 v3.21.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.3 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/go-webauthn/webauthn v0.18.1 // indirect
 	github.com/go-webauthn/x v0.3.1 // indirect
@@ -73,7 +74,6 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/time v0.16.0 // indirect

@@ -375,10 +375,10 @@ func TestDevConsoleMailPreviews(t *testing.T) {
 		"/.well-known/assetlinks.json":            fingerprint,
 	}
 	for _, r := range list.Routes {
-		if r.Source != "handler" {
-			continue
+		if r.Source != "handler" || r.Method != http.MethodGet {
+			continue // POST handlers (the passkey test's steps) need a body
 		}
-		// Every plain handler listed is really served.
+		// Every plain GET handler listed is really served.
 		code, _, served := devGet(t, base, r.Path)
 		if code == http.StatusNotFound {
 			t.Errorf("listed route %s %s isn't served: %s", r.Method, r.Path, served)

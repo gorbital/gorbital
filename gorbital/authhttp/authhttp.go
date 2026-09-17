@@ -38,6 +38,7 @@ import (
 	"gorbital.dev/modules/auth/passkey"
 
 	"gorbital.dev/gorbital/authhttp/internal/repository"
+	"gorbital.dev/gorbital/authhttp/internal/signintest"
 	"gorbital.dev/gorbital/authhttp/internal/usecase"
 )
 
@@ -62,6 +63,10 @@ type Authenticator struct {
 
 	// endpoints point Google, Apple and GitHub at a fake provider in tests.
 	endpoints providerEndpoints
+
+	// tester runs the Dev Portal's sign-in tests; nil unless the dev
+	// console is on (ADR-0087).
+	tester *signintest.Tester
 }
 
 // New returns sign-in for an app, configured from the environment variables
@@ -196,6 +201,7 @@ func (a *Authenticator) Setup(ctx context.Context, s gorbital.AuthSetup) error {
 	a.svc, a.limits = svc, limits
 
 	a.mountWellKnown(s)
+	a.mountSignInTests(s, google, apple, gitHub)
 	s.MailPreviews(authlib.BrandedEmailPreviews(a.brand(s.Name, s.Config))...)
 	reportSignInMethods(ctx, s.Config, d.Logger)
 	return nil
