@@ -243,7 +243,9 @@ func readLock(dir string) (lockFile, error) {
 		if err := dec.Decode(&l); err != nil {
 			return lockFile{}, fmt.Errorf("read %s: %w", lockPath, err)
 		}
-		if l.rendered() {
+		// A lock orb eject wrote in an app orb new didn't create has only
+		// ejected modules.
+		if l.rendered() || len(l.Ejected) == 0 {
 			if err := l.Inputs.validate(lockPath); err != nil {
 				return lockFile{}, err
 			}
