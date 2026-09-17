@@ -115,7 +115,7 @@ func findRoot() (string, error) {
 }
 
 // libraryModules returns the library modules by directory relative to root:
-// "." and every module under modules/.
+// ".", every module under modules/, and the composition module in gorbital/.
 func libraryModules(root string) ([]string, error) {
 	modules := []string{"."}
 	err := filepath.WalkDir(filepath.Join(root, "modules"), func(path string, d os.DirEntry, err error) error {
@@ -135,7 +135,14 @@ func libraryModules(root string) ([]string, error) {
 		return nil
 	})
 	slices.Sort(modules[1:])
-	return modules, err
+	if err != nil {
+		return nil, err
+	}
+	// The composition module (ADR-0081) sits beside modules/.
+	if _, err := os.Stat(filepath.Join(root, "gorbital", "go.mod")); err == nil {
+		modules = append(modules, "gorbital")
+	}
+	return modules, nil
 }
 
 func modulePathOf(gomod []byte) string {

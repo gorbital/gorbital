@@ -36,11 +36,13 @@ if ! git merge-base --is-ancestor "$commit" origin/main; then
   exit 1
 fi
 
-# Library modules: the root and every go.mod under modules/.
+# Library modules: the root, every go.mod under modules/, and gorbital/.
 dirs=(.)
 while IFS= read -r mod; do
   dirs+=("$(dirname "$mod")")
 done < <(find modules -name go.mod -not -path '*/testdata/*' | sort)
+# The composition module (ADR-0081).
+[[ -f gorbital/go.mod ]] && dirs+=(gorbital)
 
 tags=()
 status=0
