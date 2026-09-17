@@ -34,8 +34,10 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -52,6 +54,7 @@ import (
 type App struct {
 	t   testing.TB
 	app *gorbital.App
+	cfg gorbital.Config
 }
 
 // New builds an app with opts on a new, migrated database for the test, and
@@ -62,16 +65,26 @@ type App struct {
 // gorbital.WithLogger or gorbital.WithAuth of the test's wins.
 func New(t testing.TB, opts ...gorbital.Option) *App {
 	t.Helper()
+	return NewWithEnv(t, nil, opts...)
+}
+
+// NewWithEnv is [New] with environment variables on top of development's
+// defaults, as an app's .env sets them, such as AUTH_ENCRYPTION_KEYS for an
+// app whose sign-in enrols authenticator apps. The process environment is
+// never read. DATABASE_URL is always the test's database.
+func NewWithEnv(t testing.TB, env map[string]string, opts ...gorbital.Option) *App {
+	t.Helper()
 	url := pgtest.NewDatabase(t)
-	env := map[string]string{
+	vars := map[string]string{
 		"APP_ENV":           "development",
-		"DATABASE_URL":      url,
 		"APP_DB_MAX_CONNS":  "4",
 		"APP_JOB_WORKERS":   "1",
 		"LOG_ARCHIVE_DIR":   t.TempDir(),
 		"STORAGE_LOCAL_DIR": t.TempDir(),
 	}
-	cfg, err := gorbital.LoadConfig(config.Source{Getenv: func(key string) string { return env[key] }})
+	maps.Copy(vars, env)
+	vars["DATABASE_URL"] = url
+	cfg, err := gorbital.LoadConfig(config.Source{Getenv: func(key string) string { return vars[key] }, ReadFile: os.ReadFile})
 	if err != nil {
 		t.Fatalf("gorbitaltest: %v", err)
 	}
@@ -93,7 +106,7 @@ func New(t testing.TB, opts ...gorbital.Option) *App {
 			t.Errorf("gorbitaltest: close: %v", err)
 		}
 	})
-	return &App{t: t, app: a}
+	return &App{t: t, app: a, cfg: cfg}
 }
 
 // principals is the test app's authenticator: requests carry the principal
@@ -108,6 +121,11 @@ func (principals) Middleware(*slog.Logger) func(http.Handler) http.Handler {
 // App returns the built app, for its handler and its dependencies, such as
 // Deps().DB to prepare rows.
 func (a *App) App() *gorbital.App { return a.app }
+
+// Config returns the configuration the app was built with, such as for
+// running a command of the authenticator (gorbital.Command) against the
+// test's database.
+func (a *App) Config() gorbital.Config { return a.cfg }
 
 // Client returns a client whose requests carry no principal, as a caller
 // that isn't signed in.

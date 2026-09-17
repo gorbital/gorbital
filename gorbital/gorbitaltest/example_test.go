@@ -66,6 +66,29 @@ func ExampleNew() {
 	})
 }
 
+func ExampleNewWithEnv() {
+	test(func(t *testing.T) {
+		// The app's configuration, as .env would set it.
+		app := gorbitaltest.NewWithEnv(t, map[string]string{"APP_MAX_BODY_BYTES": "64"}, gorbital.WithModules(booksModule()))
+		long := strings.Repeat("a", 100)
+		app.As(gorbitaltest.User("usr_1", "books.book.write")).Post("/v1/books", map[string]string{"title": long}).AssertProblem(t, http.StatusRequestEntityTooLarge, "request_too_large")
+		if app.Config().MaxBodyBytes != 64 {
+			t.Errorf("MaxBodyBytes = %d", app.Config().MaxBodyBytes)
+		}
+	})
+}
+
+func ExampleApp_Config() {
+	test(func(t *testing.T) {
+		app := gorbitaltest.New(t, gorbital.WithModules(booksModule()))
+		// Commands such as authhttp's grant-role open the test's database
+		// from the configuration.
+		if app.Config().DatabaseURL.IsZero() {
+			t.Error("no database URL")
+		}
+	})
+}
+
 func ExampleApp() {
 	test(func(t *testing.T) {
 		app := gorbitaltest.New(t, gorbital.WithModules(booksModule()))

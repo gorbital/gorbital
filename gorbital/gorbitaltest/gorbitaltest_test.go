@@ -10,6 +10,8 @@ func TestExamples(t *testing.T) {
 		run  func()
 	}{
 		{"ExampleNew", ExampleNew},
+		{"ExampleNewWithEnv", ExampleNewWithEnv},
+		{"ExampleApp_Config", ExampleApp_Config},
 		{"ExampleApp", ExampleApp},
 		{"ExampleApp_App", ExampleApp_App},
 		{"ExampleApp_Client", ExampleApp_Client},
