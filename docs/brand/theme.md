@@ -1,6 +1,6 @@
 # gorbital — theme reference
 
-Paste this into Claude Code as project context. Everything below is the
+Paste this into your coding agent as project context. Everything below is the
 canonical visual system for gorbital: docs, landing page, README, CLI output.
 
 ---
