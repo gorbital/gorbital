@@ -34,5 +34,11 @@
 //		}
 //	}
 //
+// gorbital's own modules are packages of this module, added the same way:
+// gorbital.dev/gorbital/opshttp (the operations API under /ops/),
+// gorbital.dev/gorbital/flagshttp (GET /v1/flags) and
+// gorbital.dev/gorbital/mailevents (the email provider's webhook). They read
+// what the app built for all modules through [Module.Platform] (ADR-0083).
+//
 // Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 package gorbital

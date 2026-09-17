@@ -11,6 +11,7 @@ replace (
 	gorbital.dev/modules/flags => ../modules/flags
 	gorbital.dev/modules/idempotency => ../modules/idempotency
 	gorbital.dev/modules/jobs => ../modules/jobs
+	gorbital.dev/modules/mail/resend => ../modules/mail/resend
 	gorbital.dev/modules/mail/smtp => ../modules/mail/smtp
 	gorbital.dev/modules/mail/suppressionpg => ../modules/mail/suppressionpg
 	gorbital.dev/modules/observability => ../modules/observability
@@ -98,6 +99,7 @@ require (
 	gorbital.dev/modules/auth v0.1.0
 	gorbital.dev/modules/devconsole v0.1.0
 	gorbital.dev/modules/idempotency v0.1.0
+	gorbital.dev/modules/mail/resend v0.1.0
 	gorbital.dev/modules/mail/smtp v0.1.0
 	gorbital.dev/modules/mail/suppressionpg v0.1.0
 	gorbital.dev/modules/observability v0.1.0

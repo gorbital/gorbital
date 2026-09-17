@@ -1,0 +1,46 @@
+package usecase_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"gorbital.dev/actor"
+	"gorbital.dev/modules/auditpg"
+	"gorbital.dev/modules/settings"
+
+	opsdomain "gorbital.dev/gorbital/opshttp/internal/domain"
+	opsusecase "gorbital.dev/gorbital/opshttp/internal/usecase"
+)
+
+func TestServiceRequiresPermissions(t *testing.T) {
+	// No store, manager or audit log: authorisation must fail before any is
+	// used.
+	svc := opsusecase.NewService(opsusecase.Deps{})
+
+	if _, err := svc.ListSettings(context.Background(), ""); !errors.Is(err, opsdomain.ErrUnauthenticated) {
+		t.Errorf("ListSettings() without actor error = %v, want ErrUnauthenticated", err)
+	}
+	anon := actor.With(context.Background(), actor.Anonymous)
+	if _, err := svc.ListJobDefinitions(anon); !errors.Is(err, opsdomain.ErrUnauthenticated) {
+		t.Errorf("ListJobDefinitions() as anonymous error = %v, want ErrUnauthenticated", err)
+	}
+
+	reader := actor.With(context.Background(), actor.Actor{
+		Kind: actor.KindUser, ID: "usr_1", Permissions: []string{opsdomain.PermSettingsRead, opsdomain.PermJobsRead},
+	})
+	checks := map[string]error{}
+	_, checks["SetSetting"] = svc.SetSetting(reader, "a.b", nil, settings.Change{})
+	_, checks["RunJob"] = svc.RunJob(reader, "heartbeat")
+	_, checks["CancelJobRun"] = svc.CancelJobRun(reader, 1)
+	checks["PauseQueue"] = svc.PauseQueue(reader, "default", "incident")
+	_, checks["ListAuditEvents"] = svc.ListAuditEvents(reader, auditpg.Filter{})
+	_, checks["GetAuditEvent"] = svc.GetAuditEvent(reader, 1)
+	_, checks["MailStatus"] = svc.MailStatus(reader)
+	_, checks["SendTestEmail"] = svc.SendTestEmail(reader, "ada@example.com")
+	for op, err := range checks {
+		if !errors.Is(err, opsdomain.ErrForbidden) {
+			t.Errorf("%s() with read-only permissions error = %v, want ErrForbidden", op, err)
+		}
+	}
+}

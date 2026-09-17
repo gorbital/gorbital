@@ -1,0 +1,33 @@
+package usecase
+
+import (
+	"context"
+
+	"gorbital.dev/modules/releases"
+
+	opsdomain "gorbital.dev/gorbital/opshttp/internal/domain"
+)
+
+// ListReleases returns releases, newest first.
+func (s *Service) ListReleases(ctx context.Context, f releases.ReleaseFilter) (releases.ReleasePage, error) {
+	if err := authorize(ctx, opsdomain.PermReleasesRead); err != nil {
+		return releases.ReleasePage{}, err
+	}
+	return s.releases.Releases(ctx, f)
+}
+
+// CurrentReleases returns the releases running now, with their instances.
+func (s *Service) CurrentReleases(ctx context.Context) ([]releases.CurrentRelease, error) {
+	if err := authorize(ctx, opsdomain.PermReleasesRead); err != nil {
+		return nil, err
+	}
+	return s.releases.Current(ctx)
+}
+
+// ListReleaseInstances returns instance starts, newest first.
+func (s *Service) ListReleaseInstances(ctx context.Context, f releases.InstanceFilter) (releases.InstancePage, error) {
+	if err := authorize(ctx, opsdomain.PermReleasesRead); err != nil {
+		return releases.InstancePage{}, err
+	}
+	return s.releases.Instances(ctx, f)
+}

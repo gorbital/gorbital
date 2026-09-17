@@ -1,0 +1,52 @@
+package usecase
+
+import (
+	"context"
+	"strconv"
+	"strings"
+
+	"gorbital.dev/audit"
+	"gorbital.dev/modules/mail/suppressionpg"
+
+	opsdomain "gorbital.dev/gorbital/opshttp/internal/domain"
+)
+
+// ListSuppressions lists addresses on the email suppression list, most
+// recently added first.
+func (s *Service) ListSuppressions(ctx context.Context, f suppressionpg.Filter) (suppressionpg.Page, error) {
+	if err := authorize(ctx, opsdomain.PermMailRead); err != nil {
+		return suppressionpg.Page{}, err
+	}
+	return s.suppressions.List(ctx, f)
+}
+
+// RemoveSuppression takes an address off the suppression list, so it
+// receives email again, and records mail.suppression.removed with the
+// reason. Removing is for addresses that work again, such as a mailbox
+// created after it bounced, or a recipient who asked for email again.
+func (s *Service) RemoveSuppression(ctx context.Context, id int64, reason string) (suppressionpg.Suppression, error) {
+	if err := authorize(ctx, opsdomain.PermMailWrite); err != nil {
+		return suppressionpg.Suppression{}, err
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return suppressionpg.Suppression{}, opsdomain.ErrSuppressionReasonRequired
+	}
+	removed, err := s.suppressions.Remove(ctx, id)
+	if err != nil {
+		return suppressionpg.Suppression{}, err
+	}
+	// The address is personal data, so the audit event names the
+	// suppression instead.
+	err = s.audit.Record(ctx, audit.Event{
+		Action:       "mail.suppression.removed",
+		ResourceType: "mail_suppression",
+		ResourceID:   strconv.FormatInt(removed.ID, 10),
+		Outcome:      audit.OutcomeSuccess,
+		Metadata:     map[string]any{"reason": reason, "suppression_reason": string(removed.Reason), "source": removed.Source},
+	})
+	if err != nil {
+		return suppressionpg.Suppression{}, err
+	}
+	return removed, nil
+}
