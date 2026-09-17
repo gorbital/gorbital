@@ -106,7 +106,7 @@ func run(root string, write bool, out io.Writer) error {
 	for _, p := range ref.pages() {
 		path := filepath.Join(root, referenceDir, p.file)
 		if write {
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // a directory in the repository, like the 0o644 pages it holds
+			if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 				return err
 			}
 			if err := os.WriteFile(path, p.content, 0o644); err != nil { //nolint:gosec // committed documentation

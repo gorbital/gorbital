@@ -61,7 +61,7 @@ func run(root string, write bool, out io.Writer) error {
 		}
 		path := filepath.Join(root, "api", listingName(modulePath))
 		if write {
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil { //nolint:gosec // a directory in the repository, like the 0o644 listing it holds
+			if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 				return err
 			}
 			if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil { //nolint:gosec // committed to the repository
