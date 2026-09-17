@@ -7,7 +7,7 @@ Notes for contributors writing a page in the Examples tab ([index.md](index.md))
 | What | Where |
 |---|---|
 | A Shelfie chapter | `docs/examples/shelfie/<nn>-<name>.md`, listed in the Examples tab of `docs/docs.json` |
-| A recipe page | `docs/examples/<name>.md`, listed there too |
+| A recipe page | `docs/examples/recipes/<name>.md`, listed there too |
 | The app | `examples/apps/<app>/` (for example `examples/apps/shelfie/`), a Go module CI builds and tests |
 
 Each phase that ships a feature adds or extends its chapter in the same pull request as the feature ([v0.2 roadmap](../v0.2-roadmap.md#what-every-phase-writes)).

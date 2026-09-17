@@ -9,6 +9,7 @@ Unlike the golden apps next to this directory (`examples/minimal`, `examples/ful
 | App | What it shows |
 |---|---|
 | [`shelfie`](shelfie/README.md) | The reading-tracker API of the Shelfie chapters: `gorbital.Main`, a module in four layers with one file per operation, `gorbitaltest` |
+| [`admin-tool`](admin-tool/README.md) | The *Internal admin tool* recipe: the built-in `/ops` and flags modules, a module's runtime setting, client flag, retention and named rate limiter |
 
 ## Layout
 
