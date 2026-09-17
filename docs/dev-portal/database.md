@@ -10,6 +10,7 @@ The Database overview: the migration state, the pool and the health checks, and 
 |---|---|
 | Header | Whether PostgreSQL is reachable, the ping, the pool in use |
 | Migrations | The pending count (also the sidebar's badge), the current version and the latest file, from the app's own view of `db/migrations` |
+| Schema status banner | From the live schema status ([ADR-0080](../adr/0080-live-schema-status.md)): files pending with why they wait (`orb dev --no-reload`, the app stopped or failed, a failed migrate with its error) and a Restart button, files edited after they were applied with a Redo button, out-of-order files; refreshed by every `schema` event, so a file saved in the editor shows within the watch interval |
 | Pool | In use, idle, acquires, average acquire time, waits, cancellations, ping, status, from `/ops/system` |
 | Health checks | The readiness checks as `/readyz` runs them, every 10 s |
 | Runtime and instance | Goroutines, heap, GC count and pauses, Go version; the instance's version, commit, build and start time, uptime, workers, `GOMAXPROCS` |
@@ -24,7 +25,7 @@ No confirmation: applying a file that is already in `db/migrations` is what `orb
 
 ## Where it comes from
 
-`GET /_portal/app/_dev/migrations` ([dev console](../guides/dev-console.md)), `/_portal/app/ops/system`, `POST /_portal/api/app/migrate` ([ADR-0066](../adr/0066-dev-portal.md)).
+`GET /_portal/app/_dev/migrations` ([dev console](../guides/dev-console.md)), `/_portal/app/ops/system`, `POST /_portal/api/app/migrate` ([ADR-0066](../adr/0066-dev-portal.md)); the banner from `GET /_portal/api/db/schema-status` and the `schema` event ([ADR-0080](../adr/0080-live-schema-status.md), [guide](../guides/dev-portal.md#schema-changes-from-code)).
 
 ## Notes
 

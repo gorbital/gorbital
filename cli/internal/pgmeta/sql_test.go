@@ -157,3 +157,29 @@ alter table users add column x int;`
 		t.Errorf("harmless script = %+v", warnings)
 	}
 }
+
+func TestIsDDL(t *testing.T) {
+	for script, want := range map[string]bool{
+		"SELECT 1":                               false,
+		"INSERT INTO t VALUES (1)":               false,
+		"UPDATE t SET a = 1; DELETE FROM t":      false,
+		"-- CREATE TABLE in a comment\nSELECT 1": false,
+		"SELECT 'DROP TABLE t' AS s":             false,
+		"/* ALTER TABLE */ SELECT 2":             false,
+		"CREATE TABLE t (id int)":                true,
+		"  \n  alter table t add column x int":   true,
+		"DROP INDEX CONCURRENTLY i":              true,
+		"TRUNCATE t":                             true,
+		"COMMENT ON COLUMN t.a IS 'x'":           true,
+		"CREATE OR REPLACE FUNCTION f() RETURNS int AS $$ SELECT 1 $$ LANGUAGE sql": true,
+		"SELECT 1;\nCREATE EXTENSION IF NOT EXISTS citext":                          true,
+		"drop schema s cascade":                                     true,
+		"ALTER TYPE mood ADD VALUE 'ok'":                            true,
+		"CREATE TRIGGER tr BEFORE INSERT ON t EXECUTE FUNCTION f()": true,
+		"CREATE VIEW v AS SELECT 1":                                 true,
+	} {
+		if got := IsDDL(script); got != want {
+			t.Errorf("IsDDL(%q) = %v, want %v", script, got, want)
+		}
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -226,6 +227,26 @@ func TestGuardRefusesRemotePeers(t *testing.T) {
 	}
 }
 
+func TestLandingPath(t *testing.T) {
+	for next, want := range map[string]string{
+		"":                      "/",
+		"/database/tables":      "/database/tables",
+		"/logs?level=error#top": "/logs?level=error#top",
+		"database":              "/",
+		"//evil.example":        "/",
+		"/\\evil.example":       "/",
+		"/\t/evil.example":      "/",
+		"/\n/evil.example":      "/",
+		"https://evil.example/": "/",
+		"/%2F%2Fevil.example":   "/",
+		"/a\x7f":                "/",
+	} {
+		if got := landingPath(next); got != want {
+			t.Errorf("landingPath(%q) = %q, want %q", next, got, want)
+		}
+	}
+}
+
 func TestAuthLinkSetsCookie(t *testing.T) {
 	_, ts, _ := newTestServer(t, nil)
 	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
@@ -236,6 +257,16 @@ func TestAuthLinkSetsCookie(t *testing.T) {
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusSeeOther || res.Header.Get("Location") != "/" {
 		t.Fatalf("auth link = %d %q, want 303 to /", res.StatusCode, res.Header.Get("Location"))
+	}
+	for next, want := range map[string]string{"/database/tables": "/database/tables", "//evil.example": "/"} {
+		r, err := client.Get(ts.URL + AuthPath + "?t=" + testToken + "&next=" + url.QueryEscape(next))
+		if err != nil {
+			t.Fatal(err)
+		}
+		r.Body.Close()
+		if r.StatusCode != http.StatusSeeOther || r.Header.Get("Location") != want {
+			t.Errorf("auth link with next=%q = %d %q, want 303 to %q", next, r.StatusCode, r.Header.Get("Location"), want)
+		}
 	}
 	var cookie *http.Cookie
 	for _, c := range res.Cookies() {

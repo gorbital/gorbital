@@ -89,6 +89,12 @@ func (s *Server) sqlHandler() http.Handler {
 		if err != nil {
 			return nil, err
 		}
+		// A committed DDL statement changed the schema behind the other
+		// screens' backs: tell them (ADR-0080). A rolled-back script
+		// changed nothing.
+		if res.Committed && pgmeta.IsDDL(req.SQL) {
+			s.publishSchema(ctx, SchemaSourceSQL)
+		}
 		if s.cfg.SQL != nil {
 			entry := HistoryEntry{Time: time.Now().UTC(), SQL: req.SQL, Mode: res.Mode, DurationMS: res.DurationMS}
 			if n := len(res.Statements); n > 0 {
