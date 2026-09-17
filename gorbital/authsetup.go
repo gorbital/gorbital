@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"gorbital.dev/modules/auth"
+	"gorbital.dev/modules/devconsole"
 	"gorbital.dev/modules/flags"
 	"gorbital.dev/modules/settings"
 )
@@ -59,6 +60,13 @@ type AuthSetup struct {
 	// sample data (ADR-0074). Call it during Setup. It does nothing from
 	// Main.
 	MailPreviews func(previews ...auth.EmailPreview)
+	// DevEndpoints serves handler under prefix, a path under /_dev/ ending
+	// in a slash such as "/_dev/auth/test/", as part of the development
+	// console: behind its Host, loopback, forwarding-header and token checks
+	// (ADR-0065, ADR-0086), for development tools such as sign-in's tests
+	// (ADR-0087). Call it during Setup. It does nothing when DevConsole is
+	// false and from Main; New fails for a prefix the console refuses.
+	DevEndpoints func(prefix string, handler http.Handler)
 }
 
 // authSetupper is the optional method of an authenticator that receives
@@ -122,6 +130,7 @@ func (o options) setupAuthForCommand(ctx context.Context, cfg Config) error {
 		Name: o.name, Config: cfg, Permissions: catalog, DevConsole: cfg.devConsoleOn(),
 		Handle:       func(string, http.Handler) {},
 		MailPreviews: func(...auth.EmailPreview) {},
+		DevEndpoints: func(string, http.Handler) {},
 	})
 }
 
@@ -145,5 +154,10 @@ func (a *App) setupAuth(ctx context.Context) error {
 			a.handlers = append(a.handlers, handledRoute{pattern: pattern, handler: handler})
 		},
 		MailPreviews: func(previews ...auth.EmailPreview) { a.mailPreviews = append(a.mailPreviews, previews...) },
+		DevEndpoints: func(prefix string, handler http.Handler) {
+			if a.cfg.devConsoleOn() {
+				a.devEndpoints = append(a.devEndpoints, devconsole.Extension{Prefix: prefix, Handler: handler})
+			}
+		},
 	})
 }

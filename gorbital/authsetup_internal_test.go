@@ -44,6 +44,9 @@ func (a *setupAuth) Setup(_ context.Context, s AuthSetup) error {
 	s.MailPreviews(auth.EmailPreview{Name: "auth.hello", Description: "Hello", Category: "auth", Build: func(_ context.Context, to string) (mail.Message, error) {
 		return mail.Message{To: []mail.Address{{Email: to}}, Subject: "Hello"}, nil
 	}})
+	s.DevEndpoints("/_dev/signin/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(r.Method + " " + r.URL.Path))
+	}))
 	return nil
 }
 
@@ -141,6 +144,30 @@ func TestAuthSetupFromNew(t *testing.T) {
 	}
 	if code, _, body := get("/_dev/mail/previews"); code != http.StatusOK || !strings.Contains(body, `"name":"auth.hello"`) || !strings.Contains(body, `"name":"test"`) {
 		t.Errorf("/_dev/mail/previews = %d %s, want the authenticator's and the test message", code, body)
+	}
+	if code, _, body := get("/_dev/signin/check"); code != http.StatusOK || body != "GET /_dev/signin/check" {
+		t.Errorf("GET a dev console endpoint the authenticator added = %d %q", code, body)
+	}
+	if code, _, body := get("/_dev/"); code != http.StatusOK || !strings.Contains(body, `"extensions":["/_dev/signin/"]`) {
+		t.Errorf("/_dev/ = %d %s, want the authenticator's extension listed", code, body)
+	}
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/_dev/signin/check", nil)
+	if res, err := http.DefaultClient.Do(req); err != nil || res.StatusCode != http.StatusUnauthorized {
+		t.Errorf("the authenticator's dev console endpoint without the token = %v %v, want 401", res.StatusCode, err)
+	} else {
+		_ = res.Body.Close()
+	}
+
+	// Without the console, the endpoints don't exist.
+	b := &setupAuth{}
+	plain, err := testApp(t, nil, io.Discard, WithName("shelfie"), WithAuth(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	plain.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/_dev/signin/check", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("GET /_dev/signin/check without the dev console = %d, want 404", rec.Code)
 	}
 }
 

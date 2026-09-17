@@ -80,10 +80,12 @@ type App struct {
 	releases    *releases.Tracker
 	collector   *observability.Collector
 	storageURLs http.Handler // local storage's signed URLs; nil for other drivers
-	// handlers and mailPreviews are what the authenticator's Setup added
-	// (AuthSetup.Handle, AuthSetup.MailPreviews).
+	// handlers, mailPreviews and devEndpoints are what the authenticator's
+	// Setup added (AuthSetup.Handle, AuthSetup.MailPreviews,
+	// AuthSetup.DevEndpoints).
 	handlers     []handledRoute
 	mailPreviews []auth.EmailPreview
+	devEndpoints []devconsole.Extension
 
 	// What built-in modules read through the Platform (platform.go).
 	platform     *Platform

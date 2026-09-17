@@ -55,6 +55,7 @@ func (a *App) buildDevConsole() error {
 		},
 		Jobs:         a.devJobRuns,
 		MailPreviews: a.devMailPreviews(),
+		Extensions:   a.devEndpoints,
 	}
 	if a.cfg.MailDelivery == MailMailpit {
 		host, _, err := net.SplitHostPort(a.cfg.MailpitAddr)
