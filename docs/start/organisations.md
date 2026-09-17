@@ -102,7 +102,53 @@ What differs from a v0.1 app:
 - The organisation settings operations answer `setting_not_found`, `setting_version_conflict`, `setting_reason_required` and `invalid_setting_value` themselves, so they work without `opshttp`.
 - The dev console doesn't preview the invitation email yet.
 - There is no `seed` command: create data through the API, or with SQL in your own command.
-- The organisations module's migrations have v0.1's versions (`20260916000001`, `20260918000002`). A database already migrated past them can't apply them later: add `orgshttp` before your first migration dated after them, or start from a new database.
+- The organisations module's migrations have v0.1's versions (`20260916000001`, `20260918000002`), older than the built-in migrations every app on `gorbital.Main` already runs. A database that has been migrated before refuses them; see [Adding organisations to a database that already exists](#adding-organisations-to-a-database-that-already-exists).
+
+### Adding organisations to a database that already exists
+
+`orgshttp` brings its two migrations under the versions v0.1 multi-tenant apps hold them under, `20260916000001` and `20260918000002`, so a database migrated by such an app sees them as applied and nothing runs twice. The price is that they are older than the library's own built-in migrations, whose newest is `20260918000070`, and goose refuses a migration older than the database's version. A database that has already been migrated therefore fails at the next migrate:
+
+```
+postgres: migrate: detected 2 missing (out-of-order) migrations lower than database version: versions 20260916000001,20260918000002
+```
+
+`orb add orgs` says so in its report, and only writes files, so nothing is broken by running it; the refusal comes later, from the app's own `migrate` command. A database created after the change is unaffected, and so are the tests, which start from a fresh database. The `migrate` command has no flag that turns goose's out-of-order check off, so the two routes below are the supported ones.
+
+**A development database: start again.** This is the answer for a database you can throw away, and the one the [Shelfie](../examples/shelfie/08-book-clubs.md) chapter uses:
+
+```bash
+docker compose down -v && docker compose up -d --wait
+go run ./cmd/api migrate
+```
+
+**A database you have to keep.** Read both files before you decide, and take a backup. `00001_orgs.sql` only creates `orgs`, `org_members` and `org_invitations` with their indexes, referencing `orgs` and `auth_users`, which the database already has. `00002_settings_org_purge.sql` only adds two foreign keys, from `settings_values.org_id` and `settings_history.org_id` to `orgs`; in a single-tenant app those columns hold no organisation, so PostgreSQL validates them against an empty `orgs` and has no row to reject (if it does reject one, nothing has been changed). Neither file reads or rewrites existing data, so applying them after the later migrations leaves the same schema as applying them before. That argument is about these two files, not a general licence to run migrations out of order. With the app stopped:
+
+1. Read the two files out of the module cache, where `go mod download` put them:
+
+   ```bash
+   ls "$(go env GOMODCACHE)"/gorbital.dev@*/gorbital/orgshttp/internal/repository/migrations/
+   ```
+
+   They are `00001_orgs.sql` and `00002_settings_org_purge.sql`. Each is a goose file: apply the part after `-- +goose Up`, stopping at `-- +goose Down` if the file has one.
+
+2. Apply that SQL in one transaction, then record both versions as applied, in the same transaction, so a migrate run can never see the tables without the rows:
+
+   ```sql
+   BEGIN;
+   -- the Up section of 00001_orgs.sql, then of 00002_settings_org_purge.sql
+   INSERT INTO goose_db_version (version_id, is_applied) VALUES (20260916000001, true), (20260918000002, true);
+   COMMIT;
+   ```
+
+   `goose_db_version` is the table this app's migrations already use; `id` and `tstamp` fill themselves.
+
+3. Run the app's migrate command. Only `orb add orgs`'s conversion migration is left, and it runs in order:
+
+   ```bash
+   go run ./cmd/api migrate
+   ```
+
+`orb doctor` and `database.migrations` in [`GET /ops/system`](../guides/ops-api.md#system) then report `pending` as 0. If the record and the schema ever disagree — a version marked applied without its tables, or the reverse — restore the backup rather than patching `goose_db_version` further.
 
 ## Roles
 

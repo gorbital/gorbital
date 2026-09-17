@@ -32,4 +32,4 @@ The form refuses what the app would refuse before sending: a percentage outside 
 
 - Settings and flags live in the database, not in `.env`. A variable the app reads at startup is edited on [Environment](environment.md).
 - Per-organisation setting values aren't edited here.
-- What a setting means and its constraints come from the app's declarations (`internal/app/settings.go`, `flags.go`); the [settings reference](../reference/settings.md) lists a Full app's.
+- What a setting means and its constraints come from the app's declarations: each module's `Settings` and `Flags` funcs in an app on `gorbital.Main`, `internal/app/settings.go` and `flags.go` in a v0.1 app. The [settings reference](../reference/settings.md) lists a Full app's.

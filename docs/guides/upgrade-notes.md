@@ -6,7 +6,7 @@ What changes for existing apps in each release, and what to do that `orb upgrade
 
 ## Upgrading to v0.2.0 (unreleased)
 
-v0.2.0 is being built on the [v0.2 roadmap](../v0.2-roadmap.md). It is additive ([ADR-0081](../adr/0081-a-framework-you-import.md)): an app created with v0.1.0 builds and passes its tests against v0.2.0 with `go get` and no code changes, and CI checks that on every change. Moving an app to the new layout (built-in sign-in and `/ops` from the library, `gorbital.Main` in `main.go`) will be an opt-in `orb upgrade`; this section lists what to do as each phase lands.
+v0.2.0 is being built on the [v0.2 roadmap](../v0.2-roadmap.md). It is additive ([ADR-0081](../adr/0081-a-framework-you-import.md)): an app created with v0.1.0 builds and passes its tests against v0.2.0 with `go get` and no code changes, and CI checks that on every change. Moving an app to the new layout (built-in sign-in and `/ops` from the library, `gorbital.Main` in `main.go`) is the opt-in `orb upgrade --layout v0.2`; this section lists what to do for each change.
 
 | Change | What to do |
 |---|---|

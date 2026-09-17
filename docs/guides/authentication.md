@@ -12,7 +12,7 @@ register ──► email with a 6-digit code ──► verify-email ──► lo
                                          /v1/auth/me, /ops/* (with a role and 2FA), your endpoints
 ```
 
-Start the app with `orb dev` (or `docker compose up -d --wait`, `go run ./cmd/migrate`, `go run ./cmd/api`). Emails land in Mailpit at http://127.0.0.1:8025.
+Start the app with `orb dev` (or `docker compose up -d --wait`, `go run ./cmd/api migrate` — `go run ./cmd/migrate` in a v0.1 app — then `go run ./cmd/api`). Emails land in the Dev Portal's Mail screen at http://127.0.0.1:3100/mail.
 
 ```bash
 # 1. Create an account
@@ -71,7 +71,7 @@ gorbital.Main(
 
 Nothing about the API changes: the endpoints, request and response bodies, error codes, audit actions, permissions, roles, `auth.*` settings, jobs, rate limiter names (`auth_login`, `auth_login_address`, `auth_mfa`, `auth_reauth`, `auth_code`, `auth_notice`, `auth_api_key`), cookies (`__Host-session`, `__Host-oauth`) and environment variables are v0.1's. `auth.ip_requests_per_minute` and the `auth_ip` limiter belong to gorbital's middleware stack. Contract tests compare the library's OpenAPI operations with v0.1.0's byte for byte.
 
-Your app doesn't own or edit this code; taking it back into your app as owned code is `orb eject` (Phase 9 of the [v0.2 roadmap](../v0.2-roadmap.md)). A v0.1 app keeps `internal/modules/auth`, `internal/app` and `cmd/api` unchanged, and needs to do nothing.
+Your app doesn't own or edit this code; taking it back into your app as owned code is `orb eject` ([ejecting a module](ejecting-a-module.md)). A v0.1 app keeps `internal/modules/auth`, `internal/app` and `cmd/api` unchanged, and needs to do nothing.
 
 #### Changing sign-in
 
@@ -90,7 +90,7 @@ Provider credentials, passkeys and encryption keys stay in environment variables
 
 `/ops/*` needs a platform role, and a session signed in with two-factor authentication. In a v0.1 app in development, seed data already created one: the first `orb dev` (or `go run ./cmd/seed`) creates `admin@example.com` with `platform_admin` and two-factor authentication on, and prints its random password, authenticator app key and recovery codes once, without saving them ([ADR-0042](../adr/0042-development-seed-data.md)). Add the key to an authenticator app and sign in as in [Two-factor authentication](#two-factor-authentication).
 
-An app on `gorbital.Main` has no `cmd/seed`: create the first administrator as below, then turn on two-factor authentication (`POST /v1/auth/mfa/totp`, then `/confirm`).
+An app on `gorbital.Main` has no `cmd/seed` directory: sign-in adds the same seed data as a `seed` command of `cmd/api`, and `orb dev` runs `go run ./cmd/api seed` on every start ([sign-in commands](main-go.md#sign-in-commands)). Run it by hand with `go run ./cmd/api seed`, or `--email you@example.com` for another address. It needs `AUTH_ENCRYPTION_KEYS`, which `orb dev` fills in `.env`, and refuses to run when `APP_ENV` is production: there, create the first administrator as below, then turn on two-factor authentication (`POST /v1/auth/mfa/totp`, then `/confirm`).
 
 To give your own account a role, in development or production, register and verify it as above, then grant the role from the app's directory:
 
@@ -108,7 +108,7 @@ The role applies to your next request. `platform_admin` and `ops_viewer` require
 
 Add roles and permissions in `internal/app/permissions.go`; `c.RequireMFA("role")` makes a role require two-factor authentication. It's code, not a runtime setting, so nobody can switch it off from `/ops/settings`.
 
-In an app on `gorbital.Main`, roles come from modules' permissions: a role exists when a module's `gorbital.Permission` names it in `Roles` ([Modules and routes](modules-and-routes.md)). `authhttp` declares the ops permissions below, the `user` role every account holds when no module grants it anything, and the two-factor requirement for `platform_admin` and `ops_viewer`, with v0.1's role descriptions. A module gives signed-in users a permission with `Roles: []string{"user"}`, as Shelfie's books module does. With `opshttp.Module()` in the app, the ops roles reach the rest of `/ops` too, and `/ops` lists sign-in's methods, rate limiters and accounts retention; without it, they reach `/ops/auth/users` and `/ops/service-accounts` only. Requiring a second factor for other roles can't be configured until Phase 6.
+In an app on `gorbital.Main`, roles come from modules' permissions: a role exists when a module's `gorbital.Permission` names it in `Roles` ([Modules and routes](modules-and-routes.md)). `authhttp` declares the ops permissions below, the `user` role every account holds when no module grants it anything, and the two-factor requirement for `platform_admin` and `ops_viewer`, with v0.1's role descriptions. A module gives signed-in users a permission with `Roles: []string{"user"}`, as Shelfie's books module does. With `opshttp.Module()` in the app, the ops roles reach the rest of `/ops` too, and `/ops` lists sign-in's methods, rate limiters and accounts retention; without it, they reach `/ops/auth/users` and `/ops/service-accounts` only. To require a second factor for your own roles, name them in `authhttp.RequireMFA("billing_admin")` when the app builds its authenticator ([second factors for your roles](configuring-sign-in.md#second-factors-for-your-roles)).
 
 | Permission | Roles on `gorbital.Main` |
 |---|---|

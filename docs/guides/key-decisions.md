@@ -26,11 +26,13 @@ The design choices that shape every gorbital app, each with what was chosen, the
 
 ## 1. Thin glue, thick library, and app-owned flows
 
-**Chosen.** Security-sensitive primitives live in versioned library packages: argon2id hashing, token and code generation, the session middleware and cookies, TOTP, the keyring, WebAuthn and OAuth verification. The flows that use them (register, login, reset, 2FA enrollment, linking) are generated into the app's `internal/modules/auth` with all four layers, owned and editable ([ADR-0014](../adr/0014-product-shape-and-presets.md), [ADR-0038](../adr/0038-authentication-v0-2.md)).
+**Chosen.** Security-sensitive primitives live in versioned library packages: argon2id hashing, token and code generation, the session middleware and cookies, TOTP, the keyring, WebAuthn and OAuth verification. In a v0.1 app, the flows that use them (register, login, reset, 2FA enrollment, linking) are generated into the app's `internal/modules/auth` with all four layers, owned and editable ([ADR-0014](../adr/0014-product-shape-and-presets.md), [ADR-0038](../adr/0038-authentication-v0-2.md)).
+
+Since v0.2, a new app gets those flows from the library instead: they are `gorbital.dev/gorbital/authhttp`, added in one line of `main.go`, and nothing is generated ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md)). What an app used to change by editing the code, it changes with options and hooks ([configuring sign-in](configuring-sign-in.md), [sign-in hooks](sign-in-hooks.md)); when that is not enough, `orb eject auth` copies the module into the app as code it owns ([ejecting a module](ejecting-a-module.md)). The API, error codes, permissions, settings and migrations are the same either way.
 
 **Alternatives.** Everything in the library behind options (ADR-0024 as first written); everything generated.
 
-**Trade-offs.** Developers can read and change every flow, and customise freely. The price: a fix to a flow reaches existing apps through `orb upgrade` rather than `go get`, and generated code is more code to own.
+**Trade-offs.** With the flows in the app, developers can read and change every one, at the price of a fix reaching them through `orb upgrade` rather than `go get`, and more code to own. With them in the library it is the other way round, and ejection is the escape hatch that keeps the old bargain available per module.
 
 **Consequences.** A hashing or cookie fix is a library release. A flow fix is a template change plus an upgrade merge. The example apps are the reference implementation and are tested end to end.
 
@@ -56,13 +58,13 @@ The design choices that shape every gorbital app, each with what was chosen, the
 
 ## 4. Layered modules
 
-**Chosen.** Each module has `domain/` (standard library only), `usecase/` (defines its ports), `repository/` (implements them) and `delivery/` (Huma), wired in `module.go`, with `internal/app` as the composition root ([ADR-0022](../adr/0022-generated-application-layout.md)).
+**Chosen.** Each module has `domain/` (standard library only), `usecase/` (defines its ports), `repository/` (implements them) and `delivery/` (Huma), wired in `module.go`. The composition root is `cmd/api/main.go` on `gorbital.Main` in a v0.2 app, and `internal/app` in a v0.1 app ([ADR-0022](../adr/0022-generated-application-layout.md), [ADR-0081](../adr/0081-a-framework-you-import.md)).
 
 **Alternatives.** Flat feature packages (`handler.go`, `service.go`, `store.go`); global layers (`handlers/`, `services/`).
 
 **Trade-offs.** Rules can be tested without a database, SQL changed without touching HTTP, and each layer tested alone. More packages per feature and some mapping between layers.
 
-**Consequences.** `architecture_test.go` in every app fails the build when `domain` imports anything outside the standard library, `delivery` imports `repository`, modules import each other, or anything but `internal/app` reads the environment.
+**Consequences.** `architecture_test.go` in every app fails the build when `domain` imports anything outside the standard library, `delivery` imports `repository`, or modules import each other. In a v0.1 app it also fails when anything but `internal/app` reads the environment; in a v0.2 app the environment is the library's to read (`gorbital.LoadConfig`), and `internal/modules/architecture_test.go` checks the layer imports alone.
 
 ## 5. Modules depend only on core
 

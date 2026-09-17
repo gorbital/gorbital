@@ -10,7 +10,7 @@ Production needs it: without it the app refuses to start there. Administrator ro
 
 ## On your computer
 
-Nothing to do. When the value is empty, `orb dev` generates a key for development and writes it to `.env`. It does so when `.env.example` lists `AUTH_ENCRYPTION_KEYS=`, as every Full app's does; in an app on `gorbital.Main`, add that line to `.env.example` if it isn't there.
+Nothing to do. When the value is empty, `orb dev` generates a key for development and writes it to `.env`. It does so when `.env.example` lists `AUTH_ENCRYPTION_KEYS=`, as every Full app's does on either layout.
 
 ## For production
 

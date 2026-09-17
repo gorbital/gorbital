@@ -22,12 +22,14 @@ go test ./...
 
 The URL names your development server, but tests never touch your development database: `pgtest` creates `pgtest_…` databases next to it from a template migrated with `db/migrations`, and drops them.
 
-Add a Mailpit (for example the repository's, on 51025 and 58025) to test email delivery end to end; the apps' e2e tests send through it with `MAIL_DELIVERY=mailpit`:
+Add a Mailpit to test email delivery end to end; the apps' e2e tests send through it with `MAIL_DELIVERY=mailpit`. The repository's own `compose.yaml` runs one on 51025 and 58025:
 
 ```bash
-export GORBITAL_TEST_MAILPIT_SMTP=127.0.0.1:1025
-export GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:8025
+export GORBITAL_TEST_MAILPIT_SMTP=127.0.0.1:51025
+export GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:58025
 ```
+
+Point them at another Mailpit if you run your own. `orb dev`'s mail catcher isn't one: it listens on `127.0.0.1:1025` but has no web API for the tests to read.
 
 | Package | What its tests cover | Needs |
 |---|---|---|
@@ -44,7 +46,7 @@ export GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:8025
 
 In multi-tenant apps, `internal/app` tests connect the app as `gorbital_app_test`, a role without `BYPASSRLS` the tests create, so row-level security policies apply to them once `orb add rls` has run. `GORBITAL_TEST_RLS=1 go test ./internal/app` runs them with the policies before that ([row-level security](row-level-security.md#testing)).
 
-Useful flags: `go test -race ./...` (CI always uses it), `go test -run TestProjectsEndToEnd ./internal/app`, `go test -count=1` to bypass the cache after changing migrations.
+Useful flags: `go test -race ./...` (CI always uses it), `go test -run TestProjectsEndToEnd ./internal/modules/projects` (`./internal/app` in a v0.1 app), `go test -count=1` to bypass the cache after changing migrations.
 
 ## Test helpers
 

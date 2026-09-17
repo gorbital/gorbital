@@ -6,9 +6,11 @@ A feature flag lets operators turn a feature on for some organisations, some use
 
 | Use | When | Example |
 |---|---|---|
-| **Feature flag** (`internal/app/flags.go`) | Who gets a feature is decided per organisation, per user or by percentage, usually for a while | A new checkout for 10% of users, a beta for three customers, a kill switch |
-| **Runtime setting** (`internal/app/settings.go`) | A value applies to everyone (or per organisation), with bounds | A code expiry, a rate limit, a sender name |
-| **Permission** (`internal/app/permissions.go`) | Access control: who may do something | Changing an organisation's members |
+| **Feature flag** | Who gets a feature is decided per organisation, per user or by percentage, usually for a while | A new checkout for 10% of users, a beta for three customers, a kill switch |
+| **Runtime setting** | A value applies to everyone (or per organisation), with bounds | A code expiry, a rate limit, a sender name |
+| **Permission** | Access control: who may do something | Changing an organisation's members |
+
+All three are declared in code. In an app on [`gorbital.Main`](main-go.md) they are fields of the module that owns them — `Flags`, `Settings` and `Permissions` in its `module.go` ([modules and routes](modules-and-routes.md#a-module)) — so a module carries its own. In a v0.1 app they are the app's, in `internal/app/flags.go`, `settings.go` and `permissions.go`.
 
 Flags are not access control. A client can see which client flags are on for it, and a flag's lists are edited by operators: never protect data or actions with a flag alone.
 
@@ -45,7 +47,7 @@ if err != nil {
 runners := []app.Runner{server, store} // so changes from other instances arrive
 ```
 
-The Full apps do this in `internal/app/app.go` and list the store in `Workers()`. The tables come from `flags.Migrations`, copied as `db/migrations/20260918000010_flags.sql`. `Store.Run` listens on the `gorbital_flags` channel, reloads after every reconnect, and reloads everything every 5 minutes.
+A v0.1 app does this in `internal/app/app.go` and lists the store in `Workers()`. An app on `gorbital.Main` declares nothing of the kind: `gorbital.New` builds the registry, calls each module's `Flags` func with it, opens the store and runs it, and hands modules the result as `Deps.Flags`. The tables come from `flags.Migrations`, copied as `db/migrations/20260918000010_flags.sql`. `Store.Run` listens on the `gorbital_flags` channel, reloads after every reconnect, and reloads everything every 5 minutes.
 
 ## Checking a flag
 
@@ -119,7 +121,7 @@ In multi-tenant apps, `GET /v1/orgs/{orgId}/flags` returns them as the organisat
 
 ## Testing
 
-Unit-test code behind a flag by passing `config.Static(true)` or `config.Static(false)` where a module takes a `config.Value[bool]`. `internal/app/flags_test.go` changes the example flag over HTTP and checks `GET /v1/ping` and `GET /v1/flags` for allowed users, rollouts and anonymous callers, and that a second instance applies changes; `org_flags_test.go` (multi-tenant) checks organisation targeting and cross-organisation denial. The library's tests pin bucket values, check precedence and the distribution over 10,000 subjects, and run the store against Docker PostgreSQL.
+Unit-test code behind a flag by passing `config.Static(true)` or `config.Static(false)` where a module takes a `config.Value[bool]`. A v0.1 app's `internal/app/flags_test.go` changes the example flag over HTTP and checks `GET /v1/ping` and `GET /v1/flags` for allowed users, rollouts and anonymous callers, and that a second instance applies changes; `org_flags_test.go` (multi-tenant) checks organisation targeting and cross-organisation denial. An app on `gorbital.Main` tests its own module's flags the same way, with [`gorbitaltest`](testing-with-gorbitaltest.md). The library's tests pin bucket values, check precedence and the distribution over 10,000 subjects, and run the store against Docker PostgreSQL.
 
 ## Storage
 

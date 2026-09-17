@@ -17,7 +17,7 @@ What a Full app talks to while it runs.
 | **Where** | `modules/postgres` (pool, transactions, migrations, the organisation on every connection for [row-level security](row-level-security.md)), every repository, `modules/settings`, `modules/flags` (feature flags), `modules/jobs`, `modules/auditpg`, `modules/releases`, `modules/ratelimitpg` (rate limits shared by every instance, in an unlogged table), `modules/idempotency` (responses to retried POST and PATCH requests), `modules/mail/suppressionpg` (the email suppression list), `modules/observability` (request counts per minute shared by every instance, incidents) |
 | **Version** | `postgres:18` in `compose.yaml`; CI tests against the same image |
 | **Without it** | A Full app doesn't start: `DATABASE_URL is required` |
-| **Setup** | Development: `orb dev` or `docker compose up -d --wait`. Production: any managed PostgreSQL; set `DATABASE_URL` and run `cmd/migrate` before each release. Always in Docker locally, never installed on the machine ([ADR-0028](../adr/0028-local-development-environment.md)) |
+| **Setup** | Development: `orb dev` or `docker compose up -d --wait`. Production: any managed PostgreSQL; set `DATABASE_URL` and run the app's migrate command before each release (`cmd/api migrate`, or `cmd/migrate` in a v0.1 app). Always in Docker locally, never installed on the machine ([ADR-0028](../adr/0028-local-development-environment.md)) |
 
 ### Email provider: Resend or SMTP
 
@@ -25,7 +25,7 @@ What a Full app talks to while it runs.
 |---|---|
 | **What** | Delivers email: [Resend](https://resend.com) through its HTTP API (`modules/mail/resend`), or any SMTP server (`modules/mail/smtp`, standard library `net/smtp`) |
 | **Why** | Sign-up codes, password resets and security alerts must reach real inboxes with SPF and DKIM ([ADR-0025](../adr/0025-email-providers.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md)) |
-| **Where** | `internal/app/infra_mail.go` builds the sender; the `gorbital.mail.send` job worker calls it |
+| **Where** | `cmd/api/mail.go` builds the sender in an app on `gorbital.Main` (`internal/app/infra_mail.go` in a v0.1 app); the `gorbital.mail.send` job worker calls it |
 | **Without it** | Production refuses to start without credentials; users can't verify their email or reset passwords |
 | **Setup** | `orb add mail`; [email guide](email.md) |
 
@@ -46,12 +46,12 @@ Run by `orb dev` from the app's `compose.yaml`. None of them run in production.
 | | |
 |---|---|
 | **What** | A fake email server with a web inbox ([mailpit.axllent.org](https://mailpit.axllent.org)) |
-| **Why** | Every flow that sends email (sign-up, reset, alerts) must be testable locally without a provider account and without emailing real people by mistake |
-| **Where** | `compose.yaml` service `mailpit` (`axllent/mailpit:v1.27`), SMTP on `127.0.0.1:1025`, inbox on `http://127.0.0.1:8025`. The app sends to it when `MAIL_DELIVERY` is `mailpit` (the development default), through `MAILPIT_SMTP_ADDR` |
+| **Why** | Every flow that sends email (sign-up, reset, alerts) must be testable locally without a provider account and without emailing real people by mistake. A generated app doesn't need it: `orb dev` runs its own mail catcher and shows the inbox in the Dev Portal ([email guide](email.md#development-the-inbox-in-the-dev-portal)). Mailpit is for the repository's own tests, and for apps that choose `MAIL_DELIVERY=mailpit` |
+| **Where** | The repository's own `compose.yaml` (`axllent/mailpit`), for library and example tests. A new app's `compose.yaml` has no `mailpit` service: run Mailpit yourself if you want it. The app sends to it only when `MAIL_DELIVERY` is `mailpit`, through `MAILPIT_SMTP_ADDR` (`127.0.0.1:1025` by default) |
 | **How it works** | It accepts any message over SMTP without authentication and stores it; the web UI and its HTTP API (`/api/v1/messages`, `/api/v1/search`) show them. Tests read codes from that API, and Full apps' [dev console](dev-console.md) `/_dev/mail` reads it through `MAILPIT_WEB_PORT` |
-| **Without it** | Development email sends fail and retry; nobody can finish sign-up locally. The app still starts |
+| **Without it** | Nothing, with the `devmail` default. With `MAIL_DELIVERY=mailpit` and no Mailpit running, email sends fail and retry; the app still starts |
 | **Production** | Refused: `MAIL_DELIVERY=mailpit is for development` |
-| **Setup** | Nothing: `orb dev` starts it. Ports: `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT`. The repository's own `compose.yaml` runs another instance on 51025 and 58025 for library tests |
+| **Setup** | Set `MAIL_DELIVERY=mailpit` and `MAILPIT_SMTP_ADDR`, and run Mailpit. The repository's own `compose.yaml` runs an instance on 51025 and 58025 for library tests (`GORBITAL_MAILPIT_SMTP_PORT`, `GORBITAL_MAILPIT_WEB_PORT`) |
 
 ### MinIO (optional)
 
@@ -148,7 +148,7 @@ Not imported; run with `go run pkg@version` or in CI (`.github/workflows/`).
 | Redis, Kafka, RabbitMQ | PostgreSQL (River, `LISTEN/NOTIFY`) | One required service; jobs commit with data |
 | An ORM, sqlc | Hand-written SQL, one file per operation | Readable queries, no generated layer ([ADR-0032](../adr/0032-repository-sql.md)) |
 | A router framework | `net/http.ServeMux` | The standard library's patterns are enough |
-| A DI container | Constructors in `internal/app` | Wiring you can read and step through ([ADR-0004](../adr/0004-dependency-injection.md)) |
+| A DI container | Constructors in the composition root: `cmd/api/main.go` on `gorbital.Main`, or `internal/app` in a v0.1 app | Wiring you can read and step through ([ADR-0004](../adr/0004-dependency-injection.md)) |
 | JWT sessions | Opaque tokens hashed in PostgreSQL | Instant revocation, nothing to sign or rotate ([ADR-0038](../adr/0038-authentication-v0-2.md)) |
 | Testcontainers, embedded PostgreSQL | Docker Compose services | The same PostgreSQL everywhere ([ADR-0028](../adr/0028-local-development-environment.md)) |
 | Scalar, Swagger UI | `modules/openapi/reference` | Same design as the docs site, strict CSP, embedded fonts ([ADR-0049](../adr/0049-public-docs-and-website.md)) |

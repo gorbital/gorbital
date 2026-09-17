@@ -1,6 +1,6 @@
 # Database
 
-> The [Dev Portal](dev-portal.md)'s Table Editor reads this database and writes schema changes as migration files under `db/migrations` ([ADR-0067](../adr/0067-table-editor-and-pgmeta.md)): a change made in the browser is a file in git before the local database changes, so teammates and production get it from the migrations as always. Its SQL editor saves queries under `db/queries` ([ADR-0068](../adr/0068-sql-editor.md)), also committed with the app. In development, `go run ./cmd/migrate --down` rolls back the most recent migration and `--redo` rolls it back and applies it again ([ADR-0069](../adr/0069-schema-visualiser-objects-and-migrations.md)); production refuses both, and released migrations still never change. guide
+> The [Dev Portal](dev-portal.md)'s Table Editor reads this database and writes schema changes as migration files under `db/migrations` ([ADR-0067](../adr/0067-table-editor-and-pgmeta.md)): a change made in the browser is a file in git before the local database changes, so teammates and production get it from the migrations as always. Its SQL editor saves queries under `db/queries` ([ADR-0068](../adr/0068-sql-editor.md)), also committed with the app. In development, `go run ./cmd/api migrate-down` rolls back the most recent migration, and running it followed by `migrate` rolls it back and applies it again (`go run ./cmd/migrate --down` and `--redo` in a v0.1 app) ([ADR-0069](../adr/0069-schema-visualiser-objects-and-migrations.md)); production refuses both, and released migrations still never change.
 
 `gorbital.dev/modules/postgres` connects apps to PostgreSQL. Decisions: [ADR-0005](../adr/0005-database-strategy.md) (PostgreSQL, goose), [ADR-0028](../adr/0028-local-development-environment.md) (Docker), [ADR-0032](../adr/0032-repository-sql.md) (hand-written SQL).
 
@@ -166,8 +166,8 @@ err := postgres.InTx(ctx, pool, func(tx pgx.Tx) error {
 - Goose SQL files in `db/migrations`, named `<timestamp>_<description>.sql`, with `-- +goose Up` sections.
 - One ordered history for the app's tables and gorbital module tables (modules ship theirs as `settings.Migrations`, `jobs.Migrations`, `auditpg.Migrations`, and they are copied in).
 - Released migrations are never edited; changes are new files, forward-only.
-- `orb gen migration <name>` creates an empty one that runs after the existing ones ([CLI guide](cli.md#orb-gen-migration)). Write its SQL before running `cmd/migrate`: an empty migration is recorded as applied.
-- `cmd/migrate` applies them with `postgres.Migrate(ctx, pool, migrations.FS)`, then River's migrations with `jobs.Migrate`. Apps never migrate at startup (ADR-0017).
+- `orb gen migration <name>` creates an empty one that runs after the existing ones ([CLI guide](cli.md#orb-gen-migration)). Write its SQL before applying it: an empty migration is recorded as applied.
+- The migrate command applies them with `postgres.Migrate(ctx, pool, migrations.FS)`, then River's migrations with `jobs.Migrate`: `cmd/migrate` in a v0.1 app, `gorbital.Migrate` behind `cmd/api migrate` in an app on `gorbital.Main`, which merges the library's and the modules' migrations with the app's. Apps never migrate at startup (ADR-0017).
 - `postgres.Migrate` takes a PostgreSQL advisory lock, so concurrent migrators apply each migration once.
 - `postgres.Migrations(ctx, pool, fsys)` reports `Current`, `Latest` and `Pending` without changing anything.
 
@@ -197,10 +197,12 @@ Ports bind to `127.0.0.1` only, so the development password is never reachable f
 
 | Command | What it does | When |
 |---|---|---|
-| `go run ./cmd/migrate` | Opens `DATABASE_URL`, applies pending goose migrations from `db/migrations` under an advisory lock, then River's queue migrations; prints `applied migration <version>` for each and nothing when up to date | After pulling or generating migrations; before each release in production (`/migrate` in the image) |
-| `go run ./cmd/seed` | Creates the development administrator and example data through the modules' use cases. Refuses when `APP_ENV=production`; needs `AUTH_ENCRYPTION_KEYS`; does nothing when `admin@example.com` exists | Development, after migrating; `orb dev` runs it |
-| `orb gen migration <name>` | Creates an empty migration that sorts last | Schema changes outside `orb gen resource` |
-| `orb gen resource …` | Creates a module with its own migration | New resources |
+| `go run ./cmd/api migrate` | Opens `DATABASE_URL`, applies pending goose migrations — the library's, the modules' and the app's `db/migrations`, in one history — under an advisory lock, then River's queue migrations; prints `applied migration <version>` for each and nothing when up to date | After pulling or generating migrations; before each release in production (`docker run <image> migrate`) |
+| `go run ./cmd/migrate` | The same, in a v0.1 app, for the app's `db/migrations` alone | The same; `/migrate` in a v0.1 image |
+| `go run ./cmd/api seed` | Creates the development administrator through sign-in's use cases. Refuses when `APP_ENV=production`; needs `AUTH_ENCRYPTION_KEYS`; does nothing when `admin@example.com` exists | Development, after migrating; `orb dev` runs it |
+| `go run ./cmd/seed` | The same in a v0.1 app, plus the example data its modules seed | The same |
+| `orb gen migration <name>` | Creates an empty migration that sorts last | Schema changes outside the module and resource generators |
+| `orb gen module …`, `orb gen resource …` | Creates a module with its own migration: `orb gen module` in an app on `gorbital.Main`, `orb gen resource` in a v0.1 app | New resources |
 
 Each needs the environment: `orb dev` provides it, or `set -a; . ./.env; set +a`.
 
@@ -208,7 +210,7 @@ Each needs the environment: `orb dev` provides it, or `set -a; . ./.env; set +a`
 
 ## Schema of a Full app
 
-The tables a new single-tenant Full app creates, by migration. Library modules own their tables' shape; the app owns its modules' tables. Every ID is `text` with a type prefix (`usr_…`), and every timestamp is `timestamptz` in UTC.
+The tables a new single-tenant Full app creates, by migration. Library modules own their tables' shape; the app owns its modules' tables. The **sign-in module** in the Owner column is the library's `gorbital/authhttp` in an app on `gorbital.Main`, and the app's generated `internal/modules/auth` in a v0.1 app; the migrations and their versions are the same either way. Every ID is `text` with a type prefix (`usr_…`), and every timestamp is `timestamptz` in UTC.
 
 | Migration | Table | Owner | Holds |
 |---|---|---|---|
@@ -217,20 +219,20 @@ The tables a new single-tenant Full app creates, by migration. Library modules o
 | `…0002_jobs_definitions` | `jobs_definitions` | `modules/jobs` | Runtime configuration of each job: enabled, schedule, timeout, attempts, queue, priority, version |
 | | `jobs_definition_history` | `modules/jobs` | Every configuration change |
 | `…0003_audit_events` | `audit_events` | `modules/auditpg` | Append-only audit log: action, actor, resource, outcome, request ID, redacted metadata |
-| `…0001_auth` | `auth_users` | App `auth` module | Accounts: email and its normalized form, argon2id password hash, verification and deletion times |
-| | `auth_sessions` | App `auth` module | Sessions: SHA-256 of the token, idle and absolute expiry, last seen, user agent, revocation time and reason |
-| | `auth_codes` | App `auth` module | Email verification and password reset codes: SHA-256, purpose, expiry, attempts |
-| | `auth_user_roles` | App `auth` module | Platform roles (`org_id` NULL) and organisation-scoped roles |
+| `…0001_auth` | `auth_users` | Sign-in module | Accounts: email and its normalized form, argon2id password hash, verification and deletion times |
+| | `auth_sessions` | Sign-in module | Sessions: SHA-256 of the token, idle and absolute expiry, last seen, user agent, revocation time and reason |
+| | `auth_codes` | Sign-in module | Email verification and password reset codes: SHA-256, purpose, expiry, attempts |
+| | `auth_user_roles` | Sign-in module | Platform roles (`org_id` NULL) and organisation-scoped roles |
 | `…0002_projects` | `projects` | App `projects` module | The example resource, owned by a user |
 | `…0003_release_instances` | `release_instances` | `modules/releases` | Each running or stopped instance: version, commit, start, heartbeat, clean stop |
-| `…0004_auth_mfa` | `auth_totp` | App `auth` module | One TOTP secret per user, encrypted, with its key ID and last used step |
-| | `auth_recovery_codes` | App `auth` module | SHA-256 of each recovery code, and when it was used |
-| | `auth_mfa_challenges` | App `auth` module | Pending second-factor sign-ins: token hash, attempts and limit, expiry, consumption |
-| `…0005_auth_passkeys` | `auth_passkeys` | App `auth` module | Passkeys: credential ID, verified credential record (public key, flags, counter), backup flags, name |
-| | `auth_webauthn_ceremonies` | App `auth` module | Single-use WebAuthn challenges for registration, sign-in and verification |
-| `…0006_auth_social` | `auth_identities` | App `auth` module | Google and Apple identities linked to users; Apple refresh tokens encrypted |
-| | `auth_oauth_states` | App `auth` module | Web sign-in in progress: state, PKCE verifier, nonce, return address |
-| | `auth_social_nonces` | App `auth` module | Single-use nonces for native ID-token sign-in |
+| `…0004_auth_mfa` | `auth_totp` | Sign-in module | One TOTP secret per user, encrypted, with its key ID and last used step |
+| | `auth_recovery_codes` | Sign-in module | SHA-256 of each recovery code, and when it was used |
+| | `auth_mfa_challenges` | Sign-in module | Pending second-factor sign-ins: token hash, attempts and limit, expiry, consumption |
+| `…0005_auth_passkeys` | `auth_passkeys` | Sign-in module | Passkeys: credential ID, verified credential record (public key, flags, counter), backup flags, name |
+| | `auth_webauthn_ceremonies` | Sign-in module | Single-use WebAuthn challenges for registration, sign-in and verification |
+| `…0006_auth_social` | `auth_identities` | Sign-in module | Google and Apple identities linked to users; Apple refresh tokens encrypted |
+| | `auth_oauth_states` | Sign-in module | Web sign-in in progress: state, PKCE verifier, nonce, return address |
+| | `auth_social_nonces` | Sign-in module | Single-use nonces for native ID-token sign-in |
 | River (`jobs.Migrate`) | `river_job`, `river_leader`, `river_queue`, … | River | The job queue |
 | goose | `goose_db_version` | goose | Applied migrations |
 
