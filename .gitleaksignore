@@ -3,3 +3,22 @@
 
 # Placeholder Resend API key in a test that talks to a fake server.
 736e91b16329d5f10de88ea00d9f476c38ce3bb0:modules/mail/resend/resend_test.go:generic-api-key:20
+# Reviewed 2026-09-17 before v0.1.0: test fixtures and documentation placeholders.
+ee539416794292abc95a4ed34775f419f1ada09a:cli/internal/portal/portal_test.go:generic-api-key:763
+ee539416794292abc95a4ed34775f419f1ada09a:cli/internal/portal/portal_test.go:generic-api-key:803
+0446d392ae1230a3f9af67a06b155b742a36bea0:cli/internal/recipes/full-multi/internal/app/devconsole_test.go.tmpl:generic-api-key:23
+0446d392ae1230a3f9af67a06b155b742a36bea0:cli/internal/recipes/full/internal/app/devconsole_test.go.tmpl:generic-api-key:23
+0446d392ae1230a3f9af67a06b155b742a36bea0:cli/internal/recipes/minimal/internal/app/devconsole_test.go.tmpl:generic-api-key:20
+0446d392ae1230a3f9af67a06b155b742a36bea0:docs/guides/dev-console.md:generic-api-key:33
+0446d392ae1230a3f9af67a06b155b742a36bea0:examples/full-multi/internal/app/devconsole_test.go:generic-api-key:23
+0446d392ae1230a3f9af67a06b155b742a36bea0:examples/full-single/internal/app/devconsole_test.go:generic-api-key:23
+0446d392ae1230a3f9af67a06b155b742a36bea0:examples/minimal/internal/app/devconsole_test.go:generic-api-key:20
+0446d392ae1230a3f9af67a06b155b742a36bea0:modules/devconsole/devconsole_test.go:generic-api-key:23
+ad4d91d03f037bd5a76b1f0d33c60c6a42c7b48b:cli/internal/recipes/full-multi/AUTH_PROVIDERS.md.tmpl:generic-api-key:372
+ad4d91d03f037bd5a76b1f0d33c60c6a42c7b48b:cli/internal/recipes/full/AUTH_PROVIDERS.md.tmpl:generic-api-key:372
+ad4d91d03f037bd5a76b1f0d33c60c6a42c7b48b:docs/sign-in/github.md:generic-api-key:126
+ad4d91d03f037bd5a76b1f0d33c60c6a42c7b48b:examples/full-multi/AUTH_PROVIDERS.md:generic-api-key:372
+ad4d91d03f037bd5a76b1f0d33c60c6a42c7b48b:examples/full-single/AUTH_PROVIDERS.md:generic-api-key:372
+4637dad4c00463e7510b3b519bb71ee8e22314e3:modules/mail/resend/webhook_test.go:generic-api-key:27
+05ed9934cc95e85eb01e52323c0f7de5658c51d7:site/content/sign-in/apple.md:private-key:159
+c02b1c34553d6dedff3012f8efd80f0e622ea8bd:modules/mail/resend/resend_test.go:generic-api-key:20
