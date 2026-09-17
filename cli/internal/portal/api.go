@@ -99,6 +99,7 @@ func (s *Server) apiHandler() http.Handler {
 	mux.HandleFunc("POST "+APIPrefix+"generators/{name}/plan", s.serveGenerator(false))
 	mux.HandleFunc("POST "+APIPrefix+"generators/{name}/apply", s.serveGenerator(true))
 	mux.HandleFunc("GET "+APIPrefix+"jobs", s.serveJobs)
+	mux.HandleFunc("GET "+APIPrefix+"routes", s.serveRoutes)
 	s.logRoutes(mux)
 	mux.HandleFunc("GET "+APIPrefix+"health", s.serveHealth)
 	mux.HandleFunc("GET "+APIPrefix+"system", s.serveSystem)

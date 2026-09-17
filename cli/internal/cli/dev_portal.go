@@ -25,6 +25,7 @@ import (
 	"gorbital.dev/cli/internal/pgmeta"
 	"gorbital.dev/cli/internal/portal"
 	"gorbital.dev/cli/internal/portal/ui"
+	"gorbital.dev/cli/internal/routes"
 )
 
 // The Dev Portal (ADR-0066): orb dev serves the portal's UI and API on a
@@ -227,6 +228,7 @@ func (d *devRunner) portalConfig() portal.Config {
 		Env:             portal.NewEnvEditor(d.dir),
 		Git:             portal.NewGit(d.dir),
 		ProjectSettings: portal.ProjectConfig{Settings: d.projectSettings, ResetDatabase: d.resetDatabase},
+		Routes:          d.routes,
 		OpenInEditor:    func(path string, line int) error { return openInEditor(d.dir, path, line) },
 		Health:          d.health,
 		Database:        d.databaseConfig(),
@@ -564,6 +566,47 @@ func (d *devRunner) generators() map[string]portal.Generator {
 				return plan, apply(ctx, allowDirty, plan)
 			},
 		},
+		"module": {
+			Plan: func(_ context.Context, input json.RawMessage) (genplan.Plan, error) {
+				a, in, err := portalModuleInput(app, input)
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				plan, _, err := planModule(a, in, time.Now())
+				return plan, err
+			},
+			Apply: func(ctx context.Context, input json.RawMessage, allowDirty bool) (genplan.Plan, error) {
+				a, in, err := portalModuleInput(app, input)
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				plan, _, err := planModule(a, in, time.Now())
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				return plan, apply(ctx, allowDirty, plan)
+			},
+		},
+		"middleware": {
+			Plan: func(_ context.Context, input json.RawMessage) (genplan.Plan, error) {
+				a, in, err := portalMiddlewareInput(app, input)
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				return planMiddleware(a, in)
+			},
+			Apply: func(ctx context.Context, input json.RawMessage, allowDirty bool) (genplan.Plan, error) {
+				a, in, err := portalMiddlewareInput(app, input)
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				plan, err := planMiddleware(a, in)
+				if err != nil {
+					return genplan.Plan{}, err
+				}
+				return plan, apply(ctx, allowDirty, plan)
+			},
+		},
 		"resource": {
 			Plan: func(_ context.Context, input json.RawMessage) (genplan.Plan, error) {
 				a, in, err := portalResourceInput(app, input)
@@ -696,6 +739,85 @@ func portalResourceInput(app func() (appInfo, error), input json.RawMessage) (ap
 		return appInfo{}, resourceInput{}, err
 	}
 	return a, resourceInput{name: in.Name, specs: in.Fields, plural: in.Plural, idPrefix: in.IDPrefix, scope: in.Scope}, nil
+}
+
+// moduleInputJSON is orb gen module's answers.
+type moduleInputJSON struct {
+	Name string `json:"name"`
+	// Fields are specs as on the command line: name:string:unique.
+	Fields   []string `json:"fields"`
+	Plural   string   `json:"plural"`
+	IDPrefix string   `json:"id_prefix"`
+	Org      bool     `json:"org"`
+}
+
+func portalModuleInput(app func() (appInfo, error), input json.RawMessage) (appInfo, moduleInput, error) {
+	a, err := app()
+	if err != nil {
+		return appInfo{}, moduleInput{}, err
+	}
+	var in moduleInputJSON
+	if err := decodeInput(input, &in); err != nil {
+		return appInfo{}, moduleInput{}, err
+	}
+	return a, moduleInput{name: in.Name, specs: in.Fields, plural: in.Plural, idPrefix: in.IDPrefix, org: in.Org}, nil
+}
+
+// middlewareInputJSON is orb gen middleware's answers.
+type middlewareInputJSON struct {
+	Name   string `json:"name"`
+	Module string `json:"module"`
+	Global bool   `json:"global"`
+	Guard  bool   `json:"guard"`
+}
+
+func portalMiddlewareInput(app func() (appInfo, error), input json.RawMessage) (appInfo, middlewareInput, error) {
+	a, err := app()
+	if err != nil {
+		return appInfo{}, middlewareInput{}, err
+	}
+	var in middlewareInputJSON
+	if err := decodeInput(input, &in); err != nil {
+		return appInfo{}, middlewareInput{}, err
+	}
+	if strings.TrimSpace(in.Name) == "" {
+		return appInfo{}, middlewareInput{}, usageError("missing middleware name")
+	}
+	return a, middlewareInput{name: in.Name, module: in.Module, global: in.Global, guard: in.Guard}, nil
+}
+
+// routesFetchTimeout bounds reading the running app's OpenAPI document.
+const routesFetchTimeout = 5 * time.Second
+
+// routes lists the app's routes for the portal: from the running app's
+// /openapi.json when it serves one, otherwise built with go run ./cmd/api
+// openapi, as orb routes does.
+func (d *devRunner) routes(ctx context.Context) (portal.RouteList, error) {
+	if status := d.Status(); status.State == portal.StateRunning {
+		if doc, err := fetchOpenAPI(ctx, status.URL+"/openapi.json"); err == nil {
+			return routes.Build(d.project().Name, d.dir, doc, routes.SourceApp)
+		}
+	}
+	return appRoutes(ctx, d.dir, "")
+}
+
+// fetchOpenAPI reads an OpenAPI document from the app.
+func fetchOpenAPI(ctx context.Context, url string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, routesFetchTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GET %s: %s", url, res.Status)
+	}
+	return io.ReadAll(io.LimitReader(res.Body, 32<<20))
 }
 
 // shouldOpenBrowser reports whether orb dev may open a browser: only when

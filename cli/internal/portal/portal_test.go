@@ -19,6 +19,7 @@ import (
 
 	"gorbital.dev/cli/internal/devmail"
 	"gorbital.dev/cli/internal/genplan"
+	"gorbital.dev/cli/internal/routes"
 )
 
 const testToken = "portal-test-token-0123456789abcdefghijklmnop"
@@ -876,5 +877,37 @@ func TestProjectEndpoints(t *testing.T) {
 	}
 	if res := call(t, ts2, http.MethodPost, APIPrefix+"project/reset-database", "", nil); res.StatusCode != http.StatusNotFound {
 		t.Errorf("reset without a database = %d", res.StatusCode)
+	}
+}
+
+func TestRoutesEndpoint(t *testing.T) {
+	_, ts, _ := newTestServer(t, nil)
+	if res := call(t, ts, http.MethodGet, APIPrefix+"routes", "", nil); res.StatusCode != http.StatusNotFound {
+		t.Errorf("without Routes = %d", res.StatusCode)
+	}
+
+	fail := false
+	_, ts, _ = newTestServer(t, func(c *Config) {
+		c.Routes = func(context.Context) (RouteList, error) {
+			if fail {
+				return RouteList{}, errors.New("go run ./cmd/api openapi: exit status 1")
+			}
+			return RouteList{App: "acme-api", Source: "app", GuardsKnown: true, Total: 1, Public: 1, Warnings: []string{},
+				Routes: []routes.Route{{Method: "GET", Path: "/v1/catalog/{id}", Guards: []string{"public"}, Public: true, Source: &routes.Pos{File: "internal/modules/catalog/delivery/routes.go", Line: 12}}}}, nil
+		}
+	})
+	res := call(t, ts, http.MethodGet, APIPrefix+"routes", "", nil)
+	out := decode[RouteList](t, res)
+	if res.StatusCode != http.StatusOK || out.Total != 1 || !out.Routes[0].Public || out.Routes[0].Source.Line != 12 || res.Header.Get("Cache-Control") != "no-store" {
+		t.Errorf("routes = %d %+v", res.StatusCode, out)
+	}
+	fail = true
+	res = call(t, ts, http.MethodGet, APIPrefix+"routes", "", nil)
+	if p := decode[problem](t, res); res.StatusCode != http.StatusUnprocessableEntity || p.Code != "routes_failed" || !strings.Contains(p.Detail, "exit status 1") {
+		t.Errorf("failing routes = %d %+v", res.StatusCode, p)
+	}
+	res = call(t, ts, http.MethodGet, APIPrefix+"routes", "", func(r *http.Request) { r.Header.Del("Cookie") })
+	if res.StatusCode != http.StatusUnauthorized {
+		t.Errorf("routes without the token = %d", res.StatusCode)
 	}
 }
