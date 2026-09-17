@@ -47,14 +47,28 @@ for module in $modules; do
         continue
       fi
       echo "== $rel $name ($fuzztime)"
-      if ! (cd "$dir" && go test -run '^$' -fuzz "^${name}\$" -fuzztime "$fuzztime" .); then
-        echo "FAIL: $rel $name" >&2
-        status=1
-        while IFS= read -r input; do
-          mkdir -p "$failures/$(dirname "$input")"
-          cp "$input" "$failures/$input"
-          echo "failing input saved: $input" >&2
-        done < <(git ls-files --others --exclude-standard -- "$rel/testdata/fuzz/$name")
+      if out=$(cd "$dir" && go test -run '^$' -fuzz "^${name}\$" -fuzztime "$fuzztime" . 2>&1); then
+        printf '%s\n' "$out"
+      else
+        printf '%s\n' "$out"
+        inputs=$(git ls-files --others --exclude-standard -- "$rel/testdata/fuzz/$name")
+        # A target that fails writes the input it failed on under testdata/fuzz.
+        # The engine can also stop with "context deadline exceeded" when
+        # $fuzztime runs out while it is still minimising a newly interesting
+        # input: that leaves no input behind and says nothing about the code,
+        # so it is a warning, not a failure.
+        if [[ -z $inputs && $out == *"context deadline exceeded"* ]]; then
+          echo "warning: $rel $name ran out of time before it finished; no failing input" >&2
+        else
+          echo "FAIL: $rel $name" >&2
+          status=1
+          while IFS= read -r input; do
+            [[ -n $input ]] || continue
+            mkdir -p "$failures/$(dirname "$input")"
+            cp "$input" "$failures/$input"
+            echo "failing input saved: $input" >&2
+          done <<< "$inputs"
+        fi
       fi
     done
   done <<< "$packages"
