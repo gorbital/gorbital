@@ -377,11 +377,12 @@ func (h *handler) deleteAccount(ctx context.Context, in *deleteAccountInput) (*c
 	return &cookieOutput{SetCookie: []http.Cookie{*authlib.ClearSessionCookie(h.cookie)}}, nil
 }
 
-// authError adds the reason to a rejected password and the wait to a rate
-// limit, and answers an app hook's refusal with its code and 403; other errors are mapped by the module's Errors (authhttp's module.go).
+// authError is AuthError.
 func authError(err error) error { return AuthError(err) }
 
-// AuthError is authError, for authhttp.
+// AuthError adds the reason to a rejected password and the wait to a rate
+// limit, and answers an app hook's refusal with its code and 403; other
+// errors are mapped by the module's Errors (authhttp's module.go).
 func AuthError(err error) error {
 	var weak *authlib.PasswordError
 	var limited *authdomain.RateLimitError

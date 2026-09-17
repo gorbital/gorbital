@@ -137,19 +137,12 @@ func checkRefusalCode(code string) error {
 	return nil
 }
 
-// reservedCodes are the problem codes a refusal can't use: sign-in's, the
-// generic codes of every status (httpx.DefaultCode), and those of gorbital's
-// stack, guards and built-in modules.
+// reservedCodes are the problem codes a refusal can't use: builtInCodes,
+// sign-in's error mappings and the generic code of every status.
 func reservedCodes() map[string]bool {
-	codes := map[string]bool{
-		// authError and the redirects of web sign-ins.
-		"weak_password": true, "too_many_attempts": true, "access_denied": true, "server_error": true,
-		// gorbital's stack, guards and built-in modules.
-		"validation_failed": true, "unauthorized": true, "internal_error": true, "unavailable": true, "error": true,
-		"cross_origin_request_denied": true, "ip_not_allowed": true, "request_timeout": true, "maintenance": true,
-		"reauthentication_required": true, "invalid_webhook_signature": true, "invalid_setting_value": true,
-		"invalid_flag_state": true, "invalid_job_config": true, "invalid_job_state": true,
-		"rate_limiter_not_found": true,
+	codes := map[string]bool{}
+	for _, c := range builtInCodes {
+		codes[c] = true
 	}
 	for _, status := range []int{400, 401, 403, 404, 405, 409, 413, 422, 429, 500, 503} {
 		codes[httpx.DefaultCode(status)] = true
@@ -163,8 +156,9 @@ func reservedCodes() map[string]bool {
 // tracer traces the app's hooks.
 var tracer = otel.Tracer("gorbital.dev/gorbital/authhttp")
 
-// afterLoginTimeout is the longest a response waits for AfterLogin hooks.
-const afterLoginTimeout = 5 * time.Second
+// afterLoginTimeout is the longest a response waits for AfterLogin hooks; a
+// variable for tests.
+var afterLoginTimeout = 5 * time.Second
 
 // hooks returns the use cases' hooks for o: each traced, with the app's
 // errors converted, and AfterLogin bounded.
