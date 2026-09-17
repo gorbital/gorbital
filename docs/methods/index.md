@@ -18,6 +18,7 @@ The root module, `gorbital.dev`: small packages every app uses, with no dependen
 | [`gorbital.dev/buildinfo`](buildinfo.md) | Package buildinfo reports the version, commit and build time of the running binary, from Go build information or a version set at link time. |
 | [`gorbital.dev/config`](config.md) | Package config provides configuration helpers for the composition root of an gorbital app: a Secret type that never leaks into logs or output, and environment lookup with *_FILE support for mounted secrets. |
 | [`gorbital.dev/gorbital`](gorbital.md) | Package gorbital composes gorbital's modules into an application (ADR-0081). |
+| [`gorbital.dev/gorbital/gorbitaltest`](gorbital-gorbitaltest.md) | Package gorbitaltest tests a gorbital app through its real middleware stack, on its own PostgreSQL database per test (ADR-0028): |
 | [`gorbital.dev/gorbital/guard`](gorbital-guard.md) | Package guard provides route options that decide whether a request may reach a route's handler (ADR-0082). |
 | [`gorbital.dev/health`](health.md) | Package health serves liveness and readiness endpoints. |
 | [`gorbital.dev/httpx`](httpx.md) | Package httpx provides the HTTP foundation of a gorbital app: a server that runs under app.Run with safe timeouts, security middleware, and the RFC 9457 problem+json error contract with an application-owned error mapping (ADR-0018). |

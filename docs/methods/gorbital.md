@@ -29,15 +29,87 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 
 ## Contents
 
-- Functions: [`Declare`](#Declare), [`Delete`](#Delete), [`Get`](#Get), [`Grants`](#Grants), [`Mount`](#Mount), [`Patch`](#Patch), [`Post`](#Post), [`Put`](#Put)
+- Constants: [`MailDevMail`](#MailDevMail), [`MailMailpit`](#MailMailpit), [`MailProvider`](#MailProvider), [`StorageLocal`](#StorageLocal), [`StorageS3`](#StorageS3), [`StorageSpaces`](#StorageSpaces), [`StorageR2`](#StorageR2), [`StorageMinIO`](#StorageMinIO)
+- Variables: [`ErrUsage`](#ErrUsage)
+- Functions: [`Declare`](#Declare), [`Delete`](#Delete), [`Get`](#Get), [`Grants`](#Grants), [`Main`](#Main), [`Migrate`](#Migrate), [`Mount`](#Mount), [`Patch`](#Patch), [`Post`](#Post), [`Put`](#Put)
 - Types:
+  - [`App`](#App): [`New`](#New), [`App.Close`](#App.Close), [`App.Deps`](#App.Deps), [`App.Handler`](#App.Handler), [`App.Run`](#App.Run)
+  - [`AuthConfig`](#AuthConfig)
+  - [`Authenticator`](#Authenticator)
+  - [`Command`](#Command)
+  - [`Config`](#Config): [`LoadConfig`](#LoadConfig), [`Config.Production`](#Config.Production)
   - [`Declarations`](#Declarations)
   - [`Deps`](#Deps)
+  - [`DevConsoleConfig`](#DevConsoleConfig)
+  - [`MailConfig`](#MailConfig)
+  - [`Migration`](#Migration)
   - [`Module`](#Module)
+  - [`Option`](#Option): [`WithAuth`](#WithAuth), [`WithLogger`](#WithLogger), [`WithMailer`](#WithMailer), [`WithMailerFunc`](#WithMailerFunc), [`WithMiddleware`](#WithMiddleware), [`WithMiddlewareFunc`](#WithMiddlewareFunc), [`WithMigrations`](#WithMigrations), [`WithModules`](#WithModules), [`WithName`](#WithName), [`WithStack`](#WithStack), [`WithStorage`](#WithStorage), [`WithStorageFunc`](#WithStorageFunc)
   - [`Permission`](#Permission)
   - [`PermissionDeclarer`](#PermissionDeclarer)
   - [`RouteOption`](#RouteOption): [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Use`](#Use)
   - [`Router`](#Router): [`Router.Group`](#Router.Group)
+  - [`Stack`](#Stack): [`Stack.Default`](#Stack.Default)
+  - [`StorageConfig`](#StorageConfig)
+
+## Constants
+
+<a id="MailDevMail"></a>
+<a id="MailMailpit"></a>
+<a id="MailProvider"></a>
+
+```go
+const (
+	// MailDevMail sends every email to orb dev's mail catcher, read in the
+	// Dev Portal (DEV_MAIL_SMTP_ADDR). The default in development.
+	MailDevMail = "devmail"
+	// MailMailpit sends every email to a Mailpit inbox (MAILPIT_SMTP_ADDR).
+	MailMailpit = "mailpit"
+	// MailProvider sends real email through the provider the app passes
+	// with [WithMailer]. Always used in production.
+	MailProvider = "provider"
+)
+```
+
+Email delivery modes, the values of MAIL\_DELIVERY.
+
+*Since `v0.2.0 (unreleased)`*
+
+<a id="StorageLocal"></a>
+<a id="StorageS3"></a>
+<a id="StorageSpaces"></a>
+<a id="StorageR2"></a>
+<a id="StorageMinIO"></a>
+
+```go
+const (
+	// StorageLocal keeps files under STORAGE_LOCAL_DIR; development only.
+	StorageLocal = "local"
+	// StorageS3, StorageSpaces, StorageR2 and StorageMinIO are
+	// S3-compatible services, opened by the store the app passes with
+	// [WithStorage].
+	StorageS3     = "s3"
+	StorageSpaces = "spaces"
+	StorageR2     = "r2"
+	StorageMinIO  = "minio"
+)
+```
+
+Storage drivers, the values of STORAGE\_DRIVER.
+
+*Since `v0.2.0 (unreleased)`*
+
+## Variables
+
+<a id="ErrUsage"></a>
+
+```go
+var ErrUsage = errors.New("usage")
+```
+
+ErrUsage marks an error in how a command was called, such as a missing argument. [Main](#Main) exits with status 2 for it; wrap it in a [Command](#Command)'s errors: fmt.Errorf("%w: grant-role \<email> \<role>", gorbital.ErrUsage).
+
+*Since `v0.2.0 (unreleased)`*
 
 ## Functions
 
@@ -166,6 +238,78 @@ Output:
 ```text
 [books.book.read books.book.write]
 [books.book.read shelves.shelf.read]
+```
+
+<a id="Main"></a>
+
+### func Main
+
+```go
+func Main(opts ...Option)
+```
+
+Main runs the app as a command-line program, for main.go:
+
+```go
+func main() {
+	gorbital.Main(
+		gorbital.WithModules(modules.All()...),
+		gorbital.WithMigrations(migrations.FS),
+	)
+}
+```
+
+The first argument chooses the command:
+
+```
+serve (default)             load the configuration from the environment, build the app with New and Run it
+migrate [--status [--json]] apply pending migrations (Migrate), or report them and change nothing
+migrate-down                roll back the most recent migration; development only
+openapi [--dir <dir>]       print the OpenAPI document, built without a database, or write it
+                            with a Postman collection and llms.txt into dir
+version [--json]            print the build's version, commit and Go version
+```
+
+Main never returns: it exits with status 0 on success, 1 on a runtime error, and 2 for a usage or configuration error, such as an unknown command or an invalid environment variable. Errors go to standard error, prefixed with the app's name.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// cmd/api/main.go of an app: go run ./cmd/api serves it, go run ./cmd/api
+// migrate migrates its database.
+main := func() {
+	gorbital.Main(
+		gorbital.WithModules(modulesAll()...),
+		gorbital.WithMigrations(migrationFiles),
+	)
+}
+_ = main
+```
+
+<a id="Migrate"></a>
+
+### func Migrate
+
+```go
+func Migrate(ctx context.Context, cfg Config, w io.Writer, opts ...Option) error
+```
+
+Migrate applies every pending migration: the merged goose history of the library, the modules and the app's own ([WithMigrations](#WithMigrations)) with the goose version table v0.1 apps use, then River's job tables. It reports each applied version to w. A database migrated by a v0.1 app has every library migration already, under the same versions, so nothing is applied twice.
+
+Apps run it from the migrate command ([Main](#Main)) before starting a new version; New never migrates (ADR-0017). It returns an error for a missing DATABASE\_URL, conflicting migrations (naming both files), or a migration that fails, after reporting the ones applied before it.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+migrate := func(ctx context.Context, cfg gorbital.Config) error {
+	// Prints "applied migration <version>" for each migration applied.
+	return gorbital.Migrate(ctx, cfg, os.Stdout, gorbital.WithMigrations(migrationFiles))
+}
+_ = migrate
 ```
 
 <a id="Mount"></a>
@@ -310,6 +454,510 @@ PUT /v1/books/{id}/title id=books-put-v1-books-by-id-title summary="Replace a bo
 
 ## Types
 
+<a id="App"></a>
+
+### type App
+
+```go
+type App struct {
+	// contains filtered or unexported fields
+}
+```
+
+An App is a built application: its HTTP handler, background workers and the resources they hold. [New](#New) builds it; [App.Run](#App.Run) serves it until a shutdown signal; [App.Close](#App.Close) releases it without running.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+serve := func(ctx context.Context, cfg gorbital.Config) error {
+	app, err := gorbital.New(ctx, cfg, gorbital.WithModules(modulesAll()...))
+	if err != nil {
+		return err
+	}
+	return app.Run(ctx) // until SIGINT or SIGTERM
+}
+_ = serve
+```
+
+<a id="New"></a>
+
+#### func New
+
+```go
+func New(ctx context.Context, cfg Config, opts ...Option) (*App, error)
+```
+
+New builds the app from cfg in dependency order (ADR-0081): telemetry, the database pool, the audit log, the settings and flags registries with every module's declarations, their stores, email delivery, rate limits, idempotency keys, file storage, request metrics, the job definitions and client, the mailer modules send through, release tracking, the dev console, then the modules' routes and the middleware stack. Every step is a public constructor of a library module, which an app can also call itself.
+
+New connects to PostgreSQL and loads the stored settings, flags and job overrides, but never migrates (ADR-0017): run [Migrate](#Migrate) first. Pending migrations are logged as a warning.
+
+It returns an error, after closing whatever it had opened, for a missing DATABASE\_URL, an unreachable database, conflicting migrations, a module declaration that fails (a duplicate module, route, operation ID, permission, setting, flag or job, naming both modules), an S3-compatible STORAGE\_DRIVER without [WithStorage](#WithStorage), or MAIL\_DELIVERY=provider without [WithMailer](#WithMailer).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// What Main does for the serve command, for an app that builds its own
+// program or embeds the handler in another server.
+ctx := context.Background()
+cfg, err := gorbital.LoadConfig(config.OS)
+if err != nil {
+	log.Fatal(err)
+}
+opts := []gorbital.Option{gorbital.WithModules(modulesAll()...), gorbital.WithMigrations(migrationFiles)}
+if err := gorbital.Migrate(ctx, cfg, os.Stdout, opts...); err != nil {
+	log.Fatal(err)
+}
+app, err := gorbital.New(ctx, cfg, opts...)
+if err != nil {
+	log.Fatal(err)
+}
+if err := app.Run(ctx); err != nil {
+	log.Fatal(err)
+}
+```
+
+<a id="App.Close"></a>
+
+#### func (*App) Close
+
+```go
+func (a *App) Close(ctx context.Context) error
+```
+
+Close releases the app's resources without running it, in the reverse order New opened them. Call it when Run is never called, such as in tests.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+check := func(ctx context.Context, cfg gorbital.Config) (err error) {
+	app, err := gorbital.New(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, app.Close(ctx)) }()
+	// Use the app without running it.
+	return nil
+}
+_ = check
+```
+
+<a id="App.Deps"></a>
+
+#### func (*App) Deps
+
+```go
+func (a *App) Deps() Deps
+```
+
+Deps returns the dependencies the app passes to its modules, for commands, seed data and tests that use the same stores.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+seed := func(ctx context.Context, app *gorbital.App) error {
+	_, err := app.Deps().DB.Exec(ctx, `INSERT INTO books (id, title) VALUES ('bok_1', 'Dune') ON CONFLICT DO NOTHING`)
+	return err
+}
+_ = seed
+```
+
+<a id="App.Handler"></a>
+
+#### func (*App) Handler
+
+```go
+func (a *App) Handler() http.Handler
+```
+
+Handler returns the app's HTTP handler: every route behind the middleware stack, as Run serves it. Use it in tests, or to serve the app from another server; background workers run only with Run.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+mount := func(app *gorbital.App) http.Handler {
+	// The app under /api/ of another server.
+	mux := http.NewServeMux()
+	mux.Handle("/api/", http.StripPrefix("/api", app.Handler()))
+	return mux
+}
+_ = mount
+```
+
+<a id="App.Run"></a>
+
+#### func (*App) Run
+
+```go
+func (a *App) Run(ctx context.Context) error
+```
+
+Run serves HTTP and runs the background workers until ctx is done or a shutdown signal (SIGINT, SIGTERM) arrives, then shuts down in the order of ADR-0017: readiness answers 503, the drain delay passes (5 seconds in production, none in development), the server stops taking requests and the workers stop, then resources close in the reverse order New opened them, telemetry last. It returns nil after a clean shutdown, or every failure joined.
+
+The workers are the settings, flags and job definition listeners, the job client, the release heartbeat and the request collector, plus the metrics listener when METRICS\_ADDR is set. Run releases the app's resources when it returns, so a Close after it does nothing.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+run := func(ctx context.Context, app *gorbital.App) error {
+	// Run stops when ctx is done, as well as on a signal.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	return app.Run(ctx)
+}
+_ = run
+```
+
+<a id="AuthConfig"></a>
+<a id="AuthConfig.EncryptionKeys"></a>
+<a id="AuthConfig.PublicURL"></a>
+<a id="AuthConfig.DefaultReturnTo"></a>
+<a id="AuthConfig.WebAuthnRPID"></a>
+<a id="AuthConfig.WebAuthnOrigins"></a>
+<a id="AuthConfig.WebAuthnAppleAppIDs"></a>
+<a id="AuthConfig.WebAuthnAndroidApps"></a>
+<a id="AuthConfig.GoogleClientID"></a>
+<a id="AuthConfig.GoogleClientSecret"></a>
+<a id="AuthConfig.GoogleIOSClientID"></a>
+<a id="AuthConfig.GoogleAndroidClientID"></a>
+<a id="AuthConfig.AppleTeamID"></a>
+<a id="AuthConfig.AppleServicesID"></a>
+<a id="AuthConfig.AppleKeyID"></a>
+<a id="AuthConfig.ApplePrivateKey"></a>
+<a id="AuthConfig.AppleBundleIDs"></a>
+<a id="AuthConfig.GitHubClientID"></a>
+<a id="AuthConfig.GitHubClientSecret"></a>
+
+### type AuthConfig
+
+```go
+type AuthConfig struct {
+	// EncryptionKeys encrypt authenticator app secrets
+	// (AUTH_ENCRYPTION_KEYS: comma-separated id:base64 entries).
+	EncryptionKeys config.Secret
+	// PublicURL is the API's public base URL, where sign-in providers
+	// return (APP_PUBLIC_URL; http://localhost:8080 in development).
+	PublicURL string
+	// DefaultReturnTo is where a web sign-in started without return_to
+	// ends (AUTH_DEFAULT_RETURN_TO; the API docs in development).
+	DefaultReturnTo string
+
+	// WebAuthnRPID is the passkey relying party (WEBAUTHN_RP_ID; localhost
+	// in development when neither it nor the origins are set).
+	WebAuthnRPID string
+	// WebAuthnOrigins are the browser origins using passkeys
+	// (WEBAUTHN_ORIGINS).
+	WebAuthnOrigins []string
+	// WebAuthnAppleAppIDs and WebAuthnAndroidApps are the raw values of
+	// WEBAUTHN_APPLE_APP_IDS and WEBAUTHN_ANDROID_APPS.
+	WebAuthnAppleAppIDs string
+	WebAuthnAndroidApps string
+
+	GoogleClientID        string        // GOOGLE_CLIENT_ID: the web client
+	GoogleClientSecret    config.Secret // GOOGLE_CLIENT_SECRET
+	GoogleIOSClientID     string        // GOOGLE_IOS_CLIENT_ID
+	GoogleAndroidClientID string        // GOOGLE_ANDROID_CLIENT_ID
+
+	AppleTeamID     string        // APPLE_TEAM_ID
+	AppleServicesID string        // APPLE_SERVICES_ID: web sign-in
+	AppleKeyID      string        // APPLE_KEY_ID
+	ApplePrivateKey config.Secret // APPLE_PRIVATE_KEY, or the file APPLE_PRIVATE_KEY_FILE names
+	AppleBundleIDs  []string      // APPLE_BUNDLE_IDS: sign-in in iOS apps
+
+	GitHubClientID     string        // GITHUB_CLIENT_ID
+	GitHubClientSecret config.Secret // GITHUB_CLIENT_SECRET
+}
+```
+
+AuthConfig holds the sign-in variables of a v0.1 app: the encryption keys for second-factor secrets, passkeys, and Google, Apple and GitHub sign-in (ADR-0043 to ADR-0046, ADR-0059). gorbital reads and checks them; the authenticator passed with [WithAuth](#WithAuth) uses them.
+
+Checks that need a sign-in provider's own package are the authenticator's, so apps without sign-in don't compile those packages: parsing the Apple private key, WEBAUTHN\_APPLE\_APP\_IDS and WEBAUTHN\_ANDROID\_APPS, and matching WEBAUTHN\_ORIGINS to WEBAUTHN\_RP\_ID (ADR-0083).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+cfg, err := gorbital.LoadConfig(developmentEnv(map[string]string{
+	"APP_ENV": "development", "GITHUB_CLIENT_ID": "Iv1.abc", "GITHUB_CLIENT_SECRET": "secret",
+}))
+if err != nil {
+	panic(err)
+}
+fmt.Println(cfg.Auth.PublicURL, cfg.Auth.DefaultReturnTo, cfg.Auth.WebAuthnRPID)
+```
+
+Output:
+
+```text
+http://localhost:8080 http://localhost:8080/docs localhost
+```
+
+<a id="Authenticator"></a>
+<a id="Authenticator.Middleware"></a>
+
+### type Authenticator
+
+```go
+type Authenticator interface {
+	Middleware(logger *slog.Logger) func(http.Handler) http.Handler
+}
+```
+
+An Authenticator resolves who makes each request. Its middleware runs at the Auth step of the middleware stack ([Stack](#Stack)) and sets the actor (actor.With, or auth.WithPrincipal) for authenticated requests; requests it can't authenticate pass through without one, and every route that isn't guard.Public() then answers 401.
+
+A value that also has a method Module() Module contributes that module too: its routes, permissions, settings, jobs and migrations.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+var a gorbital.Authenticator = headerAuth{}
+gorbital.Main(gorbital.WithAuth(a), gorbital.WithModules(modulesAll()...))
+```
+
+<a id="Command"></a>
+<a id="Command.Name"></a>
+<a id="Command.Usage"></a>
+<a id="Command.Run"></a>
+
+### type Command
+
+```go
+type Command struct {
+	// Name is what follows the program name, such as "grant-role". It
+	// can't be a built-in command's name.
+	Name string
+	// Usage is one line: the arguments, then what the command does, such as
+	// "grant-role <email> <role>   give an account a platform role".
+	Usage string
+	// Run runs the command with the loaded configuration and the arguments
+	// after the name. Return an error wrapping [ErrUsage] for bad
+	// arguments.
+	Run func(ctx context.Context, cfg Config, args []string, stdout io.Writer) error
+}
+```
+
+A Command is a subcommand of [Main](#Main) beside the built-in ones. A value passed to [WithAuth](#WithAuth) that has a method Commands() \[]Command contributes its commands, as the built-in sign-in does for its role commands.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// A command an authenticator contributes from its Commands method.
+grantRole := gorbital.Command{
+	Name:  "grant-role",
+	Usage: "grant-role <email> <role>      give an account a platform role",
+	Run: func(ctx context.Context, cfg gorbital.Config, args []string, stdout io.Writer) error {
+		if len(args) != 2 {
+			return fmt.Errorf("%w: grant-role <email> <role>", gorbital.ErrUsage)
+		}
+		fmt.Fprintf(stdout, "%s is now %s\n", args[0], args[1])
+		return nil
+	},
+}
+err := grantRole.Run(context.Background(), gorbital.Config{}, []string{"ada@example.com"}, os.Stdout)
+fmt.Println(errors.Is(err, gorbital.ErrUsage))
+```
+
+Output:
+
+```text
+true
+```
+
+<a id="Config"></a>
+<a id="Config.Env"></a>
+<a id="Config.Addr"></a>
+<a id="Config.LogLevel"></a>
+<a id="Config.LogFormat"></a>
+<a id="Config.LogArchiveDir"></a>
+<a id="Config.DocsEnabled"></a>
+<a id="Config.CORSOrigins"></a>
+<a id="Config.TrustedProxies"></a>
+<a id="Config.TrustedCallers"></a>
+<a id="Config.MaxBodyBytes"></a>
+<a id="Config.OTLPEndpoint"></a>
+<a id="Config.MetricsAddr"></a>
+<a id="Config.DatabaseURL"></a>
+<a id="Config.DBMaxConns"></a>
+<a id="Config.JobWorkers"></a>
+<a id="Config.MailDelivery"></a>
+<a id="Config.MailpitAddr"></a>
+<a id="Config.DevMailAddr"></a>
+<a id="Config.Mail"></a>
+<a id="Config.Storage"></a>
+<a id="Config.Auth"></a>
+<a id="Config.DevConsole"></a>
+<a id="Config.EnvKeys"></a>
+
+### type Config
+
+```go
+type Config struct {
+	// Env is development or production (APP_ENV, required).
+	Env string
+	// Addr is where the API listens (APP_ADDR, default 127.0.0.1:8080).
+	Addr     string
+	LogLevel slog.Level // APP_LOG_LEVEL: debug, info, warn or error
+	// LogFormat is json or text (APP_LOG_FORMAT); empty means JSON in
+	// production and text elsewhere.
+	LogFormat string
+	// LogArchiveDir is where the hourly log archive spools the current hour
+	// (LOG_ARCHIVE_DIR, default .orb/logs; ADR-0079).
+	LogArchiveDir string
+	// DocsEnabled serves /docs and the OpenAPI document (APP_DOCS_ENABLED;
+	// default on in development, off in production).
+	DocsEnabled bool
+	// CORSOrigins are the browser origins allowed to call the API
+	// (APP_CORS_ORIGINS, comma-separated; https in production).
+	CORSOrigins []string
+	// TrustedProxies are the load balancers whose X-Forwarded-For names the
+	// client (APP_TRUSTED_PROXIES, ADR-0052).
+	TrustedProxies []netip.Prefix
+	// TrustedCallers are the gateways whose X-Request-ID and trace context
+	// the app accepts (APP_TRUSTED_CALLERS).
+	TrustedCallers []netip.Prefix
+	// MaxBodyBytes limits request bodies (APP_MAX_BODY_BYTES, default 1 MiB).
+	MaxBodyBytes int64
+	// OTLPEndpoint exports traces and metrics when set
+	// (OTEL_EXPORTER_OTLP_ENDPOINT).
+	OTLPEndpoint string
+	// MetricsAddr is the separate listener serving Prometheus metrics
+	// (METRICS_ADDR; empty turns it off; never APP_ADDR's port).
+	MetricsAddr string
+
+	// DatabaseURL is the PostgreSQL connection URL (DATABASE_URL), required
+	// by [New] and migrations but not by exporting the OpenAPI document.
+	DatabaseURL config.Secret
+	// DBMaxConns sizes the connection pool (APP_DB_MAX_CONNS, 1–1000,
+	// default 10).
+	DBMaxConns int32
+	// JobWorkers is how many jobs run at once (APP_JOB_WORKERS, 1–10000,
+	// default 10).
+	JobWorkers int
+
+	// MailDelivery is MailDevMail, MailMailpit or MailProvider
+	// (MAIL_DELIVERY; production allows only MailProvider).
+	MailDelivery string
+	// MailpitAddr is Mailpit's SMTP address (MAILPIT_SMTP_ADDR, default
+	// 127.0.0.1:1025).
+	MailpitAddr string
+	// DevMailAddr is orb dev's mail catcher (DEV_MAIL_SMTP_ADDR, default
+	// 127.0.0.1:1025; ADR-0074).
+	DevMailAddr string
+	// Mail holds the email provider's secrets.
+	Mail MailConfig
+	// Storage is the file storage driver and its settings (ADR-0075).
+	Storage StorageConfig
+	// Auth holds the sign-in variables, for the authenticator.
+	Auth AuthConfig
+	// DevConsole turns on the development console under /_dev/.
+	DevConsole DevConsoleConfig
+
+	// EnvKeys are the environment variables LoadConfig read, secrets as set
+	// or unset only, listed by the dev console's GET /_dev/config.
+	EnvKeys []devconsole.EnvKey
+}
+```
+
+Config is every boot setting of an app: secrets and infrastructure, read from environment variables by [LoadConfig](#LoadConfig). The names, defaults and checks are those of a v0.1 app's internal/app/config.go, so a v0.1 deployment's environment works unchanged. Values operators change at runtime are runtime settings, not configuration (ADR-0031).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+cfg, err := gorbital.LoadConfig(developmentEnv(map[string]string{"APP_ENV": "development", "APP_JOB_WORKERS": "4"}))
+if err != nil {
+	panic(err)
+}
+fmt.Println(cfg.Addr, cfg.JobWorkers, cfg.MailDelivery, cfg.DocsEnabled)
+```
+
+Output:
+
+```text
+127.0.0.1:8080 4 devmail true
+```
+
+<a id="LoadConfig"></a>
+
+#### func LoadConfig
+
+```go
+func LoadConfig(src config.Source) (Config, error)
+```
+
+LoadConfig reads the configuration from src, such as config.OS. It reports every invalid value at once, joined, each naming its variable, so a misconfigured deployment fails on its first start. It never connects to anything.
+
+Production refuses: a missing or unknown APP\_ENV; http CORS origins, passkey origins, public URL or default return address; MAIL\_DELIVERY other than provider; STORAGE\_DRIVER=local; and DEV\_CONSOLE\_TOKEN.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+cfg, err := gorbital.LoadConfig(developmentEnv(map[string]string{
+	"APP_ENV":          "production",
+	"APP_ADDR":         "api",
+	"APP_CORS_ORIGINS": "http://app.example.com",
+	"STORAGE_DRIVER":   "local",
+}))
+fmt.Println(cfg.Env == "") // the zero Config on error
+for line := range strings.Lines(err.Error()) {
+	fmt.Print(line)
+}
+```
+
+Output:
+
+```text
+true
+invalid configuration:
+APP_ADDR "api" is not host:port: address api: missing port in address
+APP_CORS_ORIGINS: "http://app.example.com" must use https in production
+STORAGE_DRIVER=local is for development; production needs s3, spaces, r2 or minio with STORAGE_ENDPOINT, STORAGE_BUCKET, STORAGE_ACCESS_KEY and STORAGE_SECRET_KEY
+```
+
+<a id="Config.Production"></a>
+
+#### func (Config) Production
+
+```go
+func (c Config) Production() bool
+```
+
+Production reports whether the app runs in production mode.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+cfg, _ := gorbital.LoadConfig(developmentEnv(map[string]string{"APP_ENV": "development"}))
+fmt.Println(cfg.Production())
+```
+
+Output:
+
+```text
+false
+```
+
 <a id="Declarations"></a>
 <a id="Declarations.Permissions"></a>
 <a id="Declarations.Settings"></a>
@@ -407,6 +1055,120 @@ Output:
 <nil>
 ```
 
+<a id="DevConsoleConfig"></a>
+<a id="DevConsoleConfig.Token"></a>
+<a id="DevConsoleConfig.MailpitWebPort"></a>
+
+### type DevConsoleConfig
+
+```go
+type DevConsoleConfig struct {
+	// Token turns the console on in development (DEV_CONSOLE_TOKEN, set by
+	// orb dev; refused in production).
+	Token config.Secret
+	// MailpitWebPort is the port of Mailpit's web interface on
+	// MAILPIT_SMTP_ADDR's host (MAILPIT_WEB_PORT, default 8025).
+	MailpitWebPort string
+}
+```
+
+DevConsoleConfig is the development console's configuration (ADR-0065).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+_, err := gorbital.LoadConfig(developmentEnv(map[string]string{"APP_ENV": "production", "DEV_CONSOLE_TOKEN": strings.Repeat("x", 40)}))
+fmt.Println(strings.Contains(err.Error(), "DEV_CONSOLE_TOKEN is for local development only"))
+```
+
+Output:
+
+```text
+true
+```
+
+<a id="MailConfig"></a>
+<a id="MailConfig.ResendAPIKey"></a>
+<a id="MailConfig.ResendWebhookSecret"></a>
+
+### type MailConfig
+
+```go
+type MailConfig struct {
+	// ResendAPIKey is RESEND_API_KEY.
+	ResendAPIKey config.Secret
+	// ResendWebhookSecret verifies Resend's bounce and complaint webhooks
+	// (RESEND_WEBHOOK_SECRET, ADR-0062).
+	ResendWebhookSecret config.Secret
+}
+```
+
+MailConfig holds the email provider's secrets. The provider itself is the app's choice ([WithMailer](#WithMailer)); these are the variables a v0.1 app's Resend provider reads, kept so a provider constructor can use them.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// An email provider built from its secrets, for MAIL_DELIVERY=provider.
+provider := gorbital.WithMailerFunc(func(cfg gorbital.Config) (mail.Sender, error) {
+	if cfg.Mail.ResendAPIKey.IsZero() {
+		return nil, errors.New("RESEND_API_KEY is required to send email with Resend")
+	}
+	return newResendSender(cfg.Mail.ResendAPIKey), nil
+})
+_ = provider
+```
+
+<a id="Migration"></a>
+<a id="Migration.Version"></a>
+<a id="Migration.Name"></a>
+<a id="Migration.FS"></a>
+<a id="Migration.File"></a>
+
+### type Migration
+
+```go
+type Migration struct {
+	// Version orders the migration in the app's history, such as
+	// 20260914000001. Released versions never change.
+	Version int64
+	// Name describes the migration in lowercase snake_case, such as
+	// "settings"; the merged file is named <Version>_<Name>.sql.
+	Name string
+	// FS holds the file, usually the module's embedded migrations.
+	FS fs.FS
+	// File is the file's path in FS, such as "00001_settings.sql".
+	File string
+}
+```
+
+A Migration is one goose migration file a module contributes to the app's single migration history (ADR-0083). Library modules number their files locally, such as 00001\_settings.sql; Version places the file in the app's history, and is the version a v0.1 app holds the same file under, so an upgraded database sees it as applied.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// A built-in module serving its embedded migration under the version it
+// has in apps' histories.
+reviews := gorbital.Module{
+	Name: "reviews",
+	Migrations: []gorbital.Migration{
+		{Version: 20270301000001, Name: "reviews", FS: migrationFiles, File: "00001_reviews.sql"},
+	},
+}
+fmt.Println(reviews.Migrations[0].Version, reviews.Migrations[0].Name)
+```
+
+Output:
+
+```text
+20270301000001 reviews
+```
+
 <a id="Module"></a>
 <a id="Module.Name"></a>
 <a id="Module.Routes"></a>
@@ -415,6 +1177,8 @@ Output:
 <a id="Module.Settings"></a>
 <a id="Module.Flags"></a>
 <a id="Module.Middleware"></a>
+<a id="Module.Jobs"></a>
+<a id="Module.Migrations"></a>
 
 ### type Module
 
@@ -446,6 +1210,21 @@ type Module struct {
 	// Middleware runs on every route of the module, before group and route
 	// middleware (see [Use]).
 	Middleware []func(http.Handler) http.Handler
+
+	// Jobs defines the module's background jobs with jobs.Define. [New]
+	// calls it once, before the job client exists, because the client is
+	// built from the definitions. So in the Deps it receives, Jobs is nil,
+	// and Mailer queues through the job client [New] builds next: a worker
+	// keeps d and uses it when a job runs, never inside Jobs itself. A
+	// worker that enqueues other jobs gets the client from its context with
+	// river.ClientFromContext.
+	Jobs func(defs *jobs.Definitions, d Deps)
+
+	// Migrations are the module's migrations, merged by version with the
+	// library's and the app's (ADR-0083). App modules keep theirs in the
+	// app's db/migrations ([WithMigrations]) so tables of different modules
+	// can reference each other; built-in modules declare theirs here.
+	Migrations []Migration
 }
 ```
 
@@ -493,6 +1272,289 @@ Output:
 ```text
 200
 404 book_not_found
+```
+
+**Example (jobs)**
+
+```go
+// Jobs runs before the job client exists: keep d and use it when a job
+// runs.
+digest := gorbital.Module{
+	Name: "digests",
+	Jobs: func(defs *jobs.Definitions, d gorbital.Deps) {
+		// jobs.Define(defs, jobs.Definition[DigestArgs]{Name: "digests_send", Worker: &digestWorker{mailer: d.Mailer}, ...})
+		_ = d.Mailer
+	},
+}
+_ = digest
+```
+
+<a id="Option"></a>
+
+### type Option
+
+```go
+type Option interface {
+	// contains filtered or unexported methods
+}
+```
+
+An Option configures [New](#New), [Main](#Main) and [Migrate](#Migrate). Every option is one line in main.go that names what the app contains (ADR-0081).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+opts := []gorbital.Option{
+	gorbital.WithName("shelfie"),
+	gorbital.WithModules(modulesAll()...),
+}
+_ = opts
+```
+
+<a id="WithAuth"></a>
+
+#### func WithAuth
+
+```go
+func WithAuth(a Authenticator) Option
+```
+
+WithAuth sets the app's authenticator. Without one, requests have no actor, so only guard.Public() routes succeed, and New logs how many routes can't be reached.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+gorbital.Main(gorbital.WithAuth(headerAuth{}), gorbital.WithModules(modulesAll()...))
+```
+
+<a id="WithLogger"></a>
+
+#### func WithLogger
+
+```go
+func WithLogger(logger *slog.Logger) Option
+```
+
+WithLogger sets the logger of the app and its modules. Without it, New builds one from APP\_LOG\_LEVEL and APP\_LOG\_FORMAT through the telemetry module, which also feeds the dev console and the hourly log archive.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+gorbital.Main(gorbital.WithLogger(slog.New(slog.NewJSONHandler(os.Stderr, nil))))
+```
+
+<a id="WithMailer"></a>
+
+#### func WithMailer
+
+```go
+func WithMailer(s mail.Sender) Option
+```
+
+WithMailer sets the provider email is delivered through when MAIL\_DELIVERY is provider, the only mode production allows. Modules don't send through it directly: Deps.Mailer queues each message as a job, and the mail worker delivers it through this sender, skipping suppressed addresses. In development, devmail and mailpit deliver over SMTP without it.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+logged := mail.SenderFunc(func(ctx context.Context, m mail.Message) error {
+	slog.InfoContext(ctx, "email", "subject", m.Subject)
+	return nil
+})
+gorbital.Main(gorbital.WithMailer(logged))
+```
+
+<a id="WithMailerFunc"></a>
+
+#### func WithMailerFunc
+
+```go
+func WithMailerFunc(open func(cfg Config) (mail.Sender, error)) Option
+```
+
+WithMailerFunc sets the email provider like [WithMailer](#WithMailer), built from the loaded configuration, such as an API key in Config.Mail. An error from open fails New as a configuration error.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+gorbital.Main(gorbital.WithMailerFunc(func(cfg gorbital.Config) (mail.Sender, error) {
+	return newResendSender(cfg.Mail.ResendAPIKey), nil
+}))
+```
+
+<a id="WithMiddleware"></a>
+
+#### func WithMiddleware
+
+```go
+func WithMiddleware(middleware ...func(http.Handler) http.Handler) Option
+```
+
+WithMiddleware adds middleware that runs on every request after the built-in stack: after authentication, rate limits and idempotency keys, so it can read the actor. Middleware added by WithMiddleware and [WithMiddlewareFunc](#WithMiddlewareFunc) runs in the order the options are given.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+gorbital.Main(gorbital.WithMiddleware(requireClientVersion("2.4.0")))
+```
+
+<a id="WithMiddlewareFunc"></a>
+
+#### func WithMiddlewareFunc
+
+```go
+func WithMiddlewareFunc(build func(d Deps) func(http.Handler) http.Handler) Option
+```
+
+WithMiddlewareFunc adds middleware like [WithMiddleware](#WithMiddleware), built with the app's dependencies once they exist, such as a middleware that reads a runtime setting or writes to the database.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+gorbital.Main(gorbital.WithMiddlewareFunc(func(d gorbital.Deps) func(http.Handler) http.Handler {
+	logger := d.Logger
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if a, ok := actor.From(r.Context()); ok {
+				logger.DebugContext(r.Context(), "request", "actor", a.ID)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}))
+```
+
+<a id="WithMigrations"></a>
+
+#### func WithMigrations
+
+```go
+func WithMigrations(fsys fs.FS) Option
+```
+
+WithMigrations sets the app's own goose migrations, usually the embedded files of its db/migrations package. [Migrate](#Migrate) merges them with the library's and the modules' migrations by version; New reports pending ones; the dev console lists them.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// db/migrations/migrations.go:
+//
+//	//go:embed *.sql
+//	var FS embed.FS
+gorbital.Main(gorbital.WithMigrations(migrationFiles))
+```
+
+<a id="WithModules"></a>
+
+#### func WithModules
+
+```go
+func WithModules(modules ...Module) Option
+```
+
+WithModules adds modules to the app, after those added before. Order matters only for reading: each module's routes, settings and permissions are its own, and a duplicate fails New naming both modules.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+gorbital.Main(gorbital.WithModules(modulesAll()...))
+```
+
+<a id="WithName"></a>
+
+#### func WithName
+
+```go
+func WithName(name string) Option
+```
+
+WithName sets the app's name, used as the service name in logs, traces and metrics, the OpenAPI document's title and the database connections' application name. Without it, the name is the last element of the main module's path, such as shelfie for example.com/shelfie.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+gorbital.Main(gorbital.WithName("shelfie"), gorbital.WithModules(modulesAll()...))
+```
+
+<a id="WithStack"></a>
+
+#### func WithStack
+
+```go
+func WithStack(build func(s Stack) []func(http.Handler) http.Handler) Option
+```
+
+WithStack replaces the order of the built-in middleware stack: build receives every built-in step and returns the steps to run, outermost first. Leaving out Recover or Auth is allowed, and logged as a warning when New builds the handler. [WithMiddleware](#WithMiddleware) still runs after the returned steps.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+gorbital.Main(gorbital.WithStack(func(s gorbital.Stack) []func(http.Handler) http.Handler {
+	// Refuse old clients before anything is logged or authenticated.
+	return append([]func(http.Handler) http.Handler{s.Recover, requireClientVersion("2.4.0")}, s.Default()[1:]...)
+}))
+```
+
+<a id="WithStorage"></a>
+
+#### func WithStorage
+
+```go
+func WithStorage(s storage.Store) Option
+```
+
+WithStorage sets the app's file storage, passed to modules as Deps.Storage. Without it, New opens the local driver for STORAGE\_DRIVER=local (the default in development) and refuses the S3-compatible drivers, whose client gorbital doesn't import: pass one, built from Config.Storage with [WithStorageFunc](#WithStorageFunc).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+var bucket storage.Store // such as a store from gorbital.dev/modules/storage/s3
+gorbital.Main(gorbital.WithStorage(bucket))
+```
+
+<a id="WithStorageFunc"></a>
+
+#### func WithStorageFunc
+
+```go
+func WithStorageFunc(open func(cfg Config) (storage.Store, error)) Option
+```
+
+WithStorageFunc sets the app's file storage like [WithStorage](#WithStorage), built from the loaded configuration, as main.go needs for a store whose settings come from STORAGE\_\* variables. An error from open fails New as a configuration error.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+gorbital.Main(gorbital.WithStorageFunc(func(cfg gorbital.Config) (storage.Store, error) {
+	// With gorbital.dev/modules/storage/s3:
+	//	return s3.New(s3.Config{Driver: cfg.Storage.Driver, Endpoint: cfg.Storage.Endpoint, ...})
+	return nil, fmt.Errorf("STORAGE_DRIVER=%s isn't set up in this app", cfg.Storage.Driver)
+}))
 ```
 
 <a id="Permission"></a>
@@ -933,4 +1995,185 @@ Output:
 ```text
 GET /v1/books/{id} id=books-get-v1-books-by-id summary="Get v1 books by ID" tags=[Books] secured=true deprecated=false
 GET /v1/catalog/{id} id=books-get-v1-catalog-by-id summary="Get v1 catalog by ID" tags=[Books] secured=false deprecated=false
+```
+
+<a id="Stack"></a>
+<a id="Stack.Recover"></a>
+<a id="Stack.TrustedProxies"></a>
+<a id="Stack.RequestID"></a>
+<a id="Stack.Telemetry"></a>
+<a id="Stack.Observability"></a>
+<a id="Stack.AccessLog"></a>
+<a id="Stack.SecureHeaders"></a>
+<a id="Stack.CORS"></a>
+<a id="Stack.CrossOrigin"></a>
+<a id="Stack.BodyLimit"></a>
+<a id="Stack.Maintenance"></a>
+<a id="Stack.Auth"></a>
+<a id="Stack.RateLimit"></a>
+<a id="Stack.Idempotency"></a>
+
+### type Stack
+
+```go
+type Stack struct {
+	// Recover turns a panic into a 500 problem response (httpx.Recover).
+	Recover func(http.Handler) http.Handler
+	// TrustedProxies sets the client's address from X-Forwarded-For sent
+	// by APP_TRUSTED_PROXIES (httpx.TrustedProxies, ADR-0052).
+	TrustedProxies func(http.Handler) http.Handler
+	// RequestID gives every request an ID, accepting X-Request-ID only
+	// from APP_TRUSTED_CALLERS (httpx.RequestIDFrom).
+	RequestID func(http.Handler) http.Handler
+	// Telemetry records a span and metrics per request.
+	Telemetry func(http.Handler) http.Handler
+	// Observability counts requests per route for /ops/observability and
+	// automatic incidents (ADR-0064).
+	Observability func(http.Handler) http.Handler
+	// AccessLog logs one structured line per request (httpx.AccessLog).
+	AccessLog func(http.Handler) http.Handler
+	// SecureHeaders sets security headers, and HSTS in production
+	// (httpx.SecureHeaders).
+	SecureHeaders func(http.Handler) http.Handler
+	// CORS answers browsers on APP_CORS_ORIGINS (httpx.CORS).
+	CORS func(http.Handler) http.Handler
+	// CrossOrigin refuses cross-site writes that browsers send with
+	// cookies (httpx.CrossOrigin), except the sign-in callbacks other sites
+	// post to by design.
+	CrossOrigin func(http.Handler) http.Handler
+	// BodyLimit refuses bodies over APP_MAX_BODY_BYTES (httpx.BodyLimit).
+	BodyLimit func(http.Handler) http.Handler
+	// Maintenance answers 503 while the maintenance.enabled setting is on,
+	// except health checks, docs, sign-in and /ops (httpx.Maintenance).
+	Maintenance func(http.Handler) http.Handler
+	// Auth runs the authenticator's middleware ([WithAuth]); without an
+	// authenticator it passes requests on unchanged.
+	Auth func(http.Handler) http.Handler
+	// RateLimit limits requests to /v1/auth/ per client address, by the
+	// auth.ip_requests_per_minute setting, shared by every instance.
+	RateLimit func(http.Handler) http.Handler
+	// Idempotency replays a signed-in POST or PATCH retried with the same
+	// Idempotency-Key (ADR-0060).
+	Idempotency func(http.Handler) http.Handler
+}
+```
+
+Stack is the built-in middleware of an app, one field per step, which New builds from the configuration (ADR-0083). The fields are in the default order, outermost first; [Stack.Default](#Stack.Default) returns them in that order. Change the order, leave steps out or add your own between them with [WithStack](#WithStack):
+
+```go
+gorbital.WithStack(func(s gorbital.Stack) []func(http.Handler) http.Handler {
+	return []func(http.Handler) http.Handler{
+		s.Recover, s.TrustedProxies, s.RequestID, requireTenantHeader, // yours, early
+		s.Telemetry, s.Observability, s.AccessLog, s.SecureHeaders, s.CORS,
+		s.CrossOrigin, s.BodyLimit, s.Maintenance, s.Auth, s.RateLimit, s.Idempotency,
+	}
+})
+```
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+name := func(label string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Print(label, " ")
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+s := gorbital.Stack{Recover: name("recover"), RequestID: name("request-id"), Auth: name("auth")}
+var h http.Handler = http.HandlerFunc(func(http.ResponseWriter, *http.Request) { fmt.Println("handler") })
+for _, mw := range []func(http.Handler) http.Handler{s.Auth, s.RequestID, s.Recover} {
+	h = mw(h)
+}
+h.ServeHTTP(nil, nil)
+```
+
+Output:
+
+```text
+recover request-id auth handler
+```
+
+<a id="Stack.Default"></a>
+
+#### func (Stack) Default
+
+```go
+func (s Stack) Default() []func(http.Handler) http.Handler
+```
+
+Default returns the steps in the default order, outermost first: the order of a v0.1 app's routes.go.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+var s gorbital.Stack
+fmt.Println(len(s.Default()))
+```
+
+Output:
+
+```text
+14
+```
+
+<a id="StorageConfig"></a>
+<a id="StorageConfig.Driver"></a>
+<a id="StorageConfig.LocalDir"></a>
+<a id="StorageConfig.Endpoint"></a>
+<a id="StorageConfig.Region"></a>
+<a id="StorageConfig.Bucket"></a>
+<a id="StorageConfig.AccessKey"></a>
+<a id="StorageConfig.SecretKey"></a>
+<a id="StorageConfig.PublicURL"></a>
+<a id="StorageConfig.PathStyle"></a>
+<a id="StorageConfig.SigningKey"></a>
+
+### type StorageConfig
+
+```go
+type StorageConfig struct {
+	Driver    string // STORAGE_DRIVER: local (default), s3, spaces, r2 or minio
+	LocalDir  string // STORAGE_LOCAL_DIR, default .orb/storage
+	Endpoint  string // STORAGE_ENDPOINT; defaulted from the region for s3 and spaces
+	Region    string // STORAGE_REGION
+	Bucket    string // STORAGE_BUCKET
+	AccessKey string // STORAGE_ACCESS_KEY
+	SecretKey config.Secret
+	PublicURL string // STORAGE_PUBLIC_URL
+	// PathStyle addresses buckets by path (STORAGE_PATH_STYLE, default on
+	// for minio).
+	PathStyle bool
+	// SigningKey signs local signed URLs (STORAGE_SIGNING_KEY); random per
+	// start when empty, so those URLs stop working at a restart.
+	SigningKey config.Secret
+}
+```
+
+StorageConfig is file storage from STORAGE\_\* (ADR-0075). The local driver is built in; S3-compatible drivers are passed by the app ([WithStorage](#WithStorage)), built from these values.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+cfg, err := gorbital.LoadConfig(developmentEnv(map[string]string{
+	"APP_ENV": "development", "STORAGE_DRIVER": "s3", "STORAGE_REGION": "eu-west-1",
+	"STORAGE_BUCKET": "files", "STORAGE_ACCESS_KEY": "AKIA", "STORAGE_SECRET_KEY": "secret",
+}))
+if err != nil {
+	panic(err)
+}
+fmt.Println(cfg.Storage.Driver, cfg.Storage.Endpoint, cfg.Storage.Bucket, cfg.Storage.SecretKey)
+```
+
+Output:
+
+```text
+s3 s3.eu-west-1.amazonaws.com files [redacted]
 ```

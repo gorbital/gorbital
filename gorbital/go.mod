@@ -5,12 +5,22 @@ go 1.26.0
 // Local development: consumers' own replace directives are unaffected.
 replace (
 	gorbital.dev => ..
+	gorbital.dev/modules/auditpg => ../modules/auditpg
+	gorbital.dev/modules/auth => ../modules/auth
+	gorbital.dev/modules/devconsole => ../modules/devconsole
 	gorbital.dev/modules/flags => ../modules/flags
+	gorbital.dev/modules/idempotency => ../modules/idempotency
 	gorbital.dev/modules/jobs => ../modules/jobs
+	gorbital.dev/modules/mail/smtp => ../modules/mail/smtp
+	gorbital.dev/modules/mail/suppressionpg => ../modules/mail/suppressionpg
+	gorbital.dev/modules/observability => ../modules/observability
 	gorbital.dev/modules/openapi => ../modules/openapi
 	gorbital.dev/modules/postgres => ../modules/postgres
+	gorbital.dev/modules/ratelimitpg => ../modules/ratelimitpg
+	gorbital.dev/modules/releases => ../modules/releases
 	gorbital.dev/modules/settings => ../modules/settings
 	gorbital.dev/modules/storage => ../modules/storage
+	gorbital.dev/modules/telemetry => ../modules/telemetry
 )
 
 require (
@@ -72,7 +82,7 @@ require (
 	github.com/riverqueue/river/riverdriver v0.47.0 // indirect
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.47.0 // indirect
 	github.com/riverqueue/river/rivershared v0.47.0 // indirect
-	github.com/riverqueue/river/rivertype v0.47.0 // indirect
+	github.com/riverqueue/river/rivertype v0.47.0
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/tidwall/gjson v1.19.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
@@ -95,23 +105,3 @@ require (
 	gorbital.dev/modules/releases v0.1.0
 	gorbital.dev/modules/telemetry v0.1.0
 )
-
-replace gorbital.dev/modules/auth => ../modules/auth
-
-replace gorbital.dev/modules/ratelimitpg => ../modules/ratelimitpg
-
-replace gorbital.dev/modules/auditpg => ../modules/auditpg
-
-replace gorbital.dev/modules/devconsole => ../modules/devconsole
-
-replace gorbital.dev/modules/idempotency => ../modules/idempotency
-
-replace gorbital.dev/modules/mail/smtp => ../modules/mail/smtp
-
-replace gorbital.dev/modules/mail/suppressionpg => ../modules/mail/suppressionpg
-
-replace gorbital.dev/modules/observability => ../modules/observability
-
-replace gorbital.dev/modules/releases => ../modules/releases
-
-replace gorbital.dev/modules/telemetry => ../modules/telemetry

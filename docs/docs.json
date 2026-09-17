@@ -190,7 +190,8 @@
           "name": "Framework",
           "pages": [
             { "title": "gorbital", "slug": "methods/gorbital", "source": "docs/methods/gorbital.md" },
-            { "title": "guard", "slug": "methods/gorbital-guard", "source": "docs/methods/gorbital-guard.md" }
+            { "title": "guard", "slug": "methods/gorbital-guard", "source": "docs/methods/gorbital-guard.md" },
+            { "title": "gorbitaltest", "slug": "methods/gorbital-gorbitaltest", "source": "docs/methods/gorbital-gorbitaltest.md" }
           ]
         },
         {
