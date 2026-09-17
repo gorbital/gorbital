@@ -16,7 +16,7 @@ import (
 //	gorbital.WithStack(func(s gorbital.Stack) []func(http.Handler) http.Handler {
 //		return []func(http.Handler) http.Handler{
 //			s.Recover, s.TrustedProxies, s.RequestID, requireTenantHeader, // yours, early
-//			s.Telemetry, s.Observability, s.AccessLog, s.SecureHeaders, s.CORS,
+//			s.Telemetry, s.Observability, s.AccessLog, s.Timeout, s.SecureHeaders, s.CORS,
 //			s.CrossOrigin, s.BodyLimit, s.Maintenance, s.Auth, s.RateLimit, s.Idempotency,
 //		}
 //	})
@@ -36,6 +36,11 @@ type Stack struct {
 	Observability func(http.Handler) http.Handler
 	// AccessLog logs one structured line per request (httpx.AccessLog).
 	AccessLog func(http.Handler) http.Handler
+	// Timeout answers 503 request_timeout when a handler hasn't started its
+	// response within APP_REQUEST_TIMEOUT, and cancels the request's
+	// context (httpx.Timeout, ADR-0085). A route can shorten it with
+	// [Timeout].
+	Timeout func(http.Handler) http.Handler
 	// SecureHeaders sets security headers, and HSTS in production
 	// (httpx.SecureHeaders).
 	SecureHeaders func(http.Handler) http.Handler
@@ -62,10 +67,11 @@ type Stack struct {
 }
 
 // Default returns the steps in the default order, outermost first: the
-// order of a v0.1 app's routes.go.
+// order of a v0.1 app's routes.go, with Timeout added after AccessLog so
+// timed-out requests are logged with their 503.
 func (s Stack) Default() []func(http.Handler) http.Handler {
 	return []func(http.Handler) http.Handler{
-		s.Recover, s.TrustedProxies, s.RequestID, s.Telemetry, s.Observability, s.AccessLog,
+		s.Recover, s.TrustedProxies, s.RequestID, s.Telemetry, s.Observability, s.AccessLog, s.Timeout,
 		s.SecureHeaders, s.CORS, s.CrossOrigin, s.BodyLimit, s.Maintenance, s.Auth, s.RateLimit, s.Idempotency,
 	}
 }

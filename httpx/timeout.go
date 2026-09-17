@@ -18,7 +18,11 @@ import (
 // Timeout gives each request a context deadline d from now. When the
 // deadline passes before the handler has started its response, the client
 // gets a 503 problem with code "request_timeout", and whatever the handler
-// writes afterwards is discarded (writes return [http.ErrHandlerTimeout]).
+// writes afterwards is discarded. Late writes report success, so frameworks
+// that treat a failed write as a bug (Huma panics) don't turn every timeout
+// into a logged panic; the handler learns of the timeout from its cancelled
+// context. Flushing, hijacking and deadline changes after a timeout return
+// [http.ErrHandlerTimeout].
 // A d of zero or less turns it off.
 //
 // Once the handler has started its response (written the status or body,
@@ -183,13 +187,14 @@ func (tw *timeoutWriter) WriteHeader(code int) {
 	tw.w.WriteHeader(code)
 }
 
-// Write writes the body, or returns [http.ErrHandlerTimeout] after a timeout.
+// Write writes the body. After a timeout it discards b and reports
+// success (see [Timeout]).
 func (tw *timeoutWriter) Write(b []byte) (int, error) {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
 	if !tw.started {
 		if tw.refuseLocked() {
-			return 0, http.ErrHandlerTimeout
+			return len(b), nil
 		}
 		tw.startLocked()
 	}
@@ -272,6 +277,6 @@ func (tw *timeoutWriter) Unwrap() http.ResponseWriter {
 // discardWriter is what a timed-out handler's unwrapped writer is.
 type discardWriter struct{}
 
-func (discardWriter) Header() http.Header       { return http.Header{} }
-func (discardWriter) Write([]byte) (int, error) { return 0, http.ErrHandlerTimeout }
-func (discardWriter) WriteHeader(int)           {}
+func (discardWriter) Header() http.Header         { return http.Header{} }
+func (discardWriter) Write(b []byte) (int, error) { return len(b), nil }
+func (discardWriter) WriteHeader(int)             {}

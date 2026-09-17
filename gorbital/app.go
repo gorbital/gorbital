@@ -400,6 +400,7 @@ func (a *App) stack(ipLimiter ratelimit.Taker, idempotencyStore *idempotency.Sto
 		Telemetry:      a.tel.HTTPMiddleware(),
 		Observability:  a.collector.Middleware(),
 		AccessLog:      httpx.AccessLog(a.logger),
+		Timeout:        httpx.Timeout(cfg.RequestTimeout),
 		SecureHeaders:  httpx.SecureHeaders(httpx.SecureHeadersOptions{HSTSMaxAge: hsts}),
 		CORS:           cors,
 		CrossOrigin:    exceptCrossSitePosts(crossOrigin),

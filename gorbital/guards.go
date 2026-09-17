@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -36,6 +37,17 @@ import (
 // openapi.New builds it.
 func Use(middlewares ...func(http.Handler) http.Handler) RouteOption {
 	return func(c *route.Config) { c.Middlewares = append(c.Middlewares, middlewares...) }
+}
+
+// Timeout gives a route a shorter deadline than the app's request timeout
+// (APP_REQUEST_TIMEOUT): after d, a handler that hasn't started its
+// response gets 503 request_timeout, and its context is cancelled. A
+// context deadline can only be shortened, so a longer d has no effect: raise
+// APP_REQUEST_TIMEOUT, or leave the Timeout step out with [WithStack], for
+// routes that need longer. Streaming responses that have started aren't
+// cut off (httpx.Timeout).
+func Timeout(d time.Duration) RouteOption {
+	return Use(httpx.Timeout(d))
 }
 
 // continuation carries Huma's next step through standard middleware.

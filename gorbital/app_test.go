@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/riverqueue/river"
 
@@ -138,5 +139,40 @@ func TestMaintenanceModeThroughTheStack(t *testing.T) {
 	}
 	if res := app.Client().Post("/v1/auth/login", map[string]string{}); res.Status == http.StatusServiceUnavailable {
 		t.Errorf("POST /v1/auth/login in maintenance = 503, want sign-in to stay open")
+	}
+}
+
+type slowInput struct{}
+
+type slowOutput struct {
+	Body struct {
+		Done bool `json:"done"`
+	}
+}
+
+// TestRouteTimeout: gorbital.Timeout shortens a route's deadline inside the
+// stack, answering 503 request_timeout and cancelling the handler's context.
+func TestRouteTimeout(t *testing.T) {
+	cancelled := make(chan struct{})
+	module := gorbital.Module{
+		Name: "reports",
+		Routes: func(r *gorbital.Router, d gorbital.Deps) {
+			gorbital.Get(r, "/v1/reports/slow", func(ctx context.Context, _ *slowInput) (*slowOutput, error) {
+				select {
+				case <-ctx.Done():
+					close(cancelled)
+					return nil, ctx.Err()
+				case <-time.After(5 * time.Second):
+					return &slowOutput{}, nil
+				}
+			}, guard.Public(), gorbital.Timeout(50*time.Millisecond))
+		},
+	}
+	app := gorbitaltest.New(t, gorbital.WithModules(module))
+	app.Client().Get("/v1/reports/slow").AssertProblem(t, http.StatusServiceUnavailable, "request_timeout")
+	select {
+	case <-cancelled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the handler's context wasn't cancelled")
 	}
 }

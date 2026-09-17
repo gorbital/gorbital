@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"gorbital.dev/config"
 	"gorbital.dev/httpx"
@@ -76,6 +77,11 @@ type Config struct {
 	TrustedCallers []netip.Prefix
 	// MaxBodyBytes limits request bodies (APP_MAX_BODY_BYTES, default 1 MiB).
 	MaxBodyBytes int64
+	// RequestTimeout is how long a handler may take before the Timeout
+	// step answers 503 request_timeout (APP_REQUEST_TIMEOUT, default 30s;
+	// 0 turns it off). It must be shorter than the server's write timeout,
+	// httpx.DefaultWriteTimeout, so the 503 can still be sent.
+	RequestTimeout time.Duration
 	// OTLPEndpoint exports traces and metrics when set
 	// (OTEL_EXPORTER_OTLP_ENDPOINT).
 	OTLPEndpoint string
@@ -238,11 +244,12 @@ var exportSource = config.Source{
 // other than provider; STORAGE_DRIVER=local; and DEV_CONSOLE_TOKEN.
 func LoadConfig(src config.Source) (Config, error) {
 	cfg := Config{
-		Addr:         "127.0.0.1:8080",
-		LogLevel:     slog.LevelInfo,
-		MaxBodyBytes: 1 << 20,
-		DBMaxConns:   10,
-		JobWorkers:   10,
+		Addr:           "127.0.0.1:8080",
+		LogLevel:       slog.LevelInfo,
+		MaxBodyBytes:   1 << 20,
+		RequestTimeout: 30 * time.Second,
+		DBMaxConns:     10,
+		JobWorkers:     10,
 	}
 	var errs []error
 	var read devconsole.EnvKeys
@@ -337,6 +344,18 @@ func LoadConfig(src config.Source) (Config, error) {
 			errs = append(errs, fmt.Errorf("APP_MAX_BODY_BYTES must be a positive integer, got %q", v))
 		}
 		cfg.MaxBodyBytes = n
+	}
+
+	if v := get("APP_REQUEST_TIMEOUT"); v != "" {
+		d, err := time.ParseDuration(v)
+		switch {
+		case err != nil || d < 0:
+			errs = append(errs, fmt.Errorf("APP_REQUEST_TIMEOUT must be a duration such as 30s, or 0 to turn it off, got %q", v))
+		case d >= httpx.DefaultWriteTimeout:
+			errs = append(errs, fmt.Errorf("APP_REQUEST_TIMEOUT must be shorter than the server's write timeout (%s), so the 503 can still be sent; got %s", httpx.DefaultWriteTimeout, d))
+		default:
+			cfg.RequestTimeout = d
+		}
 	}
 
 	cfg.OTLPEndpoint = get("OTEL_EXPORTER_OTLP_ENDPOINT")

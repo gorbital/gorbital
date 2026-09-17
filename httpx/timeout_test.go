@@ -91,13 +91,13 @@ func TestTimeoutRespondsAtTheDeadline(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Handler", "leaked?")
 		<-release // ignores its context
-		_, err := io.WriteString(w, "too late")
+		if _, err := io.WriteString(w, "too late"); err != nil {
+			lateWrite <- err // late writes are discarded silently
+			return
+		}
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("X-After", "x")
-		if err == nil {
-			err = http.NewResponseController(w).Flush()
-		}
-		lateWrite <- err
+		lateWrite <- http.NewResponseController(w).Flush()
 	})
 	srv := httptest.NewServer(httpx.Chain(handler, httpx.RequestID(), httpx.Timeout(20*time.Millisecond)))
 	defer srv.Close()
@@ -131,7 +131,7 @@ func TestTimeoutRespondsAtTheDeadline(t *testing.T) {
 
 	release <- struct{}{}
 	if err := <-lateWrite; !errors.Is(err, http.ErrHandlerTimeout) {
-		t.Errorf("late write error = %v, want http.ErrHandlerTimeout", err)
+		t.Errorf("late write, then flush: error = %v, want the flush's http.ErrHandlerTimeout", err)
 	}
 }
 
@@ -140,8 +140,8 @@ func TestTimeoutLateWritesDiscarded(t *testing.T) {
 		time.Sleep(20 * time.Millisecond) // ignores its context
 		w.Header().Set("X-After", "x")
 		w.WriteHeader(http.StatusCreated)
-		if _, err := io.WriteString(w, "too late"); !errors.Is(err, http.ErrHandlerTimeout) {
-			t.Errorf("late write error = %v", err)
+		if n, err := io.WriteString(w, "too late"); err != nil || n != len("too late") {
+			t.Errorf("late write = %d, %v; want it discarded as a success", n, err)
 		}
 	})
 	rec := httptest.NewRecorder()
@@ -264,8 +264,11 @@ func TestTimeoutResponseControllerAfterTimeout(t *testing.T) {
 		_, _, hijackErr := rc.Hijack()
 		unwrapped := w.(interface{ Unwrap() http.ResponseWriter }).Unwrap()
 		_, writeErr := unwrapped.Write([]byte("x"))
+		if writeErr != nil {
+			t.Errorf("late write through Unwrap: error = %v, want nil", writeErr)
+		}
 		results <- []error{
-			rc.Flush(), rc.SetReadDeadline(time.Now()), rc.SetWriteDeadline(time.Now()), rc.EnableFullDuplex(), hijackErr, writeErr,
+			rc.Flush(), rc.SetReadDeadline(time.Now()), rc.SetWriteDeadline(time.Now()), rc.EnableFullDuplex(), hijackErr,
 		}
 	})
 	rec := httptest.NewRecorder()

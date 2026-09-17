@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -459,4 +460,24 @@ func ExampleUse() {
 	// Output:
 	// 2.3.9 426
 	// 2.4.0 200
+}
+
+func ExampleTimeout() {
+	mux, api, mapper := newAPI()
+	err := gorbital.Mount(api, mapper, gorbital.Deps{}, gorbital.Module{
+		Name: "reports",
+		Routes: func(r *gorbital.Router, d gorbital.Deps) {
+			slow := func(ctx context.Context, _ *struct{}) (*struct{}, error) {
+				<-ctx.Done() // a query that respects its context stops here
+				return nil, ctx.Err()
+			}
+			gorbital.Get(r, "/v1/reports/yearly", slow, guard.Public(), gorbital.Timeout(20*time.Millisecond))
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(call(mux, http.MethodGet, "/v1/reports/yearly", false))
+	// Output:
+	// 503 request_timeout
 }

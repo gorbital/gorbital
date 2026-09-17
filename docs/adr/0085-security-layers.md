@@ -59,7 +59,7 @@ Constraints: core packages depend on the standard library, the OpenTelemetry API
 - The response writer keeps the handler's headers in a copy until the response starts. At the deadline a timer takes the writer's lock: if the handler hasn't written a status, body, flush or hijack, it writes 503 **`request_timeout`** (a new code: `unavailable` doesn't tell a client the request itself was too slow) with the request ID, `Cache-Control: no-store` and `Content-Length`, and flushes. Afterwards the handler's writes return `http.ErrHandlerTimeout`, `WriteHeader` does nothing and `Unwrap` returns a writer that discards.
 - A handler whose first write comes after the deadline is refused even if the timer hasn't run yet (the writer checks the context), so a handler reacting to its cancelled context never races the 503.
 - Once the response has started, the deadline only cancels the context: no buffering, so streaming, `Flush`, trailers, 103 Early Hints and `http.ResponseController` (`Flush`, `Hijack`, `SetReadDeadline`, `SetWriteDeadline`, `EnableFullDuplex`, forwarded under the lock) behave as without the middleware.
-- Streams meant to outlive `d` (server-sent events) go on routes without the timeout. **Integration (Phase 3):** the default stack's `Timeout` step and a per-route `gorbital.Timeout(d)`, which must be able to lengthen or remove the app's deadline for a route; since a context deadline can't be extended, the stack applies the timeout per route (operation middleware) rather than around the router.
+- Streams meant to outlive `d` (server-sent events) go on routes without the timeout. **Integration (done with Phase 3, 2026-09-17):** the default stack's `Timeout` step after `AccessLog`, configured by `APP_REQUEST_TIMEOUT` (default 30s, `0` off, shorter than the server's 60s write timeout), and `gorbital.Timeout(d)`, a route option that **shortens** a route's deadline. Lengthening per route was considered (the stack applying the timeout per operation instead of around the router) and rejected for now: it moves a stack step into the router and routes that need longer are rare; they raise `APP_REQUEST_TIMEOUT`, or drop `Timeout` with `WithStack` and put `gorbital.Timeout` on the groups that need one. Found during integration: Huma panics when a write fails, so late writes after a timeout now report success and are discarded instead of returning `http.ErrHandlerTimeout` (flush, hijack and deadline calls still return it).
 
 ### `httpx.IPFilter(allow, deny)` and `httpx.ParsePrefixes`
 
@@ -135,7 +135,7 @@ Constraints: core packages depend on the standard library, the OpenTelemetry API
 ## Consequences
 
 - New core package `gorbital.dev/webhook`; new module `gorbital.dev/modules/jwt` (CI test, lint and govulncheck lists; release finds it); additive API in `httpx` and `gorbital/guard`.
-- Integration left to later phases: `Timeout` in the default stack with a per-route `gorbital.Timeout(d)` (Phase 3), `OPS_ALLOWED_IPS` on `/ops` (Phase 4), recipes *Mobile backend with an external identity provider* and *Receiving payment webhooks*, Shelfie chapter 10.
+- Integration left to later phases: `OPS_ALLOWED_IPS` on `/ops` (Phase 4), recipes *Mobile backend with an external identity provider* and *Receiving payment webhooks*, Shelfie chapter 10.
 - Guide: [Security layers](../guides/security-layers.md).
 
 ## Implementation notes (2026-09-17)

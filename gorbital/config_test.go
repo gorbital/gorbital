@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"gorbital.dev/config"
 	"gorbital.dev/gorbital"
@@ -108,6 +109,7 @@ func TestLoadConfigReportsAllErrors(t *testing.T) {
 		"APP_DOCS_ENABLED":     "maybe",
 		"APP_TRUSTED_PROXIES":  "load-balancer",
 		"APP_MAX_BODY_BYTES":   "-1",
+		"APP_REQUEST_TIMEOUT":  "forever",
 		"APP_DB_MAX_CONNS":     "0",
 		"APP_JOB_WORKERS":      "many",
 		"MAIL_DELIVERY":        "carrier-pigeon",
@@ -121,7 +123,7 @@ func TestLoadConfigReportsAllErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("LoadConfig(invalid values) error = nil")
 	}
-	for _, key := range []string{"APP_ENV", "APP_ADDR", "APP_LOG_LEVEL", "APP_LOG_FORMAT", "APP_DOCS_ENABLED", "APP_TRUSTED_PROXIES", "APP_MAX_BODY_BYTES",
+	for _, key := range []string{"APP_ENV", "APP_ADDR", "APP_LOG_LEVEL", "APP_LOG_FORMAT", "APP_DOCS_ENABLED", "APP_TRUSTED_PROXIES", "APP_MAX_BODY_BYTES", "APP_REQUEST_TIMEOUT",
 		"APP_DB_MAX_CONNS", "APP_JOB_WORKERS", "MAIL_DELIVERY", "DEV_MAIL_SMTP_ADDR", "MAILPIT_SMTP_ADDR", "AUTH_ENCRYPTION_KEYS", "STORAGE_DRIVER",
 		"MAILPIT_WEB_PORT", "METRICS_ADDR"} {
 		if !strings.Contains(err.Error(), key) {
@@ -260,7 +262,7 @@ func TestLoadConfigSecretFiles(t *testing.T) {
 // that keeps LoadConfig's guarantees or returns an error; it never panics.
 func FuzzLoadConfig(f *testing.F) {
 	for _, seed := range [][2]string{
-		{"APP_ADDR", "127.0.0.1:8080"}, {"APP_MAX_BODY_BYTES", "1048576"}, {"APP_CORS_ORIGINS", "https://a.example, http://b"},
+		{"APP_ADDR", "127.0.0.1:8080"}, {"APP_MAX_BODY_BYTES", "1048576"}, {"APP_REQUEST_TIMEOUT", "45s"}, {"APP_CORS_ORIGINS", "https://a.example, http://b"},
 		{"APP_TRUSTED_PROXIES", "10.0.0.0/8"}, {"METRICS_ADDR", "127.0.0.1:9464"}, {"AUTH_DEFAULT_RETURN_TO", "http://localhost:8080/x"},
 		{"APP_DB_MAX_CONNS", "1000"}, {"STORAGE_DRIVER", "spaces"}, {"AUTH_ENCRYPTION_KEYS", "k1:AAAA"}, {"APP_LOG_LEVEL", "debug+2"},
 	} {
@@ -297,4 +299,30 @@ func FuzzLoadConfig(f *testing.F) {
 			}
 		}
 	})
+}
+
+func TestLoadConfigRequestTimeout(t *testing.T) {
+	for _, tt := range []struct {
+		value   string
+		want    time.Duration
+		wantErr string
+	}{
+		{"", 30 * time.Second, ""},
+		{"5s", 5 * time.Second, ""},
+		{"0", 0, ""},
+		{"-1s", 0, "APP_REQUEST_TIMEOUT must be a duration"},
+		{"60s", 0, "shorter than the server's write timeout"},
+		{"soon", 0, "APP_REQUEST_TIMEOUT must be a duration"},
+	} {
+		cfg, err := load(map[string]string{"APP_REQUEST_TIMEOUT": tt.value})
+		if tt.wantErr != "" {
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("APP_REQUEST_TIMEOUT=%q: error = %v, want %q", tt.value, err, tt.wantErr)
+			}
+			continue
+		}
+		if err != nil || cfg.RequestTimeout != tt.want {
+			t.Errorf("APP_REQUEST_TIMEOUT=%q: RequestTimeout = %s, %v; want %s", tt.value, cfg.RequestTimeout, err, tt.want)
+		}
+	}
 }

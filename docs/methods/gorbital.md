@@ -58,7 +58,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
   - [`Option`](#Option): [`WithAuth`](#WithAuth), [`WithLogger`](#WithLogger), [`WithMailer`](#WithMailer), [`WithMailerFunc`](#WithMailerFunc), [`WithMiddleware`](#WithMiddleware), [`WithMiddlewareFunc`](#WithMiddlewareFunc), [`WithMigrations`](#WithMigrations), [`WithModules`](#WithModules), [`WithName`](#WithName), [`WithStack`](#WithStack), [`WithStorage`](#WithStorage), [`WithStorageFunc`](#WithStorageFunc)
   - [`Permission`](#Permission)
   - [`PermissionDeclarer`](#PermissionDeclarer)
-  - [`RouteOption`](#RouteOption): [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Use`](#Use)
+  - [`RouteOption`](#RouteOption): [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Timeout`](#Timeout), [`Use`](#Use)
   - [`Router`](#Router): [`Router.Group`](#Router.Group)
   - [`Stack`](#Stack): [`Stack.Default`](#Stack.Default)
   - [`StorageConfig`](#StorageConfig)
@@ -801,6 +801,7 @@ true
 <a id="Config.TrustedProxies"></a>
 <a id="Config.TrustedCallers"></a>
 <a id="Config.MaxBodyBytes"></a>
+<a id="Config.RequestTimeout"></a>
 <a id="Config.OTLPEndpoint"></a>
 <a id="Config.MetricsAddr"></a>
 <a id="Config.DatabaseURL"></a>
@@ -844,6 +845,11 @@ type Config struct {
 	TrustedCallers []netip.Prefix
 	// MaxBodyBytes limits request bodies (APP_MAX_BODY_BYTES, default 1 MiB).
 	MaxBodyBytes int64
+	// RequestTimeout is how long a handler may take before the Timeout
+	// step answers 503 request_timeout (APP_REQUEST_TIMEOUT, default 30s;
+	// 0 turns it off). It must be shorter than the server's write timeout,
+	// httpx.DefaultWriteTimeout, so the 503 can still be sent.
+	RequestTimeout time.Duration
 	// OTLPEndpoint exports traces and metrics when set
 	// (OTEL_EXPORTER_OTLP_ENDPOINT).
 	OTLPEndpoint string
@@ -1869,6 +1875,44 @@ Output:
 GET /v1/books/{id} id=books-get-v1-books-by-id summary="Get v1 books by ID" tags=[Books Library] secured=true deprecated=false
 ```
 
+<a id="Timeout"></a>
+
+#### func Timeout
+
+```go
+func Timeout(d time.Duration) RouteOption
+```
+
+Timeout gives a route a shorter deadline than the app's request timeout (APP\_REQUEST\_TIMEOUT): after d, a handler that hasn't started its response gets 503 request\_timeout, and its context is cancelled. A context deadline can only be shortened, so a longer d has no effect: raise APP\_REQUEST\_TIMEOUT, or leave the Timeout step out with [WithStack](#WithStack), for routes that need longer. Streaming responses that have started aren't cut off (httpx.Timeout).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+mux, api, mapper := newAPI()
+err := gorbital.Mount(api, mapper, gorbital.Deps{}, gorbital.Module{
+	Name: "reports",
+	Routes: func(r *gorbital.Router, d gorbital.Deps) {
+		slow := func(ctx context.Context, _ *struct{}) (*struct{}, error) {
+			<-ctx.Done() // a query that respects its context stops here
+			return nil, ctx.Err()
+		}
+		gorbital.Get(r, "/v1/reports/yearly", slow, guard.Public(), gorbital.Timeout(20*time.Millisecond))
+	},
+})
+if err != nil {
+	panic(err)
+}
+fmt.Println(call(mux, http.MethodGet, "/v1/reports/yearly", false))
+```
+
+Output:
+
+```text
+503 request_timeout
+```
+
 <a id="Use"></a>
 
 #### func Use
@@ -2015,6 +2059,7 @@ GET /v1/catalog/{id} id=books-get-v1-catalog-by-id summary="Get v1 catalog by ID
 <a id="Stack.Telemetry"></a>
 <a id="Stack.Observability"></a>
 <a id="Stack.AccessLog"></a>
+<a id="Stack.Timeout"></a>
 <a id="Stack.SecureHeaders"></a>
 <a id="Stack.CORS"></a>
 <a id="Stack.CrossOrigin"></a>
@@ -2043,6 +2088,11 @@ type Stack struct {
 	Observability func(http.Handler) http.Handler
 	// AccessLog logs one structured line per request (httpx.AccessLog).
 	AccessLog func(http.Handler) http.Handler
+	// Timeout answers 503 request_timeout when a handler hasn't started its
+	// response within APP_REQUEST_TIMEOUT, and cancels the request's
+	// context (httpx.Timeout, ADR-0085). A route can shorten it with
+	// [Timeout].
+	Timeout func(http.Handler) http.Handler
 	// SecureHeaders sets security headers, and HSTS in production
 	// (httpx.SecureHeaders).
 	SecureHeaders func(http.Handler) http.Handler
@@ -2075,7 +2125,7 @@ Stack is the built-in middleware of an app, one field per step, which New builds
 gorbital.WithStack(func(s gorbital.Stack) []func(http.Handler) http.Handler {
 	return []func(http.Handler) http.Handler{
 		s.Recover, s.TrustedProxies, s.RequestID, requireTenantHeader, // yours, early
-		s.Telemetry, s.Observability, s.AccessLog, s.SecureHeaders, s.CORS,
+		s.Telemetry, s.Observability, s.AccessLog, s.Timeout, s.SecureHeaders, s.CORS,
 		s.CrossOrigin, s.BodyLimit, s.Maintenance, s.Auth, s.RateLimit, s.Idempotency,
 	}
 })
@@ -2116,7 +2166,7 @@ recover request-id auth handler
 func (s Stack) Default() []func(http.Handler) http.Handler
 ```
 
-Default returns the steps in the default order, outermost first: the order of a v0.1 app's routes.go.
+Default returns the steps in the default order, outermost first: the order of a v0.1 app's routes.go, with Timeout added after AccessLog so timed-out requests are logged with their 503.
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -2130,7 +2180,7 @@ fmt.Println(len(s.Default()))
 Output:
 
 ```text
-14
+15
 ```
 
 <a id="StorageConfig"></a>

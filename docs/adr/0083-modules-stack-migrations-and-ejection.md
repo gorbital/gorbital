@@ -116,6 +116,7 @@ my-api/
 | `Telemetry` | Spans and metrics | `telemetry` |
 | `Observability` | Request minutes per route | `observability` |
 | `AccessLog` | One structured line per request | `httpx.AccessLog` |
+| `Timeout` | `APP_REQUEST_TIMEOUT` (default 30s): context deadline and 503 `request_timeout` (added with Phase 10, ADR-0085) | `httpx.Timeout` |
 | `SecureHeaders` | HSTS in production and security headers | `httpx.SecureHeaders` |
 | `CORS` | Allowed origins | `httpx.CORS` |
 | `CrossOrigin` | Cross-site protection for cookie-authenticated writes | `httpx.CrossOrigin` |

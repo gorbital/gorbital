@@ -354,7 +354,7 @@ func ExampleStack() {
 func ExampleStack_Default() {
 	var s gorbital.Stack
 	fmt.Println(len(s.Default()))
-	// Output: 14
+	// Output: 15
 }
 
 func ExampleCommand() {

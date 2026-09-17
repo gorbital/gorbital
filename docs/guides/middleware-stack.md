@@ -14,19 +14,20 @@ Outermost first:
 | 4 | `Telemetry` | Starts the server span and records HTTP metrics, labelled by route pattern | — | `OTEL_EXPORTER_OTLP_ENDPOINT`, `METRICS_ADDR` |
 | 5 | `Observability` | Counts the request per minute and route for `/ops/observability` and automatic incidents ([observability](observability.md)) | — | — |
 | 6 | `AccessLog` | One structured `http request` line after the response, with the user noted by authentication | — | `APP_LOG_LEVEL`, `APP_LOG_FORMAT` |
-| 7 | `SecureHeaders` | Security headers; HSTS for a year in production | — | `APP_ENV` |
-| 8 | `CORS` | Answers preflights and sets CORS headers for the allowed origins | 204 | `APP_CORS_ORIGINS` |
-| 9 | `CrossOrigin` | Refuses state-changing browser requests from other sites (`http.CrossOriginProtection`), except Apple's sign-in callback and notifications, which carry their own proof | 403 `cross_origin_request_denied` | `APP_CORS_ORIGINS` |
-| 10 | `BodyLimit` | Refuses larger bodies, and cuts off undeclared ones at the limit | 413 `request_too_large` | `APP_MAX_BODY_BYTES` |
-| 11 | `Maintenance` | While `maintenance.enabled` is on, answers every request with 503 except health checks, `/version`, docs, `/.well-known/`, `/ops/` and `/v1/auth/` (`httpx.Maintenance`) | 503 `maintenance` | Runtime settings `maintenance.enabled`, `maintenance.message`, `maintenance.retry_after` |
-| 12 | `Auth` | Runs the authenticator's middleware ([`WithAuth`](main-go.md#the-file)), which sets who is calling; passes requests on unchanged without an authenticator | Whatever the authenticator answers, such as 503 `auth_unavailable` | `WithAuth` |
-| 13 | `RateLimit` | Limits non-GET requests under `/v1/auth/`, and sign-in redirects, per client address, shared by every instance | 429 `rate_limited` | Runtime setting `auth.ip_requests_per_minute` |
-| 14 | `Idempotency` | Replays the stored response of a signed-in POST or PATCH retried with the same `Idempotency-Key` ([idempotency](idempotency.md)) | 400, 409, 422, 503, or the replayed response | Runtime setting `idempotency.retention` |
+| 7 | `Timeout` | Cancels the request's context after the request timeout, and answers 503 if the handler hasn't started its response; late writes are discarded, started streams aren't cut off ([Security layers](security-layers.md)). A route can shorten it with `gorbital.Timeout(d)` | 503 `request_timeout` | `APP_REQUEST_TIMEOUT` (default `30s`, `0` turns it off) |
+| 8 | `SecureHeaders` | Security headers; HSTS for a year in production | — | `APP_ENV` |
+| 9 | `CORS` | Answers preflights and sets CORS headers for the allowed origins | 204 | `APP_CORS_ORIGINS` |
+| 10 | `CrossOrigin` | Refuses state-changing browser requests from other sites (`http.CrossOriginProtection`), except Apple's sign-in callback and notifications, which carry their own proof | 403 `cross_origin_request_denied` | `APP_CORS_ORIGINS` |
+| 11 | `BodyLimit` | Refuses larger bodies, and cuts off undeclared ones at the limit | 413 `request_too_large` | `APP_MAX_BODY_BYTES` |
+| 12 | `Maintenance` | While `maintenance.enabled` is on, answers every request with 503 except health checks, `/version`, docs, `/.well-known/`, `/ops/` and `/v1/auth/` (`httpx.Maintenance`) | 503 `maintenance` | Runtime settings `maintenance.enabled`, `maintenance.message`, `maintenance.retry_after` |
+| 13 | `Auth` | Runs the authenticator's middleware ([`WithAuth`](main-go.md#the-file)), which sets who is calling; passes requests on unchanged without an authenticator | Whatever the authenticator answers, such as 503 `auth_unavailable` | `WithAuth` |
+| 14 | `RateLimit` | Limits non-GET requests under `/v1/auth/`, and sign-in redirects, per client address, shared by every instance | 429 `rate_limited` | Runtime setting `auth.ip_requests_per_minute` |
+| 15 | `Idempotency` | Replays the stored response of a signed-in POST or PATCH retried with the same `Idempotency-Key` ([idempotency](idempotency.md)) | 400, 409, 422, 503, or the replayed response | Runtime setting `idempotency.retention` |
 | — | [`WithMiddleware`](#adding-your-own) | Your middleware, in the order the options are given | Anything | — |
 
 Then the router matches the route, the module's, group's and route's own middleware run, then its guards, and only then is the body parsed ([Guards and middleware](guards-and-middleware.md)).
 
-Why this order: a panic anywhere is caught; the client's address is known before anything records it; the request ID and span exist before anything logs; CORS answers preflights before the cross-site check; the body limit applies before anything reads a body; maintenance answers before authentication spends a database query; rate limits and idempotency keys need the client and the caller.
+Why this order: a panic anywhere is caught; the client's address is known before anything records it; the request ID and span exist before anything logs; the timeout sits inside the access log, so a timed-out request is logged with its 503; CORS answers preflights before the cross-site check; the body limit applies before anything reads a body; maintenance answers before authentication spends a database query; rate limits and idempotency keys need the client and the caller.
 
 In development with `DEV_CONSOLE_TOKEN`, the [dev console](dev-console.md) sits in front of the whole stack: requests to `/_dev/` never reach it.
 
@@ -60,7 +61,7 @@ gorbital.WithStack(func(s gorbital.Stack) []func(http.Handler) http.Handler {
 	return []func(http.Handler) http.Handler{
 		s.Recover, s.TrustedProxies, s.RequestID,
 		tenantFromHost, // yours, before anything is logged
-		s.Telemetry, s.Observability, s.AccessLog, s.SecureHeaders, s.CORS, s.CrossOrigin,
+		s.Telemetry, s.Observability, s.AccessLog, s.Timeout, s.SecureHeaders, s.CORS, s.CrossOrigin,
 		s.BodyLimit, s.Maintenance, s.Auth, s.RateLimit, s.Idempotency,
 	}
 })

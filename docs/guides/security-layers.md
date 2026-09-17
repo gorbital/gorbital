@@ -9,9 +9,19 @@ Four layers you add when your app needs them: a **request timeout**, an **IP fil
 | [Signed webhooks](#signed-webhooks) | Forged, replayed or oversized provider webhooks | `guard.Webhook(v)` ([Methods](../methods/gorbital-guard.md#Webhook)), `gorbital.dev/webhook` ([Methods](../methods/webhook.md)) |
 | [External identity providers](#external-identity-providers-jwt) | Accepting forged, expired or misdirected tokens from Auth0, Clerk, Supabase, Firebase or Cognito | `gorbital.dev/modules/jwt` ([Methods](../methods/modules-jwt.md)) |
 
-> **Status in v0.2 previews.** The layers are in the library. Wiring them into the default stack (`Timeout` with a per-route `gorbital.Timeout(d)`), `/ops` behind `OPS_ALLOWED_IPS`, and the recipes *Mobile backend with an external identity provider* and *Receiving payment webhooks* come with later phases of the [roadmap](../v0.2-roadmap.md#phase-10-security-layers). Until then, add them to your chain yourself as shown below.
+> **Status in v0.2 previews.** The layers are in the library, and apps on `gorbital.Main` get the request timeout in their default stack. `/ops` behind `OPS_ALLOWED_IPS`, and the recipes *Mobile backend with an external identity provider* and *Receiving payment webhooks* come with later phases of the [roadmap](../v0.2-roadmap.md#phase-10-security-layers). Until then, add them to your chain yourself as shown below.
 
 ## Request timeout
+
+**Apps on `gorbital.Main`** have it already: the `Timeout` step of the [middleware stack](middleware-stack.md), set by `APP_REQUEST_TIMEOUT` (default `30s`, `0` turns it off). A route or group that must answer sooner gets `gorbital.Timeout(d)`:
+
+```go
+exports := r.Group("/v1/exports", gorbital.Timeout(5*time.Second))
+```
+
+`gorbital.Timeout` can only **shorten** the app's timeout (a context deadline can't be extended). For a route that needs longer, raise `APP_REQUEST_TIMEOUT`, or leave `s.Timeout` out with `gorbital.WithStack` and give the other groups their own `gorbital.Timeout`; better still, move the slow work into a [background job](background-jobs.md).
+
+**Any other `net/http` app** adds the middleware to its chain:
 
 ```go
 handler := httpx.Chain(mux,
@@ -27,7 +37,7 @@ Each request's context gets a deadline. Pass `r.Context()` (or the Huma handler'
 
 | When the deadline passes | What happens |
 |---|---|
-| The handler hasn't written anything | The client gets `503 request_timeout` straight away, with the request ID. Anything the handler writes afterwards is discarded (`Write` returns `http.ErrHandlerTimeout`) |
+| The handler hasn't written anything | The client gets `503 request_timeout` straight away, with the request ID. Anything the handler writes afterwards is discarded: `Write` reports success, so frameworks that treat a failed write as a bug (Huma panics) stay quiet, while `Flush`, `Hijack` and deadline changes return `http.ErrHandlerTimeout` |
 | The handler has started its response (status, body, flush) | Nothing is replaced: the deadline only cancels the context, and the response ends when the handler returns |
 
 - **Streaming works**: nothing is buffered, `Flush`, trailers and `http.ResponseController` behave as without the middleware. But a stream's context is cancelled at the deadline, so long-lived streams (server-sent events) belong on routes without a timeout.
