@@ -30,9 +30,9 @@
 // Each identifier shows the release it arrived in, from the API listings of
 // each release frozen in since/<version>/. Curated text for a package goes in
 // overlay/methods/<slug>.md. It needs no database. Without -write it checks
-// the pages and fails on an exported identifier without a doc comment, and
-// on a function, type or method added since the last release without an
-// Example function:
+// the pages and fails on an exported identifier without a doc comment, on
+// a function, type or method added since the last release without an
+// Example function, and on a page docs/docs.json doesn't list:
 //
 //	go run -C internal/tools/refdocs . -methods          # check (CI)
 //	go run -C internal/tools/refdocs . -methods -write   # after changing exported API or its doc comments

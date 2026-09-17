@@ -133,6 +133,11 @@ func runMethodsWith(root string, since sinceIndex, write bool, out io.Writer) er
 			}
 		}
 	}
+	unlisted, err := unlistedPages(root, pages)
+	if err != nil {
+		return err
+	}
+	problems = append(problems, unlisted...)
 	for _, p := range problems {
 		fmt.Fprintln(out, p)
 	}
@@ -143,6 +148,27 @@ func runMethodsWith(root string, since sinceIndex, write bool, out io.Writer) er
 		fmt.Fprintf(out, "refdocs: %d Methods pages match the library\n", len(pages))
 	}
 	return nil
+}
+
+// unlistedPages reports pages the Methods tab of docs/docs.json doesn't list,
+// so a new package gets a page in the navigation. Without docs/docs.json
+// there is nothing to check.
+func unlistedPages(root string, pages []page) ([]string, error) {
+	nav, err := os.ReadFile(filepath.Join(root, "docs", "docs.json")) //nolint:gosec // a fixed file under the repository
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, p := range pages {
+		source := methodsDir + "/" + p.file
+		if !bytes.Contains(nav, []byte(`"source": "`+source+`"`)) {
+			out = append(out, fmt.Sprintf("docs/docs.json: %s isn't in the Methods tab; add a page with \"source\": %q", source, source))
+		}
+	}
+	return out, nil
 }
 
 // loadLibrary parses every public library package under root, sorted by

@@ -176,6 +176,72 @@
         }
       ]
     },
+    {
+      "name": "Methods",
+      "groups": [
+        {
+          "name": "Methods",
+          "pages": [{ "title": "All packages", "slug": "methods", "source": "docs/methods/index.md" }]
+        },
+        {
+          "name": "Core",
+          "pages": [
+            { "title": "actor", "slug": "methods/actor", "source": "docs/methods/actor.md" },
+            { "title": "app", "slug": "methods/app", "source": "docs/methods/app.md" },
+            { "title": "audit", "slug": "methods/audit", "source": "docs/methods/audit.md" },
+            { "title": "buildinfo", "slug": "methods/buildinfo", "source": "docs/methods/buildinfo.md" },
+            { "title": "config", "slug": "methods/config", "source": "docs/methods/config.md" },
+            { "title": "health", "slug": "methods/health", "source": "docs/methods/health.md" },
+            { "title": "httpx", "slug": "methods/httpx", "source": "docs/methods/httpx.md" },
+            { "title": "mail", "slug": "methods/mail", "source": "docs/methods/mail.md" },
+            { "title": "page", "slug": "methods/page", "source": "docs/methods/page.md" },
+            { "title": "ratelimit", "slug": "methods/ratelimit", "source": "docs/methods/ratelimit.md" },
+            { "title": "requestid", "slug": "methods/requestid", "source": "docs/methods/requestid.md" }
+          ]
+        },
+        {
+          "name": "Modules",
+          "pages": [
+            { "title": "modules/auditpg", "slug": "methods/modules-auditpg", "source": "docs/methods/modules-auditpg.md" },
+            { "title": "modules/auth", "slug": "methods/modules-auth", "source": "docs/methods/modules-auth.md" },
+            { "title": "modules/auth/passkey", "slug": "methods/modules-auth-passkey", "source": "docs/methods/modules-auth-passkey.md" },
+            { "title": "modules/auth/passkey/passkeytest", "slug": "methods/modules-auth-passkey-passkeytest", "source": "docs/methods/modules-auth-passkey-passkeytest.md" },
+            { "title": "modules/auth/social", "slug": "methods/modules-auth-social", "source": "docs/methods/modules-auth-social.md" },
+            { "title": "modules/auth/social/socialtest", "slug": "methods/modules-auth-social-socialtest", "source": "docs/methods/modules-auth-social-socialtest.md" },
+            { "title": "modules/devconsole", "slug": "methods/modules-devconsole", "source": "docs/methods/modules-devconsole.md" },
+            { "title": "modules/flags", "slug": "methods/modules-flags", "source": "docs/methods/modules-flags.md" },
+            { "title": "modules/idempotency", "slug": "methods/modules-idempotency", "source": "docs/methods/modules-idempotency.md" },
+            { "title": "modules/jobs", "slug": "methods/modules-jobs", "source": "docs/methods/modules-jobs.md" },
+            { "title": "modules/mail/resend", "slug": "methods/modules-mail-resend", "source": "docs/methods/modules-mail-resend.md" },
+            { "title": "modules/mail/smtp", "slug": "methods/modules-mail-smtp", "source": "docs/methods/modules-mail-smtp.md" },
+            { "title": "modules/mail/suppressionpg", "slug": "methods/modules-mail-suppressionpg", "source": "docs/methods/modules-mail-suppressionpg.md" },
+            { "title": "modules/observability", "slug": "methods/modules-observability", "source": "docs/methods/modules-observability.md" },
+            { "title": "modules/openapi", "slug": "methods/modules-openapi", "source": "docs/methods/modules-openapi.md" },
+            { "title": "modules/openapi/reference", "slug": "methods/modules-openapi-reference", "source": "docs/methods/modules-openapi-reference.md" },
+            { "title": "modules/orgs", "slug": "methods/modules-orgs", "source": "docs/methods/modules-orgs.md" },
+            { "title": "modules/postgres", "slug": "methods/modules-postgres", "source": "docs/methods/modules-postgres.md" },
+            { "title": "modules/postgres/pgtest", "slug": "methods/modules-postgres-pgtest", "source": "docs/methods/modules-postgres-pgtest.md" },
+            { "title": "modules/ratelimitpg", "slug": "methods/modules-ratelimitpg", "source": "docs/methods/modules-ratelimitpg.md" },
+            { "title": "modules/releases", "slug": "methods/modules-releases", "source": "docs/methods/modules-releases.md" },
+            { "title": "modules/settings", "slug": "methods/modules-settings", "source": "docs/methods/modules-settings.md" },
+            { "title": "modules/storage", "slug": "methods/modules-storage", "source": "docs/methods/modules-storage.md" },
+            { "title": "modules/storage/local", "slug": "methods/modules-storage-local", "source": "docs/methods/modules-storage-local.md" },
+            { "title": "modules/storage/logarchive", "slug": "methods/modules-storage-logarchive", "source": "docs/methods/modules-storage-logarchive.md" },
+            { "title": "modules/storage/s3", "slug": "methods/modules-storage-s3", "source": "docs/methods/modules-storage-s3.md" },
+            { "title": "modules/telemetry", "slug": "methods/modules-telemetry", "source": "docs/methods/modules-telemetry.md" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Examples",
+      "groups": [
+        {
+          "name": "Examples",
+          "pages": [{ "title": "Overview", "slug": "examples", "source": "docs/examples/index.md" }]
+        }
+      ]
+    },
     { "name": "API reference", "slug": "api-reference", "generate": "openapi", "source": "examples/full-multi/api/openapi.json" },
     { "name": "Decisions", "slug": "decisions", "generate": "decisions", "source": "docs/adr" },
     {

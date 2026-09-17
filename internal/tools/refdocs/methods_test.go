@@ -352,6 +352,18 @@ func TestRunMethodsWriteThenCheck(t *testing.T) {
 		t.Fatalf("check after writing: %v\n%s", err, &out)
 	}
 
+	nav := filepath.Join(root, "docs", "docs.json")
+	if err := os.WriteFile(nav, []byte(`{ "source": "docs/methods/index.md" }`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if err := runMethodsWith(root, testSince, false, &out); err == nil || !strings.Contains(out.String(), "docs/docs.json: docs/methods/widget.md isn't in the Methods tab") {
+		t.Fatalf("check with a page missing from docs.json: err = %v, output:\n%s", err, &out)
+	}
+	if err := os.Remove(nav); err != nil {
+		t.Fatal(err)
+	}
+
 	pagePath := filepath.Join(root, methodsDir, "widget.md")
 	if err := os.WriteFile(pagePath, []byte("edited\n"), 0o644); err != nil {
 		t.Fatal(err)
