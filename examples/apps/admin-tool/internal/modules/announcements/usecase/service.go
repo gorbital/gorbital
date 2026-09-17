@@ -23,9 +23,13 @@ import (
 // names are public API.
 const PermWrite = "announcements.announcement.write"
 
-// ActionPublished is the audit action of a published announcement, public
-// API: add new actions, never rename.
-const ActionPublished = "announcements.announcement.published"
+// The audit actions of the announcements module, public API: add new
+// actions, never rename. Operators find them in GET /ops/audit under the
+// action_prefix announcements..
+const (
+	ActionPublished = "announcements.announcement.published"
+	ActionWithdrawn = "announcements.announcement.withdrawn"
+)
 
 // MaxList is the most announcements ListAnnouncements returns.
 const MaxList = 50
@@ -80,8 +84,8 @@ func publisherID(ctx context.Context) (string, error) {
 
 // audit records an event after the change it describes; a failed audit
 // write is logged, not returned. The recorder adds the actor and request.
-func (s *Service) audit(ctx context.Context, action, id string) {
-	e := audit.Event{Action: action, ResourceType: "announcement", ResourceID: id, Outcome: audit.OutcomeSuccess}
+func (s *Service) audit(ctx context.Context, action, id string, metadata map[string]any) {
+	e := audit.Event{Action: action, ResourceType: "announcement", ResourceID: id, Outcome: audit.OutcomeSuccess, Metadata: metadata}
 	if err := s.recorder.Record(context.WithoutCancel(ctx), e); err != nil {
 		s.logger.ErrorContext(ctx, "record announcements audit event", "action", action, "err", err)
 	}

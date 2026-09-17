@@ -18,6 +18,17 @@ import (
 	"example.com/admin-tool/internal/modules/announcements/usecase"
 )
 
+// docs:start role
+
+// RoleEditor is the platform role of staff who publish announcements
+// without operating the app: it holds the module's write permission and
+// nothing else. main.go grants it only to sessions with a second factor
+// (authhttp.RequireMFA); an operator gives it to an account with
+// go run ./cmd/api grant-role <email> announcements_editor.
+const RoleEditor = "announcements_editor"
+
+// docs:end role
+
 // docs:start module
 
 // Module returns the announcements module. main.go adds it with every other
@@ -37,11 +48,13 @@ func Module() gorbital.Module {
 			{Err: domain.ErrBodyRequired, Status: http.StatusUnprocessableEntity, Code: "body_required", Detail: "an announcement needs a body of up to 5000 characters"},
 			{Err: domain.ErrInvalidEndsAt, Status: http.StatusUnprocessableEntity, Code: "invalid_ends_at", Detail: "ends_at must be in the future"},
 			{Err: domain.ErrTooManyAnnouncements, Status: http.StatusConflict, Code: "too_many_announcements", Detail: "as many announcements are active as allowed; wait for one to end"},
+			{Err: domain.ErrAnnouncementNotFound, Status: http.StatusNotFound, Code: "announcement_not_found", Detail: "no announcement has this ID; it may already have been withdrawn"},
+			{Err: domain.ErrReasonRequired, Status: http.StatusUnprocessableEntity, Code: "withdrawal_reason_required", Detail: "withdrawing an announcement needs a reason, which the audit log keeps"},
 		},
 		// docs:end errors
 		// docs:start permissions
 		Permissions: []gorbital.Permission{
-			{Name: usecase.PermWrite, Description: "Publish announcements customers see", Roles: []string{"platform_admin"}},
+			{Name: usecase.PermWrite, Description: "Publish and withdraw announcements customers see", Roles: []string{"platform_admin", RoleEditor}},
 		},
 		// docs:end permissions
 		// docs:start settings-and-flags
