@@ -27,6 +27,82 @@ created acme-api
 
 Start it with `orb dev`. Seed data creates `admin@example.com` with a personal workspace holding three example projects, so `GET /v1/orgs` and `GET /v1/orgs/{orgId}/projects` return data straight away.
 
+## In an app on gorbital.Main
+
+Organisations are one line of `main.go`, with the app's sign-in passed to them. The code is in the library, `gorbital.dev/gorbital/orgshttp` ([Methods](../methods/gorbital-orgshttp.md)), not in your app:
+
+```go cmd/api/main.go
+func main() {
+	auth := authhttp.New()
+	gorbital.Main(
+		gorbital.WithAuth(auth),
+		gorbital.WithModules(opshttp.Module(), orgshttp.Module(auth)), // organisations need the app's sign-in
+		gorbital.WithModules(modules.All()...),
+		gorbital.WithMigrations(migrations.FS),
+	)
+}
+```
+
+It is full-multi's `internal/modules/orgs` moved into the library, with v0.1's paths under `/v1/orgs` and `/v1/invitations`, operation IDs, schemas, error codes, audit actions, permissions and roles, the `orgs.*` settings, the `orgs_purge` job, and its two migrations under the versions v0.1 apps hold them under, so a database migrated by a v0.1 multi-tenant app migrates as a no-op. Contract tests compare the whole app's OpenAPI and public names with full-multi's frozen v0.1.0 contract. `orgshttp.Module(auth)` also:
+
+- gives every new account its personal workspace, and handles account deletion (409 `sole_owner`), through `authhttp`;
+- serves organisations' service accounts under `/v1/orgs/{orgId}/service-accounts`, which sign-in stores and authenticates;
+- lists `deleted_organisations` in `/ops/retention` and the `orgs_invitations` limiter in `/ops/auth/rate-limits`.
+
+`gorbital.New` refuses to start when `auth` isn't the authenticator given to `WithAuth`. Invitation emails carry the app's name and `APP_PUBLIC_URL`; pass the same `mail.Brand` to `authhttp.Brand` and `orgshttp.Brand` to change both.
+
+### Organisation-scoped modules
+
+Your modules scope routes to an organisation with [`guard.OrgMember`](../methods/gorbital-guard.md#OrgMember) and declare organisation permissions with `OrgRoles`. `orb gen module --org` writes such a module ([Generating code](../guides/generating-code.md)):
+
+```go internal/modules/invoices/module.go
+Permissions: []gorbital.Permission{
+	{Name: usecase.PermRead, Description: "See invoices", OrgRoles: []string{"owner", "admin", "member"}},
+	{Name: usecase.PermWrite, Description: "Create, change and delete invoices", OrgRoles: []string{"owner", "admin"}},
+},
+```
+
+```go internal/modules/invoices/delivery/routes.go
+invoices := r.Group("/v1/orgs/{orgId}/invoices", gorbital.Tags("Invoices"))
+gorbital.Get(invoices, "/{id}", h.getInvoice, guard.OrgMember(usecase.PermRead))
+gorbital.Post(invoices, "", h.createInvoice, guard.OrgMember(usecase.PermWrite))
+```
+
+The guard runs before the request's body is read. It asks organisations whether the caller is a member of `{orgId}` whose role grants the permission, on every request, with the semantics of `orgs.RequireMember`:
+
+| Caller | Answer |
+|---|---|
+| Not a member, or the organisation is deleted, doesn't exist or has a malformed ID | 404 `org_not_found`, the same for all four |
+| A member whose role doesn't grant the permission | 403 `forbidden` |
+| A member whose role grants it only with a second factor, without one or with an API key | 403 `mfa_required` |
+| A member's API key | The role's permissions, limited to the key's scopes |
+| A service account of the organisation, with its key | Its role's permissions, limited to the key's scopes; never another organisation's routes |
+
+Then the actor acts in the organisation: `actor.Actor.OrgID` is set and its permissions are the role's, so audit events record the organisation, and the request's database connections carry it (`postgres.WithOrg`) for [row-level security](../guides/row-level-security.md#in-an-app-on-gorbitalmain). Platform roles grant nothing inside an organisation. Registration fails for a route without `{orgId}` in its path or with `guard.Public()`, and `gorbital.New` fails when routes use the guard and the app has no `orgshttp.Module`.
+
+A permission with `OrgRoles` is declared in the organisation catalog, not the platform's: no platform role holds it, and the `roles` command doesn't list it. A role name you use that isn't `owner`, `admin` or `member` becomes an organisation role, such as `billing`; nobody gives it unless their own role holds every permission it grants, as in v0.1.
+
+The guard replaces the `orgs.RequireMember` call at the start of each use case in v0.1's generated resources. Keep `org_id` in every query anyway: the guard checks who may act in the organisation, the query decides which rows belong to it.
+
+In tests, `gorbitaltest.App.SignUp` creates real accounts, whose personal workspaces are organisations ([Testing with gorbitaltest](../guides/testing-with-gorbitaltest.md)):
+
+```go
+auth := authhttp.New()
+app := gorbitaltest.NewWithEnv(t, map[string]string{"AUTH_ENCRYPTION_KEYS": authlib.NewKeyringKey("test")},
+	gorbital.WithAuth(auth), gorbital.WithModules(orgshttp.Module(auth), invoices.Module()), gorbital.WithMigrations(migrations.FS))
+ada, _ := app.SignUp(t, "ada@example.com")
+bob, _ := app.SignUp(t, "bob@example.com")
+// ada's personal workspace from GET /v1/orgs, then:
+bob.Get("/v1/orgs/" + adaWorkspace + "/invoices").AssertProblem(t, http.StatusNotFound, "org_not_found")
+```
+
+What differs from a v0.1 app:
+
+- A request without credentials to an organisation operation gets 401 before its body is parsed, where v0.1 answered 422 to an invalid body first.
+- The organisation settings operations answer `setting_not_found`, `setting_version_conflict`, `setting_reason_required` and `invalid_setting_value` themselves, so they work without `opshttp`.
+- The dev console doesn't preview the invitation email yet.
+- There is no `seed` command: create data through the API, or with SQL in your own command.
+
 ## Roles
 
 Every member has exactly one role.
@@ -39,7 +115,7 @@ Every member has exactly one role.
 
 - Nobody gives, changes or removes a role that grants a permission their own role doesn't, and only owners manage owners. Roles are compared by their permissions, not their names, so a role you add can't be used to climb: an admin can't give anyone a role that may delete the organisation.
 - The last owner can't leave, be demoted or be removed (409 `last_owner`). Promote another member to owner first.
-- Add roles for your product, such as a read-only viewer, in `declareOrgPermissions` in `internal/app/permissions.go`.
+- Add roles for your product, such as a read-only viewer, in `declareOrgPermissions` in `internal/app/permissions.go`, or in an app on `gorbital.Main` by naming them in a permission's `OrgRoles`.
 
 ## Personal workspaces
 

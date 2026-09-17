@@ -65,7 +65,7 @@ gorbital.Main(
 | Where | What's in it |
 |---|---|
 | `gorbital.dev/gorbital/authhttp` | `New`, the `Authenticator` (its middleware, `Module`, `Commands`, `CheckConfig` and `Setup`), permissions and roles, runtime settings, rate limiters, the `auth_cleanup` and `auth_revoke_tokens` jobs, configuration checks |
-| `gorbital/authhttp/internal/{domain,usecase,repository,delivery}` | The auth module of a v0.1 app, moved unchanged: the 74 operations under `/v1/auth/*`, `/ops/auth/users/*` and `/ops/service-accounts/*`, plus organisations' service accounts, kept for Phase 7 |
+| `gorbital/authhttp/internal/{domain,usecase,repository,delivery}` | The auth module of a v0.1 app, moved unchanged: the 74 operations under `/v1/auth/*`, `/ops/auth/users/*` and `/ops/service-accounts/*`, plus organisations' service accounts under `/v1/orgs/{orgId}/service-accounts`, which [`orgshttp`](../start/organisations.md#in-an-app-on-gorbitalmain) mounts |
 | `gorbital/authhttp/internal/migrations` | The same migrations, under the versions v0.1 apps hold them under: a database migrated by a v0.1 app migrates as a no-op |
 | `gorbital.dev/modules/auth` | The building blocks, as in a v0.1 app |
 

@@ -399,7 +399,7 @@ func TestServiceAccountKeyScopes(t *testing.T) {
 // postgres.WithoutRowLevelSecurity outside tests in the repository: each is
 // a system path reviewed in ADR-0061 or ADR-0083, and the first connection
 // each acquires is logged with its reason (modules/postgres
-// TestWithoutRowLevelSecurity). Request paths, guard.OrgMember and the
+// TestRowLevelSecurityFollowsTheContext). Request paths, guard.OrgMember and the
 // organisations module never bypass the policies.
 func TestRowLevelSecurityBypassesAreKnown(t *testing.T) {
 	allowed := map[string]int{

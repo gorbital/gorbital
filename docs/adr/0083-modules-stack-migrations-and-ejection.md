@@ -609,6 +609,85 @@ A module whose `Module` takes arguments isn't listed by `orb gen modules` (it re
 - Service accounts aren't user accounts: `OnRegister` doesn't run for them.
 - `AfterLogin` hooks that ignore their context outlive the response.
 
+## Phase 7 implementation notes: organisations and tenancy (2026-09-17)
+
+Full-multi's generated `internal/modules/orgs` moved into `gorbital.dev/gorbital/orgshttp`, with a guard for app modules scoped by organisation. Items 71–75 are in the [roadmap](../v0.2-roadmap.md#phase-7-organisations-and-tenancy). A v0.1 app, which doesn't link `orgshttp`, sees nothing.
+
+### Layout and public surface
+
+| Path | Holds |
+|---|---|
+| `orgshttp/orgshttp.go`, `module.go` | `Module(auth *authhttp.Authenticator, opts ...Option)`, `Option`, `Brand`; what full-multi's `internal/app` did for organisations: `module_orgs.go` (error mappings), `permissions.go` (`declareOrgPermissions` and the two platform permissions), `settings.go` (`orgs.*`), `job_orgs_purge.go`, `orgs_hooks.go`, `orgs_service_accounts.go`, the `deleted_organisations` retention row and the `orgs_invitations` limiter |
+| `orgshttp/internal/{domain,usecase,repository,delivery}`, `internal/jobs/orgspurge` | The golden module's layers and job, unchanged except import paths, doc comments naming where declarations live, route registration (`operation.Register`) and the settings problems (below). The first commit of the phase copies them unchanged |
+| `orgshttp/internal/migrations` | `00001_orgs.sql` and `00002_settings_org_purge.sql`, byte for byte full-multi's, declared under `20260916000001` and `20260918000002` |
+
+Added elsewhere:
+
+| Where | Added | For |
+|---|---|---|
+| `gorbital` | `Permission.OrgRoles`, `Declarations.OrgPermissions`, `OrgGrants`; `Platform.OrgPermissions` (the organisation catalog, unfrozen) and `Platform.Authenticator`; `OrgAuthorizer` and `Platform.SetOrgAuthorizer` | Organisation permissions declared by any module; the guard's source of memberships |
+| `guard` | `OrgMember(permission)` | Item 72 |
+| `authhttp` | `Organisations`, `(*Authenticator).UseOrganisations`, `(*Authenticator).OrgServiceAccountRoutes` | Account hooks and organisations' service accounts (Phase 5 moved them but didn't mount them) |
+| `gorbitaltest` | `(*App).SignUp`, `SignUpPassword` | Tests with real accounts, which organisations need (`org_members` references `auth_users`) |
+
+### How organisations reach sign-in, and sign-in organisations
+
+Sign-in and organisations depend on each other at run time: members are accounts, a new account gets a personal workspace, deleting an account checks and changes organisations, and organisations' service accounts are stored and authenticated by sign-in but managed by owners and admins. In v0.1 the app wired both directions (`orgsHooks`, `orgAccess`). `gorbital` imports neither module.
+
+| Option | Verdict |
+|---|---|
+| `orgshttp.Module(opts...)` finding sign-in through `Platform` | Rejected: `Platform` isn't built when the OpenAPI document is exported, so the service account operations would be missing from the document; and a lookup hides the dependency |
+| `authhttp` mounting organisations' service accounts when told by an option such as `authhttp.Organisations(orgs)` | Rejected: `main.go` would build and pass two values in two places, and `orgshttp` still needs sign-in for its foreign key and hooks |
+| Relocating the service account operations into `orgshttp` | Rejected: they are sign-in's use cases, SQL and API keys; `orgshttp` can't import `authhttp/internal`, and duplicating them is what the phase must not do |
+| **`orgshttp.Module(auth, opts...)` takes the authenticator, as Phase 6's modules do; `authhttp` exports the `Organisations` interface, `UseOrganisations` and `OrgServiceAccountRoutes`** | **Chosen**: explicit in `main.go`, typed, and the service account operations stay sign-in's code, registered in the organisations module's routes. `Module.Platform` checks `auth` is `Platform.Authenticator` (a configuration error otherwise), builds the use cases and calls `UseOrganisations`; sign-in's use cases get adapters that ask whatever is connected, so `Setup`'s order doesn't matter, and without organisations they behave as Phase 5's (hooks do nothing, organisation service accounts are 404) |
+
+The roadmap's `orgshttp.Module(opts...)` became `Module(auth, opts...)` for these reasons.
+
+### `guard.OrgMember`
+
+| Decision | Why |
+|---|---|
+| The guard asks an `OrgAuthorizer` the app has one of, set by the organisations module from `Module.Platform`; `SetOrgAuthorizer` refuses a second one | A guard is built when routes are declared, without `Deps`; memberships and the organisation catalog are the organisations module's. A registry field resolved at registration (like rate limits) keeps guards plain route options |
+| `route.Guard.Org` is resolved by the router instead of a `Check` function | A guard's `Check` returns only an error; this guard must also pass on a new context (`huma.WithContext`) acting in the organisation, with `postgres.WithOrg` |
+| Semantics are `orgs.RequireMember`'s on members and the organisation's enabled service accounts (`Service.Memberships`), and the refusals are v0.1's problems with v0.1's details (`org_not_found` 404, `forbidden` and `mfa_required` 403), written by the guard | Identical answers to v0.1's use-case check; the guard doesn't depend on the module's error mappings being mounted |
+| Malformed IDs answer `org_not_found` without asking the authorizer | They can't be anyone's organisation; timing reveals only that an ID is malformed, never whether a well-formed one exists |
+| An authorizer returning a context that doesn't act in the path's organisation is a 500 | The guard can't let a buggy authorizer attach another organisation's scope to the connection |
+| Registration fails for a path without `{orgId}` or a public route; `New` fails when routes use the guard and no module authorizes organisations | A misconfigured guard must not start, and must never answer as if a membership check had passed. Mounted by hand with `gorbital.Mount`, the guard answers 500 |
+| The organisations module's own operations keep their use-case checks rather than the guard | `POST /v1/orgs/{orgId}/restore` works on deleted organisations, which `Memberships` doesn't return, and the other operations lock the organisation and check the role again under the lock (security review ORG-4); moving them would change v0.1's order of responses for nothing |
+| `OrgRoles` on `gorbital.Permission`, declared in a second catalog (`Platform.OrgPermissions`) with owner, admin and member first and v0.1's descriptions | Generated modules declare their organisation permissions on their `Module`, as platform ones; v0.1's `orb:anchor org-permissions` edit of `permissions.go` has no place in an app on `gorbital.Main`. A permission can't have both `Roles` and `OrgRoles`, so an organisation role name never becomes a platform role |
+
+### Behaviour kept, and the differences
+
+The golden app's organisation HTTP tests (organisations end to end, API keys and organisations, idempotency keys across organisations, organisations' service accounts, organisation settings and flags, row-level security) run against an app on `gorbital.New` with `authhttp`, `opshttp`, `flagshttp` and `orgshttp`, with the example projects module replaced by an organisation-scoped module guarded by `guard.OrgMember`. The golden use-case tests run against the moved layers. `gorbital/internal/integration` checks the multi-tenant app against full-multi's frozen v0.1.0 OpenAPI (compatible under `/v1/auth/`, `/ops/`, `/v1/flags`, `/v1/webhooks/resend`, `/v1/orgs` and `/v1/invitations`; each of the 156 operations and every schema they reference as in v0.1.0 but for `x-gorbital-guards`) and surface (error codes, audit actions, platform and organisation roles with v0.1's grants, settings, jobs, `/ops/retention`'s ten rows in order).
+
+| Difference | Why |
+|---|---|
+| A request without credentials gets 401 before its body is parsed | Deny by default (ADR-0082), as for `/ops` in Phase 4 |
+| The anonymous body schema of `POST /v1/orgs` is `CreateInputBody`, not `CreateInputBody1` | Huma numbers anonymous body schemas in registration order; in full-multi the example projects module registered `CreateInputBody` first. The name depends on the app's modules in v0.1 too; the content is identical |
+| Organisation settings operations answer `setting_not_found`, `setting_version_conflict`, `setting_reason_required` and `invalid_setting_value` as problems of their own | v0.1 relied on the ops module's mappings; an app on `gorbital.Main` may not mount `opshttp`, and mapping the same errors twice fails `New` |
+| `orgs_invitations` is listed in `/ops/auth/rate-limits` | v0.1 created the limiter without listing it; operators can now reset it |
+| No preview of the invitation email in the dev console, no `seed` command | Previews are added through `AuthSetup`, which only the authenticator receives; `Main` has no seed command (Phase 5) |
+
+### Threat model: Phase 7
+
+| Threat | Mitigation | Proven by |
+|---|---|---|
+| **Cross-tenant access through path IDs**: a member of one organisation, their API key or a service account of their organisation sends another organisation's `{orgId}`, or a resource ID of another organisation under their own | Every operation under `/v1/orgs/{orgId}` checks membership on every request (the guard or `orgs.RequireMember`) before touching the organisation's rows, and answers exactly as for an organisation that doesn't exist; queries filter on `org_id` from the path the check authorized, so a resource ID of another organisation is `<resource>_not_found`; a service account's key reaches only the organisation its principal names | `TestEveryOrganisationRouteRefusesOtherOrganisations` (every `{orgId}` operation of the document, as another organisation's owner, API key and service account, compared with unknown and malformed IDs, and nothing changed in the target), `TestOrganisationsCantReachEachOthersServiceAccounts`, `…Settings`, `…Flags`, `TestOrgMember` |
+| **Probing which organisations exist** | 404 `org_not_found` with one detail for deleted, unknown, malformed and foreign organisations; operations that need a session refuse API keys before looking at the organisation | `TestEveryOrganisationRouteRefusesOtherOrganisations` |
+| **A guard that fails open** | Authorizer errors other than the four refusals are 500; a context not acting in the path's organisation is 500; no authorizer fails `New`, and by hand answers 500 | `TestOrgMember`, `TestOrgMemberNeedsOrganisations`, `TestOrgMemberWithoutAnApp` |
+| **RLS bypass paths** | `postgres.WithoutRowLevelSecurity` needs a reason, is logged on its first connection and is called in one place outside tests, `postgres.Migrate`; requests, the guard, `orgshttp` and the purge never bypass (the purge deletes through `ON DELETE CASCADE`); the guard sets `postgres.WithOrg` for the handler's connections; startup warns about a role with `BYPASSRLS`, unforced tables and organisation tables without a policy | `TestRowLevelSecurityBypassesAreKnown` (every call in the repository), `TestRowLevelSecurity` (requests, settings, purge and migrations as a role without `BYPASSRLS`, a query without `org_id` seeing one organisation, a forged insert refused), `TestRowLevelSecurityCoversOrganisationTables`, `modules/postgres` `TestRowLevelSecurityFollowsTheContext` (the bypass logged once with its reason) and `TestWithoutRowLevelSecurityNeedsAReason` |
+| **Invitation token handling** | 256 bits from `crypto/rand` in the URL fragment of the email only, never in responses, rows or audit events (SHA-256 hash, unique index, constant-time comparison under the lock); single use; valid while pending, for the invited verified address, and while the inviter may still give the role; resending replaces the token; every unusable token (unknown, used, revoked, expired, replaced, empty) gets the same 404 `invitation_not_found`; a forwarded link gets 403 only while pending, which reveals nothing to someone without the token; API keys can't accept | `TestInvitationTokens`, `TestOrganisationsEndToEnd`, `TestAPIKeysAndOrganisations`, the use-case tests |
+| **Organisation service account key scoping** | A service account's key holds its role's permissions in its own organisation only, limited to the key's scopes, never an owner role or one requiring a second factor, never organisation management (`session_required`) or platform APIs; disabling or deleting the organisation stops its keys; purging removes the accounts and keys | `TestServiceAccountKeyScopes`, `TestOrganisationsCantReachEachOthersServiceAccounts` |
+| **Role escalation** | Roles compared by permissions: nobody gives, changes or removes a role granting a permission their own role doesn't, only owners manage owners, the last owner stays, service accounts can't get owner or a role above the creator's; roles app modules add through `OrgRoles` follow the same rule; organisation roles never become platform roles | `TestRoleEscalation` (with a module's `billing` role), `TestOrganisationsEndToEnd`, the use-case review tests |
+| **Schema drift in a released database** | Migrations byte for byte full-multi's under the same versions | `TestModuleMigrationsMatchV01App`, `TestMigrateOnV01DatabaseIsNoOp` |
+| **The wrong authenticator connected** | `orgshttp`'s `Platform` refuses an `auth` that isn't `Platform.Authenticator` (exit 2) | Code review; `orgshttp.Module` documentation |
+
+### Known gaps
+
+- `orb add rls` needs a v0.1 multi-tenant app's `gorbital.lock`; apps on `gorbital.Main` add the policy migration by hand (the invoicing recipe shows it) until `orb new` writes the new layout (Phase 9).
+- The dev console doesn't preview the invitation email; `Main` has no seed command.
+- `orgshttp` requires `authhttp`: an app with another authenticator (such as `modules/jwt`) has no built-in organisations.
+
 ## Why
 
 - A `Module` value keeps each module's declarations next to its code, and removes the four edits of v0.1.

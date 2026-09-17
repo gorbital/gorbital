@@ -9,6 +9,17 @@ orb add rls
 go run ./cmd/migrate
 ```
 
+## In an app on gorbital.Main
+
+Everything below holds in an app built with `gorbital.Main` and [`orgshttp`](../start/organisations.md#in-an-app-on-gorbitalmain), with two differences:
+
+- **The organisation comes from the guard.** [`guard.OrgMember`](../methods/gorbital-guard.md#OrgMember) sets the actor's organisation and `postgres.WithOrg` before the handler runs, so every query the handler and its use cases run carries the organisation of the path they were authorized for. The organisations module's own use cases set it through `orgs.RequireMember`, as in v0.1.
+- **The policies are a migration you add.** `orb add rls` needs the `gorbital.lock` of an app created with `orb new --tenancy multi`, which apps on `gorbital.Main` don't have yet. Add a migration to `db/migrations`, under a version after your latest one, with the `DO` block a multi-tenant v0.1 app keeps in `db/row_level_security.sql` (the [invoicing recipe](../examples/recipes/multi-tenant-invoicing.md) shows it); it protects every table with `org_id NOT NULL` except `org_members` and `org_invitations`, the organisations module's own. Modules generated afterwards with `orb gen module --org` carry the policy in their own migration.
+
+`gorbital.New` logs the same warnings at start as a v0.1 app (a role that bypasses the policies, tables not forced, organisation tables without a policy), and `migrate --status` works as `cmd/migrate --status` did.
+
+Only one path in the library bypasses the policies: `postgres.Migrate`, for migrations. Requests, `guard.OrgMember`, the organisations module and the `orgs_purge` job never do; the purge removes an organisation's rows through `ON DELETE CASCADE`. A test lists every call to `postgres.WithoutRowLevelSecurity` in the repository, so a new one needs a review ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#threat-model-phase-7)).
+
 ## How it works
 
 <div class="steps">
