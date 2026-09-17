@@ -143,6 +143,8 @@ func ParseTrustedProxies(list string) ([]netip.Prefix, error)
 
 ParseTrustedProxies reads a comma-separated list of CIDR ranges or single addresses, such as "10.0.0.0/8, 192.0.2.10". An empty list trusts nothing. It refuses ranges covering every IPv4 or IPv6 address ([ErrTrustAll](#ErrTrustAll)).
 
+An IPv4-mapped IPv6 entry, such as "::ffff:10.0.0.5" or "::ffff:10.0.0.0/104", is read as the IPv4 range it names, because the addresses it is compared with are unmapped. One shorter than /96 mixes the two families and is refused: netip would re-base it on a range the operator never wrote ("::ffff:10.0.0.0/8" masks to "::/8", which covers ::1).
+
 *Since `v0.1.0`*
 
 <a id="WriteProblem"></a>
@@ -751,6 +753,8 @@ func TrustedProxies(trusted []netip.Prefix) Middleware
 TrustedProxies sets each request's RemoteAddr to its client's address when it arrives through trusted proxies (ADR-0052). For a request whose peer is in trusted, it walks X-Forwarded-For from the right, skips trusted addresses, and uses the first untrusted one. Requests from other peers keep their address and their forwarding headers are ignored, so clients can't choose their IP. With no trusted ranges it changes nothing.
 
 Install it first, after recovery, so logs, audit events and rate limits see the client.
+
+It canonicalises the ranges as [ParseTrustedProxies](#ParseTrustedProxies) does, and skips one that can't be: build the list with ParseTrustedProxies, which reports those as errors, rather than passing prefixes straight in.
 
 *Since `v0.1.0`*
 
