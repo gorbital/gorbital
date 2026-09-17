@@ -13,6 +13,7 @@ import (
 
 	"gorbital.dev/config"
 	"gorbital.dev/httpx"
+	"gorbital.dev/httpx/ipfilter"
 	"gorbital.dev/modules/devconsole"
 	"gorbital.dev/modules/storage/logarchive"
 )
@@ -342,9 +343,9 @@ func LoadConfig(src config.Source) (Config, error) {
 	} else {
 		cfg.TrustedCallers = callers
 	}
-	if allowed, err := httpx.ParsePrefixes(get("OPS_ALLOWED_IPS")); err != nil {
+	if allowed, err := ipfilter.ParsePrefixes(get("OPS_ALLOWED_IPS")); err != nil {
 		errs = append(errs, fmt.Errorf("OPS_ALLOWED_IPS: %w", err))
-	} else if _, err := httpx.IPFilter(allowed, nil); err != nil {
+	} else if _, err := ipfilter.New(allowed, nil); err != nil {
 		errs = append(errs, fmt.Errorf("OPS_ALLOWED_IPS: %w", err))
 	} else {
 		cfg.OpsAllowedIPs = allowed

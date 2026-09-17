@@ -38,7 +38,7 @@ type Stack struct {
 	AccessLog func(http.Handler) http.Handler
 	// Timeout answers 503 request_timeout when a handler hasn't started its
 	// response within APP_REQUEST_TIMEOUT, and cancels the request's
-	// context (httpx.Timeout, ADR-0085). A route can shorten it with
+	// context (gorbital.dev/httpx/timeout, ADR-0085). A route can shorten it with
 	// [Timeout].
 	Timeout func(http.Handler) http.Handler
 	// SecureHeaders sets security headers, and HSTS in production

@@ -25,6 +25,7 @@ import (
 	"gorbital.dev/buildinfo"
 	"gorbital.dev/health"
 	"gorbital.dev/httpx"
+	"gorbital.dev/httpx/timeout"
 	"gorbital.dev/mail"
 	"gorbital.dev/modules/auditpg"
 	"gorbital.dev/modules/auth"
@@ -454,7 +455,7 @@ func (a *App) stack(ipLimiter ratelimit.Taker, idempotencyStore *idempotency.Sto
 		Telemetry:      a.tel.HTTPMiddleware(),
 		Observability:  a.collector.Middleware(),
 		AccessLog:      httpx.AccessLog(a.logger),
-		Timeout:        httpx.Timeout(cfg.RequestTimeout),
+		Timeout:        timeout.New(cfg.RequestTimeout),
 		SecureHeaders:  httpx.SecureHeaders(httpx.SecureHeadersOptions{HSTSMaxAge: hsts}),
 		CORS:           cors,
 		CrossOrigin:    exceptCrossSitePosts(crossOrigin),

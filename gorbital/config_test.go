@@ -11,7 +11,7 @@ import (
 
 	"gorbital.dev/config"
 	"gorbital.dev/gorbital"
-	"gorbital.dev/httpx"
+	"gorbital.dev/httpx/ipfilter"
 	"gorbital.dev/modules/auth"
 )
 
@@ -292,10 +292,10 @@ func FuzzLoadConfig(f *testing.F) {
 		if cfg.MaxBodyBytes <= 0 || cfg.DBMaxConns < 1 || cfg.DBMaxConns > 1000 || cfg.JobWorkers < 1 || cfg.JobWorkers > 10_000 {
 			t.Fatalf("loaded out-of-range numbers: %+v", cfg)
 		}
-		// OPS_ALLOWED_IPS loads only ranges IPFilter accepts, masked, with
+		// OPS_ALLOWED_IPS loads only ranges ipfilter.New accepts, masked, with
 		// IPv4 as IPv4.
-		if _, err := httpx.IPFilter(cfg.OpsAllowedIPs, nil); err != nil {
-			t.Fatalf("loaded OPS_ALLOWED_IPS IPFilter refuses: %v", err)
+		if _, err := ipfilter.New(cfg.OpsAllowedIPs, nil); err != nil {
+			t.Fatalf("loaded OPS_ALLOWED_IPS ipfilter.New refuses: %v", err)
 		}
 		for _, p := range cfg.OpsAllowedIPs {
 			if p != p.Masked() || p.Addr().Is4In6() {

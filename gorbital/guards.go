@@ -20,6 +20,7 @@ import (
 
 	"gorbital.dev/gorbital/internal/route"
 	"gorbital.dev/httpx"
+	"gorbital.dev/httpx/timeout"
 	"gorbital.dev/ratelimit"
 )
 
@@ -45,9 +46,9 @@ func Use(middlewares ...func(http.Handler) http.Handler) RouteOption {
 // context deadline can only be shortened, so a longer d has no effect: raise
 // APP_REQUEST_TIMEOUT, or leave the Timeout step out with [WithStack], for
 // routes that need longer. Streaming responses that have started aren't
-// cut off (httpx.Timeout).
+// cut off (timeout.New).
 func Timeout(d time.Duration) RouteOption {
-	return Use(httpx.Timeout(d))
+	return Use(timeout.New(d))
 }
 
 // continuation carries Huma's next step through standard middleware.

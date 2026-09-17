@@ -1,6 +1,7 @@
-package httpx_test
+package ipfilter_test
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -10,18 +11,28 @@ import (
 	"testing"
 
 	"gorbital.dev/httpx"
+	"gorbital.dev/httpx/ipfilter"
 )
 
 func prefixes(t testing.TB, list string) []netip.Prefix {
 	t.Helper()
-	p, err := httpx.ParsePrefixes(list)
+	p, err := ipfilter.ParsePrefixes(list)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return p
 }
 
-func TestIPFilter(t *testing.T) {
+func problemCodeOf(t *testing.T, body []byte) string {
+	t.Helper()
+	var p struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal(body, &p)
+	return p.Code
+}
+
+func TestNew(t *testing.T) {
 	tests := []struct {
 		name       string
 		allow      string
@@ -50,7 +61,7 @@ func TestIPFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mw, err := httpx.IPFilter(prefixes(t, tt.allow), prefixes(t, tt.deny))
+			mw, err := ipfilter.New(prefixes(t, tt.allow), prefixes(t, tt.deny))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -70,8 +81,8 @@ func TestIPFilter(t *testing.T) {
 	}
 }
 
-func TestIPFilterBehindTrustedProxies(t *testing.T) {
-	filter, err := httpx.IPFilter(prefixes(t, "198.51.100.0/24"), nil)
+func TestBehindTrustedProxies(t *testing.T) {
+	filter, err := ipfilter.New(prefixes(t, "198.51.100.0/24"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,28 +108,28 @@ func TestIPFilterBehindTrustedProxies(t *testing.T) {
 	}
 }
 
-func TestIPFilterRefusesBadRanges(t *testing.T) {
+func TestRefusesBadRanges(t *testing.T) {
 	tests := []struct {
 		name        string
 		allow, deny []netip.Prefix
 		wantErr     error
 	}{
-		{"deny every IPv4 address", nil, []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}, httpx.ErrDenyAll},
-		{"deny every IPv6 address", nil, []netip.Prefix{netip.MustParsePrefix("::/0")}, httpx.ErrDenyAll},
-		{"deny every IPv4 address, mapped", nil, []netip.Prefix{netip.MustParsePrefix("::ffff:0.0.0.0/96")}, httpx.ErrDenyAll},
+		{"deny every IPv4 address", nil, []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}, ipfilter.ErrDenyAll},
+		{"deny every IPv6 address", nil, []netip.Prefix{netip.MustParsePrefix("::/0")}, ipfilter.ErrDenyAll},
+		{"deny every IPv4 address, mapped", nil, []netip.Prefix{netip.MustParsePrefix("::ffff:0.0.0.0/96")}, ipfilter.ErrDenyAll},
 		{"invalid range", []netip.Prefix{{}}, nil, nil},
 		{"mapped range mixing families", []netip.Prefix{netip.MustParsePrefix("::ffff:0:0/80")}, nil, nil},
 		{"allow inside deny", []netip.Prefix{netip.MustParsePrefix("10.0.5.0/24")}, []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}, nil},
 		{"allow equal to deny", []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}, []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}, nil},
 	}
 	for _, tt := range tests {
-		mw, err := httpx.IPFilter(tt.allow, tt.deny)
+		mw, err := ipfilter.New(tt.allow, tt.deny)
 		if err == nil || mw != nil || tt.wantErr != nil && !errors.Is(err, tt.wantErr) {
 			t.Errorf("%s: IPFilter() = %v, %v; want an error", tt.name, mw != nil, err)
 		}
 	}
 	// Both empty: the handler is returned unchanged.
-	mw, err := httpx.IPFilter(nil, nil)
+	mw, err := ipfilter.New(nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,9 +140,9 @@ func TestIPFilterRefusesBadRanges(t *testing.T) {
 	}
 }
 
-func TestIPFilterDoesntKeepCallerSlices(t *testing.T) {
+func TestDoesntKeepCallerSlices(t *testing.T) {
 	allow := []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}
-	mw, err := httpx.IPFilter(allow, nil)
+	mw, err := ipfilter.New(allow, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +157,7 @@ func TestIPFilterDoesntKeepCallerSlices(t *testing.T) {
 }
 
 func TestParsePrefixes(t *testing.T) {
-	got, err := httpx.ParsePrefixes(" 10.0.0.5/8, 192.0.2.10 ,2001:db8::1/32,::ffff:10.0.0.5,, 0.0.0.0/0")
+	got, err := ipfilter.ParsePrefixes(" 10.0.0.5/8, 192.0.2.10 ,2001:db8::1/32,::ffff:10.0.0.5,, 0.0.0.0/0")
 	want := []string{"10.0.0.0/8", "192.0.2.10/32", "2001:db8::/32", "10.0.0.5/32", "0.0.0.0/0"}
 	strs := make([]string, len(got))
 	for i, p := range got {
@@ -156,17 +167,17 @@ func TestParsePrefixes(t *testing.T) {
 		t.Errorf("ParsePrefixes() = %v, %v; want %v", strs, err, want)
 	}
 	for _, bad := range []string{"load-balancer", "10.0.0.0/33", "fe80::1%en0", "::ffff:0:0/80", "10.0.0.0/8;", "10.0.0.0/8 192.0.2.1"} {
-		if p, err := httpx.ParsePrefixes(bad); err == nil {
+		if p, err := ipfilter.ParsePrefixes(bad); err == nil {
 			t.Errorf("ParsePrefixes(%q) = %v, want an error", bad, p)
 		}
 	}
-	if p, err := httpx.ParsePrefixes(" , "); p != nil || err != nil {
+	if p, err := ipfilter.ParsePrefixes(" , "); p != nil || err != nil {
 		t.Errorf("ParsePrefixes(empty) = %v, %v", p, err)
 	}
 }
 
-func BenchmarkIPFilter(b *testing.B) {
-	mw, err := httpx.IPFilter(prefixes(b, "10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 2001:db8::/32"), prefixes(b, "10.0.5.0/24"))
+func BenchmarkNew(b *testing.B) {
+	mw, err := ipfilter.New(prefixes(b, "10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 2001:db8::/32"), prefixes(b, "10.0.5.0/24"))
 	if err != nil {
 		b.Fatal(err)
 	}

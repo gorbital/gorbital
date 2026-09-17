@@ -9,7 +9,6 @@
 //		httpx.Recover(logger),
 //		httpx.RequestID(),
 //		httpx.AccessLog(logger),
-//		httpx.Timeout(30*time.Second),
 //		httpx.SecureHeaders(httpx.SecureHeadersOptions{}),
 //		cors,
 //		crossOrigin,

@@ -32,7 +32,7 @@ import (
 	"fmt"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/httpx"
+	"gorbital.dev/httpx/ipfilter"
 
 	"gorbital.dev/gorbital/opshttp/internal/delivery"
 	opsdomain "gorbital.dev/gorbital/opshttp/internal/domain"
@@ -90,7 +90,7 @@ func Module(opts ...Option) gorbital.Module {
 				}
 				svc = opsusecase.NewService(deps)
 				if allowed := platform.Config.OpsAllowedIPs; len(allowed) > 0 {
-					filter, err := httpx.IPFilter(allowed, nil)
+					filter, err := ipfilter.New(allowed, nil)
 					if err != nil {
 						panic(fmt.Errorf("OPS_ALLOWED_IPS: %w", err))
 					}

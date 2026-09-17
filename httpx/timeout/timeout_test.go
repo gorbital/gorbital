@@ -1,4 +1,4 @@
-package httpx_test
+package timeout_test
 
 import (
 	"bufio"
@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"gorbital.dev/httpx"
+	"gorbital.dev/httpx/timeout"
 	"gorbital.dev/requestid"
 )
 
@@ -70,7 +71,7 @@ func TestTimeoutPassesFastResponses(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := httpx.Chain(tt.handler, outer, httpx.Timeout(time.Second))
+			h := httpx.Chain(tt.handler, outer, timeout.New(time.Second))
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 			if rec.Code != tt.wantStatus || rec.Body.String() != tt.wantBody {
@@ -99,7 +100,7 @@ func TestTimeoutRespondsAtTheDeadline(t *testing.T) {
 		w.Header().Set("X-After", "x")
 		lateWrite <- http.NewResponseController(w).Flush()
 	})
-	srv := httptest.NewServer(httpx.Chain(handler, httpx.RequestID(), httpx.Timeout(20*time.Millisecond)))
+	srv := httptest.NewServer(httpx.Chain(handler, httpx.RequestID(), timeout.New(20*time.Millisecond)))
 	defer srv.Close()
 	defer close(release)
 
@@ -145,7 +146,7 @@ func TestTimeoutLateWritesDiscarded(t *testing.T) {
 		}
 	})
 	rec := httptest.NewRecorder()
-	httpx.Timeout(5*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	timeout.New(5*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 	if rec.Code != http.StatusServiceUnavailable || strings.Contains(rec.Body.String(), "too late") || rec.Header().Get("X-After") != "" {
 		t.Errorf("response = %d %v %q, want only the 503", rec.Code, rec.Header(), rec.Body.String())
 	}
@@ -160,7 +161,7 @@ func TestTimeoutHandlerSeesDeadlineExceeded(t *testing.T) {
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusInternalServerError, "internal_error", "query cancelled"))
 	})
 	rec := httptest.NewRecorder()
-	httpx.Timeout(10*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	timeout.New(10*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 	if err := <-errs; !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("handler context error = %v", err)
 	}
@@ -179,7 +180,7 @@ func TestTimeoutStartedResponseIsNotReplaced(t *testing.T) {
 		_, _ = io.WriteString(w, "part 2")
 	})
 	rec := httptest.NewRecorder()
-	httpx.Timeout(10*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	timeout.New(10*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 	if rec.Code != http.StatusAccepted || rec.Body.String() != "part 1;part 2" {
 		t.Errorf("response = %d %q, want the handler's whole response", rec.Code, rec.Body.String())
 	}
@@ -208,7 +209,7 @@ func TestTimeoutStreamingThroughARealServer(t *testing.T) {
 		}
 		w.Header().Set("X-Checksum", "abc")
 	})
-	srv := httptest.NewServer(httpx.Timeout(20 * time.Millisecond)(handler))
+	srv := httptest.NewServer(timeout.New(20 * time.Millisecond)(handler))
 	defer srv.Close()
 
 	resp, err := srv.Client().Get(srv.URL)
@@ -242,7 +243,7 @@ func TestTimeoutHijack(t *testing.T) {
 		_, _ = rw.WriteString("HTTP/1.1 200 OK\r\nContent-Length: 6\r\nConnection: close\r\n\r\ncustom")
 		_ = rw.Flush()
 	})
-	srv := httptest.NewServer(httpx.Timeout(10 * time.Millisecond)(handler))
+	srv := httptest.NewServer(timeout.New(10 * time.Millisecond)(handler))
 	defer srv.Close()
 	resp, err := srv.Client().Get(srv.URL)
 	if err != nil {
@@ -273,7 +274,7 @@ func TestTimeoutResponseControllerAfterTimeout(t *testing.T) {
 	})
 	rec := httptest.NewRecorder()
 	time.AfterFunc(30*time.Millisecond, func() { close(release) })
-	httpx.Timeout(10*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	timeout.New(10*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 	for i, err := range <-results {
 		if !errors.Is(err, http.ErrHandlerTimeout) {
 			t.Errorf("call %d after the timeout: error = %v, want http.ErrHandlerTimeout", i, err)
@@ -298,7 +299,7 @@ func TestTimeoutClientGoneWaitsForTheHandler(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 		cancel()
 	}()
-	httpx.Timeout(time.Minute)(handler).ServeHTTP(rec, req)
+	timeout.New(time.Minute)(handler).ServeHTTP(rec, req)
 	if !finished.Load() {
 		t.Error("returned before the handler of a cancelled request finished")
 	}
@@ -314,7 +315,7 @@ func TestTimeoutEarlyHints(t *testing.T) {
 		<-r.Context().Done()
 	})
 	rec := httptest.NewRecorder()
-	httpx.Timeout(10*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	timeout.New(10*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 	// httptest.ResponseRecorder keeps the first status, the 103; what
 	// matters is that an informational response doesn't block the 503.
 	if !strings.Contains(rec.Body.String(), "request_timeout") {
@@ -327,7 +328,7 @@ func TestTimeoutPanics(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	h := httpx.Chain(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("boom in handler")
-	}), httpx.Recover(logger), httpx.Timeout(time.Second))
+	}), httpx.Recover(logger), timeout.New(time.Second))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 	if rec.Code != http.StatusInternalServerError || problemCodeOf(t, rec.Body.Bytes()) != "internal_error" {
@@ -344,7 +345,7 @@ func TestTimeoutPanics(t *testing.T) {
 				t.Errorf("recovered %v, want http.ErrAbortHandler", v)
 			}
 		}()
-		httpx.Timeout(time.Second)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		timeout.New(time.Second)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 			panic(http.ErrAbortHandler)
 		})).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
 	}()
@@ -356,7 +357,7 @@ func TestTimeoutPanics(t *testing.T) {
 		<-r.Context().Done()
 		time.Sleep(5 * time.Millisecond)
 		panic("after the timeout")
-	}), httpx.Recover(logger), httpx.Timeout(5*time.Millisecond)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	}), httpx.Recover(logger), timeout.New(5*time.Millisecond)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(logs.String(), "after the timeout") {
 		t.Errorf("status = %d, log %q; want 503 and the panic logged", rec.Code, logs.String())
 	}
@@ -365,7 +366,7 @@ func TestTimeoutPanics(t *testing.T) {
 func TestTimeoutDisabled(t *testing.T) {
 	var h http.Handler = http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
 	for _, d := range []time.Duration{0, -time.Second} {
-		if got := httpx.Timeout(d)(h); fmt.Sprintf("%p", got) != fmt.Sprintf("%p", h) {
+		if got := timeout.New(d)(h); fmt.Sprintf("%p", got) != fmt.Sprintf("%p", h) {
 			t.Errorf("Timeout(%v) wrapped the handler, want it unchanged", d)
 		}
 	}
@@ -387,7 +388,7 @@ func TestTimeoutRace(t *testing.T) {
 			time.Sleep(time.Millisecond)
 		}
 	})
-	h := httpx.Timeout(2 * time.Millisecond)(handler)
+	h := timeout.New(2 * time.Millisecond)(handler)
 	var wg sync.WaitGroup
 	for i := range 200 {
 		wg.Go(func() {
@@ -415,7 +416,7 @@ func BenchmarkTimeout(b *testing.B) {
 		h    http.Handler
 	}{
 		{"without", handler},
-		{"with", httpx.Timeout(time.Minute)(handler)},
+		{"with", timeout.New(time.Minute)(handler)},
 	} {
 		b.Run(bm.name, func(b *testing.B) {
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
