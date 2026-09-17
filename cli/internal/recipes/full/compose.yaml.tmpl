@@ -12,6 +12,9 @@ name: ⟦.Name⟧
 services:
   postgres:
     image: postgres:18
+    # pg_stat_statements feeds the Dev Portal's query performance view
+    # (ADR-0073); the extension itself is created on first use.
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     environment:
       POSTGRES_USER: ⟦.Name⟧
       POSTGRES_PASSWORD: ⟦.Name⟧
@@ -28,16 +31,6 @@ services:
       retries: 30
 
   # Every email sent in development lands here: open http://127.0.0.1:8025.
-  mailpit:
-    image: axllent/mailpit:v1.27
-    ports:
-      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
-      - "127.0.0.1:${MAILPIT_WEB_PORT:-8025}:8025"
-    healthcheck:
-      test: ["CMD", "/mailpit", "readyz"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
 
   # Traces, metrics and logs, only with the observability profile:
   # `orb dev --observability`, or `docker compose --profile observability up -d`

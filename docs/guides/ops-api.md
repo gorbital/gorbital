@@ -457,6 +457,26 @@ Which sign-in methods this deployment has configured, and what turns the others 
 
 Values of secrets are never returned; the same report is printed at start in development and by `go run ./cmd/api auth-providers`.
 
+## Accounts
+
+Operators' view of accounts ([ADR-0070](../adr/0070-operators-account-apis.md)): the Dev Portal's Authentication screen uses these, and scripts can. Reads need `ops.auth.read` (`ops_viewer`, `platform_admin`); writes `ops.auth.write` (`platform_admin`). In development, `orb dev`'s dev console token holds both ([dev console](dev-console.md)).
+
+| Endpoint | Does | Answers |
+|---|---|---|
+| `GET /ops/auth/users?q=&cursor=&limit=` | Lists accounts newest first; `q` is part of the address or an ID; banned accounts are listed, deleted ones aren't | 200 `{users: [...], next_cursor}` |
+| `POST /ops/auth/users` | Creates an account (`email`, `password`, `email_verified`), as seed data does | 201 the user |
+| `GET /ops/auth/users/{id}` | The account with its sessions, passkeys, linked providers, second factors (`mfa`) and usable codes (`codes`: purpose, attempts and expiry; the code itself only arrives by email) | 200 |
+| `DELETE /ops/auth/users/{id}` | Deletes the account as its owner would, without their password: sessions and keys revoked, providers unlinked, data removed after the retention period; a sole owner of an organisation is refused | 204, 409 `sole_owner` |
+| `POST /ops/auth/users/{id}/verify-email` | Marks the address verified | 204 |
+| `POST /ops/auth/users/{id}/ban`, `…/unban` | A ban (`reason`) revokes every session and API key; every sign-in answers 403 `account_banned` until the ban is lifted | 204 |
+| `POST /ops/auth/users/{id}/roles`, `DELETE …/roles/{role}` | Grants or revokes a platform role (the address must be verified) | 200 the user |
+| `DELETE /ops/auth/users/{id}/sessions`, `…/sessions/{sessionId}` | Ends every session, or one | 200 `{revoked}`, 204 |
+| `DELETE /ops/auth/users/{id}/passkeys/{passkeyId}`, `…/identities/{identityId}` | Removes a passkey; unlinks a Google, Apple or GitHub account | 204 |
+| `POST /ops/auth/users/{id}/mfa/enroll`, `…/mfa/reset` | Turns on an authenticator app (secret and recovery codes, shown once); removes every second factor and ends sessions | 201, 204 |
+| `POST /ops/auth/users/{id}/impersonate` | Starts a session as the user (`mfa_verified` decides whether roles requiring a second factor apply); only with the dev console, 403 `impersonation_off` elsewhere; audited as `auth.user.impersonated` | 201 `{token, session, user}` |
+| `GET /ops/auth/rate-limits` | The app's rate limiters: name and what their keys are | 200 `{limiters}` |
+| `POST /ops/auth/rate-limits/reset` | Forgets a key's budget under a limiter (`name`, `key`), audited as `ops.rate_limit.reset` naming the limiter only | 200 `{reset}` |
+
 ## Service accounts
 
 Non-human principals with platform roles, which call the API with API keys ([ADR-0058](../adr/0058-api-keys-and-service-accounts.md), [API keys guide](api-keys.md)). Registered by the auth module. Roles that require two-factor authentication, including `platform_admin` and `ops_viewer`, can't be given to a service account, and API keys never reach `/ops`: these endpoints need a session.
@@ -473,6 +493,22 @@ Non-human principals with platform roles, which call the API with API keys ([ADR
 | `DELETE /ops/service-accounts/{id}/keys/{keyId}` | `ops.service_accounts.write` | Revoke a key | 204 |
 
 Errors: `service_account_not_found` (404), `api_key_not_found` (404), `invalid_service_account` and `invalid_service_account_role` (422), `invalid_api_key_name`, `invalid_api_key_expiry` and `invalid_api_key_scopes` (422), `api_key_limit_reached`, `service_account_limit_reached` and `service_account_disabled` (409), `session_required` (403, with an API key). Audit: `auth.service_account.created`, `.updated`, `.disabled`, `.deleted`, `auth.api_key.created`, `.revoked`.
+
+## Storage
+
+File storage ([storage guide](storage.md), [ADR-0075](../adr/0075-file-storage.md)), `ops.storage.read` for reads and `ops.storage.write` for the rest:
+
+| Endpoint | What it does |
+|---|---|
+| `GET /ops/storage` | The driver, bucket, endpoint, whether it is `local`, and whether the service answers |
+| `GET /ops/storage/objects?prefix=&recursive=&cursor=&limit=` | One page of objects, directories folded at the next slash unless `recursive` |
+| `GET /ops/storage/object?key=` | Size, content type, ETag, time and metadata |
+| `GET /ops/storage/object/content?key=` | The bytes, as an attachment |
+| `PUT /ops/storage/object?key=` | The body becomes the object; `Content-Type` is kept |
+| `DELETE /ops/storage/object?key=` | Removes it |
+| `POST /ops/storage/object/move` `{from, to}` | Copies and deletes |
+| `POST /ops/storage/directories` `{prefix}` | Stores the hidden `.keep` marker |
+| `POST /ops/storage/signed-url` `{key, method, expiry_seconds}` | A download (GET) or upload (PUT) link |
 
 ## Error codes
 

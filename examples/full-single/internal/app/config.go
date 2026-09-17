@@ -22,6 +22,10 @@ type Config struct {
 	Env      string // APP_ENV: development or production; required
 	Addr     string // APP_ADDR
 	LogLevel slog.Level
+	// LogFormat is json or text; empty means JSON in production and text
+	// elsewhere. orb dev sets json, so the Dev Portal's log store reads
+	// structured records (ADR-0072).
+	LogFormat string
 	// DocsEnabled serves /docs and the OpenAPI document (APP_DOCS_ENABLED;
 	// default: on in development, off in production).
 	DocsEnabled bool
@@ -53,9 +57,12 @@ type Config struct {
 	DBMaxConns        int32 // APP_DB_MAX_CONNS
 	JobWorkers        int   // APP_JOB_WORKERS
 
-	MailDelivery string     // MAIL_DELIVERY: mailpit or provider (mail.go)
+	MailDelivery string     // MAIL_DELIVERY: devmail, mailpit or provider (mail.go)
 	MailpitAddr  string     // MAILPIT_SMTP_ADDR
+	DevMailAddr  string     // DEV_MAIL_SMTP_ADDR: orb dev's mail catcher (ADR-0074)
 	Mail         mailConfig // the email provider's secrets (infra_mail.go)
+	// Storage is the file storage driver and its settings (storage.go).
+	Storage storageConfig
 
 	// DevConsole turns on the development console's APIs under /_dev/ in
 	// development (DEV_CONSOLE_TOKEN, set by orb dev; devconsole.go).
@@ -132,6 +139,12 @@ func LoadConfig(src config.Source) (Config, error) {
 		if err := cfg.LogLevel.UnmarshalText([]byte(v)); err != nil {
 			errs = append(errs, fmt.Errorf("APP_LOG_LEVEL: %w", err))
 		}
+	}
+	if v := get("APP_LOG_FORMAT"); v != "" {
+		if v != "json" && v != "text" {
+			errs = append(errs, fmt.Errorf("APP_LOG_FORMAT %q must be json or text", v))
+		}
+		cfg.LogFormat = v
 	}
 
 	cfg.DocsEnabled = !cfg.Production()
@@ -217,7 +230,7 @@ func LoadConfig(src config.Source) (Config, error) {
 		cfg.JobWorkers = n
 	}
 
-	cfg.MailDelivery = mailDeliveryMailpit
+	cfg.MailDelivery = mailDeliveryDevMail
 	if cfg.Production() {
 		cfg.MailDelivery = mailDeliveryProvider
 	}
@@ -225,10 +238,17 @@ func LoadConfig(src config.Source) (Config, error) {
 		cfg.MailDelivery = v
 	}
 	switch {
-	case cfg.MailDelivery != mailDeliveryMailpit && cfg.MailDelivery != mailDeliveryProvider:
-		errs = append(errs, fmt.Errorf("MAIL_DELIVERY must be mailpit or provider, got %q", cfg.MailDelivery))
-	case cfg.Production() && cfg.MailDelivery == mailDeliveryMailpit:
-		errs = append(errs, errors.New("MAIL_DELIVERY=mailpit is for development; production sends email through the provider"))
+	case cfg.MailDelivery != mailDeliveryDevMail && cfg.MailDelivery != mailDeliveryMailpit && cfg.MailDelivery != mailDeliveryProvider:
+		errs = append(errs, fmt.Errorf("MAIL_DELIVERY must be devmail, mailpit or provider, got %q", cfg.MailDelivery))
+	case cfg.Production() && cfg.MailDelivery != mailDeliveryProvider:
+		errs = append(errs, fmt.Errorf("MAIL_DELIVERY=%s is for development; production sends email through the provider", cfg.MailDelivery))
+	}
+	cfg.DevMailAddr = "127.0.0.1:1025"
+	if v := get("DEV_MAIL_SMTP_ADDR"); v != "" {
+		cfg.DevMailAddr = v
+	}
+	if _, _, err := net.SplitHostPort(cfg.DevMailAddr); err != nil {
+		errs = append(errs, fmt.Errorf("DEV_MAIL_SMTP_ADDR %q is not host:port", cfg.DevMailAddr))
 	}
 
 	cfg.MailpitAddr = "127.0.0.1:1025"
@@ -242,6 +262,9 @@ func LoadConfig(src config.Source) (Config, error) {
 	var mailErrs []error
 	cfg.Mail, mailErrs = loadMailConfig(get, secret, cfg.MailDelivery == mailDeliveryProvider)
 	errs = append(errs, mailErrs...)
+	var storageErrs []error
+	cfg.Storage, storageErrs = loadStorageConfig(get, secret, cfg.Production())
+	errs = append(errs, storageErrs...)
 
 	var devConsoleErrs []error
 	cfg.DevConsole, devConsoleErrs = loadDevConsoleConfig(get, secret, cfg.Production())

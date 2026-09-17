@@ -15,6 +15,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 
+	"gorbital.dev/cli/internal/genplan"
 	"gorbital.dev/cli/internal/recipes"
 )
 
@@ -122,108 +123,24 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	if err != nil {
 		return err
 	}
-	modulesGo := filepath.Join("internal", "app", "modules.go")
-	src, err := os.ReadFile(filepath.Join(app.dir, modulesGo))
-	if errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("%s has no %s: orb gen resource works in apps created with the Full preset", app.dir, modulesGo)
-	} else if err != nil {
+	if _, err := checkResourceApp(app, *scope); err != nil {
 		return err
 	}
-	if info, err := os.Stat(filepath.Join(app.dir, "internal", "modules", "auth")); err != nil || !info.IsDir() {
-		return fmt.Errorf("%s has no internal/modules/auth: resources belong to signed-in users, so orb gen resource needs the Full preset's auth module", app.dir)
-	}
-	// Records belong to organisations in multi-tenant apps unless --scope says otherwise.
-	_, orgsErr := os.Stat(filepath.Join(app.dir, "internal", "modules", "orgs"))
-	if *scope == "" {
-		*scope = recipes.ScopeUser
-		if appTenancy(app.dir) == recipes.TenancyMulti {
-			*scope = recipes.ScopeOrg
-		}
-	}
-	if *scope == recipes.ScopeOrg && orgsErr != nil {
-		return fmt.Errorf("%s has no internal/modules/orgs: --scope org needs organisations; add them with orb add orgs, or create the app with orb new --tenancy multi", app.dir)
-	}
-
 	ask := shouldPrompt(p, *asJSON, stdin, stdout)
 	if ask {
 		if err := promptResource(&name, &specs, p, stdin, stderr); err != nil {
 			return err
 		}
 	}
-	switch {
-	case name == "":
-		return usageError("missing resource name: orb gen resource <Name> <field:type>... (or run it in a terminal to be asked)")
-	case len(specs) == 0:
-		return usageError(fmt.Sprintf("missing fields: orb gen resource %s name:string ... (orb gen resource -h lists the field types)", name))
-	}
-	fields, err := recipes.ParseFields(specs)
-	if err != nil {
-		return usageError(err.Error())
-	}
-	version, err := nextMigrationVersion(app.dir, time.Now())
+	plan, data, err := planResource(app, resourceInput{name: name, specs: specs, plural: *plural, idPrefix: *idPrefix, scope: *scope}, time.Now())
 	if err != nil {
 		return err
 	}
-	data, err := recipes.NewResourceData(app.module, name, fields, recipes.ResourceOptions{Plural: *plural, IDPrefix: *idPrefix, Migration: version, Scope: *scope, RLS: appRowLevelSecurity(app.dir)})
-	if err != nil {
-		return usageError(err.Error())
-	}
+	result := plan.Result.(genResourceResult)
+	result.DryRun = *dryRun
 
-	files, err := recipes.RenderResource(data)
-	if err != nil {
-		return err
-	}
-	updated, err := recipes.InsertAfterAnchor(src, recipes.ModulesAnchor, data.ModulesLine())
-	switch {
-	case errors.Is(err, recipes.ErrAnchorMissing):
-		return fmt.Errorf("%s has no %q line; add it as the first line inside errors.Join in registerModules, then run orb gen resource again", modulesGo, recipes.ModulesAnchor)
-	case errors.Is(err, recipes.ErrLinePresent):
-		return fmt.Errorf("%s: the %s module is already registered", modulesGo, data.PluralHuman)
-	case err != nil:
-		return fmt.Errorf("%s: can't register the %s module after %q; registerModules must return errors.Join of the modules, as in examples/full-single: %w",
-			modulesGo, data.PluralHuman, recipes.ModulesAnchor, err)
-	}
-
-	// The resource's permissions go to the organisation roles, or to the user
-	// role every user holds, so API keys can be scoped to them (ADR-0058).
-	permissionsGo := filepath.Join("internal", "app", "permissions.go")
-	permissionsSrc, err := os.ReadFile(filepath.Join(app.dir, permissionsGo))
-	if err != nil {
-		return err
-	}
-	permissions, err := recipes.InsertAfterAnchor(permissionsSrc, data.PermissionsAnchor(), data.PermissionsLine())
-	switch {
-	case errors.Is(err, recipes.ErrAnchorMissing) && data.Org:
-		return fmt.Errorf("%s has no %q line; add it as the first line inside orgResourcePermissions, as in examples/full-multi, then run orb gen resource again", permissionsGo, recipes.OrgPermissionsAnchor)
-	case errors.Is(err, recipes.ErrAnchorMissing):
-		return fmt.Errorf("%s has no %q line; add userResourcePermissions and the user role as in examples/full-single (see the upgrade notes for ADR-0058), then run orb gen resource again", permissionsGo, recipes.UserPermissionsAnchor)
-	case errors.Is(err, recipes.ErrLinePresent):
-		return fmt.Errorf("%s: the %s permissions are already declared", permissionsGo, data.PluralHuman)
-	case err != nil:
-		return fmt.Errorf("%s: can't declare the %s permissions after %q: %w", permissionsGo, data.PluralHuman, data.PermissionsAnchor(), err)
-	}
-
-	root, err := os.OpenRoot(app.dir)
-	if err != nil {
-		return err
-	}
-	defer root.Close()
-	moduleDir := "internal/modules/" + data.Package
-	if _, err := root.Stat(filepath.FromSlash(moduleDir)); err == nil {
-		return fmt.Errorf("%s already exists; choose another name or --plural", moduleDir)
-	}
-	result := genResourceResult{Name: data.Ident, Module: data.Package, Route: resourceRoute(data), Table: data.Table, Scope: *scope, DryRun: *dryRun, RowLevelSecurity: data.RLS}
-	for _, f := range files {
-		if _, err := root.Stat(filepath.FromSlash(f.Path)); err == nil {
-			return fmt.Errorf("%s already exists; choose another name or --plural", f.Path)
-		}
-		result.Files = append(result.Files, f.Path)
-	}
-	result.Files = append(result.Files, filepath.ToSlash(modulesGo), filepath.ToSlash(permissionsGo))
-
-	summary := resourceSummary(data, result.Files)
 	if !*dryRun && ask {
-		ok, err := confirm("Generate this resource?", summary, p, stdin, stderr)
+		ok, err := confirm("Generate this resource?", plan.Summary, p, stdin, stderr)
 		if err != nil {
 			return err
 		}
@@ -238,19 +155,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 				return err
 			}
 		}
-		for _, f := range files {
-			path := filepath.FromSlash(f.Path)
-			if err := root.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-				return err
-			}
-			if err := root.WriteFile(path, f.Content, 0o644); err != nil {
-				return err
-			}
-		}
-		if err := root.WriteFile(modulesGo, updated, 0o644); err != nil {
-			return err
-		}
-		if err := root.WriteFile(permissionsGo, permissions, 0o644); err != nil {
+		if err := genplan.Apply(app.dir, plan); err != nil {
 			return err
 		}
 	}
@@ -262,13 +167,13 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	if *dryRun {
 		verb = "Would create (dry run)"
 	}
-	fmt.Fprintf(stdout, "✓ %s resource %s\n\n%s\n", verb, data.Ident, summary)
+	fmt.Fprintf(stdout, "✓ %s resource %s\n\n%s\n", verb, result.Name, plan.Summary)
 	if !*dryRun {
-		fmt.Fprintf(stdout, "\nNext:\n  1. go run ./cmd/migrate\n  2. go run ./cmd/api openapi --dir api\n  3. go test ./internal/app -run TestPublicSurface -update (records the new error codes, audit actions and permissions)\n  4. go test ./...\n  5. go run ./cmd/api, sign in, then POST %s\n\n"+
+		fmt.Fprintf(stdout, "\nNext:\n%s\n"+
 			"The code is yours: change the rules in internal/modules/%s/domain and the SQL in internal/modules/%s/repository.\n",
-			resourceRoute(data), data.Package, data.Package)
-		if data.RLS {
-			fmt.Fprintf(stdout, "The migration forces row-level security on %s with the organisation policy (orb add rls).\n", data.Table)
+			numbered(plan.Next), result.Module, result.Module)
+		if result.RowLevelSecurity {
+			fmt.Fprintf(stdout, "The migration forces row-level security on %s with the organisation policy (orb add rls).\n", result.Table)
 		}
 		if data.Org {
 			fmt.Fprintf(stdout, "Every organisation role gets %s.%s.read and .write; change that in declareOrgPermissions in internal/app/permissions.go.\n", data.Package, data.Snake)

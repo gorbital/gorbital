@@ -14,7 +14,7 @@ cd gorbital/cli && go install ./cmd/orb && cd ../..   # installs orb into $(go e
 orb new my-api --preset full --tenancy single --local ./gorbital
 cd my-api
 git add -A && git commit -m "Create my-api"           # orb gen and orb add need a clean tree
-orb dev                                               # PostgreSQL and Mailpit in Docker, migrations, seed data, the API
+orb dev                                               # PostgreSQL in Docker, the mail catcher, migrations, seed data, the API and the Dev Portal (orb new starts it for you in a terminal)
 ```
 
 `orb dev` prints the seeded administrator's password and 2FA key once. Then:
@@ -44,7 +44,7 @@ go install gorbital.dev/cli/cmd/orb@latest
 
 orb new my-api          # choose Full or Minimal; tenancy
 cd my-api
-orb dev                 # API at :8080, docs at /docs, local email inbox
+orb dev                 # API at :8080, docs at /docs, the Dev Portal at :3100 with the inbox (started by orb new in a terminal)
 ```
 
 | Preset | What you get |

@@ -15,6 +15,7 @@ import (
 	"gorbital.dev/modules/jobs"
 	"gorbital.dev/modules/observability"
 	"gorbital.dev/modules/settings"
+	"gorbital.dev/modules/storage"
 	"gorbital.dev/ratelimit"
 
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
@@ -41,8 +42,15 @@ type Deps struct {
 	// TestEmailLimiter limits test emails per operator, keyed by actor ID;
 	// nil means no limit.
 	TestEmailLimiter ratelimit.Taker
+	// RateLimits lists the app's limiters and resets a key's budget
+	// (ADR-0070); nil means the endpoints answer an empty list and refuse
+	// resets.
+	RateLimits RateLimitAdmin
 	// Suppressions is the email suppression list (ADR-0062).
 	Suppressions SuppressionList
+	// Storage is the app's file storage (ADR-0075); nil answers 404
+	// storage_off.
+	Storage storage.Store
 	// Observability reads request minutes and Incidents keeps incidents
 	// (ADR-0064); *observability.Store implements both.
 	Observability ObservabilityStore
@@ -76,6 +84,8 @@ type Service struct {
 
 	testEmailLimiter ratelimit.Taker
 	suppressions     SuppressionList
+	rateLimits       RateLimitAdmin
+	storage          storage.Store // file storage (ADR-0075); nil without one
 
 	observability  ObservabilityStore
 	incidents      IncidentStore
@@ -89,7 +99,7 @@ func NewService(d Deps) *Service {
 	return &Service{
 		settings: d.Settings, flags: d.Flags, jobs: d.Jobs, audit: d.Audit, releases: d.Releases, mailer: d.Mailer, mail: d.Mail,
 		signInMethods: d.SignInMethods, system: d.System, retention: d.Retention,
-		testEmailLimiter: d.TestEmailLimiter, suppressions: d.Suppressions,
+		testEmailLimiter: d.TestEmailLimiter, suppressions: d.Suppressions, rateLimits: d.RateLimits, storage: d.Storage,
 		observability: d.Observability, incidents: d.Incidents, streams: d.Streams,
 		reauthenticate: d.Reauthenticate, streamInterval: d.StreamInterval,
 	}

@@ -42,6 +42,14 @@ var (
 	// ErrActorRequired reports an operator action without an authenticated
 	// actor.
 	ErrActorRequired = errors.New("an authenticated actor is required")
+	// ErrAccountBanned reports a sign-in to an account an operator banned
+	// (ADR-0070).
+	ErrAccountBanned = errors.New("the account is banned")
+	// ErrImpersonationOff reports an impersonation outside development:
+	// the app runs without the dev console.
+	ErrImpersonationOff = errors.New("impersonation is available only in development")
+	// ErrInvalidCursor reports a users cursor that isn't one this app made.
+	ErrInvalidCursor = errors.New("invalid cursor")
 )
 
 // RateLimitError reports how long to wait before trying again.

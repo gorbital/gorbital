@@ -140,7 +140,7 @@ For errors that carry data, such as a retry delay, define a type implementing `e
 
 - **Unmapped errors:** `level=ERROR msg="unhandled error" err=… request_id=…`, once, by the mapper.
 - **Panics:** `level=ERROR msg="panic recovered" panic=… stack=… request_id=…`, by `httpx.Recover`.
-- **Every request:** `level=INFO msg="http request" … status=… request_id=…`, by `httpx.AccessLog`.
+- **Every request:** `level=INFO msg="http request" … path=… status=… request_id=… user_id=…`, by `httpx.AccessLog`.
 - **Background jobs:** failed attempts are recorded on the job (visible in `GET /ops/jobs/runs/{id}`) and retried; `mail.ErrRejected` and other permanent errors cancel the job instead of retrying ([background jobs](background-jobs.md#failures-retries-and-shutdown)).
 - **Never logged:** passwords, tokens, codes, secrets (`config.Secret` prints `[redacted]`), email addresses, request bodies.
 

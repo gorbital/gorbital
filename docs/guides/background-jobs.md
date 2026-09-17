@@ -70,6 +70,26 @@ and adds `defineCleanupSessionsJob(defs, deps)` below `//orb:anchor jobs` in `in
 
 `Define` panics at startup when the name isn't lowercase snake_case, `Args.Kind()` doesn't equal the name, the worker or `NewArgs` is missing, or the defaults are out of bounds. Zero `Timeout`, `MaxAttempts`, `Queue` and `Priority` become 1 minute, 25, `default` and 1.
 
+## Jobs from the portal
+
+The Dev Portal's Jobs screen ([Dev Portal guide](dev-portal.md)) makes a job three ways: a form, the `orb gen job` command to copy, or the custom kind with the file to open. The form asks what the job does and `orb gen job --kind` renders it as ordinary Go ([ADR-0071](../adr/0071-job-kinds-and-ejection.md)):
+
+| Kind | `Work` | Needs from `jobDeps` |
+|---|---|---|
+| `custom` | The skeleton above: logs a line, for you to write | `logger` |
+| `http` | Sends `Method URL Body` with the app's HTTP client (30 s timeout); a failed request or a non-2xx answer is an error, so the job is retried | `httpClient` |
+| `sql` | Runs `Statement` on the app's pool | `pool` |
+| `email` | Sends `To`, `Subject`, `Text` through the app's mailer (the `mail.*` settings and suppressions apply) with `<name>-<job ID>` as idempotency key, so a retry never sends twice | `mailer` |
+| `dispatch` | Starts the job named `Target`, as `POST /ops/jobs/definitions/{name}/run` does | `runJob` |
+
+The definition file carries a marker above `define<Ident>Job`:
+
+```go
+//orb:job {"kind":"http","http_method":"POST","http_url":"https://example.com/hook","worker":"sha256:…"}
+```
+
+The portal reads it back to show the job as a form again. `worker` is the SHA-256 of the worker file as generated: once you edit that file, the hashes differ and the job is **ejected**: the portal shows it as a custom job edited in code and never offers to overwrite it. That is the intended path when a kind stops fitting (move the constants into `Args`, add dependencies, change the logic). Hand-written jobs have no marker and are custom jobs from the start.
+
 ## Configuration
 
 | Field | Allowed | A change applies to |

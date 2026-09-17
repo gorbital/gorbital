@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"gorbital.dev/requestid"
@@ -214,30 +216,82 @@ func BodyLimit(n int64) Middleware {
 	}
 }
 
-// AccessLog logs one line per request: method, route pattern, status,
-// duration, response size and request ID. Query strings and bodies are never
-// logged.
+// AccessLog logs one line per request: method, path, route pattern, status,
+// duration, response size, request ID and what later middleware noted with
+// [AccessNoteFrom] (the authenticated user). Query strings and bodies are
+// never logged.
 func AccessLog(logger *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			rw := wrap(w)
-			next.ServeHTTP(rw, r)
+			note := &AccessNote{}
+			// The router sets the pattern on the request it receives.
+			inner := r.WithContext(context.WithValue(r.Context(), accessNoteKey{}, note))
+			next.ServeHTTP(rw, inner)
 
-			route := r.Pattern
+			route := inner.Pattern
 			if route == "" {
 				route = r.URL.Path
 			}
-			logger.LogAttrs(r.Context(), slog.LevelInfo, "http request",
+			attrs := []slog.Attr{
+				slog.String("source", "http"),
 				slog.String("method", r.Method),
+				slog.String("path", r.URL.Path),
 				slog.String("route", route),
 				slog.Int("status", rw.status()),
 				slog.Int64("duration_ms", time.Since(start).Milliseconds()),
 				slog.Int64("bytes", rw.bytes),
 				slog.String("request_id", requestid.From(r.Context())),
-			)
+			}
+			attrs = append(attrs, note.attrs()...)
+			logger.LogAttrs(r.Context(), slog.LevelInfo, "http request", attrs...)
 		})
 	}
+}
+
+type accessNoteKey struct{}
+
+// AccessNote carries attributes from later middleware and handlers back to
+// [AccessLog]'s record for the request: the authenticated user, set by the
+// auth middleware, so request logs can be filtered by user. It is safe for
+// concurrent use.
+type AccessNote struct {
+	mu    sync.Mutex
+	added []slog.Attr
+}
+
+// AccessNoteFrom returns the request's note, or nil without [AccessLog].
+func AccessNoteFrom(ctx context.Context) *AccessNote {
+	n, _ := ctx.Value(accessNoteKey{}).(*AccessNote)
+	return n
+}
+
+// Add adds attrs to the request's log record; a nil note ignores them. A
+// key added twice keeps the last value.
+func (n *AccessNote) Add(attrs ...slog.Attr) {
+	if n == nil {
+		return
+	}
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	for _, a := range attrs {
+		replaced := false
+		for i := range n.added {
+			if n.added[i].Key == a.Key {
+				n.added[i], replaced = a, true
+			}
+		}
+		if !replaced {
+			n.added = append(n.added, a)
+		}
+	}
+}
+
+func (n *AccessNote) attrs() []slog.Attr {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return append([]slog.Attr(nil), n.added...)
 }
 
 type responseWriter struct {

@@ -243,7 +243,9 @@ func TestBodyLimit(t *testing.T) {
 func TestAccessLog(t *testing.T) {
 	var logs bytes.Buffer
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /v1/projects/{id}", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /v1/projects/{id}", func(w http.ResponseWriter, r *http.Request) {
+		// What the auth middleware does once it knows the user (ADR-0072).
+		httpx.AccessNoteFrom(r.Context()).Add(slog.String("user_id", "usr_1"), slog.String("user_id", "usr_2"))
 		w.WriteHeader(http.StatusTeapot)
 		_, _ = w.Write([]byte("short"))
 	})
@@ -256,6 +258,15 @@ func TestAccessLog(t *testing.T) {
 	}
 	if line["route"] != "GET /v1/projects/{id}" || line["status"] != float64(418) || line["bytes"] != float64(5) || line["request_id"] == "" {
 		t.Errorf("access log = %v, want route pattern, status 418, 5 bytes and request_id", line)
+	}
+	if line["source"] != "http" || line["path"] != "/v1/projects/prj_1" || line["user_id"] != "usr_2" {
+		t.Errorf("access log = %v, want source http, the path and the noted user (last value wins)", line)
+	}
+	// Without AccessLog the note is nil and adding to it is harmless.
+	var nilNote *httpx.AccessNote
+	nilNote.Add(slog.String("k", "v"))
+	if httpx.AccessNoteFrom(context.Background()) != nil {
+		t.Error("a context without AccessLog has a note")
 	}
 	if strings.Contains(logs.String(), "ada@example.com") {
 		t.Errorf("access log contains the query string: %s", logs.String())

@@ -4,22 +4,27 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"go/token"
 	"io"
-	"io/fs"
+	"net/http"
+	"net/mail"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/huh"
 
+	"gorbital.dev/cli/internal/genplan"
 	"gorbital.dev/cli/internal/recipes"
 )
 
@@ -65,6 +70,17 @@ type jobInput struct {
 	queue       string
 	priority    int
 	enabled     bool
+	// What the job does (ADR-0071): kind custom, http, sql, email or
+	// dispatch, with that kind's fields.
+	kind           string
+	httpMethod     string
+	httpURL        string
+	httpBody       string
+	sql            string
+	emailTo        string
+	emailSubject   string
+	emailText      string
+	dispatchTarget string
 }
 
 type genJobResult struct {
@@ -94,6 +110,15 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 	flags.StringVar(&in.queue, "queue", "default", "queue the job runs on")
 	flags.IntVar(&in.priority, "priority", 1, "priority within the queue, 1 (highest) to 4")
 	disabled := flags.Bool("disabled", false, "create the job disabled")
+	flags.StringVar(&in.kind, "kind", "custom", "what the job does: custom (a Work method to write), http, sql, email or dispatch")
+	flags.StringVar(&in.httpMethod, "method", "POST", "kind http: the request method")
+	flags.StringVar(&in.httpURL, "url", "", "kind http: the URL to request")
+	flags.StringVar(&in.httpBody, "body", "", "kind http: the JSON body to send")
+	flags.StringVar(&in.sql, "sql", "", "kind sql: the statement to run")
+	flags.StringVar(&in.emailTo, "to", "", "kind email: the recipient")
+	flags.StringVar(&in.emailSubject, "subject", "", "kind email: the subject")
+	flags.StringVar(&in.emailText, "text", "", "kind email: the plain-text body")
+	flags.StringVar(&in.dispatchTarget, "dispatch", "", "kind dispatch: the name of the job to start")
 	dryRun := flags.Bool("dry-run", false, "show what would be generated without writing")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	allowDirty := flags.Bool("allow-dirty", false, "allow uncommitted changes in the git repository")
@@ -155,46 +180,15 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 		in.schedule = "0 3 * * *"
 	}
 
-	data, err := jobData(app.module, in)
+	plan, err := planJob(app, in)
 	if err != nil {
 		return err
 	}
-	files, err := recipes.RenderJob(data)
-	if err != nil {
-		return err
-	}
-	jobsGo := filepath.Join("internal", "app", "jobs.go")
-	src, err := os.ReadFile(filepath.Join(app.dir, jobsGo))
-	if errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("%s has no %s: orb gen job works in apps created with the Full preset", app.dir, jobsGo)
-	} else if err != nil {
-		return err
-	}
-	callLine := "define" + data.Ident + "Job(defs, deps)"
-	updated, err := recipes.InsertAfterAnchor(src, recipes.JobAnchor, callLine)
-	if errors.Is(err, recipes.ErrAnchorMissing) {
-		return fmt.Errorf("%s has no %q line; add it inside defineJobs, then run orb gen job again", jobsGo, recipes.JobAnchor)
-	} else if err != nil {
-		return fmt.Errorf("%s: job %s is already registered: %w", jobsGo, data.Name, err)
-	}
+	result := plan.Result.(genJobResult)
+	result.DryRun = *dryRun
 
-	root, err := os.OpenRoot(app.dir)
-	if err != nil {
-		return err
-	}
-	defer root.Close()
-	result := genJobResult{Name: data.Ident, Definition: data.Name, DryRun: *dryRun}
-	for _, f := range files {
-		if _, err := root.Stat(f.Path); err == nil {
-			return fmt.Errorf("%s already exists; choose another job name", f.Path)
-		}
-		result.Files = append(result.Files, f.Path)
-	}
-	result.Files = append(result.Files, filepath.ToSlash(jobsGo))
-
-	summary := jobSummary(data, result.Files)
 	if !*dryRun && shouldPrompt(p, *asJSON, stdin, stdout) {
-		ok, err := confirm("Generate this job?", summary, p, stdin, stderr)
+		ok, err := confirm("Generate this job?", plan.Summary, p, stdin, stderr)
 		if err != nil {
 			return err
 		}
@@ -209,15 +203,7 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 				return err
 			}
 		}
-		for _, f := range files {
-			if err := root.MkdirAll(filepath.Dir(f.Path), 0o755); err != nil {
-				return err
-			}
-			if err := root.WriteFile(f.Path, f.Content, 0o644); err != nil {
-				return err
-			}
-		}
-		if err := root.WriteFile(jobsGo, updated, 0o644); err != nil {
+		if err := genplan.Apply(app.dir, plan); err != nil {
 			return err
 		}
 	}
@@ -229,12 +215,21 @@ func runGenJob(ctx context.Context, args []string, stdin io.Reader, stdout, stde
 	if *dryRun {
 		verb = "Would create (dry run)"
 	}
-	fmt.Fprintf(stdout, "✓ %s job %s\n\n%s\n", verb, data.Name, summary)
+	fmt.Fprintf(stdout, "✓ %s job %s\n\n%s\n", verb, result.Definition, plan.Summary)
 	if !*dryRun {
-		fmt.Fprintf(stdout, "\nNext:\n  1. Write the job in internal/jobs/%s/%s.go (Work)\n  2. go test ./internal/app -run TestPublicSurface -update (records the job name)\n  3. go test ./...\n  4. go run ./cmd/api\n\n"+
-			"Change its schedule, timeout or retries any time, without a deploy:\n  PUT /ops/jobs/definitions/%s\n", data.Package, data.Package, data.Name)
+		fmt.Fprintf(stdout, "\nNext:\n%s\n"+
+			"Change its schedule, timeout or retries any time, without a deploy:\n  PUT /ops/jobs/definitions/%s\n", numbered(plan.Next), result.Definition)
 	}
 	return nil
+}
+
+// numbered formats steps as an indented, numbered list.
+func numbered(steps []string) string {
+	var b strings.Builder
+	for i, step := range steps {
+		fmt.Fprintf(&b, "  %d. %s\n", i+1, step)
+	}
+	return b.String()
 }
 
 // promptJob asks for every value not given by a flag. It asks in short
@@ -393,6 +388,10 @@ func jobData(module string, in jobInput) (recipes.JobData, error) {
 	if in.priority < 1 || in.priority > 4 {
 		return recipes.JobData{}, usageError("--priority must be between 1 and 4")
 	}
+	kind, err := jobKind(in)
+	if err != nil {
+		return recipes.JobData{}, err
+	}
 	return recipes.JobData{
 		Module:      module,
 		Ident:       names.ident,
@@ -405,7 +404,70 @@ func jobData(module string, in jobInput) (recipes.JobData, error) {
 		MaxAttempts: in.maxAttempts,
 		Queue:       in.queue,
 		Priority:    in.priority,
+		Kind:        kind.Kind, HTTPMethod: kind.HTTPMethod, HTTPURL: kind.HTTPURL, HTTPBody: kind.HTTPBody, SQL: kind.SQL,
+		EmailTo: kind.EmailTo, EmailSubject: kind.EmailSubject, EmailText: kind.EmailText, DispatchTarget: kind.DispatchTarget,
 	}, nil
+}
+
+// jobKind validates the kind and the fields it needs, and returns them
+// trimmed. Fields of other kinds must be empty, so a typo is noticed.
+func jobKind(in jobInput) (recipes.JobMarker, error) {
+	kind := strings.TrimSpace(in.kind)
+	if kind == "" {
+		kind = recipes.KindCustom
+	}
+	if !slices.Contains(recipes.JobKinds, kind) {
+		return recipes.JobMarker{}, usageError(fmt.Sprintf("--kind must be one of %s", strings.Join(recipes.JobKinds, ", ")))
+	}
+	m := recipes.JobMarker{Kind: kind}
+	fields := map[string]string{"url": in.httpURL, "body": in.httpBody, "sql": in.sql, "to": in.emailTo, "subject": in.emailSubject, "text": in.emailText, "dispatch": in.dispatchTarget}
+	allowed := map[string][]string{recipes.KindHTTP: {"url", "body"}, recipes.KindSQL: {"sql"}, recipes.KindEmail: {"to", "subject", "text"}, recipes.KindDispatch: {"dispatch"}}[kind]
+	for _, name := range []string{"url", "body", "sql", "to", "subject", "text", "dispatch"} {
+		if strings.TrimSpace(fields[name]) != "" && !slices.Contains(allowed, name) {
+			return recipes.JobMarker{}, usageError(fmt.Sprintf("--%s is for another kind of job, not %s", name, kind))
+		}
+	}
+	switch kind {
+	case recipes.KindHTTP:
+		method := strings.ToUpper(strings.TrimSpace(in.httpMethod))
+		if method == "" {
+			method = http.MethodPost
+		}
+		if !slices.Contains([]string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}, method) {
+			return recipes.JobMarker{}, usageError("--method must be GET, POST, PUT, PATCH or DELETE")
+		}
+		u, err := url.Parse(strings.TrimSpace(in.httpURL))
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return recipes.JobMarker{}, usageError("--url must be an http or https URL")
+		}
+		if body := strings.TrimSpace(in.httpBody); body != "" {
+			if !json.Valid([]byte(body)) {
+				return recipes.JobMarker{}, usageError("--body must be JSON")
+			}
+			m.HTTPBody = body
+		}
+		m.HTTPMethod, m.HTTPURL = method, u.String()
+	case recipes.KindSQL:
+		m.SQL = strings.TrimSpace(in.sql)
+		if m.SQL == "" {
+			return recipes.JobMarker{}, usageError("--sql is required for a sql job")
+		}
+	case recipes.KindEmail:
+		m.EmailTo, m.EmailSubject, m.EmailText = strings.TrimSpace(in.emailTo), strings.TrimSpace(in.emailSubject), strings.TrimSpace(in.emailText)
+		if _, err := mail.ParseAddress(m.EmailTo); err != nil {
+			return recipes.JobMarker{}, usageError("--to must be an email address")
+		}
+		if m.EmailSubject == "" {
+			return recipes.JobMarker{}, usageError("--subject is required for an email job")
+		}
+	case recipes.KindDispatch:
+		names, err := jobNames(strings.TrimSpace(in.dispatchTarget))
+		if err != nil {
+			return recipes.JobMarker{}, usageError("--dispatch " + err.Error())
+		}
+		m.DispatchTarget = names.name
+	}
+	return m, nil
 }
 
 var (

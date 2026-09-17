@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -42,6 +43,66 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) ([]int64, erro
 		return applied, fmt.Errorf("postgres: migrate: %w", err)
 	}
 	return applied, nil
+}
+
+// MigrateDown rolls back the most recently applied migration in fsys, for
+// development (ADR-0069): a migration written from the Dev Portal carries
+// a Down section, and undoing it is how a mistake is corrected before it
+// is released. It returns the version rolled back, or 0 when none was
+// applied. Production apps refuse to call it.
+func MigrateDown(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) (int64, error) {
+	ctx = WithoutRowLevelSecurity(ctx, "migrate")
+	var version int64
+	err := withProvider(pool, fsys, func(p *goose.Provider) error {
+		result, err := p.Down(ctx)
+		if errors.Is(err, goose.ErrNoNextVersion) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		version = result.Source.Version
+		return nil
+	})
+	if errors.Is(err, goose.ErrNoMigrations) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("postgres: migrate down: %w", err)
+	}
+	return version, nil
+}
+
+// MigrationInfo is one migration file and whether the database has it.
+type MigrationInfo struct {
+	Version int64
+	// Path is the file's path in fsys.
+	Path      string
+	Applied   bool
+	AppliedAt time.Time
+}
+
+// MigrationList reports every migration in fsys with its state, oldest
+// first. It changes nothing.
+func MigrationList(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) ([]MigrationInfo, error) {
+	var list []MigrationInfo
+	err := withProvider(pool, fsys, func(p *goose.Provider) error {
+		statuses, err := p.Status(ctx)
+		if err != nil {
+			return err
+		}
+		for _, s := range statuses {
+			list = append(list, MigrationInfo{Version: s.Source.Version, Path: s.Source.Path, Applied: s.State == goose.StateApplied, AppliedAt: s.AppliedAt})
+		}
+		return nil
+	})
+	if errors.Is(err, goose.ErrNoMigrations) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("postgres: migration list: %w", err)
+	}
+	return list, nil
 }
 
 // MigrationState describes the schema version against a set of migrations.

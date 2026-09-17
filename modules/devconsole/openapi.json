@@ -674,6 +674,212 @@
           }
         }
       }
+    },
+    "/_dev/mail/previews": {
+      "get": {
+        "operationId": "dev-mail-previews",
+        "summary": "Email previews",
+        "description": "The app's emails that can be rendered with sample data (ADR-0074), when the app registers them.",
+        "tags": [
+          "Dev console"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailPreviewList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/mail/preview": {
+      "get": {
+        "operationId": "dev-mail-preview",
+        "summary": "Render an email preview",
+        "description": "One email rendered with sample data for the given recipient.",
+        "tags": [
+          "Dev console"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The preview's name, from /_dev/mail/previews"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The recipient; preview@example.com when absent"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailPreviewMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/_dev/mail/preview/send": {
+      "post": {
+        "operationId": "dev-mail-preview-send",
+        "summary": "Send an email preview",
+        "description": "Sends the rendered preview through the app's mailer, so it lands in the development inbox like a real one.",
+        "tags": [
+          "Dev console"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The preview's name, from /_dev/mail/previews"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The recipient; preview@example.com when absent"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailPreviewSent"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "This app doesn't serve the endpoint (code not_found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "to isn't an email address (code invalid_address)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong token (code unauthorized)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Host header isn't localhost, 127.0.0.1 or [::1] with the app's port, or the connection isn't local (code forbidden)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1467,6 +1673,101 @@
         "required": [
           "status",
           "code"
+        ]
+      },
+      "MailPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Identifier such as auth.verification_code"
+          },
+          "description": {
+            "type": "string",
+            "description": "When the app sends it"
+          },
+          "category": {
+            "type": "string",
+            "description": "The message's category tag"
+          }
+        },
+        "required": [
+          "name",
+          "description"
+        ]
+      },
+      "MailPreviewList": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "previews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MailPreview"
+            }
+          }
+        },
+        "required": [
+          "previews"
+        ]
+      },
+      "MailPreviewMessage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "description": "The plain-text body"
+          },
+          "html": {
+            "type": "string",
+            "description": "The HTML body"
+          },
+          "to": {
+            "type": "string",
+            "description": "The sample recipient"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "subject",
+          "text",
+          "html",
+          "to"
+        ]
+      },
+      "MailPreviewSent": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "sent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "to",
+          "sent"
         ]
       }
     }

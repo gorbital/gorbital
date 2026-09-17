@@ -20,7 +20,7 @@ curl -X POST http://127.0.0.1:8080/v1/auth/register \
   -H 'Content-Type: application/json' \
   -d '{"email":"you@example.com","password":"a long enough password"}'
 
-# 2. Read the code in Mailpit, then verify the address
+# 2. Read the code in the Dev Portal's Mail screen (http://127.0.0.1:3100/mail), then verify the address
 curl -X POST http://127.0.0.1:8080/v1/auth/verify-email \
   -H 'Content-Type: application/json' \
   -d '{"email":"you@example.com","code":"123456"}'
@@ -248,6 +248,10 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
   Wrong passwords from someone else's network don't lock the owner out; reaching the address-wide limit does, for the rest of the window. A stolen session can't guess the password through the changes that check it. The limits are shared by every instance (PostgreSQL, [ADR-0052](../adr/0052-shared-rate-limits.md)); if the database doesn't answer, each instance applies them on its own until it does. Behind a load balancer, set `APP_TRUSTED_PROXIES` so the per-network limits apply to each client rather than to the balancer.
 - **Two-factor authentication** emails the user when it's turned on or off and when a recovery code is used.
 
+## Operating accounts
+
+Operators manage accounts through `/ops/auth/users…` ([ops API](ops-api.md#accounts), [ADR-0070](../adr/0070-operators-account-apis.md)): list and search, create, verify an address, grant roles, end sessions, remove passkeys and provider links, reset second factors, ban and delete. A banned account can't sign in by any method until the ban is lifted. In development the [Dev Portal](dev-portal.md)'s Authentication screen does all of this, and can act as a user to test the API; that impersonation doesn't exist in production.
+
 ## Sessions
 
 - A session ends after 14 days without use or 90 days in total (runtime settings `auth.session_idle_ttl`, `auth.session_absolute_ttl`), or when signed out.
@@ -330,7 +334,7 @@ Every sign-in (successful or not), second factor (`auth.mfa.challenge_succeeded`
 
 | Symptom | Fix |
 |---|---|
-| No code arrives | Check Mailpit (http://127.0.0.1:8025) in development, or `GET /ops/jobs/runs?kind=gorbital.mail.send` for delivery errors ([email guide](email.md)) |
+| No code arrives | Check the Dev Portal's Mail screen (http://127.0.0.1:3100/mail) in development, or `GET /ops/jobs/runs?kind=gorbital.mail.send` for delivery errors ([email guide](email.md)) |
 | `email_not_verified` | Verify with the emailed code, or `POST /v1/auth/verify-email/resend` |
 | `forbidden` on `/ops/*` | `go run ./cmd/api grant-role <email> platform_admin` (the account's address must be verified) |
 | `mfa_required` on `/ops/*` | Turn on two-factor authentication (`POST /v1/auth/mfa/totp`, then `/confirm`), or sign in again with a code |

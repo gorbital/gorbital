@@ -169,7 +169,7 @@ Account and organisation deletion is soft first: data is purged by jobs after `a
 
 ## Never do this in production
 
-- Set `MAIL_DELIVERY=mailpit`, or copy a development `.env`. (The app refuses the first.)
+- Set `MAIL_DELIVERY=devmail` or `mailpit`, or copy a development `.env`. (The app refuses the first two.)
 - Reuse the development `AUTH_ENCRYPTION_KEYS`, or lose the production one.
 - Run `cmd/seed`, or create administrators any way other than `grant-role` on a verified account.
 - Run migrations from app instances at start, or edit a migration that has already run anywhere.

@@ -13,6 +13,8 @@ pkg gorbital.dev/modules/postgres, func InTxWithOptions(context.Context, Beginne
 pkg gorbital.dev/modules/postgres, func IsNoRows(error) bool
 pkg gorbital.dev/modules/postgres, func IsRetryable(error) bool
 pkg gorbital.dev/modules/postgres, func Migrate(context.Context, *pgxpool.Pool, fs.FS) ([]int64, error)
+pkg gorbital.dev/modules/postgres, func MigrateDown(context.Context, *pgxpool.Pool, fs.FS) (int64, error)
+pkg gorbital.dev/modules/postgres, func MigrationList(context.Context, *pgxpool.Pool, fs.FS) ([]MigrationInfo, error)
 pkg gorbital.dev/modules/postgres, func Migrations(context.Context, *pgxpool.Pool, fs.FS) (MigrationState, error)
 pkg gorbital.dev/modules/postgres, func NotNullViolation(error) (string, bool)
 pkg gorbital.dev/modules/postgres, func Open(context.Context, config.Secret, ...Option) (*pgxpool.Pool, error)
@@ -35,6 +37,11 @@ pkg gorbital.dev/modules/postgres, type DBTX interface { Exec, Query, QueryRow }
 pkg gorbital.dev/modules/postgres, type DBTX interface, Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
 pkg gorbital.dev/modules/postgres, type DBTX interface, Query(context.Context, string, ...any) (pgx.Rows, error)
 pkg gorbital.dev/modules/postgres, type DBTX interface, QueryRow(context.Context, string, ...any) pgx.Row
+pkg gorbital.dev/modules/postgres, type MigrationInfo struct
+pkg gorbital.dev/modules/postgres, type MigrationInfo struct, Applied bool
+pkg gorbital.dev/modules/postgres, type MigrationInfo struct, AppliedAt time.Time
+pkg gorbital.dev/modules/postgres, type MigrationInfo struct, Path string
+pkg gorbital.dev/modules/postgres, type MigrationInfo struct, Version int64
 pkg gorbital.dev/modules/postgres, type MigrationState struct
 pkg gorbital.dev/modules/postgres, type MigrationState struct, Current int64
 pkg gorbital.dev/modules/postgres, type MigrationState struct, Latest int64

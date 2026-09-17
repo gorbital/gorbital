@@ -30,6 +30,7 @@ Read in `config.go` by both presets.
 | `APP_ENV` | **Yes** | none | `production` | `development` or `production`; missing fails with `APP_ENV is required` | Production switches logs to JSON, sends HSTS (365 days), enables a 5 s drain delay on shutdown, and applies every **Prod** rule on this page. The Dockerfile sets `production` |
 | `APP_ADDR` | No | `127.0.0.1:8080` | `0.0.0.0:8080` | `host:port` | Listen address. Loopback by default so a development API isn't exposed on the network; containers need `0.0.0.0` (the Dockerfile sets it) |
 | `APP_LOG_LEVEL` | No | `info` | `debug` | `debug`, `info`, `warn`, `error` | Minimum `slog` level |
+| `APP_LOG_FORMAT` | No | empty | `json` | `json`, `text`, empty | Log encoding; empty means JSON in production and text elsewhere. `orb dev` sets `json` for the Dev Portal's log store and prints text ([ADR-0072](../adr/0072-local-log-store.md)) |
 | `APP_DOCS_ENABLED` | No | `true` in development, `false` in production | `true` | `true` or `false` | Serves `/docs` and the OpenAPI document (`/openapi.json`, `/openapi.yaml`). Off, both answer 404; `api openapi` still exports the document. Set `true` in production for a public API reference |
 | `APP_CORS_ORIGINS` | No | empty | `https://app.example.com,http://localhost:3000` | Comma-separated origins (scheme, host, optional port; no user, path, query or trailing slash). **Prod:** https only | Browser origins allowed by CORS, trusted by the cross-origin protection, and accepted as `return_to` for Google and Apple web sign-in. Empty disables CORS |
 | `APP_TRUSTED_PROXIES` | No | empty | `10.0.0.0/8,192.0.2.10` | Comma-separated CIDR ranges or IP addresses; ranges covering every address (`0.0.0.0/0`, `::/0`) are refused | Load balancers and reverse proxies whose `X-Forwarded-For` names the client, for rate limits, logs and audit events ([ADR-0052](../adr/0052-shared-rate-limits.md)). Requests from other addresses keep their own address and their forwarding headers are ignored. Empty trusts no header: correct only when clients connect directly |
@@ -95,7 +96,12 @@ Read in `config.go` and `infra_mail.go`. `infra_mail.go` is replaced by `orb add
 
 | Variable | Required | Default | Example | Secret | Description |
 |---|---|---|---|---|---|
-| `MAIL_DELIVERY` | No | `mailpit` in development, `provider` in production | `provider` | No | `mailpit` or `provider`. **Prod**: `mailpit` is refused. Provider credentials are only required when delivery is `provider` |
+| `STORAGE_DRIVER` | No | `local` | `s3` | `local`, `s3`, `spaces`, `r2`, `minio` | File storage driver ([storage guide](storage.md)). **Prod**: `local` is refused |
+| `STORAGE_LOCAL_DIR` | No | `.orb/storage` | `/var/lib/acme/files` | path | The local driver's directory |
+| `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY` | For the S3 drivers | derived endpoint for `s3` and `spaces` | `s3.eu-west-1.amazonaws.com` | | The service and its credentials; `STORAGE_SECRET_KEY` is a secret |
+| `STORAGE_PUBLIC_URL`, `STORAGE_PATH_STYLE`, `STORAGE_SIGNING_KEY` | No | none, `true` for minio, random | | | A public bucket's URL; bucket in the path; the key signing local links |
+| `DEV_MAIL_SMTP_ADDR` | No | `127.0.0.1:1025` | `127.0.0.1:1035` | host:port | Where `orb dev`'s mail catcher listens and the app sends with `MAIL_DELIVERY=devmail` ([ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)) |
+| `MAIL_DELIVERY` | No | `devmail` in development, `provider` in production | `provider` | No | `devmail`, `mailpit` or `provider`. **Prod**: `devmail` and `mailpit` are refused. Provider credentials are only required when delivery is `provider` |
 | `MAILPIT_SMTP_ADDR` | No | `127.0.0.1:1025` | `127.0.0.1:1035` | No | `host:port` of Mailpit's SMTP server, used when delivery is `mailpit` |
 | `RESEND_API_KEY` | Resend, with delivery `provider` | empty | `re_…` | **Secret** | Resend API key, "Sending access" is enough |
 | `RESEND_WEBHOOK_SECRET` | No | empty | `whsec_…` | **Secret** | Signing secret of the Resend webhook for bounces and complaints; empty turns `POST /v1/webhooks/resend` off (404). Must be `whsec_` and base64 (`RESEND_WEBHOOK_SECRET: resend: the webhook signing secret must be …`). [Email guide](email.md#connect-resends-webhook) |

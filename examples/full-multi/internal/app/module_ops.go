@@ -14,6 +14,7 @@ import (
 	"gorbital.dev/modules/observability"
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/modules/settings"
+	"gorbital.dev/modules/storage"
 
 	"example.com/acme-api/internal/modules/ops"
 	opsdomain "example.com/acme-api/internal/modules/ops/domain"
@@ -28,6 +29,10 @@ func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error
 	err := mapper.Add(
 		httpx.Mapping{Err: opsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
 		httpx.Mapping{Err: opsdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
+		httpx.Mapping{Err: opsusecase.ErrStorageOff, Status: http.StatusNotFound, Code: "storage_off", Detail: "the app has no file storage configured (STORAGE_DRIVER)"},
+		httpx.Mapping{Err: storage.ErrNotFound, Status: http.StatusNotFound, Code: "storage_object_not_found", Detail: "no object has this key"},
+		httpx.Mapping{Err: storage.ErrInvalidKey, Status: http.StatusUnprocessableEntity, Code: "invalid_storage_key", Detail: "keys are 1 to 1024 characters of path segments without \".\", \"..\" or a leading slash"},
+		httpx.Mapping{Err: storage.ErrUnavailable, Status: http.StatusServiceUnavailable, Code: "storage_unavailable", Detail: "the storage service didn't answer"},
 		httpx.Mapping{Err: opsdomain.ErrMFARequired, Status: http.StatusForbidden, Code: "mfa_required", Detail: "sign in with two-factor authentication to use this operation; turn it on first if needed"},
 
 		httpx.Mapping{Err: settings.ErrUnknownSetting, Status: http.StatusNotFound, Code: "setting_not_found", Detail: "no setting has this key"},
@@ -57,6 +62,7 @@ func registerOps(api huma.API, mapper *httpx.Mapper, deps opsusecase.Deps) error
 
 		httpx.Mapping{Err: releases.ErrInvalidCursor, Status: http.StatusBadRequest, Code: "invalid_cursor", Detail: "the cursor is not valid"},
 
+		httpx.Mapping{Err: opsusecase.ErrUnknownRateLimiter, Status: http.StatusNotFound, Code: "rate_limiter_not_found", Detail: "no rate limiter has this name, or the key is empty"},
 		httpx.Mapping{Err: opsdomain.ErrInvalidRecipient, Status: http.StatusUnprocessableEntity, Code: "invalid_recipient", Detail: "the recipient is not an email address"},
 		httpx.Mapping{Err: opsdomain.ErrTooManyTestEmails, Status: http.StatusTooManyRequests, Code: "rate_limited", Detail: "too many test emails; try again later"},
 		httpx.Mapping{Err: opsdomain.ErrSuppressionReasonRequired, Status: http.StatusUnprocessableEntity, Code: "mail_suppression_reason_required", Detail: "a reason is required to remove a suppressed address"},

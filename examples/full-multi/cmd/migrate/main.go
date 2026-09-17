@@ -4,6 +4,8 @@
 //
 //	migrate                   apply pending migrations
 //	migrate --status [--json] report pending migrations and change nothing (orb doctor uses it)
+//	migrate --down            roll back the most recent migration (development only)
+//	migrate --redo            roll back the most recent migration and apply it again (development only)
 package main
 
 import (
@@ -27,6 +29,8 @@ func main() {
 func run(ctx context.Context) error {
 	status := flag.Bool("status", false, "report pending migrations without applying them")
 	asJSON := flag.Bool("json", false, "with --status, print one JSON object")
+	down := flag.Bool("down", false, "roll back the most recent migration (development only)")
+	redo := flag.Bool("redo", false, "roll back the most recent migration and apply it again (development only)")
 	flag.Parse()
 
 	cfg, err := app.LoadConfig(config.OS)
@@ -35,6 +39,14 @@ func run(ctx context.Context) error {
 	}
 	if err != nil {
 		return err
+	}
+	if *down || *redo {
+		if err := app.MigrateDown(ctx, cfg, os.Stdout); err != nil {
+			return err
+		}
+		if !*redo {
+			return nil
+		}
 	}
 	return app.Migrate(ctx, cfg, os.Stdout)
 }

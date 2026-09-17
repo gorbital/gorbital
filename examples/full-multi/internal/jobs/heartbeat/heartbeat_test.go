@@ -15,7 +15,8 @@ import (
 
 func TestWorker(t *testing.T) {
 	var logs bytes.Buffer
-	w := heartbeat.NewWorker(slog.New(slog.NewJSONHandler(&logs, nil)))
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
+	w := heartbeat.NewWorker(logger)
 
 	job := &river.Job[heartbeat.Args]{JobRow: &rivertype.JobRow{ID: 7, Attempt: 1}}
 	if err := w.Work(context.Background(), job); err != nil {

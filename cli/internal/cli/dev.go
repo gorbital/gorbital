@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -15,7 +16,12 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"gorbital.dev/cli/internal/devmail"
+	"gorbital.dev/cli/internal/pgmeta"
+	"gorbital.dev/cli/internal/portal"
 )
 
 const devUsage = `Usage: orb dev [flags]
@@ -26,6 +32,12 @@ starts PostgreSQL and Mailpit from compose.yaml with Docker, applies
 migrations and runs seed data; changed migrations are applied before the
 restart. Services keep running after orb dev stops: docker compose down
 stops them, docker compose down -v also deletes their data.
+
+It also serves the Dev Portal at http://127.0.0.1:3100 (DEV_PORTAL_PORT or
+--portal-port to move it) and opens it in your browser: the app's state and
+output, its routes, jobs, logs and email, and the generators, in one place
+(docs/guides/dev-portal.md). Its link carries a token that is new on every
+run; the portal answers only this machine.
 `
 
 // watchIgnored are directories never watched for changes.
@@ -41,6 +53,9 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 	interval := flags.Duration("interval", 500*time.Millisecond, "how often to check for changes")
 	observability := flags.Bool("observability", false, "also start Grafana and send the app's traces, metrics and logs to it")
 	noServices := flags.Bool("no-services", false, "don't start Docker services; use the PostgreSQL and SMTP addresses in .env as they are")
+	portalPort := flags.String("portal-port", "", "port the Dev Portal listens on (default DEV_PORTAL_PORT in .env, or "+defaultPortalPort+")")
+	noPortal := flags.Bool("no-portal", false, "don't serve the Dev Portal")
+	noOpen := flags.Bool("no-open", false, "don't open the Dev Portal in a browser")
 	flags.Usage = func() {
 		fmt.Fprint(stderr, devUsage+"\nFlags:\n")
 		flags.PrintDefaults()
@@ -60,17 +75,27 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 	d.database = slices.Contains(manifestFeatures(manifest), "postgres")
 	d.services = !*noServices
 	d.observability = *observability
+	d.portal = !*noPortal
+	d.portalPortFlag = *portalPort
+	d.openBrowser = !*noOpen
 	if err := d.prepare(ctx); err != nil {
 		return err
 	}
+	stopPortal, err := d.servePortal(ctx)
+	if err != nil {
+		return err
+	}
+	defer stopPortal()
 	return d.loop(ctx, !*noReload, *interval)
 }
 
 type devRunner struct {
-	out  io.Writer
-	bin  string
-	cmd  *exec.Cmd
-	done chan error
+	out    io.Writer // orb's own messages, also kept for the portal
+	rawOut io.Writer // the same messages, without the portal copy
+	bin    string
+	cmd    *exec.Cmd
+	done   chan error
+	dir    string // the app directory
 
 	database      bool     // the app has PostgreSQL: migrate and seed
 	services      bool     // start the database's Docker Compose services
@@ -82,6 +107,43 @@ type devRunner struct {
 	consoleToken        string
 	consoleTokenFromEnv bool
 
+	// The Dev Portal (ADR-0066): whether to serve it, its port (the flag,
+	// else DEV_PORTAL_PORT, else the default), its per-run token, and
+	// whether to open it in a browser. hub carries the app's output and
+	// state to the portal; server is the portal while it runs.
+	portal             bool
+	portalPortFlag     string
+	portalPort         string
+	portalToken        string
+	portalTokenFromEnv bool
+	openBrowser        bool
+	hub                *portal.Hub
+	logs               *portal.LogStore      // the local log store while the portal runs (ADR-0072)
+	system             *portal.SystemSampler // the machine and the app process (ADR-0073)
+	mailStore          *devmail.Store        // the mail catcher's inbox, when it runs (ADR-0074)
+	mailServer         *devmail.Server
+	mailAddr           string
+	server             *portal.Server
+	open               func(url string) error // opens a URL in the browser; tests replace it
+	// db is the portal's connection to the app's database, opened on the
+	// first request that needs it (ADR-0067).
+	dbMu sync.Mutex
+	db   *pgmeta.Client
+
+	// The app's state as the portal reports it (ADR-0066), guarded by mu:
+	// loop changes it, portal requests read it.
+	mu        sync.Mutex
+	state     portal.State
+	pid       int
+	startedAt time.Time
+	restarts  int
+	problem   string
+	addr      string // APP_ADDR as last read
+
+	// commands carries restart, stop and start requests from the portal to
+	// loop, which runs them between change checks.
+	commands chan devCommand
+
 	// run runs a command with env, streaming its output; output runs one and
 	// returns its standard output; lookPath finds a program. Tests replace
 	// them.
@@ -90,13 +152,37 @@ type devRunner struct {
 	lookPath func(file string) (string, error)
 }
 
+// devCommand is a request from the portal to loop.
+type devCommand string
+
+const (
+	commandRestart devCommand = "restart"
+	commandStop    devCommand = "stop"
+	commandStart   devCommand = "start"
+	commandMigrate devCommand = "migrate"
+	commandDown    devCommand = "migrate-down"
+	commandRedo    devCommand = "migrate-redo"
+	commandReset   devCommand = "reset-database"
+)
+
 func newDevRunner(out io.Writer) *devRunner {
+	hub := portal.NewHub()
+	dir, _ := os.Getwd()
 	return &devRunner{
-		out: out,
-		bin: filepath.Join(".orb", "api"),
+		out:      io.MultiWriter(out, hub.Writer("orb")),
+		rawOut:   out,
+		bin:      filepath.Join(".orb", "api"),
+		dir:      dir,
+		hub:      hub,
+		open:     openInBrowser,
+		state:    portal.StatePreparing,
+		commands: make(chan devCommand, 1),
 		run: func(ctx context.Context, env []string, name string, args ...string) error {
 			cmd := exec.CommandContext(ctx, name, args...)
-			cmd.Env, cmd.Stdout, cmd.Stderr = env, out, out
+			// The command's output (migrations, seeds, docker) goes to the
+			// terminal and to the portal, so a failed migration's error is
+			// readable there.
+			cmd.Env, cmd.Stdout, cmd.Stderr = env, io.MultiWriter(out, hub.Writer("orb")), io.MultiWriter(out, hub.Writer("orb"))
 			return cmd.Run()
 		},
 		output: func(ctx context.Context, env []string, name string, args ...string) ([]byte, error) {
@@ -123,6 +209,7 @@ var (
 	databaseServices = []composeService{
 		{"postgres", []servicePort{{"POSTGRES_PORT", "5432"}}},
 		{"mailpit", []servicePort{{"MAILPIT_SMTP_PORT", "1025"}, {"MAILPIT_WEB_PORT", "8025"}}},
+		{"minio", []servicePort{{"MINIO_PORT", "9000"}, {"MINIO_CONSOLE_PORT", "9001"}}},
 	}
 	grafanaService = composeService{"grafana", []servicePort{{"GRAFANA_PORT", "3000"}, {"OTLP_HTTP_PORT", "4318"}}}
 )
@@ -161,10 +248,15 @@ func (d *devRunner) prepare(ctx context.Context) error {
 	if d.consoleToken != "" {
 		d.extraEnv = append(d.extraEnv, devConsoleTokenVar+"="+d.consoleToken)
 	}
+	if d.portal {
+		if err := d.preparePortal(env); err != nil {
+			return err
+		}
+	}
 
 	var services []composeService
 	if d.database && d.services {
-		services = append(services, databaseServices...)
+		services = append(services, composeServicesIn("compose.yaml", databaseServices)...)
 	}
 	if d.observability {
 		services = append(services, grafanaService)
@@ -260,8 +352,15 @@ func checkServicePort(service, envVar, port string) error {
 }
 
 func (d *devRunner) migrate(ctx context.Context, env []string) error {
-	fmt.Fprintln(d.out, "orb: applying migrations (go run ./cmd/migrate)")
-	if err := d.run(ctx, env, "go", "run", "./cmd/migrate"); err != nil {
+	return d.migrateWith(ctx, env)
+}
+
+// migrateWith runs the app's migrate command with args, such as --down or
+// --redo (development only, ADR-0069).
+func (d *devRunner) migrateWith(ctx context.Context, env []string, args ...string) error {
+	all := append([]string{"run", "./cmd/migrate"}, args...)
+	fmt.Fprintf(d.out, "orb: applying migrations (go %s)\n", strings.Join(all, " "))
+	if err := d.run(ctx, env, "go", all...); err != nil {
 		return fmt.Errorf("migrations failed: %w", err)
 	}
 	return nil
@@ -287,7 +386,12 @@ func (d *devRunner) banner(env []string) {
 		api = "http://" + net.JoinHostPort("127.0.0.1", port)
 	}
 	fmt.Fprintf(d.out, "\n  ✓ API        %s\n  ✓ API docs   %s/docs\n", api, api)
-	if d.database && d.services {
+	switch {
+	case d.database && mailDelivery(env) == "devmail" && d.portal:
+		fmt.Fprintf(d.out, "  ✓ Emails     %s/mail (caught at %s)\n", d.portalLink(), devMailAddr(env))
+	case d.database && mailDelivery(env) == "devmail":
+		fmt.Fprintf(d.out, "  ✓ Emails     caught at %s; the Dev Portal's Mail screen shows them (orb dev without --no-portal)\n", devMailAddr(env))
+	case d.database && d.services && mailDelivery(env) == "mailpit":
 		fmt.Fprintf(d.out, "  ✓ Emails     http://127.0.0.1:%s\n", envValue(env, "MAILPIT_WEB_PORT", "8025"))
 	}
 	if d.consoleToken != "" {
@@ -296,6 +400,14 @@ func (d *devRunner) banner(env []string) {
 			fmt.Fprintf(d.out, "    Token      %s from your environment\n", devConsoleTokenVar)
 		} else {
 			fmt.Fprintf(d.out, "    Token      %s (Authorization: Bearer; new on every orb dev run)\n", d.consoleToken)
+		}
+	}
+	if d.portal {
+		fmt.Fprintf(d.out, "  ✓ Dev Portal %s (docs/guides/dev-portal.md)\n", d.portalLink())
+		if d.portalTokenFromEnv {
+			fmt.Fprintf(d.out, "    Token      %s from your environment\n", devPortalTokenVar)
+		} else if !d.openBrowser {
+			fmt.Fprintln(d.out, "    Open the link above; it holds this run's token")
 		}
 	}
 	if d.observability {
@@ -320,7 +432,7 @@ func (d *devRunner) loop(ctx context.Context, reload bool, interval time.Duratio
 		case <-ctx.Done():
 			return nil
 		case err := <-d.done:
-			d.cmd = nil
+			d.exited(exitError(err))
 			return exitError(err)
 		}
 	}
@@ -336,7 +448,9 @@ func (d *devRunner) loop(ctx context.Context, reload bool, interval time.Duratio
 			return nil
 		case err := <-d.done:
 			fmt.Fprintf(d.out, "orb: app exited (%v); waiting for changes\n", exitError(err))
-			d.cmd, d.done = nil, nil
+			d.exited(exitError(err))
+		case c := <-d.commands:
+			d.runCommand(ctx, c, &lastSQL)
 		case <-ticker.C:
 			cur, err := snapshot(".", watched)
 			if err != nil || cur == last {
@@ -344,26 +458,80 @@ func (d *devRunner) loop(ctx context.Context, reload bool, interval time.Duratio
 			}
 			last = cur
 			fmt.Fprintln(d.out, "orb: change detected, rebuilding")
-			if err := d.build(ctx); err != nil {
-				d.keepRunning("build failed")
-				continue
-			}
-			if sql, _ := snapshot(migrationsDir, isSQL); d.database && sql != lastSQL {
-				env, err := devEnv(".env")
-				if err == nil {
-					err = d.migrate(ctx, withAppEnv(env))
-				}
-				if err != nil {
-					d.keepRunning("migrations failed")
-					continue
-				}
-				lastSQL = sql
-			}
-			d.stop()
-			if err := d.start(); err != nil {
-				fmt.Fprintf(d.out, "orb: start failed: %v\n", err)
-			}
+			d.rebuild(ctx, &lastSQL)
 		}
+	}
+}
+
+// runCommand runs a request from the portal.
+func (d *devRunner) runCommand(ctx context.Context, c devCommand, lastSQL *uint64) {
+	switch c {
+	case commandRestart:
+		fmt.Fprintln(d.out, "orb: restart requested from the Dev Portal, rebuilding")
+		d.rebuild(ctx, lastSQL)
+	case commandStop:
+		if d.cmd == nil {
+			return
+		}
+		fmt.Fprintln(d.out, "orb: stop requested from the Dev Portal")
+		d.stop()
+		d.setState(portal.StateStopped, "")
+	case commandStart:
+		if d.cmd != nil {
+			return
+		}
+		fmt.Fprintln(d.out, "orb: start requested from the Dev Portal")
+		if err := d.start(); err != nil {
+			fmt.Fprintf(d.out, "orb: start failed: %v\n", err)
+			d.setState(portal.StateStopped, err.Error())
+		}
+	case commandMigrate, commandDown, commandRedo, commandReset:
+		args := map[devCommand][]string{commandMigrate: nil, commandDown: {"--down"}, commandRedo: {"--redo"}, commandReset: nil}[c]
+		fmt.Fprintf(d.out, "orb: %s requested from the Dev Portal\n", c)
+		env, err := devEnv(".env")
+		if err == nil {
+			err = d.migrateWith(ctx, withAppEnv(env), args...)
+		}
+		if err == nil && c == commandReset {
+			err = d.seed(ctx, withAppEnv(env))
+		}
+		if err != nil {
+			d.setStateAfterFailure("migrations failed: " + err.Error())
+			return
+		}
+		if sql, err := snapshot(migrationsDir, isSQL); err == nil {
+			*lastSQL = sql
+		}
+		d.setStateAfterFailure("")
+	}
+}
+
+// rebuild builds the app, applies changed migrations and swaps the running
+// process for the new build. A failed build or migration leaves the previous
+// version running and reports the problem.
+func (d *devRunner) rebuild(ctx context.Context, lastSQL *uint64) {
+	d.setState(portal.StateBuilding, "")
+	if err := d.build(ctx); err != nil {
+		d.keepRunning("build failed")
+		d.setStateAfterFailure("build failed: " + err.Error())
+		return
+	}
+	if sql, _ := snapshot(migrationsDir, isSQL); d.database && sql != *lastSQL {
+		env, err := devEnv(".env")
+		if err == nil {
+			err = d.migrate(ctx, withAppEnv(env))
+		}
+		if err != nil {
+			d.keepRunning("migrations failed")
+			d.setStateAfterFailure("migrations failed: " + err.Error())
+			return
+		}
+		*lastSQL = sql
+	}
+	d.stop()
+	if err := d.start(); err != nil {
+		fmt.Fprintf(d.out, "orb: start failed: %v\n", err)
+		d.setState(portal.StateStopped, err.Error())
 	}
 }
 
@@ -382,6 +550,38 @@ func (d *devRunner) build(ctx context.Context) error {
 	return cmd.Run()
 }
 
+// setState records the app's state and problem and tells the portal.
+func (d *devRunner) setState(state portal.State, problem string) {
+	d.mu.Lock()
+	d.state, d.problem = state, problem
+	server := d.server
+	d.mu.Unlock()
+	d.hub.SetState(d.Status())
+	if server != nil {
+		server.CloseIdleConnections() // the app's port may have changed hands
+	}
+}
+
+// setStateAfterFailure records a failed rebuild: the previous version keeps
+// running if it was, else the app stays stopped.
+func (d *devRunner) setStateAfterFailure(problem string) {
+	state := portal.StateStopped
+	if d.cmd != nil {
+		state = portal.StateRunning
+	}
+	d.setState(state, problem)
+}
+
+// exited records that the app process ended on its own.
+func (d *devRunner) exited(err error) {
+	d.cmd, d.done = nil, nil
+	problem := ""
+	if err != nil {
+		problem = "the app exited: " + err.Error()
+	}
+	d.setState(portal.StateStopped, problem)
+}
+
 func (d *devRunner) start() error {
 	env, err := devEnv(".env")
 	if err != nil {
@@ -392,7 +592,10 @@ func (d *devRunner) start() error {
 	}
 	cmd := exec.Command(d.bin)
 	cmd.Env = d.appEnv(env)
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, d.out
+	// The app's output goes to the terminal as before, and to the portal.
+	// The app logs JSON (appEnv), which the terminal shows as text.
+	appOut := d.hub.Writer("app")
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, io.MultiWriter(newTextRenderer(os.Stdout), appOut), io.MultiWriter(newTextRenderer(d.rawOut), appOut)
 	configureProcess(cmd)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start app: %w", err)
@@ -400,13 +603,58 @@ func (d *devRunner) start() error {
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	d.cmd, d.done = cmd, done
+	d.mu.Lock()
+	if !d.startedAt.IsZero() {
+		d.restarts++
+	}
+	d.pid, d.startedAt, d.addr = cmd.Process.Pid, time.Now(), appAddr(env)
+	d.mu.Unlock()
+	d.setState(portal.StateRunning, "")
 	return nil
 }
 
-// appEnv returns the app process's environment: env with APP_ENV, then
-// extraEnv, whose later values win.
+// appEnv returns the app process's environment: env with APP_ENV and,
+// unless .env chose one, APP_LOG_FORMAT=json so the portal's log store
+// reads structured records (ADR-0072; the terminal still shows text),
+// then extraEnv, whose later values win.
 func (d *devRunner) appEnv(env []string) []string {
-	return append(withAppEnv(env), d.extraEnv...)
+	env = withAppEnv(env)
+	if envValue(env, "APP_LOG_FORMAT", "") == "" {
+		env = append(env, "APP_LOG_FORMAT=json")
+	}
+	return append(env, d.extraEnv...)
+}
+
+// textRenderer writes JSON log lines to the terminal as text (see
+// portal.RenderText); other lines pass unchanged. Partial lines wait for
+// their newline.
+type textRenderer struct {
+	w   io.Writer
+	buf []byte
+}
+
+func newTextRenderer(w io.Writer) *textRenderer { return &textRenderer{w: w} }
+
+func (t *textRenderer) Write(p []byte) (int, error) {
+	t.buf = append(t.buf, p...)
+	for {
+		i := bytes.IndexByte(t.buf, '\n')
+		if i < 0 {
+			break
+		}
+		line := string(t.buf[:i])
+		t.buf = t.buf[i+1:]
+		if _, err := io.WriteString(t.w, portal.RenderText(line)+"\n"); err != nil {
+			return len(p), err
+		}
+	}
+	if len(t.buf) > 64<<10 { // a line without end: pass it through
+		if _, err := t.w.Write(t.buf); err != nil {
+			return len(p), err
+		}
+		t.buf = t.buf[:0]
+	}
+	return len(p), nil
 }
 
 // stop asks the app to shut down gracefully and kills it after 10 seconds.
@@ -422,6 +670,9 @@ func (d *devRunner) stop() {
 		<-d.done
 	}
 	d.cmd, d.done = nil, nil
+	d.mu.Lock()
+	d.pid = 0
+	d.mu.Unlock()
 }
 
 func exitError(err error) error {
@@ -546,3 +797,36 @@ func manifestFeatures(manifest []byte) []string {
 	}
 	return features
 }
+
+// composeServicesIn keeps PostgreSQL and the optional services compose.yaml
+// defines: Mailpit (apps made before ADR-0074) and MinIO (orb add storage
+// --driver minio, ADR-0075).
+func composeServicesIn(path string, services []composeService) []composeService {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return services
+	}
+	var out []composeService
+	for _, s := range services {
+		if s.name != "postgres" && !strings.Contains(string(data), "\n  "+s.name+":") {
+			continue // optional services: Mailpit (older apps), MinIO (orb add storage)
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+// mailDelivery is MAIL_DELIVERY as the app resolves it: devmail in
+// development unless set.
+func mailDelivery(env []string) string {
+	if v := envValue(env, "MAIL_DELIVERY", ""); v != "" {
+		return v
+	}
+	if envValue(env, "APP_ENV", "development") == "production" {
+		return "provider"
+	}
+	return "devmail"
+}
+
+// devMailAddr is where the mail catcher listens (DEV_MAIL_SMTP_ADDR).
+func devMailAddr(env []string) string { return envValue(env, "DEV_MAIL_SMTP_ADDR", "127.0.0.1:1025") }

@@ -1,6 +1,6 @@
 # ADR-005: Database strategy
 
-**Status:** Accepted (2026-09-14) · **Amended by:** ADR-0032 (hand-written SQL replaces sqlc), ADR-0033 (River's tables use River's migrator)
+**Status (amended by ADR-0069: `cmd/migrate --down` and `--redo` in development only):** Accepted (2026-09-14) · **Amended by:** ADR-0032 (hand-written SQL replaces sqlc), ADR-0033 (River's tables use River's migrator)
 
 **Context:** Modules need persistence and migrations; apps need productive data access.
 

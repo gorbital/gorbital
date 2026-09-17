@@ -15,12 +15,19 @@ type User struct {
 	// WebAuthnUserHandle identifies the account in its passkeys; nil until
 	// the first passkey is registered.
 	WebAuthnUserHandle []byte
+	// BannedAt is when an operator banned the account (ADR-0070); a banned
+	// account can't sign in and its sessions and keys were revoked.
+	BannedAt     *time.Time
+	BannedReason string
 	// Roles are the user's platform roles, when loaded.
 	Roles []string
 }
 
 // EmailVerified reports whether the user proved they own the address.
 func (u User) EmailVerified() bool { return u.EmailVerifiedAt != nil }
+
+// Banned reports whether an operator banned the account.
+func (u User) Banned() bool { return u.BannedAt != nil }
 
 // HasPassword reports whether the account can sign in with a password.
 func (u User) HasPassword() bool { return u.PasswordHash != "" }

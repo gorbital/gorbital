@@ -28,6 +28,7 @@ func TestEmailThroughOps(t *testing.T) {
 	mailpitAPI := os.Getenv(envMailpitURL)
 	if addr := os.Getenv(envMailpitSMTP); addr != "" {
 		env["MAILPIT_SMTP_ADDR"] = addr
+		env["MAIL_DELIVERY"] = "mailpit"
 	}
 	a := newApp(t, env)
 	startWorkers(t, a)
@@ -134,7 +135,7 @@ func TestEmailConfiguration(t *testing.T) {
 		{"production never uses Mailpit", withMailProvider(map[string]string{"APP_ENV": "production", "MAIL_DELIVERY": "mailpit"}), "MAIL_DELIVERY"},
 		{"real email in development needs the provider's configuration", map[string]string{"MAIL_DELIVERY": "provider"}, mailProviderRequired},
 		{"unknown delivery", map[string]string{"MAIL_DELIVERY": "carrier-pigeon"}, "MAIL_DELIVERY"},
-		{"bad Mailpit address", map[string]string{"MAILPIT_SMTP_ADDR": "mailpit"}, "MAILPIT_SMTP_ADDR"},
+		{"bad Mailpit address", map[string]string{"MAIL_DELIVERY": "mailpit", "MAILPIT_SMTP_ADDR": "mailpit"}, "MAILPIT_SMTP_ADDR"},
 	}
 	for _, tt := range tests {
 		err := load(tt.env)

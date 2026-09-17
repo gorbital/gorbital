@@ -27,7 +27,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (authlib.Princ
 		return authlib.Principal{}, dbError("authenticate", err)
 	}
 	now := s.now()
-	if !session.ActiveAt(now) {
+	if !session.ActiveAt(now) || user.Banned() {
 		return authlib.Principal{}, authlib.ErrUnauthenticated
 	}
 	if now.Sub(session.LastSeenAt) >= authlib.SessionTouchInterval {

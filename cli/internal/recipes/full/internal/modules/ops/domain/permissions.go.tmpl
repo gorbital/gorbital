@@ -17,19 +17,27 @@ const (
 	PermMailTest      = "ops.mail.test"
 	PermMailWrite     = "ops.mail.write"
 	PermAuthRead      = "ops.auth.read"
-	PermSystemRead    = "ops.system.read"
-	PermFlagsRead     = "ops.flags.read"
-	PermFlagsWrite    = "ops.flags.write"
+	// PermAuthWrite is declared by the auth module (it manages accounts);
+	// the ops module uses it for rate limit resets (ADR-0070). It isn't in
+	// AllPermissions, so it is granted once.
+	PermAuthWrite  = "ops.auth.write"
+	PermSystemRead = "ops.system.read"
+	PermFlagsRead  = "ops.flags.read"
+	PermFlagsWrite = "ops.flags.write"
 
 	PermObservabilityRead = "ops.observability.read"
-	PermIncidentsRead     = "ops.incidents.read"
-	PermIncidentsWrite    = "ops.incidents.write"
+	// PermStorageRead and PermStorageWrite are the file storage APIs
+	// (ADR-0075).
+	PermStorageRead    = "ops.storage.read"
+	PermStorageWrite   = "ops.storage.write"
+	PermIncidentsRead  = "ops.incidents.read"
+	PermIncidentsWrite = "ops.incidents.write"
 )
 
 // AllPermissions returns every operations permission.
 func AllPermissions() []string {
-	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead, PermReleasesRead, PermMailRead, PermMailTest, PermMailWrite, PermAuthRead, PermSystemRead, PermFlagsRead, PermFlagsWrite,
-		PermObservabilityRead, PermIncidentsRead, PermIncidentsWrite}
+	return []string{PermSettingsRead, PermSettingsWrite, PermJobsRead, PermJobsWrite, PermJobsRun, PermAuditRead, PermReleasesRead, PermMailRead, PermMailTest, PermMailWrite, PermAuthRead, PermAuthWrite, PermSystemRead, PermFlagsRead, PermFlagsWrite,
+		PermObservabilityRead, PermIncidentsRead, PermIncidentsWrite, PermStorageRead, PermStorageWrite}
 }
 
 // Errors returned by operations use cases.
