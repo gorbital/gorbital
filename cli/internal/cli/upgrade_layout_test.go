@@ -173,6 +173,12 @@ func TestLayoutMoveRefusals(t *testing.T) {
 			t.Errorf("= %d %q", code, errOut)
 		}
 	})
+	t.Run("minimal preset", func(t *testing.T) {
+		newGitApp(t, "--preset", "minimal")
+		if code, _, errOut := runOrb(t, "upgrade", "--layout", "v0.2", "--dry-run"); code != 1 || !strings.Contains(errOut, "only Full apps move") {
+			t.Errorf("= %d %q", code, errOut)
+		}
+	})
 	t.Run("older templates", func(t *testing.T) {
 		newV01GitApp(t, recipes.TenancySingle)
 		lock, err := readLock(".")
