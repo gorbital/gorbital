@@ -102,6 +102,11 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	}
 	if !*dryRun {
 		if err := requireCleanGit(ctx, app.dir); err != nil {
+			if errors.Is(err, errDirtyTree) {
+				// The upgrade is a commit on its own branch, so there is no
+				// --allow-dirty here: the changes would end up in that commit.
+				return errors.New("the git repository has uncommitted changes; commit or stash them first (the upgrade is committed on its own branch)")
+			}
 			return err
 		}
 	}

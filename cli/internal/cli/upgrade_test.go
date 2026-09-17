@@ -157,7 +157,7 @@ func TestUpgradeMergesTemplateChanges(t *testing.T) {
 
 	// A dirty tree is refused; a dry run writes nothing.
 	writeFile(t, "scratch.txt", "x")
-	if code, _, errOut := runOrb(t, "upgrade", "--skip-tidy", "--skip-build"); code != 1 || !strings.Contains(errOut, "uncommitted changes") {
+	if code, _, errOut := runOrb(t, "upgrade", "--skip-tidy", "--skip-build"); code != 1 || !strings.Contains(errOut, "uncommitted changes") || strings.Contains(errOut, "allow-dirty") {
 		t.Errorf("upgrade with a dirty tree = %d, %q", code, errOut)
 	}
 	os.Remove("scratch.txt")

@@ -626,6 +626,10 @@ func modulePath(goMod []byte) string {
 	return ""
 }
 
+// errDirtyTree is what requireCleanGit returns for uncommitted changes.
+// Every generator accepts --allow-dirty; orb upgrade replaces the hint.
+var errDirtyTree = errors.New("the git repository has uncommitted changes; commit or stash them first, or pass --allow-dirty")
+
 // requireCleanGit refuses to generate into a git repository with
 // uncommitted changes, so the generated diff is easy to review (ADR-0021).
 func requireCleanGit(ctx context.Context, dir string) error {
@@ -639,7 +643,7 @@ func requireCleanGit(ctx context.Context, dir string) error {
 		return fmt.Errorf("check git status: %w", err)
 	}
 	if len(bytes.TrimSpace(out)) > 0 {
-		return errors.New("the git repository has uncommitted changes; commit or stash them first, or pass --allow-dirty")
+		return errDirtyTree
 	}
 	return nil
 }

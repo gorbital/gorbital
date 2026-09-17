@@ -25,6 +25,12 @@ Nothing here is tagged yet. v1.0 (stable, awaiting the external security review)
 
 - Every auth and organisation email has a title, the code in its own block, the invitation as a button, and a footer with the app's name; `NewMailEmails(sender, appName)` and `EmailPreviews(appName)` remain as the brand with only a name.
 
+### CLI
+
+#### Fixed
+
+- `orb upgrade` with uncommitted changes said to pass `--allow-dirty`, a flag it doesn't have (the upgrade is a commit on its own branch); the message now says to commit or stash first.
+
 ### Dev Portal, phase 0 ([ADR-0066](docs/adr/0066-dev-portal.md), [roadmap](docs/dev-portal-roadmap.md))
 
 #### Added
