@@ -23,15 +23,15 @@ If `orb` isn't found, add `$(go env GOPATH)/bin` to your `PATH`. Reinstall after
 
 ## The Dev Portal UI
 
-`orb dev` serves the [Dev Portal](dev-portal.md), whose UI is built in [gorbital-dashboards](https://github.com/gorbital/gorbital-dashboards) and embedded in `orb` at build time. A plain checkout builds an `orb` that serves a placeholder page instead; the API and proxy still work, and every Go test passes without Node. To embed the UI:
+`orb dev` serves the [Dev Portal](dev-portal.md), whose UI is built in [gorbital-dashboards](https://github.com/gorbital/gorbital-dashboards) and embedded in `orb` at build time. The built UI is committed in `cli/internal/portal/ui/dist` (`dist/BUILD` names the gorbital-dashboards commit), so a checkout, `go install` and the release binaries all serve it without Node. To embed a newer UI:
 
 ```bash
 git clone https://github.com/gorbital/gorbital-dashboards.git ../gorbital-dashboards   # next to this checkout
-scripts/sync-portal.sh               # needs Node 22 and pnpm 10; copies the export into cli/internal/portal/ui/dist (ignored by git)
+scripts/sync-portal.sh               # needs Node 22 and pnpm 10; copies the export into cli/internal/portal/ui/dist
 cd cli && go install ./cmd/orb
 ```
 
-The release workflow runs the same script at a pinned gorbital-dashboards ref, so released binaries carry the UI.
+Commit `cli/internal/portal/ui/dist` when the release should ship that UI; the release workflow builds `orb` from what is committed.
 
 ## Repository layout
 

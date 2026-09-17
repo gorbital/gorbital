@@ -64,7 +64,7 @@ func cookieHeader(t *testing.T, r response) []string {
 	return nil
 }
 
-// TestAuthenticationEndToEnd follows the v0.2 flow: register, verify the
+// TestAuthenticationEndToEnd follows the basic sign-in flow: register, verify the
 // emailed code, sign in, reach a role-protected endpoint once granted the
 // role, and find the audit events.
 func TestAuthenticationEndToEnd(t *testing.T) {

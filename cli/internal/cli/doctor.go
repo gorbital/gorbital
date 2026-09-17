@@ -193,7 +193,7 @@ func (d *doctor) project(ctx context.Context) {
 	case err != nil:
 		d.add(doctorFail, "gorbital.lock", firstLine(err.Error()), "restore it from git history, or use the orb that wrote it")
 	case lock.APIVersion == lockAPIVersionV1:
-		d.add(doctorWarn, "gorbital.lock", "written before v0.5, without the release that created the app", "orb upgrade --from <that release>, such as --from v0.4.0")
+		d.add(doctorWarn, "gorbital.lock", "written by an early development build of orb, without the release that created the app", "orb upgrade --from <commit that created the app>")
 	default:
 		edited := 0
 		for _, f := range lock.Files {
@@ -328,7 +328,7 @@ func (d *doctor) apiFiles(ctx context.Context, env []string) {
 	}
 	defer os.RemoveAll(tmp)
 	if _, errOut, err := doctorCommand(ctx, d.dir, env, "go", "run", "./cmd/api", "openapi", "--dir", tmp); err != nil {
-		d.add(doctorWarn, "api files", "couldn't export them: "+firstLine(cmpOr(errOut, err.Error())), "check that the app builds (go build ./...); apps from before v0.5 get --dir with orb upgrade")
+		d.add(doctorWarn, "api files", "couldn't export them: "+firstLine(cmpOr(errOut, err.Error())), "check that the app builds (go build ./...); apps from early development builds get --dir with orb upgrade")
 		return
 	}
 	var stale []string
@@ -363,7 +363,7 @@ func (d *doctor) database(ctx context.Context, env []string) {
 		RowLevelSecurity []string `json:"row_level_security"`
 	}
 	if jsonErr := json.Unmarshal([]byte(out), &s); err != nil || jsonErr != nil {
-		d.add(doctorWarn, "database", "couldn't read the migration status: "+firstLine(cmp.Or(errOut, errString(err), errString(jsonErr))), "check that the app builds; apps from before v0.5 get migrate --status with orb upgrade")
+		d.add(doctorWarn, "database", "couldn't read the migration status: "+firstLine(cmp.Or(errOut, errString(err), errString(jsonErr))), "check that the app builds; apps from early development builds get migrate --status with orb upgrade")
 		return
 	}
 	switch {

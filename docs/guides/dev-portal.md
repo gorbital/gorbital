@@ -143,7 +143,7 @@ Screens that need `/ops/` show an explanation in an app whose `orb` predates the
 
 ## Building `orb` with the UI
 
-A plain checkout of gorbital builds an `orb` whose portal serves a placeholder page: the API and proxy work, and the page says how to get the UI. Released binaries carry it. To embed the UI you are working on:
+The built UI is committed in `cli/internal/portal/ui/dist`, so `go install gorbital.dev/cli/cmd/orb@latest`, a checkout and the release binaries all serve it; `dist/BUILD` names the gorbital-dashboards commit it was built from. To embed the UI you are working on:
 
 ```bash
 cd gorbital
@@ -151,7 +151,7 @@ scripts/sync-portal.sh            # builds ../gorbital-dashboards/apps/devtools 
 cd cli && go install ./cmd/orb
 ```
 
-`scripts/sync-portal.sh /path/to/gorbital-dashboards` uses another checkout; `DASHBOARDS_REF=<tag>` checks that ref out first. Only `dist/.gitkeep` is committed; the copied files are ignored by git. The script needs Node 22 and pnpm 10.
+`scripts/sync-portal.sh /path/to/gorbital-dashboards` uses another checkout; `DASHBOARDS_REF=<tag>` checks that ref out first. Commit the copied files when a release should ship them. The script needs Node 22 and pnpm 10. A build whose `dist/` has no `index.html` serves a placeholder page that says how to get the UI.
 
 To work on the UI itself, run it from its source with live reload instead of rebuilding `orb` on every change:
 
@@ -173,4 +173,4 @@ The development server proxies `/_portal/` to `orb dev` on port 3100 (`ORB_PORTA
 | 403 `forbidden` | The request came through another host name, from another machine, or is a write without `X-Orb-Portal`. Use `http://127.0.0.1:3100` or `http://localhost:3100` from this machine |
 | 502 `app_unavailable` from `/_portal/app/…` | The app isn't running (see its state and output on the Overview page), or `APP_ADDR` changed and it hasn't restarted |
 | The portal shows a placeholder page | This `orb` was built without the UI: run `scripts/sync-portal.sh` and reinstall, or run the UI from source (above) |
-| `/_portal/app/_dev/…` answers 404 | The app has no dev console: it runs without `DEV_CONSOLE_TOKEN`, or predates v1.1 ([upgrade notes](upgrade-notes.md)) |
+| `/_portal/app/_dev/…` answers 404 | The app has no dev console: it runs without `DEV_CONSOLE_TOKEN`, or was created with a development build before the dev console ([upgrade notes](upgrade-notes.md#before-v010-development-builds)) |

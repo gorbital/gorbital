@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	go.opentelemetry.io/otel/trace v1.46.0
-	gorbital.dev v0.0.0
+	gorbital.dev v0.1.0
 )
 
 require (

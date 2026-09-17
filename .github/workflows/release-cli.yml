@@ -9,11 +9,6 @@ on:
 
 permissions: {}
 
-env:
-  # The gorbital-dashboards ref whose apps/devtools build is embedded as the
-  # Dev Portal UI (ADR-0066).
-  PORTAL_REF: main
-
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -49,23 +44,12 @@ jobs:
       - name: test
         working-directory: cli
         run: go test ./...
-      # The Dev Portal UI (ADR-0066): built from gorbital-dashboards at the
-      # pinned ref below and embedded in orb by scripts/sync-portal.sh.
-      # Change PORTAL_REF to ship a newer UI.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: gorbital/gorbital-dashboards
-          ref: ${{ env.PORTAL_REF }}
-          path: gorbital-dashboards
-          persist-credentials: false
-      - uses: pnpm/action-setup@a15d269cd4658e1107c09f1fabf4cbd7bd1f308a # v4.4.0
-        with:
-          version: 10
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
-        with:
-          node-version: 22
-      - name: build and embed the Dev Portal UI
-        run: scripts/sync-portal.sh "$GITHUB_WORKSPACE/gorbital-dashboards"
+      # The Dev Portal UI (ADR-0066) is committed in cli/internal/portal/ui/dist
+      # by scripts/sync-portal.sh, so binaries and go install carry the same UI.
+      - name: the Dev Portal UI is committed
+        run: |
+          test -f cli/internal/portal/ui/dist/index.html || { echo "no Dev Portal UI in cli/internal/portal/ui/dist: run scripts/sync-portal.sh and commit it"; exit 1; }
+          echo "Dev Portal UI from gorbital-dashboards $(cat cli/internal/portal/ui/dist/BUILD)"
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: version from tag
         run: echo "GORELEASER_CURRENT_TAG=${GITHUB_REF_NAME#cli/}" >> "$GITHUB_ENV"

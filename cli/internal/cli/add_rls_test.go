@@ -67,7 +67,7 @@ func TestAddRLSWritesTheMigration(t *testing.T) {
 	// orb upgrade rebuilds the base with rls: true, so the app is up to date
 	// instead of losing the line.
 	useRelease(t, recipes.Embedded())
-	if up := upgrade(t, 0, "--from", "v0.5.0"); !up.UpToDate {
+	if up := upgrade(t, 0, "--from", "v0.1.0"); !up.UpToDate {
 		t.Errorf("upgrade after orb add rls = %+v, want up to date", up)
 	}
 
@@ -106,7 +106,7 @@ func TestAddRLSRefuses(t *testing.T) {
 	t.Run("older release", func(t *testing.T) {
 		newGitApp(t, "--preset", "full", "--tenancy", "multi")
 		l, _ := readLock(".")
-		l.Orb = lockOrb{Version: "v0.4.9"}
+		l.Orb = lockOrb{Version: "v0.0.9"}
 		b, _ := l.encode()
 		writeFile(t, lockPath, string(b))
 		commitAll(t, "Older lock")

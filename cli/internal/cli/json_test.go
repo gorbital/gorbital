@@ -61,7 +61,7 @@ func TestJSONOutputs(t *testing.T) {
 			return runOrb(t, "add", "rls", "--dry-run", "--json")
 		}},
 		{"upgrade", func(t *testing.T) (int, string, string) {
-			appFromRelease(t, olderRelease(t), "v0.5.0")
+			appFromRelease(t, olderRelease(t), "v0.0.9")
 			useRelease(t, recipes.Embedded())
 			return runOrb(t, "upgrade", "--dry-run", "--skip-tidy", "--json")
 		}},

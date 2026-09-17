@@ -87,7 +87,7 @@ func TestTreeErrors(t *testing.T) {
 		{"unknown preset", recipes.Embedded(), "custom", recipes.TenancySingle, ""},
 		{"email on minimal", recipes.Embedded(), "minimal", recipes.TenancySingle, recipes.MailSMTP},
 		{"unknown provider", recipes.Embedded(), "full", recipes.TenancySingle, "sendgrid"},
-		// Releases before v0.4.0 have no multi-tenant templates.
+		// Early development builds had no multi-tenant templates.
 		{"tree missing from release", recipes.ReleaseFS(fstest.MapFS{"full/README.md.tmpl": {Data: []byte("# ⟦.Name⟧\n")}}), "full", recipes.TenancyMulti, ""},
 	} {
 		if _, err := tt.release.Tree(tt.preset, tt.tenancy, tt.email, shopData); err == nil {

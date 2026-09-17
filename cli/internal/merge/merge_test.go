@@ -16,7 +16,7 @@ const (
 
 func plan(t *testing.T, base, theirs, ours map[string]string, unproven ...string) map[string]Change {
 	t.Helper()
-	in := Input{Base: bytesMap(base), Theirs: bytesMap(theirs), Unproven: map[string]bool{}, Label: "gorbital v0.5.0"}
+	in := Input{Base: bytesMap(base), Theirs: bytesMap(theirs), Unproven: map[string]bool{}, Label: "gorbital v0.1.0"}
 	for _, p := range unproven {
 		in.Unproven[p] = true
 	}
@@ -57,7 +57,7 @@ func TestPlan(t *testing.T) {
 		{name: "template unchanged keeps edits", base: m(f, appV1), theirs: m(f, appV1), ours: m(f, appEdited), want: Unchanged},
 		{name: "already the same", base: m(f, appV1), theirs: m(f, appV2), ours: m(f, appV2), want: Unchanged},
 		{name: "separate edits merge", base: m(f, appV1), theirs: m(f, appV2), ours: m(f, appEdited), want: Merged, contains: []string{"// edited", "secure()"}},
-		{name: "same line conflicts", base: m(f, appV1), theirs: m(f, appV2), ours: m(f, appClash), want: Conflict, contains: []string{"<<<<<<< yours", "mine()", "secure()", ">>>>>>> gorbital v0.5.0"}},
+		{name: "same line conflicts", base: m(f, appV1), theirs: m(f, appV2), ours: m(f, appClash), want: Conflict, contains: []string{"<<<<<<< yours", "mine()", "secure()", ">>>>>>> gorbital v0.1.0"}},
 		{name: "unproven base never takes theirs silently", base: m(f, appV1), theirs: m(f, appV2), ours: m(f, appV1), unproven: []string{f}, want: Conflict, contains: []string{"secure()"}},
 		{name: "new file", base: m(), theirs: m(f, appV1), ours: m(), want: Create, content: appV1},
 		{name: "new file clashes with the developer's", base: m(), theirs: m(f, appV2), ours: m(f, appClash), want: Conflict, contains: []string{"mine()", "secure()"}},
@@ -117,7 +117,7 @@ func TestPlanMigrations(t *testing.T) {
 		Base:   bytesMap(m(released, "CREATE TABLE projects ();\n")),
 		Theirs: bytesMap(m(released, "CREATE TABLE projects (id text);\n")),
 		Ours:   func(string) ([]byte, bool, error) { return []byte("CREATE TABLE projects ();\n"), true, nil },
-		Label:  "gorbital v0.5.0",
+		Label:  "gorbital v0.1.0",
 	}
 	if _, err := Plan(context.Background(), in); err == nil {
 		t.Error("Plan accepted a release that changes a released migration")

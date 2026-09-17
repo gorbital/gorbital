@@ -55,7 +55,7 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	case err != nil:
 		return err
 	case lock.APIVersion != LockAPIVersion:
-		return errors.New("gorbital.lock was written before v0.5; run orb upgrade --from <release that created the app> first")
+		return errors.New("gorbital.lock was written by an early development build of orb; run orb upgrade --from <commit that created the app> first")
 	case lock.Inputs.Preset != "full":
 		return errors.New("orb add orgs needs an app created with the Full preset: organisations need its database and authentication")
 	case lock.Inputs.Tenancy == recipes.TenancyMulti:

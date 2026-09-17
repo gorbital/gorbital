@@ -1,8 +1,8 @@
 // Package ui embeds the built Dev Portal UI: the static export of
 // gorbital-dashboards/apps/devtools, copied into dist/ by
-// scripts/sync-portal.sh (ADR-0066). The repository holds only dist/.gitkeep,
-// so a plain checkout builds an orb that serves a placeholder page instead;
-// release builds run the script first.
+// scripts/sync-portal.sh and committed (ADR-0066), so go install and release
+// builds carry the same UI; dist/BUILD names the gorbital-dashboards commit.
+// A build whose dist/ has no index.html serves a placeholder page instead.
 package ui
 
 import (

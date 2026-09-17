@@ -3,7 +3,6 @@ module gorbital.dev/modules/postgres
 go 1.26.0
 
 require (
-	gorbital.dev v0.0.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/pressly/goose/v3 v3.28.0
 	go.opentelemetry.io/otel v1.46.0
@@ -11,6 +10,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.46.0
 	go.opentelemetry.io/otel/sdk/metric v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
+	gorbital.dev v0.1.0
 )
 
 require (

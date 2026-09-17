@@ -21,6 +21,6 @@ Report privately through the repository's **Security** tab (**Report a vulnerabi
 | Date | Kind | Scope | Report | Status |
 |---|---|---|---|---|
 | 2026-09-16 | Internal | Library, CLI and generator, release pipeline, golden apps | [2026-09-internal-review.md](2026-09-internal-review.md) | Done: every finding fixed or accepted |
-| Before v1.0 | External | Authentication, sessions, tenancy, generator | Not yet | **Open:** v1.0 awaits its sign-off |
+| Before v1.0.0 | External | Authentication, sessions, tenancy, generator | Not yet | **Open:** `v1.0.0` awaits its sign-off |
 
 A review is repeated before each major release ([ADR-0053](../adr/0053-internal-security-review.md)).

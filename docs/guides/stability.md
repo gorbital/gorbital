@@ -2,9 +2,18 @@
 
 What gorbital promises not to break, and the checks that hold it to that. The tiers are decided in [ADR-0015](../adr/0015-public-api-and-stability-tiers.md) and [ADR-0016](../adr/0016-scaffold-compatibility-and-upgrades.md); the checks in [ADR-0054](../adr/0054-api-freeze-and-scaffold-compatibility.md).
 
+## Before v1.0.0
+
+`v0.1.0` is the first public release, and further v0.x releases follow. As Go treats any v0 module, gorbital makes no compatibility promise in v0: a minor release may remove or change anything in the tables below. What v0 does give you:
+
+- The checks on this page already run on every change, so nothing breaks by accident: the API listings, `api/surface.json`, the `/ops` baseline and the `--json` golden files.
+- A breaking change is a decision, not a slip: it is listed in the [changelog](../../CHANGELOG.md) and the [upgrade notes](upgrade-notes.md) with what to do.
+
+The promises on the rest of this page take effect from `v1.0.0`, which comes after the external security review signs off ([roadmap](../roadmap.md#releases)). Until then, a package's `Stability:` marker names the tier it will have at `v1.0.0`.
+
 ## What's stable
 
-From 1.0, within a major version, these only grow:
+From `v1.0.0`, within a major version, these only grow:
 
 | Surface | Checked by |
 |---|---|
@@ -101,7 +110,7 @@ go run -C internal/tools/refdocs . -write   # regenerate after adding or changin
 
 ## `/ops` API: `api/openapi.baseline.json`
 
-Full apps carry `api/openapi.baseline.json`, the OpenAPI document of gorbital's 1.0 templates. `TestOpsAPICompatible` exports the current document and reports, for every operation under `/ops/`:
+Full apps carry `api/openapi.baseline.json`, the recorded OpenAPI document of gorbital's templates. `TestOpsAPICompatible` exports the current document and reports, for every operation under `/ops/`:
 
 - a removed path or method, a removed parameter, or a parameter, body or request field that became required;
 - a removed request field, a request that accepts fewer types or enum values;
@@ -134,7 +143,7 @@ git fetch --tags
 cd cli && ORB_COMPAT=1 go test -run TestScaffoldCompatibility -count=1 -timeout 30m ./internal/cli/
 ```
 
-It skips until a `v1.*` tag exists. `ORB_COMPAT_FROM=v0.5.0` checks another release; v0 releases weren't bound by the promise and fail. CI runs it in the `compatibility` job.
+It skips until a `v1.*` tag exists. `ORB_COMPAT_FROM=<tag>` checks another release; v0 releases aren't bound by the promise and may fail. CI runs it in the `compatibility` job.
 
 A failure means a library change broke code that apps already have. Fix the library (keep the old API, keep the old behaviour behind it), not the templates: existing apps don't get template changes until they upgrade.
 

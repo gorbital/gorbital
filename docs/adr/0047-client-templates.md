@@ -114,4 +114,4 @@ Client output is one-shot at first, like `orb gen resource`: the builder owns it
 
 - When accepted: ADR-0021 gains the `fetchTemplate` operation; ADR-0029 gains rows for template supply chain; ADR-0014's prompt table gains the rows above; ADR-0010's admin UI becomes the dashboard template instead of a module inside generated apps; architecture's non-goals drop "a mobile app".
 - CI for each template runs `orb new` with it against `examples/full-single` and builds the result (`npm run build`, `eas build --local` or `xcodebuild`, `gradle assembleDebug`).
-- Roadmap milestone: [v1.2 Client templates](../roadmap.md#v12-client-templates).
+- Roadmap milestone: [Client templates](../roadmap.md#client-templates).

@@ -55,7 +55,7 @@ type Preset struct {
 	Tenancy string
 	// Recipe names the preset's template tree.
 	Recipe string
-	// dir is the tree's directory in every release since v0.2.0.
+	// dir is the tree's directory in every release.
 	dir string
 }
 

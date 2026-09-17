@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
@@ -323,5 +324,28 @@ func goIn(t *testing.T, dir string, args ...string) {
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("go %s in %s failed: %v\n%s", strings.Join(args, " "), dir, err, out)
+	}
+}
+
+func TestModuleVersion(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		info *debug.BuildInfo
+		want string
+	}{
+		{"go install at a release", &debug.BuildInfo{Main: debug.Module{Path: "gorbital.dev/cli", Version: "v0.1.0"}}, "v0.1.0"},
+		{"go install at a pre-release", &debug.BuildInfo{Main: debug.Module{Path: "gorbital.dev/cli", Version: "v0.2.0-rc.1"}}, "v0.2.0-rc.1"},
+		{"build from a checkout", &debug.BuildInfo{Main: debug.Module{Path: "gorbital.dev/cli", Version: "(devel)"}}, "dev"},
+		{"pseudo-version", &debug.BuildInfo{Main: debug.Module{Path: "gorbital.dev/cli", Version: "v0.1.1-0.20260917120000-0123456789ab"}}, "dev"},
+		{"modified tree", &debug.BuildInfo{Main: debug.Module{Path: "gorbital.dev/cli", Version: "v0.1.1-0.20260917120000-0123456789ab+dirty"}}, "dev"},
+		{"another main module", &debug.BuildInfo{Main: debug.Module{Path: "example.com/tool", Version: "v1.0.0"}}, "dev"},
+		{"no build info", nil, "dev"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := moduleVersion("dev", func() (*debug.BuildInfo, bool) { return tt.info, tt.info != nil })
+			if got != tt.want {
+				t.Errorf("moduleVersion() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

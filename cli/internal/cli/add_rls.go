@@ -72,7 +72,7 @@ func runAddRLS(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	case err != nil:
 		return err
 	case lock.APIVersion != LockAPIVersion:
-		return errors.New("gorbital.lock was written before v0.5; run orb upgrade --from <release that created the app> first")
+		return errors.New("gorbital.lock was written by an early development build of orb; run orb upgrade --from <commit that created the app> first")
 	case lock.Inputs.Preset != "full" || lock.Inputs.Tenancy != recipes.TenancyMulti:
 		return errors.New("row-level security separates organisations' data, and this app is single-tenant; add organisations first with orb add orgs")
 	case lock.Inputs.RLS:

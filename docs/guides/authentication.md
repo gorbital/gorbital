@@ -124,12 +124,12 @@ Confirm:    POST /v1/auth/passkeys/verification → get() → DELETE /v1/auth/me
 
 | Endpoint | Needs a session | Purpose | Success |
 |---|---|---|---|
-| `POST /v1/auth/passkeys/registration` | ✓ | `{password}` unless the session verified a second factor in the last 10 minutes; returns `ceremony_token` and `options` | 200 |
-| `POST /v1/auth/passkeys` | ✓ | `{ceremony_token, name?, credential}`; recovery codes when it's the first second factor | 201 `{passkey, recovery_codes?}` |
-| `GET /v1/auth/passkeys` | ✓ | The user's passkeys | 200 |
-| `PATCH /v1/auth/passkeys/{id}` | ✓ | `{name}` | 204 |
-| `DELETE /v1/auth/passkeys/{id}` | ✓ | `{password}` unless the session verified a second factor in the last 10 minutes | 204 |
-| `POST /v1/auth/passkeys/verification` | ✓ | Options limited to the user's passkeys, to confirm a sensitive change | 200 |
+| `POST /v1/auth/passkeys/registration` | Yes | `{password}` unless the session verified a second factor in the last 10 minutes; returns `ceremony_token` and `options` | 200 |
+| `POST /v1/auth/passkeys` | Yes | `{ceremony_token, name?, credential}`; recovery codes when it's the first second factor | 201 `{passkey, recovery_codes?}` |
+| `GET /v1/auth/passkeys` | Yes | The user's passkeys | 200 |
+| `PATCH /v1/auth/passkeys/{id}` | Yes | `{name}` | 204 |
+| `DELETE /v1/auth/passkeys/{id}` | Yes | `{password}` unless the session verified a second factor in the last 10 minutes | 204 |
+| `POST /v1/auth/passkeys/verification` | Yes | Options limited to the user's passkeys, to confirm a sensitive change | 200 |
 | `POST /v1/auth/passkeys/login/options` | | Start a passwordless sign-in | 200 |
 | `POST /v1/auth/passkeys/login` | | `{ceremony_token, credential, transport?}` | 200 `{user, session, token?}` |
 | `POST /v1/auth/login/mfa/passkey` | | `{challenge_token}`; options limited to the account's passkeys | 200 |
@@ -160,10 +160,10 @@ Native app: POST /v1/auth/{provider}/nonce → SDK sign-in with the nonce → PO
 | `POST /v1/auth/{provider}/nonce` | | A single-use nonce for 5 minutes (Apple's iOS SDK takes its SHA-256 in hex) | 200 `{nonce, expires_at}` |
 | `POST /v1/auth/google/token` | | `{id_token, nonce, transport?}` from iOS or Android | 200 session or 202 challenge |
 | `POST /v1/auth/apple/token` | | `{id_token, nonce, authorization_code?, name?, transport?}` from iOS | 200 session or 202 challenge |
-| `GET /v1/auth/identities` | ✓ | Linked Google, Apple and GitHub accounts | 200 `{identities}` |
-| `POST /v1/auth/identities` | ✓ | `{provider, id_token, nonce, authorization_code?, name?, password}`: link the provider account of an ID token (nonce from `POST /v1/auth/{provider}/nonce`); `password` unless the second factor is under 10 minutes old | 201 `{identity}`, 200 when already linked |
-| `POST /v1/auth/github/link` | ✓ | `{return_to?, password}`: start linking GitHub, which has no ID token; sets the `__Host-oauth` cookie in this browser and returns GitHub's URL to open in it. The callback links GitHub to this account while this session is active and redirects to `return_to` (or `#error=identity_in_use`, `unauthenticated`, `invalid_state`), signing nobody in | 200 `{url, expires_at}` |
-| `DELETE /v1/auth/identities/{id}` | ✓ | `{password}` unless the second factor is under 10 minutes old; accounts without a password sign in again first | 204 |
+| `GET /v1/auth/identities` | Yes | Linked Google, Apple and GitHub accounts | 200 `{identities}` |
+| `POST /v1/auth/identities` | Yes | `{provider, id_token, nonce, authorization_code?, name?, password}`: link the provider account of an ID token (nonce from `POST /v1/auth/{provider}/nonce`); `password` unless the second factor is under 10 minutes old | 201 `{identity}`, 200 when already linked |
+| `POST /v1/auth/github/link` | Yes | `{return_to?, password}`: start linking GitHub, which has no ID token; sets the `__Host-oauth` cookie in this browser and returns GitHub's URL to open in it. The callback links GitHub to this account while this session is active and redirects to `return_to` (or `#error=identity_in_use`, `unauthenticated`, `invalid_state`), signing nobody in | 200 `{url, expires_at}` |
+| `DELETE /v1/auth/identities/{id}` | Yes | `{password}` unless the second factor is under 10 minutes old; accounts without a password sign in again first | 204 |
 | `POST /v1/auth/apple/notifications` | | Apple's server-to-server notifications | 204 |
 
 - **New people** get an account with no password (`user.has_password` false); they can set one with "forgot password". The address counts as verified (`user.email_verified`) only when the provider manages it (below). Otherwise the account works for signing in with that provider, but whoever proves the address by email later (a verification code or password reset) takes the account over: its sessions end and the provider link is removed. The person themselves verifies while signed in (`POST /v1/auth/verify-email/resend`, then `POST /v1/auth/verify-email` with their session) and keeps the link.
@@ -205,20 +205,20 @@ With two-factor authentication on, send `transport` to `POST /v1/auth/login/mfa`
 | `POST /v1/auth/login/mfa` | | `{challenge_token, code, recovery_code or passkey, transport?}` | 200 `{user, session, token?}` |
 | `POST /v1/auth/password/forgot` | | `{email}`; emails a reset code | 202 |
 | `POST /v1/auth/password/reset` | | `{email, code, password}`; signs out every device | 204 |
-| `GET /v1/auth/me` | ✓ | User, current session, permissions, `step_up_permissions`, `mfa_enabled`, `mfa_required` | 200 |
-| `PUT /v1/auth/password` | ✓ | `{current_password, new_password}`; signs out other devices | 204 |
-| `GET /v1/auth/sessions` | ✓ | Signed-in devices, `current` marks this one, `mfa_verified` | 200 |
-| `DELETE /v1/auth/sessions/{id}` | ✓ | Sign out one device | 204 |
-| `POST /v1/auth/logout` | ✓ | Sign out this device | 204 |
-| `POST /v1/auth/logout-all` | ✓ | Sign out every device | 200 `{revoked}` |
-| `DELETE /v1/auth/me` | ✓ | `{password, code, recovery_code or passkey with 2FA}`; delete the account | 204 |
-| `POST /v1/auth/mfa/totp` | ✓ | `{password}`; start setting up an authenticator app | 200 `{secret, uri, qr_code}` |
-| `POST /v1/auth/mfa/totp/confirm` | ✓ | `{code}`; turn two-factor authentication on | 200 `{recovery_codes}` |
-| `DELETE /v1/auth/mfa/totp` | ✓ | `{password, code, recovery_code or passkey}`; turn it off | 204 |
-| `POST /v1/auth/mfa/recovery-codes` | ✓ | `{code or passkey}`; replace the recovery codes | 200 `{recovery_codes}` |
-| `GET /v1/auth/api-keys` | ✓ | Your API keys, without the keys | 200 `{api_keys}` |
-| `POST /v1/auth/api-keys` | ✓ | `{name, expires_at, scopes?, password?}`; the key is returned once ([API keys](api-keys.md)) | 201 `{api_key, key}` |
-| `DELETE /v1/auth/api-keys/{id}` | ✓ | Revoke an API key | 204 |
+| `GET /v1/auth/me` | Yes | User, current session, permissions, `step_up_permissions`, `mfa_enabled`, `mfa_required` | 200 |
+| `PUT /v1/auth/password` | Yes | `{current_password, new_password}`; signs out other devices | 204 |
+| `GET /v1/auth/sessions` | Yes | Signed-in devices, `current` marks this one, `mfa_verified` | 200 |
+| `DELETE /v1/auth/sessions/{id}` | Yes | Sign out one device | 204 |
+| `POST /v1/auth/logout` | Yes | Sign out this device | 204 |
+| `POST /v1/auth/logout-all` | Yes | Sign out every device | 200 `{revoked}` |
+| `DELETE /v1/auth/me` | Yes | `{password, code, recovery_code or passkey with 2FA}`; delete the account | 204 |
+| `POST /v1/auth/mfa/totp` | Yes | `{password}`; start setting up an authenticator app | 200 `{secret, uri, qr_code}` |
+| `POST /v1/auth/mfa/totp/confirm` | Yes | `{code}`; turn two-factor authentication on | 200 `{recovery_codes}` |
+| `DELETE /v1/auth/mfa/totp` | Yes | `{password, code, recovery_code or passkey}`; turn it off | 204 |
+| `POST /v1/auth/mfa/recovery-codes` | Yes | `{code or passkey}`; replace the recovery codes | 200 `{recovery_codes}` |
+| `GET /v1/auth/api-keys` | Yes | Your API keys, without the keys | 200 `{api_keys}` |
+| `POST /v1/auth/api-keys` | Yes | `{name, expires_at, scopes?, password?}`; the key is returned once ([API keys](api-keys.md)) | 201 `{api_key, key}` |
+| `DELETE /v1/auth/api-keys/{id}` | Yes | Revoke an API key | 204 |
 
 "Needs a session" means a signed-in session: an API key gets 403 `session_required` on every endpoint above.
 

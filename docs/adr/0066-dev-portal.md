@@ -2,6 +2,8 @@
 
 **Status:** Accepted (2026-09-16) · **Amends:** ADR-0010, ADR-0021, ADR-0028, ADR-0029, ADR-0065 · **Amended by:** ADR-0067 (the Table Editor and `pgmeta`), ADR-0070 (operators' account APIs), ADR-0071 (jobs from the portal), ADR-0072 (the log store), ADR-0073 (the Observability screen), ADR-0074 (dev mail, previews and the env editor), ADR-0075 (file storage), ADR-0076 (the Git screen), ADR-0077 (the generators hub, the first run and Project Settings)
 
+> Note (2026-09-17): the built UI is now committed in `cli/internal/portal/ui/dist` instead of being ignored by git and built by the release workflow, so `go install gorbital.dev/cli/cmd/orb` serves the Dev Portal too, and a public release no longer depends on the private gorbital-dashboards repository. `dist/BUILD` records the gorbital-dashboards commit.
+
 ## Context
 
 v1.1 gave apps development-only APIs under `/_dev/` ([ADR-0065](0065-local-dev-console-apis.md)) and left the Dev Portal in gorbital-dashboards on mock data. The portal is meant to be the place where a developer does everything they do today with commands, flags and hand-edited files: see the app's state, routes, jobs, logs and email; generate jobs, resources and migrations; edit the database, its schema and the environment; run queries; and later manage authentication, storage, git and observability. The full plan is in the [Dev Portal roadmap](../dev-portal-roadmap.md). Today:

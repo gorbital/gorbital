@@ -24,7 +24,7 @@ Maintainers are listed in the `@gorbital/maintainers` team on GitHub. A contribu
 
 **Decision records.** Anyone can propose an ADR in a pull request with status **Proposed**. Maintainers decide by lazy consensus: a record is accepted when a maintainer approves it and no maintainer objects within five working days. An objection has to name what would change the objector's mind. If consensus fails, a simple majority of active maintainers decides, and the record says so.
 
-**Breaking changes.** From 1.0 there are none within a major version ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md), [ADR-0016](docs/adr/0016-scaffold-compatibility-and-upgrades.md)). The API listings, surface inventories and OpenAPI checks fail a pull request that removes something; overriding them needs an accepted ADR for the next major.
+**Breaking changes.** From `v1.0.0` there are none within a major version; before it, v0 minor releases may break, and every break is listed in the changelog and upgade notes ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md), [ADR-0016](docs/adr/0016-scaffold-compatibility-and-upgrades.md)). The API listings, surface inventories and OpenAPI checks fail a pull request that removes something; overriding them needs an accepted ADR for the next major.
 
 ## Releases
 

@@ -70,7 +70,7 @@ It rebuilds what orb wrote before from the release recorded in gorbital.lock
 func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	flags := flag.NewFlagSet("orb upgrade", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	from := flags.String("from", "", "release or commit that created or last upgraded the app, such as v0.4.0 (needed for apps created before v0.5 and by development builds)")
+	from := flags.String("from", "", "release or commit that created or last upgraded the app, such as v0.1.0 (needed for apps created by development builds)")
 	local := flags.String("local", "", "gorbital checkout to read earlier releases from (default: the app's replace directive, or the checkout you are in)")
 	dryRun := flags.Bool("dry-run", false, "show what would change, without writing or creating a branch")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
@@ -228,7 +228,7 @@ func applyMove(ctx context.Context, dir string, root *os.Root, res *upgradeResul
 func upgradeSource(dir string, lock lockFile, from string) (lockInputs, string, error) {
 	if lock.APIVersion == lockAPIVersionV1 {
 		if from == "" {
-			return lockInputs{}, "", usageError("gorbital.lock was written before v0.5 and doesn't record the release that created the app; pass it with --from, such as --from v0.4.0")
+			return lockInputs{}, "", usageError("gorbital.lock was written by an early development build of orb and doesn't record the release that created the app; pass it with --from, such as --from <commit>")
 		}
 		inputs, err := readManifest(dir)
 		return inputs, from, err
