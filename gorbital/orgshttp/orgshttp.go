@@ -80,13 +80,22 @@ func Brand(b mail.Brand) Option {
 // the app's authenticator. Mounted by hand with gorbital.Mount, the module
 // registers its routes for the OpenAPI document only.
 func Module(auth *authhttp.Authenticator, opts ...Option) gorbital.Module {
+	return newModule(auth, opts...).gorbitalModule()
+}
+
+// newModule applies opts.
+func newModule(auth *authhttp.Authenticator, opts ...Option) *module {
 	var o options
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&o)
 		}
 	}
-	m := &module{auth: auth, opts: o, settings: &orgSettings{}}
+	return &module{auth: auth, opts: o, settings: &orgSettings{}}
+}
+
+// gorbitalModule is the module's declaration.
+func (m *module) gorbitalModule() gorbital.Module {
 	return gorbital.Module{
 		Name:         "orgs",
 		Errors:       errorMappings(),
@@ -103,8 +112,8 @@ func Module(auth *authhttp.Authenticator, opts ...Option) gorbital.Module {
 			// svc is nil while the OpenAPI document is exported: the
 			// operations are registered, but no use case runs.
 			delivery.Register(r, m.service())
-			if auth != nil {
-				auth.OrgServiceAccountRoutes(r)
+			if m.auth != nil {
+				m.auth.OrgServiceAccountRoutes(r)
 			}
 		},
 	}
