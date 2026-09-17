@@ -199,8 +199,24 @@ func (r *reference) codeWhere(name string, cs []code) string {
 	return strings.Join(labels, "; ")
 }
 
-// area returns the module a source location belongs to, or "app".
+// libraryAreas are the built-in modules of gorbital.dev/gorbital, by the
+// area of the v0.1 module they replace.
+var libraryAreas = map[string]string{
+	"gorbital.dev/gorbital/authhttp":   "auth",
+	"gorbital.dev/gorbital/flagshttp":  "flags",
+	"gorbital.dev/gorbital/mailevents": "mailevents",
+	"gorbital.dev/gorbital/opshttp":    "ops",
+	"gorbital.dev/gorbital/orgshttp":   "orgs",
+}
+
+// area returns the module a source location belongs to, or "app": an app
+// module (internal/modules/<name>) or a built-in module of the library.
 func area(location string) string {
+	for pkg, name := range libraryAreas {
+		if location == pkg || strings.HasPrefix(location, pkg+"/") {
+			return name
+		}
+	}
 	switch {
 	case strings.HasPrefix(location, "internal/modules/"):
 		name, _, _ := strings.Cut(strings.TrimPrefix(location, "internal/modules/"), "/")
@@ -313,6 +329,8 @@ func (r *reference) permissions() []byte {
 		if inSingle {
 			c, marks = mergeCatalogs(c, sc)
 		}
+		// Roles in the order v0.1 apps declared them; others after, by name.
+		slices.SortStableFunc(c.Roles, func(a, b role) int { return roleRank(a.Name) - roleRank(b.Name) })
 		title, intro := c.Name, ""
 		if known, ok := catalogIntros[c.Name]; ok {
 			title, intro = known[0], known[1]
@@ -352,6 +370,16 @@ func (r *reference) permissions() []byte {
 		b.WriteString("\n")
 	}
 	return bytes.TrimSuffix(b.Bytes(), []byte("\n"))
+}
+
+// roleOrder is the order v0.1 apps declared the built-in roles in.
+var roleOrder = []string{"user", "platform_admin", "ops_viewer", "owner", "admin", "member"}
+
+func roleRank(name string) int {
+	if i := slices.Index(roleOrder, name); i >= 0 {
+		return i
+	}
+	return len(roleOrder)
 }
 
 // mergeCatalogs returns multi's catalog with the permissions and role grants

@@ -62,10 +62,25 @@ func TestOpenAPICompatibleWithV010(t *testing.T) {
 	}
 }
 
+// droppedExamples are names of the v0.1.0 golden apps' own example code that
+// the golden apps on gorbital.Main no longer have, with why. Built-in names
+// are never dropped.
+var droppedExamples = map[string]string{
+	"jobs heartbeat": "the example job of v0.1's internal/app; apps on gorbital.Main define jobs in their modules (Phase 9)",
+}
+
 // TestSurfaceKeepsV010Names fails when a name recorded in a Full golden app's
 // api/surface.json at v0.1.0 (an error code, audit action, permission, role,
 // setting key, job name or flag) no longer exists. New names pass.
+//
+// Since Phase 9 a golden app's api/surface.json records only the app's own
+// names (ADR-0083); the built-in ones are the library's, listed in
+// docs/reference, which refdocs generates from the running golden apps and
+// the source of every gorbital package they link. A v0.1.0 name passes when
+// either has it. gorbital/internal/integration checks the running app's
+// names against the same fixtures.
 func TestSurfaceKeepsV010Names(t *testing.T) {
+	reference := referenceNames(t)
 	for _, app := range []string{"full-single", "full-multi"} {
 		t.Run(app, func(t *testing.T) {
 			rel := filepath.Join("examples", app, "api", "surface.json")
@@ -75,12 +90,35 @@ func TestSurfaceKeepsV010Names(t *testing.T) {
 				t.Fatalf("no names in the %s fixture %s", frozen, rel)
 			}
 			for _, name := range old {
-				if _, ok := slices.BinarySearch(current, name); !ok {
-					t.Errorf("%s: %s is in %s but no longer exists", rel, name, frozen)
+				_, bare, _ := strings.Cut(name, " ")
+				if _, ok := slices.BinarySearch(current, name); ok || reference[bare] || droppedExamples[name] != "" {
+					continue
 				}
+				t.Errorf("%s: %s is in %s but neither the app's surface nor docs/reference has it", rel, name, frozen)
 			}
 		})
 	}
+}
+
+// referenceNames returns the names docs/reference lists: the first column
+// of each table, in backticks.
+func referenceNames(t *testing.T) map[string]bool {
+	t.Helper()
+	pages, err := filepath.Glob(filepath.Join(repo, "docs", "reference", "*.md"))
+	if err != nil || len(pages) < 5 {
+		t.Fatalf("docs/reference pages = %v, %v", pages, err)
+	}
+	names := map[string]bool{}
+	for _, page := range pages {
+		for line := range strings.Lines(string(read(t, page))) {
+			if rest, ok := strings.CutPrefix(line, "| `"); ok {
+				if name, _, ok := strings.Cut(rest, "`"); ok {
+					names[name] = true
+				}
+			}
+		}
+	}
+	return names
 }
 
 // surfaceNames flattens a surface.json into sorted "kind name" lines, such as

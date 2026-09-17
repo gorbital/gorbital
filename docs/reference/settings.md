@@ -6,12 +6,6 @@ Runtime settings are non-secret values operators change without a redeploy: `PUT
 
 **Reason required**: a change must say why (`reason`), and the reason is kept in the history and the audit event. **Restart required**: the value takes effect when an instance starts. Durations are written as Go durations in the API, such as `"720h"`.
 
-## Example
-
-| Key | Type | Default | Allowed | Reason required | Restart required | Description |
-|---|---|---|---|---|---|---|
-| `example.ping_message` | string | `"pong"` | at most 100 characters | no | no | Reply of GET /v1/ping. An example runtime setting: change it with PUT /ops/settings/example.ping_message. |
-
 ## Email
 
 | Key | Type | Default | Allowed | Reason required | Restart required | Description |
@@ -19,18 +13,6 @@ Runtime settings are non-secret values operators change without a redeploy: `PUT
 | `mail.from_name` | string | the app's name | at most 100 characters | yes | no | Sender name on every email, such as Acme. |
 | `mail.from_email` | string | `"no-reply@example.com"` | an email address | yes | no | Sender address on every email. With Resend, its domain must be verified in your Resend account. |
 | `mail.reply_to` | string | empty | at most 254 characters | yes | no | Address replies go to. Empty: replies go to the sender address. |
-
-## Authentication
-
-| Key | Type | Default | Allowed | Reason required | Restart required | Description |
-|---|---|---|---|---|---|---|
-| `auth.session_idle_ttl` | duration | 14 days | 1 hour to 90 days | yes | no | How long a signed-in session lasts without being used. |
-| `auth.session_absolute_ttl` | duration | 90 days | 1 day to 1 year | yes | no | The longest a session lasts, however often it is used; then the user signs in again. |
-| `auth.verification_code_ttl` | duration | 15 minutes | 5 minutes to 1 hour | yes | no | How long email verification codes stay valid. |
-| `auth.reset_code_ttl` | duration | 30 minutes | 10 minutes to 2 hours | yes | no | How long password reset codes stay valid. |
-| `auth.deleted_account_retention` | duration | 30 days | 1 day to 1 year | yes | no | How long deleted accounts are kept before the auth_cleanup job removes them. |
-| `auth.unverified_account_ttl` | duration | 7 days | 1 hour to 90 days | yes | no | How long an account whose email address was never verified stays before the auth_cleanup job deletes it, freeing the address. Accounts with a Google, Apple or GitHub sign-in are kept. |
-| `auth.api_key_max_ttl` | duration | 90 days | 1 day to 1 year | yes | no | The longest lifetime of a new API key. Every key needs an expiry within it; existing keys keep theirs. |
 
 ## Rate limits
 
@@ -79,6 +61,18 @@ Runtime settings are non-secret values operators change without a redeploy: `PUT
 |---|---|---|---|---|---|---|
 | `logs.archive.enabled` | bool | `false` | any | yes | no | Keep the app's log records in file storage: each instance collects every record it logs into a file for the current hour under LOG_ARCHIVE_DIR and, at the top of the hour or when it shuts down, stores the file gzipped under logs/ in the storage bucket, where /ops/storage lists it. Off: nothing is collected. Log records can hold IDs and addresses; check your retention rules before turning it on. |
 
+## Authentication
+
+| Key | Type | Default | Allowed | Reason required | Restart required | Description |
+|---|---|---|---|---|---|---|
+| `auth.session_idle_ttl` | duration | 14 days | 1 hour to 90 days | yes | no | How long a signed-in session lasts without being used. |
+| `auth.session_absolute_ttl` | duration | 90 days | 1 day to 1 year | yes | no | The longest a session lasts, however often it is used; then the user signs in again. |
+| `auth.verification_code_ttl` | duration | 15 minutes | 5 minutes to 1 hour | yes | no | How long email verification codes stay valid. |
+| `auth.reset_code_ttl` | duration | 30 minutes | 10 minutes to 2 hours | yes | no | How long password reset codes stay valid. |
+| `auth.deleted_account_retention` | duration | 30 days | 1 day to 1 year | yes | no | How long deleted accounts are kept before the auth_cleanup job removes them. |
+| `auth.unverified_account_ttl` | duration | 7 days | 1 hour to 90 days | yes | no | How long an account whose email address was never verified stays before the auth_cleanup job deletes it, freeing the address. Accounts with a Google, Apple or GitHub sign-in are kept. |
+| `auth.api_key_max_ttl` | duration | 90 days | 1 day to 1 year | yes | no | The longest lifetime of a new API key. Every key needs an expiry within it; existing keys keep theirs. |
+
 ## Organisations
 
 *Multi-tenant apps only.*
@@ -89,3 +83,9 @@ Runtime settings are non-secret values operators change without a redeploy: `PUT
 | `orgs.invitation_ttl` | duration | 7 days | 1 day to 30 days | yes | no | How long an invitation link stays valid. Owners and admins may set their organisation's own value, within the same range, with PUT /v1/orgs/{orgId}/settings/orgs.invitation_ttl. |
 | `orgs.deleted_org_retention` | duration | 30 days | 1 day to 1 year | yes | no | How long a deleted organisation can be restored before the orgs_purge job removes it with its data. |
 | `orgs.max_owned` | int | `20` | 1 to 10000 | yes | no | How many organisations, personal workspaces aside, one user may own. Checked when they create or restore one. |
+
+## Example
+
+| Key | Type | Default | Allowed | Reason required | Restart required | Description |
+|---|---|---|---|---|---|---|
+| `example.ping_message` | string | `"pong"` | at most 100 characters | no | no | Reply of GET /v1/ping. An example runtime setting: change it with PUT /ops/settings/example.ping_message. |

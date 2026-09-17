@@ -24,7 +24,7 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | `auth.identity.revocation_abandoned` | The `auth_revoke_tokens` job gave up revoking a provider's tokens after its attempts. | `attempts`, `provider`, `revocation_id` |
 | `auth.identity.unlinked` | A user unlinked a Google, Apple or GitHub account. | `identity_id`, `provider` |
 | `auth.keys.rotated` | `rotate-auth-keys` re-encrypted two-factor secrets with the first `AUTH_ENCRYPTION_KEYS` key. | `key_id`, `secrets` |
-| `auth.login.failed` | A sign-in failed: wrong password, unknown account, unverified provider email, invalid passkey and so on. `reason` says which. | `provider`, `reason` |
+| `auth.login.failed` | A sign-in failed: wrong password, unknown account, unverified provider email, invalid passkey and so on. `reason` says which. | `code`, `method`, `new_account`, `provider`, `reason` |
 | `auth.login.succeeded` | A user signed in and a session was created. | `method`, `mfa_method`, `session_id` |
 | `auth.mfa.challenge_failed` | A second factor at sign-in was wrong, used or expired. | `reason` |
 | `auth.mfa.challenge_succeeded` | A user passed the second-factor step of sign-in. | `method` |

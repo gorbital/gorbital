@@ -33,7 +33,13 @@
     "invalid_address": "The recipient isn't an email address.",
     "impersonation_off": "Impersonation exists only while the app runs with the dev console (`orb dev`), never in production (ADR-0070).",
     "user_not_found": "No account has this ID; deleted accounts are gone to operators too.",
-    "rate_limiter_not_found": "The app has no rate limiter with this name, or the key was empty (ADR-0070)."
+    "rate_limiter_not_found": "The app has no rate limiter with this name, or the key was empty (ADR-0070).",
+    "invalid_request": "A Dev Portal sign-in test got a request it can't use, such as a callback for another provider or a step out of order (development only, ADR-0087).",
+    "invalid_result_url": "A Dev Portal sign-in test's result page isn't the portal's own address (development only, ADR-0087).",
+    "live_test_unavailable": "A live sign-in test can't run with this configuration; the detail says why (development only, ADR-0087).",
+    "not_configured": "The sign-in method to test isn't configured (development only, ADR-0087).",
+    "test_not_found": "No sign-in test has this ID, or it expired (development only, ADR-0087).",
+    "too_many_tests": "Too many sign-in tests at once; wait for `Retry-After` (development only, ADR-0087)."
   },
   "error_code_where": {
     "invalid_cursor": "List endpoints",
@@ -43,7 +49,16 @@
     "account_banned": "Every sign-in: password, second factor, passkey, Google, Apple, GitHub, and impersonation.",
     "impersonation_off": "`POST /ops/auth/users/{id}/impersonate` outside development.",
     "user_not_found": "`/ops/auth/users/{id}` and its actions.",
-    "rate_limiter_not_found": "`POST /ops/auth/rate-limits/reset`."
+    "rate_limiter_not_found": "`POST /ops/auth/rate-limits/reset`.",
+    "invalid_request": "`/_dev/auth/test/` (the dev console, development only)",
+    "invalid_result_url": "`/_dev/auth/test/` (the dev console, development only)",
+    "live_test_unavailable": "`/_dev/auth/test/` (the dev console, development only)",
+    "not_configured": "`/_dev/auth/test/` (the dev console, development only)",
+    "test_not_found": "`/_dev/auth/test/` (the dev console, development only)",
+    "too_many_tests": "`/_dev/auth/test/` (the dev console, development only)",
+    "invalid_json": "`/_dev/auth/test/` (the dev console, development only)",
+    "org_not_found": "Routes under `/v1/orgs/{orgId}/` (`guard.OrgMember`), `/v1/orgs`, `/v1/invitations`. *Multi-tenant apps only.*",
+    "invalid_webhook_signature": "`POST /v1/webhooks/resend`, and routes with `guard.Webhook`"
   },
   "audit_actions": {
     "auth.account.deleted": "A user deleted their account (`DELETE /v1/auth/me`). The account is kept for `auth.deleted_account_retention`, then purged.",

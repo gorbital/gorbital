@@ -6,10 +6,11 @@
 // Golden app code lives in internal packages that nothing outside the app may
 // import, and the apps must not carry repository-specific code (they are the
 // templates of generated apps). So refdocs adds a test file to
-// examples/<app>/internal/app for one run with go test -overlay, without
-// writing into the app: the test builds the app on a migrated test database,
-// reads the permission catalogs, the settings store, the job definitions and
-// the source, and writes JSON that refdocs renders. It runs on
+// examples/<app>/cmd/api for one run with go test -overlay, without writing
+// into the app: the test builds the app with main.go's options on a migrated
+// test database, reads the permission catalogs, the settings store, the job
+// definitions and the source of the app and of the gorbital packages it
+// links, and writes JSON that refdocs renders. It runs on
 // examples/full-multi, the superset, and on examples/full-single to mark what
 // only multi-tenant apps have.
 //
@@ -87,11 +88,11 @@ func run(root string, write bool, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	multi, err := dumpApp(root, "v0.1/full-multi")
+	multi, err := dumpApp(root, "full-multi")
 	if err != nil {
 		return err
 	}
-	single, err := dumpApp(root, "v0.1/full-single")
+	single, err := dumpApp(root, "full-single")
 	if err != nil {
 		return err
 	}
