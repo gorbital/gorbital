@@ -81,11 +81,17 @@ v0.2 turns gorbital into a framework apps import: routes, guards, the middleware
   - `gorbital.dev/gorbital/operation`: `Register` registers a v0.1 `huma.Operation` declaration on a `gorbital.Router`, as the built-in modules do; public so ejected modules, and code moved from v0.1 apps, can use it.
   - `gorbital.AuthenticateAfterInput`: a route option that checks the authenticated actor after input validation instead of before parsing, keeping the route's sign-in requirement; sign-in's routes use it for v0.1's order of responses, now enforced by the router rather than left to the use cases.
   - `gorbital.RetentionJob`, the name of the built-in retention job.
+- The Examples tab, complete (roadmap item 102): **Shelfie**'s twelve chapters, [0. Start a project](docs/examples/shelfie/00-start-a-project.md) to [11. Deploy](docs/examples/shelfie/11-deploy.md), and five **recipes** — [Internal admin tool](docs/examples/recipes/internal-admin-tool.md) (now with part 2: sign-in without sign-up, a role requiring a second factor, the audit log as a workflow), [Multi-tenant invoicing](docs/examples/recipes/multi-tenant-invoicing.md), [Receiving payment webhooks](docs/examples/recipes/receiving-payment-webhooks.md), [Mobile backend with an external identity provider](docs/examples/recipes/mobile-backend-with-an-idp.md) and [Upgrading a v0.1 app](docs/examples/recipes/upgrading-a-v0.1-app.md). Five apps under `examples/apps/` back them, built and tested in CI; every code block on a page is included from one of them.
+- `internal/tools/docscheck`: a check that every Markdown link, `#anchor` and `<!-- include -->` marker in `docs/` resolves and that `docs/docs.json` lists each page once, run in CI. Until now a broken include failed only in the docs site's build.
 
 ### Fixed
 
 - `mail.RedactAddresses` missed addresses with a combining mark before `@` (such as a decomposed accent), which could reach logs unredacted. Found by fuzzing.
 - `auth.NormalizeRecoveryCode` wasn't idempotent for codes with separators next to whitespace other than spaces; generated and typed codes normalize as before, so stored hashes still match. Found by fuzzing.
+- `httpx.ParseTrustedProxies` accepted an IPv4-mapped entry (`::ffff:10.0.0.5`) and kept it mapped, while every address it is compared with is unmapped, so the entry never matched: `APP_TRUSTED_PROXIES` silently trusted nothing. Mapped entries become IPv4 as `ipfilter.ParsePrefixes` already did, a mapped range shorter than `/96` and an address with a zone are refused, and `::ffff:0.0.0.0/96` — every IPv4 address, written mapped — is `ErrTrustAll` instead of trusting every client.
+- The OpenAPI document said "At least 12 characters" on every password field even when `authhttp.MinPasswordLength(n)` raised the minimum. It now says `n`, at registration, the password reset, the password change and `POST /ops/auth/users`. An app that sets no option gets v0.1.0's document unchanged.
+- `docs/reference/error-codes.md` missed the codes of a library module no golden app links: `modules/jwt`'s `invalid_token`. `refdocs` scans those modules too and marks their codes with the module to add.
+- `go run ./cmd/api openapi --dir api` failed with "no such file or directory" when `api/` didn't exist yet, which is every app between `orb gen module` and its first export. The command creates the directory.
 
 ### Changed
 
@@ -96,6 +102,7 @@ v0.2 turns gorbital into a framework apps import: routes, guards, the middleware
 - The dev console (`/_dev/*`) and the development operator on `/ops/` also refuse requests carrying forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host`, `X-Real-IP`, `True-Client-IP`, `CF-Connecting-IP`, `CF-Ray`, `CDN-Loop`), so a tunnel or proxy on the developer's machine, which connects from loopback, can't reach them ([ADR-0086](docs/adr/0086-dev-portal-tunnel.md)). `orb dev` removes `CLOUDFLARE_TUNNEL_TOKEN` and `CLOUDFLARE_TUNNEL_TOKEN_FILE` from the app's environment.
 - `resend.VerifyWebhook` uses `gorbital.dev/webhook`; its API, errors and behaviour are unchanged.
 - Architecture principle 3 now reads "library for behaviour and default wiring; generation for scaffolding and the module list" ([architecture](docs/architecture.md#2-principles)).
+- Every guide read against the code it describes (roadmap item 103). Pages that documented only the v0.1 layout gained the v0.2 one where it was missing (defining a job in a module's `Jobs`, declaring a setting in a module's `Settings`, `Module.Errors`, `Deps.Storage`), migrations are run with the app's own `migrate` command throughout, and development email is described as `orb dev`'s catcher read in the Dev Portal, not a Mailpit container no generated app has had for some time. Notes promising something "in Phase N" are gone: every phase they named has shipped.
 
 ## v0.1.0 (2026-09-17)
 
