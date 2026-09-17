@@ -111,7 +111,7 @@ func (s *Service) CreateUser(ctx context.Context, email, password string, emailV
 		if err != nil {
 			return err
 		}
-		return s.onRegister(ctx, tx, NewAccount{User: u, Method: authdomain.MethodOperator, Client: authlib.ClientInfoFromContext(ctx)}, nil)
+		return s.onRegister(ctx, tx, NewAccount{User: u, Method: authdomain.MethodOperator}, nil) // the operator's client isn't the account's
 	})
 	if errors.Is(err, authdomain.ErrEmailTaken) {
 		return authdomain.User{}, err
