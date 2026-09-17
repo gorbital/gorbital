@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"gorbital.dev/gorbital"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/ratelimitpg"
 	"gorbital.dev/ratelimit"
@@ -34,22 +35,17 @@ type rateLimits struct {
 	apiKey ratelimit.Taker
 }
 
-// limiter describes one of sign-in's limiters, as /ops/auth/rate-limits
-// lists it.
-type limiter struct {
-	name, keys, description string
-}
-
-// limiters are sign-in's limiters by name, in v0.1's order and words. The
-// names are public API: operators reset them by name.
-var limiters = []limiter{
-	{"auth_login", "normalized email address and client network, joined with a space", "Sign-in attempts per address from one network (auth.login_attempts)"},
-	{"auth_login_address", "normalized email address", "Sign-in attempts per address across networks"},
-	{"auth_mfa", "user ID", "Second-factor changes per user"},
-	{"auth_reauth", "user ID", "Password and second-factor checks behind a session per user"},
-	{"auth_code", "purpose and normalized email address, joined with a space", "Verification and reset code checks per address (auth.code_attempts)"},
-	{"auth_notice", "normalized email address", "\"Account exists\" emails per address"},
-	{"auth_api_key", "client network", "Failed API key authentications per network"},
+// limiters are sign-in's limiters, in v0.1's order and words, as
+// GET /ops/auth/rate-limits lists them (Module.RateLimiters). The names are
+// public API: operators reset a key's budget by name.
+var limiters = []gorbital.RateLimiter{
+	{Name: "auth_login", Keys: "normalized email address and client network, joined with a space", Description: "Sign-in attempts per address from one network (auth.login_attempts)"},
+	{Name: "auth_login_address", Keys: "normalized email address", Description: "Sign-in attempts per address across networks"},
+	{Name: "auth_mfa", Keys: "user ID", Description: "Second-factor changes per user"},
+	{Name: "auth_reauth", Keys: "user ID", Description: "Password and second-factor checks behind a session per user"},
+	{Name: "auth_code", Keys: "purpose and normalized email address, joined with a space", Description: "Verification and reset code checks per address (auth.code_attempts)"},
+	{Name: "auth_notice", Keys: "normalized email address", Description: "\"Account exists\" emails per address"},
+	{Name: "auth_api_key", Keys: "client network", Description: "Failed API key authentications per network"},
 }
 
 // newRateLimits builds the shared limiters on store.

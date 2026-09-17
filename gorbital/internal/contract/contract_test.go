@@ -294,9 +294,10 @@ func TestAuditActionsKeepV010(t *testing.T) {
 	}
 }
 
-// signIns are the v0.1.0 platform permissions sign-in declares and checks
-// (Phase 5): not the operations API's, though their names start with ops.
-var signIns = []string{"ops.auth.write", "ops.service_accounts.read", "ops.service_accounts.write"}
+// signIns are the v0.1.0 platform permissions sign-in (authhttp) declares:
+// not the operations API's, though their names start with ops. The
+// operations API checks ops.auth.read and ops.auth.write too.
+var signIns = []string{"ops.auth.read", "ops.auth.write", "ops.service_accounts.read", "ops.service_accounts.write"}
 
 func TestPermissionsAndRolesKeepV010(t *testing.T) {
 	frozen := frozenSurface(t)
@@ -306,7 +307,7 @@ func TestPermissionsAndRolesKeepV010(t *testing.T) {
 			want = append(want, p)
 		}
 	}
-	if len(want) < 20 {
+	if len(want) < 19 {
 		t.Fatalf("found %d ops and flags permissions in the v0.1.0 surface, want all of them", len(want))
 	}
 	modules := builtIn()

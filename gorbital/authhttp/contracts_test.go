@@ -310,8 +310,8 @@ func TestSurfaceKeepsV010Names(t *testing.T) {
 	// Rate limiters, by name: auth_ip is gorbital's stack.
 	v01Limiters := matches(limiterName, string(readFile(t, filepath.Join(goldenApp, "internal", "app", "rate_limits.go"))))
 	names := []string{"auth_ip"}
-	for _, l := range limiters {
-		names = append(names, l.name)
+	for _, l := range New().Module().RateLimiters {
+		names = append(names, l.Name)
 	}
 	names = append(names, matches(limiterName, string(readFile(t, "limits.go")))...)
 	if len(v01Limiters) != 8 {
@@ -323,8 +323,8 @@ func TestSurfaceKeepsV010Names(t *testing.T) {
 		}
 	}
 	for _, l := range limiters {
-		if !slices.Contains(matches(limiterName, string(readFile(t, "limits.go"))), l.name) {
-			t.Errorf("limiter %q is listed but not created", l.name)
+		if !slices.Contains(matches(limiterName, string(readFile(t, "limits.go"))), l.Name) {
+			t.Errorf("limiter %q is listed but not created", l.Name)
 		}
 	}
 }

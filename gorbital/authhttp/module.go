@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"gorbital.dev/gorbital"
@@ -29,17 +30,21 @@ const (
 // Module returns sign-in as a gorbital module, which gorbital.New adds
 // before the app's modules: its routes under /v1/auth/, /ops/auth/users and
 // /ops/service-accounts, its error mappings, permissions, runtime settings
-// (auth.*), the auth_cleanup and auth_revoke_tokens jobs, and its
+// (auth.*), the auth_cleanup and auth_revoke_tokens jobs, its rate limiters
+// and the retention of deleted and unverified accounts (which the
+// operations API lists in /ops/auth/rate-limits and /ops/retention), and its
 // migrations under the versions v0.1 apps hold them under, so a v0.1
 // database migrates as a no-op.
 func (a *Authenticator) Module() gorbital.Module {
 	return gorbital.Module{
-		Name:        "auth",
-		Errors:      errorMappings(),
-		Permissions: permissions(),
-		Settings:    func(r *settings.Registry) { *a.settings = declareSettings(r) },
-		Jobs:        a.defineJobs,
-		Migrations:  moduleMigrations(),
+		Name:         "auth",
+		Errors:       errorMappings(),
+		Permissions:  permissions(),
+		Settings:     func(r *settings.Registry) { *a.settings = declareSettings(r) },
+		Jobs:         a.defineJobs,
+		Migrations:   moduleMigrations(),
+		RateLimiters: slices.Clone(limiters),
+		Retention:    a.retention,
 		Routes: func(r *gorbital.Router, _ gorbital.Deps) {
 			// svc is nil while the OpenAPI document is exported: the
 			// operations are registered, but no use case runs.
@@ -67,6 +72,11 @@ func moduleMigrations() []gorbital.Migration {
 // permissions are the permissions sign-in checks, with the roles of v0.1
 // apps that hold them. The ops roles grant them only to sessions signed in
 // with a second factor (Setup), so never to API keys (ADR-0058).
+//
+// ops.auth.read and ops.auth.write are sign-in's: besides /ops/auth/users,
+// the operations API (gorbital.dev/gorbital/opshttp) checks them for
+// /ops/auth/providers and /ops/auth/rate-limits, and doesn't declare them,
+// so an app with both declares each once.
 func permissions() []gorbital.Permission {
 	return []gorbital.Permission{
 		{Name: usecase.PermOpsAuthRead, Description: "See which sign-in methods are configured", Roles: []string{rolePlatformAdmin, roleOpsViewer}},
@@ -94,6 +104,15 @@ func declareRoles(catalog *authlib.Catalog) (err error) {
 		}
 	}
 	return nil
+}
+
+// retention is how long sign-in keeps deleted and unverified accounts, as a
+// v0.1 app's /ops/retention lists it: the auth_cleanup job deletes both.
+func (a *Authenticator) retention(gorbital.Deps) []gorbital.Retention {
+	return []gorbital.Retention{
+		{Data: "deleted_accounts", Setting: a.settings.deletedAccountRetention, Job: authcleanup.Name},
+		{Data: "unverified_accounts", Setting: a.settings.unverifiedAccountTTL, Job: authcleanup.Name},
+	}
 }
 
 // defineJobs defines auth_cleanup and auth_revoke_tokens with v0.1's
