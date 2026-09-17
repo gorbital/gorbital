@@ -43,6 +43,7 @@
   },
   "error_code_where": {
     "invalid_cursor": "List endpoints",
+    "invalid_token": "Every route of an app whose authenticator is `modules/jwt`",
     "invalid_limit": "List endpoints",
     "invalid_sort": "List endpoints",
     "sole_owner": "`DELETE /v1/auth/me`",

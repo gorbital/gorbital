@@ -73,6 +73,10 @@ type code struct {
 	Detail   string `json:"detail"`
 	Generic  bool   `json:"generic"`
 	Location string `json:"location"`
+	// Module names the library module an app adds to get this code, for a
+	// module no golden app links (refExtraModules in the overlay test);
+	// empty for everything a Full app has.
+	Module string `json:"module,omitempty"`
 }
 
 type action struct {

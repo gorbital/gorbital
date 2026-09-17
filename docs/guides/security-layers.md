@@ -211,7 +211,7 @@ if err != nil {
 handler := httpx.Chain(mux, httpx.Recover(logger), httpx.RequestID(), idp.Middleware(logger))
 ```
 
-In a gorbital app from Phase 3 on: `gorbital.WithAuth(idp)`.
+In an app on `gorbital.Main`, one line does the same: `gorbital.WithAuth(idp)`.
 
 | Request | Result |
 |---|---|
@@ -278,7 +278,7 @@ Outside HTTP middleware, such as for a WebSocket's first message, call `idp.Veri
 
 ## Error codes
 
-These codes are public API like every other ([Stability](stability.md)). The [error code reference](../reference/error-codes.md) is generated from the golden apps, which don't link these packages; it lists them once the golden apps move to `gorbital.Main` (Phase 9).
+These codes are public API like every other ([Stability](stability.md)), and the [error code reference](../reference/error-codes.md) lists them with the rest. A Full app has the timeout, IP filter and webhook codes already; `modules/jwt`'s are marked there as belonging to a module an app adds.
 
 | Code | Status | Meaning | Layer |
 |---|---|---|---|
