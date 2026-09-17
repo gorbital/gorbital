@@ -30,6 +30,8 @@ type Store interface {
 	UpdateBook(ctx context.Context, b domain.Book) (domain.Book, error)
 	// DeleteBook removes one of ownerID's books, or returns ErrBookNotFound.
 	DeleteBook(ctx context.Context, ownerID, id string) error
+	// CountBooks returns how many books are on ownerID's shelf.
+	CountBooks(ctx context.Context, ownerID string) (int, error)
 }
 
 // docs:end store

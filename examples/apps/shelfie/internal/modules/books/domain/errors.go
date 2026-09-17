@@ -22,6 +22,9 @@ var (
 	ErrInvalidStatus = errors.New("books: invalid status")
 	// ErrISBNTaken reports an ISBN already on the reader's shelf.
 	ErrISBNTaken = errors.New("books: this ISBN is already on the shelf")
+	// ErrShelfFull reports a shelf holding as many books as the
+	// books.shelf_limit runtime setting allows.
+	ErrShelfFull = errors.New("books: the shelf is full")
 )
 
 // docs:end errors

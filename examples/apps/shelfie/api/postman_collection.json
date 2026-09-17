@@ -16,6 +16,2603 @@
   ],
   "item": [
     {
+      "name": "Ops: audit",
+      "item": [
+        {
+          "name": "List audit events, newest first",
+          "request": {
+            "method": "GET",
+            "description": "Who did what to which resource, and whether it worked. Filters combine; paginate with `cursor`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/audit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "audit"
+              ],
+              "query": [
+                {
+                  "key": "actor_kind",
+                  "value": "string",
+                  "description": "user, service, system or anonymous",
+                  "disabled": true
+                },
+                {
+                  "key": "actor_id",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "action",
+                  "value": "settings.value.changed",
+                  "description": "Exact action",
+                  "disabled": true
+                },
+                {
+                  "key": "action_prefix",
+                  "value": "jobs.",
+                  "description": "Actions starting with this",
+                  "disabled": true
+                },
+                {
+                  "key": "resource_type",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "resource_id",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "org_id",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "outcome",
+                  "value": "string",
+                  "description": "success, failure or denied",
+                  "disabled": true
+                },
+                {
+                  "key": "request_id",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Only events that occurred at or after this time (RFC 3339)",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Only events that occurred before this time (RFC 3339)",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "next_cursor from the previous page",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Count audit events",
+          "request": {
+            "method": "GET",
+            "description": "Counts events in a window of at most 90 days (default the last 7), grouped by action, outcome, actor kind, resource type or UTC day. Filters are the audit list's.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/audit/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "audit",
+                "stats"
+              ],
+              "query": [
+                {
+                  "key": "group_by",
+                  "value": "action"
+                },
+                {
+                  "key": "actor_kind",
+                  "value": "string",
+                  "description": "user, service, system or anonymous",
+                  "disabled": true
+                },
+                {
+                  "key": "actor_id",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "action",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "action_prefix",
+                  "value": "auth.",
+                  "disabled": true
+                },
+                {
+                  "key": "resource_type",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "org_id",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "outcome",
+                  "value": "string",
+                  "description": "success, failure or denied",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Start, inclusive (RFC 3339); default 7 days before to",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "End, exclusive (RFC 3339); default now. At most 90 days after from",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get an audit event",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/audit/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "audit",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: auth",
+      "item": [
+        {
+          "name": "List sign-in methods and what they need",
+          "request": {
+            "method": "GET",
+            "description": "Whether each sign-in method is configured and, for the others, the environment variables to set (never their values). Setup steps: AUTH_PROVIDERS.md.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/providers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "providers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List the rate limiters",
+          "request": {
+            "method": "GET",
+            "description": "Each limiter's name and what its keys are. Budgets can't be listed (keys are stored hashed); reset one with `POST /ops/auth/rate-limits/reset`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/rate-limits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "rate-limits"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Forget a key's budget under a limiter",
+          "request": {
+            "method": "POST",
+            "description": "The next request from that key is treated as its first. Audited as ops.rate_limit.reset, naming the limiter only.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/rate-limits/reset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "rate-limits",
+                "reset"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"string\",\n  \"name\": \"auth_login\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: flags",
+      "item": [
+        {
+          "name": "List feature flags",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/flags",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "flags"
+              ],
+              "query": [
+                {
+                  "key": "group",
+                  "value": "string",
+                  "description": "Only flags in this group",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get a feature flag",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/flags/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "flags",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_time"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change a feature flag",
+          "request": {
+            "method": "PUT",
+            "description": "Replaces the flag's whole state; applies to every instance within moments. Send the `version` you read (a newer one returns `flag_version_conflict`) and a `reason`. Lists hold at most 1000 IDs of 1 to 100 visible ASCII characters each, and an ID can't be in both lists of a rule.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/flags/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "flags",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_time"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\",\n  \"state\": {\n    \"default\": false,\n    \"enabled\": false,\n    \"orgs\": {\n      \"allow\": [\n        \"string\"\n      ],\n      \"deny\": [\n        \"string\"\n      ]\n    },\n    \"percentage\": 0,\n    \"users\": {\n      \"allow\": [\n        \"string\"\n      ],\n      \"deny\": [\n        \"string\"\n      ]\n    }\n  },\n  \"version\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reset a feature flag to its declared state",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/flags/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "flags",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_time"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\",\n  \"version\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List a feature flag's changes",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/flags/:key/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "flags",
+                ":key",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "before",
+                  "value": "0",
+                  "description": "Return changes older than this change ID",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_time"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: incidents",
+      "item": [
+        {
+          "name": "List incidents, most recently opened first",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "open",
+                  "description": "open: every status but resolved",
+                  "disabled": true
+                },
+                {
+                  "key": "severity",
+                  "value": "sev1",
+                  "disabled": true
+                },
+                {
+                  "key": "source",
+                  "value": "manual",
+                  "disabled": true
+                },
+                {
+                  "key": "started_from",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Incidents that started at or after this time",
+                  "disabled": true
+                },
+                {
+                  "key": "started_to",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Incidents that started before this time",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "next_cursor from the previous page",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Open an incident",
+          "request": {
+            "method": "POST",
+            "description": "Records `ops.incident.opened`. Titles, summaries and messages are for operators: don't include personal data.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"severity\": \"sev1\",\n  \"title\": \"Checkout requests failing\",\n  \"message\": \"string\",\n  \"started_at\": \"2026-09-15T12:00:00Z\",\n  \"status\": \"investigating\",\n  \"summary\": \"Payments time out for most customers.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get an incident with its timeline",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get an incident report",
+          "request": {
+            "method": "GET",
+            "description": "The incident and its timeline, with what happened from 15 minutes before it started until 15 minutes after it was resolved (or now), at most 24 hours: requests, error rates and latency across instances (needs `ops.observability.read`), audit events without IP addresses, user agents or metadata (`ops.audit.read`, at most 200), and releases started (`ops.releases.read`). A section the caller can't read is left out with a note. As JSON, or Markdown with `format=markdown` or `Accept: text/markdown`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Accept",
+                "value": "string",
+                "description": "text/markdown for Markdown"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents/:id/report",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents",
+                ":id",
+                "report"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "json",
+                  "description": "Default: Markdown when Accept prefers text/markdown, otherwise JSON",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resolve an incident",
+          "request": {
+            "method": "POST",
+            "description": "Sets the status to resolved and the resolution time to now, with a final timeline update. Records `ops.incident.resolved`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents/:id/resolve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents",
+                ":id",
+                "resolve"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"The provider recovered; failed payments were retried.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Add a timeline update",
+          "request": {
+            "method": "POST",
+            "description": "Optionally changes the status and severity. Records `ops.incident.updated`. Resolved incidents can't be updated (409).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/incidents/:id/updates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "incidents",
+                ":id",
+                "updates"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"The payment provider confirmed an outage.\",\n  \"severity\": \"sev1\",\n  \"status\": \"investigating\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: job definitions",
+      "item": [
+        {
+          "name": "List job definitions",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/definitions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "definitions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get a job definition",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/definitions/:name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "definitions",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "heartbeat"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change a job's configuration",
+          "request": {
+            "method": "PUT",
+            "description": "Send only the fields to change. Applies to every instance within moments. Disabling or rescheduling a job, or changing its timeout, max attempts or queue, requires a reason.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/definitions/:name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "definitions",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "heartbeat"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 0,\n  \"enabled\": false,\n  \"max_attempts\": 1,\n  \"priority\": 1,\n  \"queue\": \"string\",\n  \"reason\": \"string\",\n  \"schedule\": \"string\",\n  \"timeout\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reset a job to its code defaults",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/definitions/:name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "definitions",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "heartbeat"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 0,\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List a job definition's changes",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/definitions/:name/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "definitions",
+                ":name",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "before",
+                  "value": "0",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "heartbeat"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Run a job now",
+          "request": {
+            "method": "POST",
+            "description": "Refused while a run of the job is queued or running, or within a minute of its last run.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/definitions/:name/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "definitions",
+                ":name",
+                "run"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "heartbeat"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List enabled scheduled jobs, soonest first",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/scheduled",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "scheduled"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: job runs",
+      "item": [
+        {
+          "name": "Summarise job work",
+          "request": {
+            "method": "GET",
+            "description": "Unfinished jobs per queue, jobs discarded in the last 24 hours, paused queues, and job definitions whose latest run failed.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "overview"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List job runs, newest first",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "runs"
+              ],
+              "query": [
+                {
+                  "key": "kind",
+                  "value": "string",
+                  "description": "Only jobs of this definition or kind",
+                  "disabled": true
+                },
+                {
+                  "key": "queue",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "state",
+                  "value": "[\"string\"]",
+                  "description": "Only jobs in these states: available, cancelled, completed, discarded, pending, retryable, running, scheduled",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "next_cursor from the previous page",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get a job run",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/runs/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "runs",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel a job run",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/runs/:id/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "runs",
+                ":id",
+                "cancel"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Retry a job run now",
+          "request": {
+            "method": "POST",
+            "description": "Only runs waiting to retry, discarded or cancelled, of enabled jobs: a completed run never runs again.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/jobs/runs/:id/retry",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "jobs",
+                "runs",
+                ":id",
+                "retry"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: email",
+      "item": [
+        {
+          "name": "Show how the app sends email",
+          "request": {
+            "method": "GET",
+            "description": "The provider, whether email goes to Mailpit or the provider, and the current sender. Change the sender with `PUT /ops/settings/mail.from_email`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/mail",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "mail"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List suppressed addresses",
+          "request": {
+            "method": "GET",
+            "description": "Addresses that bounced permanently or marked an email as spam, most recently added first. The app sends them no email: such jobs are cancelled. The provider's webhook adds them (`POST /v1/webhooks/resend`).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/mail/suppressions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "mail",
+                "suppressions"
+              ],
+              "query": [
+                {
+                  "key": "reason",
+                  "value": "bounce",
+                  "description": "Only suppressions with this reason",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "next_cursor from the previous page",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove a suppressed address",
+          "request": {
+            "method": "DELETE",
+            "description": "The address receives email again until its next permanent bounce or complaint. A reason is required and recorded in the audit event `mail.suppression.removed`. Returns the removed suppression.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/mail/suppressions/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "mail",
+                "suppressions",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"The mailbox exists again (support ticket 4821)\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Send a test email",
+          "request": {
+            "method": "POST",
+            "description": "Queues a test email through the same path as every other email. Check its delivery in `GET /ops/jobs/runs?kind=gorbital.mail.send`. Each operator can send 5 an hour.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/mail/test",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "mail",
+                "test"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"you@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: observability",
+      "item": [
+        {
+          "name": "Show request rates, errors and latency",
+          "request": {
+            "method": "GET",
+            "description": "Every instance's HTTP requests over the window, up to the current minute: request rate, error rate and latency percentiles, per instance, and the busiest, most failing and slowest routes. Instances write their counts every 15 seconds.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/observability/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "observability",
+                "overview"
+              ],
+              "query": [
+                {
+                  "key": "window",
+                  "value": "1h",
+                  "description": "Whole minutes from 1m to 24h, as a Go duration",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List routes by traffic, errors or latency",
+          "request": {
+            "method": "GET",
+            "description": "Every route pattern's requests over the window, across instances. Routes are the patterns in code, never requested paths.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/observability/routes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "observability",
+                "routes"
+              ],
+              "query": [
+                {
+                  "key": "window",
+                  "value": "1h",
+                  "description": "Whole minutes from 1m to 24h, as a Go duration",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "requests",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "100",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Stream the overview",
+          "request": {
+            "method": "GET",
+            "description": "Server-Sent Events: an `overview` event (the body of `GET /ops/observability/overview`) now and every 5s, then an `end` event. A stream ends after 10m0s, when the session ends or loses the permission (checked before every event), or when the instance shuts down; `retry` tells EventSource clients to reconnect after 5s. Each user may hold 2 streams per instance, and an instance 20; more get 429. Proxies must not buffer the response (`X-Accel-Buffering: no` is set for nginx).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/observability/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "observability",
+                "stream"
+              ],
+              "query": [
+                {
+                  "key": "window",
+                  "value": "1h",
+                  "description": "Whole minutes from 1m to 24h, as a Go duration",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: job queues",
+      "item": [
+        {
+          "name": "List active job queues",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/queues",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "queues"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Pause a queue on every instance",
+          "request": {
+            "method": "POST",
+            "description": "Every job in the queue stops, email delivery included, so pausing requires a reason.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/queues/:name/pause",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "queues",
+                ":name",
+                "pause"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "default"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Resume a paused queue",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/queues/:name/resume",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "queues",
+                ":name",
+                "resume"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "default"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: releases",
+      "item": [
+        {
+          "name": "List releases, newest first",
+          "request": {
+            "method": "GET",
+            "description": "Every version and commit an instance has run, with how many instances run it now.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/releases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "releases"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "next_cursor from the previous page",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List the releases running now",
+          "request": {
+            "method": "GET",
+            "description": "More than one during a rolling deploy. An instance counts as running until it stops or misses three heartbeats.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/releases/current",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "releases",
+                "current"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List instance starts, newest first",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/releases/instances",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "releases",
+                "instances"
+              ],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "v1.4.0",
+                  "disabled": true
+                },
+                {
+                  "key": "commit",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "running",
+                  "value": "false",
+                  "description": "Only instances running now",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "next_cursor from the previous page",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: settings",
+      "item": [
+        {
+          "name": "List retention policies",
+          "request": {
+            "method": "GET",
+            "description": "How long each kind of data is kept, the runtime setting that decides it, the oldest stored row, and the job that deletes expired rows with its last and next run. Change a policy with PUT /ops/settings/{key}.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/retention",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "retention"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List runtime settings",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "settings"
+              ],
+              "query": [
+                {
+                  "key": "group",
+                  "value": "string",
+                  "description": "Only settings in this group",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get a runtime setting",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/settings/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "settings",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_message"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change a runtime setting",
+          "request": {
+            "method": "PUT",
+            "description": "Applies to every instance within moments. Send the `version` you read; a newer version returns `setting_version_conflict`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/settings/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "settings",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_message"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": null,\n  \"version\": 0,\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reset a runtime setting to its default",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/settings/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "settings",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_message"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 0,\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List a runtime setting's changes",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/settings/:key/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "settings",
+                ":key",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "before",
+                  "value": "0",
+                  "description": "Return changes older than this change ID",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "example.ping_message"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List organisations' own values of a runtime setting",
+          "request": {
+            "method": "GET",
+            "description": "Only settings with `org_overridable` have any (ADR-0056). Ordered by organisation ID; pass the last `org_id` as `after` for the next page.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/settings/:key/overrides",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "settings",
+                ":key",
+                "overrides"
+              ],
+              "query": [
+                {
+                  "key": "after",
+                  "value": "string",
+                  "description": "Return organisations after this organisation ID",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "key",
+                  "value": "orgs.invitation_ttl"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: storage",
+      "item": [
+        {
+          "name": "Describe file storage",
+          "request": {
+            "method": "GET",
+            "description": "The driver, bucket and endpoint, and whether the service answers. `local` is the development driver on this machine.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a directory",
+          "request": {
+            "method": "POST",
+            "description": "Object stores have no directories: this stores a hidden `.keep` marker so the prefix appears in listings. Audited as `storage.directory.created`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/directories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "directories"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prefix\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Describe an object",
+          "request": {
+            "method": "GET",
+            "description": "Size, content type, ETag, modification time and metadata of the object named by `key`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string",
+                  "description": "The object's key"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload an object",
+          "request": {
+            "method": "PUT",
+            "description": "Stores the request body under `key`, replacing any object there. The `Content-Type` header is the object's; the key's extension decides otherwise. Audited as `storage.object.uploaded`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "string"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete an object",
+          "request": {
+            "method": "DELETE",
+            "description": "Removes the object named by `key`; a missing key is fine. Audited as `storage.object.deleted`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string",
+                  "description": "The object's key"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Download an object",
+          "request": {
+            "method": "GET",
+            "description": "The object's bytes with its content type, as an attachment.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object/content",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object",
+                "content"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string",
+                  "description": "The object's key"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Move an object",
+          "request": {
+            "method": "POST",
+            "description": "Copies `from` to `to` and deletes `from`. Audited as `storage.object.moved`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object",
+                "move"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from\": \"string\",\n  \"to\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List objects",
+          "request": {
+            "method": "GET",
+            "description": "One page of objects under a prefix, with the directories folded at the next slash unless `recursive`. Continue with `cursor`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/objects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "objects"
+              ],
+              "query": [
+                {
+                  "key": "prefix",
+                  "value": "string",
+                  "description": "List keys under this prefix (a directory ends with a slash)",
+                  "disabled": true
+                },
+                {
+                  "key": "recursive",
+                  "value": "false",
+                  "description": "Every key under the prefix instead of one level",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "1",
+                  "description": "Page size, default 200",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a signed URL",
+          "request": {
+            "method": "POST",
+            "description": "A URL that downloads (GET) or uploads (PUT) the object until it expires, without other credentials. Audited as `storage.signed_url.created`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/signed-url",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "signed-url"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"string\",\n  \"expiry_seconds\": 1,\n  \"method\": \"GET\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: system",
+      "item": [
+        {
+          "name": "Describe this instance",
+          "request": {
+            "method": "GET",
+            "description": "Readiness checks, database pool and migrations, Go runtime and job workers of the instance that answers. A failing database still returns 200, with the failure in checks and database. Other instances: GET /ops/releases/instances.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/system",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "system"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Books",
       "item": [
         {
@@ -217,6 +2814,38 @@
                   "key": "id",
                   "value": "bok_mfrggzdfmztwq2lkmfrggzdfmy"
                 }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Feature flags",
+      "item": [
+        {
+          "name": "List your feature flags",
+          "request": {
+            "method": "GET",
+            "description": "Whether each feature flag clients may read is on for you. Answers depend on who asks, so responses aren't cached. Unknown keys may appear as flags are added: ignore them.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/flags",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "flags"
               ]
             }
           }

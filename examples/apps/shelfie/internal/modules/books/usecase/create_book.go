@@ -18,6 +18,9 @@ func (s *Service) CreateBook(ctx context.Context, f domain.Fields) (domain.Book,
 	if err != nil {
 		return domain.Book{}, err
 	}
+	if err := s.checkShelf(ctx, reader); err != nil {
+		return domain.Book{}, err
+	}
 	created, err := s.store.InsertBook(ctx, book)
 	if err != nil {
 		return domain.Book{}, storeError("create", err)
@@ -27,3 +30,24 @@ func (s *Service) CreateBook(ctx context.Context, f domain.Fields) (domain.Book,
 }
 
 // docs:end create-book
+
+// docs:start check-shelf
+
+// checkShelf returns ErrShelfFull when reader's shelf holds as many books as
+// the limit allows now. Two books added at the same moment can both pass:
+// the limit keeps shelves reasonable, it isn't a quota to enforce exactly.
+func (s *Service) checkShelf(ctx context.Context, reader string) error {
+	if s.shelfLimit == nil {
+		return nil
+	}
+	n, err := s.store.CountBooks(ctx, reader)
+	if err != nil {
+		return storeError("count", err)
+	}
+	if n >= s.shelfLimit.Get(ctx) {
+		return domain.ErrShelfFull
+	}
+	return nil
+}
+
+// docs:end check-shelf

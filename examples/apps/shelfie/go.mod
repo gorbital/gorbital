@@ -6,7 +6,9 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	gorbital.dev v0.1.0
 	gorbital.dev/gorbital v0.2.0
+	gorbital.dev/modules/flags v0.1.0
 	gorbital.dev/modules/postgres v0.1.0
+	gorbital.dev/modules/settings v0.1.0
 )
 
 require (
@@ -68,7 +70,6 @@ require (
 	gorbital.dev/modules/auditpg v0.1.0 // indirect
 	gorbital.dev/modules/auth v0.1.0 // indirect
 	gorbital.dev/modules/devconsole v0.1.0 // indirect
-	gorbital.dev/modules/flags v0.1.0 // indirect
 	gorbital.dev/modules/idempotency v0.1.0 // indirect
 	gorbital.dev/modules/jobs v0.1.0 // indirect
 	gorbital.dev/modules/mail/smtp v0.1.0 // indirect
@@ -77,7 +78,6 @@ require (
 	gorbital.dev/modules/openapi v0.1.0 // indirect
 	gorbital.dev/modules/ratelimitpg v0.1.0 // indirect
 	gorbital.dev/modules/releases v0.1.0 // indirect
-	gorbital.dev/modules/settings v0.1.0 // indirect
 	gorbital.dev/modules/storage v0.1.0 // indirect
 	gorbital.dev/modules/telemetry v0.1.0 // indirect
 	rsc.io/qr v0.2.0 // indirect
@@ -92,6 +92,7 @@ replace (
 	gorbital.dev/modules/flags => ../../../modules/flags
 	gorbital.dev/modules/idempotency => ../../../modules/idempotency
 	gorbital.dev/modules/jobs => ../../../modules/jobs
+	gorbital.dev/modules/mail/resend => ../../../modules/mail/resend
 	gorbital.dev/modules/mail/smtp => ../../../modules/mail/smtp
 	gorbital.dev/modules/mail/suppressionpg => ../../../modules/mail/suppressionpg
 	gorbital.dev/modules/observability => ../../../modules/observability

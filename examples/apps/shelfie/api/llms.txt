@@ -8,6 +8,104 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 
 - `bearer` (bearer): Session token from POST /v1/auth/login with "transport": "bearer", or an API key (gbk_…) from POST /v1/auth/api-keys. Browsers use the session cookie that login sets instead.
 
+## Ops: audit
+
+- [List audit events, newest first](/docs/ops-audit/ops-list-audit-events.md): `GET /ops/audit`
+- [Count audit events](/docs/ops-audit/ops-audit-stats.md): `GET /ops/audit/stats`
+- [Get an audit event](/docs/ops-audit/ops-get-audit-event.md): `GET /ops/audit/{id}`
+
+## Ops: auth
+
+- [List sign-in methods and what they need](/docs/ops-auth/ops-list-sign-in-methods.md): `GET /ops/auth/providers`
+- [List the rate limiters](/docs/ops-auth/ops-list-rate-limits.md): `GET /ops/auth/rate-limits`
+- [Forget a key's budget under a limiter](/docs/ops-auth/ops-reset-rate-limit.md): `POST /ops/auth/rate-limits/reset`
+
+## Ops: flags
+
+- [List feature flags](/docs/ops-flags/ops-list-flags.md): `GET /ops/flags`
+- [Get a feature flag](/docs/ops-flags/ops-get-flag.md): `GET /ops/flags/{key}`
+- [Change a feature flag](/docs/ops-flags/ops-set-flag.md): `PUT /ops/flags/{key}`
+- [Reset a feature flag to its declared state](/docs/ops-flags/ops-reset-flag.md): `DELETE /ops/flags/{key}`
+- [List a feature flag's changes](/docs/ops-flags/ops-flag-history.md): `GET /ops/flags/{key}/history`
+
+## Ops: incidents
+
+- [List incidents, most recently opened first](/docs/ops-incidents/ops-list-incidents.md): `GET /ops/incidents`
+- [Open an incident](/docs/ops-incidents/ops-open-incident.md): `POST /ops/incidents`
+- [Get an incident with its timeline](/docs/ops-incidents/ops-get-incident.md): `GET /ops/incidents/{id}`
+- [Get an incident report](/docs/ops-incidents/ops-incident-report.md): `GET /ops/incidents/{id}/report`
+- [Resolve an incident](/docs/ops-incidents/ops-resolve-incident.md): `POST /ops/incidents/{id}/resolve`
+- [Add a timeline update](/docs/ops-incidents/ops-add-incident-update.md): `POST /ops/incidents/{id}/updates`
+
+## Ops: job definitions
+
+- [List job definitions](/docs/ops-job-definitions/ops-list-job-definitions.md): `GET /ops/jobs/definitions`
+- [Get a job definition](/docs/ops-job-definitions/ops-get-job-definition.md): `GET /ops/jobs/definitions/{name}`
+- [Change a job's configuration](/docs/ops-job-definitions/ops-update-job-definition.md): `PUT /ops/jobs/definitions/{name}`
+- [Reset a job to its code defaults](/docs/ops-job-definitions/ops-reset-job-definition.md): `DELETE /ops/jobs/definitions/{name}`
+- [List a job definition's changes](/docs/ops-job-definitions/ops-job-definition-history.md): `GET /ops/jobs/definitions/{name}/history`
+- [Run a job now](/docs/ops-job-definitions/ops-run-job.md): `POST /ops/jobs/definitions/{name}/run`
+- [List enabled scheduled jobs, soonest first](/docs/ops-job-definitions/ops-list-scheduled-jobs.md): `GET /ops/jobs/scheduled`
+
+## Ops: job runs
+
+- [Summarise job work](/docs/ops-job-runs/ops-jobs-overview.md): `GET /ops/jobs/overview`
+- [List job runs, newest first](/docs/ops-job-runs/ops-list-job-runs.md): `GET /ops/jobs/runs`
+- [Get a job run](/docs/ops-job-runs/ops-get-job-run.md): `GET /ops/jobs/runs/{id}`
+- [Cancel a job run](/docs/ops-job-runs/ops-cancel-job-run.md): `POST /ops/jobs/runs/{id}/cancel`
+- [Retry a job run now](/docs/ops-job-runs/ops-retry-job-run.md): `POST /ops/jobs/runs/{id}/retry`
+
+## Ops: email
+
+- [Show how the app sends email](/docs/ops-email/ops-get-mail.md): `GET /ops/mail`
+- [List suppressed addresses](/docs/ops-email/ops-list-mail-suppressions.md): `GET /ops/mail/suppressions`
+- [Remove a suppressed address](/docs/ops-email/ops-remove-mail-suppression.md): `DELETE /ops/mail/suppressions/{id}`
+- [Send a test email](/docs/ops-email/ops-send-test-email.md): `POST /ops/mail/test`
+
+## Ops: observability
+
+- [Show request rates, errors and latency](/docs/ops-observability/ops-observability-overview.md): `GET /ops/observability/overview`
+- [List routes by traffic, errors or latency](/docs/ops-observability/ops-observability-routes.md): `GET /ops/observability/routes`
+- [Stream the overview](/docs/ops-observability/ops-observability-stream.md): `GET /ops/observability/stream`
+
+## Ops: job queues
+
+- [List active job queues](/docs/ops-job-queues/ops-list-job-queues.md): `GET /ops/queues`
+- [Pause a queue on every instance](/docs/ops-job-queues/ops-pause-job-queue.md): `POST /ops/queues/{name}/pause`
+- [Resume a paused queue](/docs/ops-job-queues/ops-resume-job-queue.md): `POST /ops/queues/{name}/resume`
+
+## Ops: releases
+
+- [List releases, newest first](/docs/ops-releases/ops-list-releases.md): `GET /ops/releases`
+- [List the releases running now](/docs/ops-releases/ops-current-releases.md): `GET /ops/releases/current`
+- [List instance starts, newest first](/docs/ops-releases/ops-list-release-instances.md): `GET /ops/releases/instances`
+
+## Ops: settings
+
+- [List retention policies](/docs/ops-settings/ops-retention.md): `GET /ops/retention`
+- [List runtime settings](/docs/ops-settings/ops-list-settings.md): `GET /ops/settings`
+- [Get a runtime setting](/docs/ops-settings/ops-get-setting.md): `GET /ops/settings/{key}`
+- [Change a runtime setting](/docs/ops-settings/ops-set-setting.md): `PUT /ops/settings/{key}`
+- [Reset a runtime setting to its default](/docs/ops-settings/ops-reset-setting.md): `DELETE /ops/settings/{key}`
+- [List a runtime setting's changes](/docs/ops-settings/ops-setting-history.md): `GET /ops/settings/{key}/history`
+- [List organisations' own values of a runtime setting](/docs/ops-settings/ops-setting-overrides.md): `GET /ops/settings/{key}/overrides`
+
+## Ops: storage
+
+- [Describe file storage](/docs/ops-storage/ops-get-storage.md): `GET /ops/storage`
+- [Create a directory](/docs/ops-storage/ops-create-storage-directory.md): `POST /ops/storage/directories`
+- [Describe an object](/docs/ops-storage/ops-get-storage-object.md): `GET /ops/storage/object`
+- [Upload an object](/docs/ops-storage/ops-upload-storage-object.md): `PUT /ops/storage/object`
+- [Delete an object](/docs/ops-storage/ops-delete-storage-object.md): `DELETE /ops/storage/object`
+- [Download an object](/docs/ops-storage/ops-download-storage-object.md): `GET /ops/storage/object/content`
+- [Move an object](/docs/ops-storage/ops-move-storage-object.md): `POST /ops/storage/object/move`
+- [List objects](/docs/ops-storage/ops-list-storage-objects.md): `GET /ops/storage/objects`
+- [Create a signed URL](/docs/ops-storage/ops-create-storage-signed-url.md): `POST /ops/storage/signed-url`
+
+## Ops: system
+
+- [Describe this instance](/docs/ops-system/ops-system.md): `GET /ops/system`
+
 ## Books
 
 - [List your books](/docs/books/books-get-v1-books.md): `GET /v1/books`
@@ -15,6 +113,10 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Get a book](/docs/books/books-get-v1-books-by-id.md): `GET /v1/books/{id}`
 - [Change a book](/docs/books/books-patch-v1-books-by-id.md): `PATCH /v1/books/{id}`
 - [Remove a book](/docs/books/books-delete-v1-books-by-id.md): `DELETE /v1/books/{id}`
+
+## Feature flags
+
+- [List your feature flags](/docs/feature-flags/flags-list.md): `GET /v1/flags`
 
 ## System
 

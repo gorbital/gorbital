@@ -15,6 +15,7 @@ import (
 
 	"gorbital.dev/actor"
 	"gorbital.dev/audit"
+	"gorbital.dev/config"
 
 	"example.com/shelfie/internal/modules/books/domain"
 )
@@ -38,21 +39,23 @@ const (
 
 // Service runs the books use cases. It is safe for concurrent use.
 type Service struct {
-	store    Store
-	recorder audit.Recorder
-	logger   *slog.Logger
-	now      func() time.Time
-	newID    func() string
+	store      Store
+	recorder   audit.Recorder
+	logger     *slog.Logger
+	shelfLimit config.Value[int] // nil: no limit
+	now        func() time.Time
+	newID      func() string
 }
 
 // NewService returns a Service storing books in store and recording changes
-// in recorder. Both may be nil while the OpenAPI document is exported, when
-// no use case runs.
-func NewService(store Store, recorder audit.Recorder, logger *slog.Logger) *Service {
+// in recorder, with at most shelfLimit books per reader, read on every new
+// book (a runtime setting operators change in /ops). Store and recorder may
+// be nil while the OpenAPI document is exported, when no use case runs.
+func NewService(store Store, recorder audit.Recorder, logger *slog.Logger, shelfLimit config.Value[int]) *Service {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	return &Service{store: store, recorder: recorder, logger: logger, now: time.Now, newID: newID}
+	return &Service{store: store, recorder: recorder, logger: logger, shelfLimit: shelfLimit, now: time.Now, newID: newID}
 }
 
 // docs:end service

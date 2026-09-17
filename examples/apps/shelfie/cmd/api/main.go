@@ -9,6 +9,8 @@ package main
 
 import (
 	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/flagshttp"
+	"gorbital.dev/gorbital/opshttp"
 
 	"example.com/shelfie/db/migrations"
 	"example.com/shelfie/internal/modules"
@@ -18,8 +20,9 @@ import (
 func main() {
 	gorbital.Main(
 		gorbital.WithName("shelfie"),
-		gorbital.WithModules(modules.All()...), // internal/modules/modules.gen.go
-		gorbital.WithMigrations(migrations.FS), // db/migrations
+		gorbital.WithModules(opshttp.Module(), flagshttp.Module()), // /ops/ and /v1/flags, built in
+		gorbital.WithModules(modules.All()...),                     // internal/modules/modules.gen.go
+		gorbital.WithMigrations(migrations.FS),                     // db/migrations
 	)
 }
 
