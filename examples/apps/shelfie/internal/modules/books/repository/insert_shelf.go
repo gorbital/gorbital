@@ -7,9 +7,9 @@ import (
 )
 
 const insertShelfSQL = `
-	INSERT INTO shelves (id, owner_id, name, created_at)
-	VALUES ($1, $2, $3, $4)
-	ON CONFLICT (owner_id, name) DO NOTHING`
+	INSERT INTO shelves (id, owner_id, name, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $4)
+	ON CONFLICT (owner_id, lower(name)) DO NOTHING`
 
 // InsertShelf stores a shelf; a name the owner already has is left as it is.
 func (s *Store) InsertShelf(ctx context.Context, shelf domain.Shelf) error {
