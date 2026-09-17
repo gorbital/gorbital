@@ -496,3 +496,33 @@ func TestTimeoutUnwrapReachesTheController(t *testing.T) {
 		t.Errorf("body = %q", rec.Body)
 	}
 }
+
+// TestTimeoutEarlyHintsHeadersDontReachThe503: a 103 Early Hints response
+// copies the handler's headers into the real header map without starting
+// the response, so the timeout answer must clear them rather than send the
+// handler's headers with its 503 (internal security review, 2026-09,
+// HTTP-3). As in TestTimeoutEarlyHints, httptest.ResponseRecorder keeps the
+// first status, the 103; what matters here is the header map the 503 went
+// out with.
+func TestTimeoutEarlyHintsHeadersDontReachThe503(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Link", "</app.css>; rel=preload")
+		w.Header().Set("X-Internal-Backend", "db-primary-7")
+		w.WriteHeader(http.StatusEarlyHints)
+		<-r.Context().Done()
+	})
+	rec := httptest.NewRecorder()
+	timeout.New(10*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if !strings.Contains(rec.Body.String(), "request_timeout") {
+		t.Fatalf("body = %q, want the timeout problem", rec.Body)
+	}
+	for _, name := range []string{"Link", "X-Internal-Backend"} {
+		if got := rec.Header().Get(name); got != "" {
+			t.Errorf("the 503 went out with the handler's %s: %q", name, got)
+		}
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/problem+json" {
+		t.Errorf("Content-Type = %q, want the problem's", got)
+	}
+}

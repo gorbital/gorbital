@@ -69,7 +69,7 @@ func New(d time.Duration) httpx.Middleware {
 			defer cancel()
 			r = r.WithContext(ctx)
 
-			tw := &timeoutWriter{w: w, r: r, h: w.Header().Clone()}
+			tw := &timeoutWriter{w: w, r: r, h: w.Header().Clone(), outer: w.Header().Clone()}
 			tw.running.Add(1)
 			timer := time.AfterFunc(d, func() {
 				defer tw.running.Done()
@@ -94,8 +94,11 @@ func New(d time.Duration) httpx.Middleware {
 // response starts, the handler's headers live in h, so the 503 can use w's
 // header map without racing with the handler.
 type timeoutWriter struct {
-	w       http.ResponseWriter
-	r       *http.Request
+	w http.ResponseWriter
+	r *http.Request
+	// outer is w's header map as it was before the handler ran, which the
+	// timeout response goes out with.
+	outer   http.Header
 	running sync.WaitGroup // the timeout callback, while it may run
 
 	mu       sync.Mutex
@@ -149,7 +152,13 @@ func (tw *timeoutWriter) answerLocked() {
 		return
 	}
 	body = append(body, '\n')
+	// The timeout response carries the headers the middleware around it set,
+	// never the handler's: an informational response (103 Early Hints)
+	// copies the handler's headers into the real map without starting the
+	// response, and the 503 would otherwise go out with them.
 	h := tw.w.Header()
+	clear(h)
+	maps.Copy(h, tw.outer)
 	h.Set("Content-Type", httpx.ProblemContentType)
 	h.Set("Cache-Control", "no-store")
 	h.Set("Content-Length", strconv.Itoa(len(body)))
