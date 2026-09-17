@@ -6,7 +6,7 @@ A **module** is one feature of your app, declared in one value: its routes, the 
 
 ## Where a module lives
 
-Each module is a directory under `internal/modules`, in four layers with one file per operation ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#3-app-layout)); `internal/modules/modules.gen.go` lists the modules for `main.go` ([Your main.go](main-go.md#the-module-list)):
+Each module is a directory under `internal/modules`, in four layers with one file per operation ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#3-app-layout)); `internal/modules/modules.gen.go` lists the modules for `main.go` ([Your main.go](main-go.md#the-module-list)). `orb gen module` writes a new one in this layout, and `orb routes` lists every route with its guards and source ([Generating code](generating-code.md)):
 
 ```text
 internal/modules/books/

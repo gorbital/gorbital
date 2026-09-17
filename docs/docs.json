@@ -28,6 +28,7 @@
             { "title": "Your main.go", "slug": "guides/main-go", "source": "docs/guides/main-go.md" },
             { "title": "The middleware stack", "slug": "guides/middleware-stack", "source": "docs/guides/middleware-stack.md" },
             { "title": "Testing with gorbitaltest", "slug": "guides/testing-with-gorbitaltest", "source": "docs/guides/testing-with-gorbitaltest.md" },
+            { "title": "Generating code", "slug": "guides/generating-code", "source": "docs/guides/generating-code.md" },
             { "title": "Security layers", "slug": "guides/security-layers", "source": "docs/guides/security-layers.md" },
             { "title": "Organisations", "slug": "guides/organisations", "source": "docs/start/organisations.md" },
             { "title": "Upgrading apps", "slug": "guides/upgrading", "source": "docs/start/upgrading.md" }
@@ -276,6 +277,7 @@
           "name": "Recipes",
           "pages": [
             { "title": "Internal admin tool, part 1", "slug": "examples/recipes/internal-admin-tool", "source": "docs/examples/recipes/internal-admin-tool.md" }
+            { "title": "9. Generators", "slug": "examples/shelfie/generators", "source": "docs/examples/shelfie/09-generators.md" }
           ]
         }
       ]

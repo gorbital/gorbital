@@ -1,6 +1,6 @@
 # ADR-0077: The generators hub, the first run and Project Settings
 
-**Status:** Accepted (2026-09-17) · **Amends:** ADR-0021, ADR-0028, ADR-0037, ADR-0066
+**Status:** Accepted (2026-09-17) · **Amends:** ADR-0021, ADR-0028, ADR-0037, ADR-0066 · **Amended by:** v0.2 Phase 8 ([below](#amendment-v02-phase-8-2026-09-17))
 
 ## Context
 
@@ -59,3 +59,7 @@ The portal already runs `orb gen job`, `resource` and `migration` through plans 
 ## Implementation notes (2026-09-17)
 
 `TestAddPlans` (mail, storage and rls plans against a test app) and `TestNewNoStart` in `cli/internal/cli`, `TestProjectEndpoints` in `cli/internal/portal`.
+
+## Amendment: v0.2 Phase 8 (2026-09-17)
+
+The hub gains `module` and `middleware` for apps on `gorbital.Main` ([ADR-0083](0083-modules-stack-migrations-and-ejection.md#phase-8-implementation-notes-2026-09-17)): `POST /_portal/api/generators/module/plan` with `{"name", "fields", "plural", "id_prefix", "org"}` and `…/middleware/plan` with `{"name", "module", "global", "guard"}`, planned and applied by the same functions as `orb gen module` and `orb gen middleware`, so the preview is a true diff. `org: true` answers 422 until Phase 7; in a v0.1 app the module plan answers 422 pointing at `resource`. The middleware generator never edits routes or `main.go`: its next steps give the line to add, and the sheet shows them after Apply. The Routes screen reads `GET /_portal/api/routes` (guards, public, middleware, sources) from the same code as `orb routes`. Tested by `TestPortalModuleAndMiddlewareGenerators` and `TestRoutesEndpoint`.

@@ -4,6 +4,7 @@ Real applications built with gorbital, explained step by step. Each chapter adds
 
 > [!NOTE]
 > The examples arrive with the v0.2 phases that ship the features they use ([v0.2 roadmap](../v0.2-roadmap.md#the-examples-tab)). Chapters 0, 1, 4 and 5 of Shelfie, and part 1 of the *Internal admin tool* recipe, are written; the tables below say which phase brings the others.
+> The examples arrive with the v0.2 phases that ship the features they use ([v0.2 roadmap](../v0.2-roadmap.md#the-examples-tab)). Chapters 0, 1, 4 and 9 of Shelfie are written; the tables below say which phase brings the others.
 
 ## Shelfie
 
@@ -20,7 +21,7 @@ Shelfie is a reading-tracker API for a web and a mobile app: people keep a shelf
 | 6. Accounts | `authhttp` options, `BeforeLogin`/`AfterLogin`/`OnRegister`, extra registration fields | Phase 6 |
 | 7. Phone-code sign-in | A custom sign-in method through `Deps.Auth.SignIn` | Phase 6 |
 | 8. Book clubs | Organisations, `guard.OrgMember`, row-level security | Phase 7 |
-| 9. Generators | `orb gen module`, `orb gen middleware`, `orb routes` | Phase 8 |
+| [9. Generators](shelfie/09-generators.md) | `orb gen module`, `orb gen middleware`, `orb routes`, `orb doctor` | Phase 8 |
 | 10. Hardening and partners | Timeouts, `/ops` IP allow list, verifying partner webhooks | Phase 10 |
 | 11. Deploy | Production configuration, migrations in CI, health checks | Phase 11 |
 

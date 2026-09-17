@@ -150,7 +150,7 @@ A check can also return an `*httpx.Problem` directly (`httpx.NewProblem(http.Sta
 
 ## Writing middleware
 
-Middleware is plain `net/http`: `func(http.Handler) http.Handler`, the same type as `httpx.Middleware`. Anything that works with Go's standard library works here.
+Middleware is plain `net/http`: `func(http.Handler) http.Handler`, the same type as `httpx.Middleware`. Anything that works with Go's standard library works here. `orb gen middleware <Name> --module <module>` (or `--global`, or `--guard` for a guard) writes the skeleton and a table-driven test ([Generating code](generating-code.md#middleware-and-guards)).
 
 ```go
 // requireClientVersion refuses mobile apps older than min.

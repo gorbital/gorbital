@@ -212,6 +212,8 @@ Safety checks: the app must have `internal/app/jobs.go` with the anchor; existin
 
 ## `orb gen resource`
 
+In an app on `gorbital.Main`, `orb gen resource` runs [`orb gen module`](#orb-gen-module) with the same name, fields and flags (`--scope org` is refused like `--org`) and says so; what follows describes apps on the v0.1 layout.
+
 Generates a module for records that belong to the signed-in user, in an app created with the Full preset: domain rules, use cases, a repository with hand-written SQL, `/v1/<names>` endpoints, tests and a migration. In a multi-tenant app (`orb new --tenancy multi`) records belong to an organisation instead: endpoints under `/v1/orgs/{orgId}/<names>`, every use case checks membership and a `<module>.<resource>.read` or `.write` permission with `orgs.RequireMember`, and the tests include non-members, roles without the permission and cross-organisation requests ([ADR-0048](../adr/0048-organisations-v0-4.md)). Everything it writes is your code to change ([ADR-0039](../adr/0039-resource-module-template.md)); `examples/full-single/internal/modules/projects` is exactly what it generates for the first example below, and `examples/full-multi/internal/modules/projects` what it generates there.
 
 ```bash
@@ -303,6 +305,77 @@ go generate ./internal/modules # the same: the generated file carries the direct
 Flags: `--dry-run`, `--json`, `--no-input` (it never prompts). It needs no clean git tree: it writes only its own generated file, and nothing when the file is up to date.
 
 Modules are found by parsing Go files (`go/parser`), never by building or running code: test files, `testdata` and directories starting with `.` or `_` are skipped; a `Module` function with parameters, a receiver or another return type isn't a module. `orb dev` runs it before every build when the app already has `modules.gen.go`, so adding a module directory is enough; apps without the file (v0.1 apps) are left alone.
+
+## `orb gen module`
+
+Generates a module in an app on `gorbital.Main` (v0.2): records that belong to the signed-in user, in `internal/modules/<names>/` with four layers and **one file per operation** in each, the route table in `delivery/routes.go`, a migration, tests, and the module added to `modules.gen.go` ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#3-app-layout)). Everything it writes is your code; [Generating code](generating-code.md) goes through it file by file. Shelfie's `internal/modules/shelves` is exactly what the first example writes ([chapter 9](../examples/shelfie/09-generators.md)).
+
+```bash
+orb gen module Shelf name:string:unique description:text 'visibility:enum(private,shared)' --plural Shelves
+orb gen module Reader name:string 'nickname:string?' --dry-run --diff
+orb gen module                                          # asks for the name and fields
+```
+
+Quote enum fields and optional strings: shells treat parentheses and `?` specially.
+
+| Question | Flag | Default |
+|---|---|---|
+| Record name | `<Name>` (positional, singular): `Shelf`, `OrderItem` or `order-item` | required |
+| Fields | positional, after the name | required |
+| (flag only) Plural | `--plural Shelves` | the name with -s, -es or -ies; the module, table and route come from it |
+| (flag only) ID prefix | `--id-prefix shl` (2 to 8 lowercase letters) | first letter and the next consonants |
+| (flag only) Organisation scope | `--org` | refused until organisations and `guard.OrgMember` arrive (v0.2 Phase 7): the module is owned by users |
+
+Other flags: `--dry-run`, `--diff` (prints the plan as a unified diff), `--json`, `--allow-dirty`, `--yes`, `--no-input`, `--plain`.
+
+| Field | Means |
+|---|---|
+| `name:string` | 1 to 100 characters, required, sortable |
+| `name:string:unique` | The same, unique among each user's records, ignoring case (409 `<record>_<field>_taken`) |
+| `nickname:string?` | 0 to 100 characters, optional, sortable; can't be unique |
+| `notes:text` | Up to 2000 characters, optional |
+| `status:enum(open,done)` | One of 2 to 20 snake_case values, the first by default; lists filter by it |
+
+The first required string is the title the tests sort by. Names are checked as `orb gen resource` checks them, and also against the names the generated code uses (`page`, `item`, `domain`…), so it always compiles.
+
+What it writes for `Shelf`:
+
+| File | Contains |
+|---|---|
+| `internal/modules/shelves/module.go` | `Module()`: the name, the error mappings, the `shelves.shelf.read` and `.write` permissions (the `user` role), and `Routes` wiring the layers |
+| `…/domain/shelf.go`, `errors.go`, `shelf_test.go` | The record, its fields and changes, validation with `ValidationError`, the errors, table-driven tests |
+| `…/usecase/service.go`, `ports.go` | The service (store, audit, logger, clock), the `Store` port, the owner check and audit helper |
+| `…/usecase/create_shelf.go`, `get_shelf.go`, `list_shelves.go`, `update_shelf.go`, `delete_shelf.go` | One operation each: keyset pagination with `sort` and `cursor`, updates with an optimistic `version` in a transaction |
+| `…/repository/store.go` | The store on the pool or a transaction, the column list, the row scanner and the unique-constraint errors |
+| `…/repository/insert_shelf.go`, `select_shelf.go`, `select_shelves.go`, `update_shelf.go`, `delete_shelf.go` | One SQL statement (or one per sort) each |
+| `…/delivery/routes.go` | The route table: `gorbital.Post/Get/Patch/Delete` on `/v1/shelves` with operation IDs, statuses and `guard.Permission` |
+| `…/delivery/responses.go`, `create_shelf.go`, … | The response type and field errors, then each operation's input, output and handler |
+| `…/shelves_test.go` | HTTP tests through [gorbitaltest](testing-with-gorbitaltest.md): create, rules, deny by default, other users get 404, read-only API keys get 403, pages, versions, audit events |
+| `db/migrations/<version>_shelves.sql` | The table with `CHECK` constraints, a unique index per unique field, an index per sort, and a Down section |
+| `internal/modules/architecture_test.go` | The layer rules of every module, when the app has none |
+| `internal/modules/modules.gen.go` | Rewritten with the new module ([`orb gen modules`](#orb-gen-modules)) |
+
+Then `go run ./cmd/api migrate` (`orb dev` does it), `go run ./cmd/api openapi --dir api` and `go test ./...`. When `cmd/api` doesn't pass `modules.All()` to `gorbital.Main`, the next steps say to add it.
+
+Safety checks: the app must be on `gorbital.Main` (`gorbital.dev/gorbital` in `go.mod` or `modules.gen.go`) and have `db/migrations` as a Go package (`migrations.FS`); no file or module directory is overwritten; the git repository must be clean unless `--allow-dirty`. In an app on the v0.1 layout it stops and points at `orb gen resource`.
+
+## `orb gen middleware`
+
+Generates middleware or a guard, with a table-driven test, in an app on `gorbital.Main` ([Guards and middleware](guards-and-middleware.md)). It writes new files only and prints the line that puts them to use: it never edits `routes.go`, `module.go` or `main.go`.
+
+```bash
+orb gen middleware RequireClientVersion --module books          # middleware for a module's routes
+orb gen middleware ActiveSubscription --module books --guard    # a guard and its error
+orb gen middleware TenantHeader --global                        # middleware for every route
+```
+
+| Kind | Writes | Put it to use |
+|---|---|---|
+| `--module <name>` | `internal/modules/<name>/delivery/<name>.go` and its test: `func RequireClientVersion(next http.Handler) http.Handler` with its rule in `checkRequireClientVersion` | `gorbital.Use(RequireClientVersion)` on a group or route in `routes.go`, or `delivery.RequireClientVersion` in `Module.Middleware` |
+| `--module <name> --guard` | The same file names: `func ActiveSubscription() gorbital.RouteOption` (`guard.New`, named `active_subscription`), its rule, and `ErrActiveSubscriptionRefused` | `ActiveSubscription()` on routes in `routes.go`; map the error in `module.go` with the line it prints (403 `active_subscription_refused`) |
+| `--global` | `internal/middleware/<name>.go` and its test, and `doc.go` when the package has none | `gorbital.WithMiddleware(middleware.TenantHeader)` in `cmd/api/main.go` |
+
+Flags: `--module`, `--global`, `--guard`, `--dry-run`, `--diff`, `--json`, `--allow-dirty`, `--no-input` (it never prompts). Exactly one of `--module` and `--global`; `--guard` needs `--module`. The rule lets every request through until you write it, so adding the middleware changes nothing by itself. A name the package already declares is refused.
 
 ## `orb add mail`
 
@@ -426,6 +499,79 @@ A checkout must be the top of its own git repository, outside the app's reposito
 
 Safety checks: the app must be in git with no uncommitted changes, and the branch `orb-upgrade/<version>` must not exist yet.
 
+## `orb routes`
+
+Lists every route of the app: method, path, operation ID, module, guards, middleware, handler and where the route is registered. It changes nothing.
+
+```bash
+orb routes                                   # builds the app's OpenAPI document with go run ./cmd/api openapi
+orb routes --openapi api/openapi.json        # reads a document instead: no build
+orb routes --module books --json
+orb routes --public                          # only routes that need no sign-in
+```
+
+```text
+METHOD  PATH              OPERATION                    MODULE   GUARDS                                                          HANDLER        SOURCE
+GET     /v1/books         books-get-v1-books           books    authenticated, permission:books.book.read                       h.listBooks    internal/modules/books/delivery/routes.go:31
+POST    /v1/books         books-post-v1-books          books    authenticated, permission:books.book.write, rate_limit:30/1m0s  h.createBook   internal/modules/books/delivery/routes.go:28
+…
+GET     /version          get-version                  -        public                                                          -              -
+
+11 routes, 1 public
+note: 1 of 11 routes have no source position: registered by a library module, or through code that builds the path at run time
+```
+
+| Column | Comes from |
+|---|---|
+| METHOD, PATH, OPERATION | The OpenAPI document |
+| GUARDS | `x-gorbital-guards`: `authenticated` or `public`, then each guard in the order it runs. A route without it (a library route) shows `public` when it has no security requirement |
+| MIDDLEWARE | Shown when a route has any: `Module.Middleware`, then each group's `gorbital.Use` (outer first), then the route's, as written in the source |
+| MODULE, HANDLER, SOURCE | The app's Go source, read with `go/parser`: the directory under `internal/modules` (or its `gorbital.Module` `Name`), the handler expression, and the `gorbital.Get`/`Post`/… call's file and line |
+
+Routes are matched to the source by method and path, resolving `r.Group(prefix)` variables and inline groups in the same function, or by a literal `gorbital.OperationID`. A route whose path is built at run time, or that a library module registers, has no source and a note says how many. In an app on the v0.1 layout, the `huma.Register` calls with a `huma.Operation` literal are found the same way; the document has no `x-gorbital-guards`, so GUARDS shows `?` (or `public` for routes without a security requirement) and no middleware is listed.
+
+Flags: `--json`, `--openapi <file>`, `--module <name>`, `--public`, `--no-input`. Exit code 1 when the document can't be built or read (the message says how to check the build).
+
+The `--json` output is public API:
+
+```json
+{
+  "schemaVersion": 1,
+  "app": "shelfie",
+  "source": "export",
+  "guards_known": true,
+  "total": 11,
+  "public": 1,
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/v1/books",
+      "operation_id": "books-post-v1-books",
+      "summary": "Add a book to your shelf",
+      "tags": ["Books"],
+      "module": "books",
+      "handler": "h.createBook",
+      "source": {"file": "internal/modules/books/delivery/routes.go", "line": 28},
+      "handler_source": {"file": "internal/modules/books/delivery/create_book.go", "line": 20},
+      "guards": ["authenticated", "permission:books.book.write", "rate_limit:30/1m0s"],
+      "middleware": [],
+      "public": false,
+      "deprecated": false
+    }
+  ],
+  "warnings": []
+}
+```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `source` | string | `export` (built with `go run ./cmd/api openapi`), `file` (`--openapi`), or `app` (the Dev Portal read the running app's `/openapi.json`) |
+| `guards_known` | bool | `false` when the document has no `x-gorbital-guards` (a v0.1 app) |
+| `total`, `public` | number | Counts of the listed routes, after `--module` and `--public` |
+| `routes[].source`, `handler_source` | object or `null` | `file` (slash-separated, relative to the app) and `line`; `null` when not found |
+| `routes[].guards`, `middleware`, `tags` | array of strings | Always present, possibly empty |
+| `warnings` | array of strings | What couldn't be found, for people; don't parse them |
+
 ## `orb doctor`
 
 Checks the app in the current directory and says what to fix. It changes nothing ([ADR-0051](../adr/0051-operations-v0-5.md)).
@@ -462,13 +608,16 @@ orb doctor · shop-api (full, single tenancy)
 | `orb` | | `orb` was built with a Go release older than 1.26.5, which lacks `os.Root` security fixes; reinstall it with the latest Go patch release |
 | `gorbital.yaml`, `gorbital.lock` | Either is unreadable, or the lock was written by a newer `orb` | The lock is missing, format v1 (from a development build before `orb upgrade`), or from an older `orb` (run `orb upgrade`) |
 | `library` | A `replace` directive points at something that isn't an gorbital checkout | `go.mod` doesn't require `gorbital.dev` |
-| `anchor` (Full preset) | A line generators insert after is gone: `//orb:anchor modules`, `//orb:anchor jobs`, `//orb:anchor user-permissions`, `//orb:anchor org-permissions` (multi-tenant), or the mail block in `.env.example` | |
+| `anchor` (Full preset on the v0.1 layout) | A line generators insert after is gone: `//orb:anchor modules`, `//orb:anchor jobs`, `//orb:anchor user-permissions`, `//orb:anchor org-permissions` (multi-tenant), or the mail block in `.env.example` | |
 | `.env` (Full preset) | It holds secrets and git doesn't ignore it | It's missing, git doesn't ignore it, or it lacks variables `.env.example` has |
 | `api files` | | `api/openapi.json`, `postman_collection.json` or `llms.txt` doesn't match the code |
 | `configuration`, `database` (Full preset) | The app's configuration doesn't load; the database ran migrations the code doesn't have | The database is unreachable, or migrations are pending |
+| `modules` (apps on `gorbital.Main`) | `modules.gen.go` is missing or stale: a module directory isn't listed, or a listed one is gone | A directory under `internal/modules` has Go files but no `func Module() gorbital.Module` |
+| `stack` (apps on `gorbital.Main`) | | A `gorbital.WithStack` in `cmd/api` leaves out `Recover` or `Auth` (a function literal, or a function declared in `cmd/api`, that never names them and doesn't use `Default()`); a stack built any other way can't be checked, and the warning points at the one `gorbital.New` logs at start |
+| `timeout` (apps on `gorbital.Main`) | `APP_REQUEST_TIMEOUT` isn't a duration, or isn't shorter than the server's 60s write timeout: the app refuses to start | It is `0` (no deadline) or shorter than a second |
 | `row-level security` (Full preset) | | Row-level security is on and the database role is a superuser or has `BYPASSRLS`, a table's row-level security isn't forced, or an organisation table has no policy ([row-level security](row-level-security.md)) |
 
-Values from `.env` are never printed. The database checks run the app's own `go run ./cmd/migrate --status --json`, so `orb` needs no database driver and reads the app's migration files. Exit code 1 when any check fails.
+Values from `.env` are never printed. The database checks run the app's own `go run ./cmd/migrate --status --json`, or `go run ./cmd/api migrate --status --json` in an app on `gorbital.Main`, whose status covers the merged history of the library's and the app's migrations; so `orb` needs no database driver. The JSON result says the app's `layout` (`main` or `v0.1`). Exit code 1 when any check fails.
 
 ## `orb dev`
 
@@ -508,7 +657,7 @@ The port check listens on `127.0.0.1` only. On macOS, a program listening on all
 |---|---|
 | 0 | Success |
 | 1 | The command failed (for example, the directory already exists) |
-| 2 | Invalid usage: a bad flag or value, or a required value missing without a terminal |
+| 2 | Invalid usage: a bad value, or a required value missing without a terminal (an unknown flag is 1) |
 | 130 | Cancelled at a prompt; nothing was written |
 
 ## JSON output
@@ -526,10 +675,13 @@ The port check listens on `127.0.0.1` only. On macOS, a program listening on all
 | `orb gen resource` | `name`, `module`, `route`, `table`, `scope`, `files`, `dry_run`, `row_level_security` (when the migration has the policy) |
 | `orb gen migration` | `name`, `version`, `file`, `dry_run` |
 | `orb gen modules` | `file`, `modules`, `changed`, `dry_run` |
+| `orb gen module` | `name`, `module`, `route`, `table`, `scope`, `permissions`, `migration`, `files`, `dry_run` (`orb gen resource` in an app on `gorbital.Main` prints the same) |
+| `orb gen middleware` | `name`, `kind` (`module`, `guard` or `global`), `module`, `package`, `file`, `test`, `files`, `wire`, `dry_run` |
+| `orb routes` | `app`, `source`, `guards_known`, `total`, `public`, `routes` (see [`orb routes`](#orb-routes)), `warnings` |
 | `orb add mail` | `provider`, `already_configured`, `files`, `env_variables`, `modules`, `dry_run` |
 | `orb add rls` | `name`, `already_on`, `migration`, `files`, `dry_run` |
 | `orb add orgs`, `orb upgrade` | `name`, `from`, `to`, `up_to_date`, `branch`, `changes` (`path`, `action`, `note`), `conflicts`, `unproven`, `committed`, `dry_run`, `user_scoped_modules` (`orb add orgs`) |
-| `orb doctor` | `app`, `preset`, `tenancy`, `checks` (`name`, `status`, `detail`, `fix`), `failures`, `warnings` |
+| `orb doctor` | `app`, `preset`, `tenancy`, `layout`, `checks` (`name`, `status`, `detail`, `fix`), `failures`, `warnings` |
 | `orb version` | `version`, `recipe`, `library` |
 
 Commands, flags, exit codes and JSON fields are public API from `v1.0.0` ([ADR-0015](../adr/0015-public-api-and-stability-tiers.md)). Within `schemaVersion` 1, fields are only added; check the version before reading the rest. The shape of each output is recorded in `cli/internal/cli/testdata/json` and checked by `TestJSONOutputs` ([stability](stability.md), [ADR-0054](../adr/0054-api-freeze-and-scaffold-compatibility.md)).
