@@ -394,6 +394,7 @@ func mergeCatalogs(multi, single catalog) (catalog, map[string]string) {
 var settingGroups = map[string]string{
 	"auth":        "Authentication",
 	"example":     "Example",
+	"logs":        "Logs",
 	"mail":        "Email",
 	"maintenance": "Maintenance mode",
 	"orgs":        "Organisations",

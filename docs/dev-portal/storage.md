@@ -43,4 +43,5 @@ Every write is audited: `storage.object.uploaded`, `storage.object.deleted`, `st
 - Local signed URLs stop working when the app restarts without `STORAGE_SIGNING_KEY`.
 - Keys are 1 to 1024 bytes, with no empty, `.` or `..` segment, no leading slash and no control characters; the dialogs refuse a bad key before sending.
 - Above 32 MB the preview pane shows metadata only and offers the download.
+- With the `logs.archive.enabled` runtime setting on (the Settings screen), the app's hourly log archive appears under `logs/<service>/<YYYY>/<MM>/<DD>/`: gzipped JSON Lines, downloaded like any object ([observability guide](../guides/observability.md#the-hourly-log-archive)).
 - 404 `storage_off` shows a panel with `orb add storage`; 503 `storage_unavailable` shows the reason on the driver card.

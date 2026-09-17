@@ -90,7 +90,7 @@ type options struct {
 
 	prometheus     bool
 	runtimeMetrics bool
-	logTee         slog.Handler
+	logTees        []slog.Handler
 }
 
 // An Option configures [Setup].
@@ -129,12 +129,17 @@ func WithLogLevel(l slog.Leveler) Option {
 }
 
 // WithLogTee also sends every log record to h, such as the development
-// console's buffer of recent records (ADR-0065). h's Enabled decides which
-// records it receives, independently of [WithLogLevel], and it sees the
-// request, trace and organisation attributes the logger adds. A nil h adds
-// nothing. Default: none.
+// console's buffer of recent records (ADR-0065) or the hourly log archive
+// (ADR-0079). h's Enabled decides which records it receives, independently
+// of [WithLogLevel], and it sees the request, trace and organisation
+// attributes the logger adds. Given more than once, every handler receives
+// every record. A nil h adds nothing. Default: none.
 func WithLogTee(h slog.Handler) Option {
-	return optionFunc(func(o *options) { o.logTee = h })
+	return optionFunc(func(o *options) {
+		if h != nil {
+			o.logTees = append(o.logTees, h)
+		}
+	})
 }
 
 // WithSampleRatio sets the fraction of new traces sampled, from 0 to 1.
@@ -190,8 +195,8 @@ func Setup(ctx context.Context, service, version string, opts ...Option) (*Telem
 		base = slog.NewJSONHandler(o.logWriter, hopts)
 	}
 	base = base.WithAttrs([]slog.Attr{slog.String("service", service)})
-	if o.logTee != nil {
-		base = teeHandler{primary: base, tee: o.logTee}
+	for _, tee := range o.logTees {
+		base = teeHandler{primary: base, tee: tee}
 	}
 	logger := slog.New(NewLogHandler(base))
 
