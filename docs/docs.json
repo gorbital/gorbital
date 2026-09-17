@@ -270,14 +270,14 @@
             { "title": "0. Start a project", "slug": "examples/shelfie/start-a-project", "source": "docs/examples/shelfie/00-start-a-project.md" },
             { "title": "1. A books module", "slug": "examples/shelfie/books-module", "source": "docs/examples/shelfie/01-books-module.md" },
             { "title": "4. Tests", "slug": "examples/shelfie/tests", "source": "docs/examples/shelfie/04-tests.md" },
-            { "title": "5. Operations", "slug": "examples/shelfie/operations", "source": "docs/examples/shelfie/05-operations.md" }
+            { "title": "5. Operations", "slug": "examples/shelfie/operations", "source": "docs/examples/shelfie/05-operations.md" },
+            { "title": "9. Generators", "slug": "examples/shelfie/generators", "source": "docs/examples/shelfie/09-generators.md" }
           ]
         },
         {
           "name": "Recipes",
           "pages": [
             { "title": "Internal admin tool, part 1", "slug": "examples/recipes/internal-admin-tool", "source": "docs/examples/recipes/internal-admin-tool.md" }
-            { "title": "9. Generators", "slug": "examples/shelfie/generators", "source": "docs/examples/shelfie/09-generators.md" }
           ]
         }
       ]

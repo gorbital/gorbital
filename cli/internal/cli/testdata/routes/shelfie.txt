@@ -1,15 +1,141 @@
-METHOD  PATH              OPERATION                    MODULE   GUARDS                                                          HANDLER        SOURCE
-GET     /v1/books         books-get-v1-books           books    authenticated, permission:books.book.read                       h.listBooks    internal/modules/books/delivery/routes.go:31
-POST    /v1/books         books-post-v1-books          books    authenticated, permission:books.book.write, rate_limit:30/1m0s  h.createBook   internal/modules/books/delivery/routes.go:28
-GET     /v1/books/{id}    books-get-v1-books-by-id     books    authenticated, permission:books.book.read                       h.getBook      internal/modules/books/delivery/routes.go:33
-PATCH   /v1/books/{id}    books-patch-v1-books-by-id   books    authenticated, permission:books.book.write                      h.updateBook   internal/modules/books/delivery/routes.go:35
-DELETE  /v1/books/{id}    books-delete-v1-books-by-id  books    authenticated, permission:books.book.write                      h.deleteBook   internal/modules/books/delivery/routes.go:37
-GET     /v1/shelves       shelves-list                 shelves  authenticated, permission:shelves.shelf.read                    h.listShelves  internal/modules/shelves/delivery/routes.go:30
-POST    /v1/shelves       shelves-create               shelves  authenticated, permission:shelves.shelf.write                   h.createShelf  internal/modules/shelves/delivery/routes.go:26
-GET     /v1/shelves/{id}  shelves-get                  shelves  authenticated, permission:shelves.shelf.read                    h.getShelf     internal/modules/shelves/delivery/routes.go:35
-PATCH   /v1/shelves/{id}  shelves-update               shelves  authenticated, permission:shelves.shelf.write                   h.updateShelf  internal/modules/shelves/delivery/routes.go:39
-DELETE  /v1/shelves/{id}  shelves-delete               shelves  authenticated, permission:shelves.shelf.write                   h.deleteShelf  internal/modules/shelves/delivery/routes.go:44
-GET     /version          get-version                  -        public                                                          -              -
+METHOD  PATH                                          OPERATION                        MODULE   GUARDS                                                          HANDLER        SOURCE
+GET     /ops/audit                                    ops-list-audit-events            -        authenticated                                                   -              -
+GET     /ops/audit/stats                              ops-audit-stats                  -        authenticated                                                   -              -
+GET     /ops/audit/{id}                               ops-get-audit-event              -        authenticated                                                   -              -
+GET     /ops/auth/providers                           ops-list-sign-in-methods         -        authenticated                                                   -              -
+GET     /ops/auth/rate-limits                         ops-list-rate-limits             -        authenticated                                                   -              -
+POST    /ops/auth/rate-limits/reset                   ops-reset-rate-limit             -        authenticated                                                   -              -
+GET     /ops/auth/users                               ops-list-users                   -        authenticated                                                   -              -
+POST    /ops/auth/users                               ops-create-user                  -        authenticated                                                   -              -
+GET     /ops/auth/users/{id}                          ops-get-user                     -        authenticated                                                   -              -
+DELETE  /ops/auth/users/{id}                          ops-delete-user                  -        authenticated                                                   -              -
+POST    /ops/auth/users/{id}/ban                      ops-ban-user                     -        authenticated                                                   -              -
+DELETE  /ops/auth/users/{id}/identities/{identityId}  ops-remove-user-identity         -        authenticated                                                   -              -
+POST    /ops/auth/users/{id}/impersonate              ops-impersonate-user             -        authenticated                                                   -              -
+POST    /ops/auth/users/{id}/mfa/enroll               ops-enroll-user-totp             -        authenticated                                                   -              -
+POST    /ops/auth/users/{id}/mfa/reset                ops-reset-user-mfa               -        authenticated                                                   -              -
+DELETE  /ops/auth/users/{id}/passkeys/{passkeyId}     ops-remove-user-passkey          -        authenticated                                                   -              -
+POST    /ops/auth/users/{id}/roles                    ops-grant-user-role              -        authenticated                                                   -              -
+DELETE  /ops/auth/users/{id}/roles/{role}             ops-revoke-user-role             -        authenticated                                                   -              -
+DELETE  /ops/auth/users/{id}/sessions                 ops-revoke-user-sessions         -        authenticated                                                   -              -
+DELETE  /ops/auth/users/{id}/sessions/{sessionId}     ops-revoke-user-session          -        authenticated                                                   -              -
+POST    /ops/auth/users/{id}/unban                    ops-unban-user                   -        authenticated                                                   -              -
+POST    /ops/auth/users/{id}/verify-email             ops-verify-user-email            -        authenticated                                                   -              -
+GET     /ops/flags                                    ops-list-flags                   -        authenticated                                                   -              -
+GET     /ops/flags/{key}                              ops-get-flag                     -        authenticated                                                   -              -
+PUT     /ops/flags/{key}                              ops-set-flag                     -        authenticated                                                   -              -
+DELETE  /ops/flags/{key}                              ops-reset-flag                   -        authenticated                                                   -              -
+GET     /ops/flags/{key}/history                      ops-flag-history                 -        authenticated                                                   -              -
+GET     /ops/incidents                                ops-list-incidents               -        authenticated                                                   -              -
+POST    /ops/incidents                                ops-open-incident                -        authenticated                                                   -              -
+GET     /ops/incidents/{id}                           ops-get-incident                 -        authenticated                                                   -              -
+GET     /ops/incidents/{id}/report                    ops-incident-report              -        authenticated                                                   -              -
+POST    /ops/incidents/{id}/resolve                   ops-resolve-incident             -        authenticated                                                   -              -
+POST    /ops/incidents/{id}/updates                   ops-add-incident-update          -        authenticated                                                   -              -
+GET     /ops/jobs/definitions                         ops-list-job-definitions         -        authenticated                                                   -              -
+GET     /ops/jobs/definitions/{name}                  ops-get-job-definition           -        authenticated                                                   -              -
+PUT     /ops/jobs/definitions/{name}                  ops-update-job-definition        -        authenticated                                                   -              -
+DELETE  /ops/jobs/definitions/{name}                  ops-reset-job-definition         -        authenticated                                                   -              -
+GET     /ops/jobs/definitions/{name}/history          ops-job-definition-history       -        authenticated                                                   -              -
+POST    /ops/jobs/definitions/{name}/run              ops-run-job                      -        authenticated                                                   -              -
+GET     /ops/jobs/overview                            ops-jobs-overview                -        authenticated                                                   -              -
+GET     /ops/jobs/runs                                ops-list-job-runs                -        authenticated                                                   -              -
+GET     /ops/jobs/runs/{id}                           ops-get-job-run                  -        authenticated                                                   -              -
+POST    /ops/jobs/runs/{id}/cancel                    ops-cancel-job-run               -        authenticated                                                   -              -
+POST    /ops/jobs/runs/{id}/retry                     ops-retry-job-run                -        authenticated                                                   -              -
+GET     /ops/jobs/scheduled                           ops-list-scheduled-jobs          -        authenticated                                                   -              -
+GET     /ops/mail                                     ops-get-mail                     -        authenticated                                                   -              -
+GET     /ops/mail/suppressions                        ops-list-mail-suppressions       -        authenticated                                                   -              -
+DELETE  /ops/mail/suppressions/{id}                   ops-remove-mail-suppression      -        authenticated                                                   -              -
+POST    /ops/mail/test                                ops-send-test-email              -        authenticated                                                   -              -
+GET     /ops/observability/overview                   ops-observability-overview       -        authenticated                                                   -              -
+GET     /ops/observability/routes                     ops-observability-routes         -        authenticated                                                   -              -
+GET     /ops/observability/stream                     ops-observability-stream         -        authenticated                                                   -              -
+GET     /ops/queues                                   ops-list-job-queues              -        authenticated                                                   -              -
+POST    /ops/queues/{name}/pause                      ops-pause-job-queue              -        authenticated                                                   -              -
+POST    /ops/queues/{name}/resume                     ops-resume-job-queue             -        authenticated                                                   -              -
+GET     /ops/releases                                 ops-list-releases                -        authenticated                                                   -              -
+GET     /ops/releases/current                         ops-current-releases             -        authenticated                                                   -              -
+GET     /ops/releases/instances                       ops-list-release-instances       -        authenticated                                                   -              -
+GET     /ops/retention                                ops-retention                    -        authenticated                                                   -              -
+GET     /ops/service-accounts                         ops-list-service-accounts        -        authenticated                                                   -              -
+POST    /ops/service-accounts                         ops-create-service-account       -        authenticated                                                   -              -
+GET     /ops/service-accounts/{id}                    ops-get-service-account          -        authenticated                                                   -              -
+PATCH   /ops/service-accounts/{id}                    ops-update-service-account       -        authenticated                                                   -              -
+DELETE  /ops/service-accounts/{id}                    ops-delete-service-account       -        authenticated                                                   -              -
+GET     /ops/service-accounts/{id}/keys               ops-list-service-account-keys    -        authenticated                                                   -              -
+POST    /ops/service-accounts/{id}/keys               ops-create-service-account-key   -        authenticated                                                   -              -
+DELETE  /ops/service-accounts/{id}/keys/{keyId}       ops-revoke-service-account-key   -        authenticated                                                   -              -
+GET     /ops/settings                                 ops-list-settings                -        authenticated                                                   -              -
+GET     /ops/settings/{key}                           ops-get-setting                  -        authenticated                                                   -              -
+PUT     /ops/settings/{key}                           ops-set-setting                  -        authenticated                                                   -              -
+DELETE  /ops/settings/{key}                           ops-reset-setting                -        authenticated                                                   -              -
+GET     /ops/settings/{key}/history                   ops-setting-history              -        authenticated                                                   -              -
+GET     /ops/settings/{key}/overrides                 ops-setting-overrides            -        authenticated                                                   -              -
+GET     /ops/storage                                  ops-get-storage                  -        authenticated                                                   -              -
+POST    /ops/storage/directories                      ops-create-storage-directory     -        authenticated                                                   -              -
+GET     /ops/storage/object                           ops-get-storage-object           -        authenticated                                                   -              -
+PUT     /ops/storage/object                           ops-upload-storage-object        -        authenticated                                                   -              -
+DELETE  /ops/storage/object                           ops-delete-storage-object        -        authenticated                                                   -              -
+GET     /ops/storage/object/content                   ops-download-storage-object      -        authenticated                                                   -              -
+POST    /ops/storage/object/move                      ops-move-storage-object          -        authenticated                                                   -              -
+GET     /ops/storage/objects                          ops-list-storage-objects         -        authenticated                                                   -              -
+POST    /ops/storage/signed-url                       ops-create-storage-signed-url    -        authenticated                                                   -              -
+GET     /ops/system                                   ops-system                       -        authenticated                                                   -              -
+GET     /v1/auth/api-keys                             auth-list-api-keys               -        authenticated                                                   -              -
+POST    /v1/auth/api-keys                             auth-create-api-key              -        authenticated                                                   -              -
+DELETE  /v1/auth/api-keys/{id}                        auth-revoke-api-key              -        authenticated                                                   -              -
+POST    /v1/auth/apple/callback                       auth-apple-callback              -        public                                                          -              -
+POST    /v1/auth/apple/notifications                  auth-apple-notifications         -        public                                                          -              -
+POST    /v1/auth/apple/token                          auth-apple-token                 -        public                                                          -              -
+GET     /v1/auth/github/callback                      auth-github-callback             -        public                                                          -              -
+GET     /v1/auth/google/callback                      auth-google-callback             -        public                                                          -              -
+POST    /v1/auth/google/token                         auth-google-token                -        public                                                          -              -
+GET     /v1/auth/identities                           auth-list-identities             -        authenticated                                                   -              -
+POST    /v1/auth/identities                           auth-link-identity               -        authenticated                                                   -              -
+DELETE  /v1/auth/identities/{id}                      auth-remove-identity             -        authenticated                                                   -              -
+POST    /v1/auth/login                                auth-login                       -        public                                                          -              -
+POST    /v1/auth/login/mfa                            auth-login-mfa                   -        public                                                          -              -
+POST    /v1/auth/login/mfa/passkey                    auth-login-mfa-passkey           -        public                                                          -              -
+POST    /v1/auth/logout                               auth-logout                      -        authenticated                                                   -              -
+POST    /v1/auth/logout-all                           auth-logout-all                  -        authenticated                                                   -              -
+GET     /v1/auth/me                                   auth-me                          -        authenticated                                                   -              -
+DELETE  /v1/auth/me                                   auth-delete-account              -        authenticated                                                   -              -
+POST    /v1/auth/mfa/recovery-codes                   auth-regenerate-recovery-codes   -        authenticated                                                   -              -
+POST    /v1/auth/mfa/totp                             auth-start-totp                  -        authenticated                                                   -              -
+DELETE  /v1/auth/mfa/totp                             auth-disable-totp                -        authenticated                                                   -              -
+POST    /v1/auth/mfa/totp/confirm                     auth-confirm-totp                -        authenticated                                                   -              -
+GET     /v1/auth/passkeys                             auth-list-passkeys               -        authenticated                                                   -              -
+POST    /v1/auth/passkeys                             auth-create-passkey              -        authenticated                                                   -              -
+POST    /v1/auth/passkeys/login                       auth-passkey-login               -        public                                                          -              -
+POST    /v1/auth/passkeys/login/options               auth-passkey-login-options       -        public                                                          -              -
+POST    /v1/auth/passkeys/registration                auth-begin-passkey-registration  -        authenticated                                                   -              -
+POST    /v1/auth/passkeys/verification                auth-begin-passkey-verification  -        authenticated                                                   -              -
+PATCH   /v1/auth/passkeys/{id}                        auth-rename-passkey              -        authenticated                                                   -              -
+DELETE  /v1/auth/passkeys/{id}                        auth-remove-passkey              -        authenticated                                                   -              -
+PUT     /v1/auth/password                             auth-change-password             -        authenticated                                                   -              -
+POST    /v1/auth/password/forgot                      auth-forgot-password             -        public                                                          -              -
+POST    /v1/auth/password/reset                       auth-reset-password              -        public                                                          -              -
+POST    /v1/auth/register                             auth-register                    -        public                                                          -              -
+GET     /v1/auth/sessions                             auth-list-sessions               -        authenticated                                                   -              -
+DELETE  /v1/auth/sessions/{id}                        auth-revoke-session              -        authenticated                                                   -              -
+POST    /v1/auth/verify-email                         auth-verify-email                -        public                                                          -              -
+POST    /v1/auth/verify-email/resend                  auth-resend-verification         -        public                                                          -              -
+POST    /v1/auth/{provider}/link                      auth-start-identity-link         -        authenticated                                                   -              -
+POST    /v1/auth/{provider}/nonce                     auth-social-nonce                -        public                                                          -              -
+GET     /v1/auth/{provider}/start                     auth-start-social                -        public                                                          -              -
+GET     /v1/books                                     books-get-v1-books               books    authenticated, permission:books.book.read                       h.listBooks    internal/modules/books/delivery/routes.go:31
+POST    /v1/books                                     books-post-v1-books              books    authenticated, permission:books.book.write, rate_limit:30/1m0s  h.createBook   internal/modules/books/delivery/routes.go:28
+GET     /v1/books/{id}                                books-get-v1-books-by-id         books    authenticated, permission:books.book.read                       h.getBook      internal/modules/books/delivery/routes.go:33
+PATCH   /v1/books/{id}                                books-patch-v1-books-by-id       books    authenticated, permission:books.book.write                      h.updateBook   internal/modules/books/delivery/routes.go:35
+DELETE  /v1/books/{id}                                books-delete-v1-books-by-id      books    authenticated, permission:books.book.write                      h.deleteBook   internal/modules/books/delivery/routes.go:37
+GET     /v1/flags                                     flags-list                       -        authenticated                                                   -              -
+GET     /v1/shelves                                   shelves-list                     shelves  authenticated, permission:shelves.shelf.read                    h.listShelves  internal/modules/shelves/delivery/routes.go:30
+POST    /v1/shelves                                   shelves-create                   shelves  authenticated, permission:shelves.shelf.write                   h.createShelf  internal/modules/shelves/delivery/routes.go:26
+GET     /v1/shelves/{id}                              shelves-get                      shelves  authenticated, permission:shelves.shelf.read                    h.getShelf     internal/modules/shelves/delivery/routes.go:35
+PATCH   /v1/shelves/{id}                              shelves-update                   shelves  authenticated, permission:shelves.shelf.write                   h.updateShelf  internal/modules/shelves/delivery/routes.go:39
+DELETE  /v1/shelves/{id}                              shelves-delete                   shelves  authenticated, permission:shelves.shelf.write                   h.deleteShelf  internal/modules/shelves/delivery/routes.go:44
+GET     /version                                      get-version                      -        public                                                          -              -
 
-11 routes, 1 public
-note: 1 of 11 routes have no source position: registered by a library module, or through code that builds the path at run time
+137 routes, 19 public
+note: 127 of 137 routes have no source position: registered by a library module, or through code that builds the path at run time
