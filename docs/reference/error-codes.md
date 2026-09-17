@@ -68,7 +68,6 @@ These are the codes of a Full app as generated, including the example `projects`
 | `invalid_webhook_signature` | 401 | The webhook signature is missing, invalid or too old. | `mailevents` module |
 | `invitation_for_another_email` | 403 | The invitation was sent to another address; sign in with the invited, verified address. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `invitation_not_found` | 404 | The invitation doesn't exist, was used or revoked, or expired. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
-| `ip_not_allowed` | 403 | Requests from this network address are not allowed. | Any endpoint |
 | `job_definition_disabled` | 409 | The job is disabled. | `/ops` |
 | `job_definition_not_found` | 404 | No job definition has this name. | `/ops` |
 | `job_definition_version_conflict` | 409 | The job definition changed since it was read; read it again. | `/ops` |
@@ -105,7 +104,6 @@ These are the codes of a Full app as generated, including the example `projects`
 | `queue_not_active` | 422 | No worker runs this queue. | `/ops` |
 | `rate_limited` | 429 | Too many requests from this client or for this operation; wait for `Retry-After`. | Any endpoint |
 | `rate_limiter_not_found` | 404 | The app has no rate limiter with this name, or the key was empty (ADR-0070). | `POST /ops/auth/rate-limits/reset`. |
-| `request_timeout` | 503 | The request took too long; try again later. | Any endpoint |
 | `request_too_large` | 413 | The request body is larger than `APP_MAX_BODY_BYTES`. | Any endpoint |
 | `role_not_allowed` | 403 | You can't give, change or remove a role above your own, and only owners manage owners. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `service_account_disabled` | 409 | The service account is disabled; enable it first. | `/v1/auth` |
