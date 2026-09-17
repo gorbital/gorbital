@@ -3,11 +3,11 @@ module example.com/acme-api
 go 1.26.0
 
 require (
-	gorbital.dev v0.0.0
-	gorbital.dev/modules/devconsole v0.0.0
-	gorbital.dev/modules/openapi v0.0.0
-	gorbital.dev/modules/telemetry v0.0.0
 	github.com/danielgtaylor/huma/v2 v2.39.1
+	gorbital.dev v0.1.0
+	gorbital.dev/modules/devconsole v0.1.0
+	gorbital.dev/modules/openapi v0.1.0
+	gorbital.dev/modules/telemetry v0.1.0
 )
 
 require (

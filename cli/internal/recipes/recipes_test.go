@@ -113,7 +113,7 @@ func TestGoModMatchesGolden(t *testing.T) {
 	for _, golden := range goldenApps {
 		t.Run(golden.templates, func(t *testing.T) {
 			dir, _ := renderInto(t, golden.preset, golden.tenancy, recipes.Data{
-				Name: generate.PlaceholderName, Module: generate.PlaceholderModule, LibraryVersion: "v0.0.0", Local: "../..",
+				Name: generate.PlaceholderName, Module: generate.PlaceholderModule, LibraryVersion: recipes.LibraryVersion, Local: "../..",
 			})
 			gotRequires, gotReplaces := parseGoMod(t, filepath.Join(dir, "go.mod"))
 			wantRequires, wantReplaces := parseGoMod(t, filepath.Join(golden.dir, "go.mod"))

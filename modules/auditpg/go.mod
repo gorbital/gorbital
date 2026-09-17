@@ -3,10 +3,10 @@ module gorbital.dev/modules/auditpg
 go 1.26.0
 
 require (
-	gorbital.dev v0.0.0
-	gorbital.dev/modules/postgres v0.0.0
 	github.com/jackc/pgx/v5 v5.11.0
 	go.opentelemetry.io/otel/trace v1.46.0
+	gorbital.dev v0.1.0
+	gorbital.dev/modules/postgres v0.1.0
 )
 
 require (

@@ -139,7 +139,7 @@ func TestAddMailSwitchesBackToResend(t *testing.T) {
 		t.Errorf("result = %+v, want the Resend module added", res)
 	}
 	goMod := readFile(t, "go.mod")
-	for _, want := range []string{"gorbital.dev/modules/mail/resend v0.0.0", "gorbital.dev/modules/mail/resend => ../../modules/mail/resend"} {
+	for _, want := range []string{"gorbital.dev/modules/mail/resend v0.1.0", "gorbital.dev/modules/mail/resend => ../../modules/mail/resend"} {
 		if !strings.Contains(goMod, want) {
 			t.Errorf("go.mod lacks %q:\n%s", want, goMod)
 		}

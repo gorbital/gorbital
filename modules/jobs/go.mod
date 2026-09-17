@@ -3,8 +3,6 @@ module gorbital.dev/modules/jobs
 go 1.26.0
 
 require (
-	gorbital.dev v0.0.0
-	gorbital.dev/modules/postgres v0.0.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/riverqueue/river v0.47.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.47.0
@@ -13,6 +11,8 @@ require (
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/sdk v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
+	gorbital.dev v0.1.0
+	gorbital.dev/modules/postgres v0.1.0
 )
 
 require (

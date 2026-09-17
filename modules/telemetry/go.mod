@@ -3,7 +3,6 @@ module gorbital.dev/modules/telemetry
 go 1.26.0
 
 require (
-	gorbital.dev v0.0.0
 	github.com/prometheus/client_golang v1.24.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.71.0
@@ -15,6 +14,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.46.0
 	go.opentelemetry.io/otel/sdk/metric v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
+	gorbital.dev v0.1.0
 )
 
 require (
