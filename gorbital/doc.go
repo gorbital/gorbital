@@ -1,5 +1,16 @@
 // Package gorbital composes gorbital's modules into an application
-// (ADR-0081). A [Module] declares one feature of an app: its routes, error
+// (ADR-0081). An app's main.go is one call to [Main], which loads the
+// configuration from the environment ([LoadConfig]), builds the app ([New])
+// and serves it ([App.Run]), or migrates its database ([Migrate]):
+//
+//	func main() {
+//		gorbital.Main(
+//			gorbital.WithModules(modules.All()...),
+//			gorbital.WithMigrations(migrations.FS),
+//		)
+//	}
+//
+// A [Module] declares one feature of an app: its routes, error
 // mappings, permissions, runtime settings and feature flags. [Declare] adds
 // the declarations to the app's registries before their stores are built, and
 // [Mount] registers the error mappings and routes on the app's API.

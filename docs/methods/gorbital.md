@@ -6,7 +6,18 @@
 import "gorbital.dev/gorbital"
 ```
 
-Package gorbital composes gorbital's modules into an application (ADR-0081). A [Module](#Module) declares one feature of an app: its routes, error mappings, permissions, runtime settings and feature flags. [Declare](#Declare) adds the declarations to the app's registries before their stores are built, and [Mount](#Mount) registers the error mappings and routes on the app's API.
+Package gorbital composes gorbital's modules into an application (ADR-0081). An app's main.go is one call to [Main](#Main), which loads the configuration from the environment ([LoadConfig](#LoadConfig)), builds the app ([New](#New)) and serves it ([App.Run](#App.Run)), or migrates its database ([Migrate](#Migrate)):
+
+```go
+func main() {
+	gorbital.Main(
+		gorbital.WithModules(modules.All()...),
+		gorbital.WithMigrations(migrations.FS),
+	)
+}
+```
+
+A [Module](#Module) declares one feature of an app: its routes, error mappings, permissions, runtime settings and feature flags. [Declare](#Declare) adds the declarations to the app's registries before their stores are built, and [Mount](#Mount) registers the error mappings and routes on the app's API.
 
 Routes are declared with the generic functions [Get](#Get), [Post](#Post), [Put](#Put), [Patch](#Patch) and [Delete](#Delete) on a [Router](#Router), so handlers keep their typed input and output, and with them request validation and the OpenAPI document. Every route requires an authenticated actor unless it has guard.Public() (ADR-0082):
 
