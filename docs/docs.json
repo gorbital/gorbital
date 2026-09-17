@@ -295,7 +295,8 @@
           "name": "Recipes",
           "pages": [
             { "title": "Internal admin tool, part 1", "slug": "examples/recipes/internal-admin-tool", "source": "docs/examples/recipes/internal-admin-tool.md" },
-            { "title": "Multi-tenant invoicing", "slug": "examples/recipes/multi-tenant-invoicing", "source": "docs/examples/recipes/multi-tenant-invoicing.md" }
+            { "title": "Multi-tenant invoicing", "slug": "examples/recipes/multi-tenant-invoicing", "source": "docs/examples/recipes/multi-tenant-invoicing.md" },
+            { "title": "Upgrading a v0.1 app", "slug": "examples/recipes/upgrading-a-v0.1-app", "source": "docs/examples/recipes/upgrading-a-v0.1-app.md" }
           ]
         }
       ]

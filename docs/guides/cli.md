@@ -515,6 +515,42 @@ A checkout must be the top of its own git repository, outside the app's reposito
 
 Safety checks: the app must be in git with no uncommitted changes, and the branch `orb-upgrade/<version>` must not exist yet.
 
+## `orb upgrade --layout v0.2`
+
+Moves a v0.1 app (a composition root in `internal/app`) to the v0.2 layout: `cmd/api/main.go` on `gorbital.Main`, the app's modules in `internal/modules`, the built-in ones from `gorbital.dev/gorbital` ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md), walkthrough: [Upgrading a v0.1 app](../examples/recipes/upgrading-a-v0.1-app.md)). It is opt-in: a v0.1 app works on the v0.2 library without it.
+
+```bash
+orb upgrade                        # first: the app must be on this release's v0.1 templates
+orb upgrade --layout v0.2 --dry-run   # the plan, line by line; writes nothing
+orb upgrade --layout v0.2             # convert the app in the working tree
+```
+
+The report has one line per decision, and `UPGRADE-v0.2.md` in the app repeats them with the details:
+
+| Line | What it means |
+|---|---|
+| `library` | Generated code you never changed, deleted: the library runs it now (`authhttp`, `opshttp`, `flagshttp`, `mailevents`, `orgshttp`, `gorbital.Main`) |
+| `template` | Written from the v0.2 templates, such as an example module nobody changed |
+| `converted` | One of your modules, kept where it is: its `huma.Register` calls become `gorbital` routes, and the error mappings and permissions of `internal/app/module_<name>.go` move into its `Module` value |
+| `kept` | A built-in module you changed, now the app's own code: the library's module copied in as [`orb eject`](ejecting-a-module.md) copies it, with your changes moved into the copy, and recorded in `gorbital.lock`. The line names the [options and hooks](configuring-sign-in.md) that could replace the change |
+| `carried` | A change moved to where it belongs in the new layout, such as your middleware into `gorbital.WithStack` in `main.go` |
+| `manual` | A change orb can't make. It stops the move; `--allow-manual` converts the rest and keeps those files in `_upgrade-v0.1/`, which the go command ignores |
+| `follow-up` | Something left for you that doesn't stop the move, such as a test of the old composition root |
+
+Then it runs `go mod tidy`, `gofmt`, `go build ./...`, exports `api/` again and records `api/surface.json`. Nothing is committed: `git diff` shows every change (in `api/openapi.json`, only `x-gorbital-guards` should appear), `git restore . && git clean -fd` undoes it.
+
+Your migration history is untouched, the copies of the library's migrations in `db/migrations` included: `gorbital.Migrate` reads a copy with the same version and identical content as the same migration, so a database the v0.1 app migrated has nothing to apply.
+
+| Flag | Default |
+|---|---|
+| `--dry-run`, `--json`, `--diff` | off |
+| `--allow-dirty` | refuse a git repository with uncommitted changes |
+| `--allow-manual` | stop at the changes orb can't make |
+| `--yes`, `--no-input`, `--plain` | ask for confirmation in a terminal |
+| `--skip-tidy`, `--skip-build` | run them |
+
+Safety checks: the app must be in git, created by `orb new` (it needs `gorbital.lock`), on the v0.1 layout and on this release's v0.1 templates — run `orb upgrade` and commit it first. Minimal apps keep the v0.1 layout and are refused.
+
 ## `orb routes`
 
 Lists every route of the app: method, path, operation ID, module, guards, middleware, handler and where the route is registered. That includes the routes of library modules, such as `authhttp`'s `/v1/auth/…` and `opshttp`'s `/ops/…`, which have no source; `--app` lists only the routes in the app's source. It changes nothing.

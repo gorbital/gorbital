@@ -826,6 +826,76 @@ What `orb eject` can't follow is refused with instructions rather than guessed: 
 - A lock `orb eject` creates has an empty `inputs` object.
 - `orb upgrade --layout v0.2` (item 85) must record modules it keeps from a v0.1 app's generated code the same way; see the functions named in the roadmap notes.
 
+## Phase 9 implementation notes: orb upgrade --layout v0.2 (2026-09-17)
+
+Item 85 of the [roadmap](../v0.2-roadmap.md#phase-9-upgrade-eject-and-new-apps) moves an existing v0.1 app onto this layout. Guides: [Upgrading apps](../start/upgrading.md#move-to-the-v02-layout), [upgrade notes](../guides/upgrade-notes.md#moving-a-v01-app-to-the-v02-layout), recipe [Upgrading a v0.1 app](../examples/recipes/upgrading-a-v0.1-app.md); command: [CLI](../guides/cli.md#orb-upgrade---layout-v02).
+
+### What the move compares
+
+| Decision | Why |
+|---|---|
+| Three trees: the app, **this orb's v0.1 templates** rendered with the lock's inputs (what orb wrote), and **this orb's v0.2 templates** for the same inputs (what a new app has). The move refuses an app whose lock doesn't match the first, naming `orb upgrade` | Telling the developer's code from generated code is the whole job; an app one release behind would have changes the move would read as the developer's. Requiring plain `orb upgrade` first also keeps the move free of release history: it never fetches an older release |
+| Every decision is per path, and the plan is complete before anything is written (`--dry-run` prints it) | A half-converted app is worse than an unconverted one; a conversion that stops at the first surprise leaves one |
+| Nothing is committed, and a dirty tree is refused unless `--allow-dirty` | `git diff` is the review, `git restore` the undo. A commit orb writes would hide both, and the move touches hundreds of files |
+
+### What happens to each file
+
+| The app's file | The move |
+|---|---|
+| Generated code, unchanged, that the library now runs (`internal/modules/{auth,ops,flags,mailevents,orgs}`, `internal/app`, `internal/jobs`, `cmd/migrate`, `cmd/seed`) | Deleted; the report says which library package runs it |
+| A built-in module with changes | Kept as the app's code: `copyEjectedModule` and `ejectMigrations` (the same functions `orb eject` uses) copy the library's module, and each change of the app's generated copy is placed in it (below). `gorbital.lock` gains the `ejected` entry `orb eject` would write |
+| One of the app's own modules (`orb gen resource`, or written by hand) | Converted where it is (below) |
+| An example module (`ping`, `projects`) nobody changed whose wiring can't be translated | Written from the v0.2 templates, with a report note: their operation IDs and paths are v0.1's, but the request schemas `orb gen module` writes are named after their operations and refuse unknown properties |
+| A generated file the developer changed that the v0.2 layout doesn't have | A `manual` line: it stops the move, unless `--allow-manual` keeps the file under `_upgrade-v0.1/` (a directory the go command ignores) and converts the rest |
+| `db/migrations` | Untouched, copies of the library's migrations included (below) |
+| `api/openapi.json`, the Postman collection, `llms.txt`, `api/surface.json` | Regenerated from the converted app, so `git diff` shows what the move changed in them |
+| Everything else (README, Dockerfile, `compose.yaml`, `.env.example`, `gorbital.yaml`) | Merged like `orb upgrade`, with conflict markers where both sides changed the same lines |
+
+### Carrying a change into the library's module
+
+The generated modules of v0.1 and the library's packages are the same code with other import paths (Phases 4–7 moved them unchanged), so a change to a v0.1 module is placed in the library's file by its **surrounding lines**: the lines of the change, with up to three lines of context on each side, must appear exactly once in the copy. The context shrinks (3, 2, 1, 0) and may be one-sided, so an insertion next to a line the library changed still lands. A change that can't be placed is reported with its diff, and the module isn't converted — the alternative, a copy with the change dropped or in the wrong place, would be a silent behaviour change in sign-in.
+
+The report names the [options and hooks](../guides/configuring-sign-in.md) that could replace a change, by the file it touched (`usecase/register.go` → `OnRegister`, `RegisterFields`, `WithoutRegistration`; `usecase/password.go` → `PasswordPolicy`, `MinPasswordLength`; and so on), so an app can give the module back to the library. An app that owns sign-in also owns organisations, because the library's `orgshttp` takes `*authhttp.Authenticator`.
+
+### Converting the app's own modules
+
+| Step | How |
+|---|---|
+| `huma.Register(api, op, handler)` → `gorbital.Get/Post/Put/Patch/Delete(r, path, handler, options...)` | go/ast, on byte ranges: `OperationID`, `Summary`, `Description`, `Tags`, `Errors` and `DefaultStatus` become route options. v0.1's `signedIn` wrapper is read as assignments to the operation's fields (including `op.Errors = append([]int{401, 403}, op.Errors...)`) and merged into the literal; the bearer requirement becomes the router's deny-by-default, and an operation without security becomes `guard.Public()` |
+| An operation the verbs can't express (`Responses`, `MaxBodyBytes`, `SkipValidateBody`) | `operation.Register(r, op, handler)`, the escape hatch this ADR added in Phase 9's first part; the report lists those operations |
+| An operation with a field neither carries (`Hidden`, `Middlewares`, …) | The module isn't converted, and the field is named: carrying it over would change the operation |
+| `func Register(api huma.API, …)` | Becomes `func Register(r *gorbital.Router, …)`, in every function of the module that takes the API and passes it on. Any other use of the API stops the conversion |
+| The module's `Module` type (v0.1's `New`/`Register` wiring) | Renamed to `Wiring`, so the package can declare `func Module() gorbital.Module`, which the generated module list calls |
+| `internal/app/module_<name>.go` | Its `mapper.Add` mappings become `Module.Errors`, its `resourcePermissions` become `Module.Permissions` (with `Roles: ["user"]`, or `OrgRoles` for an organisation resource), and the rest of the wiring function becomes the `Routes` closure, with `svc.db`, `svc.recorder` and `svc.logger` rewritten to `d.DB`, `d.Audit` and `d.Logger` and its `return err` to `panic(err)`, which `gorbital.Mount` reports naming the module |
+| Anything else the wiring used (another `services` field, a value the composition root passed in, a name `internal/app` declared, the app's mapper outside `mapper.Add`) | Reported precisely, and the module isn't converted |
+
+Permission checks stay in the use cases: moving them into `guard.Permission` would answer 403 before the input is validated, which is a change to responses the move can't prove is wanted. The router's deny-by-default does change one thing, which the report says: a request without a token gets 401 before its body is validated, where v0.1 validated first.
+
+### The app's middleware
+
+`internal/app/routes.go` is read as its two middleware lists (the literal and the `append` inside `if svc.auth != nil`), and compared with the templates' with the lists and comments cut out: any other change to the file is a `manual` line. The app's own steps are then run from `main.go`:
+
+- added only after every built-in step, none removed → `gorbital.WithMiddleware(…)`, which runs there;
+- otherwise `cmd/api/stack.go`, a `gorbital.WithStack` function listing the built-in steps in v0.1's order (with `Timeout` after `AccessLog`, as `Stack.Default` has it) and the app's steps where they were.
+
+The files declaring that middleware move from `internal/app` into `cmd/api` as `package main`, with a header saying where they came from; a file that needs anything else of `internal/app` stops the move instead.
+
+### Migrations
+
+The app's `db/migrations` is left exactly as it is, the copies of the library's migrations included. §6's merge reads a copy with the same version and identical content as the same migration, so the database sees nothing new, and the app's own tests keep migrating from `migrations.FS` (a v0.1 module's repository tests do, and its migration references `auth_users`). Deleting the copies, which would make the tree look like a new app's, was rejected: it breaks those tests and buys nothing the report can't say ("delete them when nothing else reads them").
+
+### Proven by
+
+`TestLayoutMoveOnV01Apps` (roadmap item 87, `ORB_E2E=1` and a test database) moves apps created by the published orb v0.1.0 — or, without the module proxy, by this orb's v0.1 templates, which are that release's byte for byte — and checks each afterwards: gofmt, `go vet`, `go test ./...`, the OpenAPI document compatible with the pre-move one through `openapi.CheckCompatible`, `orb doctor` without failures, and `migrate --status` reporting nothing pending on a database the v0.1 app had migrated. Its cases are the untouched single- and multi-tenant apps, a changed sign-in module (kept, with the change in the library's file), middleware of the app's own (carried into `WithStack`), and a generated resource with a hand-written module (both converted and routed). `TestLayoutMovePlansAnUntouchedApp`, `TestLayoutMoveDryRunWritesNothing`, `TestLayoutMoveStopsAtChangesItCantMake`, `TestLayoutMoveRefusals`, `TestRewriteModuleRoutes`, `TestTransplant` and `testdata/json/upgrade-layout.json` cover the rest without a database. The user's own apps, `portal-demo` and `copper-lantern`, are converted on their `v0.2-layout` branches.
+
+### Known gaps
+
+- Settings, feature flags and jobs an app declared in `internal/app` (`orb gen job`'s output included) are reported, not moved: they belong in a module's `Settings`, `Flags` or `Jobs`, and which module is the developer's choice.
+- A module whose permissions are organisation-scoped in a v0.1 multi-tenant app authorises through the organisations module's catalog and memberships, which the library's `orgshttp` doesn't expose; such a module is reported and left for the developer (the library's `guard.OrgMember` replaces it).
+- The app's HTTP tests in `internal/app` aren't ported to `gorbitaltest`; they are kept under `_upgrade-v0.1/` as a follow-up.
+- An example module that falls back to the v0.2 templates changes its request schemas' names and refuses unknown properties, which the report says and the developer can undo with git.
+- Going back to the library after a module is kept is manual, as with `orb eject`.
+
 ## Why
 
 - A `Module` value keeps each module's declarations next to its code, and removes the four edits of v0.1.
