@@ -2,7 +2,9 @@ package authhttp
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"strings"
@@ -31,6 +33,7 @@ import (
 //	reset-mfa <email>            turn off an account's two-factor authentication
 //	rotate-auth-keys             re-encrypt 2FA secrets with the first AUTH_ENCRYPTION_KEYS key
 //	auth-providers               show which sign-in methods are configured
+//	seed [--email <email>]       create a development administrator with two-factor authentication
 //
 // Changes are recorded in the audit log as the "cli" system actor. Wrong
 // arguments exit with status 2 (gorbital.ErrUsage), as every command of
@@ -43,6 +46,7 @@ func (a *Authenticator) Commands() []gorbital.Command {
 		{Name: "reset-mfa", Usage: "reset-mfa <email>              turn off an account's two-factor authentication", Run: a.runResetMFA},
 		{Name: "rotate-auth-keys", Usage: "rotate-auth-keys               re-encrypt 2FA secrets with the first AUTH_ENCRYPTION_KEYS key", Run: a.runRotateAuthKeys},
 		{Name: "auth-providers", Usage: "auth-providers                 show which sign-in methods are configured", Run: a.runAuthProviders},
+		{Name: "seed", Usage: "seed [--email <email>]         create a development administrator with 2FA (orb dev runs it)", Run: a.runSeed},
 	}
 }
 
@@ -198,6 +202,83 @@ func (a *Authenticator) runRotateAuthKeys(ctx context.Context, cfg gorbital.Conf
 // configuration.
 func (a *Authenticator) runAuthProviders(_ context.Context, cfg gorbital.Config, _ []string, w io.Writer) error {
 	writeSignInMethods(w, cfg)
+	return nil
+}
+
+// defaultSeedEmail is the administrator the seed command creates unless
+// --email names another.
+const defaultSeedEmail = "admin@example.com"
+
+// runSeed creates a development administrator, as a v0.1 app's cmd/seed
+// does (ADR-0042): an account with a verified address, the platform_admin
+// role and two-factor authentication on, because the role requires it
+// (ADR-0043). Its random password, authenticator app key and recovery codes
+// are printed once and stored nowhere in plain text. It refuses production
+// and changes nothing when the account exists, so orb dev runs it on every
+// start. Everything goes through sign-in's use cases, so the password
+// policy, hashing, encryption and audit events apply.
+//
+// Unlike v0.1's cmd/seed it creates no example records: those belong to the
+// app's modules. In an app with organisations, the administrator's personal
+// workspace is created the first time it lists its organisations.
+func (a *Authenticator) runSeed(ctx context.Context, cfg gorbital.Config, args []string, w io.Writer) error {
+	flags := flag.NewFlagSet("seed", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	email := flags.String("email", defaultSeedEmail, "email address of the administrator to create")
+	if err := flags.Parse(args); err != nil || flags.NArg() > 0 {
+		return fmt.Errorf("%w: seed [--email <email>]", gorbital.ErrUsage)
+	}
+	if cfg.Production() {
+		return errors.New("seed data is for development only, and APP_ENV is production")
+	}
+	deps, err := a.openCommandDeps(ctx, cfg, "seed")
+	if err != nil {
+		return err
+	}
+	defer deps.pool.Close()
+	if keyring(cfg) == nil {
+		return errors.New("AUTH_ENCRYPTION_KEYS is required: the administrator's role needs two-factor authentication, whose secrets it encrypts (orb dev sets it in .env)")
+	}
+	svc := deps.auth
+
+	ctx = actor.With(ctx, actor.System("seed"))
+	_, err = svc.UserByEmail(ctx, *email)
+	switch {
+	case err == nil:
+		fmt.Fprintf(w, "✓ Seed data is in place: %s exists and was left unchanged.\n"+
+			"  Lost its password? POST /v1/auth/password/forgot, then use the emailed code.\n", *email)
+		return nil
+	case !errors.Is(err, domain.ErrUserNotFound):
+		return err
+	}
+
+	password := rand.Text()
+	admin, err := svc.CreateUser(ctx, *email, password, true)
+	if err != nil {
+		return fmt.Errorf("create the administrator: %w", err)
+	}
+	if err := svc.GrantRole(ctx, admin.ID, "platform_admin"); err != nil {
+		return fmt.Errorf("grant platform_admin to the administrator: %w", err)
+	}
+	enrollment, recoveryCodes, err := svc.EnrollTOTP(ctx, admin.ID)
+	if err != nil {
+		return fmt.Errorf("turn on two-factor authentication for the administrator: %w", err)
+	}
+	half := len(recoveryCodes) / 2
+	fmt.Fprintf(w, `✓ Seed data created
+  Administrator:   %s (platform_admin)
+  Password:        %s
+  2FA key:         %s
+  2FA QR code URI: %s
+  Recovery codes:  %s
+                   %s
+
+  These are shown only this once and aren't saved anywhere. Add the 2FA key to
+  an authenticator app: signing in as the administrator asks for its code, and
+  /ops needs it. Lost the password? POST /v1/auth/password/forgot and the
+  emailed code. Lost the authenticator app? Sign in with a recovery code.
+`, admin.Email, password, enrollment.Secret, enrollment.URI,
+		strings.Join(recoveryCodes[:half], "  "), strings.Join(recoveryCodes[half:], "  "))
 	return nil
 }
 

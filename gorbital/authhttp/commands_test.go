@@ -3,6 +3,7 @@ package authhttp
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -33,7 +34,7 @@ func TestCommands(t *testing.T) {
 			t.Errorf("command %q: usage %q", c.Name, c.Usage)
 		}
 	}
-	for _, name := range []string{"roles", "grant-role", "revoke-role", "reset-mfa", "rotate-auth-keys", "auth-providers"} {
+	for _, name := range []string{"roles", "grant-role", "revoke-role", "reset-mfa", "rotate-auth-keys", "auth-providers", "seed"} {
 		if !names[name] {
 			t.Errorf("no %s command", name)
 		}
@@ -106,6 +107,58 @@ func TestCommands(t *testing.T) {
 
 	if out, err := runCommand(t, a, "auth-providers"); err != nil || !strings.HasPrefix(out, "Sign-in methods\n  ✓ Email and password") || !strings.Contains(out, "set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET in .env") {
 		t.Errorf("auth-providers = %q, %v", out, err)
+	}
+}
+
+// TestSeed: the seed command creates an administrator who signs in with
+// the printed password and a code from the printed key and reaches /ops,
+// once; run again, it changes nothing and prints no secret (ADR-0042).
+func TestSeed(t *testing.T) {
+	a := newApp(t, nil)
+	h := a.Handler()
+	value := func(out, label string) string {
+		for line := range strings.Lines(out) {
+			if v, ok := strings.CutPrefix(strings.TrimSpace(line), label); ok {
+				return strings.TrimSpace(v)
+			}
+		}
+		return ""
+	}
+
+	out, err := runCommand(t, a, "seed")
+	password, secret := value(out, "Password:"), value(out, "2FA key:")
+	if err != nil || len(password) < 20 || len(secret) != 32 || !strings.Contains(out, "admin@example.com (platform_admin)") ||
+		!strings.HasPrefix(value(out, "2FA QR code URI:"), "otpauth://totp/") || len(strings.Fields(value(out, "Recovery codes:"))) != 5 {
+		t.Fatalf("seed = %q, %v; want the administrator, a strong password, a 2FA key and recovery codes", out, err)
+	}
+	bearer := []string{"Authorization", "Bearer " + signInWithTOTP(t, h, "admin@example.com", password, secret)}
+	if r := do(t, h, "GET", "/v1/auth/me", "", bearer...); r.code != http.StatusOK || !strings.Contains(r.body, "platform_admin") {
+		t.Errorf("GET /v1/auth/me as the seeded administrator = %d %s, want platform_admin", r.code, r.body)
+	}
+
+	again, err := runCommand(t, a, "seed")
+	if err != nil || !strings.Contains(again, "left unchanged") || strings.Contains(again, "Password:") {
+		t.Errorf("seed again = %q, %v", again, err)
+	}
+	if r := do(t, h, "POST", "/v1/auth/login", `{"email":"admin@example.com","password":"`+password+`"}`); r.code != http.StatusAccepted {
+		t.Errorf("login after seeding twice = %d %s, want the password and 2FA unchanged", r.code, r.body)
+	}
+
+	if out, err := runCommand(t, a, "seed", "--email", "ops@example.com"); err != nil || !strings.Contains(out, "ops@example.com (platform_admin)") {
+		t.Errorf("seed --email = %q, %v", out, err)
+	}
+	if _, err := runCommand(t, a, "seed", "extra"); !errors.Is(err, gorbital.ErrUsage) {
+		t.Errorf("seed extra error = %v, want a usage error", err)
+	}
+	production := a.cfg
+	production.Env = "production"
+	if err := command(t, a, "seed").Run(context.Background(), production, nil, &strings.Builder{}); err == nil || !strings.Contains(err.Error(), "development only") {
+		t.Errorf("seed in production error = %v", err)
+	}
+	noKeys := a.cfg
+	noKeys.Auth.EncryptionKeys = config.Secret{}
+	if err := command(t, a, "seed").Run(context.Background(), noKeys, nil, &strings.Builder{}); err == nil || !strings.Contains(err.Error(), "AUTH_ENCRYPTION_KEYS is required") {
+		t.Errorf("seed without AUTH_ENCRYPTION_KEYS error = %v", err)
 	}
 }
 

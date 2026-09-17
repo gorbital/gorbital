@@ -111,7 +111,9 @@ func WithStorage(s storage.Store) Option {
 // WithStorageFunc sets the app's file storage like [WithStorage], built
 // from the loaded configuration, as main.go needs for a store whose
 // settings come from STORAGE_* variables. An error from open fails New as a
-// configuration error.
+// configuration error. A nil store with a nil error keeps the built-in
+// choice, so one function can serve every STORAGE_DRIVER: the local driver
+// for local, and a configuration error naming this option for the others.
 func WithStorageFunc(open func(cfg Config) (storage.Store, error)) Option {
 	return optionFunc(func(o *options) { o.storage = open })
 }

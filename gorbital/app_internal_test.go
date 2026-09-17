@@ -149,6 +149,13 @@ func TestNewConfigurationErrors(t *testing.T) {
 	if _, err := testApp(t, s3, io.Discard, WithStorageFunc(func(cfg Config) (storage.Store, error) { opened = cfg; return store, errors.New("bad endpoint") })); !errors.Is(err, errInvalidConfig) || !strings.Contains(err.Error(), "bad endpoint") || opened.Storage.Bucket != "b" {
 		t.Errorf("WithStorageFunc failing: error = %v, cfg = %+v", err, opened.Storage)
 	}
+	keepBuiltIn := WithStorageFunc(func(Config) (storage.Store, error) { return nil, nil })
+	if _, err := testApp(t, s3, io.Discard, keepBuiltIn); !errors.Is(err, errInvalidConfig) || !strings.Contains(err.Error(), "STORAGE_DRIVER=s3 needs its client") {
+		t.Errorf("WithStorageFunc returning no store for S3: error = %v", err)
+	}
+	if _, err := testApp(t, nil, io.Discard, keepBuiltIn); err != nil {
+		t.Errorf("WithStorageFunc returning no store for local: error = %v, want the local driver", err)
+	}
 	provider := map[string]string{"MAIL_DELIVERY": "provider"}
 	if _, err := testApp(t, provider, io.Discard); !errors.Is(err, errInvalidConfig) || !strings.Contains(err.Error(), "MAIL_DELIVERY=provider needs an email provider") {
 		t.Errorf("provider without WithMailer: error = %v", err)

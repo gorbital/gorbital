@@ -574,10 +574,10 @@ func (a *App) openStorage() (storage.Store, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: file storage: %w", errInvalidConfig, err)
 		}
-		if s == nil {
-			return nil, fmt.Errorf("%w: the file storage is nil", errInvalidConfig)
+		if s != nil {
+			return s, nil
 		}
-		return s, nil
+		// A nil store keeps the built-in choice (WithStorageFunc).
 	}
 	if cfg.Storage.Driver != StorageLocal {
 		return nil, fmt.Errorf("%w: STORAGE_DRIVER=%s needs its client: pass gorbital.WithStorageFunc in main.go, building the store from cfg.Storage (such as with gorbital.dev/modules/storage/s3)", errInvalidConfig, cfg.Storage.Driver)

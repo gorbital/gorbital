@@ -99,6 +99,7 @@ func ExampleAuthenticator_Commands() {
 	// reset-mfa <email>              turn off an account's two-factor authentication
 	// rotate-auth-keys               re-encrypt 2FA secrets with the first AUTH_ENCRYPTION_KEYS key
 	// auth-providers                 show which sign-in methods are configured
+	// seed [--email <email>]         create a development administrator with 2FA (orb dev runs it)
 }
 
 func ExampleAuthenticator_Module() {
