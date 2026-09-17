@@ -45,6 +45,8 @@ The sidebar has four sections.
 
 ⌘K opens a palette that jumps to a page, to one of the app's routes, or to an app action. The sidebar badges are live: the route count, the captured mail, the pending migrations.
 
+The portal has a dark and a light theme. It follows the system's colour scheme the first time (dark when the browser states no preference); the sun or moon button in the top bar, next to the bell, and "Toggle theme" in the ⌘K palette switch it, and the choice is remembered per browser. Every screen, including the charts, the SQL editor and the schema diagram, renders in both.
+
 Screens that read `/ops/` (Audit, Jobs, Settings, Authentication, Storage, most of Observability) need a Full app; Minimal apps show what they have. Screens that read the database need `DATABASE_URL` in `.env`. Screens that read `/_dev/` need the app to run with the dev console (`DEV_CONSOLE_TOKEN` declared in `.env.example`, [dev console](../guides/dev-console.md)). An app built with an `orb` that predates the development operator answers 401 on `/ops/`; the page says to rebuild and restart.
 
 ## Trying it without an app

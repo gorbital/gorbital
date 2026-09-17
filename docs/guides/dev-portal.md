@@ -33,6 +33,10 @@ A taken port stops `orb dev` before anything starts, naming the port and the way
 
 The link accepts `next`, a path of the portal to land on once the cookie is set: `http://127.0.0.1:3100/_portal/auth?t=<token>&next=/database/schema`. Only paths of the portal itself are accepted; anything else lands on the Overview.
 
+### Light and dark theme
+
+The portal follows your system's colour scheme the first time you open it (dark when the browser states no preference). The sun or moon button in the top bar, next to the notifications bell, switches between the dark and the light theme, as does "Toggle theme" in the ⌘K palette; the choice is remembered per browser (`localStorage.theme`) and applied before the first paint, so pages never flash the other theme. Every screen, the charts, the SQL editor and the schema diagram render in both.
+
 ## What it serves
 
 | Path | What |
