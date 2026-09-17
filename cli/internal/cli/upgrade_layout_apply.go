@@ -100,16 +100,28 @@ func applyLayoutMove(ctx context.Context, plan *layoutPlan, skipTidy, skipBuild 
 		}
 		plan.res.Exported = true
 	}
-	if _, err := root.Stat("internal/modules/surface_test.go"); err == nil {
-		out.Reset()
-		cmd := exec.CommandContext(ctx, "go", "test", "./internal/modules", "-run", "^TestPublicSurface$", "-count=1", "-update")
-		cmd.Dir, cmd.Stdout, cmd.Stderr = plan.appDir, &out, &out
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("the app is converted and builds, but recording %s failed: %w\n%s", surfacePath, err, out.String())
-		}
-		plan.res.Surface = true
+	recorded, err := recordSurface(ctx, plan.appDir)
+	if err != nil {
+		return fmt.Errorf("the app is converted and builds, but %w", err)
 	}
+	plan.res.Surface = recorded
 	return nil
+}
+
+// recordSurface records the app's public names in api/surface.json with its
+// own test, as orb upgrade does after merging (ADR-0054). It reports whether
+// the app has that test at all.
+func recordSurface(ctx context.Context, dir string) (bool, error) {
+	if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash("internal/modules/surface_test.go"))); err != nil {
+		return false, nil
+	}
+	var out bytes.Buffer
+	cmd := exec.CommandContext(ctx, "go", "test", "./internal/modules", "-run", "^TestPublicSurface$", "-count=1", "-update")
+	cmd.Dir, cmd.Stdout, cmd.Stderr = dir, &out, &out
+	if err := cmd.Run(); err != nil {
+		return false, fmt.Errorf("recording %s failed: %w\n%s", surfacePath, err, out.String())
+	}
+	return true, nil
 }
 
 // pruneEmptyDirs removes the directories the move emptied, deepest first.

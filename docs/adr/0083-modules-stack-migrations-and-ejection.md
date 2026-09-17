@@ -805,6 +805,7 @@ What `orb eject` can't follow is refused with instructions rather than guessed: 
 
 ### gorbital.lock, orb doctor and orb upgrade
 
+- After the files are written, `go mod tidy` runs and the app's `api/surface.json` is recorded again: the copied module's error codes and audit actions are the app's own names, which its `TestPublicSurface` compares (found by ejecting into the golden apps, which have that test; the example apps don't).
 - The lock gains `ejected`: `module`, `package`, `version`, `date` and `sha256`, a hash of the package's source as copied (paths and contents, `//orb:noeject` files included). An app without a lock (apps on `gorbital.Main` not created by `orb new`) gets one with only `ejected`; reading such a lock skips the inputs check, and `orb upgrade` refuses it. Entries are validated (known module, its package, once each). `orb upgrade` and `orb add orgs` keep the entries when they rewrite the lock.
 - `orb doctor`'s `ejected` check hashes the package at the version the app requires now (`go list -m`): equal is ok, different a warning with up to three changelog entries of later versions that name the package (`CHANGELOG.md` of `gorbital.dev` at the version the app requires), a missing directory a failure. A hash rather than a version comparison also notices changes from a local checkout.
 - `orb upgrade` never changes an ejected module's files; merging library fixes into the copy is the app's.

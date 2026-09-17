@@ -655,6 +655,7 @@ What it does, as one plan applied at once (ADR-0021):
 | Copies the migrations the module declares (`Module.Migrations`) under the same versions, named as `gorbital.Migrate` names them; the merge treats each copy and the module's declaration as one migration, so a database applies nothing | `db/migrations/<version>_<name>.sql` |
 | Records the module, library package, version, date and a SHA-256 of the package's source | `gorbital.lock` (created when the app has none) |
 | Runs `go mod tidy` (not with `--skip-tidy`): the copied tests import packages the app didn't | `go.mod`, `go.sum` |
+| Records the app's public names again: the module's error codes and audit actions are the app's now | `api/surface.json` |
 
 Flags: `--dry-run`, `--diff`, `--json`, `--allow-dirty`, `--skip-tidy`, `--yes` (no confirmation in a terminal), `--no-input` (never prompts: the module is required), `--plain`. Without a module in a terminal, it asks which of the modules `cmd/api` uses to eject.
 

@@ -100,7 +100,7 @@ The module's migrations are copied into `db/migrations` under the versions the l
 ]
 ```
 
-`sha256` hashes the package's source as it was copied. Then `go mod tidy` runs (not with `--skip-tidy`), because the copied tests import packages the app didn't.
+`sha256` hashes the package's source as it was copied. Then `go mod tidy` runs (not with `--skip-tidy`), because the copied tests import packages the app didn't, and `api/surface.json` is recorded again: the module's error codes and audit actions are the app's own names now, and its `TestPublicSurface` compares them ([ADR-0054](../adr/0054-api-freeze-and-scaffold-compatibility.md)). Review the added names in the commit.
 
 ## Afterwards
 

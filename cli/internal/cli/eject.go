@@ -132,7 +132,10 @@ type ejectResult struct {
 	// already had.
 	Notes  []string `json:"notes"`
 	Tidied bool     `json:"tidied"`
-	DryRun bool     `json:"dry_run"`
+	// Surface reports that api/surface.json was recorded again: the module's
+	// names are the app's own now.
+	Surface bool `json:"surface_recorded"`
+	DryRun  bool `json:"dry_run"`
 }
 
 // ejectSkipped is a library file orb eject didn't copy, and why.
@@ -216,6 +219,13 @@ func runEject(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 			}
 			result.Tidied = true
 		}
+		// The module's error codes and audit actions are the app's names
+		// now, so the app's own record of them is written again (ADR-0054).
+		recorded, err := recordSurface(ctx, app.dir)
+		if err != nil {
+			return fmt.Errorf("the module is ejected, but recording %s failed: %w", surfacePath, err)
+		}
+		result.Surface = recorded
 	}
 
 	if *asJSON {
@@ -233,6 +243,9 @@ func runEject(ctx context.Context, args []string, stdin io.Reader, stdout, stder
 		steps := plan.Next
 		if *skipTidy {
 			steps = append([]string{"go mod tidy"}, steps...)
+		}
+		if result.Surface {
+			fmt.Fprintf(stdout, "  %s records the module's names, which are yours now\n", surfacePath)
 		}
 		fmt.Fprintf(stdout, "\nNext:\n")
 		for _, s := range steps {
