@@ -67,7 +67,7 @@ The books module sends neither yet; the test shows the calls, and a later chapte
 | Test | Checks | Needs |
 |---|---|---|
 | `internal/modules/books/domain/book_test.go` | The rules of `NewBook` and `Apply`, and a fuzz test of ISBN normalisation (`go test -fuzz FuzzNormalizeISBN ./internal/modules/books/domain`) | Nothing |
-| `internal/modules/architecture_test.go` | The layers: `domain` imports only the standard library, `delivery` never imports `repository`, modules never import each other | Nothing |
+| `internal/modules/architecture_test.go` | The layers: `domain` imports only the standard library, `delivery` never imports `repository`, a module never imports another module's layers (only its root package, such as an ejected sign-in module's authenticator) | Nothing |
 | `cmd/api/main_test.go` | `api/openapi.json` is what the code describes; after changing a route, run `go run ./cmd/api openapi --dir api` | Go |
 
 Don't add `t.Parallel()` to tests that build an app: two apps built at once in one test binary race on Huma's package-level error constructor.

@@ -13,7 +13,9 @@ import (
 // layerImports are the app packages each layer may import, within its own
 // module: domain nothing but the standard library, the use cases their
 // domain, the repository and delivery the use cases and the domain, and
-// module.go every layer. A module never imports another module.
+// module.go every layer. A module never imports another module's layers;
+// it can take another module's root package, as modules that take the
+// authenticator of a sign-in module ejected with orb eject do (ADR-0083).
 var layerImports = map[string][]string{
 	"domain":     {},
 	"usecase":    {"domain"},
@@ -53,7 +55,9 @@ func TestModuleLayers(t *testing.T) {
 			}
 			target := strings.SplitN(rest, "/", 3)
 			if target[0] != module {
-				t.Errorf("%s imports module %s: modules never import each other", path, target[0])
+				if len(target) > 1 {
+					t.Errorf("%s imports %s: a module never imports another module's layers", path, imp)
+				}
 				continue
 			}
 			if len(target) < 2 || !contains(allowed, target[1]) {
