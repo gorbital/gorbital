@@ -237,7 +237,7 @@ Defaults: file storage is the local driver for `STORAGE_DRIVER=local` (developme
 
 ### D17: the Minimal preset, re-evaluated with numbers
 
-Measured with `scripts/bench-baseline.sh`, 9 starts each, back to back on the same machine ([benchmarks](../benchmarks.md#measured-gorbitalmain-apps-v02-phase-3)):
+Measured with `scripts/bench-baseline.sh`, 9 starts each, back to back on the same machine ([benchmarks](../benchmarks.md#gorbitalmain-apps-phase-3)):
 
 | App | Packages | Stripped binary | Startup to `/readyz` | RSS at ready |
 |---|---|---|---|---|
