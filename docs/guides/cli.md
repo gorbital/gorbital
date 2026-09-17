@@ -4,11 +4,8 @@
 
 ## Installing
 
-The library and CLI aren't published yet, so install `orb` from your checkout:
-
 ```bash
-cd gorbital/cli
-go install ./cmd/orb
+go install gorbital.dev/cli/cmd/orb@latest
 ```
 
 This puts `orb` in `$(go env GOPATH)/bin` (usually `~/go/bin`). If your shell then says `command not found: orb`, add that directory to your `PATH`, for example in `~/.zshrc`:
@@ -23,13 +20,20 @@ Open a new terminal (or run `hash -r`) and check it works:
 orb version
 ```
 
-`orb version --json` prints the version, recipe and library version for scripts. Run `go install ./cmd/orb` again after pulling changes.
+`orb version --json` prints the version, recipe and library version for scripts. Run the same `go install` command again to update `orb`.
+
+Two other ways to get `orb`:
+
+| Way | How |
+|---|---|
+| A release binary | Download the archive for your system from [GitHub releases](https://github.com/gorbital/gorbital/releases), [verify it](#verifying-a-release-binary), and put `orb` on your `PATH` |
+| From a checkout, to work on gorbital itself | `git clone https://github.com/gorbital/gorbital.git`, then `cd gorbital/cli && go install ./cmd/orb`. Run it again after pulling changes. Create apps against the checkout with `orb new --local <path>` ([local development](local-development.md)) |
 
 Build `orb` with the latest Go patch release. `orb` writes every file through `os.Root` so nothing escapes the app, and Go releases before 1.26.5 have `os.Root` escapes that were fixed later. The `go.mod` directive stays at `go 1.26.0` ([ADR-0015](../adr/0015-public-api-and-stability-tiers.md)), so `go install` accepts an older toolchain. When it does, `orb version` prints a warning and `orb doctor` warns in its `orb` check.
 
 ### Verifying a release binary
 
-Once `orb` binaries are published, each GitHub release has archives, a `checksums.txt` covering all of them, a Sigstore bundle for that file (`checksums.txt.sigstore.json`) and SLSA build provenance. The release workflow signs with its GitHub identity, so no key is involved. Before you run a downloaded binary, check that the release workflow of `gorbital/gorbital` built it from a `cli/v*` tag:
+Each GitHub release has archives, a `checksums.txt` covering all of them, a Sigstore bundle for that file (`checksums.txt.sigstore.json`) and SLSA build provenance. The release workflow signs with its GitHub identity, so no key is involved. Before you run a downloaded binary, check that the release workflow of `gorbital/gorbital` built it from a `cli/v*` tag:
 
 ```bash
 # 1. The checksums were signed by the release workflow at a cli/v* tag.
@@ -77,7 +81,8 @@ Creates an app.
 ```bash
 orb new                                   # asks for everything
 orb new my-api                            # asks for the rest
-orb new my-api --module github.com/you/my-api --local ~/code/gorbital --yes
+orb new my-api --module github.com/you/my-api --yes
+orb new my-api --local ~/code/gorbital    # use a gorbital checkout instead of the published library
 orb new my-api --no-start                 # create it, but don't start orb dev
 ```
 
@@ -108,7 +113,7 @@ Then `orb new` prints a log: one line per finished step, where things are in the
 
 ```text
 creating shop-api in ./shop-api
-preset full · library ../gorbital
+preset full · library gorbital.dev v0.1.0
 
 ✓ wrote 214 files
 ✓ ran go mod tidy

@@ -6,7 +6,7 @@ Install these once, before the [Quickstart](quickstart.md). Each entry says what
 |---|---|---|
 | [Go](#go) | Building and running your app and `orb` | 1.26 or later, latest patch |
 | [Docker](#docker) | PostgreSQL and Mailpit on your computer | Docker Engine with Compose v2 |
-| [git](#git) | Getting gorbital, and `orb` commands that change your app | Any recent version |
+| [git](#git) | `orb` commands that change your app | Any recent version |
 | [An authenticator app](#an-authenticator-app) | Signing in as the administrator | Any |
 | [curl and jq](#curl-and-jq) | Trying the API from a terminal | Optional |
 | [openssl](#openssl) | Generating production keys | Optional; usually already installed |
@@ -71,7 +71,7 @@ docker run --rm hello-world
 
 **What it is:** version control.
 
-**Why you need it:** to download gorbital, and because `orb gen`, `orb add` and `orb upgrade` refuse to run on uncommitted changes, so every generated change is a diff you can review.
+**Why you need it:** `orb new` creates a git repository for your app, and `orb gen`, `orb add` and `orb upgrade` refuse to run on uncommitted changes, so every generated change is a diff you can review.
 
 **Install on macOS:** `xcode-select --install`, or `brew install git`. **On Linux:** `sudo apt install git`, `sudo dnf install git`, or your distribution's equivalent.
 

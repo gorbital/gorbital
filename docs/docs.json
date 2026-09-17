@@ -1,11 +1,11 @@
 {
   "name": "gorbital",
   "version": "v0.1.0",
-  "announcement": "pre-release · v0.1.0 will be the first public release · v1.0.0 follows the external security review",
+  "announcement": "v0.1.0 is out · v1.0.0 follows the external security review",
   "github": "https://github.com/gorbital/gorbital",
   "www": "https://gorbital.dev",
   "url": "https://docs.gorbital.dev",
-  "install": "git clone https://github.com/gorbital/gorbital.git && cd gorbital/cli && go install ./cmd/orb",
+  "install": "go install gorbital.dev/cli/cmd/orb@latest",
   "tabs": [
     {
       "name": "Guides",
