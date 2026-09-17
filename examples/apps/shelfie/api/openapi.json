@@ -1,0 +1,771 @@
+{
+  "components": {
+    "schemas": {
+      "BookListOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BookResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "BookResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "author": {
+            "examples": [
+              "Frank Herbert"
+            ],
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "examples": [
+              "bok_mfrggzdfmztwq2lkmfrggzdfmy"
+            ],
+            "type": "string"
+          },
+          "isbn": {
+            "examples": [
+              "9780441172719"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "want_to_read",
+              "reading",
+              "read"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "examples": [
+              "Dune"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "author",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "CreateBookInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "author": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "isbn": {
+            "description": "ISBN-10 or ISBN-13; hyphens are ignored",
+            "maxLength": 17,
+            "type": "string"
+          },
+          "status": {
+            "default": "want_to_read",
+            "enum": [
+              "want_to_read",
+              "reading",
+              "read"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
+      "FieldError": {
+        "additionalProperties": false,
+        "properties": {
+          "location": {
+            "description": "Where the error occurred",
+            "examples": [
+              "body.name"
+            ],
+            "type": "string"
+          },
+          "message": {
+            "description": "What is wrong",
+            "examples": [
+              "expected length \u003e= 1"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object"
+      },
+      "Info": {
+        "additionalProperties": false,
+        "properties": {
+          "build_time": {
+            "examples": [
+              "2026-09-14T12:00:00Z"
+            ],
+            "type": "string"
+          },
+          "commit": {
+            "examples": [
+              "3f9a1c2b7d4e"
+            ],
+            "type": "string"
+          },
+          "go_version": {
+            "examples": [
+              "go1.25.3"
+            ],
+            "type": "string"
+          },
+          "modified": {
+            "type": "boolean"
+          },
+          "version": {
+            "examples": [
+              "v1.2.3"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "go_version"
+        ],
+        "type": "object"
+      },
+      "Problem": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "Stable machine-readable error code",
+            "examples": [
+              "project_name_taken"
+            ],
+            "type": "string"
+          },
+          "detail": {
+            "description": "Human-readable explanation",
+            "examples": [
+              "project name is already taken"
+            ],
+            "type": "string"
+          },
+          "errors": {
+            "description": "Field-level validation errors",
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "request_id": {
+            "description": "Correlates with server logs and traces",
+            "examples": [
+              "req_9f86d081884c7d65"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "description": "HTTP status code",
+            "examples": [
+              409
+            ],
+            "format": "int64",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Short summary of the problem type",
+            "examples": [
+              "Conflict"
+            ],
+            "type": "string"
+          },
+          "type": {
+            "description": "URI identifying the problem type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "status",
+          "code"
+        ],
+        "type": "object"
+      },
+      "UpdateBookInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "author": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "isbn": {
+            "description": "Empty removes the ISBN",
+            "maxLength": 17,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "want_to_read",
+              "reading",
+              "read"
+            ],
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "description": "Session token from POST /v1/auth/login with \"transport\": \"bearer\", or an API key (gbk_…) from POST /v1/auth/api-keys. Browsers use the session cookie that login sets instead.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "title": "shelfie",
+    "version": "dev"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/books": {
+      "get": {
+        "operationId": "books-get-v1-books",
+        "parameters": [
+          {
+            "description": "Only books with this status",
+            "explode": false,
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "description": "Only books with this status",
+              "enum": [
+                "want_to_read",
+                "reading",
+                "read"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many books to return, newest first",
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 20,
+              "description": "How many books to return, newest first",
+              "format": "int64",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookListOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List your books",
+        "tags": [
+          "Books"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:books.book.read"
+        ]
+      },
+      "post": {
+        "operationId": "books-post-v1-books",
+        "parameters": [
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookResponse"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Add a book to your shelf",
+        "tags": [
+          "Books"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:books.book.write",
+          "rate_limit:30/1m0s"
+        ]
+      }
+    },
+    "/v1/books/{id}": {
+      "delete": {
+        "operationId": "books-delete-v1-books-by-id",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "examples": [
+                "bok_mfrggzdfmztwq2lkmfrggzdfmy"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a book",
+        "tags": [
+          "Books"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:books.book.write"
+        ]
+      },
+      "get": {
+        "operationId": "books-get-v1-books-by-id",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "examples": [
+                "bok_mfrggzdfmztwq2lkmfrggzdfmy"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a book",
+        "tags": [
+          "Books"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:books.book.read"
+        ]
+      },
+      "patch": {
+        "operationId": "books-patch-v1-books-by-id",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "examples": [
+                "bok_mfrggzdfmztwq2lkmfrggzdfmy"
+              ],
+              "maxLength": 64,
+              "type": "string"
+            }
+          },
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBookInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change a book",
+        "tags": [
+          "Books"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:books.book.write"
+        ]
+      }
+    },
+    "/version": {
+      "get": {
+        "operationId": "get-version",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Info"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Build information",
+        "tags": [
+          "System"
+        ]
+      }
+    }
+  }
+}
