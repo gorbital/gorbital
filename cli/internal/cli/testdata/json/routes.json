@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "app": "shelfie",
+  "source": "file",
+  "guards_known": true,
+  "total": 0,
+  "public": 0,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/v1/books",
+      "operation_id": "books-get-v1-books",
+      "summary": "List your books",
+      "tags": [
+        "Books"
+      ],
+      "module": "books",
+      "handler": "h.listBooks",
+      "source": {
+        "file": "internal/modules/books/delivery/routes.go",
+        "line": 0
+      },
+      "handler_source": {
+        "file": "internal/modules/books/delivery/list_books.go",
+        "line": 0
+      },
+      "guards": [
+        "authenticated",
+        "permission:books.book.read"
+      ],
+      "middleware": [],
+      "public": false,
+      "deprecated": false
+    },
+    {
+      "method": "POST",
+      "path": "/v1/books",
+      "operation_id": "books-post-v1-books",
+      "summary": "Add a book to your shelf",
+      "tags": [
+        "Books"
+      ],
+      "module": "books",
+      "handler": "h.createBook",
+      "source": {
+        "file": "internal/modules/books/delivery/routes.go",
+        "line": 0
+      },
+      "handler_source": {
+        "file": "internal/modules/books/delivery/create_book.go",
+        "line": 0
+      },
+      "guards": [
+        "authenticated",
+        "permission:books.book.write"
+      ],
+      "middleware": [],
+      "public": false,
+      "deprecated": false
+    }
+  ],
+  "warnings": [
+    "6 of 11 routes have no source position: registered by a library module, or through code that builds the path at run time"
+  ]
+}

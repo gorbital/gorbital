@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "name": "Shelf",
+  "module": "shelves",
+  "route": "/v1/shelves",
+  "table": "shelves",
+  "scope": "user",
+  "permissions": [
+    "shelves.shelf.read",
+    "shelves.shelf.write"
+  ],
+  "migration": "db/migrations/{timestamp}_shelves.sql",
+  "files": [
+    "internal/modules/shelves/module.go",
+    "internal/modules/shelves/shelves_test.go"
+  ],
+  "dry_run": false
+}

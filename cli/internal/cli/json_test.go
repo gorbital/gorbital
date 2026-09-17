@@ -52,6 +52,24 @@ func TestJSONOutputs(t *testing.T) {
 			newModulesApp(t)
 			return runOrb(t, "gen", "modules", "--json")
 		}},
+		{"gen-module", func(t *testing.T) (int, string, string) {
+			newMainApp(t, false)
+			return runOrb(t, append(shelvesArgs, "--allow-dirty", "--json")...)
+		}},
+		{"gen-middleware", func(t *testing.T) (int, string, string) {
+			newMainApp(t, false)
+			return runOrb(t, "gen", "middleware", "ActiveSubscription", "--module", "books", "--guard", "--dry-run", "--json")
+		}},
+		{"routes", func(t *testing.T) (int, string, string) {
+			newMainApp(t, false)
+			return runOrb(t, "routes", "--openapi", "api/openapi.json", "--json")
+		}},
+		{"doctor-main", func(t *testing.T) (int, string, string) {
+			newMainApp(t, true)
+			writeFile(t, ".env", readFile(t, ".env.example"))
+			fakeDoctorCommands(t, `{"current":20260920000001,"latest":20260920000001,"pending":0}`)
+			return runOrb(t, "doctor", "--fast", "--json")
+		}},
 		{"add-mail", func(t *testing.T) (int, string, string) {
 			newMailApp(t)
 			return runOrb(t, "add", "mail", "--provider", "smtp", "--smtp-host", "smtp.example.com", "--skip-tidy", "--json")

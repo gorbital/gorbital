@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "name": "ActiveSubscription",
+  "kind": "guard",
+  "module": "books",
+  "package": "delivery",
+  "file": "internal/modules/books/delivery/active_subscription.go",
+  "test": "internal/modules/books/delivery/active_subscription_test.go",
+  "files": [
+    "internal/modules/books/delivery/active_subscription.go",
+    "internal/modules/books/delivery/active_subscription_test.go"
+  ],
+  "wire": "ActiveSubscription()",
+  "dry_run": true
+}

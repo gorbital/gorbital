@@ -1,0 +1,11 @@
+{
+  "openapi": "3.1.0",
+  "security": [{"bearer": []}],
+  "paths": {
+    "/v1/projects": {
+      "post": {"operationId": "projects-create", "summary": "Create a project"},
+      "get": {"operationId": "projects-list", "summary": "List your projects"}
+    },
+    "/livez": {"get": {"operationId": "livez", "security": []}}
+  }
+}

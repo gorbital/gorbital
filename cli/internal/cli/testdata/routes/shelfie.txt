@@ -1,0 +1,15 @@
+METHOD  PATH              OPERATION                    MODULE   GUARDS                                                          HANDLER        SOURCE
+GET     /v1/books         books-get-v1-books           books    authenticated, permission:books.book.read                       h.listBooks    internal/modules/books/delivery/routes.go:31
+POST    /v1/books         books-post-v1-books          books    authenticated, permission:books.book.write, rate_limit:30/1m0s  h.createBook   internal/modules/books/delivery/routes.go:28
+GET     /v1/books/{id}    books-get-v1-books-by-id     books    authenticated, permission:books.book.read                       h.getBook      internal/modules/books/delivery/routes.go:33
+PATCH   /v1/books/{id}    books-patch-v1-books-by-id   books    authenticated, permission:books.book.write                      h.updateBook   internal/modules/books/delivery/routes.go:35
+DELETE  /v1/books/{id}    books-delete-v1-books-by-id  books    authenticated, permission:books.book.write                      h.deleteBook   internal/modules/books/delivery/routes.go:37
+GET     /v1/shelves       shelves-list                 shelves  authenticated, permission:shelves.shelf.read                    h.listShelves  internal/modules/shelves/delivery/routes.go:30
+POST    /v1/shelves       shelves-create               shelves  authenticated, permission:shelves.shelf.write                   h.createShelf  internal/modules/shelves/delivery/routes.go:26
+GET     /v1/shelves/{id}  shelves-get                  shelves  authenticated, permission:shelves.shelf.read                    h.getShelf     internal/modules/shelves/delivery/routes.go:35
+PATCH   /v1/shelves/{id}  shelves-update               shelves  authenticated, permission:shelves.shelf.write                   h.updateShelf  internal/modules/shelves/delivery/routes.go:39
+DELETE  /v1/shelves/{id}  shelves-delete               shelves  authenticated, permission:shelves.shelf.write                   h.deleteShelf  internal/modules/shelves/delivery/routes.go:44
+GET     /version          get-version                  -        public                                                          -              -
+
+11 routes, 1 public
+note: 1 of 11 routes have no source position: registered by a library module, or through code that builds the path at run time

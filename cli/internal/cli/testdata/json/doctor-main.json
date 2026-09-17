@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "app": "shop-api",
+  "app": "shelfie",
   "preset": "full",
   "tenancy": "single",
-  "layout": "v0.1",
+  "layout": "main",
   "checks": [
     {
       "name": "go",

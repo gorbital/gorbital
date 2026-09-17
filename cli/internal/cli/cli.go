@@ -53,7 +53,12 @@ Usage:
                                  generate a module, table and API for users' records (Full preset apps)
   orb gen migration [<name>] [flags]
                                  generate an empty database migration (Full preset apps)
+  orb gen module [<Name> <field:type>...] [flags]
+                                 generate a layered module with its table and API (apps using gorbital.Main)
+  orb gen middleware <Name> [flags]
+                                 generate middleware or a guard with its test (apps using gorbital.Main)
   orb gen modules [flags]        list internal/modules in modules.gen.go (apps using gorbital.Main)
+  orb routes [flags]             list every route: guards, public routes, handlers and source
   orb add mail [flags]           set up email with Resend or SMTP (Full preset apps)
   orb add orgs [flags]           turn a single-tenant app multi-tenant on a branch (Full preset apps)
   orb add rls [flags]            turn on row-level security for organisations' data (multi-tenant apps)
@@ -141,6 +146,8 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io
 		err = runDev(ctx, args[1:], stderr)
 	case "upgrade":
 		err = runUpgrade(ctx, args[1:], stdout, stderr)
+	case "routes":
+		err = runRoutes(ctx, args[1:], stdout, stderr)
 	case "doctor":
 		err = runDoctor(ctx, args[1:], stdout, stderr)
 	case "version", "-version", "--version":
