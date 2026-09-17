@@ -125,7 +125,7 @@ gorbital/
 ├── buildinfo/               version, commit, build time
 ├── internal/archtest/       dependency budget, stability markers, golden apps don't drift
 ├── internal/tools/apicheck/  module: records and checks the exported API in api/*.txt (ADR-0054)
-├── internal/tools/refdocs/   module: generates and checks docs/reference from the golden apps
+├── internal/tools/refdocs/   module: generates and checks docs/reference from the golden apps, and docs/methods from the library source
 ├── api/                     exported Go API listings per library module (gorbital.dev.txt, modules-auth.txt, …)
 ├── modules/
 │   ├── openapi/             Huma integration, problem errors, /docs API reference (reference/)
