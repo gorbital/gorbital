@@ -1,3 +1,5 @@
+//orb:noeject compares the migrations with full-multi's in the gorbital repository
+
 package orgshttp
 
 import (

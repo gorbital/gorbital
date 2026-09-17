@@ -11,7 +11,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -46,7 +45,6 @@ const (
 )
 
 // repo is the repository root, relative to this package.
-var repo = filepath.Join("..", "..")
 
 // testEncryptionKeys is AUTH_ENCRYPTION_KEYS of the test apps.
 var testEncryptionKeys = authlib.NewKeyringKey("orgshttp")
@@ -396,26 +394,4 @@ func asAppRole(t *testing.T, dbURL string) string {
 	q.Set("options", "-c role="+appRole)
 	u.RawQuery = strings.ReplaceAll(q.Encode(), "+", "%20") // pgx doesn't read + as a space
 	return u.String()
-}
-
-// enableRowLevelSecurity runs full-multi's db/row_level_security.sql, which
-// orb add rls copies into a migration, on the database at dbURL.
-func enableRowLevelSecurity(t *testing.T, dbURL string) {
-	t.Helper()
-	sql, err := os.ReadFile(filepath.Join(repo, "examples", "v0.1", "full-multi", "db", "row_level_security.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	up := string(sql)
-	if _, after, ok := strings.Cut(up, "-- +goose StatementBegin"); ok {
-		up, _, _ = strings.Cut(after, "-- +goose StatementEnd")
-	}
-	conn, err := pgx.Connect(context.Background(), dbURL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Close(context.Background())
-	if _, err := conn.Exec(context.Background(), up); err != nil {
-		t.Fatalf("row_level_security.sql: %v", err)
-	}
 }

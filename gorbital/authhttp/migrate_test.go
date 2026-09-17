@@ -1,3 +1,5 @@
+//orb:noeject migrates databases of the v0.1 golden apps in the gorbital repository
+
 package authhttp
 
 import (

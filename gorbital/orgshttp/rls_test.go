@@ -1,3 +1,5 @@
+//orb:noeject runs full-multi's row-level security migration from the gorbital repository
+
 package orgshttp
 
 import (
@@ -5,7 +7,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -174,5 +179,27 @@ func TestRowLevelSecurityCoversOrganisationTables(t *testing.T) {
 	var policies int
 	if err := conn.QueryRow(ctx, "SELECT count(*) FROM pg_policies WHERE tablename = 'projects'").Scan(&policies); err != nil || policies != 1 {
 		t.Errorf("projects policies = %d, %v; want 1 after running twice", policies, err)
+	}
+}
+
+// enableRowLevelSecurity runs full-multi's db/row_level_security.sql, which
+// orb add rls copies into a migration, on the database at dbURL.
+func enableRowLevelSecurity(t *testing.T, dbURL string) {
+	t.Helper()
+	sql, err := os.ReadFile(filepath.Join(repo, "examples", "v0.1", "full-multi", "db", "row_level_security.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	up := string(sql)
+	if _, after, ok := strings.Cut(up, "-- +goose StatementBegin"); ok {
+		up, _, _ = strings.Cut(after, "-- +goose StatementEnd")
+	}
+	conn, err := pgx.Connect(context.Background(), dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close(context.Background())
+	if _, err := conn.Exec(context.Background(), up); err != nil {
+		t.Fatalf("row_level_security.sql: %v", err)
 	}
 }

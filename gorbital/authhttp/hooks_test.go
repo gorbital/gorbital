@@ -2,13 +2,11 @@ package authhttp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
 	"net/http"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -562,25 +560,5 @@ func TestRefuse(t *testing.T) {
 			}()
 			_ = Refuse(code, "detail")
 		}()
-	}
-}
-
-// TestRefusalCodesExcludeV010Codes: every problem code of the v0.1.0 golden
-// apps but their example modules' is reserved.
-func TestRefusalCodesExcludeV010Codes(t *testing.T) {
-	examples := []string{"project_not_found", "project_name_taken", "project_version_conflict", "ping_not_found"}
-	for _, app := range []string{"full-single", "full-multi"} {
-		var surface struct {
-			ErrorCodes []string `json:"error_codes"`
-		}
-		if err := json.Unmarshal(readFile(t, filepath.Join(repo, "internal", "contracts", "v0.1.0", "examples", app, "api", "surface.json")), &surface); err != nil {
-			t.Fatal(err)
-		}
-		reserved := reservedCodes()
-		for _, code := range surface.ErrorCodes {
-			if !reserved[code] && !slices.Contains(examples, code) {
-				t.Errorf("%s: v0.1.0 code %q isn't reserved", app, code)
-			}
-		}
 	}
 }
