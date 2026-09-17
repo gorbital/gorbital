@@ -1,0 +1,25 @@
+# mobile-backend
+
+> The mobile-backend HTTP API.
+
+Every endpoint below links to its reference page as Markdown. The OpenAPI document is at `/openapi.json` and the interactive reference at `/docs`. Errors are `application/problem+json` with a stable `code`.
+
+## Authentication
+
+- `bearer` (bearer): Session token from POST /v1/auth/login with "transport": "bearer", or an API key (gbk_…) from POST /v1/auth/api-keys. Browsers use the session cookie that login sets instead.
+
+## Trips
+
+- [List your trips](/docs/trips/trips-get-v1-trips.md): `GET /v1/trips`
+- [Add a trip](/docs/trips/trips-post-v1-trips.md): `POST /v1/trips`
+- [Get one of your trips](/docs/trips/trips-get-v1-trips-by-id.md): `GET /v1/trips/{id}`
+- [Delete one of your trips](/docs/trips/trips-delete-v1-trips-by-id.md): `DELETE /v1/trips/{id}`
+
+## System
+
+- [Build information](/docs/system/get-version.md): `GET /version`
+
+## Optional
+
+- [OpenAPI document](/openapi.json): every endpoint, parameter and schema
+- [API reference overview](/docs.md)

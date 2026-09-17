@@ -11,6 +11,8 @@ Unlike the golden apps next to this directory (`examples/minimal`, `examples/ful
 | [`shelfie`](shelfie/README.md) | The reading-tracker API of the Shelfie chapters: `gorbital.Main`, a module in four layers with one file per operation, `gorbitaltest` |
 | [`admin-tool`](admin-tool/README.md) | The *Internal admin tool* recipe: the built-in `/ops` and flags modules, a module's runtime setting, client flag, retention and named rate limiter |
 | [`invoicing`](invoicing/README.md) | The *Multi-tenant invoicing* recipe: `orgshttp`, a module generated with `orb gen module --org`, and the row-level security migration, tested as a database role without bypass |
+| [`mobile-backend`](mobile-backend/README.md) | The *Mobile backend with an external identity provider* recipe: `modules/jwt` as the app's authenticator, claims as actors and permissions, per-user scoping, tested against a local JWKS |
+| [`payments`](payments/README.md) | The *Receiving payment webhooks* recipe: `guard.Webhook` with a `webhook.NewStandard` verifier, idempotency by the provider's event ID, and a job enqueued with `jobs.Client.InsertTx` in the write's transaction |
 
 ## Layout
 
