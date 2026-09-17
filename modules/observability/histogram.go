@@ -117,21 +117,3 @@ func (s Stats) Quantile(q float64) time.Duration {
 	}
 	return s.DurationMax
 }
-
-// add adds o's counts to s.
-func (s *Stats) add(o Stats) {
-	s.Requests += o.Requests
-	s.ClientErrors += o.ClientErrors
-	s.ServerErrors += o.ServerErrors
-	s.DurationSum += o.DurationSum
-	s.DurationMax = max(s.DurationMax, o.DurationMax)
-	if len(o.Buckets) == 0 {
-		return
-	}
-	if s.Buckets == nil {
-		s.Buckets = make([]int64, BucketCount)
-	}
-	for i := range min(len(o.Buckets), BucketCount) {
-		s.Buckets[i] += o.Buckets[i]
-	}
-}

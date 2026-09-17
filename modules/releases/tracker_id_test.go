@@ -17,7 +17,8 @@ func TestTrackerInstanceID(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, _ := releases.NewTracker(new(pgxpool.Pool), buildinfo.Info{})
-	if !regexp.MustCompile(`^[0-9a-f]{32}$`).MatchString(a.InstanceID()) || a.InstanceID() != a.InstanceID() || a.InstanceID() == b.InstanceID() {
-		t.Errorf("InstanceID() = %q and %q, want a stable random 32-character hex ID per tracker", a.InstanceID(), b.InstanceID())
+	first, again, other := a.InstanceID(), a.InstanceID(), b.InstanceID()
+	if !regexp.MustCompile(`^[0-9a-f]{32}$`).MatchString(first) || first != again || first == other {
+		t.Errorf("InstanceID() = %q, %q and %q, want a stable random 32-character hex ID per tracker", first, again, other)
 	}
 }
