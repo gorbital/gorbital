@@ -235,6 +235,23 @@ func TestLogTee(t *testing.T) {
 	}
 	tel2.Logger().Info("fine")
 	_ = tel2.Shutdown(ctx)
+
+	// Several tees each receive every record their level takes.
+	first, second := newLevelBuffer(slog.LevelInfo), newLevelBuffer(slog.LevelWarn)
+	tel3, err := telemetry.Setup(ctx, "tee-test", "v0", telemetry.WithoutGlobals(), telemetry.WithLogWriter(io.Discard),
+		telemetry.WithLogFormat(telemetry.LogFormatText), telemetry.WithLogTee(first), telemetry.WithLogTee(nil), telemetry.WithLogTee(second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tel3.Logger().With("component", "both").InfoContext(ctx, "info both")
+	tel3.Logger().WarnContext(ctx, "warn both")
+	_ = tel3.Shutdown(ctx)
+	if s := first.buf.String(); !strings.Contains(s, "info both") || !strings.Contains(s, "warn both") || !strings.Contains(s, "component=both") {
+		t.Errorf("first tee = %q, want both records", s)
+	}
+	if s := second.buf.String(); strings.Contains(s, "info both") || !strings.Contains(s, "warn both") {
+		t.Errorf("second tee = %q, want the warning only", s)
+	}
 }
 
 func TestSetupValidation(t *testing.T) {

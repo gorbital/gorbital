@@ -245,6 +245,7 @@
     "incidents.detection_window",
     "incidents.error_rate_threshold",
     "incidents.min_requests",
+    "logs.archive.enabled",
     "mail.from_email",
     "mail.from_name",
     "mail.reply_to",

@@ -63,6 +63,34 @@ In development, `orb dev` keeps the app's log records for the Dev Portal's Logs 
 
 The store is development only: production logs go wherever `APP_LOG_FORMAT=json` output is shipped.
 
+## The hourly log archive
+
+When you have no log pipeline, or want a durable copy anyway, the app can keep each hour's records in its own [file storage](storage.md) ([ADR-0079](../adr/0079-hourly-log-archive.md)). It is off until an operator turns on the runtime setting `logs.archive.enabled` (a reason is required; [settings reference](../reference/settings.md)):
+
+```bash
+curl -X PUT http://127.0.0.1:8080/ops/settings/logs.archive.enabled \
+  -H 'Authorization: Bearer <token>' -H 'Content-Type: application/json' \
+  -d '{"value":true,"version":0,"reason":"keep the logs during the migration"}'
+```
+
+From the next record on, every instance copies what it logs (at `APP_LOG_LEVEL` and above, as JSON lines with a `service` attribute, whatever `APP_LOG_FORMAT` says) into a file for the current hour under `LOG_ARCHIVE_DIR` (`.orb/logs` by default, created on demand; in the generated image that is `/home/nonroot/.orb/logs` inside the container, so point it at a mounted volume if a crashed instance's hour must survive the container). Within a minute of the top of the hour the finished file is gzipped, stored in the bucket and removed:
+
+```text
+logs/<service>/<YYYY>/<MM>/<DD>/<HH>.<host>.jsonl.gz                     a finished hour
+logs/<service>/<YYYY>/<MM>/<DD>/<HH>.<host>.partial-<unix>.jsonl.gz      the rest of an hour, at shutdown or when switched off
+```
+
+Hours are UTC; `<host>` is the instance's host name, so instances sharing a bucket keep their own hours. The objects are `application/gzip` and show up like any other under `logs/` in `GET /ops/storage/objects?prefix=logs/` and the Dev Portal's Storage screen; `gunzip -c 10.web-1.jsonl.gz | jq` reads one. Turning the setting off stops collecting at once and stores what was collected so far as a partial hour; turning it on again in the same hour starts a new file, stored at the top of the hour as usual.
+
+What can go wrong, and what happens:
+
+- **The upload fails** (the bucket is unreachable, the credentials are wrong): the app logs `log archive upload failed; retrying at the next tick` with the key and the error, keeps the file, and tries again every minute. Nothing is lost while the disk holds.
+- **The instance crashes**: the hour's file is on disk, appended to if the instance restarts within the hour and stored at the next start otherwise. The spool is buffered and flushed every minute, so a crash can lose the last minute's records from the archive; standard output still has them.
+- **The directory can't be written**: the app logs `log archive can't write its spool file` and drops records from the archive (never from standard output) until it can.
+- **The setting is on but the app has no file storage**: one warning, nothing collected.
+
+The archive is a copy, not a search: the Logs screen reads `orb dev`'s store above, and querying production logs remains the job of a pipeline. Log records carry IDs, paths and addresses (never emails, tokens or secrets), so set a lifecycle rule on `logs/` in the bucket that matches your retention policy; the app never deletes what it stored.
+
 ## The Observability screen
 
 The Dev Portal's Observability screen ([Dev Portal guide](dev-portal.md), [ADR-0073](../adr/0073-observability-screen.md)) shows the overview above for the running app, and what only the developer's machine can see:

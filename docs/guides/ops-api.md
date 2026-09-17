@@ -93,6 +93,7 @@ Settings in the Full apps (`internal/app/settings.go`; the list is recorded in `
 | `maintenance.enabled` | `false` | — | Required | Maintenance mode |
 | `maintenance.message` | empty | up to 500 characters | Optional | Message during maintenance |
 | `maintenance.retry_after` | 5 minutes | 1 minute to 24 hours | Optional | `Retry-After` during maintenance |
+| `logs.archive.enabled` | `false` | — | Required | Keep each hour's log records gzipped in file storage under `logs/` ([observability](observability.md#the-hourly-log-archive)) |
 | `orgs.invitation_url` (multi-tenant) | `http://localhost:3000/invitations` | http(s) URL without fragment, up to 500 characters | Required | Frontend page invitation links open |
 | `orgs.invitation_ttl` (multi-tenant) | 7 days | 1 to 30 days | Required | Invitation link lifetime |
 | `orgs.deleted_org_retention` (multi-tenant) | 30 days | 1 to 365 days | Required | Deleted organisations restorable before `orgs_purge` |

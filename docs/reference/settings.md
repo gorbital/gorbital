@@ -73,6 +73,12 @@ Runtime settings are non-secret values operators change without a redeploy: `PUT
 | `maintenance.message` | string | empty | at most 500 characters | no | no | What clients see while maintenance mode is on. Empty: a generic message. |
 | `maintenance.retry_after` | duration | 5 minutes | 1 minute to 1 day | no | no | The Retry-After clients get while maintenance mode is on. |
 
+## Logs
+
+| Key | Type | Default | Allowed | Reason required | Restart required | Description |
+|---|---|---|---|---|---|---|
+| `logs.archive.enabled` | bool | `false` | any | yes | no | Keep the app's log records in file storage: each instance collects every record it logs into a file for the current hour under LOG_ARCHIVE_DIR and, at the top of the hour or when it shuts down, stores the file gzipped under logs/ in the storage bucket, where /ops/storage lists it. Off: nothing is collected. Log records can hold IDs and addresses; check your retention rules before turning it on. |
+
 ## Organisations
 
 *Multi-tenant apps only.*

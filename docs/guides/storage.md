@@ -41,6 +41,8 @@ Signed URLs let a browser download (GET) or upload (PUT) one object until they e
 
 `GET /ops/storage` describes the store and whether it answers; `GET /ops/storage/objects?prefix=&recursive=&cursor=&limit=` lists a page; `GET /ops/storage/object?key=` describes one, `GET /ops/storage/object/content?key=` downloads it, `PUT /ops/storage/object?key=` uploads the request body, `DELETE /ops/storage/object?key=` removes it, `POST /ops/storage/object/move` renames, `POST /ops/storage/directories` makes a folder, `POST /ops/storage/signed-url` makes a link ([ops API](ops-api.md)). Reads need `ops.storage.read` (`ops_viewer` has it), writes `ops.storage.write` (`platform_admin`); every write is audited (`storage.object.uploaded`, `storage.object.deleted`, `storage.object.moved`, `storage.directory.created`, `storage.signed_url.created`).
 
+With the `logs.archive.enabled` runtime setting on, the app stores each hour of its log records under `logs/<service>/<YYYY>/<MM>/<DD>/` as gzipped JSON Lines ([observability guide](observability.md#the-hourly-log-archive), [ADR-0079](../adr/0079-hourly-log-archive.md)); they are objects like any other, so a lifecycle rule on `logs/` is how they expire.
+
 The Dev Portal's Storage screen is a file browser on those endpoints ([Dev Portal guide](dev-portal.md)): folders, upload, download, delete, move, new folder, image and PDF preview, metadata, signed URLs. When the store isn't `local` it shows a red banner and stays read-only until you unlock it for the session: the same browser works against a production bucket, on purpose.
 
 ## Environment reference
