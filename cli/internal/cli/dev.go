@@ -22,6 +22,7 @@ import (
 	"golang.org/x/term"
 
 	"gorbital.dev/cli/internal/devmail"
+	"gorbital.dev/cli/internal/genplan"
 	"gorbital.dev/cli/internal/pgmeta"
 	"gorbital.dev/cli/internal/portal"
 )
@@ -369,12 +370,49 @@ func checkServicePort(service, envVar, port string) error {
 // --redo (development only, ADR-0069). runMigrate wraps it with the schema
 // status (ADR-0080).
 func (d *devRunner) migrateWith(ctx context.Context, env []string, args ...string) error {
-	all := append([]string{"run", "./cmd/migrate"}, args...)
-	fmt.Fprintf(d.out, "orb: applying migrations (go %s)\n", strings.Join(all, " "))
-	if err := d.run(ctx, env, "go", all...); err != nil {
-		return fmt.Errorf("migrations failed: %w", err)
+	for _, all := range migrateCommands(".", args) {
+		fmt.Fprintf(d.out, "orb: applying migrations (go %s)\n", strings.Join(all, " "))
+		if err := d.run(ctx, env, "go", all...); err != nil {
+			return fmt.Errorf("migrations failed: %w", err)
+		}
 	}
 	return nil
+}
+
+// migrateCommands returns the go commands that run the app's migrations
+// with cmd/migrate's flags: cmd/migrate itself in v0.1 apps, and the
+// migrate and migrate-down commands of gorbital.Main in apps without it.
+func migrateCommands(dir string, args []string) [][]string {
+	if _, err := os.Stat(filepath.Join(dir, "cmd", "migrate")); err == nil || !isGorbitalApp(dir) {
+		return [][]string{append([]string{"run", "./cmd/migrate"}, args...)}
+	}
+	switch {
+	case slices.Contains(args, "--down"):
+		return [][]string{{"run", "./cmd/api", "migrate-down"}}
+	case slices.Contains(args, "--redo"):
+		return [][]string{{"run", "./cmd/api", "migrate-down"}, {"run", "./cmd/api", "migrate"}}
+	}
+	return [][]string{append([]string{"run", "./cmd/api", "migrate"}, args...)}
+}
+
+// generateModules rewrites internal/modules/modules.gen.go before a build
+// when the app has one and a module was added or removed (orb gen modules).
+func (d *devRunner) generateModules() {
+	if _, err := os.Stat(filepath.FromSlash(modulesGenPath)); err != nil {
+		return
+	}
+	app, err := findAppIn(".")
+	if err == nil {
+		var plan genplan.Plan
+		if plan, err = planModules(app); err == nil && len(plan.Changes) > 0 {
+			if err = genplan.Apply(app.dir, plan); err == nil {
+				fmt.Fprintf(d.out, "orb: updated %s (%s)\n", modulesGenPath, moduleCount(plan.Result.(genModulesResult).Modules))
+			}
+		}
+	}
+	if err != nil {
+		fmt.Fprintf(d.out, "orb: couldn't update %s: %v\n", modulesGenPath, err)
+	}
 }
 
 // seed runs the app's seed data command, which does nothing when its data
@@ -573,6 +611,7 @@ func (d *devRunner) keepRunning(what string) {
 }
 
 func (d *devRunner) build(ctx context.Context) error {
+	d.generateModules()
 	cmd := exec.CommandContext(ctx, "go", "build", "-o", d.bin, "./cmd/api")
 	cmd.Stdout, cmd.Stderr = d.out, d.out
 	return cmd.Run()

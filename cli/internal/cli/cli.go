@@ -53,6 +53,7 @@ Usage:
                                  generate a module, table and API for users' records (Full preset apps)
   orb gen migration [<name>] [flags]
                                  generate an empty database migration (Full preset apps)
+  orb gen modules [flags]        list internal/modules in modules.gen.go (apps using gorbital.Main)
   orb add mail [flags]           set up email with Resend or SMTP (Full preset apps)
   orb add orgs [flags]           turn a single-tenant app multi-tenant on a branch (Full preset apps)
   orb add rls [flags]            turn on row-level security for organisations' data (multi-tenant apps)

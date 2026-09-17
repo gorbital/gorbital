@@ -349,10 +349,11 @@ func (d *doctor) apiFiles(ctx context.Context, env []string) {
 // database checks the configuration and migrations through the app's
 // migrate command, so orb needs no database driver.
 func (d *doctor) database(ctx context.Context, env []string) {
-	if _, err := os.Stat(d.path("cmd/migrate")); err != nil {
+	commands := migrateCommands(d.dir, []string{"--status", "--json"})
+	if _, err := os.Stat(d.path("cmd/migrate")); err != nil && !isGorbitalApp(d.dir) {
 		return
 	}
-	out, errOut, err := doctorCommand(ctx, d.dir, env, "go", "run", "./cmd/migrate", "--status", "--json")
+	out, errOut, err := doctorCommand(ctx, d.dir, env, "go", commands[0]...)
 	var s struct {
 		ConfigError   string `json:"config_error"`
 		DatabaseError string `json:"database_error"`

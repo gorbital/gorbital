@@ -32,11 +32,14 @@ const genUsage = `Usage:
   orb gen job <Name> [flags]
   orb gen resource <Name> <field:type>... [flags]
   orb gen migration <name> [flags]
+  orb gen modules [flags]
 
 job generates a background job whose schedule, timeout and retries can be
 changed at runtime through /ops/jobs. resource generates a module, table and
 API for records that belong to the signed-in user. migration creates an empty
-database migration that runs after the existing ones. Run them inside an app
+database migration that runs after the existing ones. modules rewrites
+internal/modules/modules.gen.go, the list of the app's modules for
+gorbital.Main. Run them inside an app
 created with the Full preset. In a terminal, missing values are asked
 interactively; pass flags to skip them.
 `
@@ -44,7 +47,7 @@ interactively; pass flags to skip them.
 func runGen(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
 		fmt.Fprint(stderr, genUsage)
-		return usageError("missing generator: orb gen job <Name>, orb gen resource <Name> <field:type>... or orb gen migration <name>")
+		return usageError("missing generator: orb gen job <Name>, orb gen resource <Name> <field:type>..., orb gen migration <name> or orb gen modules")
 	}
 	switch args[0] {
 	case "job":
@@ -53,8 +56,10 @@ func runGen(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 		return runGenResource(ctx, args[1:], stdin, stdout, stderr)
 	case "migration":
 		return runGenMigration(ctx, args[1:], stdin, stdout, stderr)
+	case "modules":
+		return runGenModules(ctx, args[1:], stdout, stderr)
 	default:
-		return usageError(fmt.Sprintf("unknown generator %q (want job, resource or migration)", args[0]))
+		return usageError(fmt.Sprintf("unknown generator %q (want job, resource, migration or modules)", args[0]))
 	}
 }
 

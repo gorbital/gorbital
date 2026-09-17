@@ -48,6 +48,10 @@ func TestJSONOutputs(t *testing.T) {
 			newMigrationApp(t)
 			return runOrb(t, "gen", "migration", "AddCustomerPhone", "--json")
 		}},
+		{"gen-modules", func(t *testing.T) (int, string, string) {
+			newModulesApp(t)
+			return runOrb(t, "gen", "modules", "--json")
+		}},
 		{"add-mail", func(t *testing.T) (int, string, string) {
 			newMailApp(t)
 			return runOrb(t, "add", "mail", "--provider", "smtp", "--smtp-host", "smtp.example.com", "--skip-tidy", "--json")
