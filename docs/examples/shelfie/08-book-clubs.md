@@ -16,7 +16,12 @@ Organisations are a built-in module, `gorbital.dev/gorbital/orgshttp`. Its membe
 
 <!-- include examples/apps/shelfie/cmd/api/main.go#main -->
 
-With that line, Shelfie serves v0.1's organisation API unchanged, under `/v1/orgs` and `/v1/invitations`, and its two migrations join the app's history:
+With that line, Shelfie serves v0.1's organisation API unchanged, under `/v1/orgs` and `/v1/invitations`, and its two migrations join the app's history.
+
+> [!WARNING]
+> The organisations module's migrations keep the versions v0.1 apps hold them under, `20260916000001` and `20260918000002`, earlier than chapters 1 to 7's. A local database already migrated past them refuses to migrate them out of order (goose reports missing migrations). Recreate the development database (`docker compose down -v`, then `orb dev`), as the tests do with a fresh database each time. A production database adds `orgshttp` before any migration dated after `20260918000002`, or starts from a fresh database.
+
+What it serves:
 
 | Route | Does |
 |---|---|

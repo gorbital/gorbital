@@ -102,6 +102,7 @@ What differs from a v0.1 app:
 - The organisation settings operations answer `setting_not_found`, `setting_version_conflict`, `setting_reason_required` and `invalid_setting_value` themselves, so they work without `opshttp`.
 - The dev console doesn't preview the invitation email yet.
 - There is no `seed` command: create data through the API, or with SQL in your own command.
+- The organisations module's migrations have v0.1's versions (`20260916000001`, `20260918000002`). A database already migrated past them can't apply them later: add `orgshttp` before your first migration dated after them, or start from a new database.
 
 ## Roles
 
