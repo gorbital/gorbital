@@ -983,14 +983,14 @@ CREATE POLICY org_isolation ON ${m} USING (org_id = current_setting('app.org_id'
   Fields:
 ${r.map(e=>`    ${e.name.padEnd(20)} ${"string"===e.kind?`string, 1 to 100 characters${e.unique?", unique":""}`:"text"===e.kind?"text, up to 2000 characters":`one of ${e.values.join(", ")}`}`).join("\n")}
   Files:
-${T.map(e=>`    ${e.path}`).join("\n")}`;return{plan:{generator:"resource",name:d,summary:k,changes:T,next:["go run ./cmd/migrate","go run ./cmd/api openapi --dir api","go test ./internal/app -run TestPublicSurface -update","go test ./..."],result:{name:d,package:c,table:m,route:`/v1/${b?"orgs/{orgId}/":""}${p}`,files:T.map(e=>e.path),dry_run:!0}},applied:!1}}(o);break;case"module":u=function(e){let a,n=e4(e.name);if(!n||n.length>40||!/^[A-Za-z][A-Za-z0-9_-]*$/.test(n))return eQ("module name must start with a letter and use letters, digits, hyphens or underscores (max 40), such as Shelf");if(!0===e.org)return eQ("Organisation scoping arrives with Phase 7 (orgs); the generator refuses --org until then");let r=e6(e.fields,!0);if(!Array.isArray(r))return r;let i=e9(n),o=e4(e.plural)?e9(e4(e.plural)):[...i.slice(0,-1),(a=i[i.length-1],/(l|ea|i)fe?$/.test(a)?a.replace(/fe?$/,"ves"):te(a))],l=e7(i),d=e7(o),u=o.join(""),c=o.join("_"),m=`/v1/${o.join("-")}`,p=i.join("_"),h=e4(e.id_prefix)||(p[0]+p.slice(1).replace(/[aeiou_]/g,"")).slice(0,3);if(!/^[a-z]{2,8}$/.test(h))return eQ(`ID prefix "${h}" must be 2 to 8 lowercase letters; pass --id-prefix`);if(d===l)return eQ(`the plural of ${l} must differ from the name; pass --plural`);if(s.has(u))return e0(`internal/modules/${u} exists; choose another name, or edit the module by hand`);let _=`internal/modules/${u}`,g=`${eM}/${_}`,f=r.find(e=>"string"===e.kind&&!e.optional),b=[`${u}.${p}.read`,`${u}.${p}.write`],v=r.map(e=>`	${tr(e.name)} ${"enum"===e.kind?l+tr(e.name):"string"} \`json:"${e.name}"\``).join("\n"),y=r.filter(e=>"enum"===e.kind).map(e=>`
+${T.map(e=>`    ${e.path}`).join("\n")}`;return{plan:{generator:"resource",name:d,summary:k,changes:T,next:["go run ./cmd/migrate","go run ./cmd/api openapi --dir api","go test ./internal/app -run TestPublicSurface -update","go test ./..."],result:{name:d,package:c,table:m,route:`/v1/${b?"orgs/{orgId}/":""}${p}`,files:T.map(e=>e.path),dry_run:!0}},applied:!1}}(o);break;case"module":u=function(e){let a,n=e4(e.name);if(!n||n.length>40||!/^[A-Za-z][A-Za-z0-9_-]*$/.test(n))return eQ("module name must start with a letter and use letters, digits, hyphens or underscores (max 40), such as Shelf");let r=e6(e.fields,!0);if(!Array.isArray(r))return r;let i=e9(n),o=e4(e.plural)?e9(e4(e.plural)):[...i.slice(0,-1),(a=i[i.length-1],/(l|ea|i)fe?$/.test(a)?a.replace(/fe?$/,"ves"):te(a))],l=e7(i),d=e7(o),u=o.join(""),c=o.join("_"),m=!0===e.org,p=m?`/v1/orgs/{orgId}/${o.join("-")}`:`/v1/${o.join("-")}`,h=i.join("_"),_=e4(e.id_prefix)||(h[0]+h.slice(1).replace(/[aeiou_]/g,"")).slice(0,3);if(!/^[a-z]{2,8}$/.test(_))return eQ(`ID prefix "${_}" must be 2 to 8 lowercase letters; pass --id-prefix`);if(d===l)return eQ(`the plural of ${l} must differ from the name; pass --plural`);if(s.has(u))return e0(`internal/modules/${u} exists; choose another name, or edit the module by hand`);let g=`internal/modules/${u}`,f=`${eM}/${g}`,b=r.find(e=>"string"===e.kind&&!e.optional),v=[`${u}.${h}.read`,`${u}.${h}.write`],y=r.map(e=>`	${tr(e.name)} ${"enum"===e.kind?l+tr(e.name):"string"} \`json:"${e.name}"\``).join("\n"),E=r.filter(e=>"enum"===e.kind).map(e=>`
 // ${l}${tr(e.name)} is one of ${e.values.join(", ")}; ${e.values[0]} by default.
 type ${l}${tr(e.name)} string
 
 const (
 ${e.values.map(t=>`	${l}${tr(e.name)}${tr(t)} ${l}${tr(e.name)} = "${t}"`).join("\n")}
 )
-`).join(""),E=r.map(e=>"string"===e.kind?`	if n := utf8.RuneCountInString(f.${tr(e.name)}); n < ${+!e.optional} || n > 100 {
+`).join(""),$=r.map(e=>"string"===e.kind?`	if n := utf8.RuneCountInString(f.${tr(e.name)}); n < ${+!e.optional} || n > 100 {
 		return &FieldError{Field: "${e.name}", Message: "must be ${e.optional?"at most 100":"1 to 100"} characters"}
 	}`:"text"===e.kind?`	if utf8.RuneCountInString(f.${tr(e.name)}) > 2000 {
 		return &FieldError{Field: "${e.name}", Message: "must be at most 2000 characters"}
@@ -998,12 +998,12 @@ ${e.values.map(t=>`	${l}${tr(e.name)}${tr(t)} ${l}${tr(e.name)} = "${t}"`).join(
 	case ${e.values.map(t=>`${l}${tr(e.name)}${tr(t)}`).join(", ")}:
 	default:
 		return &FieldError{Field: "${e.name}", Message: "must be one of ${e.values.join(", ")}"}
-	}`).join("\n"),$=(e,t,a,n,r)=>`package usecase
+	}`).join("\n"),w=(e,t,a,n,r)=>`package usecase
 
 import (
 	"context"
 
-	"${g}/domain"
+	"${f}/domain"
 	"gorbital.dev/actor"
 )
 
@@ -1014,14 +1014,14 @@ func (s *Service) ${e}(${n}) {
 	}
 ${r}
 }
-`,w=e3(),T=[eZ(`${_}/module.go`,`// Package ${u} is the ${i.join(" ")} module: records that belong to the signed-in user.
+`,T=e3(),k=[eZ(`${g}/module.go`,`// Package ${u} is the ${i.join(" ")} module: records that belong to the signed-in user.
 package ${u}
 
 import (
-	"${g}/delivery"
-	"${g}/domain"
-	"${g}/repository"
-	"${g}/usecase"
+	"${f}/delivery"
+	"${f}/domain"
+	"${f}/repository"
+	"${f}/usecase"
 	"gorbital.dev"
 )
 
@@ -1029,11 +1029,11 @@ import (
 func Module() gorbital.Module {
 	return gorbital.Module{
 		Name:        "${u}",
-		Permissions: []string{"${b[0]}", "${b[1]}"},
+		Permissions: []string{"${v[0]}", "${v[1]}"},
 		Errors: gorbital.Errors{
-			domain.Err${l}NotFound:        {Status: 404, Code: "${p}_not_found"},
-			domain.Err${l}VersionConflict: {Status: 409, Code: "${p}_version_conflict"},
-${r.filter(e=>e.unique).map(e=>`			domain.Err${l}${tr(e.name)}Taken: {Status: 409, Code: "${p}_${e.name}_taken"},
+			domain.Err${l}NotFound:        {Status: 404, Code: "${h}_not_found"},
+			domain.Err${l}VersionConflict: {Status: 409, Code: "${h}_version_conflict"},
+${r.filter(e=>e.unique).map(e=>`			domain.Err${l}${tr(e.name)}Taken: {Status: 409, Code: "${h}_${e.name}_taken"},
 `).join("")}		},
 		Routes: func(r *gorbital.Router, deps gorbital.Deps) {
 			svc := usecase.New(repository.New(deps.DB))
@@ -1041,14 +1041,14 @@ ${r.filter(e=>e.unique).map(e=>`			domain.Err${l}${tr(e.name)}Taken: {Status: 40
 		},
 	}
 }
-`),eZ(`${_}/domain/${p}.go`,`package domain
+`),eZ(`${g}/domain/${h}.go`,`package domain
 
 import (
 	"time"
 	"unicode/utf8"
 )
-${y}
-// ${l} is one ${i.join(" ")}. IDs look like ${h}_….
+${E}
+// ${l} is one ${i.join(" ")}. IDs look like ${_}_….
 type ${l} struct {
 	ID      string \`json:"id"\`
 	OwnerID string \`json:"owner_id"\`
@@ -1060,48 +1060,48 @@ type ${l} struct {
 
 // ${l}Fields is what a caller sets.
 type ${l}Fields struct {
-${v}
+${y}
 }
 
 // Validate checks the fields' lengths and values.
 func (f ${l}Fields) Validate() error {
-${E}
+${$}
 	return nil
 }
-`),eZ(`${_}/domain/errors.go`,`package domain
+`),eZ(`${g}/domain/errors.go`,`package domain
 
 import "errors"
 
 var (
-	Err${l}NotFound        = errors.New("${p} not found")
-	Err${l}VersionConflict = errors.New("${p} changed since it was read")
-${r.filter(e=>e.unique).map(e=>`	Err${l}${tr(e.name)}Taken = errors.New("${p} ${e.name} taken")
+	Err${l}NotFound        = errors.New("${h} not found")
+	Err${l}VersionConflict = errors.New("${h} changed since it was read")
+${r.filter(e=>e.unique).map(e=>`	Err${l}${tr(e.name)}Taken = errors.New("${h} ${e.name} taken")
 `).join("")})
 
 // FieldError says which field is wrong.
 type FieldError struct{ Field, Message string }
 
 func (e *FieldError) Error() string { return e.Field + " " + e.Message }
-`),eZ(`${_}/domain/${p}_test.go`,`package domain
+`),eZ(`${g}/domain/${h}_test.go`,`package domain
 
 import "testing"
 
 func TestValidate(t *testing.T) {
-	f := ${l}Fields{${tr(f.name)}: "Example"${r.filter(e=>"enum"===e.kind).map(e=>`, ${tr(e.name)}: ${l}${tr(e.name)}${tr(e.values[0])}`).join("")}}
+	f := ${l}Fields{${tr(b.name)}: "Example"${r.filter(e=>"enum"===e.kind).map(e=>`, ${tr(e.name)}: ${l}${tr(e.name)}${tr(e.values[0])}`).join("")}}
 	if err := f.Validate(); err != nil {
 		t.Fatalf("valid fields refused: %v", err)
 	}
-	f.${tr(f.name)} = ""
+	f.${tr(b.name)} = ""
 	if err := f.Validate(); err == nil {
-		t.Fatal("empty ${f.name} accepted")
+		t.Fatal("empty ${b.name} accepted")
 	}
 }
-`),eZ(`${_}/usecase/ports.go`,`package usecase
+`),eZ(`${g}/usecase/ports.go`,`package usecase
 
 import (
 	"context"
 
-	"${g}/domain"
+	"${f}/domain"
 )
 
 // Store is what the use cases need from the repository.
@@ -1118,22 +1118,22 @@ type Service struct{ store Store }
 
 // New wires the service.
 func New(store Store) *Service { return &Service{store: store} }
-`),eZ(`${_}/usecase/create_${p}.go`,$("Create",`makes a ${i.join(" ")} for the signed-in user`,b[1],`ctx context.Context, f domain.${l}Fields) (*domain.${l}, error`,`	if err := f.Validate(); err != nil {
+`),eZ(`${g}/usecase/create_${h}.go`,w("Create",`makes a ${i.join(" ")} for the signed-in user`,v[1],`ctx context.Context, f domain.${l}Fields) (*domain.${l}, error`,`	if err := f.Validate(); err != nil {
 		return nil, err
 	}
-	x := &domain.${l}{ID: id.New("${h}"), OwnerID: actor.UserID(ctx), ${l}Fields: f}
-	return x, s.store.Insert(ctx, x)`).replace('	"gorbital.dev/actor"\n','	"gorbital.dev/actor"\n	"gorbital.dev/id"\n')),eZ(`${_}/usecase/get_${p}.go`,$("Get",`reads one of the user's ${o.join(" ")}`,b[0],`ctx context.Context, id string) (*domain.${l}, error`,"	return s.store.Get(ctx, actor.UserID(ctx), id)")),eZ(`${_}/usecase/list_${c}.go`,$("List",`pages through the user's ${o.join(" ")}, sorted by ${f.name}`,b[0],`ctx context.Context, q ListQuery) ([]domain.${l}, string, error`,"	return s.store.List(ctx, actor.UserID(ctx), q.Normalise())").replace("return nil, err\n	}",'return nil, "", err\n	}')),eZ(`${_}/usecase/update_${p}.go`,$("Update",`changes a ${i.join(" ")} at the version the caller read`,b[1],`ctx context.Context, id string, version int, f domain.${l}Fields) (*domain.${l}, error`,`	if err := f.Validate(); err != nil {
+	x := &domain.${l}{ID: id.New("${_}"), OwnerID: actor.UserID(ctx), ${l}Fields: f}
+	return x, s.store.Insert(ctx, x)`).replace('	"gorbital.dev/actor"\n','	"gorbital.dev/actor"\n	"gorbital.dev/id"\n')),eZ(`${g}/usecase/get_${h}.go`,w("Get",`reads one of the user's ${o.join(" ")}`,v[0],`ctx context.Context, id string) (*domain.${l}, error`,"	return s.store.Get(ctx, actor.UserID(ctx), id)")),eZ(`${g}/usecase/list_${c}.go`,w("List",`pages through the user's ${o.join(" ")}, sorted by ${b.name}`,v[0],`ctx context.Context, q ListQuery) ([]domain.${l}, string, error`,"	return s.store.List(ctx, actor.UserID(ctx), q.Normalise())").replace("return nil, err\n	}",'return nil, "", err\n	}')),eZ(`${g}/usecase/update_${h}.go`,w("Update",`changes a ${i.join(" ")} at the version the caller read`,v[1],`ctx context.Context, id string, version int, f domain.${l}Fields) (*domain.${l}, error`,`	if err := f.Validate(); err != nil {
 		return nil, err
 	}
 	x := &domain.${l}{ID: id, OwnerID: actor.UserID(ctx), Version: version, ${l}Fields: f}
-	return x, s.store.Update(ctx, x)`)),eZ(`${_}/usecase/delete_${p}.go`,$("Delete",`removes a ${i.join(" ")}`,b[1],"ctx context.Context, id string) error","	return s.store.Delete(ctx, actor.UserID(ctx), id)").replace(") error) {",") error {")),eZ(`${_}/usecase/${c}_test.go`,`package usecase_test
+	return x, s.store.Update(ctx, x)`)),eZ(`${g}/usecase/delete_${h}.go`,w("Delete",`removes a ${i.join(" ")}`,v[1],"ctx context.Context, id string) error","	return s.store.Delete(ctx, actor.UserID(ctx), id)").replace(") error) {",") error {")),eZ(`${g}/usecase/${c}_test.go`,`package usecase_test
 
 import "testing"
 
 func TestNeedsPermissions(t *testing.T) {
 	t.Skip("runs on PostgreSQL: go test ./... with DATABASE_URL")
 }
-`),eZ(`${_}/repository/store.go`,`package repository
+`),eZ(`${g}/repository/store.go`,`package repository
 
 import "github.com/jackc/pgx/v5/pgxpool"
 
@@ -1142,54 +1142,54 @@ type Store struct{ pool *pgxpool.Pool }
 
 // New wraps the pool.
 func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
-`),eZ(`${_}/delivery/routes.go`,`package delivery
+`),eZ(`${g}/delivery/routes.go`,`package delivery
 
 import (
-	"${g}/usecase"
+	"${f}/usecase"
 	"gorbital.dev"
 	"gorbital.dev/guard"
 )
 
-// Routes mounts ${m}; every route needs a signed-in user.
+// Routes mounts ${p}; every route needs a signed-in user.
 func Routes(r *gorbital.Router, svc *usecase.Service) {
 	h := &handlers{svc: svc}
-	g := r.Group("${m}")
-	gorbital.Get(g, "", h.list${d}, guard.Permission("${b[0]}"))
-	gorbital.Post(g, "", h.create${l}, guard.Permission("${b[1]}"), gorbital.Status(201))
-	gorbital.Get(g, "/{id}", h.get${l}, guard.Permission("${b[0]}"))
-	gorbital.Patch(g, "/{id}", h.update${l}, guard.Permission("${b[1]}"))
-	gorbital.Delete(g, "/{id}", h.delete${l}, guard.Permission("${b[1]}"), gorbital.Status(204))
+	g := r.Group("${p}")
+	gorbital.Get(g, "", h.list${d}, guard.Permission("${v[0]}"))
+	gorbital.Post(g, "", h.create${l}, guard.Permission("${v[1]}"), gorbital.Status(201))
+	gorbital.Get(g, "/{id}", h.get${l}, guard.Permission("${v[0]}"))
+	gorbital.Patch(g, "/{id}", h.update${l}, guard.Permission("${v[1]}"))
+	gorbital.Delete(g, "/{id}", h.delete${l}, guard.Permission("${v[1]}"), gorbital.Status(204))
 }
-`),eZ(`${_}/delivery/handlers.go`,`package delivery
+`),eZ(`${g}/delivery/handlers.go`,`package delivery
 
 import (
 	"context"
 
-	"${g}/domain"
-	"${g}/usecase"
+	"${f}/domain"
+	"${f}/usecase"
 )
 
 type handlers struct{ svc *usecase.Service }
 
-type ${p}Output struct{ Body domain.${l} }
+type ${h}Output struct{ Body domain.${l} }
 
 type createInput struct{ Body domain.${l}Fields }
 
-func (h *handlers) create${l}(ctx context.Context, in *createInput) (*${p}Output, error) {
+func (h *handlers) create${l}(ctx context.Context, in *createInput) (*${h}Output, error) {
 	x, err := h.svc.Create(ctx, in.Body)
 	if err != nil {
 		return nil, err
 	}
-	return &${p}Output{Body: *x}, nil
+	return &${h}Output{Body: *x}, nil
 }
-`),eZ(`${_}/delivery/handlers_test.go`,`package delivery_test
+`),eZ(`${g}/delivery/handlers_test.go`,`package delivery_test
 
 import "testing"
 
 func Test${d}Routes(t *testing.T) {
 	t.Skip("end to end on PostgreSQL: creates, lists, updates and deletes; another user's requests get 404")
 }
-`),eZ(`db/migrations/${w}_${c}.sql`,`-- ${d}: records that belong to the signed-in user (orb gen module).
+`),eZ(`db/migrations/${T}_${c}.sql`,`-- ${d}: records that belong to the signed-in user (orb gen module).
 
 -- +goose Up
 CREATE TABLE ${c} (
@@ -1201,14 +1201,14 @@ ${r.map(e=>`    ${e.optional?`${e.name} text NOT NULL DEFAULT '' CHECK (char_len
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 ${r.filter(e=>e.unique).map(e=>`CREATE UNIQUE INDEX ${c}_owner_id_${e.name}_key ON ${c} (owner_id, lower(${e.name}));
-`).join("")}CREATE INDEX ${c}_owner_id_${f.name}_sort ON ${c} (owner_id, ${f.name}, id);
-`),eZ("internal/modules/modules.gen.go",tn([...[...s].filter(e=>t.get("internal/modules/modules.gen.go").includes(`/modules/${e}"`)),u]))],k=T.find(e=>e.path.startsWith("db/migrations/")).path,N=`  Module:    ${u} (${l}, table ${c}, IDs like ${h}_…)
-  API:       ${m}, for the signed-in user's ${o.join(" ")}
-  Permissions: ${b.join(", ")}
+`).join("")}CREATE INDEX ${c}_owner_id_${b.name}_sort ON ${c} (owner_id, ${b.name}, id);
+`),eZ("internal/modules/modules.gen.go",tn([...[...s].filter(e=>t.get("internal/modules/modules.gen.go").includes(`/modules/${e}"`)),u]))],N=k.find(e=>e.path.startsWith("db/migrations/")).path,x=`  Module:    ${u} (${l}, table ${c}, IDs like ${_}_…)
+  API:       ${p}, for ${m?`an organisation's ${o.join(" ")} (guard.OrgMember)`:`the signed-in user's ${o.join(" ")}`}
+  Permissions: ${v.join(", ")}
   Fields:
 ${r.map(e=>`    ${e.name.padEnd(20)} ${"string"===e.kind?`string, ${e.optional?"optional, up to 100":"1 to 100"} characters${e.unique?", unique":""}`:"text"===e.kind?"text, up to 2000 characters":`one of ${e.values.join(", ")}`}`).join("\n")}
   Files:
-${T.map(e=>`    ${e.path}`).join("\n")}`;return{plan:{generator:"module",name:l,summary:N,changes:T,next:["go run ./cmd/migrate","go test ./internal/modules/"+u+"/...","Give roles the permissions in the admin API: "+b.join(", ")],result:{name:l,module:u,route:m,table:c,scope:"user",permissions:b,migration:k,files:T.map(e=>e.path),dry_run:!1}},applied:!1}}(o);break;case"middleware":u=function(e){let a=e4(e.name),n=e4(e.module),r=!0===e.global,i=!0===e.guard;if(!a||a.length>60||!/^[A-Za-z][A-Za-z0-9_-]*$/.test(a))return eQ("middleware name must start with a letter and use letters, digits, hyphens or underscores (max 60), such as RequireClientVersion");if(n&&r)return eQ("--module and --global can't be used together");if(i&&!n)return eQ("--guard needs --module: a guard is a route option of one module");if(!n&&!r)return eQ("pass --module <name> or --global");if(n&&!/^[a-z][a-z0-9_]*$/.test(n))return eQ(`--module "${n}" must be a lowercase identifier, such as books`);if(n&&!s.has(n))return eQ(`module ${n} not found: internal/modules/${n} doesn't exist (have ${[...s].sort().join(", ")})`);let o=e9(a),l=e7(o),d=o.join("_"),u=i?"guard":r?"global":"module",c=r?"middleware":"delivery",m=r?"internal/middleware":`internal/modules/${n}/delivery`,p=`${m}/${d}.go`,h=`${m}/${d}_test.go`;if(t.has(p))return e0(`${p} exists`);let _=`Err${l.replace(/^Require/,"")}`,g="guard"===u?`package delivery
+${k.map(e=>`    ${e.path}`).join("\n")}`;return{plan:{generator:"module",name:l,summary:x,changes:k,next:["go run ./cmd/migrate","go test ./internal/modules/"+u+"/...","Give roles the permissions in the admin API: "+v.join(", ")],result:{name:l,module:u,route:p,table:c,scope:m?"org":"user",permissions:v,migration:N,files:k.map(e=>e.path),dry_run:!1}},applied:!1}}(o);break;case"middleware":u=function(e){let a=e4(e.name),n=e4(e.module),r=!0===e.global,i=!0===e.guard;if(!a||a.length>60||!/^[A-Za-z][A-Za-z0-9_-]*$/.test(a))return eQ("middleware name must start with a letter and use letters, digits, hyphens or underscores (max 60), such as RequireClientVersion");if(n&&r)return eQ("--module and --global can't be used together");if(i&&!n)return eQ("--guard needs --module: a guard is a route option of one module");if(!n&&!r)return eQ("pass --module <name> or --global");if(n&&!/^[a-z][a-z0-9_]*$/.test(n))return eQ(`--module "${n}" must be a lowercase identifier, such as books`);if(n&&!s.has(n))return eQ(`module ${n} not found: internal/modules/${n} doesn't exist (have ${[...s].sort().join(", ")})`);let o=e9(a),l=e7(o),d=o.join("_"),u=i?"guard":r?"global":"module",c=r?"middleware":"delivery",m=r?"internal/middleware":`internal/modules/${n}/delivery`,p=`${m}/${d}.go`,h=`${m}/${d}_test.go`;if(t.has(p))return e0(`${p} exists`);let _=`Err${l.replace(/^Require/,"")}`,g="guard"===u?`package delivery
 
 import (
 	"context"
