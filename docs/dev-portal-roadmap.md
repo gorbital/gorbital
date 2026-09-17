@@ -25,10 +25,10 @@ Each phase lives on its own branch, `dev-portal/phase-N`, in both repositories (
 | [6](#phase-6-jobs) | Jobs | ✅ Done (2026-09-17) ([ADR-0071](adr/0071-job-kinds-and-ejection.md)); run-now arguments and enqueue-for-later wait for an ops endpoint that takes them | `dev-portal/phase-6` |
 | [7](#phase-7-logs) | Logs | ✅ Done (2026-09-17) ([ADR-0072](adr/0072-local-log-store.md)); the store is JSON Lines under `.orb/portal/logs`, not SQLite | `dev-portal/phase-7` |
 | [8](#phase-8-observability) | Observability | ✅ Done (2026-09-17) ([ADR-0073](adr/0073-observability-screen.md)); no OTLP receiver, the screen builds on the request minutes, `/ops/system`, `pgmeta` statistics and a machine sampler | `dev-portal/phase-8` |
-| [9](#phase-9-mail-env-configuration) | Mail, env, configuration | 🔨 In progress (2026-09-16): backend done ([ADR-0074](adr/0074-dev-mail-previews-and-env-editor.md)) | `dev-portal/phase-9` |
-| [10](#phase-10-storage) | Storage | 🔨 In progress (2026-09-17): backend done ([ADR-0075](adr/0075-file-storage.md)) | `dev-portal/phase-10` |
-| [11](#phase-11-git) | Git | 🔨 In progress (2026-09-17): backend done ([ADR-0076](adr/0076-git-screen.md)) | `dev-portal/phase-11` |
-| [12](#phase-12-generators-and-scaffolding) | Generators and scaffolding | 🔨 In progress (2026-09-17): backend done ([ADR-0077](adr/0077-generators-hub-first-run-and-project-settings.md)) | `dev-portal/phase-12` |
+| [9](#phase-9-mail-env-configuration) | Mail, env, configuration | ✅ Done (2026-09-17) ([ADR-0074](adr/0074-dev-mail-previews-and-env-editor.md)) | `dev-portal/phase-9` |
+| [10](#phase-10-storage) | Storage | ✅ Done (2026-09-17) ([ADR-0075](adr/0075-file-storage.md)) | `dev-portal/phase-10` |
+| [11](#phase-11-git) | Git | ✅ Done (2026-09-17) ([ADR-0076](adr/0076-git-screen.md)) | `dev-portal/phase-11` |
+| [12](#phase-12-generators-and-scaffolding) | Generators and scaffolding | ✅ Done (2026-09-17) ([ADR-0077](adr/0077-generators-hub-first-run-and-project-settings.md)); service-account keys stay personal (the dev operator is refused by `/ops/service-accounts`) | `dev-portal/phase-12` |
 | [13](#phase-13-advanced) | Advanced | ⏸ Skipped for now (2026-09-16, by decision): the work stops after Phase 12 | — |
 
 ## Architecture
