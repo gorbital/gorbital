@@ -515,7 +515,7 @@ func TestLoginLimitIsPerNetwork(t *testing.T) {
 		return authlib.WithClientInfo(context.Background(), authlib.ClientInfo{IP: ip, UserAgent: "test-agent/1"})
 	}
 	var limited *authdomain.RateLimitError
-	attacker := from("2001:db8:bad:1::1")
+	var attacker context.Context
 	for i := range 4 {
 		// Every address of one IPv6 /64 is one network.
 		attacker = from(fmt.Sprintf("2001:db8:bad:1::%x", i+1))

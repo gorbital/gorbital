@@ -240,7 +240,7 @@ func (rec *recorder) WriteHeader(status int) {
 // snapshot records the final status and the headers sent with it.
 func (rec *recorder) snapshot(status int) {
 	rec.status = status
-	h := rec.ResponseWriter.Header()
+	h := rec.Header()
 	rec.unstorable = len(h.Values("Set-Cookie")) > 0 || noStore(h)
 	rec.header = http.Header{}
 	for _, name := range replayedHeaders {

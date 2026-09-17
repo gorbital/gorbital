@@ -305,7 +305,7 @@ func (c *Console) handler(logger *slog.Logger) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		defer func() {
 			if v := recover(); v != nil {
-				if v == http.ErrAbortHandler {
+				if err, ok := v.(error); ok && errors.Is(err, http.ErrAbortHandler) {
 					panic(v)
 				}
 				logger.ErrorContext(r.Context(), "dev console: panic", "path", r.URL.Path, "panic", fmt.Sprint(v))

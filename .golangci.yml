@@ -30,12 +30,19 @@ linters:
     rules:
       - path: _test\.go
         linters: [gosec, bodyclose]
+      # G101 fires on the "pass" inside BypassSetting, which names a
+      # PostgreSQL session setting. A nolint comment here would be copied
+      # into the constant's page in docs/methods.
+      - path: ^modules/postgres/rls\.go$
+        linters: [gosec]
+        text: "G101"
       # The CLI's job is to run go, git and the app it just built, and to read
       # and write files in the developer's own project with normal source-code
-      # permissions (0644/0755).
+      # permissions (0644/0755). G702 and G703 are the taint-analysis form of
+      # the same two: the command and the path come from the developer.
       - path: ^cli/
         linters: [gosec]
-        text: "G204|G301|G304|G306"
+        text: "G204|G301|G304|G306|G702|G703"
 
 formatters:
   enable:

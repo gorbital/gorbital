@@ -105,8 +105,10 @@ func GitFiles(ctx context.Context, dir string) (files map[string]bool, ok bool, 
 	}
 	inside := exec.CommandContext(ctx, "git", "rev-parse", "--is-inside-work-tree")
 	inside.Dir = dir
+	// git rev-parse fails outside a work tree, which is what ok reports:
+	// the caller falls back to Skipped rather than seeing an error.
 	if out, err := inside.Output(); err != nil || strings.TrimSpace(string(out)) != "true" {
-		return nil, false, nil
+		return nil, false, nil //nolint:nilerr // not a work tree; ok is false and the caller decides
 	}
 	var stdout, stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, "git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", ".")

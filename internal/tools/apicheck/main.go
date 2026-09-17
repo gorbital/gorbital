@@ -61,7 +61,7 @@ func run(root string, write bool, out io.Writer) error {
 		}
 		path := filepath.Join(root, "api", listingName(modulePath))
 		if write {
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 				return err
 			}
 			if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil { //nolint:gosec // committed to the repository
@@ -102,7 +102,7 @@ func findRoot() (string, error) {
 		return "", err
 	}
 	for {
-		data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+		data, err := os.ReadFile(filepath.Join(dir, "go.mod")) //nolint:gosec // the repository's own files
 		if err == nil && modulePathOf(data) == "gorbital.dev" {
 			return dir, nil
 		}
@@ -164,7 +164,7 @@ func listingName(modulePath string) string {
 }
 
 func readListing(path string) ([]string, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // the repository's own files
 	if err != nil {
 		return nil, err
 	}

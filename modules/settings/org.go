@@ -143,8 +143,10 @@ func (s *Store) reloadOrgs(ctx context.Context, since uint64) error {
 // reloadOrgKey reloads orgID's value of an OrgOverridable setting after a
 // notification.
 func (s *Store) reloadOrgKey(ctx context.Context, d *definition, orgID string) error {
+	// A notification for a setting no organisation can override, or for an
+	// ID that is not an organisation's, is not this store's to apply.
 	if !d.orgOverridable || checkOrgID(orgID) != nil {
-		return nil
+		return nil //nolint:nilerr // a notification that doesn't concern us is ignored, not an error
 	}
 	row, found, err := selectOrgValue(ctx, s.pool, orgID, d.key)
 	if err != nil || !found {
