@@ -37,8 +37,8 @@ import (
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/auth/passkey"
 
+	"gorbital.dev/gorbital/authhttp/internal/delivery/signintest"
 	"gorbital.dev/gorbital/authhttp/internal/repository"
-	"gorbital.dev/gorbital/authhttp/internal/signintest"
 	"gorbital.dev/gorbital/authhttp/internal/usecase"
 )
 

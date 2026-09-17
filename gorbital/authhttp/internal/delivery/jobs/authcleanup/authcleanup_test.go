@@ -11,8 +11,8 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 
+	"gorbital.dev/gorbital/authhttp/internal/delivery/jobs/authcleanup"
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
-	"gorbital.dev/gorbital/authhttp/internal/jobs/authcleanup"
 )
 
 func TestWorker(t *testing.T) {

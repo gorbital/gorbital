@@ -334,8 +334,8 @@ The generated auth module of the golden apps moved into `gorbital.dev/gorbital/a
 |---|---|
 | `authhttp/authhttp.go`, `module.go`, `config.go`, `limits.go`, `settings.go`, `commands.go`, `providers.go` | The public type and what a v0.1 app's `internal/app` did for sign-in: `module_auth.go` (error mappings), `permissions.go` (sign-in's permissions and roles), `settings.go` (`auth.*`), `rate_limits.go` (sign-in's limiters), `social.go`, `passkeys.go`, `keys.go` (configuration), `admin.go`, `admin_mfa.go`, `providers.go` (commands), `jobs.go` (the two jobs) |
 | `authhttp/internal/{domain,usecase,repository,delivery}` | The golden app's `internal/modules/auth` layers, byte for byte except import paths, doc comments naming where declarations live, and route registration (below) |
-| `authhttp/internal/jobs/{authcleanup,authrevoke}` | The golden app's job packages, unchanged |
-| `authhttp/internal/migrations` | The eight migrations, numbered `00001`–`00008`, declared in `Module.Migrations` under `20260915000001`, `…04`, `…05`, `…06`, `20260917000001`, `20260918000020`, `…030` and `…070` |
+| `authhttp/internal/delivery/jobs/{authcleanup,authrevoke}` | The golden app's job packages, unchanged (under `internal/jobs` until Phase 9 put every package under a layer) |
+| `authhttp/internal/repository/migrations` | The eight migrations, numbered `00001`–`00008`, declared in `Module.Migrations` under `20260915000001`, `…04`, `…05`, `…06`, `20260917000001`, `20260918000020`, `…030` and `…070` |
 
 The first commit of the phase copies the layers unchanged, so `git diff` of the later commits shows every change made to them.
 
@@ -618,8 +618,8 @@ Full-multi's generated `internal/modules/orgs` moved into `gorbital.dev/gorbital
 | Path | Holds |
 |---|---|
 | `orgshttp/orgshttp.go`, `module.go` | `Module(auth *authhttp.Authenticator, opts ...Option)`, `Option`, `Brand`; what full-multi's `internal/app` did for organisations: `module_orgs.go` (error mappings), `permissions.go` (`declareOrgPermissions` and the two platform permissions), `settings.go` (`orgs.*`), `job_orgs_purge.go`, `orgs_hooks.go`, `orgs_service_accounts.go`, the `deleted_organisations` retention row and the `orgs_invitations` limiter |
-| `orgshttp/internal/{domain,usecase,repository,delivery}`, `internal/jobs/orgspurge` | The golden module's layers and job, unchanged except import paths, doc comments naming where declarations live, route registration (`operation.Register`) and the settings problems (below). The first commit of the phase copies them unchanged |
-| `orgshttp/internal/migrations` | `00001_orgs.sql` and `00002_settings_org_purge.sql`, byte for byte full-multi's, declared under `20260916000001` and `20260918000002` |
+| `orgshttp/internal/{domain,usecase,repository,delivery}`, `internal/delivery/jobs/orgspurge` (`internal/jobs/orgspurge` until Phase 9) | The golden module's layers and job, unchanged except import paths, doc comments naming where declarations live, route registration (`operation.Register`) and the settings problems (below). The first commit of the phase copies them unchanged |
+| `orgshttp/internal/repository/migrations` | `00001_orgs.sql` and `00002_settings_org_purge.sql`, byte for byte full-multi's, declared under `20260916000001` and `20260918000002` |
 
 Added elsewhere:
 

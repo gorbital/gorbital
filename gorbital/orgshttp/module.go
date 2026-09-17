@@ -15,9 +15,9 @@ import (
 	orgslib "gorbital.dev/modules/orgs"
 	"gorbital.dev/modules/settings"
 
+	"gorbital.dev/gorbital/orgshttp/internal/delivery/jobs/orgspurge"
 	orgsdomain "gorbital.dev/gorbital/orgshttp/internal/domain"
-	"gorbital.dev/gorbital/orgshttp/internal/jobs/orgspurge"
-	"gorbital.dev/gorbital/orgshttp/internal/migrations"
+	"gorbital.dev/gorbital/orgshttp/internal/repository/migrations"
 	"gorbital.dev/gorbital/orgshttp/internal/usecase"
 )
 

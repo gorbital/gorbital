@@ -4,7 +4,7 @@ import (
 	"gorbital.dev/gorbital"
 	"gorbital.dev/modules/auth/social"
 
-	"gorbital.dev/gorbital/authhttp/internal/signintest"
+	"gorbital.dev/gorbital/authhttp/internal/delivery/signintest"
 )
 
 // mountSignInTests serves the Dev Portal's sign-in tests when the dev

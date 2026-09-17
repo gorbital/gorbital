@@ -14,10 +14,10 @@ import (
 	"gorbital.dev/modules/settings"
 
 	"gorbital.dev/gorbital/authhttp/internal/delivery"
+	"gorbital.dev/gorbital/authhttp/internal/delivery/jobs/authcleanup"
+	"gorbital.dev/gorbital/authhttp/internal/delivery/jobs/authrevoke"
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
-	"gorbital.dev/gorbital/authhttp/internal/jobs/authcleanup"
-	"gorbital.dev/gorbital/authhttp/internal/jobs/authrevoke"
-	"gorbital.dev/gorbital/authhttp/internal/migrations"
+	"gorbital.dev/gorbital/authhttp/internal/repository/migrations"
 	"gorbital.dev/gorbital/authhttp/internal/usecase"
 )
 

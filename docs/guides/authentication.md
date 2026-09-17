@@ -66,7 +66,7 @@ gorbital.Main(
 |---|---|
 | `gorbital.dev/gorbital/authhttp` | `New`, the `Authenticator` (its middleware, `Module`, `Commands`, `CheckConfig` and `Setup`), permissions and roles, runtime settings, rate limiters, the `auth_cleanup` and `auth_revoke_tokens` jobs, configuration checks |
 | `gorbital/authhttp/internal/{domain,usecase,repository,delivery}` | The auth module of a v0.1 app, moved unchanged: the 74 operations under `/v1/auth/*`, `/ops/auth/users/*` and `/ops/service-accounts/*`, plus organisations' service accounts under `/v1/orgs/{orgId}/service-accounts`, which [`orgshttp`](../start/organisations.md#in-an-app-on-gorbitalmain) mounts |
-| `gorbital/authhttp/internal/migrations` | The same migrations, under the versions v0.1 apps hold them under: a database migrated by a v0.1 app migrates as a no-op |
+| `gorbital/authhttp/internal/repository/migrations` | The same migrations, under the versions v0.1 apps hold them under: a database migrated by a v0.1 app migrates as a no-op |
 | `gorbital.dev/modules/auth` | The building blocks, as in a v0.1 app |
 
 Nothing about the API changes: the endpoints, request and response bodies, error codes, audit actions, permissions, roles, `auth.*` settings, jobs, rate limiter names (`auth_login`, `auth_login_address`, `auth_mfa`, `auth_reauth`, `auth_code`, `auth_notice`, `auth_api_key`), cookies (`__Host-session`, `__Host-oauth`) and environment variables are v0.1's. `auth.ip_requests_per_minute` and the `auth_ip` limiter belong to gorbital's middleware stack. Contract tests compare the library's OpenAPI operations with v0.1.0's byte for byte.

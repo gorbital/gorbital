@@ -11,7 +11,7 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 
-	"gorbital.dev/gorbital/orgshttp/internal/jobs/orgspurge"
+	"gorbital.dev/gorbital/orgshttp/internal/delivery/jobs/orgspurge"
 )
 
 func TestWorker(t *testing.T) {
