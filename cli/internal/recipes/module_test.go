@@ -49,21 +49,55 @@ func clubBooksData(t *testing.T) ModuleData {
 // go test -run TestModuleMatchesShelfie -update and review Shelfie's diff.
 func TestModuleMatchesShelfie(t *testing.T) {
 	for _, d := range []ModuleData{shelvesData(t), clubBooksData(t)} {
-		t.Run(d.Package, func(t *testing.T) { checkGoldenModule(t, d) })
+		t.Run(d.Package, func(t *testing.T) { checkGoldenModule(t, goldenShelfie, "example.com/shelfie", d) })
 	}
 }
 
-func checkGoldenModule(t *testing.T, d ModuleData) {
+// goldenProjects are the golden Full apps on gorbital.Main, whose example
+// projects module orb gen module writes (Phase 9):
+//
+//	orb gen module Project name:string:unique description:text 'status:enum(active,archived)'
+//
+// owned by users in examples/full-single, and with --org by organisations in
+// examples/full-multi. Their migrations keep the versions of the v0.1 golden
+// apps' projects migrations: the multi-tenant one runs after the
+// organisations module's, so its foreign key to orgs is created.
+var goldenProjects = []struct{ dir, scope, migration string }{
+	{"../../../examples/full-single", ScopeUser, "20260915000002"},
+	{"../../../examples/full-multi", ScopeOrg, "20260916000002"},
+}
+
+// TestModuleMatchesGoldenApps checks that orb gen module reproduces the
+// golden Full apps' projects modules, their migrations and their
+// architecture tests exactly. After changing the templates, run
+// go test -run 'TestModuleMatches' -update and review the diff.
+func TestModuleMatchesGoldenApps(t *testing.T) {
+	for _, golden := range goldenProjects {
+		t.Run(golden.scope, func(t *testing.T) {
+			fields, err := ParseModuleFields([]string{"name:string:unique", "description:text", "status:enum(active,archived)"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			d, err := NewModuleData("example.com/acme-api", "Project", fields, ResourceOptions{Scope: golden.scope, Migration: golden.migration})
+			if err != nil {
+				t.Fatal(err)
+			}
+			checkGoldenModule(t, golden.dir, "example.com/acme-api", d)
+		})
+	}
+}
+
+func checkGoldenModule(t *testing.T, golden, module string, d ModuleData) {
 	files, err := RenderModule(d)
 	if err != nil {
 		t.Fatalf("RenderModule() error = %v", err)
 	}
-	arch, err := RenderArchitectureTest("example.com/shelfie")
+	arch, err := RenderArchitectureTest(module)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, f := range append(files, arch) {
-		target := filepath.Join(goldenShelfie, filepath.FromSlash(f.Path))
+		target := filepath.Join(golden, filepath.FromSlash(f.Path))
 		if *updateGolden {
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				t.Fatal(err)
@@ -79,7 +113,7 @@ func checkGoldenModule(t *testing.T, d ModuleData) {
 			continue
 		}
 		if string(f.Content) != string(want) {
-			t.Errorf("generated %s differs from Shelfie's (run with -update and review the diff)", f.Path)
+			t.Errorf("generated %s differs from %s's (run with -update and review the diff)", f.Path, golden)
 		}
 	}
 	// No other file is in the module: a file added to Shelfie's shelves by
@@ -88,13 +122,13 @@ func checkGoldenModule(t *testing.T, d ModuleData) {
 	for _, f := range files {
 		written[f.Path] = true
 	}
-	err = filepath.WalkDir(filepath.Join(goldenShelfie, filepath.FromSlash(d.Dir())), func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir(filepath.Join(golden, filepath.FromSlash(d.Dir())), func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		rel, _ := filepath.Rel(goldenShelfie, path)
+		rel, _ := filepath.Rel(golden, path)
 		if !written[filepath.ToSlash(rel)] {
-			t.Errorf("Shelfie's %s isn't written by orb gen module", rel)
+			t.Errorf("%s's %s isn't written by orb gen module", golden, rel)
 		}
 		return nil
 	})
