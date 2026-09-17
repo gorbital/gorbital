@@ -8,6 +8,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Eve
 
 Nothing here is tagged yet. v1.0 (stable, awaiting the external security review) and v1.1 (done) are both on the development branch; each keeps its own section so the v1.0 release notes stay separate.
 
+### Log archive ([ADR-0079](docs/adr/0079-hourly-log-archive.md))
+
+#### Added
+
+- `gorbital.dev/modules/storage/logarchive`: an `slog.Handler` that spools every record as a JSON line into a file for the current hour under a directory and an uploader that gzips each finished hour into the app's `storage.Store` as `logs/<service>/<YYYY>/<MM>/<DD>/<HH>[.<instance>].jsonl.gz` (`.partial-<unix>` for the rest of an hour at shutdown or when switched off), controlled by a live `config.Value[bool]`; `New`, `WithLevel`, `WithInstance`, `WithInterval`, `WithClock`, `(*Archive).Handler`, `Bind`, `Close`, `Status`; failed uploads are logged and retried, and a previous run's files are uploaded at the next start.
+- `telemetry.WithLogTee` given more than once sends every record to every handler.
+- Full apps: the runtime setting `logs.archive.enabled` (off by default, reason required), `LOG_ARCHIVE_DIR` (default `.orb/logs`), `internal/app/logarchive.go` wiring the archive into the logger and the store; the objects show in `/ops/storage` and the Dev Portal's Storage screen under `logs/`.
+
 ### Dev Portal, phase 0 ([ADR-0066](docs/adr/0066-dev-portal.md), [roadmap](docs/dev-portal-roadmap.md))
 
 #### Added

@@ -62,6 +62,8 @@ type appSettings struct {
 	maintenanceMessage    *settings.Setting[string]
 	maintenanceRetryAfter *settings.Setting[time.Duration]
 
+	logsArchiveEnabled *settings.Setting[bool]
+
 	orgsInvitationURL       *settings.Setting[string]
 	orgsInvitationTTL       *settings.Setting[time.Duration]
 	orgsDeletedOrgRetention *settings.Setting[time.Duration]
@@ -284,6 +286,13 @@ func declareSettings(reg *settings.Registry) appSettings {
 			settings.Describe("The Retry-After clients get while maintenance mode is on."),
 			settings.Group("maintenance"),
 			settings.Range(time.Minute, 24*time.Hour),
+		),
+
+		// The hourly log archive (logarchive.go, ADR-0079).
+		logsArchiveEnabled: settings.Bool(reg, "logs.archive.enabled", false,
+			settings.Describe("Keep the app's log records in file storage: each instance collects every record it logs into a file for the current hour under LOG_ARCHIVE_DIR and, at the top of the hour or when it shuts down, stores the file gzipped under logs/ in the storage bucket, where /ops/storage lists it. Off: nothing is collected. Log records can hold IDs and addresses; check your retention rules before turning it on."),
+			settings.Group("logs"),
+			settings.ReasonRequired(), // it stores what the app logs
 		),
 
 		orgsInvitationURL: settings.String(reg, "orgs.invitation_url", defaultInvitationURL,

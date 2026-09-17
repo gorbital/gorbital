@@ -68,6 +68,33 @@ pkg gorbital.dev/modules/storage/local, method (*Store) SignedURL(context.Contex
 pkg gorbital.dev/modules/storage/local, method (*Store) Stat(context.Context, string) (storage.Object, error)
 pkg gorbital.dev/modules/storage/local, type Option func(*Store)
 pkg gorbital.dev/modules/storage/local, type Store struct
+pkg gorbital.dev/modules/storage/logarchive, const ContentType = "application/gzip"
+pkg gorbital.dev/modules/storage/logarchive, const ContentType ideal-string
+pkg gorbital.dev/modules/storage/logarchive, const DefaultDir = ".orb/logs"
+pkg gorbital.dev/modules/storage/logarchive, const DefaultDir ideal-string
+pkg gorbital.dev/modules/storage/logarchive, const DefaultInterval = 60000000000
+pkg gorbital.dev/modules/storage/logarchive, const DefaultInterval time.Duration
+pkg gorbital.dev/modules/storage/logarchive, const KeyPrefix = "logs/"
+pkg gorbital.dev/modules/storage/logarchive, const KeyPrefix ideal-string
+pkg gorbital.dev/modules/storage/logarchive, func New(string, string, ...Option) (*Archive, error)
+pkg gorbital.dev/modules/storage/logarchive, func WithClock(func() time.Time) Option
+pkg gorbital.dev/modules/storage/logarchive, func WithInstance(string) Option
+pkg gorbital.dev/modules/storage/logarchive, func WithInterval(time.Duration) Option
+pkg gorbital.dev/modules/storage/logarchive, func WithLevel(slog.Leveler) Option
+pkg gorbital.dev/modules/storage/logarchive, method (*Archive) Bind(storage.Store, config.Value[bool], *slog.Logger)
+pkg gorbital.dev/modules/storage/logarchive, method (*Archive) Close(context.Context) error
+pkg gorbital.dev/modules/storage/logarchive, method (*Archive) Handler() slog.Handler
+pkg gorbital.dev/modules/storage/logarchive, method (*Archive) Status() Status
+pkg gorbital.dev/modules/storage/logarchive, type Archive struct
+pkg gorbital.dev/modules/storage/logarchive, type Option interface { apply }
+pkg gorbital.dev/modules/storage/logarchive, type Status struct
+pkg gorbital.dev/modules/storage/logarchive, type Status struct, Collecting bool
+pkg gorbital.dev/modules/storage/logarchive, type Status struct, Dir string
+pkg gorbital.dev/modules/storage/logarchive, type Status struct, LastError string
+pkg gorbital.dev/modules/storage/logarchive, type Status struct, LastErrorAt time.Time
+pkg gorbital.dev/modules/storage/logarchive, type Status struct, LastKey string
+pkg gorbital.dev/modules/storage/logarchive, type Status struct, LastUploadAt time.Time
+pkg gorbital.dev/modules/storage/logarchive, type Status struct, Pending int
 pkg gorbital.dev/modules/storage/s3, func New(Config) (*Store, error)
 pkg gorbital.dev/modules/storage/s3, method (*Store) Copy(context.Context, string, string) (storage.Object, error)
 pkg gorbital.dev/modules/storage/s3, method (*Store) Delete(context.Context, string) error

@@ -31,6 +31,7 @@ Read in `config.go` by both presets.
 | `APP_ADDR` | No | `127.0.0.1:8080` | `0.0.0.0:8080` | `host:port` | Listen address. Loopback by default so a development API isn't exposed on the network; containers need `0.0.0.0` (the Dockerfile sets it) |
 | `APP_LOG_LEVEL` | No | `info` | `debug` | `debug`, `info`, `warn`, `error` | Minimum `slog` level |
 | `APP_LOG_FORMAT` | No | empty | `json` | `json`, `text`, empty | Log encoding; empty means JSON in production and text elsewhere. `orb dev` sets `json` for the Dev Portal's log store and prints text ([ADR-0072](../adr/0072-local-log-store.md)) |
+| `LOG_ARCHIVE_DIR` | No | `.orb/logs` | `/var/lib/acme/logs` | path | Full presets only. Where the hourly log archive spools the current hour before storing it gzipped in file storage under `logs/`; created on demand. **Prod**: in the generated image the default is `/home/nonroot/.orb/logs` inside the container, which a graceful stop empties into the bucket; point it at a mounted volume to keep a crashed instance's hour for the next start. Nothing is written until the `logs.archive.enabled` runtime setting is on ([ADR-0079](../adr/0079-hourly-log-archive.md), [observability guide](observability.md#the-hourly-log-archive)) |
 | `APP_DOCS_ENABLED` | No | `true` in development, `false` in production | `true` | `true` or `false` | Serves `/docs` and the OpenAPI document (`/openapi.json`, `/openapi.yaml`). Off, both answer 404; `api openapi` still exports the document. Set `true` in production for a public API reference |
 | `APP_CORS_ORIGINS` | No | empty | `https://app.example.com,http://localhost:3000` | Comma-separated origins (scheme, host, optional port; no user, path, query or trailing slash). **Prod:** https only | Browser origins allowed by CORS, trusted by the cross-origin protection, and accepted as `return_to` for Google and Apple web sign-in. Empty disables CORS |
 | `APP_TRUSTED_PROXIES` | No | empty | `10.0.0.0/8,192.0.2.10` | Comma-separated CIDR ranges or IP addresses; ranges covering every address (`0.0.0.0/0`, `::/0`) are refused | Load balancers and reverse proxies whose `X-Forwarded-For` names the client, for rate limits, logs and audit events ([ADR-0052](../adr/0052-shared-rate-limits.md)). Requests from other addresses keep their own address and their forwarding headers are ignored. Empty trusts no header: correct only when clients connect directly |
@@ -164,7 +165,7 @@ Read by tests in the gorbital repository and in generated apps.
 
 ## Minimal preset
 
-A Minimal app reads only the [app server](#app-server) variables, `OTEL_EXPORTER_OTLP_ENDPOINT`, `METRICS_ADDR` and `DEV_CONSOLE_TOKEN`; its `.env.example` also has `GRAFANA_PORT` and `OTLP_HTTP_PORT` for `orb dev --observability`.
+A Minimal app reads only the [app server](#app-server) variables (`LOG_ARCHIVE_DIR` excepted: it has no file storage), `OTEL_EXPORTER_OTLP_ENDPOINT`, `METRICS_ADDR` and `DEV_CONSOLE_TOKEN`; its `.env.example` also has `GRAFANA_PORT` and `OTLP_HTTP_PORT` for `orb dev --observability`.
 
 ## Checked against `.env.example`
 

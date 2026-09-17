@@ -12,6 +12,7 @@ import (
 	"gorbital.dev/config"
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/devconsole"
+	"gorbital.dev/modules/storage/logarchive"
 )
 
 // Config is every boot setting of the application: secrets and
@@ -26,6 +27,9 @@ type Config struct {
 	// elsewhere. orb dev sets json, so the Dev Portal's log store reads
 	// structured records (ADR-0072).
 	LogFormat string
+	// LogArchiveDir is where the hourly log archive spools the current
+	// hour before storing it (LOG_ARCHIVE_DIR; logarchive.go, ADR-0079).
+	LogArchiveDir string
 	// DocsEnabled serves /docs and the OpenAPI document (APP_DOCS_ENABLED;
 	// default: on in development, off in production).
 	DocsEnabled bool
@@ -145,6 +149,10 @@ func LoadConfig(src config.Source) (Config, error) {
 			errs = append(errs, fmt.Errorf("APP_LOG_FORMAT %q must be json or text", v))
 		}
 		cfg.LogFormat = v
+	}
+	cfg.LogArchiveDir = logarchive.DefaultDir
+	if v := get("LOG_ARCHIVE_DIR"); v != "" {
+		cfg.LogArchiveDir = v
 	}
 
 	cfg.DocsEnabled = !cfg.Production()

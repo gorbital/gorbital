@@ -34,6 +34,7 @@ import (
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/modules/settings"
 	"gorbital.dev/modules/storage"
+	"gorbital.dev/modules/storage/logarchive"
 	"gorbital.dev/modules/telemetry"
 	"gorbital.dev/ratelimit"
 
@@ -66,9 +67,10 @@ type App struct {
 	flags       *flags.Store
 	jobs        *jobs.Client
 	jobsManager *jobs.Manager
-	mailer      mail.Sender   // sends email; set once jobs exist (jobs.go)
-	storage     storage.Store // file storage (storage.go)
-	storageURLs http.Handler  // serves local signed URLs; nil for other drivers
+	mailer      mail.Sender         // sends email; set once jobs exist (jobs.go)
+	storage     storage.Store       // file storage (storage.go)
+	storageURLs http.Handler        // serves local signed URLs; nil for other drivers
+	logArchive  *logarchive.Archive // the hourly log archive (logarchive.go)
 	auth        *authmodule.Module
 	orgs        *orgsmodule.Module
 	releases    *releases.Tracker
@@ -109,6 +111,13 @@ func newBase(ctx context.Context, cfg Config) (*App, error) {
 		return nil, err
 	}
 
+	// The hourly log archive, collecting once build binds it to the store
+	// and the logs.archive.enabled setting (logarchive.go).
+	logArchive, err := newLogArchive(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	format := telemetry.LogFormat(cfg.LogFormat)
 	if format == "" {
 		format = telemetry.LogFormatText
@@ -124,21 +133,24 @@ func newBase(ctx context.Context, cfg Config) (*App, error) {
 		telemetry.WithPrometheus(cfg.MetricsAddr != ""),    // served by the metrics listener (metrics.go)
 		telemetry.WithRuntimeMetrics(),
 		telemetry.WithLogTee(devLogs.Handler()), // nil when the dev console is off
+		telemetry.WithLogTee(logArchive.Handler()),
 	)
 	if err != nil {
 		return nil, err
 	}
-	cleanup.Add("telemetry", tel.Shutdown) // registered first, closed last
+	cleanup.Add("telemetry", tel.Shutdown)       // registered first, closed last
+	cleanup.Add("log archive", logArchive.Close) // stores the partial hour while the logger still works
 
 	return &App{
-		cfg:     cfg,
-		logger:  tel.Logger(),
-		tel:     tel,
-		health:  health.New(tel.Logger()),
-		cleanup: cleanup,
-		metrics: newMetricsServer(cfg, tel),
-		devLogs: devLogs,
-		started: time.Now(),
+		cfg:        cfg,
+		logger:     tel.Logger(),
+		tel:        tel,
+		health:     health.New(tel.Logger()),
+		cleanup:    cleanup,
+		metrics:    newMetricsServer(cfg, tel),
+		devLogs:    devLogs,
+		logArchive: logArchive,
+		started:    time.Now(),
 	}, nil
 }
 
@@ -213,6 +225,9 @@ func (a *App) build(ctx context.Context) error {
 	if a.storage, a.storageURLs, err = newStorage(a.cfg); err != nil {
 		return err
 	}
+	// The hourly log archive collects into it while logs.archive.enabled is
+	// on (logarchive.go, ADR-0079).
+	a.logArchive.Bind(a.storage, appSettings.logsArchiveEnabled, a.logger)
 
 	// Request minutes and incidents (observability.go, ADR-0064).
 	observabilityStore, err := newObservabilityStore(pool)
