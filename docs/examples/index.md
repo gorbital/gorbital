@@ -3,7 +3,7 @@
 Real applications built with gorbital, explained step by step. Each chapter adds one feature to a working app, and the code on every page is included from that app's source, which CI builds and tests, so the text can't drift from code that compiles.
 
 > [!NOTE]
-> The examples arrive with the v0.2 phases that ship the features they use ([v0.2 roadmap](../v0.2-roadmap.md#the-examples-tab)). Chapters 0, 1, 4, 5, 6, 7, 8 and 9 of Shelfie, and part 1 of the *Internal admin tool* recipe, are written; the tables below say which phase brings the others.
+> The examples arrive with the v0.2 phases that ship the features they use ([v0.2 roadmap](../v0.2-roadmap.md#the-examples-tab)). Chapters 0, 1, 4, 5, 6, 7, 8 and 9 of Shelfie, part 1 of the *Internal admin tool* recipe and the *Multi-tenant invoicing* recipe are written; the tables below say which phase brings the others.
 
 ## Shelfie
 
