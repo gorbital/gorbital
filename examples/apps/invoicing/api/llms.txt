@@ -1,0 +1,228 @@
+# invoicing
+
+> The invoicing HTTP API.
+
+Every endpoint below links to its reference page as Markdown. The OpenAPI document is at `/openapi.json` and the interactive reference at `/docs`. Errors are `application/problem+json` with a stable `code`.
+
+## Authentication
+
+- `bearer` (bearer): Session token from POST /v1/auth/login with "transport": "bearer", or an API key (gbk_…) from POST /v1/auth/api-keys. Browsers use the session cookie that login sets instead.
+
+## Ops: audit
+
+- [List audit events, newest first](/docs/ops-audit/ops-list-audit-events.md): `GET /ops/audit`
+- [Count audit events](/docs/ops-audit/ops-audit-stats.md): `GET /ops/audit/stats`
+- [Get an audit event](/docs/ops-audit/ops-get-audit-event.md): `GET /ops/audit/{id}`
+
+## Ops: auth
+
+- [List sign-in methods and what they need](/docs/ops-auth/ops-list-sign-in-methods.md): `GET /ops/auth/providers`
+- [List the rate limiters](/docs/ops-auth/ops-list-rate-limits.md): `GET /ops/auth/rate-limits`
+- [Forget a key's budget under a limiter](/docs/ops-auth/ops-reset-rate-limit.md): `POST /ops/auth/rate-limits/reset`
+- [List accounts](/docs/ops-auth/ops-list-users.md): `GET /ops/auth/users`
+- [Create an account](/docs/ops-auth/ops-create-user.md): `POST /ops/auth/users`
+- [Get an account](/docs/ops-auth/ops-get-user.md): `GET /ops/auth/users/{id}`
+- [Delete an account](/docs/ops-auth/ops-delete-user.md): `DELETE /ops/auth/users/{id}`
+- [Ban an account](/docs/ops-auth/ops-ban-user.md): `POST /ops/auth/users/{id}/ban`
+- [Unlink a Google, Apple or GitHub account](/docs/ops-auth/ops-remove-user-identity.md): `DELETE /ops/auth/users/{id}/identities/{identityId}`
+- [Start a session as an account (development only)](/docs/ops-auth/ops-impersonate-user.md): `POST /ops/auth/users/{id}/impersonate`
+- [Turn on an authenticator app for an account](/docs/ops-auth/ops-enroll-user-totp.md): `POST /ops/auth/users/{id}/mfa/enroll`
+- [Reset an account's second factors](/docs/ops-auth/ops-reset-user-mfa.md): `POST /ops/auth/users/{id}/mfa/reset`
+- [Remove a passkey from an account](/docs/ops-auth/ops-remove-user-passkey.md): `DELETE /ops/auth/users/{id}/passkeys/{passkeyId}`
+- [Grant a platform role](/docs/ops-auth/ops-grant-user-role.md): `POST /ops/auth/users/{id}/roles`
+- [Revoke a platform role](/docs/ops-auth/ops-revoke-user-role.md): `DELETE /ops/auth/users/{id}/roles/{role}`
+- [End every session of an account](/docs/ops-auth/ops-revoke-user-sessions.md): `DELETE /ops/auth/users/{id}/sessions`
+- [End one session of an account](/docs/ops-auth/ops-revoke-user-session.md): `DELETE /ops/auth/users/{id}/sessions/{sessionId}`
+- [Lift a ban](/docs/ops-auth/ops-unban-user.md): `POST /ops/auth/users/{id}/unban`
+- [Mark an address verified](/docs/ops-auth/ops-verify-user-email.md): `POST /ops/auth/users/{id}/verify-email`
+
+## Ops: flags
+
+- [List feature flags](/docs/ops-flags/ops-list-flags.md): `GET /ops/flags`
+- [Get a feature flag](/docs/ops-flags/ops-get-flag.md): `GET /ops/flags/{key}`
+- [Change a feature flag](/docs/ops-flags/ops-set-flag.md): `PUT /ops/flags/{key}`
+- [Reset a feature flag to its declared state](/docs/ops-flags/ops-reset-flag.md): `DELETE /ops/flags/{key}`
+- [List a feature flag's changes](/docs/ops-flags/ops-flag-history.md): `GET /ops/flags/{key}/history`
+
+## Ops: incidents
+
+- [List incidents, most recently opened first](/docs/ops-incidents/ops-list-incidents.md): `GET /ops/incidents`
+- [Open an incident](/docs/ops-incidents/ops-open-incident.md): `POST /ops/incidents`
+- [Get an incident with its timeline](/docs/ops-incidents/ops-get-incident.md): `GET /ops/incidents/{id}`
+- [Get an incident report](/docs/ops-incidents/ops-incident-report.md): `GET /ops/incidents/{id}/report`
+- [Resolve an incident](/docs/ops-incidents/ops-resolve-incident.md): `POST /ops/incidents/{id}/resolve`
+- [Add a timeline update](/docs/ops-incidents/ops-add-incident-update.md): `POST /ops/incidents/{id}/updates`
+
+## Ops: job definitions
+
+- [List job definitions](/docs/ops-job-definitions/ops-list-job-definitions.md): `GET /ops/jobs/definitions`
+- [Get a job definition](/docs/ops-job-definitions/ops-get-job-definition.md): `GET /ops/jobs/definitions/{name}`
+- [Change a job's configuration](/docs/ops-job-definitions/ops-update-job-definition.md): `PUT /ops/jobs/definitions/{name}`
+- [Reset a job to its code defaults](/docs/ops-job-definitions/ops-reset-job-definition.md): `DELETE /ops/jobs/definitions/{name}`
+- [List a job definition's changes](/docs/ops-job-definitions/ops-job-definition-history.md): `GET /ops/jobs/definitions/{name}/history`
+- [Run a job now](/docs/ops-job-definitions/ops-run-job.md): `POST /ops/jobs/definitions/{name}/run`
+- [List enabled scheduled jobs, soonest first](/docs/ops-job-definitions/ops-list-scheduled-jobs.md): `GET /ops/jobs/scheduled`
+
+## Ops: job runs
+
+- [Summarise job work](/docs/ops-job-runs/ops-jobs-overview.md): `GET /ops/jobs/overview`
+- [List job runs, newest first](/docs/ops-job-runs/ops-list-job-runs.md): `GET /ops/jobs/runs`
+- [Get a job run](/docs/ops-job-runs/ops-get-job-run.md): `GET /ops/jobs/runs/{id}`
+- [Cancel a job run](/docs/ops-job-runs/ops-cancel-job-run.md): `POST /ops/jobs/runs/{id}/cancel`
+- [Retry a job run now](/docs/ops-job-runs/ops-retry-job-run.md): `POST /ops/jobs/runs/{id}/retry`
+
+## Ops: email
+
+- [Show how the app sends email](/docs/ops-email/ops-get-mail.md): `GET /ops/mail`
+- [List suppressed addresses](/docs/ops-email/ops-list-mail-suppressions.md): `GET /ops/mail/suppressions`
+- [Remove a suppressed address](/docs/ops-email/ops-remove-mail-suppression.md): `DELETE /ops/mail/suppressions/{id}`
+- [Send a test email](/docs/ops-email/ops-send-test-email.md): `POST /ops/mail/test`
+
+## Ops: observability
+
+- [Show request rates, errors and latency](/docs/ops-observability/ops-observability-overview.md): `GET /ops/observability/overview`
+- [List routes by traffic, errors or latency](/docs/ops-observability/ops-observability-routes.md): `GET /ops/observability/routes`
+- [Stream the overview](/docs/ops-observability/ops-observability-stream.md): `GET /ops/observability/stream`
+
+## Ops: job queues
+
+- [List active job queues](/docs/ops-job-queues/ops-list-job-queues.md): `GET /ops/queues`
+- [Pause a queue on every instance](/docs/ops-job-queues/ops-pause-job-queue.md): `POST /ops/queues/{name}/pause`
+- [Resume a paused queue](/docs/ops-job-queues/ops-resume-job-queue.md): `POST /ops/queues/{name}/resume`
+
+## Ops: releases
+
+- [List releases, newest first](/docs/ops-releases/ops-list-releases.md): `GET /ops/releases`
+- [List the releases running now](/docs/ops-releases/ops-current-releases.md): `GET /ops/releases/current`
+- [List instance starts, newest first](/docs/ops-releases/ops-list-release-instances.md): `GET /ops/releases/instances`
+
+## Ops: settings
+
+- [List retention policies](/docs/ops-settings/ops-retention.md): `GET /ops/retention`
+- [List runtime settings](/docs/ops-settings/ops-list-settings.md): `GET /ops/settings`
+- [Get a runtime setting](/docs/ops-settings/ops-get-setting.md): `GET /ops/settings/{key}`
+- [Change a runtime setting](/docs/ops-settings/ops-set-setting.md): `PUT /ops/settings/{key}`
+- [Reset a runtime setting to its default](/docs/ops-settings/ops-reset-setting.md): `DELETE /ops/settings/{key}`
+- [List a runtime setting's changes](/docs/ops-settings/ops-setting-history.md): `GET /ops/settings/{key}/history`
+- [List organisations' own values of a runtime setting](/docs/ops-settings/ops-setting-overrides.md): `GET /ops/settings/{key}/overrides`
+
+## Ops: service accounts
+
+- [List service accounts](/docs/ops-service-accounts/ops-list-service-accounts.md): `GET /ops/service-accounts`
+- [Create a service account](/docs/ops-service-accounts/ops-create-service-account.md): `POST /ops/service-accounts`
+- [Get a service account](/docs/ops-service-accounts/ops-get-service-account.md): `GET /ops/service-accounts/{id}`
+- [Change a service account](/docs/ops-service-accounts/ops-update-service-account.md): `PATCH /ops/service-accounts/{id}`
+- [Delete a service account](/docs/ops-service-accounts/ops-delete-service-account.md): `DELETE /ops/service-accounts/{id}`
+- [List a service account's API keys](/docs/ops-service-accounts/ops-list-service-account-keys.md): `GET /ops/service-accounts/{id}/keys`
+- [Create an API key for a service account](/docs/ops-service-accounts/ops-create-service-account-key.md): `POST /ops/service-accounts/{id}/keys`
+- [Revoke a service account's API key](/docs/ops-service-accounts/ops-revoke-service-account-key.md): `DELETE /ops/service-accounts/{id}/keys/{keyId}`
+
+## Ops: storage
+
+- [Describe file storage](/docs/ops-storage/ops-get-storage.md): `GET /ops/storage`
+- [Create a directory](/docs/ops-storage/ops-create-storage-directory.md): `POST /ops/storage/directories`
+- [Describe an object](/docs/ops-storage/ops-get-storage-object.md): `GET /ops/storage/object`
+- [Upload an object](/docs/ops-storage/ops-upload-storage-object.md): `PUT /ops/storage/object`
+- [Delete an object](/docs/ops-storage/ops-delete-storage-object.md): `DELETE /ops/storage/object`
+- [Download an object](/docs/ops-storage/ops-download-storage-object.md): `GET /ops/storage/object/content`
+- [Move an object](/docs/ops-storage/ops-move-storage-object.md): `POST /ops/storage/object/move`
+- [List objects](/docs/ops-storage/ops-list-storage-objects.md): `GET /ops/storage/objects`
+- [Create a signed URL](/docs/ops-storage/ops-create-storage-signed-url.md): `POST /ops/storage/signed-url`
+
+## Ops: system
+
+- [Describe this instance](/docs/ops-system/ops-system.md): `GET /ops/system`
+
+## Auth
+
+- [List your API keys](/docs/auth/auth-list-api-keys.md): `GET /v1/auth/api-keys`
+- [Create an API key](/docs/auth/auth-create-api-key.md): `POST /v1/auth/api-keys`
+- [Revoke an API key](/docs/auth/auth-revoke-api-key.md): `DELETE /v1/auth/api-keys/{id}`
+- [Apple's return to the API](/docs/auth/auth-apple-callback.md): `POST /v1/auth/apple/callback`
+- [Apple's server-to-server notifications](/docs/auth/auth-apple-notifications.md): `POST /v1/auth/apple/notifications`
+- [Sign in with an Apple ID token](/docs/auth/auth-apple-token.md): `POST /v1/auth/apple/token`
+- [GitHub's return to the API](/docs/auth/auth-github-callback.md): `GET /v1/auth/github/callback`
+- [Google's return to the API](/docs/auth/auth-google-callback.md): `GET /v1/auth/google/callback`
+- [Sign in with a Google ID token](/docs/auth/auth-google-token.md): `POST /v1/auth/google/token`
+- [List linked Google, Apple and GitHub accounts](/docs/auth/auth-list-identities.md): `GET /v1/auth/identities`
+- [Link a Google or Apple account](/docs/auth/auth-link-identity.md): `POST /v1/auth/identities`
+- [Unlink a Google, Apple or GitHub account](/docs/auth/auth-remove-identity.md): `DELETE /v1/auth/identities/{id}`
+- [Sign in](/docs/auth/auth-login.md): `POST /v1/auth/login`
+- [Finish signing in with a second factor](/docs/auth/auth-login-mfa.md): `POST /v1/auth/login/mfa`
+- [Start a passkey second factor](/docs/auth/auth-login-mfa-passkey.md): `POST /v1/auth/login/mfa/passkey`
+- [Sign out this device](/docs/auth/auth-logout.md): `POST /v1/auth/logout`
+- [Sign out every device](/docs/auth/auth-logout-all.md): `POST /v1/auth/logout-all`
+- [Get the signed-in user](/docs/auth/auth-me.md): `GET /v1/auth/me`
+- [Delete the account](/docs/auth/auth-delete-account.md): `DELETE /v1/auth/me`
+- [Replace the recovery codes](/docs/auth/auth-regenerate-recovery-codes.md): `POST /v1/auth/mfa/recovery-codes`
+- [Start setting up an authenticator app](/docs/auth/auth-start-totp.md): `POST /v1/auth/mfa/totp`
+- [Turn off the authenticator app](/docs/auth/auth-disable-totp.md): `DELETE /v1/auth/mfa/totp`
+- [Turn on the authenticator app](/docs/auth/auth-confirm-totp.md): `POST /v1/auth/mfa/totp/confirm`
+- [List passkeys](/docs/auth/auth-list-passkeys.md): `GET /v1/auth/passkeys`
+- [Add a passkey](/docs/auth/auth-create-passkey.md): `POST /v1/auth/passkeys`
+- [Sign in with a passkey](/docs/auth/auth-passkey-login.md): `POST /v1/auth/passkeys/login`
+- [Start signing in with a passkey](/docs/auth/auth-passkey-login-options.md): `POST /v1/auth/passkeys/login/options`
+- [Start adding a passkey](/docs/auth/auth-begin-passkey-registration.md): `POST /v1/auth/passkeys/registration`
+- [Confirm a change with a passkey](/docs/auth/auth-begin-passkey-verification.md): `POST /v1/auth/passkeys/verification`
+- [Rename a passkey](/docs/auth/auth-rename-passkey.md): `PATCH /v1/auth/passkeys/{id}`
+- [Remove a passkey](/docs/auth/auth-remove-passkey.md): `DELETE /v1/auth/passkeys/{id}`
+- [Change the password](/docs/auth/auth-change-password.md): `PUT /v1/auth/password`
+- [Email a password reset code](/docs/auth/auth-forgot-password.md): `POST /v1/auth/password/forgot`
+- [Set a new password with a reset code](/docs/auth/auth-reset-password.md): `POST /v1/auth/password/reset`
+- [Create an account](/docs/auth/auth-register.md): `POST /v1/auth/register`
+- [List signed-in devices](/docs/auth/auth-list-sessions.md): `GET /v1/auth/sessions`
+- [Sign out one device](/docs/auth/auth-revoke-session.md): `DELETE /v1/auth/sessions/{id}`
+- [Verify an email address with its code](/docs/auth/auth-verify-email.md): `POST /v1/auth/verify-email`
+- [Send a new verification code](/docs/auth/auth-resend-verification.md): `POST /v1/auth/verify-email/resend`
+- [Start linking a GitHub account](/docs/auth/auth-start-identity-link.md): `POST /v1/auth/{provider}/link`
+- [Get a nonce for a native sign-in](/docs/auth/auth-social-nonce.md): `POST /v1/auth/{provider}/nonce`
+- [Sign in with Google, Apple or GitHub in a browser](/docs/auth/auth-start-social.md): `GET /v1/auth/{provider}/start`
+
+## Organisations
+
+- [Accept an invitation](/docs/organisations/invitations-accept.md): `POST /v1/invitations/accept`
+- [List your organisations](/docs/organisations/orgs-list.md): `GET /v1/orgs`
+- [Create an organisation](/docs/organisations/orgs-create.md): `POST /v1/orgs`
+- [Get an organisation](/docs/organisations/orgs-get.md): `GET /v1/orgs/{orgId}`
+- [Rename an organisation](/docs/organisations/orgs-rename.md): `PATCH /v1/orgs/{orgId}`
+- [Delete an organisation](/docs/organisations/orgs-delete.md): `DELETE /v1/orgs/{orgId}`
+- [List your feature flags in the organisation](/docs/organisations/orgs-flags-list.md): `GET /v1/orgs/{orgId}/flags`
+- [List open invitations](/docs/organisations/orgs-invitations-list.md): `GET /v1/orgs/{orgId}/invitations`
+- [Invite someone](/docs/organisations/orgs-invitations-create.md): `POST /v1/orgs/{orgId}/invitations`
+- [Revoke an invitation](/docs/organisations/orgs-invitations-revoke.md): `DELETE /v1/orgs/{orgId}/invitations/{invitationId}`
+- [Resend an invitation](/docs/organisations/orgs-invitations-resend.md): `POST /v1/orgs/{orgId}/invitations/{invitationId}/resend`
+- [Leave an organisation](/docs/organisations/orgs-leave.md): `POST /v1/orgs/{orgId}/leave`
+- [List members](/docs/organisations/orgs-members-list.md): `GET /v1/orgs/{orgId}/members`
+- [Change a member's role](/docs/organisations/orgs-members-change-role.md): `PATCH /v1/orgs/{orgId}/members/{userId}`
+- [Remove a member](/docs/organisations/orgs-members-remove.md): `DELETE /v1/orgs/{orgId}/members/{userId}`
+- [Restore a deleted organisation](/docs/organisations/orgs-restore.md): `POST /v1/orgs/{orgId}/restore`
+- [List the organisation's service accounts](/docs/organisations/orgs-list-service-accounts.md): `GET /v1/orgs/{orgId}/service-accounts`
+- [Create a service account](/docs/organisations/orgs-create-service-account.md): `POST /v1/orgs/{orgId}/service-accounts`
+- [Get a service account](/docs/organisations/orgs-get-service-account.md): `GET /v1/orgs/{orgId}/service-accounts/{id}`
+- [Change a service account](/docs/organisations/orgs-update-service-account.md): `PATCH /v1/orgs/{orgId}/service-accounts/{id}`
+- [Delete a service account](/docs/organisations/orgs-delete-service-account.md): `DELETE /v1/orgs/{orgId}/service-accounts/{id}`
+- [List a service account's API keys](/docs/organisations/orgs-list-service-account-keys.md): `GET /v1/orgs/{orgId}/service-accounts/{id}/keys`
+- [Create an API key for a service account](/docs/organisations/orgs-create-service-account-key.md): `POST /v1/orgs/{orgId}/service-accounts/{id}/keys`
+- [Revoke a service account's API key](/docs/organisations/orgs-revoke-service-account-key.md): `DELETE /v1/orgs/{orgId}/service-accounts/{id}/keys/{keyId}`
+- [List the organisation's settings](/docs/organisations/orgs-settings-list.md): `GET /v1/orgs/{orgId}/settings`
+- [Get an organisation setting](/docs/organisations/orgs-settings-get.md): `GET /v1/orgs/{orgId}/settings/{key}`
+- [Set the organisation's own value](/docs/organisations/orgs-settings-set.md): `PUT /v1/orgs/{orgId}/settings/{key}`
+- [Go back to the platform value](/docs/organisations/orgs-settings-reset.md): `DELETE /v1/orgs/{orgId}/settings/{key}`
+- [List changes to an organisation setting](/docs/organisations/orgs-settings-history.md): `GET /v1/orgs/{orgId}/settings/{key}/history`
+
+## Invoices
+
+- [List the organisation's invoices](/docs/invoices/invoices-list.md): `GET /v1/orgs/{orgId}/invoices`
+- [Create an invoice](/docs/invoices/invoices-create.md): `POST /v1/orgs/{orgId}/invoices`
+- [Get an invoice](/docs/invoices/invoices-get.md): `GET /v1/orgs/{orgId}/invoices/{id}`
+- [Update an invoice](/docs/invoices/invoices-update.md): `PATCH /v1/orgs/{orgId}/invoices/{id}`
+- [Delete an invoice](/docs/invoices/invoices-delete.md): `DELETE /v1/orgs/{orgId}/invoices/{id}`
+
+## System
+
+- [Build information](/docs/system/get-version.md): `GET /version`
+
+## Optional
+
+- [OpenAPI document](/openapi.json): every endpoint, parameter and schema
+- [API reference overview](/docs.md)
