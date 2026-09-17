@@ -51,6 +51,50 @@
       ]
     },
     {
+      "name": "Dev Portal",
+      "groups": [
+        {
+          "name": "Start",
+          "pages": [
+            { "title": "The Dev Portal", "slug": "dev-portal", "source": "docs/dev-portal/index.md" },
+            { "title": "Overview", "slug": "dev-portal/overview", "source": "docs/dev-portal/overview.md" }
+          ]
+        },
+        {
+          "name": "Inspect",
+          "pages": [
+            { "title": "Routes", "slug": "dev-portal/routes", "source": "docs/dev-portal/routes.md" },
+            { "title": "Requests and Logs", "slug": "dev-portal/requests-and-logs", "source": "docs/dev-portal/requests-and-logs.md" },
+            { "title": "Modules and Audit", "slug": "dev-portal/modules-and-audit", "source": "docs/dev-portal/modules-and-audit.md" },
+            { "title": "Observability", "slug": "dev-portal/observability", "source": "docs/dev-portal/observability.md" }
+          ]
+        },
+        {
+          "name": "Bench",
+          "pages": [
+            { "title": "Jobs", "slug": "dev-portal/jobs", "source": "docs/dev-portal/jobs.md" },
+            { "title": "Mail", "slug": "dev-portal/mail", "source": "docs/dev-portal/mail.md" },
+            { "title": "Settings and flags", "slug": "dev-portal/settings-and-flags", "source": "docs/dev-portal/settings-and-flags.md" },
+            { "title": "Environment", "slug": "dev-portal/environment", "source": "docs/dev-portal/environment.md" },
+            { "title": "Authentication", "slug": "dev-portal/authentication", "source": "docs/dev-portal/authentication.md" },
+            { "title": "Database", "slug": "dev-portal/database", "source": "docs/dev-portal/database.md" },
+            { "title": "Storage", "slug": "dev-portal/storage", "source": "docs/dev-portal/storage.md" },
+            { "title": "Git", "slug": "dev-portal/git", "source": "docs/dev-portal/git.md" },
+            { "title": "Generators", "slug": "dev-portal/generators", "source": "docs/dev-portal/generators.md" },
+            { "title": "Project settings", "slug": "dev-portal/project-settings", "source": "docs/dev-portal/project-settings.md" }
+          ]
+        },
+        {
+          "name": "Database",
+          "pages": [
+            { "title": "Table Editor", "slug": "dev-portal/table-editor", "source": "docs/dev-portal/table-editor.md" },
+            { "title": "SQL Editor", "slug": "dev-portal/sql-editor", "source": "docs/dev-portal/sql-editor.md" },
+            { "title": "Schema, Objects and Migrations", "slug": "dev-portal/schema-objects-migrations", "source": "docs/dev-portal/schema-objects-migrations.md" }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Technical",
       "groups": [
         {

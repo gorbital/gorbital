@@ -1,6 +1,6 @@
 # Dev Portal
 
-While you run an app with `orb dev`, it also serves the Dev Portal at http://127.0.0.1:3100: a web UI for the app on your bench. It shows what the app is doing and its output as it happens, lets you restart it, and reaches the app's development APIs (routes, requests, logs, email, jobs, configuration) without you holding any token. Later phases add the database, SQL, authentication, storage, git and more; the plan is in the [Dev Portal roadmap](../dev-portal-roadmap.md). Decision: [ADR-0066](../adr/0066-dev-portal.md).
+While you run an app with `orb dev`, it also serves the Dev Portal at http://127.0.0.1:3100: a web UI for the app on your bench. It shows what the app is doing and its output as it happens, lets you restart it, and reaches the app's development APIs (routes, requests, logs, email, jobs, configuration) without you holding any token. Later phases add the database, SQL, authentication, storage, git and more; the plan is in the [Dev Portal roadmap](../dev-portal-roadmap.md). Decision: [ADR-0066](../adr/0066-dev-portal.md). The [Dev Portal section](../dev-portal/index.md) of the documentation has a page per screen, with screenshots.
 
 The portal exists only while `orb dev` runs, only on this machine, and only in development. Nothing about it is in the app or in production builds.
 
