@@ -1,6 +1,8 @@
 # Inside a generated app
 
-The functions that make up a Full app's composition root, `internal/app`, and its commands: what each does, what it takes and returns, its side effects and errors, what it touches in the database, and why it's built that way. Read with `examples/full-single/internal/app` open. For the library's packages, see the generated package reference; for one request's path, [life of a request](request-lifecycle.md).
+The functions that make up the composition root of a Full app on the v0.1 layout, `internal/app`, and its commands: what each does, what it takes and returns, its side effects and errors, what it touches in the database, and why it's built that way. Read with `examples/v0.1/full-single/internal/app` open.
+
+> Apps created by orb v0.1 have this layout and keep it until `orb upgrade --layout v0.2`. A new Full app runs on `gorbital.Main` and has no `internal/app`: the library builds what this page describes ([Your main.go](main-go.md), [The middleware stack](middleware-stack.md), [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#phase-9-implementation-notes-new-apps-on-the-v02-layout-2026-09-17)), and `cmd/api/main.go` says in one line each what it contains. For the library's packages, see the generated package reference; for one request's path, [life of a request](request-lifecycle.md).
 
 `internal/app` is the only package that reads the environment and the only one that knows every module. Modules receive what they need as constructor arguments ([ADR-0020](../adr/0020-constructors-and-configuration.md), [ADR-0022](../adr/0022-generated-application-layout.md)).
 

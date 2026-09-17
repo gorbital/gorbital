@@ -114,14 +114,16 @@ Then `orb new` prints a log: one line per finished step, where things are in the
 creating shop-api in ./shop-api
 preset full · library gorbital.dev v0.1.0
 
-✓ wrote 214 files
+✓ wrote 63 files
 ✓ ran go mod tidy
 ✓ initialised git
 
 created shop-api
 
   api docs     http://localhost:8080/docs (localhost, not 127.0.0.1, for passkeys)
-  emails       http://127.0.0.1:3100/mail (orb dev catches every email in development)
+  main.go      cmd/api/main.go runs the app on gorbital.Main; your code goes in internal/modules
+  modules      orb gen module <Name> <field:type>... adds a table and its API
+  emails       http://127.0.0.1:3100/mail (the Dev Portal catches every email in development)
   ...
 
   next: cd shop-api
@@ -131,9 +133,9 @@ created shop-api
 | Preset | What you get | Needs |
 |---|---|---|
 | **Minimal** | HTTP API with configuration, telemetry, health checks, security headers and interactive docs | Go |
-| **Full** | Everything in Minimal, plus PostgreSQL, runtime settings, background jobs, email (Resend, or SMTP with `orb add mail`), authentication and platform roles, audit log, release tracking, `/ops/*` APIs, and example code: the `ping` endpoint, the `heartbeat` job and the `projects` resource | Go and Docker |
+| **Full** | Everything in Minimal, plus PostgreSQL, runtime settings, background jobs, email (Resend, or SMTP with `orb add mail`), authentication and platform roles, audit log, release tracking, `/ops/*` APIs, and two example modules: `projects` (as `orb gen module` writes it) and `ping` (a public endpoint with a runtime setting and a feature flag) | Go and Docker |
 
-A Full app is exactly [examples/full-single](../../examples/full-single) with your name and module path ([ADR-0041](../adr/0041-full-preset-generation.md)): its database, Compose project and service name are your app's name. With `--tenancy multi` it is exactly [examples/full-multi](../../examples/full-multi) instead: data belongs to organisations, with members, one role each, invitations, personal workspaces and org-scoped projects under `/v1/orgs/{orgId}/…` ([ADR-0048](../adr/0048-organisations-v0-4.md)). Tenancy is chosen at creation; `orb add orgs` turns a single-tenant app into a multi-tenant one later. After creating one:
+A Full app runs on `gorbital.Main` (ADR-0083): `cmd/api/main.go` adds the built-in modules (sign-in with `authhttp`, `/ops` with `opshttp`, client flags, email events, and organisations with `orgshttp` in a multi-tenant app) and the app's own modules from `internal/modules/modules.gen.go`, with the app's migrations from `db/migrations`. `cmd/api/mail.go` and `cmd/api/storage.go` hold the email provider and S3-compatible storage. It is exactly [examples/full-single](../../examples/full-single) with your name and module path ([ADR-0041](../adr/0041-full-preset-generation.md)): its database, Compose project and service name are your app's name. With `--tenancy multi` it is exactly [examples/full-multi](../../examples/full-multi) instead: data belongs to organisations, with members, one role each, invitations, personal workspaces and org-scoped projects under `/v1/orgs/{orgId}/…` ([ADR-0048](../adr/0048-organisations-v0-4.md)). Tenancy is chosen at creation; `orb add orgs` turns a single-tenant app into a multi-tenant one later. Apps created by orb v0.1 keep the v0.1 layout (`internal/app`, [examples/v0.1/full-single](../../examples/v0.1/full-single)): every command below works in them as documented for v0.1, and they upgrade within their layout. Minimal apps keep composing core packages directly (roadmap decision D17). After creating one:
 
 ```bash
 cd my-api
@@ -147,14 +149,14 @@ Without `orb dev`, export `.env` yourself: the app reads environment variables, 
 cp .env.example .env           # then set AUTH_ENCRYPTION_KEYS: echo "k1:$(openssl rand -base64 32)"
 docker compose up -d --wait    # PostgreSQL
 set -a; . ./.env; set +a       # in each terminal, and again after editing .env
-go run ./cmd/migrate
-go run ./cmd/seed
+go run ./cmd/api migrate
+go run ./cmd/api seed          # the development administrator
 go run ./cmd/api
 ```
 
 If port 5432 is taken, set `POSTGRES_PORT` in `.env` and the same port in `DATABASE_URL`. The app's README explains how to create the first admin and how to remove the examples.
 
-Commit `gorbital.lock` with the app. It records the `orb` release that created the app, the answers the templates used (name, module, preset, tenancy, email provider) and a SHA-256 of every file `orb` wrote except `go.mod` and `go.sum`. `orb upgrade` uses it to rebuild those files as they were and merge newer templates into your edits ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)). Don't edit it by hand.
+Commit `gorbital.lock` with the app. It records the `orb` release that created the app, the answers the templates used (name, module, preset, tenancy, email provider, and `layout: v0.2` for apps on `gorbital.Main`; no layout means v0.1) and a SHA-256 of every file `orb` wrote except `go.mod` and `go.sum`. `orb upgrade` uses it to rebuild those files as they were and merge newer templates into your edits ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)). Don't edit it by hand.
 
 ## `orb add storage`
 
@@ -167,7 +169,7 @@ orb add storage --driver s3 --region eu-west-1 --bucket acme-files --access-key 
 
 ## `orb gen job`
 
-Generates a background job in an app created with the Full preset. The job's schedule, timeout and retries can be changed later in `/ops/jobs` without a deploy ([background jobs guide](background-jobs.md)).
+Generates a background job in an app on the v0.1 layout (`internal/app/jobs.go`); in an app on `gorbital.Main` it refuses with exit status 2 and points at a module's `Jobs` ([Modules and routes](modules-and-routes.md)). The job's schedule, timeout and retries can be changed later in `/ops/jobs` without a deploy ([background jobs guide](background-jobs.md)).
 
 ```bash
 orb gen job                                                     # asks for everything
@@ -214,7 +216,7 @@ Safety checks: the app must have `internal/app/jobs.go` with the anchor; existin
 
 In an app on `gorbital.Main`, `orb gen resource` runs [`orb gen module`](#orb-gen-module) with the same name, fields and flags (`--scope org` is `--org`; without `--scope` the module is owned by users) and says so; what follows describes apps on the v0.1 layout.
 
-Generates a module for records that belong to the signed-in user, in an app created with the Full preset: domain rules, use cases, a repository with hand-written SQL, `/v1/<names>` endpoints, tests and a migration. In a multi-tenant app (`orb new --tenancy multi`) records belong to an organisation instead: endpoints under `/v1/orgs/{orgId}/<names>`, every use case checks membership and a `<module>.<resource>.read` or `.write` permission with `orgs.RequireMember`, and the tests include non-members, roles without the permission and cross-organisation requests ([ADR-0048](../adr/0048-organisations-v0-4.md)). Everything it writes is your code to change ([ADR-0039](../adr/0039-resource-module-template.md)); `examples/full-single/internal/modules/projects` is exactly what it generates for the first example below, and `examples/full-multi/internal/modules/projects` what it generates there.
+Generates a module for records that belong to the signed-in user, in an app created with the Full preset: domain rules, use cases, a repository with hand-written SQL, `/v1/<names>` endpoints, tests and a migration. In a multi-tenant app (`orb new --tenancy multi`) records belong to an organisation instead: endpoints under `/v1/orgs/{orgId}/<names>`, every use case checks membership and a `<module>.<resource>.read` or `.write` permission with `orgs.RequireMember`, and the tests include non-members, roles without the permission and cross-organisation requests ([ADR-0048](../adr/0048-organisations-v0-4.md)). Everything it writes is your code to change ([ADR-0039](../adr/0039-resource-module-template.md)); `examples/v0.1/full-single/internal/modules/projects` is exactly what it generates for the first example below, and `examples/v0.1/full-multi/internal/modules/projects` what it generates there. This describes an app on the v0.1 layout; in an app on `gorbital.Main` it runs [`orb gen module`](#orb-gen-module) (with `--org` by default in a multi-tenant app).
 
 ```bash
 orb gen resource                                                        # asks for everything
@@ -418,8 +420,9 @@ What it changes:
 
 | File | Change |
 |---|---|
-| `internal/app/infra_mail.go` | Replaced with the provider's configuration and constructor |
-| `internal/app/infra_mail_test.go` | Replaced with the provider's tests and the fixtures the rest of the app's tests use, so `go test ./...` passes with either provider |
+| `cmd/api/mail.go` (apps on `gorbital.Main`) | Replaced with the provider's `mailer` function, which `main.go` passes to `gorbital.WithMailerFunc`, and `mailProvider`, which `opshttp.MailProvider` reports in `GET /ops/mail` |
+| `internal/app/infra_mail.go` (v0.1 layout) | Replaced with the provider's configuration and constructor |
+| `internal/app/infra_mail_test.go` (v0.1 layout) | Replaced with the provider's tests and the fixtures the rest of the app's tests use, so `go test ./...` passes with either provider |
 | `.env.example` | The block between `# orb:begin mail` and `# orb:end mail` holds the provider's variables; the `# aps:` markers of apps generated before the rename are read too and rewritten as `# orb:` |
 | `.env` | Updated if it exists, or created from `.env.example` when there are values to save; values already there are kept. It is always left with mode 0600: an existing `.env` that other users could read (as `cp .env.example .env` makes it) is narrowed, with a warning |
 | `gorbital.yaml` | `mail: resend` or `mail: smtp` |
@@ -428,7 +431,7 @@ What it changes:
 
 After confirming, it prints numbered next steps: where to get the Resend key and verify your domain (or which SMTP variables are left), how to set the sender with `PUT /ops/settings/mail.from_email`, and how to send a test email with `POST /ops/mail/test`. The sender name, address and reply-to are runtime settings, so they're never asked here.
 
-Safety checks: the app must have `internal/app/mail.go` and the `.env.example` block; the git repository must be clean unless `--allow-dirty`; `.env` must be ignored by git before a secret is saved in it; secret values are never printed or included in `--json` output. Running it with the provider already in place changes nothing.
+Safety checks: the app must have `cmd/api/mail.go` or `internal/app/mail.go`, and the `.env.example` block; the git repository must be clean unless `--allow-dirty`; `.env` must be ignored by git before a secret is saved in it; secret values are never printed or included in `--json` output. Running it with the provider already in place changes nothing.
 
 ## `orb add orgs`
 
@@ -439,16 +442,16 @@ orb add orgs --dry-run     # what would change, per file
 orb add orgs               # apply on branch orb-add-orgs
 ```
 
-It merges the multi-tenant app's files into yours the way `orb upgrade` merges a release: files you never edited are replaced, your edits are merged or shown as conflicts. Then it adds two migrations after your existing ones:
+It merges the multi-tenant app's files of the app's layout into yours the way `orb upgrade` merges a release: files you never edited are replaced (in an app on `gorbital.Main`, `main.go` gains `gorbital.WithModules(orgshttp.Module(auth))` and the example `projects` module becomes the organisation one), your edits are merged or shown as conflicts. Then it adds migrations after your existing ones:
 
 | Migration | What it does |
 |---|---|
-| `<version>_orgs.sql` | Creates `orgs`, `org_members` and `org_invitations` |
+| `<version>_orgs.sql` (v0.1 layout only) | Creates `orgs`, `org_members` and `org_invitations`, followed by the later organisation migrations. In an app on `gorbital.Main` the organisations module brings its migrations under their released versions, which a database already migrated past them refuses: reset a development database (`docker compose down -v`) ([known gap](../adr/0083-modules-stack-migrations-and-ejection.md#phase-9-implementation-notes-new-apps-on-the-v02-layout-2026-09-17)) |
 | `<version>_orgs_convert.sql` | Gives every account a personal workspace it owns (a deleted account's workspace is deleted too, purged 30 days after the account's deletion), then moves each project into its owner's workspace: `org_id` and `created_by` replace `owner_id`. The table is changed in place, so columns you added stay; this step is skipped if `projects` no longer has `owner_id` |
 
 Without conflicts it updates `go.mod`, builds, regenerates `api/openapi.json`, records `api/surface.json` and commits `Add organisations`. Then run `go test ./...`, apply the migrations (`orb dev`, or `go run ./cmd/migrate` in each environment) and merge the branch. Set `orgs.invitation_url` before inviting people.
 
-Resources you generated with `orb gen resource` stay owned by users and keep working; the command lists them. To move one to organisations, generate it again with `--scope org` and move its data.
+Modules you generated stay owned by users and keep working; the command lists them. To move one to organisations, generate it again (`orb gen module --org`, or `orb gen resource --scope org` in a v0.1 app) and move its data.
 
 Other flags: `--json`, `--skip-tidy`, `--skip-build`. Safety checks: the app must be in git with no uncommitted changes, and on this release (run `orb upgrade` first). An app that already has organisations is left alone.
 
@@ -459,13 +462,13 @@ Turns on row-level security in a multi-tenant app: a fifth isolation layer, in P
 ```bash
 orb add rls --dry-run      # the files it would write
 orb add rls                # write them in the working tree
-go run ./cmd/migrate
+go run ./cmd/api migrate   # go run ./cmd/migrate in a v0.1 app
 ```
 
 | File | Change |
 |---|---|
 | `db/migrations/<version>_row_level_security.sql` | A copy of `db/row_level_security.sql`: forces row-level security, with the `org_isolation` policy, on every table with `org_id NOT NULL` except `org_members` and `org_invitations` |
-| `gorbital.yaml` | `rls: true`, so `orb gen resource --scope org` adds the policy to new resources' migrations |
+| `gorbital.yaml` | `rls: true`, so `orb gen module --org` (and `orb gen resource --scope org`) adds the policy to new modules' migrations |
 | `gorbital.lock` | `inputs.rls` and the new hash of `gorbital.yaml`, so `orb upgrade` keeps the line |
 
 The app already sets the organisation on every database connection, so no code changes. It prints next steps: connect as a role that isn't a superuser and has no `BYPASSRLS` (PostgreSQL applies no policy to those), migrate, run `orb doctor` and the tests, and commit.
@@ -482,7 +485,7 @@ orb upgrade                    # apply on branch orb-upgrade/<version>
 orb upgrade --from <commit>    # apps whose lock records no release or commit name the gorbital commit that created them
 ```
 
-It rebuilds every file exactly as the release recorded in `gorbital.lock` wrote it, checks each against the hash in the lock, and merges per file:
+It rebuilds every file exactly as the release recorded in `gorbital.lock` wrote it, checks each against the hash in the lock, and merges per file. Both sides are the app's own layout's templates: an app on the v0.1 layout is rebuilt from and merged with the v0.1-layout templates this release still carries, so it never receives files of the `gorbital.Main` layout, and the report says `layout: v0.1` (`"layout"` in `--json`) with a pointer to `orb upgrade --layout v0.2`, the opt-in move:
 
 | Your file | The new release | Result |
 |---|---|---|
@@ -496,7 +499,7 @@ It rebuilds every file exactly as the release recorded in `gorbital.lock` wrote 
 
 A file whose rebuilt content doesn't match the lock is compared as yours against the release, so it can conflict but is never overwritten. Migrations are never merged: new ones are added with their released names, and yours stay as they are. Files `orb gen` created aren't tracked, so they're never touched.
 
-Without conflicts it then updates `go.mod` (new requirements and the new library version, then `go mod tidy`), runs `go build ./...`, regenerates `api/openapi.json` (with the Postman collection and `llms.txt`), records the app's public names in `api/surface.json` (`go test ./internal/app -run TestPublicSurface -update`; review what changed in the commit) and commits `Upgrade gorbital to <version>`. Run your tests (database tests need `orb dev` or `docker compose up -d --wait`) and merge the branch. With conflicts it exits with code 1, commits nothing, and lists the files to resolve and the commands to finish.
+Without conflicts it then updates `go.mod` (new requirements and the new library version, then `go mod tidy`), runs `go build ./...`, regenerates `api/openapi.json` (with the Postman collection and `llms.txt`), records the app's public names in `api/surface.json` (`go test ./internal/modules -run TestPublicSurface -update` on `gorbital.Main`, `./internal/app` in a v0.1 app; review what changed in the commit) and commits `Upgrade gorbital to <version>`. Run your tests (database tests need `orb dev` or `docker compose up -d --wait`) and merge the branch. With conflicts it exits with code 1, commits nothing, and lists the files to resolve and the commands to finish.
 
 Where earlier releases come from: with an gorbital checkout (`--local`, the checkout your `go.mod` replaces the library with, or the one you run in), `git archive` of the release's tag or commit. Otherwise the `gorbital.dev/cli` module from the Go module proxy, verified by the checksum database: `orb upgrade` refuses when `GOSUMDB` is `off` or names a database other than `sum.golang.org`, or when `GONOSUMDB`, `GOPRIVATE` or `GOINSECURE` covers the module (patterns match as Go matches them, with or without a trailing slash). Templates are only rendered as text; nothing downloaded is run.
 

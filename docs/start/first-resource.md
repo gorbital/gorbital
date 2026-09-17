@@ -1,60 +1,70 @@
-# Add your first resource
+# Add your first module
 
-A **resource** is a kind of data in your API, such as invoices, customers or tasks, with endpoints to create, read, update and delete it. `orb gen resource` writes one for you: the database table, the rules, the endpoints and the tests. The result is ordinary Go code in your repository, which you then change like any other code.
+A **module** is a part of your app with its own data and endpoints, such as invoices, customers or tasks. `orb gen module` writes one for you: the database table, the rules, the endpoints with their protection, and the tests. The result is ordinary Go code in your repository, which you then change like any other code.
 
 This page adds invoices to the app from the [Quickstart](quickstart.md) and explains every file. The output below comes from a real run.
+
+> [!NOTE]
+> This page is for apps on `gorbital.Main`, which `orb new` creates from v0.2 on. An app created by orb v0.1 keeps its layout (`internal/app`): there, `orb gen resource` writes the module and wires it into `internal/app` ([v0.1 docs](https://docs.gorbital.dev/v0.1/guides/first-resource)). In an app on `gorbital.Main`, `orb gen resource` runs `orb gen module`.
 
 ## Before you start
 
 - `orb dev` is running in Terminal 1, or at least `docker compose up -d --wait`.
 - Your changes are committed. `orb gen` refuses to run otherwise, so its changes are a clean diff: `git status --short` should print nothing.
 
-## 1. Describe the resource
+## 1. Describe the records
 
-A resource has a **name** (singular) and **fields**. Each field is `name:type`, with `:unique` for values that must differ:
+A module has a **name** (singular) and **fields**. Each field is `name:type`, with `:unique` for values that must differ:
 
 | Field type | Stores | Rules |
 |---|---|---|
 | `string` | Short text, such as a name or number | 1 to 100 characters, required, sortable |
-| `string:unique` | The same, unique per owner, ignoring upper and lower case | Duplicates get 409 `<resource>_<field>_taken` |
+| `string:unique` | The same, unique per owner, ignoring upper and lower case | Duplicates get 409 `<record>_<field>_taken` |
+| `string?` | Short text that may be empty, such as a nickname | 0 to 100 characters, optional, sortable, never unique |
 | `text` | Long text, such as notes | Up to 2000 characters, optional |
 | `enum(a,b,c)` | One value from a fixed list | The first value is the default; lists can filter by it |
 
-A resource needs at least one `string` field. The first one is its title.
+A module needs at least one required `string` field. The first one is its title.
 
 ## 2. Generate it
 
 In **Terminal 2**, in your app's folder:
 
 ```bash
-orb gen resource Invoice number:string:unique 'status:enum(draft,sent,paid)' notes:text
+orb gen module Invoice number:string:unique 'status:enum(draft,sent,paid)' notes:text
 ```
 
-Quote the enum field: shells treat parentheses specially. Leave the fields out to be asked for them one at a time. Add `--dry-run` first to see the files without writing them.
+Quote the enum field: shells treat parentheses specially. Leave the fields out to be asked for them. Add `--dry-run` first to see the files without writing them, or `--diff` to see them as a diff.
 
 ```text
-✓ Created resource Invoice
+✓ Created module invoices
 
-  Resource:  Invoice (table invoices, IDs like inv_…)
-  API:       /v1/invoices, for the signed-in user's invoices
+  Module:      invoices (table invoices, IDs like inv_…)
+  API:         /v1/invoices, for the signed-in user's invoices
+  Permissions: invoices.invoice.read, invoices.invoice.write (the user role)
   Fields:
     number               string, 1 to 100 characters, unique
     status               one of draft, sent, paid (default draft)
     notes                text, up to 2000 characters
   Files:
-    internal/modules/invoices/module.go
-    internal/modules/invoices/domain/invoice.go
+    create internal/modules/invoices/module.go
+    create internal/modules/invoices/invoices_test.go
+    create internal/modules/invoices/domain/invoice.go
     …
-    db/migrations/20260915140945_invoices.sql
-    internal/app/modules.go
-    internal/app/permissions.go
+    create internal/modules/invoices/delivery/routes.go
+    …
+    create db/migrations/20260917165619_invoices.sql
+    modify internal/modules/modules.gen.go
 
 Next:
-  1. go run ./cmd/migrate
-  2. go test ./...
-  3. go run ./cmd/api openapi > api/openapi.json
-  4. go run ./cmd/api, sign in, then POST /v1/invoices
+  1. go run ./cmd/api migrate (orb dev runs it)
+  2. go run ./cmd/api openapi --dir api
+  3. go test ./internal/modules -run TestPublicSurface -update (records the new error codes, audit actions and permissions in api/surface.json)
+  4. go test ./internal/modules/invoices/...
+  5. go run ./cmd/api, sign in, then POST /v1/invoices
 ```
+
+It never overwrites a file, and it doesn't touch `cmd/api/main.go`: `main.go` adds every module listed in `internal/modules/modules.gen.go` with `gorbital.WithModules(modules.All()...)`.
 
 ## 3. What it created
 
@@ -64,43 +74,56 @@ Your new module is split into four **layers**. Each has one job, and a request p
 HTTP request
    │
    ▼
-delivery/     reads the request and writes the response      (knows HTTP, not SQL)
+delivery/     the route table and its guards, reads the request, writes the response  (knows HTTP, not SQL)
    │
    ▼
-usecase/      checks who's asking and applies the steps      (knows neither HTTP nor SQL)
+usecase/      applies the steps for the signed-in user                                (knows neither HTTP nor SQL)
    │
    ▼
-domain/       the rules: what a valid invoice is            (plain Go, no dependencies)
+domain/       the rules: what a valid invoice is                                      (plain Go, no dependencies)
    │
    ▼
-repository/   reads and writes the database                  (knows SQL, not HTTP)
+repository/   reads and writes the database                                           (knows SQL, not HTTP)
    │
    ▼
 PostgreSQL
 ```
 
-Keeping them apart means you can change the rules without touching SQL, or the SQL without touching the endpoints, and test each alone.
+Keeping them apart means you can change the rules without touching SQL, or the SQL without touching the endpoints. Each operation (create, get, list, update, delete) has its own file in each layer, so a change to one operation is a change to its files. `internal/modules/architecture_test.go` fails when a layer imports one it shouldn't.
 
 | File | What it's for |
 |---|---|
-| `internal/modules/invoices/domain/invoice.go` | The `Invoice` type and its rules: lengths, allowed statuses, what an update may change. Put new business rules here |
-| `internal/modules/invoices/domain/errors.go` | Errors such as "not found" and "number taken", with no HTTP in them |
-| `internal/modules/invoices/domain/invoice_test.go` | Tests for the rules; no database needed |
-| `internal/modules/invoices/usecase/ports.go` | What the use cases need from the outside, as small interfaces: a store, a transaction runner, an audit recorder |
-| `internal/modules/invoices/usecase/service.go` | The `Service` that holds those dependencies |
-| `internal/modules/invoices/usecase/invoices.go` | Create, get, list, update and delete, each for the signed-in owner, each checking the `invoices.invoice.read` or `.write` permission and recording an audit event |
-| `internal/modules/invoices/usecase/invoices_test.go` | Tests for the use cases against a real PostgreSQL |
-| `internal/modules/invoices/repository/store.go` | The `Store`, which works on the database pool or inside a transaction |
-| `internal/modules/invoices/repository/insert_invoice.go`, `select_invoice.go`, `select_invoices.go`, `update_invoice.go`, `delete_invoice.go` | One SQL statement per file, next to the Go that runs it |
-| `internal/modules/invoices/repository/scan.go` | Turns database rows into `Invoice` values |
-| `internal/modules/invoices/repository/store_test.go` | Tests for every query against a real PostgreSQL |
-| `internal/modules/invoices/delivery/invoices.go` | The endpoints: request and response shapes, documentation for `/docs`, status codes |
-| `internal/modules/invoices/module.go` | Connects the four layers |
-| `internal/app/module_invoices.go` | Builds the module when the app starts, declares its permissions, and maps each domain error to an HTTP status and code |
-| `internal/app/invoices_test.go` | A full HTTP test: sign up, create, list, update, delete, proof that another user gets 404 for your invoices, and that a read-only API key can't change them |
-| `internal/app/modules.go` | Changed by one line, `registerInvoices(…)`, so the app includes the module |
-| `internal/app/permissions.go` | Changed by one line, `invoicesPermissions,`, so the `user` role every user holds grants `invoices.invoice.read` and `.write`. Signed-in sessions always have them; an [API key](../guides/api-keys.md) only when its scopes include them |
-| `db/migrations/20260915140945_invoices.sql` | Creates the table |
+| `module.go` | `func Module() gorbital.Module`: the module's name, its error codes (each domain error mapped to an HTTP status and code), its permissions and the roles that hold them, and its routes |
+| `domain/invoice.go` | The `Invoice` type and its rules: lengths, allowed statuses, what an update may change. Put new business rules here |
+| `domain/errors.go` | Errors such as "not found" and "number taken", with no HTTP in them |
+| `domain/invoice_test.go` | Tests for the rules; no database needed |
+| `usecase/service.go`, `usecase/ports.go` | The `Service`, and what it needs from the outside as small interfaces: a store and an audit recorder |
+| `usecase/create_invoice.go`, `get_invoice.go`, `list_invoices.go`, `update_invoice.go`, `delete_invoice.go` | One operation each, for the signed-in owner, recording an audit event for changes |
+| `repository/store.go` | The `Store`, which works on the database pool or inside a transaction |
+| `repository/insert_invoice.go`, `select_invoice.go`, `select_invoices.go`, `update_invoice.go`, `delete_invoice.go` | One SQL statement per file, next to the Go that runs it |
+| `delivery/routes.go` | The route table: every route with its guard, such as `guard.Permission(usecase.PermWrite)` |
+| `delivery/responses.go`, `delivery/create_invoice.go`, … | The response shape, and each operation's input, output and handler |
+| `invoices_test.go` | HTTP tests through the app's real middleware stack on a temporary database: create, list with pages and filters, update with versions, delete, another user getting 404, a read-only API key refused, and the audit events |
+| `db/migrations/20260917165619_invoices.sql` | Creates the table |
+| `internal/modules/modules.gen.go` | Rewritten to list the module. Never edit it: `orb gen modules` (and `orb dev`) write it |
+
+Here is the route table:
+
+```go
+func Register(r *gorbital.Router, svc *usecase.Service) {
+	h := handlers{svc: svc}
+	invoices := r.Group("/v1/invoices", gorbital.Tags("Invoices"))
+
+	gorbital.Post(invoices, "", h.createInvoice, gorbital.OperationID("invoices-create"),
+		gorbital.Summary("Create an invoice"), gorbital.Status(http.StatusCreated),
+		gorbital.Errors(http.StatusConflict, http.StatusUnprocessableEntity),
+		guard.Permission(usecase.PermWrite))
+	gorbital.Get(invoices, "", h.listInvoices, …, guard.Permission(usecase.PermRead))
+	…
+}
+```
+
+Every route requires a signed-in caller unless it says `guard.Public()`, so a route can't be left open by mistake. The permissions `invoices.invoice.read` and `.write` are held by the `user` role every account has: signed-in sessions always have them; an [API key](../guides/api-keys.md) only when its scopes include them. `orb routes` lists every route of the app with its guards.
 
 ## 4. The table
 
@@ -110,8 +133,8 @@ The migration is plain SQL. The file name starts with the time it was created, s
 -- +goose Up
 CREATE TABLE invoices (
     id         text        PRIMARY KEY,
-    -- Purging an account (after its retention) deletes its invoices.
-    owner_id   text        NOT NULL REFERENCES auth_users (id) ON DELETE CASCADE,
+    -- The signed-in user who owns the invoice; only they can read or change it.
+    owner_id   text        NOT NULL,
     number     text        NOT NULL CHECK (char_length(number) BETWEEN 1 AND 100),
     status     text        NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'paid')),
     notes      text        NOT NULL DEFAULT '' CHECK (char_length(notes) <= 2000),
@@ -128,6 +151,9 @@ CREATE UNIQUE INDEX invoices_owner_number ON invoices (owner_id, lower(number));
 CREATE INDEX invoices_owner_created ON invoices (owner_id, created_at, id);
 CREATE INDEX invoices_owner_updated ON invoices (owner_id, updated_at, id);
 CREATE INDEX invoices_owner_number_sort ON invoices (owner_id, (lower(number) COLLATE "C"), id);
+
+-- +goose Down
+DROP TABLE invoices;
 ```
 
 What the columns are for:
@@ -137,12 +163,20 @@ What the columns are for:
 - **`version`** stops lost updates. Updates send the version they read; if someone changed the invoice in between, the update fails with 409 instead of silently overwriting their change.
 - **The `CHECK` constraints** repeat the domain rules in the database, so bad data can't get in even from a script.
 
-## 5. Apply, test, export
+Your app's migrations run in one history with gorbital's own (accounts, sessions, settings, jobs), ordered by version.
+
+## 5. Apply, record, test, export
 
 If `orb dev` is running, it notices the new migration, applies it and restarts: `/docs` already shows **Invoices**. Otherwise, with the environment loaded:
 
 ```bash
-go run ./cmd/migrate
+go run ./cmd/api migrate
+```
+
+Record the module's public names (its error codes, audit actions and permissions) in `api/surface.json`. They are part of your API: `TestPublicSurface` fails when one disappears or a new one isn't recorded, so a rename shows up in review:
+
+```bash
+go test ./internal/modules -run TestPublicSurface -update
 ```
 
 Run the tests. They create their own temporary databases, so your development data isn't touched:
@@ -155,10 +189,10 @@ go test ./...
 
 `GORBITAL_REQUIRE_DB=1` makes database tests fail rather than skip when the database is missing, so a green run means they really ran.
 
-Update the API description that's committed with your code, so API changes show up in reviews:
+Update the API description that's committed with your code, so API changes show up in reviews (`TestOpenAPIIsCurrent` in `cmd/api` checks it):
 
 ```bash
-go run ./cmd/api openapi > api/openapi.json
+go run ./cmd/api openapi --dir api
 ```
 
 ## 6. Try it
@@ -187,15 +221,17 @@ The code is yours. Common changes:
 
 | To | Edit |
 |---|---|
-| Add a rule, such as "a paid invoice can't be changed" | `domain/invoice.go`, and return a new error from `domain/errors.go`; map it in `internal/app/module_invoices.go` |
-| Add a column | A new migration: `orb gen migration add_invoice_due_date`, then the domain type, the SQL files that read or write it, and `delivery/invoices.go` |
+| Add a rule, such as "a paid invoice can't be changed" | `domain/invoice.go`, and return a new error from `domain/errors.go`; map it in the module's `Errors` in `module.go` |
+| Add an endpoint | The use case in its own `usecase/` file, its input, output and handler in its own `delivery/` file, and the route with its guard in `delivery/routes.go` |
+| Protect a route differently | Its guards in `delivery/routes.go`: `guard.RateLimit(30, time.Minute)`, `guard.RecentReauth()`, or your own with `orb gen middleware <Name> --module invoices --guard` ([Guards](../guides/guards-and-middleware.md)) |
+| Add a column | A new migration: `orb gen migration add_invoice_due_date`, then the domain type, the SQL files that read or write it, and the delivery files |
 | Change a query | The SQL constant in the repository file for that operation |
-| Change a response | The types in `delivery/invoices.go`, then export `api/openapi.json` again |
+| Change a response | The types in `delivery/`, then export `api/` again |
 
 Edit a migration only until it has run anywhere but your computer. After that, add a new one: a database never runs the same migration twice. Locally, `docker compose down -v` resets the database if you need to rerun an edited one.
 
 ## In a multi-tenant app
 
-In an app created with `--tenancy multi`, the same command makes invoices belong to an **organisation** instead of a user: endpoints under `/v1/orgs/{orgId}/invoices`, an `org_id` column instead of `owner_id`, a membership check in every use case, `invoices.invoice.read` and `.write` permissions for organisation roles, and tests proving a member of another organisation gets 404. See [Organisations](organisations.md).
+In an app created with `--tenancy multi`, add `--org` to make invoices belong to an **organisation** instead of a user: endpoints under `/v1/orgs/{orgId}/invoices` guarded by `guard.OrgMember`, an `org_id` column instead of `owner_id`, `invoices.invoice.read` and `.write` held by the organisation roles, and tests proving a member of another organisation gets 404. `orb gen resource` does the same without the flag in such an app. See [Organisations](organisations.md).
 
-All flags and rules: [CLI reference](../guides/cli.md#orb-gen-resource).
+All flags and rules: [CLI reference](../guides/cli.md#orb-gen-module), [Generating code](../guides/generating-code.md).

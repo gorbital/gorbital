@@ -22,7 +22,7 @@
         {
           "name": "Build your API",
           "pages": [
-            { "title": "Add your first resource", "slug": "guides/first-resource", "source": "docs/start/first-resource.md" },
+            { "title": "Add your first module", "slug": "guides/first-resource", "source": "docs/start/first-resource.md" },
             { "title": "Modules and routes", "slug": "guides/modules-and-routes", "source": "docs/guides/modules-and-routes.md" },
             { "title": "Guards and middleware", "slug": "guides/guards-and-middleware", "source": "docs/guides/guards-and-middleware.md" },
             { "title": "Your main.go", "slug": "guides/main-go", "source": "docs/guides/main-go.md" },

@@ -6,15 +6,35 @@ This page explains gorbital in plain words: the three parts, what a new app cont
 
 | Part | What it is | Where it runs |
 |---|---|---|
-| **`orb`**, the command-line tool | Creates your app, adds features to it and generates code, such as a new resource or a background job | Only on your computer |
-| **Your app** | A Go project in your own repository: your endpoints, your database tables, your rules | Your computer while you build, then your servers |
-| **The gorbital library** | Go packages your app imports for the parts that are hard to get right: password hashing, sessions, passkeys, background jobs | Inside your app |
+| **`orb`**, the command-line tool | Creates your app, adds features to it and generates code, such as a new module or middleware | Only on your computer |
+| **Your app** | A Go project in your own repository: `main.go`, your modules with their endpoints and rules, your database tables | Your computer while you build, then your servers |
+| **The gorbital library** | Go packages your app imports: the server and its middleware, sign-in, organisations, the admin API, background jobs, email | Inside your app |
 
 Why split it this way:
 
-- **Your code stays yours.** Everything specific to your product is plain Go in your repository. There's no hidden framework magic to learn.
-- **Security fixes are easy to get.** The risky parts are in the library, so a fix reaches your app when you update it with `go get`.
+- **Your code stays yours.** Everything specific to your product is plain Go in your repository, and `main.go` says in one line each what the library adds. There's no hidden framework magic: no reflection, no code in comments.
+- **Fixes are easy to get.** Sign-in, `/ops` and the wiring are in the library, so a fix reaches your app when you update it with `go get`.
+- **You can take anything back.** Options and hooks change the built-in parts; for anything else, `orb eject` copies a built-in module into your app as your code.
 - **Nothing locks you in.** Remove `orb` and your app still builds, runs and deploys.
+
+## What a new app looks like
+
+```text
+cmd/api/main.go            gorbital.Main: what the app contains, one line each
+internal/modules/          your modules: projects and ping to start with
+  modules.gen.go           the list main.go adds (written by orb, never edited)
+  projects/                module.go, domain/, usecase/, repository/, delivery/
+db/migrations/             your tables
+api/                       the OpenAPI document and your public names (surface.json)
+```
+
+```go
+func main() {
+	gorbital.Main(options()...) // serve, migrate, openapi, seed, grant-role, …
+}
+```
+
+A module declares everything about itself in one `gorbital.Module` value: its routes and their guards, error codes, permissions, runtime settings, feature flags and jobs. Every route requires a signed-in caller unless it says `guard.Public()`.
 
 ## What a new app contains
 
@@ -25,7 +45,7 @@ When you run `orb new` and choose the **Full** preset, you get a working API wit
 | Sign-up and sign-in | Accounts with email and password, email codes, sessions, password reset, and optional authenticator apps, passkeys, Google, Apple and GitHub |
 | API keys | Keys with scopes and an expiry for scripts and services, including service accounts that aren't people |
 | Database | PostgreSQL, with migrations that create and change your tables step by step |
-| Example resource | `projects`: a complete example of data people can create, list, update and delete, to copy for your own |
+| Example modules | `projects`: data people can create, list, update and delete, exactly as `orb gen module` writes it; `ping`: a public endpoint with a runtime setting and a feature flag |
 | Background jobs | Work that runs later or on a schedule, such as sending email or cleaning up expired sessions |
 | Email | Sign-up codes and alerts, sent through Resend or SMTP |
 | Admin endpoints | `/ops/...` endpoints for administrators to change settings and feature flags, run jobs, read the audit log, watch live request and error rates and record incidents |
@@ -50,17 +70,18 @@ orb dev
 
 `orb dev` is the one command you run while building. It:
 
-1. Starts PostgreSQL and Mailpit (a local inbox that catches every email) in Docker.
+1. Starts PostgreSQL in Docker, and a mail catcher that keeps every email the app sends.
 2. Updates the database with any new migrations.
-3. Creates example data the first time, including an administrator account.
+3. Creates an administrator account the first time.
 4. Starts your API and restarts it each time you save a file.
+5. Serves the [Dev Portal](../guides/dev-portal.md): your routes, database, jobs, logs, emails and the generators, in the browser.
 
 While it runs, you have:
 
 | Address | What's there |
 |---|---|
 | http://localhost:8080/docs | Your API docs, where you can try every endpoint |
-| http://127.0.0.1:8025 | Mailpit: every email your app sends |
+| http://127.0.0.1:3100 | The Dev Portal; its Mail screen shows every email your app sends |
 | http://127.0.0.1:8080/_dev/ | [Dev console APIs](../guides/dev-console.md): recent requests, logs, routes and configuration, with the token `orb dev` prints |
 
 ## Where settings live
@@ -81,7 +102,8 @@ Secrets never go in the database, and nothing is set in two places.
 |---|---|
 | API | The part of your product that other programs talk to over the internet, such as your website or mobile app |
 | Endpoint | One address of your API that does one thing, such as `POST /v1/projects` to create a project |
-| Resource | A kind of data in your API, such as projects or invoices, with endpoints to create, read, update and delete it |
+| Module | A part of your app with its own data, endpoints and rules, such as projects or invoices; in `internal/modules/<name>` |
+| Guard | A rule on a route that decides who may call it, such as `guard.Permission` or `guard.Public()` |
 | Migration | A file of SQL that changes your database's structure, applied in order |
 | Environment variable | A named value your app reads when it starts, such as `DATABASE_URL` |
 | Secret | A value that lets someone act as your app, such as a password or private key. It never goes in git |
@@ -96,5 +118,5 @@ Secrets never go in the database, and nothing is set in two places.
 ## Next
 
 - [Quickstart](quickstart.md): create and run an app.
-- [Add your first resource](first-resource.md): add your own kind of data.
+- [Add your first module](first-resource.md): add your own kind of data.
 - [Set up sign-in](../sign-in/overview.md): turn on Google, Apple, passkeys and email.

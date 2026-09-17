@@ -1,8 +1,8 @@
 # Life of a request
 
-What happens between a client sending a request to a Full app and receiving the response, in order, with the file and function responsible for each step. Read it next to `examples/full-single/internal/app/routes.go`.
+What happens between a client sending a request to a Full app and receiving the response, in order, with the file and function responsible for each step. Read it next to `examples/v0.1/full-single/internal/app/routes.go`: it describes the v0.1 layout, which apps created by orb v0.1 keep.
 
-> In an app on `gorbital.Main` (v0.2), the middleware is built by the library as `gorbital.Stack`, in the same order: see [The middleware stack](middleware-stack.md), which replaces section 2 for those apps, and [Guards and middleware](guards-and-middleware.md) for what runs between the router and the handler. Sections 3 to 8 describe both.
+> A new Full app runs on `gorbital.Main` (v0.2, `examples/full-single`), and its middleware is built by the library as `gorbital.Stack`, in the same order: see [The middleware stack](middleware-stack.md), which replaces section 2 for those apps, and [Guards and middleware](guards-and-middleware.md) for what runs between the router and the handler. Sections 3 to 8 describe both.
 
 ```text
 client

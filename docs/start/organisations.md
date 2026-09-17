@@ -25,7 +25,7 @@ created acme-api
 
 </div>
 
-Start it with `orb dev`. Seed data creates `admin@example.com` with a personal workspace holding three example projects, so `GET /v1/orgs` and `GET /v1/orgs/{orgId}/projects` return data straight away.
+Start it with `orb dev`. Seed data creates `admin@example.com`; its personal workspace is created the first time it calls `GET /v1/orgs`, and the example `projects` module serves `GET /v1/orgs/{orgId}/projects`. (An app created by orb v0.1 seeds three example projects in the workspace.)
 
 ## In an app on gorbital.Main
 
@@ -140,15 +140,17 @@ Every account gets a workspace called "Personal" when it is created: at registra
 
 </div>
 
-## Add an org-scoped resource
+## Add an org-scoped module
 
-In a multi-tenant app, `orb gen resource` scopes resources to organisations by default:
+In an app on `gorbital.Main`, `orb gen module --org` writes a module whose records belong to organisations (`orb gen resource` does the same without the flag in a multi-tenant app):
 
 ```bash
-orb gen resource Invoice number:string:unique 'status:enum(draft,sent,paid)'
+orb gen module Invoice number:string:unique 'status:enum(draft,sent,paid)' --org
 ```
 
-It writes endpoints under `/v1/orgs/{orgId}/invoices`, declares `invoices.invoice.read` and `invoices.invoice.write`, and adds one line at `//orb:anchor org-permissions` so every organisation role holds them. Change which roles hold them in `declareOrgPermissions`.
+It writes endpoints under `/v1/orgs/{orgId}/invoices`, each guarded by `guard.OrgMember`, and declares `invoices.invoice.read` and `invoices.invoice.write` with `OrgRoles` owner, admin and member in the module's `module.go`; change which roles hold them there.
+
+In an app on the v0.1 layout, `orb gen resource` scopes resources to organisations by default, and adds one line at `//orb:anchor org-permissions` in `internal/app/permissions.go` so every organisation role holds them. The rest of this section shows that layout.
 
 ## Check membership in a use case
 

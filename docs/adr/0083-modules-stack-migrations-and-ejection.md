@@ -2,7 +2,7 @@
 
 **Status:** Accepted (2026-09-17); amended in Phase 3 (2026-09-17): the layered module layout, the authenticator's optional methods, and [implementation notes](#phase-3-implementation-notes-2026-09-17); amended in Phase 4 (2026-09-17): how built-in modules reach what the app built, rate limiters and retention declared by modules ([implementation notes](#phase-4-implementation-notes-2026-09-17)) · **Amends:** ADR-0017, ADR-0022, ADR-0039, ADR-0050 · **Builds on:** ADR-0081, ADR-0082
 **Status:** Accepted (2026-09-17); amended in Phase 3 (2026-09-17): the layered module layout, the authenticator's optional methods, and [implementation notes](#phase-3-implementation-notes-2026-09-17); amended in Phase 5 (2026-09-17): `AuthSetup`, and [notes on moving sign-in with its threat model](#phase-5-implementation-notes-moving-sign-in-2026-09-17) · **Amends:** ADR-0017, ADR-0022, ADR-0039, ADR-0050 · **Builds on:** ADR-0081, ADR-0082
-**Status:** Accepted (2026-09-17); amended in Phase 3 (2026-09-17): the layered module layout, the authenticator's optional methods, and [implementation notes](#phase-3-implementation-notes-2026-09-17); Phase 8 [implementation notes](#phase-8-implementation-notes-2026-09-17) (the generators) · **Amends:** ADR-0017, ADR-0022, ADR-0039, ADR-0050 · **Builds on:** ADR-0081, ADR-0082
+**Status:** Accepted (2026-09-17); amended in Phase 3 (2026-09-17): the layered module layout, the authenticator's optional methods, and [implementation notes](#phase-3-implementation-notes-2026-09-17); Phase 8 [implementation notes](#phase-8-implementation-notes-2026-09-17) (the generators); Phase 9 [implementation notes](#phase-9-implementation-notes-new-apps-on-the-v02-layout-2026-09-17) (new apps on the v0.2 layout, the app's surface) · **Amends:** ADR-0017, ADR-0022, ADR-0039, ADR-0050 · **Builds on:** ADR-0081, ADR-0082
 
 ## Context
 
@@ -701,6 +701,62 @@ The golden app's organisation HTTP tests (organisations end to end, API keys and
 - The organisations module's migrations keep v0.1's versions (`20260916000001`, `20260918000002`): a database of an app on `gorbital.Main` already migrated past them can't add `orgshttp` without recreating it, since goose refuses out-of-order migrations. Allowing them would change `postgres.Migrate` for every app; documented instead (organisations guide, Shelfie chapter 8).
 - The Dev Portal's built UI (`cli/internal/portal/ui/dist`) still shows the module form's organisation option as disabled; the API accepts `org: true`. Needs a gorbital-dashboards build.
 - `orgshttp` requires `authhttp`: an app with another authenticator (such as `modules/jwt`) has no built-in organisations.
+
+## Phase 9 implementation notes: new apps on the v0.2 layout (2026-09-17)
+
+Item 83 of the [roadmap](../v0.2-roadmap.md#phase-9-upgrade-eject-and-new-apps) and the Getting started pages of item 88: `orb new --preset full` writes §3's layout. Ejection (item 84) and the layout move of existing apps (item 85) are separate parts of the phase.
+
+### Golden apps and templates
+
+| Decision | Why |
+|---|---|
+| `examples/full-single` and `full-multi` are the golden apps on `gorbital.Main`; the v0.1-layout golden apps move, unchanged but for `go.mod`'s `replace` paths, to `examples/v0.1/` | v0.1 apps keep their layout (D2): orb still needs the v0.1-layout golden apps for their templates, for `orb gen resource`, `orb gen job` and `orb add mail` in those apps, and for the library's tests against v0.1 apps. They are byte for byte the v0.1.0 golden apps, so rebuilding a v0.1.0 app's files still proves every hash |
+| Templates: `cli/internal/recipes/full` and `full-multi` stay the v0.1 layout's; the v0.2 layout's are `v0.2/full` and `v0.2/full-multi`. Minimal has one layout | A release's directories keep the layout they always held, so `orb upgrade` reads any release the same way (ADR-0050); Minimal keeps composing core packages (D17, the Phase 3 numbers are unchanged) |
+| `gorbital.lock` records `"layout": "v0.2"` in its inputs; no layout is the v0.1 layout, so v0.1 locks are unchanged and stay readable by orb v0.1 | Rebuilding the base and rendering the new tree need the layout that wrote the app; guessing from the files would mistake a half-moved app |
+| `main.go` builds the app in `options()`, which the app's tests pass to `gorbitaltest.New` | Tests and the dump of `internal/tools/refdocs` build the app exactly as it runs, without repeating `main.go` |
+| The email provider is `cmd/api/mail.go` (`mailer`, for `gorbital.WithMailerFunc`, and `mailProvider`, for `opshttp.MailProvider`); `orb add mail` replaces it from `recipes/mail/<provider>.mail.go.tmpl`. File storage is `cmd/api/storage.go` (`fileStorage`, for `gorbital.WithStorageFunc`) | v0.1's `infra_mail.go` and `storage.go` had the same roles; production requires a provider and S3-compatible storage, so a new app must build them without editing `main.go` |
+| **`WithStorageFunc`'s function may return a nil store to keep the built-in choice** (library change) | One function serves every `STORAGE_DRIVER`: the local driver keeps its signed links, which a store built by the app couldn't serve |
+| The `projects` module is `orb gen module Project name:string:unique description:text 'status:enum(active,archived)'` (with `--org` in full-multi), checked by `TestModuleMatchesGoldenApps`; the migrations keep the v0.1 golden apps' versions (`20260915000002`, and `20260916000002` after the organisations module's, so the conditional foreign key to `orgs` is created) | The generator's output is the example; the versions match the apps that part C converts |
+| `ping` is a module (`example.ping_message` setting, `example.ping_time` flag, public `GET /v1/ping` and `POST /v1/echo` with v0.1's operation IDs and schemas); the `heartbeat` example job is dropped | Settings and flags are declared by modules now; `orb gen job` writes v0.1 apps' `internal/app`, and a job belongs to a module's `Jobs` |
+| No `cmd/migrate` or `cmd/seed`: `Main` serves `migrate`, and **`authhttp` adds a `seed [--email]` command** (library change): the administrator with a verified address, `platform_admin` and two-factor authentication, secrets printed once, development only, idempotent. `orb dev` runs `go run ./cmd/api seed` when `cmd/api` imports `authhttp` (or an ejected `internal/modules/auth`) | Rejected: a `WithCommands` option for an app-owned `seed` (sign-in's use cases are internal to `authhttp`, so the app couldn't create the administrator), and keeping `cmd/seed` (it would need the same internals). Example records aren't seeded: they are the app's modules' |
+| Library text that contains the placeholder name, such as `opshttp`'s example instance host `acme-api-7d9f8-x2kq` in `api/openapi.json`, isn't templated in the v0.2 trees (`generate.KeepLibraryLiterals`) | The code that produces it is the library's, identical in every app; the frozen v0.1 trees keep templating it as v0.1.0 did |
+| `api/openapi.baseline.json` is the v0.1 golden apps' released document, checked under `/ops/` by `TestOpsAPICompatible` in `cmd/api` | `/ops` is the library's now, but a v0.2 app keeps the same promise to its clients |
+
+### The app's public surface: `api/surface.json`
+
+In v0.1, `TestPublicSurface` recorded every name the app could return: its own and those of every `gorbital.dev` package it linked. When a library release added a name (`request_timeout` in `httpx`, [ADR-0085](0085-security-layers.md#package-moves-2026-09-17)), every existing app's test failed after `go get`. In the v0.2 layout the library's names come from the library, versioned and checked there, so:
+
+| Option | Verdict |
+|---|---|
+| Record every name, as v0.1 | Rejected: a library upgrade that adds a code fails the app's tests, the incident the stability rule works around |
+| Record every name, failing only on removals of library names and on the app's own additions | Rejected: listing the library's settings, jobs, roles and permissions needs a built app, so a database in a test that ran without one in v0.1; and a removal of a library name is caught before release by the library's own checks |
+| **Record the app's own names only: what `modules.All()` declares (permissions and the roles they name, settings, flags, jobs, error mappings) and the error codes and audit actions written in the app's source. Fail on any addition not recorded and any removal** | **Chosen**. No database, no library names, so `go get` can't fail it. `internal/modules/surface_test.go`, recorded with `go test ./internal/modules -run TestPublicSurface -update`; a module `main.go` adds outside `modules.All()` is listed in its `surfaceModules` |
+
+The library's names keep their promise through `gorbital/internal/integration` (`TestNamesKeepV010`, and its multi-tenant twin, against the frozen v0.1.0 surfaces), `docs/reference` (generated from the running golden apps and the source of every package they link) and `internal/tools/contracts`, which now finds each v0.1.0 name in a golden app's `api/surface.json` or in `docs/reference` (only the dropped `heartbeat` example is excused).
+
+`Platform.Permissions`, the platform catalog, is added beside `OrgPermissions` (library change), so the refdocs dump reads roles, permissions and second-factor requirements from the running app.
+
+### orb on the two layouts
+
+| Command | v0.2 layout | v0.1 layout |
+|---|---|---|
+| `orb upgrade` | Merges the release's `v0.2/` tree | Merges the v0.1 tree this orb still carries; never writes v0.2 files. The report says `layout: v0.1` (`"layout"` in `--json`) and points at `orb upgrade --layout v0.2` |
+| `orb add orgs` | Merges `v0.2/full` into `v0.2/full-multi` (`main.go` gains `orgshttp.Module(auth)`, the example module becomes the organisation one) and adds only the conversion migration: the organisation tables are the library module's | As before: the organisations migration copied under a new version, the conversion, the later organisation migrations |
+| `orb add mail` | Replaces `cmd/api/mail.go`, the `.env.example` block, `gorbital.yaml` and the lock | Unchanged |
+| `orb add storage`, `orb add rls` | Work: an app on `gorbital.Main` now has a lock (Phase 7's gap) | Unchanged |
+| `orb gen resource` | Runs `orb gen module`; in a multi-tenant app records belong to organisations by default, as in v0.1 | Unchanged |
+| `orb gen job` | Refuses (exit 2) and points at `Module.Jobs` | Unchanged |
+| `orb dev` | `go run ./cmd/api migrate`, `go run ./cmd/api seed` | `cmd/migrate`, `cmd/seed` |
+
+The Dev Portal's module form offers `--org` (gorbital-dashboards `framework/phase-9-templates`, synced into orb).
+
+### Known gaps
+
+- `orb add orgs` in a v0.2 single-tenant app works on a new database only: the organisations module's migrations keep v0.1's versions (Phase 7), older than those a database already ran, and goose refuses them. Development databases are reset; a production database can't take organisations this way until the library allows older built-in migrations.
+- v0.1's `api maintenance on|off` command has no counterpart on `Main`; maintenance mode is changed through `/ops/settings`.
+- `orb gen job` doesn't generate module jobs, and the Dev Portal's job screen links job definitions to `internal/app/job_*.go` only.
+- An app's `TestPublicSurface` no longer notices a library name disappearing; the library's checks do.
+- `orb new` offers no way to create a v0.1-layout app.
 
 ## Why
 

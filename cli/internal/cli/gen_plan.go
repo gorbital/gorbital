@@ -32,6 +32,9 @@ func planJob(app appInfo, in jobInput) (genplan.Plan, error) {
 	jobsGo := filepath.Join("internal", "app", "jobs.go")
 	src, err := os.ReadFile(filepath.Join(app.dir, jobsGo))
 	if errors.Is(err, fs.ErrNotExist) {
+		if appLayout(app.dir) == layoutMain {
+			return genplan.Plan{}, usageError("this app is on gorbital.Main, and orb gen job writes jobs into a v0.1 app's internal/app; define the job in a module's Jobs in its module.go instead (docs/guides/modules-and-routes.md)")
+		}
 		return genplan.Plan{}, fmt.Errorf("%s has no %s: orb gen job works in apps created with the Full preset", app.dir, jobsGo)
 	} else if err != nil {
 		return genplan.Plan{}, err

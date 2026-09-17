@@ -2,6 +2,12 @@
 
 gorbital writes your app's code once, then you own it. When a new release improves those files, `orb upgrade` merges the improvements into your edited code on a branch, and `orb add orgs` uses the same merge to make a single-tenant app multi-tenant. Decision: [ADR-0050](../adr/0050-upgrades-and-adding-features.md).
 
+## Two layouts
+
+`orb new` creates apps on `gorbital.Main` from v0.2 on: `cmd/api/main.go`, your modules in `internal/modules` and your migrations in `db/migrations`, with sign-in, `/ops` and the wiring in the library ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md)). Apps created by orb v0.1 have the v0.1 layout, with `internal/app`, `cmd/migrate` and `cmd/seed`.
+
+`gorbital.lock` records the layout, and every command that merges templates uses the app's own layout's templates: a v0.1 app keeps receiving v0.1-layout fixes and never gets v0.2 files mixed into it. It builds against the v0.2 library unchanged. Moving it to the new layout is a separate, opt-in step, `orb upgrade --layout v0.2`; until then `orb upgrade` says so in its report.
+
 ## How it keeps your edits
 
 `gorbital.lock`, committed with your app, records the release that created it, the answers the templates used (name, module, preset, tenancy, email provider) and a hash of every file gorbital wrote.
@@ -53,7 +59,15 @@ orb add orgs
 
 </div>
 
-It merges the multi-tenant app's files into yours on branch `orb-add-orgs` and adds two migrations after your existing ones: the organisation tables, then a conversion that gives every account a personal workspace it owns and moves each project into its owner's workspace. The `projects` table is changed in place, so columns you added stay. Resources you generated with `orb gen resource` stay owned by users and keep working; the command lists them. Apply the migrations in each environment, run your tests and merge the branch. See [Organisations](organisations.md).
+It merges the multi-tenant app's files into yours on branch `orb-add-orgs` and adds a conversion migration after your existing ones that gives every account a personal workspace it owns and moves each project into its owner's workspace. The `projects` table is changed in place, so columns you added stay. Modules you generated stay owned by users and keep working; the command lists them. Apply the migrations in each environment, run your tests and merge the branch. See [Organisations](organisations.md).
+
+| Layout | Organisation tables | `main.go` |
+|---|---|---|
+| v0.2 (`gorbital.Main`) | The library's organisations module brings its migrations, under their released versions | Gains `gorbital.WithModules(orgshttp.Module(auth))` |
+| v0.1 | A migration copied into `db/migrations` before the conversion, then the later organisation migrations | `internal/app` is merged instead |
+
+> [!WARNING]
+> In the v0.2 layout, the organisations module's migrations have versions from 2026-09-16 and 2026-09-18, older than the migrations a database already ran, and the migration tool refuses to apply older versions to a database migrated past them. `orb add orgs` works on a new database; for a development database, reset it (`docker compose down -v`). An existing production database of a v0.2 single-tenant app can't take organisations this way yet ([known gap](../adr/0083-modules-stack-migrations-and-ejection.md#phase-9-implementation-notes-new-apps-on-the-v02-layout-2026-09-17)).
 
 > [!WARNING]
 > Run `orb upgrade` first when your app is on an older release: `orb add orgs` adds organisations to this release's files.

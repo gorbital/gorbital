@@ -80,7 +80,11 @@ At each release, maintainers copy `api/*.txt` into `internal/tools/refdocs/since
 
 ## Public surface of an app: `api/surface.json`
 
-Full apps (the golden apps and every app generated from them) record the names clients, operators and stored data depend on:
+Full apps (the golden apps and every app generated from them) record the names clients, operators and stored data depend on.
+
+**In an app on `gorbital.Main`** (every Full app `orb new` creates from v0.2 on), `api/surface.json` records only the app's own names: what the modules in `modules.All()` declare (permissions and the roles they name, runtime settings, feature flags, jobs, error mappings) and the error codes and audit actions written in the app's source. `TestPublicSurface` is in `internal/modules/surface_test.go`, needs no database, and fails on a recorded name that disappears or a new name not recorded yet; record with `go test ./internal/modules -run TestPublicSurface -update`. The names of gorbital's built-in modules and packages aren't the app's to record: a library release that adds one can't fail the app's tests, and the library's own contract tests keep every released name ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#the-apps-public-surface-apisurfacejson)).
+
+**In a v0.1-layout app** the file records every name the app can return, its own and those of every gorbital package it links:
 
 ```json
 {
@@ -99,7 +103,7 @@ Full apps (the golden apps and every app generated from them) record the names c
 | Failure | Means | Do |
 |---|---|---|
 | `… is recorded in api/surface.json but no longer exists` | A client, dashboard, stored override or queued job may depend on it | Restore it. If it really must go (you deleted your own resource before anyone used it), record with `-update` and say so in the pull request |
-| `new … isn't recorded` | You added a code, action, permission, setting, job or feature flag | `go test ./internal/app -run TestPublicSurface -update`, then commit `api/surface.json` |
+| `new … isn't recorded` | You added a code, action, permission, setting, job or feature flag | `go test ./internal/modules -run TestPublicSurface -update` (`./internal/app` in a v0.1 app), then commit `api/surface.json` |
 
 How names are found:
 
@@ -125,7 +129,7 @@ The v0.1.0 scaffold compatibility check below catches a mistake: it runs the gen
 
 ## Reference pages: `docs/reference`
 
-The [error codes](../reference/error-codes.md), [audit actions](../reference/audit-actions.md), [permissions and roles](../reference/permissions.md), [runtime settings](../reference/settings.md) and [jobs](../reference/jobs.md) pages are generated from the golden apps, so the documented surface is the real one. `internal/tools/refdocs` adds a test file to `examples/full-multi/internal/app` and `examples/full-single/internal/app` for one `go test -overlay` run (nothing is written into the apps, and generated apps carry no documentation code): it builds each app on a migrated test database and reads the permission catalogs, the settings store, the job definitions and, from the source, the error mappings and audit actions. Names only `full-multi` has are marked *multi-tenant apps only*.
+The [error codes](../reference/error-codes.md), [audit actions](../reference/audit-actions.md), [permissions and roles](../reference/permissions.md), [runtime settings](../reference/settings.md) and [jobs](../reference/jobs.md) pages are generated from the golden apps, so the documented surface is the real one. `internal/tools/refdocs` adds a test file to `examples/full-multi/cmd/api` and `examples/full-single/cmd/api` for one `go test -overlay` run (nothing is written into the apps, and generated apps carry no documentation code): it builds each app with `main.go`'s options on a migrated test database and reads the permission catalogs and job definitions (through `gorbital.Platform`), the settings store and, from the source of the app and every gorbital package it links, the error mappings and audit actions. Names only `full-multi` has are marked *multi-tenant apps only*.
 
 Descriptions the code doesn't carry are in `internal/tools/refdocs/descriptions.json`: when each audit action is recorded, and the meaning of error codes whose mappings have no single detail. The tool warns about a name without one; add it there.
 
@@ -198,7 +202,7 @@ It needs the network (or a module cache holding `orb` v0.1.0) and the test datab
 |---|---|
 | Exported Go API | `go run -C internal/tools/apicheck .` (`-write` to record additions), then `go run -C internal/tools/refdocs . -methods -write` |
 | Doc comments or `Example` functions | `go run -C internal/tools/refdocs . -methods -write` |
-| A golden Full app's error codes, audit actions, permissions, settings or jobs | `go test ./internal/app -run TestPublicSurface -update` in both Full apps, `go run -C internal/tools/refdocs . -write` (with a description in its `descriptions.json` for a new audit action), then `cd cli && go generate ./internal/recipes/` |
+| A golden Full app's error codes, audit actions, permissions, settings or jobs | `go test ./internal/modules -run TestPublicSurface -update` in both Full apps (when the app's own names change), `go run -C internal/tools/refdocs . -write` (with a description in its `descriptions.json` for a new audit action), then `cd cli && go generate ./internal/recipes/` |
 | `/ops` endpoints | `go test ./internal/app -run TestOpsAPICompatible` in both Full apps |
 | `orb` JSON output | `cd cli && go test ./internal/cli -run TestJSONOutputs` (`-update` for additions) |
 | The library in a way old scaffolds might notice | The scaffold compatibility check above, with `ORB_COMPAT_FROM=v0.1.0 ORB_COMPAT_PUBLISHED=1` |

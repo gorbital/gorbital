@@ -34,7 +34,10 @@ export GORBITAL_TEST_MAILPIT_URL=http://127.0.0.1:8025
 | `internal/modules/<m>/domain` | Rules and validation | Nothing |
 | `internal/modules/<m>/repository` | Every SQL operation, constraint mapping, ordering and pagination | PostgreSQL |
 | `internal/modules/<m>/usecase` | Flows, authorization, ownership, audit events, transactions | PostgreSQL |
-| `internal/app` | Whole-app HTTP tests through `App.Handler()` with `httptest`: sign-up and email codes, sessions, 2FA, passkeys (`passkeytest`), Google and Apple (`socialtest`), ops endpoints, settings across two app instances, jobs through `/ops/jobs`, seed data, OpenAPI export, docs, configuration errors | PostgreSQL; Mailpit for delivery checks |
+| `cmd/api` (apps on `gorbital.Main`) | The app as `main.go` builds it, through `gorbitaltest`: health, deny by default, a signed-up account using a module, `/ops` refused to users; `api/openapi.json` current; `/ops` compatible with `api/openapi.baseline.json`; the commands `Main` serves | PostgreSQL |
+| `internal/modules/surface_test.go`, `internal/modules/architecture_test.go` (apps on `gorbital.Main`) | The app's own public names match `api/surface.json`; the layer import rules | Nothing |
+| `internal/modules/<m>/<m>_test.go` (apps on `gorbital.Main`) | The module's routes through the real stack on a database per test: guards, errors, pages, versions, audit events | PostgreSQL |
+| `internal/app` (v0.1 layout) | Whole-app HTTP tests through `App.Handler()` with `httptest`: sign-up and email codes, sessions, 2FA, passkeys (`passkeytest`), Google and Apple (`socialtest`), ops endpoints, settings across two app instances, jobs through `/ops/jobs`, seed data, OpenAPI export, docs, configuration errors | PostgreSQL; Mailpit for delivery checks |
 | `internal/app/surface_test.go` | Error codes, audit actions, permissions, roles, settings, jobs and feature flags match `api/surface.json`: nothing recorded may disappear, and new names must be recorded with `go test ./internal/app -run TestPublicSurface -update` ([stability](stability.md)) | Nothing |
 | `internal/app/api_compat_test.go` | `/ops/*` doesn't break clients of `api/openapi.baseline.json` | Nothing |
 | `internal/app/architecture_test.go` | Layer import rules: `domain` imports only the standard library, `delivery` never imports `repository`, modules don't import each other, only `internal/app` reads the environment | Nothing |
@@ -128,9 +131,9 @@ Generated artifacts are committed, and tests fail when they're stale:
 | `examples/*/api/openapi.json` | `go run ./cmd/api openapi > api/openapi.json` in the app | CI's OpenAPI drift job |
 | `full-multi` vs `full-single` | Edit both | A drift test keeps them identical outside the files organisations change |
 | `docs/reference/*.md` | `go run -C internal/tools/refdocs . -write` (needs the test database) | `go run -C internal/tools/refdocs .` in CI ([Stability](stability.md#reference-pages-docsreference)) |
-| Generated resources | `orb gen resource` | CLI tests generate `projects` and compare it with each golden app's module |
+| Generated modules | `orb gen module` (`orb gen resource` in `examples/v0.1`) | CLI tests generate `projects` and compare it with each golden app's module (`TestModuleMatchesGoldenApps`, `TestResourceMatchesGoldenApp`) |
 | `api/*.txt` (exported Go API) | `go run -C internal/tools/apicheck . -write` | CI's API listing step; missing lines are breaking changes |
-| `examples/full-*/api/surface.json` | `go test ./internal/app -run TestPublicSurface -update` in the app | `TestPublicSurface`; removals fail even after regenerating the file, in review |
+| `examples/full-*/api/surface.json` | `go test ./internal/modules -run TestPublicSurface -update` in the app (`./internal/app` in `examples/v0.1/*`) | `TestPublicSurface`; removals fail even after regenerating the file, in review |
 | `cli/internal/cli/testdata/json` | `cd cli && go test ./internal/cli -run TestJSONOutputs -update` | `TestJSONOutputs` |
 | `internal/contracts/v0.1.0` | Never: frozen v0.1.0 contracts ([README](../../internal/contracts/v0.1.0/README.md)) | `go test -C internal/tools/contracts ./...` |
 

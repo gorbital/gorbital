@@ -184,9 +184,11 @@ gorbital/
 
 ## 6. The generated application ([ADR-0022](adr/0022-generated-application-layout.md))
 
-Layered modules (`domain / usecase / repository / delivery`) inside `internal/modules/`, with `internal/app` as the composition root.
+Layered modules (`domain / usecase / repository / delivery`) inside `internal/modules/`.
 
-The tree of a new single-tenant Full app, as generated from `examples/full-single`:
+From v0.2, a new Full app runs on `gorbital.Main` ([ADR-0083](adr/0083-modules-stack-migrations-and-ejection.md#3-app-layout)): `cmd/api/main.go` adds the built-in modules and the app's own, the library is the composition root, and the app's code is its modules and migrations ([examples/full-single](../examples/full-single), its `ARCHITECTURE.md`). The rest of this section describes the v0.1 layout, with `internal/app` as the composition root, which apps created by orb v0.1 keep.
+
+The tree of a single-tenant Full app on the v0.1 layout, as generated from `examples/v0.1/full-single`:
 
 ```text
 my-api/
