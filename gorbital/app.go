@@ -25,6 +25,7 @@ import (
 	"gorbital.dev/buildinfo"
 	"gorbital.dev/health"
 	"gorbital.dev/httpx"
+	"gorbital.dev/httpx/ipfilter"
 	"gorbital.dev/httpx/timeout"
 	"gorbital.dev/mail"
 	"gorbital.dev/modules/auditpg"
@@ -484,6 +485,35 @@ func (a *App) stack(ipLimiter ratelimit.Taker, idempotencyStore *idempotency.Sto
 	}, nil
 }
 
+// opsAllowed wraps next in the OPS_ALLOWED_IPS filter for requests under
+// /ops/. The address it matches is the one httpx.TrustedProxies resolved,
+// because the filter runs inside the stack (ADR-0085). Without the setting
+// it returns next unchanged.
+func (a *App) opsAllowed(next http.Handler) http.Handler {
+	if len(a.cfg.OpsAllowedIPs) == 0 {
+		return next
+	}
+	filter, err := ipfilter.New(a.cfg.OpsAllowedIPs, nil)
+	if err != nil {
+		// LoadConfig built the same filter, so this can't happen; refuse
+		// every /ops/ request rather than serve them unfiltered.
+		a.logger.Error("OPS_ALLOWED_IPS could not be applied; /ops/ is closed", "err", err)
+		filter = func(http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusForbidden, "ip_not_allowed", "requests from this network address are not allowed"))
+			})
+		}
+	}
+	filtered := filter(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, opsPrefix) {
+			filtered.ServeHTTP(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // chain wraps mux in the stack, the app's middleware and the dev console.
 func (a *App) chain(mux *http.ServeMux, s Stack) http.Handler {
 	var recovers, auths atomic.Bool
@@ -497,7 +527,10 @@ func (a *App) chain(mux *http.ServeMux, s Stack) http.Handler {
 	}
 	// RecordRoute gives spans, metrics and request counts the matched route
 	// pattern, which middleware copying the request would hide from them.
-	h := chain(telemetry.RecordRoute(observability.RecordRoute(mux)), steps)
+	// The /ops/ address filter sits inside the stack, around the mux: it
+	// belongs to the app, not to a module, so it covers every /ops/ route
+	// whichever module registered it, and a custom stack can't leave it out.
+	h := chain(a.opsAllowed(telemetry.RecordRoute(observability.RecordRoute(mux))), steps)
 	if !recovers.Load() {
 		a.logger.Warn("the middleware stack has no Recover step: a panic in a handler ends the connection instead of answering 500 (gorbital.WithStack)")
 	}
