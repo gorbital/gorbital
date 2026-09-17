@@ -10,7 +10,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.46.0
 	go.opentelemetry.io/otel/sdk/metric v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
-	gorbital.dev v0.1.0
+	gorbital.dev v0.2.0
 )
 
 require (

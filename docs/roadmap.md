@@ -6,7 +6,9 @@ gorbital's work is planned in milestones, each named after its theme. Each one i
 
 ## Releases
 
-`v0.1.0`, published on 2026-09-17, is the first public release of the library (`gorbital.dev` and the modules under `gorbital.dev/modules/`) and of `orb` (`gorbital.dev/cli`), which are versioned together. Install `orb` with `go install gorbital.dev/cli/cmd/orb@latest`, or add the library with `go get gorbital.dev@latest`. It contains every milestone below marked done or built, and the Dev Portal phases built so far. Milestones are themes of work, not releases: during development they carried internal numbers (v0.1 to v1.4), which older decision records still use.
+`v0.1.0`, published on 2026-09-17, is the first public release of the library (`gorbital.dev` and the modules under `gorbital.dev/modules/`) and of `orb` (`gorbital.dev/cli`), which are versioned together. Install `orb` with `go install gorbital.dev/cli/cmd/orb@latest`, or add the library with `go get gorbital.dev@latest`. It contains every milestone below marked *in v0.1.0*, and the Dev Portal phases built by then. Milestones are themes of work, not releases: during development they carried internal numbers (v0.1 to v1.4), which older decision records still use.
+
+`v0.2.0` is the second release: gorbital becomes a framework apps import. Routes, guards, the middleware stack, the application itself, sign-in, the operations API and organisations move from generated code into the library, with `gorbital.Main` in `cmd/api/main.go` and each feature a `gorbital.Module` (the *A framework you import* milestone: [v0.2 roadmap](v0.2-roadmap.md), [ADR-0081](adr/0081-a-framework-you-import.md)). It is additive: an app created with `v0.1.0` builds and passes its tests against it with `go get`, moving to the new layout is an opt-in `orb upgrade --layout v0.2`, and `orb eject` copies any built-in module back into the app. What changes for an existing app is in the [upgrade notes](guides/upgrade-notes.md#upgrading-to-v020); everything in it is in the [changelog](../CHANGELOG.md#v020-2026-09-17).
 
 Further v0.x releases follow as work lands. In Go terms v0 carries no compatibility promise, but the compatibility checks (API listings, `api/surface.json`, the `/ops` OpenAPI baseline, `--json` golden files) already run to catch accidental breaks, and breaking changes are listed in the [changelog](../CHANGELOG.md) and the [upgrade notes](guides/upgrade-notes.md). `v1.0.0`, with the API freeze and the scaffold compatibility promise in force, comes only after the external security review signs off ([ADR-0015](adr/0015-public-api-and-stability-tiers.md), [stability](guides/stability.md)).
 
@@ -24,7 +26,7 @@ Further v0.x releases follow as work lands. In Go terms v0 carries no compatibil
 | [Client templates](#client-templates) | Proposed | |
 | [Public website](#public-website) | Built early, published | gorbital.dev, docs.gorbital.dev |
 | [Dev Portal](#dev-portal) | In progress; the phases built so far are in v0.1.0 | `orb dev` serves the portal; phases in the [Dev Portal roadmap](dev-portal-roadmap.md) |
-| [A framework you import](v0.2-roadmap.md) | Proposed, for `v0.2.0` | Phases in the [v0.2 roadmap](v0.2-roadmap.md): modules with explicit, deny-by-default routes and guards, `gorbital.Main`, sign-in and ops in the library, versioned docs with Methods and Examples tabs |
+| [A framework you import](v0.2-roadmap.md) | Done, in v0.2.0 | Modules with explicit, deny-by-default routes and guards, `gorbital.Main`, sign-in, ops and organisations in the library, `orb gen module`, `orb routes`, `orb eject`, `orb upgrade --layout v0.2`, request timeouts, IP filters, signed webhooks and external JWTs, versioned docs with Methods and Examples tabs |
 
 Each milestone below has the same parts: **status** with what was built, then a table of what it **delivers**, what's **not included**, when it's **done**, and measured **results**.
 
