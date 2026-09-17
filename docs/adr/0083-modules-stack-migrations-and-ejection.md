@@ -60,6 +60,7 @@ type Module struct {
 }
 ```
 
+- Fields arrive with the phase that uses them: `Middleware` in Phase 2, `Jobs` and `Migrations` in Phase 3. `Declare` handles permissions, settings and flags; `Mount` handles errors and routes.
 - A module is a value returned by its package's `func Module() gorbital.Module`. Settings and flags declared in `Settings`/`Flags` are captured in the constructor's closure and used in `Routes`: explicit, no lookup by name.
 - `gorbital.New` calls every `Settings`, `Flags` and `Permissions` first, builds the stores, then every `Jobs` and `Routes`. Duplicate names (routes, operation IDs, permissions, setting keys, flag keys, job names, error codes) fail `New` naming both modules.
 - A module with zero `Deps` must still register its routes, so `openapi` can export the document without a database (today's nil-module path).
@@ -69,7 +70,7 @@ type Module struct {
 ```go
 type Deps struct {
 	DB       *pgxpool.Pool
-	Audit    Auditor            // audit.Recorder plus Record(ctx, action, resourceType, resourceID)
+	Audit    audit.Recorder
 	Mailer   mail.Sender        // queued through jobs, defaults from the mail.* settings
 	Jobs     *jobs.Client
 	Settings *settings.Store

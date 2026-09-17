@@ -63,7 +63,7 @@ func Get[I, O any](r *Router, path string, h func(context.Context, *I) (*O, erro
 ```
 
 - Options: `Summary`, `Description`, `Status`, `Tags`, `OperationID`, `Deprecated`, `Use`, and every guard. Groups pass their options to the routes and groups inside them.
-- Operation IDs default to `<module>-<handler>` in kebab case; a duplicate fails `gorbital.New` naming both modules.
+- Operation IDs default to the module's name followed by the ID Huma generates from the method and path (`books-get-v1-books-by-id`); `OperationID` sets one explicitly. Handler names aren't used: reading them needs reflection on function values. A duplicate fails `Mount` naming both modules.
 - The router requires the `humago` adapter (`openapi.New` already uses it).
 
 ### 2. Deny by default

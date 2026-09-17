@@ -23,6 +23,7 @@
           "name": "Build your API",
           "pages": [
             { "title": "Add your first resource", "slug": "guides/first-resource", "source": "docs/start/first-resource.md" },
+            { "title": "Modules and routes", "slug": "guides/modules-and-routes", "source": "docs/guides/modules-and-routes.md" },
             { "title": "Organisations", "slug": "guides/organisations", "source": "docs/start/organisations.md" },
             { "title": "Upgrading apps", "slug": "guides/upgrading", "source": "docs/start/upgrading.md" }
           ]
@@ -183,6 +184,13 @@
         {
           "name": "Methods",
           "pages": [{ "title": "All packages", "slug": "methods", "source": "docs/methods/index.md" }]
+        },
+        {
+          "name": "Framework",
+          "pages": [
+            { "title": "gorbital", "slug": "methods/gorbital", "source": "docs/methods/gorbital.md" },
+            { "title": "guard", "slug": "methods/gorbital-guard", "source": "docs/methods/gorbital-guard.md" }
+          ]
         },
         {
           "name": "Core",
