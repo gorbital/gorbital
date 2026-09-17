@@ -14,7 +14,7 @@ Outermost first:
 | 4 | `Telemetry` | Starts the server span and records HTTP metrics, labelled by route pattern | — | `OTEL_EXPORTER_OTLP_ENDPOINT`, `METRICS_ADDR` |
 | 5 | `Observability` | Counts the request per minute and route for `/ops/observability` and automatic incidents ([observability](observability.md)) | — | — |
 | 6 | `AccessLog` | One structured `http request` line after the response, with the user noted by authentication | — | `APP_LOG_LEVEL`, `APP_LOG_FORMAT` |
-| 7 | `Timeout` | Cancels the request's context after the request timeout, and answers 503 if the handler hasn't started its response; late writes are discarded, started streams aren't cut off ([Security layers](security-layers.md)). A route can shorten it with `gorbital.Timeout(d)` | 503 `request_timeout` | `APP_REQUEST_TIMEOUT` (default `30s`, `0` turns it off) |
+| 7 | `Timeout` | Cancels the request's context after the request timeout, and answers 503 if the handler hasn't started its response; late writes are discarded, started streams aren't cut off (`gorbital.dev/httpx/timeout`, [Security layers](security-layers.md#request-timeout)). A route can shorten it with `gorbital.Timeout(d)` | 503 `request_timeout` | `APP_REQUEST_TIMEOUT` (default `30s`, `0` turns it off) |
 | 8 | `SecureHeaders` | Security headers; HSTS for a year in production | — | `APP_ENV` |
 | 9 | `CORS` | Answers preflights and sets CORS headers for the allowed origins | 204 | `APP_CORS_ORIGINS` |
 | 10 | `CrossOrigin` | Refuses state-changing browser requests from other sites (`http.CrossOriginProtection`), except Apple's sign-in callback and notifications, which carry their own proof | 403 `cross_origin_request_denied` | `APP_CORS_ORIGINS` |

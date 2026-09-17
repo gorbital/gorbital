@@ -29,7 +29,7 @@ Staff and operators are signed-in users with a role. The module gives its write 
 
 <!-- include examples/apps/admin-tool/internal/modules/announcements/module.go#permissions -->
 
-Sign-in, which is what grants those roles, arrives in Phase 5. Until then:
+This app has no sign-in module yet: part 2 adds one, `authhttp` or an identity provider's tokens ([security layers](../../guides/security-layers.md)). Until then:
 
 - Locally, `orb dev` prints a dev console token. On `/ops/` it acts as an operator holding `platform_admin`'s permissions, from loopback only and never in production ([the dev console's operator](../../guides/ops-api.md#the-dev-consoles-operator)). It doesn't open `/v1/` routes, so `POST /v1/announcements` answers 401 when you run the app.
 - The tests say who calls with `gorbitaltest`: a staff member is a user holding `announcements.announcement.write`, an operator a user holding `ops.*` permissions.
@@ -138,7 +138,7 @@ curl -X POST http://127.0.0.1:8080/ops/auth/rate-limits/reset \
   -d '{"name":"announcements_publish","key":"user:usr_mfrggzdfmztwq2lk"}'
 ```
 
-The reset needs `ops.auth.write`, which is sign-in's permission: no role holds it until sign-in's module arrives in Phase 5, so today the call answers 403 `forbidden`. It is audited as `ops.rate_limit.reset` ([guards](../../methods/gorbital-guard.md), [Ops API reference](../../guides/ops-api.md#accounts)).
+Listing needs `ops.auth.read` and the reset `ops.auth.write`, which are sign-in's permissions: `authhttp` declares them for `platform_admin` (and `ops_viewer` for reading), so this app, without sign-in, gives no role either, and the calls answer 403 `forbidden` until part 2 adds sign-in. With `authhttp`, the list also has sign-in's limiters, such as `auth_login`. A reset is audited as `ops.rate_limit.reset` ([guards](../../methods/gorbital-guard.md), [Ops API reference](../../guides/ops-api.md#accounts)).
 
 ## Restricting /ops to your network
 

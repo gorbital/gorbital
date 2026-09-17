@@ -10,7 +10,7 @@ What a developer provides so each sign-in method works with their own accounts, 
 |---|---|
 | App start in development (`orb dev`), v0.1 apps | A **Sign-in methods** block: `✓` for each method that's on, `–` with the variables to set and the guide section for each that's off |
 | `go run ./cmd/api auth-providers` | The same block, anywhere (CI, a production shell), in v0.1 apps and apps on `gorbital.Main` |
-| `GET /ops/auth/providers` | The same status as JSON for dashboards, with permission `ops.auth.read`; never values. In an app on `gorbital.Main`, from Phase 4 |
+| `GET /ops/auth/providers` | The same status as JSON for dashboards, with permission `ops.auth.read`; never values. In an app on `gorbital.Main`, with `opshttp.Module()` beside `authhttp` |
 | App start in production; in an app on `gorbital.Main`, in every environment | One info log line per method: `sign-in method`, with `method` and `configured` |
 | A half-filled method | The app refuses to start and names the variable to fix (exit code 2 on `gorbital.Main`) |
 

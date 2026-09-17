@@ -91,7 +91,7 @@ go run ./cmd/api openapi --dir api
 
 ## Try it
 
-Without sign-in (chapter 6), a request answers 401:
+Without signing in, a request answers 401:
 
 ```bash
 curl -i -X POST http://127.0.0.1:8080/v1/books -H 'Content-Type: application/json' -d '{"title": "Dune"}'

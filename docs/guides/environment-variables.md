@@ -64,7 +64,7 @@ Apps on `gorbital.Main` with the operations API (`opshttp.Module()`, [ops API](o
 
 | Variable | Required | Default | Example | Validation | Description |
 |---|---|---|---|---|---|
-| `OPS_ALLOWED_IPS` | No | empty | `10.8.0.0/16,2001:db8:42::/48,203.0.113.7` | Comma-separated CIDR ranges or IP addresses (`httpx.ParsePrefixes`): a range is masked (`10.0.0.5/8` is `10.0.0.0/8`), IPv4 written as IPv6 becomes IPv4, and IPv4-mapped ranges shorter than `/96` are refused; every bad entry is reported at once | Client addresses allowed to call `/ops/`; others get 403 `ip_not_allowed` before the sign-in check. Matched against the address after `APP_TRUSTED_PROXIES`, so set that behind a load balancer. Empty allows every address ([security layers](security-layers.md#ip-filter), [ADR-0085](../adr/0085-security-layers.md)) |
+| `OPS_ALLOWED_IPS` | No | empty | `10.8.0.0/16,2001:db8:42::/48,203.0.113.7` | Comma-separated CIDR ranges or IP addresses (`ipfilter.ParsePrefixes` in `gorbital.dev/httpx/ipfilter`): a range is masked (`10.0.0.5/8` is `10.0.0.0/8`), IPv4 written as IPv6 becomes IPv4, and IPv4-mapped ranges shorter than `/96` are refused; every bad entry is reported at once | Client addresses allowed to call `/ops/`; others get 403 `ip_not_allowed` before the sign-in check. Matched against the address after `APP_TRUSTED_PROXIES`, so set that behind a load balancer. Empty allows every address ([security layers](security-layers.md#ip-filter), [ADR-0085](../adr/0085-security-layers.md)) |
 
 ## Database
 

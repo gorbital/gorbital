@@ -32,7 +32,7 @@ Constraints: core packages depend on the standard library, the OpenTelemetry API
 |---|---|
 | Leave it to the proxy or firewall | Kept as the recommendation for whole-app rules; not enough for "only `/ops`" when the app terminates HTTP behind a generic load balancer |
 | Filter on `X-Forwarded-For` directly | Rejected: clients choose that header (ADR-0052) |
-| **`httpx.IPFilter(allow, deny)` on `RemoteAddr` after `TrustedProxies`** | **Chosen** |
+| **`httpx.IPFilter(allow, deny)` on `RemoteAddr` after `TrustedProxies`** | **Chosen**; moved to `ipfilter.New` in `gorbital.dev/httpx/ipfilter` (see [Package moves](#package-moves-2026-09-17)) |
 
 ### Signed webhooks
 
@@ -53,7 +53,7 @@ Constraints: core packages depend on the standard library, the OpenTelemetry API
 
 ## Decision
 
-### `httpx.Timeout(d)`
+### `httpx.Timeout(d)`, now `timeout.New(d)` in `gorbital.dev/httpx/timeout`
 
 - Each request gets `context.WithTimeout(r.Context(), d)`; handlers see `Deadline()` and `context.DeadlineExceeded`. `d <= 0` returns the handler unchanged.
 - The response writer keeps the handler's headers in a copy until the response starts. At the deadline a timer takes the writer's lock: if the handler hasn't written a status, body, flush or hijack, it writes 503 **`request_timeout`** (a new code: `unavailable` doesn't tell a client the request itself was too slow) with the request ID, `Cache-Control: no-store` and `Content-Length`, and flushes. Afterwards the handler's writes return `http.ErrHandlerTimeout`, `WriteHeader` does nothing and `Unwrap` returns a writer that discards.
@@ -61,7 +61,7 @@ Constraints: core packages depend on the standard library, the OpenTelemetry API
 - Once the response has started, the deadline only cancels the context: no buffering, so streaming, `Flush`, trailers, 103 Early Hints and `http.ResponseController` (`Flush`, `Hijack`, `SetReadDeadline`, `SetWriteDeadline`, `EnableFullDuplex`, forwarded under the lock) behave as without the middleware.
 - Streams meant to outlive `d` (server-sent events) go on routes without the timeout. **Integration (done with Phase 3, 2026-09-17):** the default stack's `Timeout` step after `AccessLog`, configured by `APP_REQUEST_TIMEOUT` (default 30s, `0` off, shorter than the server's 60s write timeout), and `gorbital.Timeout(d)`, a route option that **shortens** a route's deadline. Lengthening per route was considered (the stack applying the timeout per operation instead of around the router) and rejected for now: it moves a stack step into the router and routes that need longer are rare; they raise `APP_REQUEST_TIMEOUT`, or drop `Timeout` with `WithStack` and put `gorbital.Timeout` on the groups that need one. Found during integration: Huma panics when a write fails, so late writes after a timeout now report success and are discarded instead of returning `http.ErrHandlerTimeout` (flush, hijack and deadline calls still return it).
 
-### `httpx.IPFilter(allow, deny)` and `httpx.ParsePrefixes`
+### `httpx.IPFilter(allow, deny)` and `httpx.ParsePrefixes`, now `ipfilter.New` and `ipfilter.ParsePrefixes` in `gorbital.dev/httpx/ipfilter`
 
 - The address is `RemoteAddr` as `TrustedProxies` left it; IPv4-mapped IPv6 addresses compare as IPv4 and IPv6 zones are ignored. A `RemoteAddr` that isn't an address is refused.
 - Deny wins; an empty allow list allows every address not denied; both empty is a no-op. Refusal: 403 **`ip_not_allowed`** (new), without echoing the address.
@@ -130,15 +130,30 @@ Constraints: core packages depend on the standard library, the OpenTelemetry API
 - No replay-ID store; idempotent handlers are the rule.
 - JWT refusal differs from `modules/auth`'s continue-anonymously for unknown session tokens (reasons above).
 - `jwt.New` fails when the provider is unreachable at start, so an app can't start during an identity provider outage; a running app keeps working on cached keys.
-- New public codes: `request_timeout`, `ip_not_allowed`, `invalid_token`. `docs/reference/error-codes.md` is generated from the golden apps, which don't use these layers yet; the codes are documented in the [Security layers guide](../guides/security-layers.md#error-codes) until the default stack (Phase 3) and `/ops` (Phase 4) bring them into the golden apps.
+- New public codes: `request_timeout`, `ip_not_allowed`, `invalid_token`, each in a package v0.1 apps don't link. `docs/reference/error-codes.md` is generated from the golden apps, which don't link those packages; the codes are documented in the [Security layers guide](../guides/security-layers.md#error-codes) until the golden apps move to `gorbital.Main` (Phase 9).
 
 ## Consequences
 
-- New core package `gorbital.dev/webhook`; new module `gorbital.dev/modules/jwt` (CI test, lint and govulncheck lists; release finds it); additive API in `httpx` and `gorbital/guard`.
+- New core packages `gorbital.dev/webhook`, `gorbital.dev/httpx/timeout` and `gorbital.dev/httpx/ipfilter`; new module `gorbital.dev/modules/jwt` (CI test, lint and govulncheck lists; release finds it); additive API in `gorbital/guard`.
 - Integration left to later phases: recipes *Mobile backend with an external identity provider* and *Receiving payment webhooks*, Shelfie chapter 10.
 - Guide: [Security layers](../guides/security-layers.md).
 
+## Package moves (2026-09-17)
+
+`httpx.Timeout`, `httpx.IPFilter`, `httpx.ParsePrefixes` and `httpx.ErrDenyAll` were first added to `httpx`. Integrating Phases 4 and 5 found that this broke apps generated by `orb` v0.1.0: their `TestPublicSurface` records the problem codes of every `gorbital.dev` package the app links (`api/surface.json`), and every v0.1 app links `httpx`, so `request_timeout` and `ip_not_allowed` appeared as unrecorded names and the apps' own tests failed after `go get`. Recording them in the golden apps' surfaces hid the failure in this repository but not in apps users already have.
+
+| Option | Verdict |
+|---|---|
+| Keep them in `httpx` and ask v0.1 apps to run `-update` | Rejected: breaks D2 (v0.1.0 apps build and pass their tests unchanged) |
+| Build the codes with `fmt.Sprintf` or a variable so the scan misses them | Rejected: hides public names from the inventory that exists to list them |
+| Change the scan in the generated `surface_test.go` | Rejected: existing apps keep the v0.1.0 test until they upgrade |
+| **New core packages that v0.1 apps don't link: `gorbital.dev/httpx/timeout` (`timeout.New(d)`) and `gorbital.dev/httpx/ipfilter` (`ipfilter.New(allow, deny)`, `ipfilter.ParsePrefixes`, `ipfilter.ErrDenyAll`)** | **Chosen**: behaviour, messages (prefixed `ipfilter:` instead of `httpx:`), tests, fuzz tests (`FuzzNew`, `FuzzParsePrefixes`), benchmarks (`BenchmarkTimeout`, `BenchmarkNew`) and examples moved unchanged. A v0.1 app that adopts one links it deliberately and records its code then |
+
+The API was unreleased, so the move needs no deprecation. `gorbital`'s `Timeout` step and route option, `LoadConfig`'s `OPS_ALLOWED_IPS` and `opshttp` use the new packages; the commit that recorded the codes in the golden apps' `api/surface.json` and `docs/reference/error-codes.md` was reverted, and the v0.1.0 scaffold compatibility check (`ORB_COMPAT_FROM=v0.1.0 ORB_COMPAT_PUBLISHED=1`) passes again. The rule is written down in [stability](../guides/stability.md#adding-error-codes) and `CONTRIBUTING.md`: new problem codes and audit actions go in packages v0.1 apps don't link. `gorbital.dev/webhook` (linked through `modules/mail/resend`) has no problem codes; `invalid_webhook_signature` is `guard.Webhook`'s, in `gorbital.dev/gorbital`, and `invalid_token` is in `modules/jwt`, which v0.1 apps don't link.
+
 ## Implementation notes (2026-09-17)
+
+The tests and benchmarks below were named `httpx` `TestIPFilter*`, `FuzzIPFilter` and `BenchmarkIPFilter` before the [package moves](#package-moves-2026-09-17); they run in `httpx/timeout` and `httpx/ipfilter` now.
 
 | Check | Result |
 |---|---|

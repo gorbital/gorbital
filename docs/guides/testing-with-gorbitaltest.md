@@ -43,7 +43,21 @@ It takes about 0.2 s on a laptop, so every test can have its own app. Don't mark
 
 A principal is put in the request's context exactly as an authenticator puts it, before the stack runs, so guards, `actor.From` in use cases, audit events and idempotency keys all see it. The permissions are the ones you pass: the test says what the caller holds, and roles don't come into it.
 
-Tests don't need an authenticator: gorbitaltest's own passes requests on. When a test passes `gorbital.WithAuth`, that authenticator runs instead, which is how sign-in's own tests run (Phase 5).
+Tests don't need an authenticator: gorbitaltest's own passes requests on. When a test passes `gorbital.WithAuth`, that authenticator runs instead, which is how sign-in's own tests run.
+
+`gorbitaltest.NewWithEnv(t, env, opts...)` sets environment variables on top of development's defaults, as `.env` would, such as `AUTH_ENCRYPTION_KEYS` for tests that turn on an authenticator app; the process environment is never read. `app.Config()` is the configuration the app was built with, for running a command against the test's database, such as `authhttp`'s `grant-role`:
+
+```go
+auth := authhttp.New()
+app := gorbitaltest.NewWithEnv(t, map[string]string{"AUTH_ENCRYPTION_KEYS": keys}, gorbital.WithAuth(auth), gorbital.WithModules(opshttp.Module()))
+for _, c := range auth.Commands() {
+	if c.Name == "grant-role" {
+		err := c.Run(ctx, app.Config(), []string{"ops@example.com", "platform_admin"}, io.Discard)
+	}
+}
+```
+
+`gorbital/internal/integration` signs an operator in this way, with an authenticator app and a second factor, and checks `/ops` end to end.
 
 ## Assertions
 

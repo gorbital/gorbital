@@ -90,9 +90,9 @@ Apple M1 Max, Go 1.26.0, `-count 3`, 2026-09-17 ([ADR-0085](adr/0085-security-la
 
 | Benchmark | Time | Memory | Allocations | Budget |
 |---|---|---|---|---|
-| `httpx` `BenchmarkTimeout/without` (recorder, small JSON write) | 645–692 ns | 1056 B | 11 | — |
-| `httpx` `BenchmarkTimeout/with` | 1.62–1.67 µs | 2272 B | 23 | No budget: about +1 µs and 12 allocations (context, timer, writer, header copy) |
-| `httpx` `BenchmarkIPFilter` (4 allow ranges, 1 deny) | 66 ns | 0 B | 0 | — |
+| `httpx/timeout` `BenchmarkTimeout/without` (recorder, small JSON write) | 645–692 ns | 1056 B | 11 | — |
+| `httpx/timeout` `BenchmarkTimeout/with` | 1.62–1.67 µs | 2272 B | 23 | No budget: about +1 µs and 12 allocations (context, timer, writer, header copy) |
+| `httpx/ipfilter` `BenchmarkNew` (4 allow ranges, 1 deny; `BenchmarkIPFilter` in `httpx` when measured) | 66 ns | 0 B | 0 | — |
 | `webhook` `BenchmarkStandardVerify` (1.1 KiB body) | 1.66–1.71 µs | 1856 B | 16 | — |
 | `gorbital/guard` `BenchmarkWebhookGuard` (whole request through Huma) | 5.83–5.84 µs | 9880 B | 52 | Exception to "0 allocations per guard": the guard reads and keeps the body it verifies |
 | `modules/jwt` `BenchmarkVerify/RS256`, warm key cache | 51 µs | 10.9 KiB | 158 | — |

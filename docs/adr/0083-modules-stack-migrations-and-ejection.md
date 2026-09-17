@@ -117,7 +117,7 @@ my-api/
 | `Telemetry` | Spans and metrics | `telemetry` |
 | `Observability` | Request minutes per route | `observability` |
 | `AccessLog` | One structured line per request | `httpx.AccessLog` |
-| `Timeout` | `APP_REQUEST_TIMEOUT` (default 30s): context deadline and 503 `request_timeout` (added with Phase 10, ADR-0085) | `httpx.Timeout` |
+| `Timeout` | `APP_REQUEST_TIMEOUT` (default 30s): context deadline and 503 `request_timeout` (added with Phase 10, ADR-0085) | `timeout.New` (`gorbital.dev/httpx/timeout`) |
 | `SecureHeaders` | HSTS in production and security headers | `httpx.SecureHeaders` |
 | `CORS` | Allowed origins | `httpx.CORS` |
 | `CrossOrigin` | Cross-site protection for cookie-authenticated writes | `httpx.CrossOrigin` |
@@ -262,7 +262,7 @@ The operations API, client flags and email events moved from the golden apps' `i
 
 ### Layout of a built-in module
 
-- `opshttp` keeps the golden module's layers under `opshttp/internal/{domain,usecase,delivery}`, unexported, with the use cases and SQL-free delivery files as they were. The public surface is what an app configures: `Module(opts...)`, `MailProvider`, `SignInMethods` and `SignInMethod`. `flagshttp` exports `Module` and `PermRead`; `mailevents` exports `Module`.
+- `opshttp` keeps the golden module's layers under `opshttp/internal/{domain,usecase,delivery}`, unexported, with the use cases and SQL-free delivery files as they were. The public surface is what an app configures: `Module(opts...)` and `MailProvider` (`SignInMethods` and `SignInMethod` were removed when Phases 4 and 5 were integrated: [below](#integration-of-phases-4-and-5-2026-09-17)). `flagshttp` exports `Module` and `PermRead`; `mailevents` exports `Module`.
 - The delivery files keep v0.1's `huma.Operation` declarations. `gorbital/internal/operation.Register` registers each on the `gorbital.Router`, translating its fields to route options (`OperationID`, `Summary`, `Description`, `Tags`, `Errors`, `Status`, `guard.Public()` for an operation without security) and panicking, reported by `Mount` naming the module, for a field it would drop. The move reads as a diff of imports and `huma.Register(api,` → `operation.Register(r,`.
 - Two operations need what no route option sets: the event stream's and the incident report's response media types, and schemas added to the API's registry. **`gorbital.Customize(func(api huma.API, op *huma.Operation))`** was added for them: it runs after deny by default and the guards have built the operation, and registration fails when it changes the method, path, operation ID, security requirements or operation middleware, so it can't remove protection.
 
@@ -298,15 +298,15 @@ The contract is proven by tests rather than asserted: `gorbital/internal/contrac
 |---|---|
 | A request without an actor gets 401 before its input is parsed, so an invalid body from an anonymous caller is 401 instead of 422 | Deny by default (ADR-0082) |
 | Streams check their session again by running the app's `Auth` step on the stream's request (`Platform.Authenticate`) instead of calling sign-in with its token | Works with any authenticator (sign-in, `modules/jwt`); the context's values aren't carried over, so an earlier actor can't survive a revoked session. In development the dev console's operator keeps its stream, where v0.1 ended it after the first event |
-| `/ops/auth/providers` lists what `opshttp.SignInMethods` returns, empty without it | The report is the authenticator's; the option keeps `opshttp` from importing sign-in |
+| `/ops/auth/providers` lists what the authenticator reports, empty without a report | The report is the authenticator's; `opshttp` doesn't import sign-in. First an option, `opshttp.SignInMethods`; since the integration, `Platform.SignInMethods` |
 | `GET /ops/mail` reports Resend unless `opshttp.MailProvider(ProviderSMTP)` | The provider is passed to `WithMailer` as a `mail.Sender`, which doesn't name itself |
-| `ops.auth.write` (rate-limit resets) isn't declared by `opshttp` | v0.1 declares it for sign-in's account management; sign-in's module declares it in Phase 5, and two declarations would fail `New`. Until then an app on `Main` without an authenticator granting it can list limiters but not reset them |
-| `platform_admin` and `ops_viewer` don't require a second factor by themselves | v0.1's `permissions.go` calls `RequireMFA` on the catalog, which the authenticator applies when it builds a session's actor; `Module` has no way to say it yet. Phase 5 decides how sign-in learns which roles require it |
+| `ops.auth.write` (rate-limit resets) isn't declared by `opshttp` | v0.1 declares it for sign-in's account management; sign-in's module declares it (Phase 5), and two declarations would fail `New`. Since the integration, `ops.auth.read` is sign-in's too |
+| `platform_admin` and `ops_viewer` don't require a second factor by themselves | v0.1's `permissions.go` calls `RequireMFA` on the catalog, which the authenticator applies when it builds a session's actor; `Module` has no way to say it. `authhttp.Setup` requires it for both roles (Phase 5) |
 | `/ops/system` reports migrations against the merged history (library, modules and `db/migrations`) | The app's own `db/migrations` alone isn't what `migrate` applies |
 
 ### `OPS_ALLOWED_IPS` and the dev operator
 
-- `LoadConfig` parses `OPS_ALLOWED_IPS` with `httpx.ParsePrefixes` into `Config.OpsAllowedIPs` and checks it with `httpx.IPFilter`, reporting problems with the others. `opshttp` puts every route in a group with `gorbital.Use(httpx.IPFilter(allowed, nil))`: the first middleware of each operation, before the sign-in check, guards and input parsing, on the address `TrustedProxies` resolved. A stack step was considered and rejected: a custom `WithStack` could drop it silently, and it matters only when the module is there. The authenticator still runs first for refused addresses.
+- `LoadConfig` parses `OPS_ALLOWED_IPS` with `ipfilter.ParsePrefixes` into `Config.OpsAllowedIPs` and checks it with `ipfilter.New` (`gorbital.dev/httpx/ipfilter`, `httpx.IPFilter` until the [package moves](0085-security-layers.md#package-moves-2026-09-17)), reporting problems with the others. `opshttp` puts every route in a group with `gorbital.Use(ipfilter.New(allowed, nil))`: the first middleware of each operation, before the sign-in check, guards and input parsing, on the address `TrustedProxies` resolved. A stack step was considered and rejected: a custom `WithStack` could drop it silently, and it matters only when the module is there. The authenticator still runs first for refused addresses.
 - The dev operator (ADR-0066) is part of the `Auth` step, as §4 lists it: the authenticator, then `devconsole.Operator("/ops/", …)` with the permissions the catalog grants `platform_admin`. Without the dev console (production refuses its token) it adds nothing.
 
 ### Mail events keep their verifier
@@ -374,8 +374,8 @@ The delivery files register v0.1's `huma.Operation` literals through one helper,
 | Email previews (`mail_previews.go`) | The dev console previews what `AuthSetup.MailPreviews` adds, and a test message branded with the app's name and `APP_PUBLIC_URL` |
 | `.well-known` files for passkeys in apps (`passkeys.go`, `routes.go`) | `AuthSetup.Handle` mounts them on the mux behind the stack; `/_dev/routes` lists them |
 | Role descriptions of `user`, `platform_admin` and `ops_viewer` (`permissions.go`) | `gorbital` declares those roles with v0.1's descriptions; `authhttp` declares `user` when no module grants it anything and requires a second factor for `platform_admin` and `ops_viewer` |
-| `ops.auth.read` declared by the ops module | Declared by `authhttp`, whose `/ops/auth/users` reads check it. Phase 4's `opshttp` uses it for `/ops/auth/providers` and must not declare it again |
-| `/ops/auth/providers`, `/ops/auth/rate-limits`, `/ops/retention` rows for accounts, the ops module's reauthentication | Phase 4. `authhttp` keeps what they read, unexported: `signInMethods`, the `limiters` table, the `auth.*` retention settings and the use cases' reauthentication; `opshttp` gets them through the interfaces Phase 4 defines for modules |
+| `ops.auth.read` declared by the ops module | Declared by `authhttp`, whose `/ops/auth/users` reads check it. `opshttp` uses it for `/ops/auth/providers` and `/ops/auth/rate-limits` and doesn't declare it (integration) |
+| `/ops/auth/providers`, `/ops/auth/rate-limits`, `/ops/retention` rows for accounts, the ops module's reauthentication | Done at the [integration](#integration-of-phases-4-and-5-2026-09-17): `Authenticator.SignInMethods`, `Module.RateLimiters`, `Module.Retention`; streams check the session with `Platform.Authenticate`, which runs sign-in's middleware |
 | The sign-in methods table printed at start in development | Logged at start, one info line per method, in every environment: `New` also builds apps in tests. `auth-providers` prints the table |
 | `cmd/seed` | Not in `gorbital.Main`; the golden apps keep it |
 
@@ -399,6 +399,64 @@ The delivery files register v0.1's `huma.Operation` literals through one helper,
 | **Misconfiguration passes silently** | `LoadConfig` refused it | `CheckConfig` runs before `New` connects and before commands | `TestAuthSetupFromMain`, `TestWebAuthnConfiguration`, `TestSocialConfiguration` |
 
 **What changed compared with v0.1**, all outside the HTTP contract: sign-in's configuration errors are reported after `LoadConfig`'s instead of in the same list; wrong command arguments exit with 2 instead of 1 (`gorbital.Main`'s convention); the sign-in methods are logged at start instead of printed; `roles` lists the roles in the catalog's order (declared by name, `user` last when `authhttp` adds it) and the permissions of the modules the app mounts (no `/ops` permissions until Phase 4); the OpenAPI document gains `x-gorbital-guards` on sign-in's operations. **No HTTP response, cookie, audit event, stored row or name differs**: the golden app's HTTP tests pass against the library with only the operations module's endpoints replaced, and the contract tests compare the rest with the frozen fixtures.
+
+## Integration of Phases 4 and 5 (2026-09-17)
+
+Phases 4 (ops, flags and mail events) and 5 (sign-in) were built in parallel on `framework/phase-4` and `framework/phase-5`; each stood in for the other in its tests. Rebasing Phase 5 on Phase 4 left the seams unfinished: an app with `authhttp` and `opshttp` failed `New` (both declared `ops.auth.read`), and would have listed no sign-in methods, only three rate limiters and no accounts retention. The integration closes them so that an app with `gorbital.WithAuth(authhttp.New())` and `opshttp.Module()` reports what a v0.1 app reported, with nothing more in `main.go`.
+
+### 1. Sign-in methods: an optional authenticator method
+
+| Option | Verdict |
+|---|---|
+| Keep `opshttp.SignInMethods(func() []opshttp.SignInMethod)` and pass `auth.SignInMethods` in `main.go` | Rejected: every app with both modules writes the same line, and the report needs the configuration, which `main.go` doesn't have before `Main` loads it |
+| `opshttp` imports `authhttp` | Rejected: `opshttp` would compile sign-in into every app with `/ops`, and couldn't report another authenticator's methods |
+| A field or lookup on `Deps` | Rejected for the reasons of Phase 4 (§ How built-in modules reach what the app built) |
+| **`gorbital.SignInMethod`, an optional authenticator method `SignInMethods(cfg Config) []SignInMethod`, found by type assertion like `Module`, `Commands`, `CheckConfig` and `Setup`, and `Platform.SignInMethods()` calling it with the app's configuration** | **Chosen** |
+
+- The type moved from `opshttp` to `gorbital`, with the same fields, so the operations API converts it to its domain type directly. `Platform.SignInMethods` never returns nil: an app without an authenticator, or one without the method, lists `{"methods": []}` as before.
+- `opshttp.SignInMethods` and `opshttp.SignInMethod` were removed rather than kept as an override: an authenticator of an app's own implements the method; a second way to say the same thing had no user. They were never released, so `apicheck` records no removal (Phase 4's listing hadn't been recorded on the rebased branch; it is now).
+- `authhttp.Authenticator.SignInMethods` returns the table `auth-providers` prints (`writeSignInMethods` uses the same function), so the command, the start-up log lines and `/ops/auth/providers` can't disagree.
+
+### 2. Rate limiters and the ops permissions
+
+- `authhttp`'s `Module.RateLimiters` lists `auth_login`, `auth_login_address`, `auth_mfa`, `auth_reauth`, `auth_code`, `auth_notice` and `auth_api_key` with v0.1's keys and descriptions, from the table that also names the limiters `newRateLimits` creates (`TestSurfaceKeepsV010Names` checks they match). Resets need no new code: `opshttp` resets through `ratelimitpg.Store.Reset(name, key)` on `Deps.RateLimits`, the store sign-in's limiters are created on, exactly as v0.1's `rateLimits.Reset`.
+- **Order.** v0.1 listed `ops_test_email` between `auth_notice` and `auth_api_key`; `Platform.RateLimiters` lists `auth_ip`, then each module's in module order, and the authenticator's module comes first, so `ops_test_email` is last. The list's order isn't part of the contract (clients look limiters up by name); matching it would need a sort key on `RateLimiter`. Documented in the ops API guide.
+- **`ops.auth.read` and `ops.auth.write` are declared once, by `authhttp`**, with v0.1's roles (`platform_admin` both, `ops_viewer` read). v0.1 declared `ops.auth.read` in the ops module's list and `ops.auth.write` with sign-in's; both modules check both here (`/ops/auth/users` and `/ops/auth/providers`, `/ops/auth/rate-limits`), so one of them had to own them.
+
+| Option | Verdict |
+|---|---|
+| Allow a permission declared by several modules when the declarations are identical | Rejected: weakens the duplicate check of item 25, and the two modules' descriptions would have to be kept equal by hand |
+| `gorbital` declares them for every app | Rejected: apps with neither module would list permissions nothing checks |
+| `opshttp` owns `ops.auth.read`, `authhttp` owns `ops.auth.write` (v0.1's split) | Rejected: an app with `authhttp` and no `opshttp` would let `platform_admin` change accounts but not list them |
+| **`authhttp` owns both** | **Chosen**: the permissions are about sign-in (accounts, methods, sign-in's limits). In an app with `opshttp` and no `authhttp`, no role holds them: `/ops/auth/providers` (empty there anyway) and `/ops/auth/rate-limits` need an authenticator that grants them to its actors, and the dev console's operator, which holds `platform_admin`'s catalog permissions, gets 403 on those two paths. Recorded in the ops API guide and the admin tool recipe |
+
+- The second factor for `platform_admin` and `ops_viewer` (v0.1's `RequireMFA`) is applied by `authhttp.Setup` whenever a module declares those roles, which `opshttp` does; the integration test signs in with a password only and gets 403 `mfa_required` from both modules' operations.
+
+### 3. Retention
+
+`authhttp`'s `Module.Retention` returns `deleted_accounts` (`auth.deleted_account_retention`) and `unverified_accounts` (`auth.unverified_account_ttl`), both with `Job: "auth_cleanup"` and no `Oldest`, as v0.1's `app.go` listed them. Because the authenticator's module comes first among modules and gorbital's rows come first of all, `/ops/retention` lists the nine rows in v0.1's order.
+
+### 4. The rest, and how it is proven
+
+`gorbital/internal/integration` builds the app with `gorbitaltest.NewWithEnv` (added, with `App.Config`, so a test can set `AUTH_ENCRYPTION_KEYS` and run `grant-role` against its database) and real sign-in: register, the code from the queued email, `grant-role … platform_admin`, 403 `mfa_required` with a password-only session, an authenticator app, a second sign-in with a recovery code. It then checks, against the golden app's source rather than copied expectations:
+
+| Seam | Checked |
+|---|---|
+| `/ops/auth/providers` | The authenticator's report field by field, v0.1's keys in order, no `AUTH_ENCRYPTION_KEYS` |
+| `/ops/auth/rate-limits` | Every limiter of v0.1's `rate_limits.go` with its keys and description; wrong passwords spend `auth_login_address`, a reset answers `reset: true` then `false`, an unknown limiter 404, both resets audited with the operator's ID |
+| `/ops/retention` | v0.1's nine rows in order; the accounts rows' settings, job, default and next run |
+| `/ops/system` | Database `ok`, sign-in's migrations in the merged history and applied |
+| `/ops/auth/users`, `/ops/service-accounts` | The operator listed with `platform_admin`; a user without a role refused; a service account created and listed |
+| Roles | `roles` lists `platform_admin` and `ops_viewer` with every ops permission v0.1's `permissions.go` gives them |
+| Reauthentication of streams | `/ops/observability/stream` ends with `{"reason":"unauthorized"}` after `POST /v1/auth/logout`, through `Platform.Authenticate` and sign-in's middleware |
+| OpenAPI | The document of `gorbital.Main` with the four modules is compatible with both frozen v0.1.0 documents under `/v1/auth/`, `/ops/`, `/v1/flags` and `/v1/webhooks/resend`, has every operation with its operation ID, and describes each of full-single's 127 as v0.1.0 did but for `x-gorbital-guards` |
+| Names | Every error code, audit action, platform permission, role, setting and job of full-single's v0.1.0 `surface.json` exists in the app, but those of its example modules (`ping`, `projects`, `example.ping_message`, `heartbeat`) |
+
+Nothing else differed. Found on the way and fixed in the same branch: the rebase had dropped Phase 4's lines from `api/gorbital.txt`, and `docs/guides/main-go.md` carried both phases' status notes.
+
+### 5. v0.1 apps and new error codes
+
+The v0.1.0 scaffold compatibility check failed on the rebased branch: apps generated by `orb` v0.1.0 scan the source of every `gorbital.dev` package they link for problem codes, and Phase 10 had added `request_timeout` and `ip_not_allowed` to `httpx`. `httpx.Timeout`, `httpx.IPFilter`, `httpx.ParsePrefixes` and `httpx.ErrDenyAll` moved to `gorbital.dev/httpx/timeout` and `gorbital.dev/httpx/ipfilter` ([ADR-0085](0085-security-layers.md#package-moves-2026-09-17)), the commit recording the codes in the golden apps was reverted, and the rule is in [stability](../guides/stability.md#adding-error-codes): new codes and audit actions go in packages v0.1 apps don't link.
 
 ## Why
 

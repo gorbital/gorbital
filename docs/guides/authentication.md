@@ -95,7 +95,7 @@ The role applies to your next request. `platform_admin` and `ops_viewer` require
 
 Add roles and permissions in `internal/app/permissions.go`; `c.RequireMFA("role")` makes a role require two-factor authentication. It's code, not a runtime setting, so nobody can switch it off from `/ops/settings`.
 
-In an app on `gorbital.Main`, roles come from modules' permissions: a role exists when a module's `gorbital.Permission` names it in `Roles` ([Modules and routes](modules-and-routes.md)). `authhttp` declares the ops permissions below, the `user` role every account holds when no module grants it anything, and the two-factor requirement for `platform_admin` and `ops_viewer`, with v0.1's role descriptions. A module gives signed-in users a permission with `Roles: []string{"user"}`, as Shelfie's books module does. Until the operations module arrives in Phase 4, the ops roles reach `/ops/auth/users` and `/ops/service-accounts` only. Requiring a second factor for other roles can't be configured until Phase 6.
+In an app on `gorbital.Main`, roles come from modules' permissions: a role exists when a module's `gorbital.Permission` names it in `Roles` ([Modules and routes](modules-and-routes.md)). `authhttp` declares the ops permissions below, the `user` role every account holds when no module grants it anything, and the two-factor requirement for `platform_admin` and `ops_viewer`, with v0.1's role descriptions. A module gives signed-in users a permission with `Roles: []string{"user"}`, as Shelfie's books module does. With `opshttp.Module()` in the app, the ops roles reach the rest of `/ops` too, and `/ops` lists sign-in's methods, rate limiters and accounts retention; without it, they reach `/ops/auth/users` and `/ops/service-accounts` only. Requiring a second factor for other roles can't be configured until Phase 6.
 
 | Permission | Roles on `gorbital.Main` |
 |---|---|
@@ -308,7 +308,7 @@ Operators manage accounts through `/ops/auth/users…` ([ops API](ops-api.md#acc
 
 Rate limit settings (group `rate_limits`, all with a reason required) are in the table under [What users see](#what-users-see): `auth.ip_requests_per_minute` (10 – 10 000), `auth.login_attempts` (3 – 100), `auth.login_address_attempts` (10 – 1000), `auth.login_window` (1 minute – 24 hours), `auth.mfa_change_attempts` (3 – 100), `auth.reauth_attempts` (3 – 100), `auth.code_attempts` (5 – 100), `auth.code_window` (1 hour – 7 days) and `auth.api_key_failures_per_minute` (5 – 10 000; wrong API keys per client network, see [API keys](api-keys.md#limits-and-settings)).
 
-Change them with `PUT /ops/settings/{key}` (in an app on `gorbital.Main`, once the operations module arrives in Phase 4). The auth module also enforces hard limits of its own, so no setting can make sessions or codes unsafe. Two-factor authentication has no runtime settings.
+Change them with `PUT /ops/settings/{key}` (in an app on `gorbital.Main`, with `opshttp.Module()`). The auth module also enforces hard limits of its own, so no setting can make sessions or codes unsafe. Two-factor authentication has no runtime settings.
 
 ## In your own code
 
