@@ -121,6 +121,8 @@ type RateLimitError struct {
 	RetryAfter time.Duration
 }
 
+// Error says authentication failed too often and how long to wait, rounded
+// to the second.
 func (e *RateLimitError) Error() string {
 	return fmt.Sprintf("auth: too many failed authentications; retry in %s", e.RetryAfter.Round(time.Second))
 }

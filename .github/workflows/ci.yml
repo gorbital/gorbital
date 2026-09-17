@@ -143,6 +143,8 @@ jobs:
         run: go run -C internal/tools/apicheck .
       - name: docs/reference matches the golden apps' error codes, audit actions, permissions, settings and jobs
         run: go run -C internal/tools/refdocs .
+      - name: docs/methods matches the library's doc comments and Example functions; exported API is documented
+        run: go run -C internal/tools/refdocs . -methods
       - name: api/openapi.json matches examples/minimal code
         working-directory: examples/minimal
         run: |

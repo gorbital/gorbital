@@ -60,6 +60,24 @@ Renaming a parameter doesn't change the listing. A changed listing is part of th
 
 At release, `.github/workflows/release-library.yml` runs `gorelease` for the tagged module against its previous release tag: it fails on incompatible changes and on a version number that doesn't match the change. Run it before tagging from the Actions tab ("Run workflow" with the module directory and version). It works once `gorbital.dev` and the previous release can be downloaded.
 
+## Methods pages: `docs/methods`
+
+The [Methods](../methods/index.md) tab documents the same packages the API listings cover, one page per package, generated from the source by `internal/tools/refdocs`: each identifier's signature, doc comment and `Example` functions, and *Since*, the first release whose listing has it. The listings of each release are frozen in `internal/tools/refdocs/since/<version>/` (copied from `api/` at the release tag), so anything not in them shows `v0.2.0 (unreleased)`.
+
+```bash
+go run -C internal/tools/refdocs . -methods          # check (CI, no database needed)
+go run -C internal/tools/refdocs . -methods -write   # regenerate after changing exported API or its doc comments
+```
+
+| Output | Means | Do |
+|---|---|---|
+| `<file>:<line>: <pkg>.<Name> has no doc comment` | An exported identifier isn't documented | Write the doc comment |
+| `<file>:<line>: <pkg>.<Name> is new in v0.2.0 (unreleased) and has no Example function` | A function, type or method added since the last release has no `Example` | Add one to the package's `example_test.go` |
+| `docs/methods/<page>.md: stale` | The page doesn't match the source | Regenerate with `-write` and commit the page |
+| `docs/docs.json: docs/methods/<page>.md isn't in the Methods tab` | A new package has no page in the navigation | Add it to the Core or Modules group |
+
+At each release, maintainers copy `api/*.txt` into `internal/tools/refdocs/since/<version>/` and bump the unreleased version in `internal/tools/refdocs/methods.go`. How to write doc comments and examples: [CONTRIBUTING.md](../../CONTRIBUTING.md#documenting-methods).
+
 ## Public surface of an app: `api/surface.json`
 
 Full apps (the golden apps and every app generated from them) record the names clients, operators and stored data depend on:
@@ -153,7 +171,8 @@ A failure means a library change broke code that apps already have. Fix the libr
 
 | You changed | Run |
 |---|---|
-| Exported Go API | `go run -C internal/tools/apicheck .` (`-write` to record additions) |
+| Exported Go API | `go run -C internal/tools/apicheck .` (`-write` to record additions), then `go run -C internal/tools/refdocs . -methods -write` |
+| Doc comments or `Example` functions | `go run -C internal/tools/refdocs . -methods -write` |
 | A golden Full app's error codes, audit actions, permissions, settings or jobs | `go test ./internal/app -run TestPublicSurface -update` in both Full apps, `go run -C internal/tools/refdocs . -write` (with a description in its `descriptions.json` for a new audit action), then `cd cli && go generate ./internal/recipes/` |
 | `/ops` endpoints | `go test ./internal/app -run TestOpsAPICompatible` in both Full apps |
 | `orb` JSON output | `cd cli && go test ./internal/cli -run TestJSONOutputs` (`-update` for additions) |
