@@ -32,11 +32,6 @@ type Store interface {
 	DeleteBook(ctx context.Context, ownerID, id string) error
 	// CountBooks returns how many books are on ownerID's shelf.
 	CountBooks(ctx context.Context, ownerID string) (int, error)
-	// InsertShelf stores a shelf; a name the owner already has is left as
-	// it is.
-	InsertShelf(ctx context.Context, s domain.Shelf) error
-	// SelectShelves returns ownerID's shelves, oldest first.
-	SelectShelves(ctx context.Context, ownerID string) ([]domain.Shelf, error)
 }
 
 // docs:end store

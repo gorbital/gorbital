@@ -69,15 +69,16 @@ func TestRoutes(t *testing.T) {
 		t.Errorf("orb routes --json --module books --openapi = %d %s", code, out)
 	}
 
-	// Public routes: sign-in's and /version come from the library; the app
-	// itself has none.
+	// Public routes: sign-in's and /version come from the library; the
+	// app's own are phone sign-in's two, which say guard.Public().
 	code, out, _ = runOrb(t, "routes", "--public", "--json")
 	if code != 0 || json.Unmarshal([]byte(out), &list) != nil || list.Total == 0 || list.Public != list.Total ||
 		!slices.ContainsFunc(list.Routes, func(r routes.Route) bool { return r.Path == "/version" && r.Source == nil }) {
 		t.Errorf("orb routes --public --json = %d %s", code, out)
 	}
 	code, out, _ = runOrb(t, "routes", "--public", "--app", "--json")
-	if code != 0 || json.Unmarshal([]byte(out), &list) != nil || list.Total != 0 || len(list.Warnings) != 0 {
+	if code != 0 || json.Unmarshal([]byte(out), &list) != nil || list.Total != 2 || list.Public != 2 || len(list.Warnings) != 0 ||
+		list.Routes[0].Path != "/v1/phone-sign-in" || list.Routes[1].Path != "/v1/phone-sign-in/code" {
 		t.Errorf("orb routes --public --app --json = %d %s", code, out)
 	}
 }

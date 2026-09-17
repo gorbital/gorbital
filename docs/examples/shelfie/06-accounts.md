@@ -15,7 +15,7 @@ and `cmd/api/signin.go` lists how Shelfie's sign-in differs from the library's:
 | Option | Does | Guide |
 |---|---|---|
 | `RegisterFields(profiles.SaveRegistration)` | `POST /v1/auth/register` takes `display_name` and `country`, validated when the request arrives, and saves them in the transaction that creates the account | [Extra registration fields](../../guides/extra-registration-fields.md) |
-| `OnRegister(books.CreateDefaultShelf)` | Runs in the transaction that creates any account: registration, a first Google, Apple or GitHub sign-in, or an operator's | [Sign-in hooks](../../guides/sign-in-hooks.md#onregister) |
+| `OnRegister(createDefaultShelf)` | Runs in the transaction that creates any account: registration, a first Google, Apple or GitHub sign-in, or an operator's | [Sign-in hooks](../../guides/sign-in-hooks.md#onregister) |
 | `BeforeLogin(profiles.RefuseSuspended)` | Runs once a sign-in's password (or passkey, provider, phone code) and second factor are verified, before the session exists, and can refuse it | [Sign-in hooks](../../guides/sign-in-hooks.md#when-beforelogin-runs) |
 | `MinPasswordLength(14)` | New passwords are at least 14 characters instead of 12 | [Configuring sign-in](../../guides/configuring-sign-in.md#passwords) |
 
@@ -47,13 +47,14 @@ A first Google, Apple or GitHub sign-in creates an account without registration 
 
 ## 3. A shelf for every new reader
 
-`books` gains a `shelves` table and `GET /v1/shelves`. Its hook runs for every new account, however it is created:
+Shelves belong to the `shelves` module, which [chapter 9](09-generators.md) generates with `orb gen module`: `GET /v1/shelves` and the rest of its routes, its rules and the `shelves` table. The hook that gives every new account a "Reading" shelf, however the account is created, is in `cmd/api/signin.go`:
 
-<!-- include examples/apps/shelfie/internal/modules/books/registration.go#on-register -->
+<!-- include examples/apps/shelfie/cmd/api/signin.go#default-shelf -->
 
-<!-- include examples/apps/shelfie/internal/modules/books/usecase/create_default_shelf.go#create-default-shelf -->
-
-A hook receives `tx` rather than using `Deps.DB`: a separate connection wouldn't see the account that isn't committed yet. The two modules still don't import each other; `signin.go` in `cmd/api` puts them together.
+- **A hook receives `tx` rather than using `Deps.DB`**: a separate connection wouldn't see the account, which isn't committed yet, and a shelf written outside the transaction would stay behind if the account were rolled back.
+- **The shelf follows the shelves module's rules.** `shelves.NewShelf` from its `domain` package trims and checks the name and sets the version and the timestamps, so the default shelf is one `PATCH /v1/shelves/{id}` can rename like any other.
+- **The row is written on `tx` by the hook.** The generated store runs on the pool, and its `InTx` begins a transaction of its own, so the hook inserts into the columns of the shelves migration itself. If you would rather keep every SQL statement in the module, give `shelves/repository` a constructor on a `pgx.Tx`: the generated code is yours to change.
+- **The modules still don't import each other**: `profiles`, `shelves` and sign-in meet only in `cmd/api`.
 
 ## 4. Suspended readers
 
@@ -72,7 +73,7 @@ The tests in `cmd/api/accounts_test.go` build sign-in with the same options as `
 
 <!-- include examples/apps/shelfie/cmd/api/accounts_test.go#new-accounts-app -->
 
-Registration checks the fields and the password policy, then the profile and the default shelf exist:
+Registration checks the fields and the password policy, then the profile and the default shelf exist, and the shelf's name is taken like any other:
 
 <!-- include examples/apps/shelfie/cmd/api/accounts_test.go#register-with-profile -->
 

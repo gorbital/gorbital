@@ -81,9 +81,18 @@ func TestGenModule(t *testing.T) {
 		t.Fatalf("orb gen module = %d %s %s", code, out, errOut)
 	}
 	// The files are Shelfie's (TestModuleMatchesShelfie keeps the templates
-	// and Shelfie equal), and the module list names the module.
+	// and Shelfie equal), and the module list names the module. The
+	// migration follows the app's newest one, 20260920000004_phone_sign_in.sql;
+	// Shelfie's shelves migration was generated before that one existed.
 	for _, f := range res.Files {
-		if got, want := readFile(t, filepath.Join(dir, filepath.FromSlash(f))), readFile(t, filepath.Join(shelfie, filepath.FromSlash(f))); got != want {
+		golden := f
+		if strings.HasSuffix(f, "_shelves.sql") {
+			if f != "db/migrations/20260920000005_shelves.sql" {
+				t.Errorf("migration = %s, want the one after the app's newest", f)
+			}
+			golden = "db/migrations/20260920000002_shelves.sql"
+		}
+		if got, want := readFile(t, filepath.Join(dir, filepath.FromSlash(f))), readFile(t, filepath.Join(shelfie, filepath.FromSlash(golden))); got != want {
 			t.Errorf("%s differs from Shelfie's", f)
 		}
 	}

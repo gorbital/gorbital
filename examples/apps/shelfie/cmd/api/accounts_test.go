@@ -89,15 +89,20 @@ func TestRegisterWithAProfile(t *testing.T) {
 	if profile.DisplayName != "Ada" || profile.Country != "GB" {
 		t.Errorf("GET /v1/profile = %+v", profile)
 	}
+	// OnRegister created a private "Reading" shelf, which the shelves
+	// module serves like any other.
 	var shelves struct {
 		Items []struct {
-			Name string `json:"name"`
+			Name       string `json:"name"`
+			Visibility string `json:"visibility"`
+			Version    int64  `json:"version"`
 		} `json:"items"`
 	}
 	ada.Get("/v1/shelves").JSON(t, &shelves)
-	if len(shelves.Items) != 1 || shelves.Items[0].Name != "Reading" {
+	if len(shelves.Items) != 1 || shelves.Items[0].Name != "Reading" || shelves.Items[0].Visibility != "private" || shelves.Items[0].Version != 1 {
 		t.Errorf("GET /v1/shelves = %+v, want the default shelf", shelves)
 	}
+	ada.Post("/v1/shelves", map[string]string{"name": "reading"}).AssertProblem(t, http.StatusConflict, "shelf_name_taken")
 }
 
 // docs:end register-with-profile

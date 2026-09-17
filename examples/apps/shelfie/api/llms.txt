@@ -185,7 +185,6 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Get a book](/docs/books/books-get-v1-books-by-id.md): `GET /v1/books/{id}`
 - [Change a book](/docs/books/books-patch-v1-books-by-id.md): `PATCH /v1/books/{id}`
 - [Remove a book](/docs/books/books-delete-v1-books-by-id.md): `DELETE /v1/books/{id}`
-- [List your shelves](/docs/books/books-get-v1-shelves.md): `GET /v1/shelves`
 
 ## Feature flags
 
@@ -202,6 +201,14 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 
 - [Get your profile](/docs/profiles/profiles-get-v1-profile.md): `GET /v1/profile`
 - [Create or change your profile](/docs/profiles/profiles-put-v1-profile.md): `PUT /v1/profile`
+
+## Shelves
+
+- [List your shelves](/docs/shelves/shelves-list.md): `GET /v1/shelves`
+- [Create a shelf](/docs/shelves/shelves-create.md): `POST /v1/shelves`
+- [Get a shelf](/docs/shelves/shelves-get.md): `GET /v1/shelves/{id}`
+- [Update a shelf](/docs/shelves/shelves-update.md): `PATCH /v1/shelves/{id}`
+- [Delete a shelf](/docs/shelves/shelves-delete.md): `DELETE /v1/shelves/{id}`
 
 ## System
 

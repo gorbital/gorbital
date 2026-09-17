@@ -397,7 +397,8 @@ func TestPortalModuleAndMiddlewareGenerators(t *testing.T) {
 	// Routes: the app isn't running, so they come from the export.
 	fakeRoutesExport(t, nil)
 	// Every route of the document, the library modules' too; the app's own
-	// are the books and the new shelves routes, with their source.
+	// are the books, phone sign-in, profile and new shelves routes, with
+	// their source.
 	doc, _, err := routes.FromOpenAPI([]byte(readFile(t, filepath.Join(dir, "api", "openapi.json"))))
 	if err != nil {
 		t.Fatal(err)
@@ -407,7 +408,7 @@ func TestPortalModuleAndMiddlewareGenerators(t *testing.T) {
 		t.Errorf("routes = %+v, %v", list, err)
 	}
 	app := list.Filter("", false, true)
-	if app.Total != 10 || app.Filter("shelves", false, false).Total != 5 {
+	if app.Total != 16 || app.Filter("shelves", false, false).Total != 5 {
 		t.Errorf("the app's routes = %+v", app)
 	}
 }

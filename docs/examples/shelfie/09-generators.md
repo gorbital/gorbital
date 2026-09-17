@@ -78,22 +78,28 @@ orb routes --app
 ```
 
 ```text
-METHOD  PATH              OPERATION                    MODULE   GUARDS                                                          HANDLER        SOURCE
-GET     /v1/books         books-get-v1-books           books    authenticated, permission:books.book.read                       h.listBooks    internal/modules/books/delivery/routes.go:31
-POST    /v1/books         books-post-v1-books          books    authenticated, permission:books.book.write, rate_limit:30/1m0s  h.createBook   internal/modules/books/delivery/routes.go:28
-GET     /v1/books/{id}    books-get-v1-books-by-id     books    authenticated, permission:books.book.read                       h.getBook      internal/modules/books/delivery/routes.go:33
-PATCH   /v1/books/{id}    books-patch-v1-books-by-id   books    authenticated, permission:books.book.write                      h.updateBook   internal/modules/books/delivery/routes.go:35
-DELETE  /v1/books/{id}    books-delete-v1-books-by-id  books    authenticated, permission:books.book.write                      h.deleteBook   internal/modules/books/delivery/routes.go:37
-GET     /v1/shelves       shelves-list                 shelves  authenticated, permission:shelves.shelf.read                    h.listShelves  internal/modules/shelves/delivery/routes.go:30
-POST    /v1/shelves       shelves-create               shelves  authenticated, permission:shelves.shelf.write                   h.createShelf  internal/modules/shelves/delivery/routes.go:26
-GET     /v1/shelves/{id}  shelves-get                  shelves  authenticated, permission:shelves.shelf.read                    h.getShelf     internal/modules/shelves/delivery/routes.go:35
-PATCH   /v1/shelves/{id}  shelves-update               shelves  authenticated, permission:shelves.shelf.write                   h.updateShelf  internal/modules/shelves/delivery/routes.go:39
-DELETE  /v1/shelves/{id}  shelves-delete               shelves  authenticated, permission:shelves.shelf.write                   h.deleteShelf  internal/modules/shelves/delivery/routes.go:44
+METHOD  PATH                    OPERATION                              MODULE      GUARDS                                                                  HANDLER           SOURCE
+GET     /v1/books               books-get-v1-books                     books       authenticated, permission:books.book.read                               h.listBooks       internal/modules/books/delivery/routes.go:31
+POST    /v1/books               books-post-v1-books                    books       authenticated, permission:books.book.write, rate_limit:30/1m0s          h.createBook      internal/modules/books/delivery/routes.go:28
+GET     /v1/books/{id}          books-get-v1-books-by-id               books       authenticated, permission:books.book.read                               h.getBook         internal/modules/books/delivery/routes.go:33
+PATCH   /v1/books/{id}          books-patch-v1-books-by-id             books       authenticated, permission:books.book.write                              h.updateBook      internal/modules/books/delivery/routes.go:35
+DELETE  /v1/books/{id}          books-delete-v1-books-by-id            books       authenticated, permission:books.book.write                              h.deleteBook      internal/modules/books/delivery/routes.go:37
+PUT     /v1/phone               phonelogin-put-v1-phone                phonelogin  authenticated, permission:phonelogin.phone.write, rate_limit:5/1h0m0s   h.setPhone        internal/modules/phonelogin/delivery/routes.go:29
+POST    /v1/phone-sign-in       phonelogin-post-v1-phone-sign-in       phonelogin  public, rate_limit:20/1h0m0s                                            h.signIn          internal/modules/phonelogin/delivery/routes.go:42
+POST    /v1/phone-sign-in/code  phonelogin-post-v1-phone-sign-in-code  phonelogin  public, rate_limit:10/1h0m0s                                            h.sendSignInCode  internal/modules/phonelogin/delivery/routes.go:37
+POST    /v1/phone/confirm       phonelogin-post-v1-phone-confirm       phonelogin  authenticated, permission:phonelogin.phone.write, rate_limit:10/1h0m0s  h.confirmPhone    internal/modules/phonelogin/delivery/routes.go:32
+GET     /v1/profile             profiles-get-v1-profile                profiles    authenticated, permission:profiles.profile.read                         h.getProfile      internal/modules/profiles/delivery/routes.go:20
+PUT     /v1/profile             profiles-put-v1-profile                profiles    authenticated, permission:profiles.profile.write                        h.updateProfile   internal/modules/profiles/delivery/routes.go:24
+GET     /v1/shelves             shelves-list                           shelves     authenticated, permission:shelves.shelf.read                            h.listShelves     internal/modules/shelves/delivery/routes.go:30
+POST    /v1/shelves             shelves-create                         shelves     authenticated, permission:shelves.shelf.write                           h.createShelf     internal/modules/shelves/delivery/routes.go:26
+GET     /v1/shelves/{id}        shelves-get                            shelves     authenticated, permission:shelves.shelf.read                            h.getShelf        internal/modules/shelves/delivery/routes.go:35
+PATCH   /v1/shelves/{id}        shelves-update                         shelves     authenticated, permission:shelves.shelf.write                           h.updateShelf     internal/modules/shelves/delivery/routes.go:39
+DELETE  /v1/shelves/{id}        shelves-delete                         shelves     authenticated, permission:shelves.shelf.write                           h.deleteShelf     internal/modules/shelves/delivery/routes.go:44
 
-10 routes, 0 public
+16 routes, 2 public
 ```
 
-`--app` keeps the routes in Shelfie's source. Without it, `orb routes` lists the library modules' routes too, with no source: sign-in's `/v1/auth/…`, `/ops/…`, `/v1/flags` and `/version`, 137 in all. None of Shelfie's own routes is public: deny by default holds for everything Shelfie wrote. `orb routes --public` lists what needs no sign-in (the sign-in routes and `/version`), `--module shelves` one module, and `--json` is for scripts and CI (for example, failing a build when a new public route appears). The Dev Portal's Routes screen shows the same guards and sources, and opens a source in your editor.
+`--app` keeps the routes in Shelfie's source. Without it, `orb routes` lists the library modules' routes too, with no source: sign-in's `/v1/auth/…`, `/ops/…`, `/v1/flags` and `/version`, 143 in all. Shelfie's only public routes are phone sign-in's two ([chapter 7](07-phone-code-sign-in.md)), which say `guard.Public()`: deny by default holds for everything else Shelfie wrote. `orb routes --public` lists what needs no sign-in (the sign-in routes, phone sign-in's and `/version`), `--module shelves` one module, and `--json` is for scripts and CI (for example, failing a build when a new public route appears). The Dev Portal's Routes screen shows the same guards and sources, and opens a source in your editor.
 
 ## Middleware and guards
 
@@ -118,12 +124,12 @@ orb doctor --fast
 ```
 
 ```text
-  ok    modules        internal/modules/modules.gen.go lists 2 modules: books, shelves
+  ok    modules        internal/modules/modules.gen.go lists 3 modules: books, profiles, shelves
   ok    stack          the default middleware stack
   ok    timeout        30s, the default (APP_REQUEST_TIMEOUT)
 ```
 
-`orb doctor` fails when a module directory isn't in `modules.gen.go` (a build outside `orb dev` wouldn't serve it), warns when a custom `gorbital.WithStack` leaves out `Recover` or `Auth`, and reports pending migrations.
+`orb doctor` fails when a module directory isn't in `modules.gen.go` (a build outside `orb dev` wouldn't serve it), warns when a custom `gorbital.WithStack` leaves out `Recover` or `Auth`, and reports pending migrations. `phonelogin` isn't listed and isn't reported: its `Module` takes the authenticator, so `main.go` adds it itself ([chapter 7](07-phone-code-sign-in.md)).
 
 ## Next
 

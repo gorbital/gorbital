@@ -5381,32 +5381,6 @@
               ]
             }
           }
-        },
-        {
-          "name": "List your shelves",
-          "request": {
-            "method": "GET",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}"
-                }
-              ]
-            },
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/v1/shelves",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "shelves"
-              ]
-            }
-          }
         }
       ]
     },
@@ -5682,6 +5656,228 @@
                   "language": "json"
                 }
               }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shelves",
+      "item": [
+        {
+          "name": "List your shelves",
+          "request": {
+            "method": "GET",
+            "description": "Newest first unless `sort` says otherwise; sort by one of `created_at`, `updated_at` or `name`. Paginate with `cursor`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/shelves",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "shelves"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0",
+                  "description": "Maximum number of items to return (default 20, max 100)",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "Opaque cursor from a previous response's next_cursor",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "-created_at",
+                  "description": "Comma-separated sort fields; prefix a field with - for descending order",
+                  "disabled": true
+                },
+                {
+                  "key": "visibility",
+                  "value": "private",
+                  "description": "Only shelves with this visibility",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a shelf",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/shelves",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "shelves"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"visibility\": \"private\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get a shelf",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/shelves/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "shelves",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "shl_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update a shelf",
+          "request": {
+            "method": "PATCH",
+            "description": "Send the fields to change and the `version` you read.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/shelves/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "shelves",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "shl_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 1,\n  \"description\": \"string\",\n  \"name\": \"string\",\n  \"visibility\": \"private\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete a shelf",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/shelves/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "shelves",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "shl_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
             }
           }
         }
