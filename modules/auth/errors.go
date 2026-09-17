@@ -22,6 +22,7 @@ type PasswordError struct {
 	Reason string
 }
 
+// Error returns "auth: password " followed by Reason.
 func (e *PasswordError) Error() string { return "auth: password " + e.Reason }
 
 // Unwrap returns [ErrWeakPassword].
