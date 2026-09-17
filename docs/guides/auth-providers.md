@@ -61,6 +61,15 @@ Files the backend serves for native apps, generated from the variables (nothing 
 5. Open `https://dev-api.example.com/docs` on the phone or laptop and sign in.
 
 While the tunnel runs, the app is reachable by anyone with the address: its sign-in and public routes included. The dev console and the development operator refuse tunnelled requests; stop the tunnel when you're done. Passkeys created on the tunnel's hostname work only there; set `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGINS` back to empty to use `localhost` again.
+## Test your configuration
+
+In an app on `gorbital.Main` with `authhttp`, the Dev Portal's **Authentication → Test sign-in** tab checks each method before anyone signs in ([Testing sign-in](../dev-portal/testing-sign-in.md), [ADR-0087](../adr/0087-testing-sign-in-from-the-dev-portal.md)), in development only, without creating an account, session or audit event:
+
+1. Read the checks on each card: the shape of client IDs and secrets, the Apple key loading and signing a client secret, `APP_PUBLIC_URL` and its port, the callback URL to register, the passkey RP ID and origins, `AUTH_ENCRYPTION_KEYS`, `MAIL_DELIVERY`. Each failure names the variable and links to the Environment screen.
+2. **Check** Google, Apple and GitHub: the provider answers, your clock agrees with it, and it accepts your client credentials (a token request with a made-up code is refused only for the code).
+3. **Test now**: sign in at the provider in a window. The provider returns to your app's real callback URL, and the app exchanges the code and verifies the identity as sign-in does, then shows what the provider said, or the precise failure (`redirect_uri_mismatch`, `invalid_client`, `audience_mismatch`, `clock_skew`…) and its fix. Apple needs a named tunnel ([above](#testing-on-a-real-domain)).
+4. For mobile apps, paste an ID token and its nonce from the SDK; for passkeys, run a ceremony on `APP_PUBLIC_URL`; for authenticator apps, scan a throwaway QR code; for email, send the test message.
+
 ## In an app on gorbital.Main
 
 Providers are configured the same way: by the variables above, never in code. `authhttp.New` has no option for Google, Apple, GitHub or passkeys, so `auth-providers`, `/ops/auth/providers` and `.env` always agree; a method is off while its variables are empty ([configuring sign-in](configuring-sign-in.md#what-stays-in-environment-variables)).

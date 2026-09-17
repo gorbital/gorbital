@@ -93,6 +93,7 @@
             { "title": "Settings and flags", "slug": "dev-portal/settings-and-flags", "source": "docs/dev-portal/settings-and-flags.md" },
             { "title": "Environment", "slug": "dev-portal/environment", "source": "docs/dev-portal/environment.md" },
             { "title": "Authentication", "slug": "dev-portal/authentication", "source": "docs/dev-portal/authentication.md" },
+            { "title": "Testing sign-in", "slug": "dev-portal/testing-sign-in", "source": "docs/dev-portal/testing-sign-in.md" },
             { "title": "Tunnel", "slug": "dev-portal/tunnel", "source": "docs/dev-portal/tunnel.md" },
             { "title": "Database", "slug": "dev-portal/database", "source": "docs/dev-portal/database.md" },
             { "title": "Storage", "slug": "dev-portal/storage", "source": "docs/dev-portal/storage.md" },

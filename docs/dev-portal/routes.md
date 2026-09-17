@@ -15,6 +15,8 @@ Every route the app registered, with its guards, whether it is public, its middl
 | Request builder | Opens on a route ("Pick a route" until then): the path parameters, the query, headers, a JSON body, and the auth mode |
 | Response | The status, the duration, the headers worth showing and the body |
 
+Rows under `/v1/auth/` link to [Testing sign-in](testing-sign-in.md), on the method the route belongs to.
+
 Auth modes: none, or a bearer token you paste (a session token or an API key). The token "Act as user" hands over from the [Authentication](authentication.md) screen is read when the builder opens; the builder switches to it and says whom it acts as.
 
 ## What you can do

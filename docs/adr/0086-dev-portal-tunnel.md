@@ -120,4 +120,4 @@ All behind the portal's guard; the writes need `X-Orb-Portal`.
 - A named tunnel's target lives in the Cloudflare dashboard; orb can only verify it by comparing `/livez`.
 - The proposal doesn't offer to revert `.env` when the tunnel stops.
 - No Dev Portal screenshots for the Tunnel screen yet.
-- The second half of Phase 11, "Test now" for sign-in, is not built; the setup endpoint and the provider list are where it will start.
+- "Test now" for sign-in, the second half of Phase 11, is [ADR-0087](0087-testing-sign-in-from-the-dev-portal.md).

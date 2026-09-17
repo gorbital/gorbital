@@ -77,7 +77,7 @@ The [Dev Portal](dev-portal.md) is the UI built on these APIs: `orb dev` serves 
 
 | Endpoint | Presets | Returns |
 |---|---|---|
-| `GET /_dev/` | All | `{"endpoints": [...]}`: the paths this app serves |
+| `GET /_dev/` | All | `{"endpoints": [...], "extensions": [...]}`: the paths this app serves, and the prefixes extensions serve |
 | `GET /_dev/openapi.json` | All | The console's OpenAPI 3.1 document |
 | `GET /_dev/app` | All | Name, version, commit, Go version, `env`, linked gorbital `libraries`, API `modules` (OpenAPI tags); Full apps also `jobs` (definitions with schedule and next run), `settings` (current and default values), `flags` (state, with allow and deny lists as a count) and `permissions` (catalogs with roles) |
 | `GET /_dev/routes` | All | Every OpenAPI operation (method, path, operation ID, summary, tags, `secured`) and the plain handlers outside the document (health checks, docs, OpenAPI files, well-known files), `source` telling which |
@@ -94,6 +94,8 @@ The [Dev Portal](dev-portal.md) is the UI built on these APIs: `orb dev` serves 
 | `GET /_dev/jobs` | Full | The 50 most recent jobs, newest first, without their arguments: kind, queue, state, attempts, times, error messages, request ID |
 
 An endpoint the app doesn't have (such as `/_dev/mail` in a Minimal app) answers 404 and isn't in the index.
+
+Built-in modules can add endpoints behind the same checks (`devconsole.Sources.Extensions`, `gorbital.AuthSetup.DevEndpoints`); the index lists their prefixes as `extensions`. Sign-in from `gorbital.dev/gorbital/authhttp` serves its tests under `/_dev/auth/test/` ([Testing sign-in](../dev-portal/testing-sign-in.md#where-it-comes-from), [ADR-0087](../adr/0087-testing-sign-in-from-the-dev-portal.md)).
 
 ### Requests
 

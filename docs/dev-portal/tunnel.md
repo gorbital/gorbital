@@ -126,6 +126,10 @@ The provider guide's [Testing on a real domain](../guides/auth-providers.md#test
 
 Decided in [ADR-0086](../adr/0086-dev-portal-tunnel.md), with the threat model.
 
+## Then test sign-in
+
+With the tunnel's `.env` changes applied, [Testing sign-in](testing-sign-in.md) checks Google, Apple and GitHub against the tunnel's callback URLs and runs a passkey ceremony on its hostname, without creating accounts.
+
 ## Flags, variables and endpoints
 
 | Flag or variable | Effect |
