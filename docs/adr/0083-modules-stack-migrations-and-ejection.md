@@ -756,7 +756,7 @@ The Dev Portal's module form offers `--org` (gorbital-dashboards `framework/phas
 
 - `orb add orgs` in a v0.2 single-tenant app works on a new database only: the organisations module's migrations keep v0.1's versions (Phase 7), older than those a database already ran, and goose refuses them. Development databases are reset; a production database can't take organisations this way until the library allows older built-in migrations.
 - v0.1's `api maintenance on|off` command has no counterpart on `Main`; maintenance mode is changed through `/ops/settings`.
-- `orb gen job` doesn't generate module jobs, and the Dev Portal's job screen links job definitions to `internal/app/job_*.go` only.
+- `orb gen job` doesn't generate module jobs. The Dev Portal's job screen reads the app's jobs from `internal/app/job_*.go` in a v0.1 app and, since Phase 9's part C, from the `jobs.Define` calls of `internal/modules` in an app on `gorbital.Main`, with the name each call names; the runtime list has always come from `/ops/jobs`, so the module jobs of a Main app were never missing from the screen, only their source. Editing a generated job as a form stays a v0.1-layout feature.
 - An app's `TestPublicSurface` no longer notices a library name disappearing; the library's checks do.
 - `orb new` offers no way to create a v0.1-layout app.
 ## Phase 9 implementation notes: orb eject (2026-09-17)
