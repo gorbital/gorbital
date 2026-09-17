@@ -71,7 +71,10 @@ jobs:
       - name: vet
         run: go vet ./...
       - name: test
-        run: go test -race ./...
+        # cli/internal/cli alone runs for ~10 minutes (it generates apps and
+        # builds them), and Go's default -timeout is 10m, so the default panics
+        # the whole package on a slow runner.
+        run: go test -race -timeout 40m ./...
 
   lint:
     name: lint ${{ matrix.module }}
@@ -321,7 +324,7 @@ jobs:
               { [ -z "$unformatted" ] || { echo "not gofmt-formatted: $unformatted"; false; }; } &&
               go vet ./... &&
               go build ./... &&
-              go test -race ./...
+              go test -race -timeout 40m ./...
             ); then
               echo "::error::$dir failed"
               status=1
