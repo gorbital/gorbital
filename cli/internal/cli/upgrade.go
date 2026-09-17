@@ -80,9 +80,15 @@ It rebuilds what orb wrote before from the release recorded in gorbital.lock
 (ADR-0050).
 `
 
-func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+func runUpgrade(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+	if layout, ok := layoutFlag(args); ok {
+		// Moving to another layout is a different move, with its own flags
+		// and report (ADR-0083).
+		return runUpgradeLayout(ctx, layout, args, stdin, stdout, stderr)
+	}
 	flags := flag.NewFlagSet("orb upgrade", flag.ContinueOnError)
 	flags.SetOutput(stderr)
+	flags.String("layout", "", "convert the app to another layout: v0.2 moves a v0.1 app to gorbital.Main (ADR-0083)")
 	from := flags.String("from", "", "release or commit that created or last upgraded the app, such as v0.1.0 (needed for apps created by development builds)")
 	local := flags.String("local", "", "gorbital checkout to read earlier releases from (default: the app's replace directive, or the checkout you are in)")
 	dryRun := flags.Bool("dry-run", false, "show what would change, without writing or creating a branch")
@@ -239,6 +245,28 @@ func applyMove(ctx context.Context, dir string, root *os.Root, res *upgradeResul
 		return errConflicts
 	}
 	return nil
+}
+
+// layoutFlag returns the value of --layout in args, before the flags are
+// parsed: orb upgrade --layout is a different command, with its own flags.
+func layoutFlag(args []string) (string, bool) {
+	for i, arg := range args {
+		name, value, hasValue := strings.Cut(strings.TrimLeft(arg, "-"), "=")
+		if arg == "--" {
+			return "", false
+		}
+		if !strings.HasPrefix(arg, "-") || name != "layout" {
+			continue
+		}
+		switch {
+		case hasValue:
+			return value, true
+		case i+1 < len(args):
+			return args[i+1], true
+		}
+		return "", true
+	}
+	return "", false
 }
 
 // upgradeSource returns the app's template inputs and the release that

@@ -147,7 +147,7 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io
 	case "dev":
 		err = runDev(ctx, args[1:], stderr)
 	case "upgrade":
-		err = runUpgrade(ctx, args[1:], stdout, stderr)
+		err = runUpgrade(ctx, args[1:], stdin, stdout, stderr)
 	case "routes":
 		err = runRoutes(ctx, args[1:], stdout, stderr)
 	case "eject":

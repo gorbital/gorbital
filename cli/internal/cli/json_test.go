@@ -97,6 +97,10 @@ func TestJSONOutputs(t *testing.T) {
 			useRelease(t, recipes.Embedded())
 			return runOrb(t, "upgrade", "--dry-run", "--skip-tidy", "--json")
 		}},
+		{"upgrade-layout", func(t *testing.T) (int, string, string) {
+			newV01GitApp(t, recipes.TenancySingle)
+			return runOrb(t, "upgrade", "--layout", "v0.2", "--dry-run", "--json")
+		}},
 		{"doctor", func(t *testing.T) (int, string, string) {
 			newV01GitApp(t, recipes.TenancySingle)
 			writeFile(t, ".env", readFile(t, ".env.example"))
