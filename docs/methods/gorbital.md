@@ -1782,7 +1782,7 @@ gorbital.Main(gorbital.WithStorage(bucket))
 func WithStorageFunc(open func(cfg Config) (storage.Store, error)) Option
 ```
 
-WithStorageFunc sets the app's file storage like [WithStorage](#WithStorage), built from the loaded configuration, as main.go needs for a store whose settings come from STORAGE\_\* variables. An error from open fails New as a configuration error.
+WithStorageFunc sets the app's file storage like [WithStorage](#WithStorage), built from the loaded configuration, as main.go needs for a store whose settings come from STORAGE\_\* variables. An error from open fails New as a configuration error. A nil store with a nil error keeps the built-in choice, so one function can serve every STORAGE\_DRIVER: the local driver for local, and a configuration error naming this option for the others.
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -1931,6 +1931,7 @@ Output:
 <a id="Platform.MailSender"></a>
 <a id="Platform.Migrations"></a>
 <a id="Platform.Authenticator"></a>
+<a id="Platform.Permissions"></a>
 <a id="Platform.OrgPermissions"></a>
 
 ### type Platform
@@ -1957,6 +1958,11 @@ type Platform struct {
 	Migrations fs.FS
 	// Authenticator is the app's authenticator ([WithAuth]), or nil.
 	Authenticator Authenticator
+	// Permissions is the platform catalog: every module's platform
+	// permissions and a role for each role they name, with the permissions
+	// the modules grant it and the second factor the authenticator requires
+	// for it.
+	Permissions *auth.Catalog
 	// OrgPermissions is the organisation catalog: every module's
 	// organisation permissions ([Permission.OrgRoles]) and a role for each
 	// organisation role they name, with the permissions the modules grant

@@ -53,6 +53,11 @@ type Platform struct {
 	Migrations fs.FS
 	// Authenticator is the app's authenticator ([WithAuth]), or nil.
 	Authenticator Authenticator
+	// Permissions is the platform catalog: every module's platform
+	// permissions and a role for each role they name, with the permissions
+	// the modules grant it and the second factor the authenticator requires
+	// for it.
+	Permissions *auth.Catalog
 	// OrgPermissions is the organisation catalog: every module's
 	// organisation permissions ([Permission.OrgRoles]) and a role for each
 	// organisation role they name, with the permissions the modules grant

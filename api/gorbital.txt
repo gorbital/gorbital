@@ -182,6 +182,7 @@ pkg gorbital.dev/gorbital, type Platform struct, MailSender mail.Defaults
 pkg gorbital.dev/gorbital, type Platform struct, Migrations fs.FS
 pkg gorbital.dev/gorbital, type Platform struct, Name string
 pkg gorbital.dev/gorbital, type Platform struct, OrgPermissions *auth.Catalog
+pkg gorbital.dev/gorbital, type Platform struct, Permissions *auth.Catalog
 pkg gorbital.dev/gorbital, type Platform struct, StartedAt time.Time
 pkg gorbital.dev/gorbital, type RateLimiter struct
 pkg gorbital.dev/gorbital, type RateLimiter struct, Description string

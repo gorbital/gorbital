@@ -206,6 +206,7 @@ revoke-role <email> <role>   take a platform role away
 reset-mfa <email>            turn off an account's two-factor authentication
 rotate-auth-keys             re-encrypt 2FA secrets with the first AUTH_ENCRYPTION_KEYS key
 auth-providers               show which sign-in methods are configured
+seed [--email <email>]       create a development administrator with two-factor authentication
 ```
 
 Changes are recorded in the audit log as the "cli" system actor. Wrong arguments exit with status 2 (gorbital.ErrUsage), as every command of gorbital.Main does; other failures, such as an unknown account, with 1.
@@ -229,6 +230,7 @@ revoke-role <email> <role>     take a platform role away
 reset-mfa <email>              turn off an account's two-factor authentication
 rotate-auth-keys               re-encrypt 2FA secrets with the first AUTH_ENCRYPTION_KEYS key
 auth-providers                 show which sign-in methods are configured
+seed [--email <email>]         create a development administrator with 2FA (orb dev runs it)
 ```
 
 <a id="Authenticator.Middleware"></a>

@@ -614,7 +614,7 @@ func (a *App) buildPlatform() error {
 	a.platform = &Platform{
 		Config: a.cfg, Name: a.o.name, StartedAt: a.started, InstanceID: a.releases.InstanceID(),
 		Health: a.health, Jobs: a.jobsManager, MailSender: a.settings.mailDefaults(), Migrations: a.migrations,
-		Authenticator: a.o.auth, OrgPermissions: a.orgCatalog,
+		Authenticator: a.o.auth, Permissions: a.catalog, OrgPermissions: a.orgCatalog,
 		app: a,
 	}
 	for _, m := range a.modules {

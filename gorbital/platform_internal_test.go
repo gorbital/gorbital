@@ -60,7 +60,8 @@ func TestPlatformCollectsFromModules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p == nil || p != a.platform || p.Jobs == nil || p.Health == nil || p.InstanceID == "" || p.Migrations == nil || p.MailSender.FromEmail == nil || p.Name == "" {
+	if p == nil || p != a.platform || p.Jobs == nil || p.Health == nil || p.InstanceID == "" || p.Migrations == nil || p.MailSender.FromEmail == nil || p.Name == "" ||
+		p.Permissions != a.catalog || p.OrgPermissions != a.orgCatalog {
 		t.Fatalf("Platform = %+v, want what New built", p)
 	}
 
