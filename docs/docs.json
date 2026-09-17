@@ -212,6 +212,8 @@
             { "title": "config", "slug": "methods/config", "source": "docs/methods/config.md" },
             { "title": "health", "slug": "methods/health", "source": "docs/methods/health.md" },
             { "title": "httpx", "slug": "methods/httpx", "source": "docs/methods/httpx.md" },
+            { "title": "httpx/ipfilter", "slug": "methods/httpx-ipfilter", "source": "docs/methods/httpx-ipfilter.md" },
+            { "title": "httpx/timeout", "slug": "methods/httpx-timeout", "source": "docs/methods/httpx-timeout.md" },
             { "title": "mail", "slug": "methods/mail", "source": "docs/methods/mail.md" },
             { "title": "page", "slug": "methods/page", "source": "docs/methods/page.md" },
             { "title": "ratelimit", "slug": "methods/ratelimit", "source": "docs/methods/ratelimit.md" },

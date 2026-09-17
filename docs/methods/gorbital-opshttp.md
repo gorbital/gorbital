@@ -28,8 +28,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 - Constants: [`ProviderResend`](#ProviderResend), [`ProviderSMTP`](#ProviderSMTP)
 - Functions: [`Module`](#Module)
 - Types:
-  - [`Option`](#Option): [`MailProvider`](#MailProvider), [`SignInMethods`](#SignInMethods)
-  - [`SignInMethod`](#SignInMethod)
+  - [`Option`](#Option): [`MailProvider`](#MailProvider)
 
 ## Constants
 
@@ -138,73 +137,4 @@ MailProvider sets the email provider GET /ops/mail reports: [ProviderResend](#Pr
 // GET /ops/mail reports SMTP, for an app sending through its own SMTP
 // relay with gorbital.WithMailer.
 _ = gorbital.WithModules(opshttp.Module(opshttp.MailProvider(opshttp.ProviderSMTP)))
-```
-
-<a id="SignInMethods"></a>
-
-#### func SignInMethods
-
-```go
-func SignInMethods(list func() []SignInMethod) Option
-```
-
-SignInMethods sets what GET /ops/auth/providers lists, usually the authenticator's own report, called on every request. Without it the list is empty.
-
-*Since `v0.2.0 (unreleased)`*
-
-**Example**
-
-```go
-// GET /ops/auth/providers lists what the authenticator reports.
-methods := func() []opshttp.SignInMethod {
-	return []opshttp.SignInMethod{
-		{Key: "password", Name: "Email and password", Enabled: true},
-		{Key: "google", Name: "Sign in with Google", Missing: []string{"GOOGLE_CLIENT_ID"}},
-	}
-}
-_ = gorbital.WithModules(opshttp.Module(opshttp.SignInMethods(methods)))
-```
-
-<a id="SignInMethod"></a>
-<a id="SignInMethod.Key"></a>
-<a id="SignInMethod.Name"></a>
-<a id="SignInMethod.Enabled"></a>
-<a id="SignInMethod.Detail"></a>
-<a id="SignInMethod.Missing"></a>
-<a id="SignInMethod.Guide"></a>
-
-### type SignInMethod
-
-```go
-type SignInMethod struct {
-	// Key identifies the method, such as "passkeys".
-	Key string
-	// Name is how people call it, such as "Passkeys in browsers".
-	Name    string
-	Enabled bool
-	// Detail describes an enabled method, such as its relying party ID;
-	// never a secret.
-	Detail string
-	// Missing are the environment variables that turn a disabled method on.
-	Missing []string
-	// Guide is the documentation section that explains the method.
-	Guide string
-}
-```
-
-A SignInMethod is a sign-in method and whether the app has it configured, as GET /ops/auth/providers lists it (ADR-0045). It never holds configuration values.
-
-*Since `v0.2.0 (unreleased)`*
-
-**Example**
-
-```go
-m := opshttp.SignInMethod{Key: "passkeys", Name: "Passkeys in browsers", Enabled: true, Detail: "relying party api.example.com"}
-fmt.Println(m.Key, m.Enabled)
-```
-
-Output:
-
-```text
-passkeys true
 ```

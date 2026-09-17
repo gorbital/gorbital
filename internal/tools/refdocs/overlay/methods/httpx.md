@@ -4,4 +4,4 @@ Every app uses httpx: generated apps build the server and the middleware chain i
 
 - [Life of a request](../guides/request-lifecycle.md): the middleware chain in order, and what each step does.
 - [Error handling](../guides/error-handling.md): errors, mappings and problem codes.
-- [Security layers](../guides/security-layers.md): request timeouts with [Timeout](#Timeout) and network restrictions with [IPFilter](#IPFilter).
+- [Security layers](../guides/security-layers.md): request timeouts with [httpx/timeout](httpx-timeout.md) and network restrictions with [httpx/ipfilter](httpx-ipfilter.md), packages of their own so the error codes they add don't change the recorded surface of apps that don't use them.

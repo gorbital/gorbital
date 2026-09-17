@@ -31,7 +31,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 
 - Functions: [`APIKey`](#APIKey), [`User`](#User)
 - Types:
-  - [`App`](#App): [`New`](#New), [`App.App`](#App.App), [`App.As`](#App.As), [`App.Client`](#App.Client), [`App.Jobs`](#App.Jobs), [`App.Mail`](#App.Mail)
+  - [`App`](#App): [`New`](#New), [`NewWithEnv`](#NewWithEnv), [`App.App`](#App.App), [`App.As`](#App.As), [`App.Client`](#App.Client), [`App.Config`](#App.Config), [`App.Jobs`](#App.Jobs), [`App.Mail`](#App.Mail)
   - [`Client`](#Client): [`Client.Delete`](#Client.Delete), [`Client.Do`](#Client.Do), [`Client.Get`](#Client.Get), [`Client.Patch`](#Client.Patch), [`Client.Post`](#Client.Post), [`Client.Put`](#Client.Put), [`Client.WithHeader`](#Client.WithHeader)
   - [`Job`](#Job)
   - [`Response`](#Response): [`Response.AssertProblem`](#Response.AssertProblem), [`Response.AssertStatus`](#Response.AssertStatus), [`Response.JSON`](#Response.JSON)
@@ -134,6 +134,32 @@ test(func(t *testing.T) {
 })
 ```
 
+<a id="NewWithEnv"></a>
+
+#### func NewWithEnv
+
+```go
+func NewWithEnv(t testing.TB, env map[string]string, opts ...gorbital.Option) *App
+```
+
+NewWithEnv is [New](#New) with environment variables on top of development's defaults, as an app's .env sets them, such as AUTH\_ENCRYPTION\_KEYS for an app whose sign-in enrols authenticator apps. The process environment is never read. DATABASE\_URL is always the test's database.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+test(func(t *testing.T) {
+	// The app's configuration, as .env would set it.
+	app := gorbitaltest.NewWithEnv(t, map[string]string{"APP_MAX_BODY_BYTES": "64"}, gorbital.WithModules(booksModule()))
+	long := strings.Repeat("a", 100)
+	app.As(gorbitaltest.User("usr_1", "books.book.write")).Post("/v1/books", map[string]string{"title": long}).AssertProblem(t, http.StatusRequestEntityTooLarge, "request_too_large")
+	if app.Config().MaxBodyBytes != 64 {
+		t.Errorf("MaxBodyBytes = %d", app.Config().MaxBodyBytes)
+	}
+})
+```
+
 <a id="App.App"></a>
 
 #### func (*App) App
@@ -198,6 +224,31 @@ test(func(t *testing.T) {
 	app := gorbitaltest.New(t, gorbital.WithModules(booksModule()))
 	// Deny by default: a route without guard.Public refuses anonymous callers.
 	app.Client().Post("/v1/books", map[string]string{"title": "Dune"}).AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+})
+```
+
+<a id="App.Config"></a>
+
+#### func (*App) Config
+
+```go
+func (a *App) Config() gorbital.Config
+```
+
+Config returns the configuration the app was built with, such as for running a command of the authenticator (gorbital.Command) against the test's database.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+test(func(t *testing.T) {
+	app := gorbitaltest.New(t, gorbital.WithModules(booksModule()))
+	// Commands such as authhttp's grant-role open the test's database
+	// from the configuration.
+	if app.Config().DatabaseURL.IsZero() {
+		t.Error("no database URL")
+	}
 })
 ```
 

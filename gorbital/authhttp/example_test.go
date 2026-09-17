@@ -120,3 +120,20 @@ func ExampleAuthenticator_Setup() {
 	}
 	_ = setup
 }
+
+func ExampleAuthenticator_SignInMethods() {
+	// What GET /ops/auth/providers lists and auth-providers prints: every
+	// method, and what turns the ones that are off on.
+	cfg := gorbital.Config{}
+	cfg.Auth.GitHubClientID = "Iv1.8a61f9b3a7aba766"
+	cfg.Auth.PublicURL = "https://api.example.com"
+	for _, m := range authhttp.New().SignInMethods(cfg) {
+		if m.Key == "email_password" || m.Key == "github" || m.Key == "passkeys" {
+			fmt.Println(m.Key, m.Enabled, m.Detail, m.Missing)
+		}
+	}
+	// Output:
+	// email_password true  []
+	// passkeys false  [WEBAUTHN_RP_ID WEBAUTHN_ORIGINS]
+	// github true callback https://api.example.com/v1/auth/github/callback []
+}

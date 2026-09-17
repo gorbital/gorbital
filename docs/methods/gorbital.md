@@ -61,11 +61,12 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
   - [`Option`](#Option): [`WithAuth`](#WithAuth), [`WithLogger`](#WithLogger), [`WithMailer`](#WithMailer), [`WithMailerFunc`](#WithMailerFunc), [`WithMiddleware`](#WithMiddleware), [`WithMiddlewareFunc`](#WithMiddlewareFunc), [`WithMigrations`](#WithMigrations), [`WithModules`](#WithModules), [`WithName`](#WithName), [`WithStack`](#WithStack), [`WithStorage`](#WithStorage), [`WithStorageFunc`](#WithStorageFunc)
   - [`Permission`](#Permission)
   - [`PermissionDeclarer`](#PermissionDeclarer)
-  - [`Platform`](#Platform): [`Platform.Authenticate`](#Platform.Authenticate), [`Platform.OnShutdown`](#Platform.OnShutdown), [`Platform.RateLimiters`](#Platform.RateLimiters), [`Platform.Retention`](#Platform.Retention)
+  - [`Platform`](#Platform): [`Platform.Authenticate`](#Platform.Authenticate), [`Platform.OnShutdown`](#Platform.OnShutdown), [`Platform.RateLimiters`](#Platform.RateLimiters), [`Platform.Retention`](#Platform.Retention), [`Platform.SignInMethods`](#Platform.SignInMethods)
   - [`RateLimiter`](#RateLimiter)
   - [`Retention`](#Retention)
   - [`RouteOption`](#RouteOption): [`Customize`](#Customize), [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Timeout`](#Timeout), [`Use`](#Use)
   - [`Router`](#Router): [`Router.Group`](#Router.Group)
+  - [`SignInMethod`](#SignInMethod)
   - [`Stack`](#Stack): [`Stack.Default`](#Stack.Default)
   - [`StorageConfig`](#StorageConfig)
 
@@ -853,7 +854,7 @@ type Authenticator interface {
 
 An Authenticator resolves who makes each request. Its middleware runs at the Auth step of the middleware stack ([Stack](#Stack)) and sets the actor (actor.With, or auth.WithPrincipal) for authenticated requests; requests it can't authenticate pass through without one, and every route that isn't guard.Public() then answers 401.
 
-A value that also has a method Module() Module contributes that module too: its routes, permissions, settings, jobs and migrations. One with a method Setup(ctx, AuthSetup) error receives the app's configuration, dependencies and permission catalog before it serves, and one with a method CheckConfig(Config) error checks the configuration first ([AuthSetup](#AuthSetup)). gorbital.dev/gorbital/authhttp has all of them.
+A value that also has a method Module() Module contributes that module too: its routes, permissions, settings, jobs and migrations. One with a method Setup(ctx, AuthSetup) error receives the app's configuration, dependencies and permission catalog before it serves, and one with a method CheckConfig(Config) error checks the configuration first ([AuthSetup](#AuthSetup)), and one with a method SignInMethods(Config) \[]SignInMethod reports its sign-in methods to the operations API ([Platform.SignInMethods](#Platform.SignInMethods)). gorbital.dev/gorbital/authhttp has all of them.
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -1984,6 +1985,41 @@ report := func(ctx context.Context, p *gorbital.Platform) {
 _ = report
 ```
 
+<a id="Platform.SignInMethods"></a>
+
+#### func (*Platform) SignInMethods
+
+```go
+func (p *Platform) SignInMethods() []SignInMethod
+```
+
+SignInMethods returns the sign-in methods the app's authenticator ([WithAuth](#WithAuth)) reports for the configuration, through its optional method
+
+```
+SignInMethods(cfg gorbital.Config) []gorbital.SignInMethod
+```
+
+It returns an empty list without an authenticator or when the authenticator doesn't report its methods. gorbital.dev/gorbital/authhttp reports every method a v0.1 app listed.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// GET /ops/auth/providers lists what the authenticator reports, and for
+// each method that is off, what turns it on.
+report := func(p *gorbital.Platform) {
+	for _, m := range p.SignInMethods() {
+		if m.Enabled {
+			fmt.Printf("on: %s %s\n", m.Name, m.Detail)
+		} else {
+			fmt.Printf("off: %s, set %v (%s)\n", m.Name, m.Missing, m.Guide)
+		}
+	}
+}
+_ = report
+```
+
 <a id="RateLimiter"></a>
 <a id="RateLimiter.Name"></a>
 <a id="RateLimiter.Keys"></a>
@@ -2392,7 +2428,7 @@ GET /v1/books/{id} id=books-get-v1-books-by-id summary="Get v1 books by ID" tags
 func Timeout(d time.Duration) RouteOption
 ```
 
-Timeout gives a route a shorter deadline than the app's request timeout (APP\_REQUEST\_TIMEOUT): after d, a handler that hasn't started its response gets 503 request\_timeout, and its context is cancelled. A context deadline can only be shortened, so a longer d has no effect: raise APP\_REQUEST\_TIMEOUT, or leave the Timeout step out with [WithStack](#WithStack), for routes that need longer. Streaming responses that have started aren't cut off (httpx.Timeout).
+Timeout gives a route a shorter deadline than the app's request timeout (APP\_REQUEST\_TIMEOUT): after d, a handler that hasn't started its response gets 503 request\_timeout, and its context is cancelled. A context deadline can only be shortened, so a longer d has no effect: raise APP\_REQUEST\_TIMEOUT, or leave the Timeout step out with [WithStack](#WithStack), for routes that need longer. Streaming responses that have started aren't cut off (timeout.New).
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -2561,6 +2597,63 @@ GET /v1/books/{id} id=books-get-v1-books-by-id summary="Get v1 books by ID" tags
 GET /v1/catalog/{id} id=books-get-v1-catalog-by-id summary="Get v1 catalog by ID" tags=[Books] secured=false deprecated=false
 ```
 
+<a id="SignInMethod"></a>
+<a id="SignInMethod.Key"></a>
+<a id="SignInMethod.Name"></a>
+<a id="SignInMethod.Enabled"></a>
+<a id="SignInMethod.Detail"></a>
+<a id="SignInMethod.Missing"></a>
+<a id="SignInMethod.Guide"></a>
+
+### type SignInMethod
+
+```go
+type SignInMethod struct {
+	// Key identifies the method, such as "passkeys".
+	Key string
+	// Name is how people call it, such as "Passkeys in browsers".
+	Name    string
+	Enabled bool
+	// Detail describes an enabled method, such as its relying party ID;
+	// never a secret.
+	Detail string
+	// Missing are the environment variables that turn a disabled method on.
+	Missing []string
+	// Guide is the documentation section that explains the method, such as
+	// "AUTH_PROVIDERS.md#passkeys".
+	Guide string
+}
+```
+
+A SignInMethod is a way to sign in and whether the app has it configured, as GET /ops/auth/providers lists it and the auth-providers command prints it (ADR-0045). It never holds configuration values.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+An authenticator reports its sign-in methods with a SignInMethods method, which Platform.SignInMethods calls with the app's configuration.
+
+```go
+methods := func(cfg gorbital.Config) []gorbital.SignInMethod {
+	if cfg.Auth.GitHubClientID != "" {
+		return []gorbital.SignInMethod{{Key: "github", Name: "GitHub sign-in", Enabled: true, Detail: "client " + cfg.Auth.GitHubClientID}}
+	}
+	return []gorbital.SignInMethod{{
+		Key: "github", Name: "GitHub sign-in",
+		Missing: []string{"GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"}, Guide: "AUTH_PROVIDERS.md#github-sign-in",
+	}}
+}
+for _, m := range methods(gorbital.Config{}) {
+	fmt.Println(m.Key, m.Enabled, m.Missing)
+}
+```
+
+Output:
+
+```text
+github false [GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET]
+```
+
 <a id="Stack"></a>
 <a id="Stack.Recover"></a>
 <a id="Stack.TrustedProxies"></a>
@@ -2599,7 +2692,7 @@ type Stack struct {
 	AccessLog func(http.Handler) http.Handler
 	// Timeout answers 503 request_timeout when a handler hasn't started its
 	// response within APP_REQUEST_TIMEOUT, and cancels the request's
-	// context (httpx.Timeout, ADR-0085). A route can shorten it with
+	// context (gorbital.dev/httpx/timeout, ADR-0085). A route can shorten it with
 	// [Timeout].
 	Timeout func(http.Handler) http.Handler
 	// SecureHeaders sets security headers, and HSTS in production

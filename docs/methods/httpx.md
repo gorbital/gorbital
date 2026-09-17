@@ -15,7 +15,6 @@ handler := httpx.Chain(mux,
 	httpx.Recover(logger),
 	httpx.RequestID(),
 	httpx.AccessLog(logger),
-	httpx.Timeout(30*time.Second),
 	httpx.SecureHeaders(httpx.SecureHeadersOptions{}),
 	cors,
 	crossOrigin,
@@ -31,13 +30,13 @@ Every app uses httpx: generated apps build the server and the middleware chain i
 
 - [Life of a request](../guides/request-lifecycle.md): the middleware chain in order, and what each step does.
 - [Error handling](../guides/error-handling.md): errors, mappings and problem codes.
-- [Security layers](../guides/security-layers.md): request timeouts with [Timeout](#Timeout) and network restrictions with [IPFilter](#IPFilter).
+- [Security layers](../guides/security-layers.md): request timeouts with [httpx/timeout](httpx-timeout.md) and network restrictions with [httpx/ipfilter](httpx-ipfilter.md), packages of their own so the error codes they add don't change the recorded surface of apps that don't use them.
 
 ## Contents
 
 - Constants: [`DefaultReadHeaderTimeout`](#DefaultReadHeaderTimeout), [`DefaultReadTimeout`](#DefaultReadTimeout), [`DefaultWriteTimeout`](#DefaultWriteTimeout), [`DefaultIdleTimeout`](#DefaultIdleTimeout), [`DefaultShutdownTimeout`](#DefaultShutdownTimeout), [`DefaultMaxHeaderBytes`](#DefaultMaxHeaderBytes), [`DefaultMaintenanceMessage`](#DefaultMaintenanceMessage), [`ProblemContentType`](#ProblemContentType)
-- Variables: [`ErrDenyAll`](#ErrDenyAll), [`ErrTrustAll`](#ErrTrustAll)
-- Functions: [`Chain`](#Chain), [`DefaultCode`](#DefaultCode), [`ParsePrefixes`](#ParsePrefixes), [`ParseTrustedProxies`](#ParseTrustedProxies), [`WriteProblem`](#WriteProblem)
+- Variables: [`ErrTrustAll`](#ErrTrustAll)
+- Functions: [`Chain`](#Chain), [`DefaultCode`](#DefaultCode), [`ParseTrustedProxies`](#ParseTrustedProxies), [`WriteProblem`](#WriteProblem)
 - Types:
   - [`AccessNote`](#AccessNote): [`AccessNoteFrom`](#AccessNoteFrom), [`AccessNote.Add`](#AccessNote.Add)
   - [`CORSOptions`](#CORSOptions)
@@ -46,7 +45,7 @@ Every app uses httpx: generated apps build the server and the middleware chain i
   - [`MaintenanceOptions`](#MaintenanceOptions)
   - [`Mapper`](#Mapper): [`NewMapper`](#NewMapper), [`Mapper.Add`](#Mapper.Add), [`Mapper.Match`](#Mapper.Match), [`Mapper.Problem`](#Mapper.Problem), [`Mapper.Write`](#Mapper.Write)
   - [`Mapping`](#Mapping)
-  - [`Middleware`](#Middleware): [`AccessLog`](#AccessLog), [`BodyLimit`](#BodyLimit), [`CORS`](#CORS), [`CrossOrigin`](#CrossOrigin), [`IPFilter`](#IPFilter), [`Maintenance`](#Maintenance), [`Recover`](#Recover), [`RequestID`](#RequestID), [`RequestIDFrom`](#RequestIDFrom), [`SecureHeaders`](#SecureHeaders), [`Timeout`](#Timeout), [`TrustedProxies`](#TrustedProxies)
+  - [`Middleware`](#Middleware): [`AccessLog`](#AccessLog), [`BodyLimit`](#BodyLimit), [`CORS`](#CORS), [`CrossOrigin`](#CrossOrigin), [`Maintenance`](#Maintenance), [`Recover`](#Recover), [`RequestID`](#RequestID), [`RequestIDFrom`](#RequestIDFrom), [`SecureHeaders`](#SecureHeaders), [`TrustedProxies`](#TrustedProxies)
   - [`Problem`](#Problem): [`NewProblem`](#NewProblem), [`Problem.ContentType`](#Problem.ContentType), [`Problem.Error`](#Problem.Error), [`Problem.GetStatus`](#Problem.GetStatus)
   - [`SecureHeadersOptions`](#SecureHeadersOptions)
   - [`Server`](#Server): [`NewServer`](#NewServer), [`Server.Addr`](#Server.Addr), [`Server.Run`](#Server.Run)
@@ -98,16 +97,6 @@ ProblemContentType is the media type of problem responses.
 
 ## Variables
 
-<a id="ErrDenyAll"></a>
-
-```go
-var ErrDenyAll = errors.New("httpx: a deny range can't cover every address; list the allowed ranges instead")
-```
-
-ErrDenyAll reports a deny range covering every IPv4 or IPv6 address, which would refuse every request of that family.
-
-*Since `v0.2.0 (unreleased)`*
-
 <a id="ErrTrustAll"></a>
 
 ```go
@@ -143,34 +132,6 @@ func DefaultCode(status int) string
 DefaultCode returns the generic code for a status without a mapping, such as "not\_found" for 404.
 
 *Since `v0.1.0`*
-
-<a id="ParsePrefixes"></a>
-
-### func ParsePrefixes
-
-```go
-func ParsePrefixes(list string) ([]netip.Prefix, error)
-```
-
-ParsePrefixes reads a comma-separated list of CIDR ranges or single addresses, such as "10.0.0.0/8, 2001:db8::/32, 192.0.2.10", for [IPFilter](#IPFilter). Ranges are masked ("10.0.0.5/8" is 10.0.0.0/8), and IPv4 addresses written in IPv6 form ("::ffff:10.0.0.5") become IPv4, as client addresses are compared. An empty list returns nil.
-
-*Since `v0.2.0 (unreleased)`*
-
-**Example**
-
-```go
-p, err := httpx.ParsePrefixes("10.0.0.5/8, 192.0.2.10, ::ffff:198.51.100.1")
-fmt.Println(p, err)
-_, err = httpx.ParsePrefixes("office-vpn")
-fmt.Println(err)
-```
-
-Output:
-
-```text
-[10.0.0.0/8 192.0.2.10/32 198.51.100.1/32] <nil>
-httpx: "office-vpn" is not a CIDR range or IP address
-```
 
 <a id="ParseTrustedProxies"></a>
 
@@ -693,77 +654,6 @@ CrossOrigin protects against cross-site request forgery using the browser's Sec-
 
 *Since `v0.1.0`*
 
-<a id="IPFilter"></a>
-
-#### func IPFilter
-
-```go
-func IPFilter(allow, deny []netip.Prefix) (Middleware, error)
-```
-
-IPFilter returns middleware that refuses requests by client address with a 403 problem, code "ip\_not\_allowed". The address is the request's RemoteAddr, so behind a proxy install [TrustedProxies](#TrustedProxies) first. A request is refused when its address is in a deny range, or when allow isn't empty and its address is in no allow range: deny wins, and an empty allow list allows every address not denied. A RemoteAddr that isn't an IP address is refused. IPv4-mapped IPv6 addresses are compared as IPv4, and IPv6 zones are ignored.
-
-It returns an error for an invalid range, a deny range covering every address of a family ([ErrDenyAll](#ErrDenyAll); list allowed ranges instead), or an allow range entirely inside a deny range, which could never match. With both lists empty the middleware changes nothing.
-
-*Since `v0.2.0 (unreleased)`*
-
-**Example**
-
-```go
-allow, err := httpx.ParsePrefixes("10.0.0.0/8, 2001:db8::/32")
-if err != nil {
-	panic(err)
-}
-onlyOffice, err := httpx.IPFilter(allow, nil)
-if err != nil {
-	panic(err)
-}
-ops := httpx.Chain(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-	_, _ = w.Write([]byte("ok"))
-}), onlyOffice)
-
-for _, addr := range []string{"10.1.2.3:52000", "203.0.113.9:52000"} {
-	req := httptest.NewRequest(http.MethodGet, "/ops/system", nil)
-	req.RemoteAddr = addr
-	rec := httptest.NewRecorder()
-	ops.ServeHTTP(rec, req)
-	fmt.Println(addr, rec.Code, rec.Body.String() == "ok" || problemCode(rec.Body.Bytes()) == "ip_not_allowed")
-}
-```
-
-Output:
-
-```text
-10.1.2.3:52000 200 true
-203.0.113.9:52000 403 true
-```
-
-**Example (behindAProxy)**
-
-```go
-// Behind a load balancer, resolve the client address first.
-proxies, _ := httpx.ParseTrustedProxies("10.0.0.0/8")
-deny, _ := httpx.ParsePrefixes("198.51.100.0/24")
-filter, err := httpx.IPFilter(nil, deny)
-if err != nil {
-	panic(err)
-}
-h := httpx.Chain(http.NotFoundHandler(), httpx.TrustedProxies(proxies), filter)
-
-req := httptest.NewRequest(http.MethodGet, "/", nil)
-req.RemoteAddr = "10.0.0.2:443"
-req.Header.Set("X-Forwarded-For", "198.51.100.7")
-rec := httptest.NewRecorder()
-h.ServeHTTP(rec, req)
-fmt.Println(rec.Code)
-```
-
-Output:
-
-```text
-403
-```
-
 <a id="Maintenance"></a>
 
 #### func Maintenance
@@ -849,67 +739,6 @@ func SecureHeaders(opts SecureHeadersOptions) Middleware
 SecureHeaders sets security headers suitable for a JSON API. HTML routes such as /docs set their own Content-Security-Policy.
 
 *Since `v0.1.0`*
-
-<a id="Timeout"></a>
-
-#### func Timeout
-
-```go
-func Timeout(d time.Duration) Middleware
-```
-
-Timeout gives each request a context deadline d from now. When the deadline passes before the handler has started its response, the client gets a 503 problem with code "request\_timeout", and whatever the handler writes afterwards is discarded. Late writes report success, so frameworks that treat a failed write as a bug (Huma panics) don't turn every timeout into a logged panic; the handler learns of the timeout from its cancelled context. Flushing, hijacking and deadline changes after a timeout return [http.ErrHandlerTimeout](https://pkg.go.dev/net/http#ErrHandlerTimeout). A d of zero or less turns it off.
-
-Once the handler has started its response (written the status or body, flushed, or hijacked the connection), the deadline only cancels the context: nothing is buffered, so streaming and [http.ResponseController](https://pkg.go.dev/net/http#ResponseController) work as without the middleware. Streams meant to outlive d, such as server-sent events, belong on routes without this middleware.
-
-The handler runs on the request's goroutine, so the request ends when the handler returns: pass r.Context() to everything that waits, so it stops at the deadline. The 503 is written and flushed at the deadline with a Content-Length, so an HTTP/1.1 client has the whole response even while a handler that ignores its context keeps the connection. Install it after [Recover](#Recover) and [RequestID](#RequestID).
-
-*Since `v0.2.0 (unreleased)`*
-
-**Example**
-
-```go
-slowReport := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	select {
-	case <-time.After(time.Second): // a query that takes too long
-		_, _ = w.Write([]byte("report"))
-	case <-r.Context().Done():
-		// The query stops with the request's context.
-	}
-})
-h := httpx.Chain(slowReport, httpx.RequestID(), httpx.Timeout(10*time.Millisecond))
-
-rec := httptest.NewRecorder()
-h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/reports/1", nil))
-fmt.Println(rec.Code, problemCode(rec.Body.Bytes()))
-```
-
-Output:
-
-```text
-503 request_timeout
-```
-
-**Example (deadline)**
-
-```go
-// Handlers read the deadline from the request's context and pass the
-// context on, so queries stop in time.
-h := httpx.Timeout(30 * time.Second)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	deadline, ok := r.Context().Deadline()
-	fmt.Println(ok, time.Until(deadline) > 29*time.Second)
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second) // a shorter step inside
-	defer cancel()
-	_ = ctx
-}))
-h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
-```
-
-Output:
-
-```text
-true true
-```
 
 <a id="TrustedProxies"></a>
 

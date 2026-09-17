@@ -154,18 +154,15 @@ pkg gorbital.dev/httpx, func Capture(http.ResponseWriter) *Captured
 pkg gorbital.dev/httpx, func Chain(http.Handler, ...Middleware) http.Handler
 pkg gorbital.dev/httpx, func CrossOrigin(...string) (Middleware, error)
 pkg gorbital.dev/httpx, func DefaultCode(int) string
-pkg gorbital.dev/httpx, func IPFilter([]netip.Prefix, []netip.Prefix) (Middleware, error)
 pkg gorbital.dev/httpx, func Maintenance(MaintenanceOptions) Middleware
 pkg gorbital.dev/httpx, func NewMapper(*slog.Logger, ...Mapping) (*Mapper, error)
 pkg gorbital.dev/httpx, func NewProblem(int, string, string) *Problem
 pkg gorbital.dev/httpx, func NewServer(string, http.Handler, ...ServerOption) *Server
-pkg gorbital.dev/httpx, func ParsePrefixes(string) ([]netip.Prefix, error)
 pkg gorbital.dev/httpx, func ParseTrustedProxies(string) ([]netip.Prefix, error)
 pkg gorbital.dev/httpx, func Recover(*slog.Logger) Middleware
 pkg gorbital.dev/httpx, func RequestID() Middleware
 pkg gorbital.dev/httpx, func RequestIDFrom([]netip.Prefix) Middleware
 pkg gorbital.dev/httpx, func SecureHeaders(SecureHeadersOptions) Middleware
-pkg gorbital.dev/httpx, func Timeout(time.Duration) Middleware
 pkg gorbital.dev/httpx, func TrustedProxies([]netip.Prefix) Middleware
 pkg gorbital.dev/httpx, func WithErrorLogger(*slog.Logger) ServerOption
 pkg gorbital.dev/httpx, func WithShutdownTimeout(time.Duration) ServerOption
@@ -225,8 +222,11 @@ pkg gorbital.dev/httpx, type SecureHeadersOptions struct
 pkg gorbital.dev/httpx, type SecureHeadersOptions struct, HSTSMaxAge time.Duration
 pkg gorbital.dev/httpx, type Server struct
 pkg gorbital.dev/httpx, type ServerOption interface { apply }
-pkg gorbital.dev/httpx, var ErrDenyAll error
 pkg gorbital.dev/httpx, var ErrTrustAll error
+pkg gorbital.dev/httpx/ipfilter, func New([]netip.Prefix, []netip.Prefix) (httpx.Middleware, error)
+pkg gorbital.dev/httpx/ipfilter, func ParsePrefixes(string) ([]netip.Prefix, error)
+pkg gorbital.dev/httpx/ipfilter, var ErrDenyAll error
+pkg gorbital.dev/httpx/timeout, func New(time.Duration) httpx.Middleware
 pkg gorbital.dev/mail, const RedactedAddress = "[email]"
 pkg gorbital.dev/mail, const RedactedAddress ideal-string
 pkg gorbital.dev/mail, func NormalizeAddress(string) string

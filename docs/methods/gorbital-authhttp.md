@@ -24,7 +24,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 ## Contents
 
 - Types:
-  - [`Authenticator`](#Authenticator): [`New`](#New), [`Authenticator.CheckConfig`](#Authenticator.CheckConfig), [`Authenticator.Commands`](#Authenticator.Commands), [`Authenticator.Middleware`](#Authenticator.Middleware), [`Authenticator.Module`](#Authenticator.Module), [`Authenticator.Setup`](#Authenticator.Setup)
+  - [`Authenticator`](#Authenticator): [`New`](#New), [`Authenticator.CheckConfig`](#Authenticator.CheckConfig), [`Authenticator.Commands`](#Authenticator.Commands), [`Authenticator.Middleware`](#Authenticator.Middleware), [`Authenticator.Module`](#Authenticator.Module), [`Authenticator.Setup`](#Authenticator.Setup), [`Authenticator.SignInMethods`](#Authenticator.SignInMethods)
 
 ## Types
 
@@ -203,7 +203,7 @@ _ = slog.Default()
 func (a *Authenticator) Module() gorbital.Module
 ```
 
-Module returns sign-in as a gorbital module, which gorbital.New adds before the app's modules: its routes under /v1/auth/, /ops/auth/users and /ops/service-accounts, its error mappings, permissions, runtime settings (auth.\*), the auth\_cleanup and auth\_revoke\_tokens jobs, and its migrations under the versions v0.1 apps hold them under, so a v0.1 database migrates as a no-op.
+Module returns sign-in as a gorbital module, which gorbital.New adds before the app's modules: its routes under /v1/auth/, /ops/auth/users and /ops/service-accounts, its error mappings, permissions, runtime settings (auth.\*), the auth\_cleanup and auth\_revoke\_tokens jobs, its rate limiters and the retention of deleted and unverified accounts (which the operations API lists in /ops/auth/rate-limits and /ops/retention), and its migrations under the versions v0.1 apps hold them under, so a v0.1 database migrates as a no-op.
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -254,4 +254,39 @@ setup := func(ctx context.Context, a auditedAuth, s gorbital.AuthSetup) error {
 	return a.Setup(ctx, s)
 }
 _ = setup
+```
+
+<a id="Authenticator.SignInMethods"></a>
+
+#### func (*Authenticator) SignInMethods
+
+```go
+func (a *Authenticator) SignInMethods(cfg gorbital.Config) []gorbital.SignInMethod
+```
+
+SignInMethods reports each sign-in method a v0.1 app has, whether cfg configures it and, for the ones that are off, the environment variables that turn them on and the section of AUTH\_PROVIDERS.md that explains them (ADR-0045). It never includes secret values. The operations API lists them in GET /ops/auth/providers (gorbital.Platform.SignInMethods), and the auth-providers command prints them.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// What GET /ops/auth/providers lists and auth-providers prints: every
+// method, and what turns the ones that are off on.
+cfg := gorbital.Config{}
+cfg.Auth.GitHubClientID = "Iv1.8a61f9b3a7aba766"
+cfg.Auth.PublicURL = "https://api.example.com"
+for _, m := range authhttp.New().SignInMethods(cfg) {
+	if m.Key == "email_password" || m.Key == "github" || m.Key == "passkeys" {
+		fmt.Println(m.Key, m.Enabled, m.Detail, m.Missing)
+	}
+}
+```
+
+Output:
+
+```text
+email_password true  []
+passkeys false  [WEBAUTHN_RP_ID WEBAUTHN_ORIGINS]
+github true callback https://api.example.com/v1/auth/github/callback []
 ```
