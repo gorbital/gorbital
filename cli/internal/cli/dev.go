@@ -388,7 +388,7 @@ func (d *devRunner) banner(env []string) {
 	fmt.Fprintf(d.out, "\n  ✓ API        %s\n  ✓ API docs   %s/docs\n", api, api)
 	switch {
 	case d.database && mailDelivery(env) == "devmail" && d.portal:
-		fmt.Fprintf(d.out, "  ✓ Emails     %s/mail (caught at %s)\n", d.portalLink(), devMailAddr(env))
+		fmt.Fprintf(d.out, "  ✓ Emails     %s/mail (caught at %s)\n", d.portalURL(), devMailAddr(env))
 	case d.database && mailDelivery(env) == "devmail":
 		fmt.Fprintf(d.out, "  ✓ Emails     caught at %s; the Dev Portal's Mail screen shows them (orb dev without --no-portal)\n", devMailAddr(env))
 	case d.database && d.services && mailDelivery(env) == "mailpit":
