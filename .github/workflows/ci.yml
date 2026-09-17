@@ -312,3 +312,31 @@ jobs:
           done
           exit $status
 
+  contracts:
+    name: frozen v0.1.0 contracts
+    runs-on: ubuntu-latest
+    # The golden apps' built-in endpoints and surface names stay compatible
+    # with internal/contracts/v0.1.0 (its README; roadmap decision D2).
+    defaults:
+      run:
+        working-directory: internal/tools/contracts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+          cache-dependency-path: "**/go.sum"
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then echo "$unformatted"; exit 1; fi
+      - name: vet
+        run: go vet ./...
+      - name: OpenAPI and api/surface.json compatible with v0.1.0
+        run: go test -race -count=1 -v ./...
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13.2
+          working-directory: internal/tools/contracts
