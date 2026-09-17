@@ -11,7 +11,8 @@
 # Full apps need PostgreSQL: GORBITAL_TEST_DATABASE_URL names a server where
 # the script may create and drop a database called bench_<app>; it creates it
 # with psql, or with psql from the postgres:18 Docker image when psql isn't
-# installed. The script migrates it with the app's own migrate command.
+# installed. The script migrates it with the app's own migrate command:
+# cmd/migrate, or the api binary's migrate command in apps on gorbital.Main.
 #
 # Startup time is from starting the process to the first 200 from /readyz,
 # polled every 10 ms; memory is the process's RSS at that moment (ps). One
@@ -23,7 +24,7 @@ set -euo pipefail
 app=${1:-}
 runs=${RUNS:-5}
 if [[ -z $app || ! -f $app/go.mod ]]; then
-  echo "usage: [RUNS=5] scripts/bench-baseline.sh examples/<app>" >&2
+  echo "usage: [RUNS=5] scripts/bench-baseline.sh examples/<app> (or examples/apps/<app>)" >&2
   exit 2
 fi
 app=$(cd "$app" && pwd)
@@ -50,7 +51,12 @@ size=$(wc -c < "$work/api" | tr -d ' ')
 port=$(perl -MIO::Socket::INET -e 'print IO::Socket::INET->new(Listen => 1, LocalAddr => "127.0.0.1:0")->sockport')
 env=(APP_ENV=development "APP_ADDR=127.0.0.1:$port" APP_LOG_LEVEL=warn
   "LOG_ARCHIVE_DIR=$work/logs" "STORAGE_LOCAL_DIR=$work/storage")
-if [[ -d cmd/migrate ]]; then
+# Apps on gorbital.Main have no cmd/migrate: their api binary migrates.
+gorbital_app=""
+if grep -q 'gorbital.dev/gorbital ' go.mod; then
+  gorbital_app=1
+fi
+if [[ -d cmd/migrate || -n $gorbital_app ]]; then
   : "${GORBITAL_TEST_DATABASE_URL:?Full apps need GORBITAL_TEST_DATABASE_URL}"
   db="bench_${name//-/_}"
   sql() {
@@ -65,8 +71,12 @@ if [[ -d cmd/migrate ]]; then
   sql "CREATE DATABASE $db"
   url=$(echo "$GORBITAL_TEST_DATABASE_URL" | sed -E "s#/[^/?]+(\?|$)#/$db\1#")
   env+=("DATABASE_URL=$url")
-  go build -o "$work/migrate" ./cmd/migrate
-  (cd "$work" && env "${env[@]}" ./migrate >/dev/null)
+  if [[ -n $gorbital_app ]]; then
+    (cd "$work" && env "${env[@]}" ./api migrate >/dev/null)
+  else
+    go build -o "$work/migrate" ./cmd/migrate
+    (cd "$work" && env "${env[@]}" ./migrate >/dev/null)
+  fi
 fi
 
 cd "$work"
