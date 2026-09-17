@@ -10,6 +10,8 @@ Package operation registers operations declared as huma.Operation values, as v0.
 
 The built-in modules (opshttp, flagshttp, mailevents, orgshttp) keep v0.1's declarations, so their move into the library reads line by line and their OpenAPI compares with the frozen v0.1.0 documents (ADR-0083). A module ejected with orb eject keeps them too, and code moved from a v0.1 app can replace huma.Register(api, op, handler) with Register(r, op, handler). New code uses gorbital.Get, gorbital.Post and the other verbs with route options instead.
 
+Stability: experimental until v0.2.0 (ADR-0015, ADR-0083).
+
 ## Contents
 
 - Functions: [`Register`](#Register)
