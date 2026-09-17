@@ -1,0 +1,109 @@
+pkg gorbital.dev/modules/flags, const ActionChanged = "flags.flag.changed"
+pkg gorbital.dev/modules/flags, const ActionChanged ideal-string
+pkg gorbital.dev/modules/flags, const ActionReset = "flags.flag.reset"
+pkg gorbital.dev/modules/flags, const ActionReset ideal-string
+pkg gorbital.dev/modules/flags, const DefaultResyncInterval = 300000000000
+pkg gorbital.dev/modules/flags, const DefaultResyncInterval time.Duration
+pkg gorbital.dev/modules/flags, const MaxIDLen = 100
+pkg gorbital.dev/modules/flags, const MaxIDLen ideal-int
+pkg gorbital.dev/modules/flags, const MaxTargets = 1000
+pkg gorbital.dev/modules/flags, const MaxTargets ideal-int
+pkg gorbital.dev/modules/flags, const ReasonDefault = "default"
+pkg gorbital.dev/modules/flags, const ReasonDefault Reason
+pkg gorbital.dev/modules/flags, const ReasonDisabled = "disabled"
+pkg gorbital.dev/modules/flags, const ReasonDisabled Reason
+pkg gorbital.dev/modules/flags, const ReasonOrgAllowed = "org_allowed"
+pkg gorbital.dev/modules/flags, const ReasonOrgAllowed Reason
+pkg gorbital.dev/modules/flags, const ReasonOrgDenied = "org_denied"
+pkg gorbital.dev/modules/flags, const ReasonOrgDenied Reason
+pkg gorbital.dev/modules/flags, const ReasonRollout = "rollout"
+pkg gorbital.dev/modules/flags, const ReasonRollout Reason
+pkg gorbital.dev/modules/flags, const ReasonUserAllowed = "user_allowed"
+pkg gorbital.dev/modules/flags, const ReasonUserAllowed Reason
+pkg gorbital.dev/modules/flags, const ReasonUserDenied = "user_denied"
+pkg gorbital.dev/modules/flags, const ReasonUserDenied Reason
+pkg gorbital.dev/modules/flags, func Bool(*Registry, string, ...Option) *Flag
+pkg gorbital.dev/modules/flags, func Bucket(string, string) int
+pkg gorbital.dev/modules/flags, func Client() Option
+pkg gorbital.dev/modules/flags, func DefaultOn() Option
+pkg gorbital.dev/modules/flags, func Describe(string) Option
+pkg gorbital.dev/modules/flags, func Group(string) Option
+pkg gorbital.dev/modules/flags, func NewRegistry() *Registry
+pkg gorbital.dev/modules/flags, func NewStore(context.Context, *pgxpool.Pool, *Registry, audit.Recorder, ...StoreOption) (*Store, error)
+pkg gorbital.dev/modules/flags, func Percent(int) *int
+pkg gorbital.dev/modules/flags, func WithLogger(*slog.Logger) StoreOption
+pkg gorbital.dev/modules/flags, func WithResyncInterval(time.Duration) StoreOption
+pkg gorbital.dev/modules/flags, method (*Flag) Enabled(context.Context) bool
+pkg gorbital.dev/modules/flags, method (*Flag) Evaluate(context.Context) Evaluation
+pkg gorbital.dev/modules/flags, method (*Flag) Get(context.Context) bool
+pkg gorbital.dev/modules/flags, method (*Flag) Key() string
+pkg gorbital.dev/modules/flags, method (*InvalidStateError) Error() string
+pkg gorbital.dev/modules/flags, method (*InvalidStateError) Unwrap() error
+pkg gorbital.dev/modules/flags, method (*Registry) Keys() []string
+pkg gorbital.dev/modules/flags, method (*Store) ClientFlags(context.Context) []Evaluation
+pkg gorbital.dev/modules/flags, method (*Store) DeleteHistoryBefore(context.Context, time.Time, int) (int64, error)
+pkg gorbital.dev/modules/flags, method (*Store) Get(string) (View, error)
+pkg gorbital.dev/modules/flags, method (*Store) History(context.Context, string, int64, int) ([]HistoryEntry, error)
+pkg gorbital.dev/modules/flags, method (*Store) List() []View
+pkg gorbital.dev/modules/flags, method (*Store) OldestHistory(context.Context) (time.Time, bool, error)
+pkg gorbital.dev/modules/flags, method (*Store) Reload(context.Context) error
+pkg gorbital.dev/modules/flags, method (*Store) Reset(context.Context, string, Change) (View, error)
+pkg gorbital.dev/modules/flags, method (*Store) Run(context.Context) error
+pkg gorbital.dev/modules/flags, method (*Store) Set(context.Context, string, State, Change) (View, error)
+pkg gorbital.dev/modules/flags, method (*Store) UnknownKeys() []string
+pkg gorbital.dev/modules/flags, type Change struct
+pkg gorbital.dev/modules/flags, type Change struct, Reason string
+pkg gorbital.dev/modules/flags, type Change struct, Version int64
+pkg gorbital.dev/modules/flags, type Evaluation struct
+pkg gorbital.dev/modules/flags, type Evaluation struct, Enabled bool
+pkg gorbital.dev/modules/flags, type Evaluation struct, Key string
+pkg gorbital.dev/modules/flags, type Evaluation struct, Reason Reason
+pkg gorbital.dev/modules/flags, type Flag struct
+pkg gorbital.dev/modules/flags, type HistoryEntry struct
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, ActorID string
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, ActorKind actor.Kind
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, ChangedAt time.Time
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, ID int64
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, Key string
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, NewInvalid bool
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, NewState *State
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, OldInvalid bool
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, OldState *State
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, Reason string
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, RequestID string
+pkg gorbital.dev/modules/flags, type HistoryEntry struct, Version int64
+pkg gorbital.dev/modules/flags, type InvalidStateError struct
+pkg gorbital.dev/modules/flags, type InvalidStateError struct, Key string
+pkg gorbital.dev/modules/flags, type InvalidStateError struct, Reason string
+pkg gorbital.dev/modules/flags, type Option interface { apply }
+pkg gorbital.dev/modules/flags, type Reason string
+pkg gorbital.dev/modules/flags, type Registry struct
+pkg gorbital.dev/modules/flags, type State struct
+pkg gorbital.dev/modules/flags, type State struct, Default bool
+pkg gorbital.dev/modules/flags, type State struct, Enabled bool
+pkg gorbital.dev/modules/flags, type State struct, Orgs Targets
+pkg gorbital.dev/modules/flags, type State struct, Percentage *int
+pkg gorbital.dev/modules/flags, type State struct, Users Targets
+pkg gorbital.dev/modules/flags, type Store struct
+pkg gorbital.dev/modules/flags, type StoreOption interface { applyStore }
+pkg gorbital.dev/modules/flags, type Targets struct
+pkg gorbital.dev/modules/flags, type Targets struct, Allow []string
+pkg gorbital.dev/modules/flags, type Targets struct, Deny []string
+pkg gorbital.dev/modules/flags, type View struct
+pkg gorbital.dev/modules/flags, type View struct, Client bool
+pkg gorbital.dev/modules/flags, type View struct, Default State
+pkg gorbital.dev/modules/flags, type View struct, Description string
+pkg gorbital.dev/modules/flags, type View struct, Group string
+pkg gorbital.dev/modules/flags, type View struct, InvalidStoredValue bool
+pkg gorbital.dev/modules/flags, type View struct, Key string
+pkg gorbital.dev/modules/flags, type View struct, Modified bool
+pkg gorbital.dev/modules/flags, type View struct, State State
+pkg gorbital.dev/modules/flags, type View struct, UpdatedAt time.Time
+pkg gorbital.dev/modules/flags, type View struct, UpdatedBy string
+pkg gorbital.dev/modules/flags, type View struct, Version int64
+pkg gorbital.dev/modules/flags, var ErrActorRequired error
+pkg gorbital.dev/modules/flags, var ErrInvalidState error
+pkg gorbital.dev/modules/flags, var ErrReasonRequired error
+pkg gorbital.dev/modules/flags, var ErrUnknownFlag error
+pkg gorbital.dev/modules/flags, var ErrVersionConflict error
+pkg gorbital.dev/modules/flags, var Migrations fs.FS

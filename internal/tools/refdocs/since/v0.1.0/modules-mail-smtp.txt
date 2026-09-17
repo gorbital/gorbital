@@ -1,0 +1,19 @@
+pkg gorbital.dev/modules/mail/smtp, const DefaultTimeout = 30000000000
+pkg gorbital.dev/modules/mail/smtp, const DefaultTimeout time.Duration
+pkg gorbital.dev/modules/mail/smtp, const TLSImplicit = "tls"
+pkg gorbital.dev/modules/mail/smtp, const TLSImplicit TLSMode
+pkg gorbital.dev/modules/mail/smtp, const TLSNone = "none"
+pkg gorbital.dev/modules/mail/smtp, const TLSNone TLSMode
+pkg gorbital.dev/modules/mail/smtp, const TLSStartTLS = "starttls"
+pkg gorbital.dev/modules/mail/smtp, const TLSStartTLS TLSMode
+pkg gorbital.dev/modules/mail/smtp, func New(string, ...Option) (*Sender, error)
+pkg gorbital.dev/modules/mail/smtp, func ParseTLSMode(string) (TLSMode, error)
+pkg gorbital.dev/modules/mail/smtp, func WithAuth(string, config.Secret) Option
+pkg gorbital.dev/modules/mail/smtp, func WithLocalName(string) Option
+pkg gorbital.dev/modules/mail/smtp, func WithTLS(TLSMode) Option
+pkg gorbital.dev/modules/mail/smtp, func WithTLSConfig(*tls.Config) Option
+pkg gorbital.dev/modules/mail/smtp, func WithTimeout(time.Duration) Option
+pkg gorbital.dev/modules/mail/smtp, method (*Sender) Send(context.Context, mail.Message) error
+pkg gorbital.dev/modules/mail/smtp, type Option interface { apply }
+pkg gorbital.dev/modules/mail/smtp, type Sender struct
+pkg gorbital.dev/modules/mail/smtp, type TLSMode string

@@ -1,0 +1,193 @@
+pkg gorbital.dev/modules/jobs, const DefaultCancelledRetention = 86400000000000
+pkg gorbital.dev/modules/jobs, const DefaultCancelledRetention time.Duration
+pkg gorbital.dev/modules/jobs, const DefaultCompletedRetention = 3600000000000
+pkg gorbital.dev/modules/jobs, const DefaultCompletedRetention time.Duration
+pkg gorbital.dev/modules/jobs, const DefaultDefinitionMaxAttempts = 25
+pkg gorbital.dev/modules/jobs, const DefaultDefinitionMaxAttempts ideal-int
+pkg gorbital.dev/modules/jobs, const DefaultDefinitionTimeout = 60000000000
+pkg gorbital.dev/modules/jobs, const DefaultDefinitionTimeout time.Duration
+pkg gorbital.dev/modules/jobs, const DefaultDiscardedRetention = 604800000000000
+pkg gorbital.dev/modules/jobs, const DefaultDiscardedRetention time.Duration
+pkg gorbital.dev/modules/jobs, const DefaultResyncInterval = 300000000000
+pkg gorbital.dev/modules/jobs, const DefaultResyncInterval time.Duration
+pkg gorbital.dev/modules/jobs, const DefaultStopTimeout = 20000000000
+pkg gorbital.dev/modules/jobs, const DefaultStopTimeout time.Duration
+pkg gorbital.dev/modules/jobs, const MailKind = "gorbital.mail.send"
+pkg gorbital.dev/modules/jobs, const MailKind ideal-string
+pkg gorbital.dev/modules/jobs, const MaxAttemptsLimit = 100
+pkg gorbital.dev/modules/jobs, const MaxAttemptsLimit ideal-int
+pkg gorbital.dev/modules/jobs, const MaxTimeout = 86400000000000
+pkg gorbital.dev/modules/jobs, const MaxTimeout time.Duration
+pkg gorbital.dev/modules/jobs, const MinScheduleInterval = 60000000000
+pkg gorbital.dev/modules/jobs, const MinScheduleInterval time.Duration
+pkg gorbital.dev/modules/jobs, const MinTimeout = 1000000000
+pkg gorbital.dev/modules/jobs, const MinTimeout time.Duration
+pkg gorbital.dev/modules/jobs, func AddMailWorker(*river.Workers, mail.Sender) error
+pkg gorbital.dev/modules/jobs, func AsyncSender(*Client) mail.Sender
+pkg gorbital.dev/modules/jobs, func DefaultQueues() map[string]river.QueueConfig
+pkg gorbital.dev/modules/jobs, func Define[T river.JobArgs](*Definitions, Definition[T])
+pkg gorbital.dev/modules/jobs, func Migrate(context.Context, *pgxpool.Pool) ([]int, error)
+pkg gorbital.dev/modules/jobs, func MigrationsPending(context.Context, *pgxpool.Pool) ([]string, error)
+pkg gorbital.dev/modules/jobs, func New(*pgxpool.Pool, *river.Workers, ...Option) (*Client, error)
+pkg gorbital.dev/modules/jobs, func NewDefinitions() *Definitions
+pkg gorbital.dev/modules/jobs, func NewManager(context.Context, *pgxpool.Pool, *Client, audit.Recorder, ...ManagerOption) (*Manager, error)
+pkg gorbital.dev/modules/jobs, func OnBehalfOf(context.Context) (actor.Actor, bool)
+pkg gorbital.dev/modules/jobs, func WithDefinitions(*Definitions) Option
+pkg gorbital.dev/modules/jobs, func WithJobTimeout(time.Duration) Option
+pkg gorbital.dev/modules/jobs, func WithLogger(*slog.Logger) Option
+pkg gorbital.dev/modules/jobs, func WithManagerLogger(*slog.Logger) ManagerOption
+pkg gorbital.dev/modules/jobs, func WithMaxAttempts(int) Option
+pkg gorbital.dev/modules/jobs, func WithPropagator(propagation.TextMapPropagator) Option
+pkg gorbital.dev/modules/jobs, func WithQueues(map[string]river.QueueConfig) Option
+pkg gorbital.dev/modules/jobs, func WithResyncInterval(time.Duration) ManagerOption
+pkg gorbital.dev/modules/jobs, func WithRetention(time.Duration, time.Duration, time.Duration) Option
+pkg gorbital.dev/modules/jobs, func WithStopTimeout(time.Duration) Option
+pkg gorbital.dev/modules/jobs, func WithTracerProvider(trace.TracerProvider) Option
+pkg gorbital.dev/modules/jobs, method (*Client) Insert(context.Context, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error)
+pkg gorbital.dev/modules/jobs, method (*Client) InsertTx(context.Context, pgx.Tx, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error)
+pkg gorbital.dev/modules/jobs, method (*Client) River() *river.Client[pgx.Tx]
+pkg gorbital.dev/modules/jobs, method (*Client) Run(context.Context) error
+pkg gorbital.dev/modules/jobs, method (*Definitions) Names() []string
+pkg gorbital.dev/modules/jobs, method (*InvalidConfigError) Error() string
+pkg gorbital.dev/modules/jobs, method (*InvalidConfigError) Unwrap() error
+pkg gorbital.dev/modules/jobs, method (*Manager) Cancel(context.Context, int64) (JobRun, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) Definition(context.Context, string) (DefinitionView, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) Definitions(context.Context) ([]DefinitionView, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) DeleteHistoryBefore(context.Context, time.Time, int) (int64, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) History(context.Context, string, int64, int) ([]DefinitionChange, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) Job(context.Context, int64) (JobRun, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) Jobs(context.Context, JobFilter) (JobPage, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) OldestHistory(context.Context) (time.Time, bool, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) Overview(context.Context) (Overview, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) PauseQueue(context.Context, string) error
+pkg gorbital.dev/modules/jobs, method (*Manager) PauseQueueWithReason(context.Context, string, string) error
+pkg gorbital.dev/modules/jobs, method (*Manager) Queues(context.Context) ([]Queue, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) Reload(context.Context) error
+pkg gorbital.dev/modules/jobs, method (*Manager) Reset(context.Context, string, Change) (DefinitionView, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) ResumeQueue(context.Context, string) error
+pkg gorbital.dev/modules/jobs, method (*Manager) ResumeQueueWithReason(context.Context, string, string) error
+pkg gorbital.dev/modules/jobs, method (*Manager) Retry(context.Context, int64) (JobRun, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) Run(context.Context) error
+pkg gorbital.dev/modules/jobs, method (*Manager) RunNow(context.Context, string) (JobRun, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) Scheduled(context.Context) ([]DefinitionView, error)
+pkg gorbital.dev/modules/jobs, method (*Manager) Update(context.Context, string, ConfigPatch, Change) (DefinitionView, error)
+pkg gorbital.dev/modules/jobs, method (Config) Validate() error
+pkg gorbital.dev/modules/jobs, type AttemptError struct
+pkg gorbital.dev/modules/jobs, type AttemptError struct, At time.Time
+pkg gorbital.dev/modules/jobs, type AttemptError struct, Attempt int
+pkg gorbital.dev/modules/jobs, type AttemptError struct, Message string
+pkg gorbital.dev/modules/jobs, type Change struct
+pkg gorbital.dev/modules/jobs, type Change struct, Reason string
+pkg gorbital.dev/modules/jobs, type Change struct, Version int64
+pkg gorbital.dev/modules/jobs, type Client struct
+pkg gorbital.dev/modules/jobs, type Config struct
+pkg gorbital.dev/modules/jobs, type Config struct, Enabled bool
+pkg gorbital.dev/modules/jobs, type Config struct, MaxAttempts int
+pkg gorbital.dev/modules/jobs, type Config struct, Priority int
+pkg gorbital.dev/modules/jobs, type Config struct, Queue string
+pkg gorbital.dev/modules/jobs, type Config struct, Schedule string
+pkg gorbital.dev/modules/jobs, type Config struct, Timeout time.Duration
+pkg gorbital.dev/modules/jobs, type ConfigPatch struct
+pkg gorbital.dev/modules/jobs, type ConfigPatch struct, Enabled *bool
+pkg gorbital.dev/modules/jobs, type ConfigPatch struct, MaxAttempts *int
+pkg gorbital.dev/modules/jobs, type ConfigPatch struct, Priority *int
+pkg gorbital.dev/modules/jobs, type ConfigPatch struct, Queue *string
+pkg gorbital.dev/modules/jobs, type ConfigPatch struct, Schedule *string
+pkg gorbital.dev/modules/jobs, type ConfigPatch struct, Timeout *time.Duration
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct, Action string
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct, ActorID string
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct, ActorKind string
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct, ChangedAt time.Time
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct, ID int64
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct, Name string
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct, NewConfig json.RawMessage
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct, OldConfig json.RawMessage
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct, Reason string
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct, RequestID string
+pkg gorbital.dev/modules/jobs, type DefinitionChange struct, Version int64
+pkg gorbital.dev/modules/jobs, type DefinitionView struct
+pkg gorbital.dev/modules/jobs, type DefinitionView struct, Config Config
+pkg gorbital.dev/modules/jobs, type DefinitionView struct, Defaults Config
+pkg gorbital.dev/modules/jobs, type DefinitionView struct, Description string
+pkg gorbital.dev/modules/jobs, type DefinitionView struct, InvalidOverride bool
+pkg gorbital.dev/modules/jobs, type DefinitionView struct, LastRun *JobRun
+pkg gorbital.dev/modules/jobs, type DefinitionView struct, Modified bool
+pkg gorbital.dev/modules/jobs, type DefinitionView struct, Name string
+pkg gorbital.dev/modules/jobs, type DefinitionView struct, NextRunAt time.Time
+pkg gorbital.dev/modules/jobs, type DefinitionView struct, UpdatedAt time.Time
+pkg gorbital.dev/modules/jobs, type DefinitionView struct, UpdatedBy string
+pkg gorbital.dev/modules/jobs, type DefinitionView struct, Version int64
+pkg gorbital.dev/modules/jobs, type Definition[T river.JobArgs] struct
+pkg gorbital.dev/modules/jobs, type Definition[T river.JobArgs] struct, Description string
+pkg gorbital.dev/modules/jobs, type Definition[T river.JobArgs] struct, Enabled bool
+pkg gorbital.dev/modules/jobs, type Definition[T river.JobArgs] struct, MaxAttempts int
+pkg gorbital.dev/modules/jobs, type Definition[T river.JobArgs] struct, Name string
+pkg gorbital.dev/modules/jobs, type Definition[T river.JobArgs] struct, NewArgs func() T
+pkg gorbital.dev/modules/jobs, type Definition[T river.JobArgs] struct, Priority int
+pkg gorbital.dev/modules/jobs, type Definition[T river.JobArgs] struct, Queue string
+pkg gorbital.dev/modules/jobs, type Definition[T river.JobArgs] struct, Schedule string
+pkg gorbital.dev/modules/jobs, type Definition[T river.JobArgs] struct, Timeout time.Duration
+pkg gorbital.dev/modules/jobs, type Definition[T river.JobArgs] struct, Worker river.Worker[T]
+pkg gorbital.dev/modules/jobs, type Definitions struct
+pkg gorbital.dev/modules/jobs, type InvalidConfigError struct
+pkg gorbital.dev/modules/jobs, type InvalidConfigError struct, Name string
+pkg gorbital.dev/modules/jobs, type InvalidConfigError struct, Reason string
+pkg gorbital.dev/modules/jobs, type JobFilter struct
+pkg gorbital.dev/modules/jobs, type JobFilter struct, Cursor string
+pkg gorbital.dev/modules/jobs, type JobFilter struct, Kind string
+pkg gorbital.dev/modules/jobs, type JobFilter struct, Limit int
+pkg gorbital.dev/modules/jobs, type JobFilter struct, Queue string
+pkg gorbital.dev/modules/jobs, type JobFilter struct, States []rivertype.JobState
+pkg gorbital.dev/modules/jobs, type JobPage struct
+pkg gorbital.dev/modules/jobs, type JobPage struct, Jobs []JobRun
+pkg gorbital.dev/modules/jobs, type JobPage struct, NextCursor string
+pkg gorbital.dev/modules/jobs, type JobRun struct
+pkg gorbital.dev/modules/jobs, type JobRun struct, ActorID string
+pkg gorbital.dev/modules/jobs, type JobRun struct, ActorKind string
+pkg gorbital.dev/modules/jobs, type JobRun struct, Attempt int
+pkg gorbital.dev/modules/jobs, type JobRun struct, AttemptedAt *time.Time
+pkg gorbital.dev/modules/jobs, type JobRun struct, CreatedAt time.Time
+pkg gorbital.dev/modules/jobs, type JobRun struct, Errors []AttemptError
+pkg gorbital.dev/modules/jobs, type JobRun struct, FinalizedAt *time.Time
+pkg gorbital.dev/modules/jobs, type JobRun struct, ID int64
+pkg gorbital.dev/modules/jobs, type JobRun struct, Kind string
+pkg gorbital.dev/modules/jobs, type JobRun struct, MaxAttempts int
+pkg gorbital.dev/modules/jobs, type JobRun struct, Priority int
+pkg gorbital.dev/modules/jobs, type JobRun struct, Queue string
+pkg gorbital.dev/modules/jobs, type JobRun struct, RequestID string
+pkg gorbital.dev/modules/jobs, type JobRun struct, ScheduledAt time.Time
+pkg gorbital.dev/modules/jobs, type JobRun struct, State rivertype.JobState
+pkg gorbital.dev/modules/jobs, type Manager struct
+pkg gorbital.dev/modules/jobs, type ManagerOption interface { applyManager }
+pkg gorbital.dev/modules/jobs, type Option interface { apply }
+pkg gorbital.dev/modules/jobs, type Overview struct
+pkg gorbital.dev/modules/jobs, type Overview struct, Failing []DefinitionView
+pkg gorbital.dev/modules/jobs, type Overview struct, Queues []QueueOverview
+pkg gorbital.dev/modules/jobs, type Queue struct
+pkg gorbital.dev/modules/jobs, type Queue struct, CreatedAt time.Time
+pkg gorbital.dev/modules/jobs, type Queue struct, Name string
+pkg gorbital.dev/modules/jobs, type Queue struct, Paused bool
+pkg gorbital.dev/modules/jobs, type Queue struct, PausedAt *time.Time
+pkg gorbital.dev/modules/jobs, type Queue struct, UpdatedAt time.Time
+pkg gorbital.dev/modules/jobs, type QueueOverview struct
+pkg gorbital.dev/modules/jobs, type QueueOverview struct, Active bool
+pkg gorbital.dev/modules/jobs, type QueueOverview struct, Available int64
+pkg gorbital.dev/modules/jobs, type QueueOverview struct, DiscardedLastDay int64
+pkg gorbital.dev/modules/jobs, type QueueOverview struct, Name string
+pkg gorbital.dev/modules/jobs, type QueueOverview struct, Paused bool
+pkg gorbital.dev/modules/jobs, type QueueOverview struct, Retryable int64
+pkg gorbital.dev/modules/jobs, type QueueOverview struct, Running int64
+pkg gorbital.dev/modules/jobs, type QueueOverview struct, Scheduled int64
+pkg gorbital.dev/modules/jobs, var ErrActorRequired error
+pkg gorbital.dev/modules/jobs, var ErrDefinitionDisabled error
+pkg gorbital.dev/modules/jobs, var ErrInvalidConfig error
+pkg gorbital.dev/modules/jobs, var ErrInvalidCursor error
+pkg gorbital.dev/modules/jobs, var ErrJobNotFound error
+pkg gorbital.dev/modules/jobs, var ErrJobNotRetryable error
+pkg gorbital.dev/modules/jobs, var ErrReasonRequired error
+pkg gorbital.dev/modules/jobs, var ErrRunLimited error
+pkg gorbital.dev/modules/jobs, var ErrUnknownDefinition error
+pkg gorbital.dev/modules/jobs, var ErrUnknownQueue error
+pkg gorbital.dev/modules/jobs, var ErrVersionConflict error
+pkg gorbital.dev/modules/jobs, var Migrations fs.FS

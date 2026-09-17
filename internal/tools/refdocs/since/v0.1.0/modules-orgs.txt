@@ -1,0 +1,31 @@
+pkg gorbital.dev/modules/orgs, const RoleAdmin = "admin"
+pkg gorbital.dev/modules/orgs, const RoleAdmin ideal-string
+pkg gorbital.dev/modules/orgs, const RoleMember = "member"
+pkg gorbital.dev/modules/orgs, const RoleMember ideal-string
+pkg gorbital.dev/modules/orgs, const RoleOwner = "owner"
+pkg gorbital.dev/modules/orgs, const RoleOwner ideal-string
+pkg gorbital.dev/modules/orgs, func Authorize(context.Context, *auth.Catalog, Member, string) (context.Context, error)
+pkg gorbital.dev/modules/orgs, func NewBrandedEmails(mail.Sender, mail.Brand) Emails
+pkg gorbital.dev/modules/orgs, func NewID() ID
+pkg gorbital.dev/modules/orgs, func NewMailEmails(mail.Sender, string) Emails
+pkg gorbital.dev/modules/orgs, func ParseID(string) (ID, error)
+pkg gorbital.dev/modules/orgs, func RequireMember(context.Context, Memberships, *auth.Catalog, ID, string) (context.Context, Member, error)
+pkg gorbital.dev/modules/orgs, method (ID) String() string
+pkg gorbital.dev/modules/orgs, type Emails interface { SendInvitation }
+pkg gorbital.dev/modules/orgs, type Emails interface, SendInvitation(context.Context, string, Invitation) error
+pkg gorbital.dev/modules/orgs, type ID string
+pkg gorbital.dev/modules/orgs, type Invitation struct
+pkg gorbital.dev/modules/orgs, type Invitation struct, ExpiresIn time.Duration
+pkg gorbital.dev/modules/orgs, type Invitation struct, InvitedBy string
+pkg gorbital.dev/modules/orgs, type Invitation struct, OrgName string
+pkg gorbital.dev/modules/orgs, type Invitation struct, Role string
+pkg gorbital.dev/modules/orgs, type Invitation struct, URL string
+pkg gorbital.dev/modules/orgs, type Member struct
+pkg gorbital.dev/modules/orgs, type Member struct, OrgID ID
+pkg gorbital.dev/modules/orgs, type Member struct, Role string
+pkg gorbital.dev/modules/orgs, type Member struct, UserID string
+pkg gorbital.dev/modules/orgs, type Memberships interface { MemberRole }
+pkg gorbital.dev/modules/orgs, type Memberships interface, MemberRole(context.Context, ID, string) (string, error)
+pkg gorbital.dev/modules/orgs, var ErrInvalidID error
+pkg gorbital.dev/modules/orgs, var ErrNotMember error
+pkg gorbital.dev/modules/orgs, var ErrOrgNotFound error
