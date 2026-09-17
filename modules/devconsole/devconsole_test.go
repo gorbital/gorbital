@@ -697,3 +697,57 @@ func TestConsoleRefusesTunnelledRequests(t *testing.T) {
 		t.Errorf("app route through the tunnel = %d %q", r.code, r.body)
 	}
 }
+
+// TestExtensions: an extension answers under its prefix, for any method,
+// only after the console's checks, with the console's headers; the index
+// lists it; New refuses prefixes that aren't directories under /_dev/ or
+// overlap the console's own endpoints.
+func TestExtensions(t *testing.T) {
+	var calls int
+	ext := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		_, _ = io.WriteString(w, r.Method+" "+r.URL.Path)
+	})
+	base, _ := newServer(t, appHandler(), devconsole.WithSources(devconsole.Sources{
+		Extensions: []devconsole.Extension{{Prefix: "/_dev/auth/test/", Handler: ext}},
+	}))
+
+	if r := get(t, base, "/_dev/auth/test/results/x", "", true); r.code != 200 || r.body != "GET /_dev/auth/test/results/x" || r.header.Get("Cache-Control") != "no-store" {
+		t.Errorf("GET extension = %d %q %v", r.code, r.body, r.header)
+	}
+	if r := post(t, base, "/_dev/auth/test/google/start", `{}`); r.code != 200 || r.body != "POST /_dev/auth/test/google/start" {
+		t.Errorf("POST extension = %d %q", r.code, r.body)
+	}
+	calls = 0
+	for name, r := range map[string]result{
+		"no token":  get(t, base, "/_dev/auth/test/", "", false),
+		"tunnelled": get(t, base, "/_dev/auth/test/", "", true, "Cf-Connecting-Ip", "203.0.113.7"),
+		"public":    get(t, base, "/_dev/auth/test/", "dev.example.com", true),
+	} {
+		if r.code != http.StatusUnauthorized && r.code != http.StatusForbidden {
+			t.Errorf("%s: extension = %d, want refused", name, r.code)
+		}
+	}
+	if calls != 0 {
+		t.Errorf("the extension ran %d times for refused requests", calls)
+	}
+	if r := get(t, base, "/_dev/auth/other", "", true); r.code != http.StatusNotFound {
+		t.Errorf("outside the prefix = %d, want 404", r.code)
+	}
+	var index devconsole.Index
+	_ = json.Unmarshal([]byte(get(t, base, "/_dev/", "", true).body), &index)
+	if len(index.Extensions) != 1 || index.Extensions[0] != "/_dev/auth/test/" {
+		t.Errorf("index extensions = %v", index.Extensions)
+	}
+
+	for _, prefix := range []string{"", "/_dev/", "/_dev/auth", "/auth/test/", "/_dev/mail/", "/_dev/logs/x/", "/_dev//x/"} {
+		_, err := devconsole.New(token, devconsole.WithSources(devconsole.Sources{Extensions: []devconsole.Extension{{Prefix: prefix, Handler: ext}}}))
+		if err == nil {
+			t.Errorf("New with extension prefix %q: no error", prefix)
+		}
+	}
+	twice := []devconsole.Extension{{Prefix: "/_dev/a/", Handler: ext}, {Prefix: "/_dev/a/", Handler: ext}}
+	if _, err := devconsole.New(token, devconsole.WithSources(devconsole.Sources{Extensions: twice})); err == nil {
+		t.Error("New with the same extension twice: no error")
+	}
+}

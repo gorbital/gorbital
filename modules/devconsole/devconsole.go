@@ -139,6 +139,20 @@ type Sources struct {
 	// /_dev/mail/previews, /_dev/mail/preview, POST /_dev/mail/preview/send);
 	// see [MailPreviewer].
 	MailPreviews *MailPreviewer
+	// Extensions serve more endpoints under /_dev/, such as sign-in's
+	// tests at /_dev/auth/test/ (ADR-0087), behind the same checks.
+	Extensions []Extension
+}
+
+// Extension serves the console endpoints under Prefix with Handler, after
+// the console's Host, loopback, forwarding and token checks and with its
+// response headers (Cache-Control: no-store, no CORS). The handler answers
+// every method itself. The index lists Prefix in Index.Extensions.
+type Extension struct {
+	// Prefix is a path under /_dev/ ending in a slash, such as
+	// "/_dev/auth/test/". It must not contain a built-in endpoint.
+	Prefix  string
+	Handler http.Handler
 }
 
 // Option configures a [Console].
@@ -217,6 +231,9 @@ func New(token string, opts ...Option) (*Console, error) {
 		return nil, errors.New("devconsole: the maximum number of requests must be positive")
 	case o.maxStreams < 1 || o.streamDuration <= 0:
 		return nil, errors.New("devconsole: stream limits must be positive")
+	}
+	if err := checkExtensions(o.sources.Extensions); err != nil {
+		return nil, err
 	}
 	return &Console{
 		tokenHash:      sha256.Sum256([]byte(token)),
@@ -316,6 +333,10 @@ func (c *Console) handler(logger *slog.Logger) http.Handler {
 		}
 		e, ok := endpoints[path]
 		if !ok || !e.present {
+			if ext := c.extension(path); ext != nil {
+				ext.ServeHTTP(w, r)
+				return
+			}
 			httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, "not_found", "no dev console endpoint "+path))
 			return
 		}
@@ -338,6 +359,45 @@ func (c *Console) handler(logger *slog.Logger) http.Handler {
 			httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusInternalServerError, "internal_error", "the dev console couldn't read this section; see the app's logs"))
 		}
 	})
+}
+
+// checkExtensions reports an extension whose prefix isn't a directory under
+// /_dev/, holds a built-in endpoint, or is served twice.
+func checkExtensions(exts []Extension) error {
+	seen := map[string]bool{}
+	for _, e := range exts {
+		rest, ok := strings.CutPrefix(e.Prefix, Prefix)
+		switch {
+		case !ok || rest == "" || rest[0] == '/' || !strings.HasSuffix(rest, "/") || strings.Contains(rest, "//") || e.Handler == nil:
+			return fmt.Errorf("devconsole: extension %q must have a handler and a prefix under %s ending in a slash", e.Prefix, Prefix)
+		case seen[e.Prefix]:
+			return fmt.Errorf("devconsole: extension %q is served twice", e.Prefix)
+		}
+		for _, builtin := range builtinPaths {
+			if strings.HasPrefix(builtin, e.Prefix) || strings.HasPrefix(e.Prefix, builtin+"/") {
+				return fmt.Errorf("devconsole: extension %q overlaps the console's %s", e.Prefix, builtin)
+			}
+		}
+		seen[e.Prefix] = true
+	}
+	return nil
+}
+
+// builtinPaths are the console's own endpoints, which extensions can't
+// shadow.
+var builtinPaths = []string{
+	Prefix + "openapi.json", Prefix + "requests", Prefix + "logs", Prefix + "app", Prefix + "routes", Prefix + "config",
+	Prefix + "mail", Prefix + "migrations", Prefix + "jobs",
+}
+
+// extension returns the handler of the extension serving path, or nil.
+func (c *Console) extension(path string) http.Handler {
+	for _, e := range c.sources.Extensions {
+		if strings.HasPrefix(path, e.Prefix) {
+			return e.Handler
+		}
+	}
+	return nil
 }
 
 // Reasons a request is refused.
