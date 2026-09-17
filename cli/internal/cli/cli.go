@@ -16,9 +16,12 @@ import (
 )
 
 // Version is the orb version. Release builds set it with
-// -ldflags "-X gorbital.dev/cli/internal/cli.Version=v0.1.0"; go install
-// gorbital.dev/cli/cmd/orb@v0.1.0 gets it from the module version.
-var Version = moduleVersion("v0.1.0-dev", debug.ReadBuildInfo)
+// -ldflags "-X gorbital.dev/cli/internal/cli.Version=v0.2.0"; go install
+// gorbital.dev/cli/cmd/orb@v0.2.0 gets it from the module version. The
+// fallback is what an unstamped build of this tree reports, so it names the
+// release being prepared: it reaches users' apps through gorbital.lock and
+// orb upgrade's branch and commit names.
+var Version = moduleVersion("v0.2.0-dev", debug.ReadBuildInfo)
 
 // cliModulePath is the module orb is built from.
 const cliModulePath = "gorbital.dev/cli"

@@ -1,18 +1,19 @@
 name: Release library
 
-# Pushing a library tag, v1.2.0 for the root module or modules/auth/v1.2.0
-# for a module, runs gorelease against the module's previous tag: it fails
+# Pushing a library tag, v1.2.0 for the root module, modules/auth/v1.2.0 for
+# a module or gorbital/v1.2.0 for the composition module (ADR-0081), runs
+# gorelease against the module's previous tag: it fails
 # when the API changed incompatibly for the version, or the version number
 # doesn't match the change (ADR-0015, ADR-0054). Run it by hand before
 # tagging with "Run workflow". It needs the earlier release and gorbital.dev
 # to be downloadable, so it works from the first public release on.
 on:
   push:
-    tags: ["v*", "modules/**/v*"]
+    tags: ["v*", "modules/**/v*", "gorbital/v*"]
   workflow_dispatch:
     inputs:
       module:
-        description: Module directory, such as . or modules/auth
+        description: Module directory, such as ., gorbital or modules/auth
         required: true
         default: "."
       version:
@@ -44,7 +45,7 @@ jobs:
             dir="$INPUT_MODULE"; version="$INPUT_VERSION"
           else
             case "$REF_NAME" in
-              modules/*) dir="${REF_NAME%/v*}"; version="${REF_NAME##*/}" ;;
+              modules/*|gorbital/*) dir="${REF_NAME%/v*}"; version="${REF_NAME##*/}" ;;
               *) dir="."; version="$REF_NAME" ;;
             esac
           fi
