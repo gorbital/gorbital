@@ -15,7 +15,7 @@ import (
 // listModule loads the public packages of the module in dir and returns its
 // API lines, sorted, and the module path.
 func listModule(dir string) ([]string, string, error) {
-	gomod, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	gomod, err := os.ReadFile(filepath.Join(dir, "go.mod")) //nolint:gosec // the repository's own files
 	if err != nil {
 		return nil, "", err
 	}
@@ -35,7 +35,7 @@ func listModule(dir string) ([]string, string, error) {
 	lines := map[string]bool{}
 	for _, pkg := range pkgs {
 		for _, e := range pkg.Errors {
-			errs = append(errs, fmt.Errorf("%s: %v", pkg.PkgPath, e))
+			errs = append(errs, fmt.Errorf("%s: %w", pkg.PkgPath, e))
 		}
 		if pkg.Module == nil || pkg.Module.Path != modulePath || pkg.Name == "main" || isInternal(pkg.PkgPath) || pkg.Types == nil {
 			continue
