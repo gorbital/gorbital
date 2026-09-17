@@ -285,7 +285,7 @@ func (a *App) build(ctx context.Context) error {
 		DefaultReturnTo:         a.cfg.Social.DefaultReturnTo,
 		Catalog:                 declarePermissions(),
 		Recorder:                recorder,
-		Emails:                  authlib.NewMailEmails(mailer, ServiceName),
+		Emails:                  authlib.NewBrandedEmails(mailer, a.brand()),
 		Keyring:                 a.cfg.keyring(),
 		Issuer:                  ServiceName,
 		Passkeys:                a.cfg.WebAuthn.passkeys(),

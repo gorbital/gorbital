@@ -65,6 +65,7 @@ pkg gorbital.dev/modules/auth, const TOTPPeriod time.Duration
 pkg gorbital.dev/modules/auth, const TOTPSkew = 1
 pkg gorbital.dev/modules/auth, const TOTPSkew ideal-int
 pkg gorbital.dev/modules/auth, func APIKeyMatches(string, []byte) bool
+pkg gorbital.dev/modules/auth, func BrandedEmailPreviews(mail.Brand) []EmailPreview
 pkg gorbital.dev/modules/auth, func ClearSessionCookie(string) *http.Cookie
 pkg gorbital.dev/modules/auth, func ClientInfoFrom(*http.Request) ClientInfo
 pkg gorbital.dev/modules/auth, func ClientInfoFromContext(context.Context) ClientInfo
@@ -77,6 +78,7 @@ pkg gorbital.dev/modules/auth, func HashToken(string) []byte
 pkg gorbital.dev/modules/auth, func IsAPIKey(string) bool
 pkg gorbital.dev/modules/auth, func Middleware(Authenticator, ...MiddlewareOption) func(http.Handler) http.Handler
 pkg gorbital.dev/modules/auth, func NewAPIKey() (string, string, []byte)
+pkg gorbital.dev/modules/auth, func NewBrandedEmails(mail.Sender, mail.Brand) Emails
 pkg gorbital.dev/modules/auth, func NewCatalog() *Catalog
 pkg gorbital.dev/modules/auth, func NewCode() string
 pkg gorbital.dev/modules/auth, func NewHasher() (*Hasher, error)

@@ -212,15 +212,35 @@ pkg gorbital.dev/mail, func RedactAddresses(string) string
 pkg gorbital.dev/mail, func WithDefaults(Sender, Defaults) Sender
 pkg gorbital.dev/mail, func WithSuppressionList(Sender, SuppressionList) Sender
 pkg gorbital.dev/mail, method (Address) String() string
+pkg gorbital.dev/mail, method (Brand) Message(string, string, string, Email) Message
+pkg gorbital.dev/mail, method (Brand) Render(Email) (string, string)
 pkg gorbital.dev/mail, method (Message) Validate() error
 pkg gorbital.dev/mail, method (SenderFunc) Send(context.Context, Message) error
 pkg gorbital.dev/mail, type Address struct
 pkg gorbital.dev/mail, type Address struct, Email string
 pkg gorbital.dev/mail, type Address struct, Name string
+pkg gorbital.dev/mail, type Brand struct
+pkg gorbital.dev/mail, type Brand struct, Footer string
+pkg gorbital.dev/mail, type Brand struct, LogoURL string
+pkg gorbital.dev/mail, type Brand struct, Name string
+pkg gorbital.dev/mail, type Brand struct, SupportEmail string
+pkg gorbital.dev/mail, type Brand struct, URL string
+pkg gorbital.dev/mail, type Button struct
+pkg gorbital.dev/mail, type Button struct, Label string
+pkg gorbital.dev/mail, type Button struct, URL string
 pkg gorbital.dev/mail, type Defaults struct
 pkg gorbital.dev/mail, type Defaults struct, FromEmail config.Value[string]
 pkg gorbital.dev/mail, type Defaults struct, FromName config.Value[string]
 pkg gorbital.dev/mail, type Defaults struct, ReplyTo config.Value[string]
+pkg gorbital.dev/mail, type Email struct
+pkg gorbital.dev/mail, type Email struct, Button Button
+pkg gorbital.dev/mail, type Email struct, Closing []string
+pkg gorbital.dev/mail, type Email struct, Code string
+pkg gorbital.dev/mail, type Email struct, CodeLabel string
+pkg gorbital.dev/mail, type Email struct, CodeNote string
+pkg gorbital.dev/mail, type Email struct, Paragraphs []string
+pkg gorbital.dev/mail, type Email struct, Preheader string
+pkg gorbital.dev/mail, type Email struct, Title string
 pkg gorbital.dev/mail, type Message struct
 pkg gorbital.dev/mail, type Message struct, From Address
 pkg gorbital.dev/mail, type Message struct, HTML string

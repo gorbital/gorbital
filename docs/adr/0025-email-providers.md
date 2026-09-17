@@ -1,6 +1,6 @@
 # ADR-0025: Email providers
 
-**Status:** Accepted (2026-09-14) · **Amended by:** ADR-0033 (two-step mail worker and `jobs.AsyncSender(client)` wiring), ADR-0037 (`orb add mail`, Resend over its HTTP API instead of the SDK, sender as runtime settings, `mail.ErrRejected`, `MAIL_DELIVERY`), ADR-0062 (Resend bounce and complaint webhooks, suppression list)
+**Status:** Accepted (2026-09-14) · **Amended by:** ADR-0033 (two-step mail worker and `jobs.AsyncSender(client)` wiring), ADR-0037 (`orb add mail`, Resend over its HTTP API instead of the SDK, sender as runtime settings, `mail.ErrRejected`, `MAIL_DELIVERY`), ADR-0062 (Resend bounce and complaint webhooks, suppression list), ADR-0078 (the branded layout in `mail`: `Brand`, `Email`, `Brand.Render`, `Brand.Message`)
 
 ## Context
 

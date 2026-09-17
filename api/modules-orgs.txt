@@ -5,6 +5,7 @@ pkg gorbital.dev/modules/orgs, const RoleMember ideal-string
 pkg gorbital.dev/modules/orgs, const RoleOwner = "owner"
 pkg gorbital.dev/modules/orgs, const RoleOwner ideal-string
 pkg gorbital.dev/modules/orgs, func Authorize(context.Context, *auth.Catalog, Member, string) (context.Context, error)
+pkg gorbital.dev/modules/orgs, func NewBrandedEmails(mail.Sender, mail.Brand) Emails
 pkg gorbital.dev/modules/orgs, func NewID() ID
 pkg gorbital.dev/modules/orgs, func NewMailEmails(mail.Sender, string) Emails
 pkg gorbital.dev/modules/orgs, func ParseID(string) (ID, error)

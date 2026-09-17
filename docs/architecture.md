@@ -209,7 +209,7 @@ my-api/
 └── go.mod · go.sum
 ```
 
-A multi-tenant app adds `internal/modules/orgs/` and the `orgs_purge` job. The `.well-known` files are served by `mountWellKnown` in `internal/app/passkeys.go`. There's no separate worker command: jobs run in the API process. Email templates are plain-text and HTML strings in `modules/auth` (`authlib.NewMailEmails`); owned email templates with a development preview are still open (section 11). `go run ./cmd/api openapi --dir api` writes `api/openapi.json`, a Postman collection and `llms.txt`; `api/surface.json` and `api/openapi.baseline.json` record the public surface ([ADR-0054](adr/0054-api-freeze-and-scaffold-compatibility.md)).
+A multi-tenant app adds `internal/modules/orgs/` and the `orgs_purge` job. The `.well-known` files are served by `mountWellKnown` in `internal/app/passkeys.go`. There's no separate worker command: jobs run in the API process. Emails are rendered by the core `mail` package's layout (`mail.Brand`, [ADR-0078](adr/0078-branded-email-layout.md)) from `internal/app/mail.go`'s brand; the auth and organisation modules take it (`NewBrandedEmails`) and the Dev Portal previews every message. `go run ./cmd/api openapi --dir api` writes `api/openapi.json`, a Postman collection and `llms.txt`; `api/surface.json` and `api/openapi.baseline.json` record the public surface ([ADR-0054](adr/0054-api-freeze-and-scaffold-compatibility.md)).
 
 Rules enforced by `architecture_test.go`:
 
@@ -369,7 +369,7 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~`orb new --preset=full`~~ | Resolved: templates generated from `examples/full-single`, reproduced byte for byte, with `go.mod` derived from the golden `go.mod` ([ADR-0041](adr/0041-full-preset-generation.md)) |
 | ~~Audit storage~~ | Resolved: `modules/auditpg` stores events in an append-only `audit_events` table, listed by `/ops/audit` ([ADR-0036](adr/0036-audit-storage.md)) |
 | ~~Email providers and setup~~ | Resolved: `modules/mail/smtp`, `modules/mail/resend` and `orb add mail` ([ADR-0037](adr/0037-email-setup-and-delivery.md)) |
-| Email templates and preview route | Open: owned templates in `internal/emails` with a development preview (ADR-0025) arrive with authentication's emails |
+| ~~Email templates and preview route~~ | Resolved: one branded layout in `mail` (`mail.Brand`, `mail.Email`) used by the modules and the app's own emails ([ADR-0078](adr/0078-branded-email-layout.md)); previews in the Dev Portal ([ADR-0074](adr/0074-dev-mail-previews-and-env-editor.md)) |
 | ~~Client IP and user agent in audit events~~ | Resolved: `actor.WithClient` carries them in the context, `auth.Middleware` sets them after trusted-proxy handling, and `audit.FromContext` fills every event recorded during a request ([ADR-0036](adr/0036-audit-storage.md#security-review-fixes-2026-09-16)) |
 | ~~Organisations design~~ | Resolved: [ADR-0048](adr/0048-organisations-v0-4.md) accepted and built in v0.4; `orb add orgs` converts existing apps in v0.5 ([ADR-0050](adr/0050-upgrades-and-adding-features.md)) |
 | Client templates | Open: [ADR-0047](adr/0047-client-templates.md) proposed; to decide the dashboard and docs stacks, where archives are hosted, and the bundle ID prompt before accepting |

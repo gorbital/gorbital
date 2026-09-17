@@ -26,6 +26,18 @@ const (
 	mailDeliveryProvider = "provider"
 )
 
+// brand is what every email the app sends has in common: the name at the
+// top and in the footer, where it links, and how to reach support
+// (ADR-0078). Set URL to your product's address and LogoURL to a hosted
+// logo once you have them; the auth and organisation emails and your own
+// (mail.Brand.Message) then share one look.
+func (a *App) brand() mail.Brand {
+	return mail.Brand{
+		Name: ServiceName,
+		URL:  a.cfg.Social.PublicURL,
+	}
+}
+
 // newMailSender returns the sender the mail worker delivers through.
 func newMailSender(cfg Config) (mail.Sender, error) {
 	switch cfg.MailDelivery {
