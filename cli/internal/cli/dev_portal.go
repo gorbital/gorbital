@@ -109,7 +109,7 @@ func (d *devRunner) servePortal(ctx context.Context) (func(), error) {
 	// Every output line (the app's, orb's) goes to the store; with
 	// services, the PostgreSQL container's log too (ADR-0072).
 	stopLogs := make(chan struct{})
-	go logs.Follow(d.hub, stopLogs)
+	go logs.FollowOrb(d.hub, stopLogs)
 	logsCtx, cancelLogs := context.WithCancel(ctx)
 	go d.system.Run(logsCtx)
 	if d.database && d.services {
