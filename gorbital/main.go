@@ -97,14 +97,28 @@ func runCommand(ctx context.Context, name string, args []string, src config.Sour
 		flags.Usage()
 		return fmt.Errorf("%w: %s", ErrUsage, strings.TrimSpace(usageLine(name, commands)))
 	}
+	// parse parses the command's flags, defined before it is called, and
+	// refuses positional arguments; -h returns flag.ErrHelp (exit 0).
+	parse := func() error {
+		if err := flags.Parse(args); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return err
+			}
+			return usageErr()
+		}
+		if flags.NArg() > 0 {
+			return usageErr()
+		}
+		return nil
+	}
 	switch name {
 	case "help", "-h", "-help", "--help":
 		fmt.Fprint(stdout, usage(o.name, commands))
 		return nil
 
 	case "serve":
-		if flags.Parse(args) != nil || flags.NArg() > 0 {
-			return usageErr()
+		if err := parse(); err != nil {
+			return err
 		}
 		cfg, err := LoadConfig(src)
 		if err != nil {
@@ -119,10 +133,10 @@ func runCommand(ctx context.Context, name string, args []string, src config.Sour
 	case "migrate":
 		status := flags.Bool("status", false, "report pending migrations without applying them")
 		asJSON := flags.Bool("json", false, "with --status, print one JSON object")
-		if err := flags.Parse(args); err != nil || flags.NArg() > 0 || (*asJSON && !*status) {
-			if errors.Is(err, flag.ErrHelp) {
-				return err
-			}
+		if err := parse(); err != nil {
+			return err
+		}
+		if *asJSON && !*status {
 			return usageErr()
 		}
 		cfg, cfgErr := LoadConfig(src)
@@ -146,8 +160,8 @@ func runCommand(ctx context.Context, name string, args []string, src config.Sour
 		return Migrate(ctx, cfg, stdout, withOptions(o))
 
 	case "migrate-down":
-		if flags.Parse(args) != nil || flags.NArg() > 0 {
-			return usageErr()
+		if err := parse(); err != nil {
+			return err
 		}
 		cfg, err := LoadConfig(src)
 		if err != nil {
@@ -157,11 +171,8 @@ func runCommand(ctx context.Context, name string, args []string, src config.Sour
 
 	case "openapi":
 		dir := flags.String("dir", "", "write openapi.json, postman_collection.json and llms.txt into this directory")
-		if err := flags.Parse(args); err != nil || flags.NArg() > 0 {
-			if errors.Is(err, flag.ErrHelp) {
-				return err
-			}
-			return usageErr()
+		if err := parse(); err != nil {
+			return err
 		}
 		if *dir != "" {
 			return writeAPIFiles(*dir, o)
@@ -170,11 +181,8 @@ func runCommand(ctx context.Context, name string, args []string, src config.Sour
 
 	case "version":
 		asJSON := flags.Bool("json", false, "print one JSON object")
-		if err := flags.Parse(args); err != nil || flags.NArg() > 0 {
-			if errors.Is(err, flag.ErrHelp) {
-				return err
-			}
-			return usageErr()
+		if err := parse(); err != nil {
+			return err
 		}
 		info := buildinfo.Read()
 		if *asJSON {
