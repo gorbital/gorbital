@@ -24,7 +24,7 @@ Further v0.x releases follow as work lands. In Go terms v0 carries no compatibil
 | [Client templates](#client-templates) | Proposed | |
 | [Public website](#public-website) | Built early, published | gorbital.dev, docs.gorbital.dev |
 | [Dev Portal](#dev-portal) | In progress; the phases built so far are in v0.1.0 | `orb dev` serves the portal; phases in the [Dev Portal roadmap](dev-portal-roadmap.md) |
-| [A framework you import](v0.2-roadmap.md) | Proposed, for `v0.2.0` | Phases in the [v0.2 roadmap](v0.2-roadmap.md): router, guards, `gorbital.Run`, route annotations, sign-in and ops in the library, versioned docs with Methods and Examples tabs |
+| [A framework you import](v0.2-roadmap.md) | Proposed, for `v0.2.0` | Phases in the [v0.2 roadmap](v0.2-roadmap.md): modules with explicit, deny-by-default routes and guards, `gorbital.Main`, sign-in and ops in the library, optional route annotations, versioned docs with Methods and Examples tabs |
 
 Each milestone below has the same parts: **status** with what was built, then a table of what it **delivers**, what's **not included**, when it's **done**, and measured **results**.
 
