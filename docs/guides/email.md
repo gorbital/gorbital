@@ -175,28 +175,63 @@ Listing needs `ops.mail.read` (`platform_admin`, `ops_viewer`); removing needs `
 
 With `MAIL_DELIVERY` empty (or `devmail`), every email the app sends, whatever the provider, goes to `orb dev`'s mail catcher ([ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)): an SMTP server `orb dev` runs on `DEV_MAIL_SMTP_ADDR` (default `127.0.0.1:1025`), whose inbox is the Dev Portal's **Mail** screen (http://127.0.0.1:3100/mail): the message as HTML, text or source, verification codes with a copy button, links, attachments. Messages are kept under `.orb/portal/mail` (the last 500), so they survive the app's restarts; nobody real is emailed. Without the portal (`orb dev --no-portal`) the catcher doesn't run: use Mailpit or the provider.
 
-The Mail screen also renders the app's **email previews** with sample data and sends one to the inbox: the auth module's messages (`auth.EmailPreviews`) and the plain test message, listed in `internal/app/mail_previews.go`, where you add your own. The dev console serves them at `GET /_dev/mail/previews`, `GET /_dev/mail/preview?name=` and `POST /_dev/mail/preview/send?name=&to=`.
+The Mail screen also renders the app's **email previews** with sample data and sends one to the inbox: the auth module's messages (`auth.BrandedEmailPreviews`), in multi-tenant apps the organisation invitation, and the test message, all in the app's [email layout](#email-templates), listed in `internal/app/mail_previews.go`, where you add your own. The dev console serves them at `GET /_dev/mail/previews`, `GET /_dev/mail/preview?name=` and `POST /_dev/mail/preview/send?name=&to=`.
 
 Prefer Mailpit? Run it yourself (or keep the `mailpit` service an older `compose.yaml` has), set `MAIL_DELIVERY=mailpit` and `MAILPIT_SMTP_ADDR`; `/_dev/mail` then proxies its inbox. To try the real provider while developing, set `MAIL_DELIVERY=provider` in `.env` with its credentials, and restart.
 
 ## Send email from code
 
-Modules receive the mailer (a `mail.Sender`) as a dependency. Leave `From` empty to use the `mail.*` settings:
+Modules receive the mailer (a `mail.Sender`) as a dependency. Leave `From` empty to use the `mail.*` settings. Render the message with the app's brand, so it looks like every other email the app sends ([ADR-0078](../adr/0078-branded-email-layout.md)):
 
 ```go
-err := mailer.Send(ctx, mail.Message{
-	To:      []mail.Address{{Email: user.Email}},
-	Subject: "Verify your email",
-	Text:    "Your code is " + code,
-	HTML:    "<p>Your code is <strong>" + code + "</strong></p>",
-	Tags:    map[string]string{"category": "verification"},
+msg := a.brand().Message(user.Email, "Your invoice is ready", "invoice", mail.Email{
+	Preheader:  "Invoice 1042 for March",
+	Title:      "Your invoice is ready",
+	Paragraphs: []string{"Invoice 1042 for March is ready to download."},
+	Button:     mail.Button{Label: "Open invoice", URL: invoiceURL},
+	Closing:    []string{"Questions about a charge? Reply to this email."},
 })
+err := mailer.Send(ctx, msg)
 ```
 
 - `Send` returns once the email is queued; a validation error (no recipient, a line break in the subject) returns at once.
 - Set `IdempotencyKey` (for example `"welcome-" + user.ID`) when the same email could be queued twice.
-- Tags reach Resend (letters, digits, `_` and `-`); SMTP ignores them.
+- Tags reach Resend (letters, digits, `_` and `-`); SMTP ignores them. `Message` sets the `category` tag from its third argument.
 - Inside a transaction, enqueue through the jobs client's `InsertTx` so the email is sent only if the transaction commits ([background jobs](background-jobs.md)).
+- A `mail.Message` with your own `Text` and `HTML` still works; the layout is a convenience, not a requirement.
+
+## Email templates
+
+Every email the app sends shares one layout, rendered by `mail.Brand` from the core `mail` package: the wordmark (or your logo) at the top, one card with the message, a footer with the name, the link and a support address. Emails are light, one 560px column of tables with inline styles, so they read the same in Gmail, Outlook, Apple Mail and the Dev Portal's preview.
+
+The brand is built once, in `internal/app/mail.go`:
+
+```go
+func (a *App) brand() mail.Brand {
+	return mail.Brand{
+		Name:         ServiceName,
+		URL:          a.cfg.Social.PublicURL,
+		LogoURL:      "https://cdn.example.com/acme-logo.png", // shown instead of the name, 32px high
+		SupportEmail: "help@example.com",
+		Footer:       "Acme Ltd, 1 Orbit Way, London",
+	}
+}
+```
+
+The auth module's emails (`authlib.NewBrandedEmails`), the organisation invitation (`orgslib.NewBrandedEmails`) and the test message take it from there. What each email can hold is a `mail.Email`:
+
+| Field | Shown as |
+|---|---|
+| `Preheader` | The line inbox lists show after the subject; hidden in the opened email |
+| `Title` | The heading |
+| `Paragraphs` | The message |
+| `Code`, `CodeLabel`, `CodeNote` | A one-time code, large in a dark block, with its caption and the expiry line under it |
+| `Button` | The main action as a lime button, with the URL repeated as a link |
+| `Closing` | Smaller lines at the end: "If you didn't do this…" |
+
+`Brand.Render` returns the HTML and a plain-text alternative built from the same content; `Brand.Message` wraps both in a `mail.Message` with the `category` tag. Only `http`, `https` and `mailto` links are rendered; anything else is dropped. Check the result in the Dev Portal's Mail screen (**Previews**), which renders every email with sample data.
+
+To change the look entirely, implement the modules' `Emails` interfaces with your own templates and pass them in `internal/app/app.go` instead of `NewBrandedEmails`.
 
 ## Troubleshooting
 

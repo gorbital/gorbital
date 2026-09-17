@@ -1,6 +1,6 @@
 # ADR-0074: Dev mail, email previews and the env editor
 
-**Status:** Accepted (2026-09-16) · **Amends:** ADR-0008, ADR-0025, ADR-0028, ADR-0065, ADR-0066
+**Status:** Accepted (2026-09-16) · **Amends:** ADR-0008, ADR-0025, ADR-0028, ADR-0065, ADR-0066 · **Amended by:** ADR-0078 (previews render in the branded layout; multi-tenant apps preview the invitation)
 
 ## Context
 

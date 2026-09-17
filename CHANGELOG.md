@@ -8,6 +8,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Eve
 
 Nothing here is tagged yet. v1.0 (stable, awaiting the external security review) and v1.1 (done) are both on the development branch; each keeps its own section so the v1.0 release notes stay separate.
 
+### Branded emails ([ADR-0078](docs/adr/0078-branded-email-layout.md))
+
+#### Added
+
+- `mail.Brand` (name, URL, logo, support address, footer line) renders a `mail.Email` (preheader, title, paragraphs, a one-time code block with its label and expiry, a button, closing lines) as HTML and plain text: one 560px column of tables with inline styles in the brand's light palette; `Brand.Message` wraps it in a `mail.Message` with the `category` tag; only `http`, `https` and `mailto` links are rendered. `auth.NewBrandedEmails`, `auth.BrandedEmailPreviews` and `orgs.NewBrandedEmails` take the brand. Full apps build it in `internal/app/mail.go` (`(*App).brand()`, the service name and `APP_PUBLIC_URL`), pass it to both modules and the test message; multi-tenant apps preview the `orgs.invitation` email ([guide](docs/guides/email.md#email-templates)).
+
+#### Changed
+
+- Every auth and organisation email has a title, the code in its own block, the invitation as a button, and a footer with the app's name; `NewMailEmails(sender, appName)` and `EmailPreviews(appName)` remain as the brand with only a name.
+
 ### Dev Portal, phase 0 ([ADR-0066](docs/adr/0066-dev-portal.md), [roadmap](docs/dev-portal-roadmap.md))
 
 #### Added
