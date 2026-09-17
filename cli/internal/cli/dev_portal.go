@@ -281,6 +281,7 @@ func (d *devRunner) databaseConfig() portal.DatabaseConfig {
 			}
 			return d.Migrate()
 		},
+		SchemaStatus: d.currentSchema,
 	}
 }
 

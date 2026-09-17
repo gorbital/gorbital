@@ -209,6 +209,13 @@ func (s *Server) serveEvents(w http.ResponseWriter, r *http.Request) {
 	if err := write("state", s.cfg.Supervisor.Status()); err != nil {
 		return
 	}
+	// The latest schema status follows, so a page that connects late shows
+	// pending and edited migrations without waiting for the next change.
+	if schema, ok := s.cfg.Hub.Schema(); ok {
+		if err := write("schema", Event{Type: "schema", Time: time.Now(), Schema: &schema}); err != nil {
+			return
+		}
+	}
 
 	keepAlive := time.NewTicker(keepAliveInterval)
 	defer keepAlive.Stop()

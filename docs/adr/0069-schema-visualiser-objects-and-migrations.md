@@ -1,6 +1,6 @@
 # ADR-0069: Schema visualiser, database objects and migrations
 
-**Status:** Accepted (2026-09-16) · **Amends:** ADR-0005, ADR-0017, ADR-0067
+**Status:** Accepted (2026-09-16) · **Amends:** ADR-0005, ADR-0017, ADR-0067 · **Amended by:** ADR-0080 (the live schema status: pending, out-of-order and edited files, the `schema` event)
 
 ## Context
 

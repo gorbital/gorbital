@@ -77,6 +77,7 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 	d.database = slices.Contains(manifestFeatures(manifest), "postgres")
 	d.services = !*noServices
 	d.observability = *observability
+	d.reload = !*noReload
 	d.portal = !*noPortal
 	d.portalPortFlag = *portalPort
 	d.openBrowser = !*noOpen
@@ -102,7 +103,13 @@ type devRunner struct {
 	database      bool     // the app has PostgreSQL: migrate and seed
 	services      bool     // start the database's Docker Compose services
 	observability bool     // start Grafana and send telemetry to it
+	reload        bool     // watch the app's files and rebuild on change
 	extraEnv      []string // set for the app over the environment and .env
+
+	// migrations lists db/migrations with each file's state for the schema
+	// status (ADR-0080); nil uses the portal's database connection. Tests
+	// replace it.
+	migrations func(ctx context.Context) ([]pgmeta.Migration, error)
 
 	// consoleToken is the dev console token given to the app, or "";
 	// consoleTokenFromEnv reports one taken from orb dev's environment.
@@ -141,6 +148,9 @@ type devRunner struct {
 	restarts  int
 	problem   string
 	addr      string // APP_ADDR as last read
+	// lastMigrateError is the last migrate run's error, the schema
+	// status's problem, until the next success.
+	lastMigrateError string
 
 	// commands carries restart, stop and start requests from the portal to
 	// loop, which runs them between change checks.
@@ -270,7 +280,9 @@ func (d *devRunner) prepare(ctx context.Context) error {
 		}
 	}
 	if d.database {
-		if err := d.migrate(ctx, env); err != nil {
+		// The startup schema status is published here (ADR-0080): the hub
+		// keeps it for the portal, which starts right after.
+		if err := d.runMigrate(ctx, env, portal.SchemaSourceStartup, commandMigrate); err != nil {
 			return err
 		}
 		if err := d.seed(ctx, env); err != nil {
@@ -353,12 +365,9 @@ func checkServicePort(service, envVar, port string) error {
 	return errors.New(msg)
 }
 
-func (d *devRunner) migrate(ctx context.Context, env []string) error {
-	return d.migrateWith(ctx, env)
-}
-
 // migrateWith runs the app's migrate command with args, such as --down or
-// --redo (development only, ADR-0069).
+// --redo (development only, ADR-0069). runMigrate wraps it with the schema
+// status (ADR-0080).
 func (d *devRunner) migrateWith(ctx context.Context, env []string, args ...string) error {
 	all := append([]string{"run", "./cmd/migrate"}, args...)
 	fmt.Fprintf(d.out, "orb: applying migrations (go %s)\n", strings.Join(all, " "))
@@ -429,18 +438,17 @@ func (d *devRunner) loop(ctx context.Context, reload bool, interval time.Duratio
 	}
 	defer d.stop()
 
-	if !reload {
-		select {
-		case <-ctx.Done():
-			return nil
-		case err := <-d.done:
-			d.exited(exitError(err))
-			return exitError(err)
-		}
+	// Two snapshots of db/migrations: lastSQL is the one last migrated
+	// (rebuild migrates when it differs), seenSQL the one last examined for
+	// the schema status. Without reload only db/migrations is watched, and
+	// a change is reported rather than applied (ADR-0080); the portal's
+	// commands still run.
+	var last uint64
+	if reload {
+		last, _ = snapshot(".", watched)
 	}
-
-	last, _ := snapshot(".", watched)
 	lastSQL, _ := snapshot(migrationsDir, isSQL)
+	seenSQL := lastSQL
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
@@ -449,18 +457,32 @@ func (d *devRunner) loop(ctx context.Context, reload bool, interval time.Duratio
 			fmt.Fprintln(d.out, "orb: stopping")
 			return nil
 		case err := <-d.done:
+			if !reload {
+				d.exited(exitError(err))
+				return exitError(err)
+			}
 			fmt.Fprintf(d.out, "orb: app exited (%v); waiting for changes\n", exitError(err))
 			d.exited(exitError(err))
 		case c := <-d.commands:
+			migrated := lastSQL
 			d.runCommand(ctx, c, &lastSQL)
-		case <-ticker.C:
-			cur, err := snapshot(".", watched)
-			if err != nil || cur == last {
-				continue
+			if lastSQL != migrated {
+				seenSQL = lastSQL
 			}
-			last = cur
-			fmt.Fprintln(d.out, "orb: change detected, rebuilding")
-			d.rebuild(ctx, &lastSQL)
+		case <-ticker.C:
+			if reload {
+				cur, err := snapshot(".", watched)
+				if err == nil && cur != last {
+					last = cur
+					fmt.Fprintln(d.out, "orb: change detected, rebuilding")
+					d.rebuild(ctx, &lastSQL)
+					seenSQL, _ = snapshot(migrationsDir, isSQL)
+					continue
+				}
+			}
+			if d.database && migrationsChanged(&seenSQL) && seenSQL != lastSQL {
+				d.schemaChangedInCode(ctx)
+			}
 		}
 	}
 }
@@ -488,11 +510,10 @@ func (d *devRunner) runCommand(ctx context.Context, c devCommand, lastSQL *uint6
 			d.setState(portal.StateStopped, err.Error())
 		}
 	case commandMigrate, commandDown, commandRedo, commandReset:
-		args := map[devCommand][]string{commandMigrate: nil, commandDown: {"--down"}, commandRedo: {"--redo"}, commandReset: nil}[c]
 		fmt.Fprintf(d.out, "orb: %s requested from the Dev Portal\n", c)
 		env, err := devEnv(".env")
 		if err == nil {
-			err = d.migrateWith(ctx, withAppEnv(env), args...)
+			err = d.runMigrate(ctx, withAppEnv(env), portal.SchemaSourcePortal, c)
 		}
 		if err == nil && c == commandReset {
 			err = d.seed(ctx, withAppEnv(env))
@@ -516,12 +537,17 @@ func (d *devRunner) rebuild(ctx context.Context, lastSQL *uint64) {
 	if err := d.build(ctx); err != nil {
 		d.keepRunning("build failed")
 		d.setStateAfterFailure("build failed: " + err.Error())
+		// Migrations that changed with the code wait for the next
+		// successful build: say so (ADR-0080).
+		if sql, _ := snapshot(migrationsDir, isSQL); d.database && sql != *lastSQL {
+			d.schemaChangedInCode(ctx)
+		}
 		return
 	}
 	if sql, _ := snapshot(migrationsDir, isSQL); d.database && sql != *lastSQL {
 		env, err := devEnv(".env")
 		if err == nil {
-			err = d.migrate(ctx, withAppEnv(env))
+			err = d.runMigrate(ctx, withAppEnv(env), portal.SchemaSourceMigrate, commandMigrate)
 		}
 		if err != nil {
 			d.keepRunning("migrations failed")

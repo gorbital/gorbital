@@ -52,6 +52,11 @@ type DatabaseConfig struct {
 	// Apply writes a migration file, after the clean-git check unless
 	// allowDirty, then asks the supervisor to apply it.
 	Apply func(ctx context.Context, plan genplan.Plan, allowDirty bool) error
+	// SchemaStatus computes the live schema status now (ADR-0080): the
+	// files against the database and the record of applied content, with
+	// the source and applied files of the last published status. Nil in an
+	// app without a database.
+	SchemaStatus func(ctx context.Context) (SchemaStatus, error)
 }
 
 // DDLRequest is the body of a ddl plan or apply request.
@@ -211,6 +216,9 @@ func (s *Server) dbHandler() http.Handler {
 	post("ddl/apply", func(ctx context.Context, db Database, r *http.Request) (any, error) {
 		return s.ddl(ctx, db, r, true)
 	})
+	// The live schema status (ADR-0080, schema.go): not through withDB, so
+	// an app without a database answers {"database": false}.
+	mux.HandleFunc("GET "+APIPrefix+"db/schema-status", s.serveSchemaStatus)
 	// Observability (ADR-0073, observe.go).
 	mux.HandleFunc("GET "+APIPrefix+"db/stats", s.serveDBStats)
 	mux.HandleFunc("GET "+APIPrefix+"db/statements", s.serveDBStatements)
