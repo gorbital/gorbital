@@ -28,7 +28,11 @@ func (f optionFunc) apply(o *options) { f(o) }
 // isn't guard.Public() then answers 401.
 //
 // A value that also has a method Module() Module contributes that module
-// too: its routes, permissions, settings, jobs and migrations.
+// too: its routes, permissions, settings, jobs and migrations. One with a
+// method Setup(ctx, AuthSetup) error receives the app's configuration,
+// dependencies and permission catalog before it serves, and one with a
+// method CheckConfig(Config) error checks the configuration first
+// ([AuthSetup]). gorbital.dev/gorbital/authhttp has all of them.
 type Authenticator interface {
 	Middleware(logger *slog.Logger) func(http.Handler) http.Handler
 }

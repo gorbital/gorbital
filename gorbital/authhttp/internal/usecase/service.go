@@ -26,7 +26,7 @@ import (
 )
 
 // RoleUser is the platform role every user holds without a grant
-// (ADR-0058). internal/app/permissions.go declares it with the permissions
+// (ADR-0058). The app's modules grant it the permissions
 // any signed-in user has over their own data, such as their user-scoped
 // resources, so an API key's scopes limit those operations too. It can't
 // require two-factor authentication, and it is never granted or given to a

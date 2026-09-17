@@ -7,7 +7,7 @@ import (
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
 )
 
-// The use cases own these ports; internal/modules/auth/repository
+// The use cases own these ports; authhttp's internal/repository
 // implements them with SQL.
 
 // UserStore reads and writes accounts. Deleted accounts are never returned.

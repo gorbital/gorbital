@@ -48,6 +48,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 - Types:
   - [`App`](#App): [`New`](#New), [`App.Close`](#App.Close), [`App.Deps`](#App.Deps), [`App.Handler`](#App.Handler), [`App.Run`](#App.Run)
   - [`AuthConfig`](#AuthConfig)
+  - [`AuthSetup`](#AuthSetup)
   - [`Authenticator`](#Authenticator)
   - [`Command`](#Command)
   - [`Config`](#Config): [`LoadConfig`](#LoadConfig), [`Config.Production`](#Config.Production)
@@ -720,6 +721,122 @@ Output:
 http://localhost:8080 http://localhost:8080/docs localhost
 ```
 
+<a id="AuthSetup"></a>
+<a id="AuthSetup.Name"></a>
+<a id="AuthSetup.Config"></a>
+<a id="AuthSetup.Deps"></a>
+<a id="AuthSetup.Permissions"></a>
+<a id="AuthSetup.DevConsole"></a>
+<a id="AuthSetup.Handle"></a>
+<a id="AuthSetup.MailPreviews"></a>
+
+### type AuthSetup
+
+```go
+type AuthSetup struct {
+	// Name is the app's name ([WithName]).
+	Name string
+	// Config is the loaded configuration.
+	Config Config
+	// Deps are the app's dependencies, with an untagged logger; zero from
+	// Main.
+	Deps Deps
+	// Permissions is the app's permission catalog: every module's
+	// permissions, and a role for every role name they use, with the
+	// permissions the modules grant it. It isn't frozen yet, so the
+	// authenticator can declare the roles it relies on and require a second
+	// factor for roles; the authenticator freezes it.
+	Permissions *auth.Catalog
+	// DevConsole reports whether the app serves the development console
+	// (APP_ENV=development with DEV_CONSOLE_TOKEN): features that must never
+	// run in production, such as impersonation, check it.
+	DevConsole bool
+	// Handle serves a handler outside the OpenAPI document on the app's mux,
+	// behind the middleware stack, such as the /.well-known files passkeys
+	// need. The pattern is an http.ServeMux pattern with a method, such as
+	// "GET /.well-known/assetlinks.json". The dev console lists it. It does
+	// nothing from Main.
+	Handle func(pattern string, handler http.Handler)
+	// MailPreviews adds emails the dev console previews and sends with
+	// sample data (ADR-0074). It does nothing from Main.
+	MailPreviews func(previews ...auth.EmailPreview)
+}
+```
+
+AuthSetup is what the app hands its authenticator before using it: the configuration, the dependencies and the permission catalog. An [Authenticator](#Authenticator) with a method
+
+```
+Setup(ctx context.Context, s gorbital.AuthSetup) error
+```
+
+receives it, explicitly and once per app:
+
+  - from [New](#New), after the stores exist and before the modules' jobs, routes and the middleware stack are built, with the app's Deps; an error fails New;
+  - from [Main](#Main), before a command the authenticator contributes runs, with zero Deps: the command opens what it needs from Config.
+
+An authenticator that also has a method CheckConfig(cfg Config) error has it called first, by New before connecting to anything and by Main before such a command; its error is a configuration error (exit status 2), as for [LoadConfig](#LoadConfig). gorbital.dev/gorbital/authhttp checks there what needs sign-in's own packages, such as the Apple private key.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+package gorbital_test
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+
+	"gorbital.dev/gorbital"
+)
+
+// tokenAuth is an authenticator that reads its configuration and database
+// from the app, as gorbital.dev/gorbital/authhttp does.
+type tokenAuth struct {
+	app  string
+	deps gorbital.Deps
+}
+
+func (a *tokenAuth) Middleware(*slog.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Look the bearer token up in a.deps.DB and set the actor.
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// CheckConfig runs before anything connects; an error exits with status 2.
+func (a *tokenAuth) CheckConfig(cfg gorbital.Config) error {
+	if cfg.Production() && cfg.Auth.EncryptionKeys.IsZero() {
+		return errors.New("AUTH_ENCRYPTION_KEYS is required in production")
+	}
+	return nil
+}
+
+// Setup receives the app's dependencies once the stores exist.
+func (a *tokenAuth) Setup(_ context.Context, s gorbital.AuthSetup) error {
+	a.app, a.deps = s.Name, s.Deps
+	if !s.Permissions.HasRole("user") {
+		s.Permissions.Role("user", "Every signed-in user")
+	}
+	s.Permissions.Freeze()
+	s.Handle("GET /.well-known/token-issuer", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(a.app))
+	}))
+	return nil
+}
+
+func ExampleAuthSetup() {
+	main := func() {
+		gorbital.Main(gorbital.WithAuth(&tokenAuth{}), gorbital.WithModules(modulesAll()...))
+	}
+	_ = main
+}
+```
+
 <a id="Authenticator"></a>
 <a id="Authenticator.Middleware"></a>
 
@@ -733,7 +850,7 @@ type Authenticator interface {
 
 An Authenticator resolves who makes each request. Its middleware runs at the Auth step of the middleware stack ([Stack](#Stack)) and sets the actor (actor.With, or auth.WithPrincipal) for authenticated requests; requests it can't authenticate pass through without one, and every route that isn't guard.Public() then answers 401.
 
-A value that also has a method Module() Module contributes that module too: its routes, permissions, settings, jobs and migrations.
+A value that also has a method Module() Module contributes that module too: its routes, permissions, settings, jobs and migrations. One with a method Setup(ctx, AuthSetup) error receives the app's configuration, dependencies and permission catalog before it serves, and one with a method CheckConfig(Config) error checks the configuration first ([AuthSetup](#AuthSetup)). gorbital.dev/gorbital/authhttp has all of them.
 
 *Since `v0.2.0 (unreleased)`*
 

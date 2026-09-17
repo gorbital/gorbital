@@ -345,7 +345,8 @@ type orgServiceAccountKeyIDInput struct {
 }
 
 // RegisterOrgServiceAccounts adds organisations' service accounts under
-// /v1/orgs/{orgId}/service-accounts (ADR-0058). Multi-tenant apps call it;
+// /v1/orgs/{orgId}/service-accounts (ADR-0058). Nothing mounts it until
+// organisations move into the library (Phase 7); multi-tenant apps call it;
 // the use cases need Config.Orgs. A nil svc registers the operations without
 // their dependencies, for exporting the OpenAPI document.
 func RegisterOrgServiceAccounts(r *gorbital.Router, svc *authusecase.Service) {

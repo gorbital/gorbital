@@ -13,7 +13,7 @@ import (
 )
 
 // Permissions for the platform's service accounts (ADR-0058).
-// internal/app/permissions.go declares them and gives them to the ops roles,
+// authhttp's module declares them and gives them to the ops roles,
 // which require two-factor authentication. They are public API.
 const (
 	PermServiceAccountsRead  = "ops.service_accounts.read"

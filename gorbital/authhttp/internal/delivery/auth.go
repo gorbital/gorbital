@@ -174,8 +174,10 @@ type handler struct {
 	cookie string
 }
 
-// Register adds the authentication operations to api. Browsers receive the
-// session in the cookie named cookie.
+// Register adds the authentication operations to r, with v0.1's operation
+// IDs, paths and documentation. Browsers receive the session in the cookie
+// named cookie. A nil svc registers the operations without their
+// dependencies, for exporting the OpenAPI document.
 func Register(r *gorbital.Router, svc *authusecase.Service, cookie string) {
 	h := &handler{svc: svc, cookie: cookie}
 	public := func(op huma.Operation) huma.Operation {
@@ -377,7 +379,7 @@ func (h *handler) deleteAccount(ctx context.Context, in *deleteAccountInput) (*c
 }
 
 // authError adds the reason to a rejected password and the wait to a rate
-// limit; other errors are mapped in internal/app/module_auth.go.
+// limit; other errors are mapped by the module's Errors (authhttp's module.go).
 func authError(err error) error {
 	var weak *authlib.PasswordError
 	var limited *authdomain.RateLimitError
