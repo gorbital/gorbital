@@ -143,7 +143,7 @@ Screens that need `/ops/` show an explanation in an app whose `orb` predates the
 
 ## Building `orb` with the UI
 
-A plain checkout of gorbital builds an `orb` whose portal serves a placeholder page: the API and proxy work, and the page says how to get the UI. Released binaries carry it. To embed the UI you are working on:
+The built UI is committed in `cli/internal/portal/ui/dist`, so `go install gorbital.dev/cli/cmd/orb@latest`, a checkout and the release binaries all serve it; `dist/BUILD` names the gorbital-dashboards commit it was built from. To embed the UI you are working on:
 
 ```bash
 cd gorbital
@@ -151,7 +151,7 @@ scripts/sync-portal.sh            # builds ../gorbital-dashboards/apps/devtools 
 cd cli && go install ./cmd/orb
 ```
 
-`scripts/sync-portal.sh /path/to/gorbital-dashboards` uses another checkout; `DASHBOARDS_REF=<tag>` checks that ref out first. Only `dist/.gitkeep` is committed; the copied files are ignored by git. The script needs Node 22 and pnpm 10.
+`scripts/sync-portal.sh /path/to/gorbital-dashboards` uses another checkout; `DASHBOARDS_REF=<tag>` checks that ref out first. Commit the copied files when a release should ship them. The script needs Node 22 and pnpm 10. A build whose `dist/` has no `index.html` serves a placeholder page that says how to get the UI.
 
 To work on the UI itself, run it from its source with live reload instead of rebuilding `orb` on every change:
 

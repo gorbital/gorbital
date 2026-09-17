@@ -8,8 +8,9 @@
 #   scripts/sync-portal.sh /path/to/gorbital-dashboards
 #   DASHBOARDS_REF=v0.3.0 scripts/sync-portal.sh   # check out a tag or branch first
 #
-# Needs Node 22 and pnpm 10. Only dist/.gitkeep is committed; the copied
-# files are ignored by git.
+# Needs Node 22 and pnpm 10. Commit the copied files with the release that
+# should carry them: go install and the release binaries embed what is
+# committed, and dist/BUILD records the gorbital-dashboards commit.
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -40,4 +41,4 @@ cp -R "$out"/. "$dist"/
 rev="$(git -C "$dashboards" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 printf '%s\n' "$rev" > "$dist/BUILD"
 echo "sync-portal: copied $(find "$dist" -type f | wc -l | tr -d ' ') files (gorbital-dashboards $rev) into cli/internal/portal/ui/dist"
-echo "sync-portal: now build orb: cd cli && go install ./cmd/orb"
+echo "sync-portal: commit cli/internal/portal/ui/dist to ship it; to try it now: cd cli && go install ./cmd/orb"

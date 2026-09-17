@@ -1,3 +1,0 @@
-# The built UI is copied here by scripts/sync-portal.sh; only .gitkeep is committed.
-dist/*
-!dist/.gitkeep

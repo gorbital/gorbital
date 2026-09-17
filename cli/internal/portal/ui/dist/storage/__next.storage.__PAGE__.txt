@@ -1,0 +1,22 @@
+1:"$Sreact.fragment"
+2:"$Sreact.suspense"
+3:I[69759,["/_next/static/chunks/0usu-6avpbw7u.js","/_next/static/chunks/1ys_o9uub63g9.js","/_next/static/chunks/0s7ca06ztdka0.js","/_next/static/chunks/0g8sfoq30ddg8.js","/_next/static/chunks/0o073w65f8hgv.js","/_next/static/chunks/2sam3ynn1me3r.js","/_next/static/chunks/3lv6yw0g6hj6a.js","/_next/static/chunks/1krpnd49d6zkp.js","/_next/static/chunks/20j53_5tfdy16.js","/_next/static/chunks/32_t5af9evcdc.js"],"StorageSkeleton"]
+4:I[69759,["/_next/static/chunks/0usu-6avpbw7u.js","/_next/static/chunks/1ys_o9uub63g9.js","/_next/static/chunks/0s7ca06ztdka0.js","/_next/static/chunks/0g8sfoq30ddg8.js","/_next/static/chunks/0o073w65f8hgv.js","/_next/static/chunks/2sam3ynn1me3r.js","/_next/static/chunks/3lv6yw0g6hj6a.js","/_next/static/chunks/1krpnd49d6zkp.js","/_next/static/chunks/20j53_5tfdy16.js","/_next/static/chunks/32_t5af9evcdc.js"],"Storage"]
+5:I[8401,["/_next/static/chunks/0usu-6avpbw7u.js","/_next/static/chunks/1ys_o9uub63g9.js","/_next/static/chunks/0s7ca06ztdka0.js","/_next/static/chunks/0g8sfoq30ddg8.js","/_next/static/chunks/0o073w65f8hgv.js","/_next/static/chunks/2sam3ynn1me3r.js"],"OutletBoundary"]
+9:I[8401,["/_next/static/chunks/0usu-6avpbw7u.js","/_next/static/chunks/1ys_o9uub63g9.js","/_next/static/chunks/0s7ca06ztdka0.js","/_next/static/chunks/0g8sfoq30ddg8.js","/_next/static/chunks/0o073w65f8hgv.js","/_next/static/chunks/2sam3ynn1me3r.js"],"ViewportBoundary"]
+a:I[8401,["/_next/static/chunks/0usu-6avpbw7u.js","/_next/static/chunks/1ys_o9uub63g9.js","/_next/static/chunks/0s7ca06ztdka0.js","/_next/static/chunks/0g8sfoq30ddg8.js","/_next/static/chunks/0o073w65f8hgv.js","/_next/static/chunks/2sam3ynn1me3r.js"],"MetadataBoundary"]
+b:I[41409,["/_next/static/chunks/0usu-6avpbw7u.js","/_next/static/chunks/1ys_o9uub63g9.js","/_next/static/chunks/0s7ca06ztdka0.js","/_next/static/chunks/0g8sfoq30ddg8.js","/_next/static/chunks/0o073w65f8hgv.js","/_next/static/chunks/2sam3ynn1me3r.js"],"IconMark"]
+d:I[3145,["/_next/static/chunks/0usu-6avpbw7u.js","/_next/static/chunks/1ys_o9uub63g9.js","/_next/static/chunks/0s7ca06ztdka0.js","/_next/static/chunks/0g8sfoq30ddg8.js","/_next/static/chunks/0o073w65f8hgv.js","/_next/static/chunks/2sam3ynn1me3r.js"],"default"]
+e:I[20791,["/_next/static/chunks/0usu-6avpbw7u.js","/_next/static/chunks/1ys_o9uub63g9.js","/_next/static/chunks/0s7ca06ztdka0.js","/_next/static/chunks/0g8sfoq30ddg8.js","/_next/static/chunks/0o073w65f8hgv.js","/_next/static/chunks/2sam3ynn1me3r.js"],"default"]
+8:X
+10:X
+10:C
+0:{"buildId":"vIVJM9E6-qmPJAwN38tJI","data":[{"rsc":["$","$1","c",{"children":[["$","$2",null,{"fallback":["$","$L3",null,{}],"children":["$","$L4",null,{}]}],[["$","script","script-0",{"src":"/_next/static/chunks/3lv6yw0g6hj6a.js","async":true}],["$","script","script-1",{"src":"/_next/static/chunks/1krpnd49d6zkp.js","async":true}],["$","script","script-2",{"src":"/_next/static/chunks/20j53_5tfdy16.js","async":true}],["$","script","script-3",{"src":"/_next/static/chunks/32_t5af9evcdc.js","async":true}]],["$","$L5",null,{"children":["$","$2",null,{"name":"Next.MetadataOutlet","children":"$@6"}]}]]}],"isPartial":"$@7","staleTime":"$8","varyParams":null},{"rsc":["$","$1","h",{"children":[null,["$","$L9",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$La",null,{"children":["$","$2",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Dev Portal · devtools for gorbital"}],["$","meta","1",{"name":"description","content":"Inspect the app on your bench while orb dev runs it."}],["$","link","2",{"rel":"icon","href":"/favicon.svg","type":"image/svg+xml"}],["$","link","3",{"rel":"icon","href":"/favicon-32x32.png","sizes":"32x32","type":"image/png"}],["$","link","4",{"rel":"apple-touch-icon","href":"/apple-touch-icon.png"}],["$","$Lb","5",{}]]}]}]}],["$","meta",null,{"name":"next-size-adjust","content":""}]]}],"isPartial":"$@c","staleTime":"$8","varyParams":null},{"rsc":["$","$1","c",{"children":[null,["$","$Ld",null,{"parallelRouterKey":"children","template":["$","$Le",null,{}]}]]}],"isPartial":"$@f","staleTime":"$8","varyParams":"$10"}],"isUpgradeableISRFallback":false,"a":"$@11","rootVaryParams":null,"needsRuntimeRequest":"$@12"}
+6:null
+12:true
+8:300
+8:C
+11:0
+c:"$undefined"
+f:"$undefined"
+7:"$undefined"
