@@ -4,6 +4,19 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
+## Unreleased (v0.2.0)
+
+v0.2 turns gorbital into a framework apps import: routes, guards, the middleware stack, sign-in and the operations API move from generated code into the library ([roadmap](docs/v0.2-roadmap.md), [ADR-0081](docs/adr/0081-a-framework-you-import.md)). It is additive: apps created with v0.1.0 keep building against it, and converting to the new layout is optional.
+
+### Added
+
+- Decision records for the v0.2 line: [ADR-0081](docs/adr/0081-a-framework-you-import.md) (a framework you import), [ADR-0082](docs/adr/0082-routes-guards-and-middleware.md) (routes, guards and middleware), [ADR-0083](docs/adr/0083-modules-stack-migrations-and-ejection.md) (modules, the default stack, migrations and ejection), [ADR-0084](docs/adr/0084-versioned-documentation.md) (versioned documentation).
+- Versioned documentation: v0.1 stays published unchanged; the v0.2 line is previewed under `/next/`; new Methods and Examples tabs.
+
+### Changed
+
+- Architecture principle 3 now reads "library for behaviour and default wiring; generation for scaffolding and the module list" ([architecture](docs/architecture.md#2-principles)).
+
 ## v0.1.0 (2026-09-17)
 
 The first public release. It contains everything built during development, grouped below by theme: the foundation, data and identity, strong authentication, organisations, operations and upgrades, the stability and security review work, operations and integrations, and the Dev Portal. `v1.0.0` follows once the external security review signs off ([stability](docs/guides/stability.md)).

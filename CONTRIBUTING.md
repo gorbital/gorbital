@@ -40,6 +40,16 @@ More in [Testing](docs/guides/testing.md).
 | Anything a generated app receives | A row in [upgrade notes](docs/guides/upgrade-notes.md) saying what existing apps must do, and a [changelog](CHANGELOG.md) entry |
 | Behaviour users see | The guide that describes it, under `docs/` |
 
+## Branches and release lines
+
+| Branch | For |
+|---|---|
+| `main` | The latest release, and fixes to it |
+| `release/v0.1` | Security fixes and factual corrections to v0.1 only, cherry-picked and listed in the changelog |
+| `v0.2` | The v0.2 line ([roadmap](docs/v0.2-roadmap.md)); work lands through `framework/phase-N` branches |
+
+Documentation follows the same branches: the docs site serves each line from its branch ([ADR-0084](docs/adr/0084-versioned-documentation.md)). A change to how developers use gorbital documents itself in the same pull request: the guide, the Methods page (doc comments and `Example` functions), the example app and its chapter when it shows the feature, upgrade notes and changelog.
+
 ## Pull requests
 
 - One change per pull request; explain the why in the description and fill in the template.

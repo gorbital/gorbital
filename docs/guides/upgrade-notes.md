@@ -4,6 +4,14 @@ What changes for existing apps in each release, and what to do that `orb upgrade
 
 `v0.1.0` is the first public release: apps created with it or later start here, and each later release adds its section above this line. Apps created with a development build of `orb` before `v0.1.0` follow [Before v0.1.0](#before-v010-development-builds).
 
+## Upgrading to v0.2.0 (unreleased)
+
+v0.2.0 is being built on the [v0.2 roadmap](../v0.2-roadmap.md). It is additive ([ADR-0081](../adr/0081-a-framework-you-import.md)): an app created with v0.1.0 builds and passes its tests against v0.2.0 with `go get` and no code changes, and CI checks that on every change. Moving an app to the new layout (built-in sign-in and `/ops` from the library, `gorbital.Main` in `main.go`) will be an opt-in `orb upgrade`; this section lists what to do as each phase lands.
+
+| Change | What to do |
+|---|---|
+| Nothing yet | Nothing |
+
 ## Before v0.1.0 (development builds)
 
 Before `v0.1.0`, apps could be created with development builds of `orb` from a gorbital checkout (`--local`). The sections below take such an app to `v0.1.0`: read every section, newest first, down to the one for the build that created your app. `orb upgrade` rebuilds what gorbital wrote from the release or commit in `gorbital.lock`; when the lock records neither, name the commit of the gorbital checkout that created the app: `orb upgrade --from <commit>`. The pre-release tags of those builds were never public and no longer exist. Numbers such as v0.5 or v1.1 in older decision records name internal development milestones, not releases.

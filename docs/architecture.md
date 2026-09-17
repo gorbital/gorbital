@@ -34,7 +34,7 @@ Three products, versioned together ([ADR-0014](adr/0014-product-shape-and-preset
 
 1. **Readable over clever.** A request can be traced from `main.go` to SQL with "go to definition". No reflection wiring, no hidden registration.
 2. **Owned code is sacred.** The CLI never silently overwrites developer code; changes are previewed, recorded and merged.
-3. **Library for behaviour, generation for wiring.**
+3. **Library for behaviour and default wiring; generation for scaffolding and the module list** (from v0.2, [ADR-0081](adr/0081-a-framework-you-import.md); v0.1 apps keep their generated wiring).
 4. **Standard first:** stdlib, then de facto standards (pgx, goose, OpenTelemetry, River), then our own code.
 5. **Only PostgreSQL required** in production.
 6. **Secure and observable by default,** every default visible in code.
@@ -100,6 +100,12 @@ DEVELOPER MACHINE / CI (never in production)        PRODUCTION (any host)
 ```text
 generated app ──► modules/* ──► core ──► stdlib (+ OpenTelemetry API, golang.org/x)
                   modules never import other modules
+```
+
+From v0.2 ([ADR-0081](adr/0081-a-framework-you-import.md), in progress on the [v0.2 roadmap](v0.2-roadmap.md)) a composition layer sits between the app and the modules: `gorbital.dev/gorbital` (router, guards, default stack, `Module`, `Deps`, `Main`) and its built-in modules (`authhttp`, `opshttp`, `orgshttp`, `flagshttp`, `mailevents`). It is the only library code allowed to import several modules.
+
+```text
+app ──► gorbital.dev/gorbital (+ guard, built-in modules) ──► modules/* ──► core ──► stdlib
 ```
 
 - A contract enters **core** only when at least two official modules consume it.
