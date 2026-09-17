@@ -3,7 +3,7 @@
 Shelfie is a reading-tracker API: people keep a shelf of books and track what they're reading, from a web app and a mobile app. This chapter creates the project: a `main.go` that runs the whole server, the local database, and the first start. The finished code is in [`examples/apps/shelfie`](https://github.com/gorbital/gorbital/tree/main/examples/apps/shelfie).
 
 > [!NOTE]
-> `orb new` creates apps with v0.1's layout until Phase 9 of the [v0.2 roadmap](../../v0.2-roadmap.md). This chapter builds the v0.2 layout by hand; each file is short. Sign-in arrives in chapter 6: until then, routes that need a signed-in reader answer 401, and the tests of [chapter 4](04-tests.md) say who is calling.
+> `orb new` creates apps with v0.1's layout until Phase 9 of the [v0.2 roadmap](../../v0.2-roadmap.md). This chapter builds the v0.2 layout by hand; each file is short. Sign-in is on from `main.go`, with its defaults; configuring it with options and hooks is chapter 6 (Phase 6).
 
 ## What you'll have
 
@@ -31,7 +31,7 @@ go get gorbital.dev/gorbital
 
 <!-- include examples/apps/shelfie/cmd/api/main.go#main -->
 
-`gorbital.Main` reads the configuration from the environment, connects to PostgreSQL, builds the settings, flags, jobs, email delivery and middleware, and serves the modules' routes until it receives a stop signal ([Your main.go](../../guides/main-go.md)). It also answers commands: `go run ./cmd/api migrate` applies migrations, `go run ./cmd/api openapi` prints the OpenAPI document, `go run ./cmd/api help` lists the rest.
+`gorbital.WithAuth(authhttp.New())` adds sign-in from the library ([authentication](../../guides/authentication.md#in-an-app-on-gorbitalmain)): registration with email verification, sessions, two-factor authentication, passkeys, Google, Apple and GitHub, and API keys, under `/v1/auth/`. `gorbital.Main` reads the configuration from the environment, connects to PostgreSQL, builds the settings, flags, jobs, email delivery and middleware, and serves the modules' routes until it receives a stop signal ([Your main.go](../../guides/main-go.md)). It also answers commands: `go run ./cmd/api migrate` applies migrations, `go run ./cmd/api openapi` prints the OpenAPI document, `go run ./cmd/api grant-role <email> <role>` gives an account a platform role, and `go run ./cmd/api help` lists the rest, including sign-in's `roles`, `revoke-role`, `reset-mfa`, `rotate-auth-keys` and `auth-providers`.
 
 ## 3. Migrations
 
@@ -39,7 +39,7 @@ Your tables are goose migrations in `db/migrations`, embedded so the binary carr
 
 <!-- include examples/apps/shelfie/db/migrations/migrations.go -->
 
-The library's own tables (runtime settings, jobs, the audit log, rate limits and the rest) aren't in this directory: `migrate` serves them from the library and runs them in one history with yours, ordered by version. The books table arrives in [chapter 1](01-books-module.md).
+The library's own tables (runtime settings, jobs, the audit log, rate limits, sign-in's accounts and sessions, and the rest) aren't in this directory: `migrate` serves them from the library and runs them in one history with yours, ordered by version. The books table arrives in [chapter 1](01-books-module.md).
 
 ## 4. The module list
 
@@ -96,7 +96,7 @@ curl http://127.0.0.1:8080/readyz
 {"status":"ok","checks":{"postgres":{"status":"ok","duration_ms":1}}}
 ```
 
-`http://127.0.0.1:8080/docs` shows the API reference, with `GET /version` so far. Stop the app with Ctrl-C: it stops taking requests, lets running work finish and closes the database pool.
+`http://127.0.0.1:8080/docs` shows the API reference: `GET /version` and sign-in's operations (`/v1/auth/`, `/ops/auth/users`, `/ops/service-accounts`) so far. Stop the app with Ctrl-C: it stops taking requests, lets running work finish and closes the database pool.
 
 ## Next
 

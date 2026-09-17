@@ -42,7 +42,7 @@ Work through this list before real people use your app. Each line names the valu
 
 ## 6. Your first administrator
 
-Seed data only exists in development: `cmd/seed` refuses to run in production. Create the first administrator by hand:
+Seed data only exists in development, in apps created with `orb` v0.1: `cmd/seed` refuses to run in production, and an app on `gorbital.Main` has none. Create the first administrator by hand:
 
 1. Sign up through your frontend or `POST /v1/auth/register`, and verify the email.
 2. In the production environment, run `/api grant-role you@example.com platform_admin` (or `go run ./cmd/api grant-role …` from a machine with the production environment).

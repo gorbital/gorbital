@@ -269,7 +269,7 @@ Your API accepts each server-to-server notification once, and only within an hou
 ## Check it works
 
 - `go run ./cmd/api auth-providers` shows `✓ Apple sign-in` (websites) and `✓ Apple sign-in in iOS apps`.
-- `GET /ops/auth/providers` shows the same to administrators.
+- `GET /ops/auth/providers` shows the same to administrators (in an app on `gorbital.Main`, once the operations module arrives in Phase 4).
 - Signing in through `/v1/auth/apple/start` ends back on your site, signed in.
 
 ## If something goes wrong

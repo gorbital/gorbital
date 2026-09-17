@@ -1,6 +1,6 @@
 # 4. Tests
 
-Shelfie's tests call the API the way its web and mobile apps do: HTTP requests through the whole middleware stack, guards and handlers, on a real PostgreSQL database per test. They use `gorbitaltest` ([Testing with gorbitaltest](../../guides/testing-with-gorbitaltest.md)), so they don't need sign-in to exist: each request says who is calling.
+Shelfie's tests call the API the way its web and mobile apps do: HTTP requests through the whole middleware stack, guards and handlers, on a real PostgreSQL database per test. They use `gorbitaltest` ([Testing with gorbitaltest](../../guides/testing-with-gorbitaltest.md)), so most of them don't sign in: each request says who is calling. One test [signs in for real](#real-sign-in).
 
 ## Run them
 
@@ -51,6 +51,16 @@ Workers don't run in tests. `app.Mail` returns the email the app queued, and `ap
 <!-- include examples/apps/shelfie/internal/modules/books/books_test.go#mail-and-jobs -->
 
 The books module sends neither yet; the test shows the calls, and a later chapter's welcome email is checked the same way.
+
+## Real sign-in
+
+`gorbitaltest`'s principals stay the default: a test that doesn't pass `gorbital.WithAuth` gets requests as `gorbitaltest.User` and `gorbitaltest.APIKey`. A test that passes `gorbital.WithAuth(authhttp.New())`, as `main.go` does, replaces them with sign-in itself, and signs in the way the web and mobile apps do:
+
+<!-- include examples/apps/shelfie/internal/modules/books/signin_test.go#sign-in -->
+
+- The verification code is read from `app.Mail`: the email is queued, never sent.
+- Every account holds the `user` role, which the books module's permissions name, so a new reader can add a book.
+- The test's database is migrated with sign-in's migrations too.
 
 ## Other tests in the app
 

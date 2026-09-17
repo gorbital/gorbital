@@ -144,7 +144,7 @@ Restart the app (stop `orb dev` with Ctrl+C and start it again).
 
 1. **Check it's on**
 
-   The **Sign-in methods** list that `orb dev` prints at start shows `✓ GitHub sign-in` with its callback URL. Or run `go run ./cmd/api auth-providers`.
+   Run `go run ./cmd/api auth-providers`: it shows `✓ GitHub sign-in` with its callback URL. In an app created with `orb` v0.1, the **Sign-in methods** list that `orb dev` prints at start shows it too; an app on `gorbital.Main` logs `sign-in method` with `method=github` and `configured=true` instead.
 
 2. **Sign in**
 

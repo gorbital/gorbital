@@ -71,6 +71,14 @@ c.Permission("reports.report.read", "Read reports")
 c.Role("report_reader", "Reads reports; can be given to service accounts", "reports.report.read")
 ```
 
+In an app on [`gorbital.Main`](main-go.md), sign-in is `authhttp` and there is no `permissions.go`: the role is a role name in one of your module's permissions, and it doesn't require a second factor:
+
+```go
+Permissions: []gorbital.Permission{
+	{Name: "reports.report.read", Description: "Read reports", Roles: []string{"report_reader"}},
+},
+```
+
 ### Organisation service accounts (`/v1/orgs/{orgId}/service-accounts`)
 
 In multi-tenant apps, an organisation's owners and admins (permission `orgs.service_accounts.manage`) manage its service accounts with the same operations under `/v1/orgs/{orgId}/service-accounts`, giving each one `role` instead of `roles`. The role must be one they could give a member, and never `owner` or a role that requires two-factor authentication; an admin can't change, delete or create keys for a service account whose role they couldn't give.
@@ -102,7 +110,7 @@ An organisation service account's key acts in its organisation's org-scoped modu
 
 ## In your own code
 
-A use case can't tell a key from a session unless it asks, and usually shouldn't: check permissions with `actor.Require`. **Every operation a signed-in user can call must check a permission**, or a key's scopes don't limit it: for something any user may do, declare a permission, give it to the `user` role in `internal/app/permissions.go` (`authusecase.RoleUser`), and check it; generated user-scoped resources do this through `userResourcePermissions`. When an operation must need a person, refuse keys explicitly:
+A use case can't tell a key from a session unless it asks, and usually shouldn't: check permissions with `actor.Require`. **Every operation a signed-in user can call must check a permission**, or a key's scopes don't limit it: for something any user may do, declare a permission, give it to the `user` role in `internal/app/permissions.go` (`authusecase.RoleUser`; in an app on `gorbital.Main`, `Roles: []string{"user"}` in the module's permission), and check it; generated user-scoped resources do this through `userResourcePermissions`. When an operation must need a person, refuse keys explicitly:
 
 ```go
 if p, ok := authlib.PrincipalFrom(ctx); ok && p.APIKey() {

@@ -26,18 +26,19 @@ Three groups of programs read the environment, and each has its own variables:
 
 A v0.2 app built with [`gorbital.Main`](main-go.md) has no `internal/app/config.go`: `gorbital.LoadConfig` reads every variable on this page that a Full app reads, with the same names, defaults, messages and production refusals, and reports every problem at once, one line per variable ([Methods](../methods/gorbital.md#LoadConfig)). A v0.1 deployment's environment works unchanged. The configuration errors end the program with exit code 2.
 
-A few checks belong to the driver or provider an app passes instead of to `LoadConfig`, so an app that doesn't use one doesn't compile it ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#configuration-what-moved-out-of-loadconfig)):
+A few checks belong to the driver, provider or authenticator an app passes instead of to `LoadConfig`, so an app that doesn't use one doesn't compile it ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#configuration-what-moved-out-of-loadconfig)):
 
 | Variable | In a v0.1 app | In an app on `gorbital.Main` |
 |---|---|---|
-| `AUTH_ENCRYPTION_KEYS` | Required in production | Its format is checked when set; the authenticator requires it (sign-in, Phase 5). An app without sign-in, or with external identity tokens, needs none |
-| `APPLE_PRIVATE_KEY`, `WEBAUTHN_APPLE_APP_IDS`, `WEBAUTHN_ANDROID_APPS` | Parsed at start | Read and required together as before; parsed by the authenticator (Phase 5) |
+| `AUTH_ENCRYPTION_KEYS` | Required in production | Its format is checked by `LoadConfig` when set; required in production, checked by `authhttp` at start. An app without sign-in, or with external identity tokens, needs none |
+| `APPLE_PRIVATE_KEY` (or `APPLE_PRIVATE_KEY_FILE`), `WEBAUTHN_APPLE_APP_IDS`, `WEBAUTHN_ANDROID_APPS` | Parsed at start | Read and required together by `LoadConfig` as before; the Apple key and the app lists are checked by `authhttp` at start |
+| `WEBAUTHN_ORIGINS` | Each origin on `WEBAUTHN_RP_ID` | Checked by `authhttp` at start |
 | `STORAGE_DRIVER` other than `local` | The app opens S3 | Checked as before; the app passes the store: `gorbital.WithStorageFunc(func(cfg gorbital.Config) (storage.Store, error) { … cfg.Storage … })`. Without it, the start fails naming the option |
 | `RESEND_API_KEY` | Required with `MAIL_DELIVERY=provider` | The app passes its provider with `gorbital.WithMailer` or `WithMailerFunc` (reading `cfg.Mail.ResendAPIKey`), which production requires; the provider checks its key |
 | `RESEND_WEBHOOK_SECRET` | Format checked at start | Read; its format is checked at start by `mailevents.Module()` when the app has it, as a configuration error (exit code 2) |
 | `SMTP_*` | Read by `infra_mail.go` after `orb add mail --provider smtp` | Not read by gorbital: build the sender with `gorbital.dev/modules/mail/smtp` in `WithMailerFunc` |
 
-`openapi` reads no variables, as `api openapi` doesn't in v0.1 apps.
+`authhttp`'s checks run in `gorbital.New` and `gorbital.Main` before anything connects, with v0.1's messages, and end the program with exit code 2 like `LoadConfig`'s ([Methods](../methods/gorbital-authhttp.md#Authenticator.CheckConfig)). `openapi` reads no variables, as `api openapi` doesn't in v0.1 apps.
 
 ## App server
 

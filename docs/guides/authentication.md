@@ -1,6 +1,6 @@
 # Authentication guide
 
-How a Full preset app signs people up and in, keeps them signed in, and decides what they may do. Implemented in `examples/full-single` (`internal/modules/auth`) on the building blocks of `modules/auth`. Decisions: [ADR-0024](../adr/0024-authentication-methods.md), [ADR-0038](../adr/0038-authentication-v0-2.md), [ADR-0043](../adr/0043-two-factor-authentication.md) (two-factor authentication).
+How a Full preset app signs people up and in, keeps them signed in, and decides what they may do. Implemented in `examples/full-single` (`internal/modules/auth`) on the building blocks of `modules/auth`, and for apps on [`gorbital.Main`](main-go.md) in the library as `gorbital.dev/gorbital/authhttp` ([Methods](../methods/gorbital-authhttp.md)), with the same behaviour. Decisions: [ADR-0024](../adr/0024-authentication-methods.md), [ADR-0038](../adr/0038-authentication-v0-2.md), [ADR-0043](../adr/0043-two-factor-authentication.md) (two-factor authentication).
 
 ## The flow
 
@@ -51,9 +51,33 @@ Your app owns authentication like any other module, with all four layers. The go
 
 Change a rule, such as allowing only your company's email domain, in the use case (`register.go`); add a column with a new migration and a repository file.
 
+### In an app on gorbital.Main
+
+Sign-in is one line of `main.go`, and the code is in the library, not in your app:
+
+```go
+gorbital.Main(
+	gorbital.WithAuth(authhttp.New()),
+	gorbital.WithModules(modules.All()...),
+)
+```
+
+| Where | What's in it |
+|---|---|
+| `gorbital.dev/gorbital/authhttp` | `New`, the `Authenticator` (its middleware, `Module`, `Commands`, `CheckConfig` and `Setup`), permissions and roles, runtime settings, rate limiters, the `auth_cleanup` and `auth_revoke_tokens` jobs, configuration checks |
+| `gorbital/authhttp/internal/{domain,usecase,repository,delivery}` | The auth module of a v0.1 app, moved unchanged: the 74 operations under `/v1/auth/*`, `/ops/auth/users/*` and `/ops/service-accounts/*`, plus organisations' service accounts, kept for Phase 7 |
+| `gorbital/authhttp/internal/migrations` | The same migrations, under the versions v0.1 apps hold them under: a database migrated by a v0.1 app migrates as a no-op |
+| `gorbital.dev/modules/auth` | The building blocks, as in a v0.1 app |
+
+Nothing about the API changes: the endpoints, request and response bodies, error codes, audit actions, permissions, roles, `auth.*` settings, jobs, rate limiter names (`auth_login`, `auth_login_address`, `auth_mfa`, `auth_reauth`, `auth_code`, `auth_notice`, `auth_api_key`), cookies (`__Host-session`, `__Host-oauth`) and environment variables are v0.1's. `auth.ip_requests_per_minute` and the `auth_ip` limiter belong to gorbital's middleware stack. Contract tests compare the library's OpenAPI operations with v0.1.0's byte for byte.
+
+Your app doesn't own or edit this code. Options, hooks, extra registration fields and your own sign-in methods arrive in Phase 6 of the [v0.2 roadmap](../v0.2-roadmap.md); taking the code back into your app as owned code is `orb eject` (Phase 9). A v0.1 app keeps `internal/modules/auth`, `internal/app` and `cmd/api` unchanged, and needs to do nothing.
+
 ## Your first administrator
 
-`/ops/*` needs a platform role, and a session signed in with two-factor authentication. In development, seed data already created one: the first `orb dev` (or `go run ./cmd/seed`) creates `admin@example.com` with `platform_admin` and two-factor authentication on, and prints its random password, authenticator app key and recovery codes once, without saving them ([ADR-0042](../adr/0042-development-seed-data.md)). Add the key to an authenticator app and sign in as in [Two-factor authentication](#two-factor-authentication).
+`/ops/*` needs a platform role, and a session signed in with two-factor authentication. In a v0.1 app in development, seed data already created one: the first `orb dev` (or `go run ./cmd/seed`) creates `admin@example.com` with `platform_admin` and two-factor authentication on, and prints its random password, authenticator app key and recovery codes once, without saving them ([ADR-0042](../adr/0042-development-seed-data.md)). Add the key to an authenticator app and sign in as in [Two-factor authentication](#two-factor-authentication).
+
+An app on `gorbital.Main` has no `cmd/seed`: create the first administrator as below, then turn on two-factor authentication (`POST /v1/auth/mfa/totp`, then `/confirm`).
 
 To give your own account a role, in development or production, register and verify it as above, then grant the role from the app's directory:
 
@@ -62,7 +86,7 @@ go run ./cmd/api roles                                        # list roles and t
 go run ./cmd/api grant-role you@example.com platform_admin    # recorded in the audit log as "cli"
 ```
 
-The role applies to your next request. `platform_admin` and `ops_viewer` require two-factor authentication: until the account turns it on and the session is verified with a second factor, `/ops/*` answers 403 `mfa_required`. `go run ./cmd/api revoke-role <email> <role>` takes a role away.
+The role applies to your next request. `platform_admin` and `ops_viewer` require two-factor authentication: until the account turns it on and the session is verified with a second factor, `/ops/*` answers 403 `mfa_required`. `go run ./cmd/api revoke-role <email> <role>` takes a role away. The commands are the same in an app on `gorbital.Main` ([sign-in commands](main-go.md#sign-in-commands)), except that wrong arguments exit with status 2 instead of 1.
 
 | Role | Can | Requires 2FA |
 |---|---|---|
@@ -70,6 +94,15 @@ The role applies to your next request. `platform_admin` and `ops_viewer` require
 | `ops_viewer` | Read settings, feature flags, jobs, the audit log and email status; change nothing | Yes |
 
 Add roles and permissions in `internal/app/permissions.go`; `c.RequireMFA("role")` makes a role require two-factor authentication. It's code, not a runtime setting, so nobody can switch it off from `/ops/settings`.
+
+In an app on `gorbital.Main`, roles come from modules' permissions: a role exists when a module's `gorbital.Permission` names it in `Roles` ([Modules and routes](modules-and-routes.md)). `authhttp` declares the ops permissions below, the `user` role every account holds when no module grants it anything, and the two-factor requirement for `platform_admin` and `ops_viewer`, with v0.1's role descriptions. A module gives signed-in users a permission with `Roles: []string{"user"}`, as Shelfie's books module does. Until the operations module arrives in Phase 4, the ops roles reach `/ops/auth/users` and `/ops/service-accounts` only. Requiring a second factor for other roles can't be configured until Phase 6.
+
+| Permission | Roles on `gorbital.Main` |
+|---|---|
+| `ops.auth.read` | `platform_admin`, `ops_viewer` |
+| `ops.auth.write` | `platform_admin` |
+| `ops.service_accounts.read` | `platform_admin`, `ops_viewer` |
+| `ops.service_accounts.write` | `platform_admin` |
 
 ## Two-factor authentication
 
@@ -275,7 +308,7 @@ Operators manage accounts through `/ops/auth/users…` ([ops API](ops-api.md#acc
 
 Rate limit settings (group `rate_limits`, all with a reason required) are in the table under [What users see](#what-users-see): `auth.ip_requests_per_minute` (10 – 10 000), `auth.login_attempts` (3 – 100), `auth.login_address_attempts` (10 – 1000), `auth.login_window` (1 minute – 24 hours), `auth.mfa_change_attempts` (3 – 100), `auth.reauth_attempts` (3 – 100), `auth.code_attempts` (5 – 100), `auth.code_window` (1 hour – 7 days) and `auth.api_key_failures_per_minute` (5 – 10 000; wrong API keys per client network, see [API keys](api-keys.md#limits-and-settings)).
 
-Change them with `PUT /ops/settings/{key}`. The auth module also enforces hard limits of its own, so no setting can make sessions or codes unsafe. Two-factor authentication has no runtime settings.
+Change them with `PUT /ops/settings/{key}` (in an app on `gorbital.Main`, once the operations module arrives in Phase 4). The auth module also enforces hard limits of its own, so no setting can make sessions or codes unsafe. Two-factor authentication has no runtime settings.
 
 ## In your own code
 
@@ -298,7 +331,7 @@ func (s *Service) CreateProject(ctx context.Context, name string) (Project, erro
 }
 ```
 
-1. Declare the permission in `internal/app/permissions.go` and add it to a role.
+1. Declare the permission in `internal/app/permissions.go` and add it to a role (in an app on `gorbital.Main`, in the module's `Permissions`, with the roles in `Roles`).
 2. Check it in the use case with `actor.Require` (or `actor.Can` when you only need yes or no).
 3. Map your module's errors to `unauthenticated` (401), `mfa_required` (403) and `forbidden` (403) in `module_<name>.go`.
 

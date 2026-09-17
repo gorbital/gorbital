@@ -198,9 +198,8 @@
             { "title": "gorbitaltest", "slug": "methods/gorbital-gorbitaltest", "source": "docs/methods/gorbital-gorbitaltest.md" },
             { "title": "opshttp", "slug": "methods/gorbital-opshttp", "source": "docs/methods/gorbital-opshttp.md" },
             { "title": "flagshttp", "slug": "methods/gorbital-flagshttp", "source": "docs/methods/gorbital-flagshttp.md" },
-            { "title": "mailevents", "slug": "methods/gorbital-mailevents", "source": "docs/methods/gorbital-mailevents.md" }
-            { "title": "authhttp", "slug": "methods/gorbital-authhttp", "source": "docs/methods/gorbital-authhttp.md" },
-            { "title": "gorbitaltest", "slug": "methods/gorbital-gorbitaltest", "source": "docs/methods/gorbital-gorbitaltest.md" }
+            { "title": "mailevents", "slug": "methods/gorbital-mailevents", "source": "docs/methods/gorbital-mailevents.md" },
+            { "title": "authhttp", "slug": "methods/gorbital-authhttp", "source": "docs/methods/gorbital-authhttp.md" }
           ]
         },
         {

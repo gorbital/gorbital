@@ -62,7 +62,7 @@ Sign-in methods
   – Passkeys in Android apps  set WEBAUTHN_ANDROID_APPS in .env   AUTH_PROVIDERS.md#passkeys-in-android-apps
 ```
 
-A tick means the method is on. A dash means it's off, and shows what to set. `orb dev` prints the same list each time the app starts.
+A tick means the method is on. A dash means it's off, and shows what to set. In an app created with `orb` v0.1, `orb dev` prints the same list each time the app starts. In an app on [`gorbital.Main`](../guides/main-go.md), sign-in is the library's `authhttp` and the command is the same; at start the app logs one `sign-in method` line per method instead, with `method` and `configured`.
 
 ## A good order
 

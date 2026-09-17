@@ -1,6 +1,6 @@
 # Every key and credential
 
-One page with every value a Full app reads: what it is, whether you need it, how you get it, and a complete `.env` at the end. Nothing here is invented: each name is read by your app's `internal/app` code or its `compose.yaml`, and `.env.example` lists them all.
+One page with every value a Full app reads: what it is, whether you need it, how you get it, and a complete `.env` at the end. Nothing here is invented: each name is read by your app's `internal/app` code or its `compose.yaml`, and `.env.example` lists them all. An app on [`gorbital.Main`](../guides/main-go.md) reads the same names through `gorbital.LoadConfig` and sign-in's `authhttp` ([environment variables](../guides/environment-variables.md#apps-on-gorbitalmain)).
 
 ## How each value is obtained
 
