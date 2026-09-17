@@ -26,3 +26,8 @@ c02b1c34553d6dedff3012f8efd80f0e622ea8bd:modules/mail/resend/resend_test.go:gene
 9f82dc2dd4467c3ac7d2c985931e4fc823134030:cli/internal/portal/ui/dist/_next/static/chunks/3-qmkubz08ovt.js:generic-api-key:252
 9f82dc2dd4467c3ac7d2c985931e4fc823134030:cli/internal/portal/ui/dist/_next/static/chunks/3-qmkubz08ovt.js:generic-api-key:360
 9f82dc2dd4467c3ac7d2c985931e4fc823134030:cli/internal/portal/ui/dist/_next/static/chunks/27-u_yd08ci2q.js:generic-api-key:33
+# Reviewed 2026-09-17 (Phase 9): the same AUTH_PROVIDERS.md placeholder in the golden apps on gorbital.Main and their templates.
+b562d7ee8ee89d73d11d81196e469d5c140ffb67:cli/internal/recipes/v0.2/full-multi/AUTH_PROVIDERS.md.tmpl:generic-api-key:372
+b562d7ee8ee89d73d11d81196e469d5c140ffb67:cli/internal/recipes/v0.2/full/AUTH_PROVIDERS.md.tmpl:generic-api-key:372
+5a6561500dcb43f1475448bcad3941dc80d8f4ef:examples/full-multi/AUTH_PROVIDERS.md:generic-api-key:372
+5a6561500dcb43f1475448bcad3941dc80d8f4ef:examples/full-single/AUTH_PROVIDERS.md:generic-api-key:372
