@@ -36,9 +36,12 @@ type doctorCheck struct {
 }
 
 type doctorResult struct {
-	App      string        `json:"app"`
-	Preset   string        `json:"preset,omitempty"`
-	Tenancy  string        `json:"tenancy,omitempty"`
+	App     string `json:"app"`
+	Preset  string `json:"preset,omitempty"`
+	Tenancy string `json:"tenancy,omitempty"`
+	// Layout is "main" for an app on gorbital.Main and "v0.1" for an app
+	// wired by internal/app.
+	Layout   string        `json:"layout,omitempty"`
 	Checks   []doctorCheck `json:"checks"`
 	Failures int           `json:"failures"`
 	Warnings int           `json:"warnings"`
@@ -65,9 +68,14 @@ var doctorCommand = func(ctx context.Context, dir string, env []string, name str
 const doctorUsage = `Usage: orb doctor [flags]
 
 Checks the app in the current directory and prints what to fix: the Go
-toolchain, git, Docker and the Go orb was built with; gorbital.lock and the library version; the lines
-generators insert at; .env; whether api/ matches the code; and the
-database's migrations and row-level security. It changes nothing (ADR-0051).
+toolchain, git, Docker and the Go orb was built with; gorbital.lock and the
+library version; the lines generators insert at (v0.1 apps) or the module
+list, the middleware stack and APP_REQUEST_TIMEOUT (apps on gorbital.Main);
+.env; whether api/ matches the code; and the database's migrations and
+row-level security. It changes nothing (ADR-0051).
+
+Exit codes: 0 when no check failed (warnings allowed), 1 when one did, 2 for
+invalid usage.
 `
 
 func runDoctor(ctx context.Context, args []string, stdout, stderr io.Writer) error {
@@ -90,20 +98,30 @@ func runDoctor(ctx context.Context, args []string, stdout, stderr io.Writer) err
 		return err
 	}
 
-	d := &doctor{dir: app.dir, res: doctorResult{App: filepath.Base(app.dir), Checks: []doctorCheck{}}}
+	d := &doctor{dir: app.dir, res: doctorResult{App: filepath.Base(app.dir), Layout: appLayout(app.dir), Checks: []doctorCheck{}}}
+	main := d.res.Layout == layoutMain
 	d.toolchain(ctx)
 	d.project(ctx)
-	if d.res.Preset == "full" {
+	switch {
+	case main:
+		d.modules(app)
+		d.stack()
+	case d.res.Preset == "full":
 		d.generatorAnchors()
+	}
+	if d.res.Preset == "full" || main {
 		d.environment(ctx)
 	}
+	env, envErr := devEnv(filepath.Join(app.dir, envPath))
+	if main && envErr == nil {
+		d.requestTimeout(env)
+	}
 	if !*fast {
-		env, err := devEnv(filepath.Join(app.dir, envPath))
-		if err != nil {
-			d.add(doctorFail, ".env", err.Error(), "fix the line in .env")
+		if envErr != nil {
+			d.add(doctorFail, ".env", envErr.Error(), "fix the line in .env")
 		} else {
 			d.apiFiles(ctx, env)
-			if d.res.Preset == "full" {
+			if d.res.Preset == "full" || main {
 				d.database(ctx, env)
 			}
 		}
@@ -372,10 +390,12 @@ func (d *doctor) database(ctx context.Context, env []string) {
 		d.add(doctorFail, "configuration", firstLine(s.ConfigError), "set the variables in .env or the environment; .env.example documents each")
 	case s.DatabaseError != "":
 		d.add(doctorWarn, "database", "unreachable: "+firstLine(s.DatabaseError), "start it with orb dev (or docker compose up -d --wait) and check DATABASE_URL")
+	case s.Current > s.Latest && isGorbitalApp(d.dir):
+		d.add(doctorFail, "database", fmt.Sprintf("at migration %d, but the newest migration of the app and the library is %d", s.Current, s.Latest), "restore the missing migration files, or update gorbital.dev/gorbital: the database ran migrations this code doesn't have")
 	case s.Current > s.Latest:
 		d.add(doctorFail, "database", fmt.Sprintf("at migration %d, but the newest file in db/migrations is %d", s.Current, s.Latest), "restore the missing migration files: the database ran migrations this code doesn't have")
 	case s.Pending > 0:
-		d.add(doctorWarn, "database", strconv.Itoa(s.Pending)+" migrations pending", "go run ./cmd/migrate (orb dev runs them)")
+		d.add(doctorWarn, "database", strconv.Itoa(s.Pending)+" migrations pending", "go "+strings.Join(migrateCommands(d.dir, nil)[0], " ")+" (orb dev runs them)")
 	default:
 		d.add(doctorOK, "database", fmt.Sprintf("at migration %d, none pending", s.Current), "")
 	}

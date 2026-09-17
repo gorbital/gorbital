@@ -37,7 +37,7 @@ func fakeDoctorCommands(t *testing.T, status string) *[]string {
 				}
 			}
 			return "", "", nil
-		case strings.HasPrefix(call, "go run ./cmd/migrate --status"):
+		case strings.HasPrefix(call, "go run ./cmd/migrate --status"), strings.HasPrefix(call, "go run ./cmd/api migrate --status"):
 			return status, "", nil
 		}
 		return saved(ctx, dir, env, name, args...)
