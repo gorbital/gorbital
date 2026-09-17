@@ -1,15 +1,16 @@
-// Package opstest runs the HTTP tests of the built-in modules (opshttp,
-// flagshttp, mailevents), ported from a v0.1 golden app's internal/app
-// tests, against an app built with gorbital.New. It recreates what those
-// tests relied on: the example module (the example.ping_message setting, the
-// example.ping_time flag, the heartbeat job and GET /v1/ping), bearer
-// tokens for signed-in users holding roles, and the app's background
-// workers.
+package opshttp_test
+
+// The app these tests run against, ported with them from a v0.1 golden app's
+// internal/app tests: the operations API, flags and mail events modules
+// built with gorbital.New, the golden app's example module (the
+// example.ping_message setting, the example.ping_time flag, the heartbeat
+// job and GET /v1/ping), bearer tokens for signed-in users holding roles, and
+// the app's background workers. opshttp, flagshttp and mailevents each keep
+// their own copy, so each module's tests are self-contained and orb eject
+// copies them with the module.
 //
-// Sign-in isn't a module yet (Phase 5), so [App.SignIn] issues a token
-// directly: tokens authenticate as a session that verified a second factor,
-// with the permissions of the user role and the role asked for.
-package opstest
+// Tokens authenticate as a session that verified a second factor, with the
+// permissions of the user role and the role asked for.
 
 import (
 	"context"
@@ -53,17 +54,17 @@ var signInPermissions = map[string][]string{
 	"ops_viewer":     {"ops.auth.read", "ops.service_accounts.read"},
 }
 
-// An App is an app with the built-in modules and the example module, on
+// A testApp is an app with the built-in modules and the example module, on
 // its own database.
-type App struct {
+type testApp struct {
 	*gorbital.App
 	URL     string // the database's URL
-	tokens  *Tokens
+	tokens  *testTokens
 	modules []gorbital.Module
 }
 
-// Options configure New.
-type Options struct {
+// testAppOptions configure newTestApp.
+type testAppOptions struct {
 	// Env are environment variables on top of development's defaults.
 	Env map[string]string
 	// Ops are the options of opshttp.Module.
@@ -76,9 +77,9 @@ type Options struct {
 	SignInMethods []gorbital.SignInMethod
 }
 
-// New builds the app on a new, migrated database, and closes it when the
+// newTestApp builds the app on a new, migrated database, and closes it when the
 // test ends. Without GORBITAL_TEST_DATABASE_URL the test is skipped.
-func New(t testing.TB, o Options) *App {
+func newTestApp(t testing.TB, o testAppOptions) *testApp {
 	t.Helper()
 	url := pgtest.NewDatabase(t)
 	env := map[string]string{
@@ -95,7 +96,7 @@ func New(t testing.TB, o Options) *App {
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
-	a, err := Build(t, cfg, o)
+	a, err := buildTestApp(t, cfg, o)
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -103,16 +104,16 @@ func New(t testing.TB, o Options) *App {
 	return a
 }
 
-// Build builds the app on cfg's database, which must exist, migrating it
-// first; it returns New's error instead of failing the test.
-func Build(t testing.TB, cfg gorbital.Config, o Options) (*App, error) {
+// buildTestApp builds the app on cfg's database, which must exist, migrating it
+// first; it returns gorbital.New's error instead of failing the test.
+func buildTestApp(t testing.TB, cfg gorbital.Config, o testAppOptions) (*testApp, error) {
 	t.Helper()
-	tokens := &Tokens{principals: map[string]auth.Principal{}}
-	modules := []gorbital.Module{opshttp.Module(o.Ops...), flagshttp.Module(), mailevents.Module(), Example()}
+	tokens := &testTokens{principals: map[string]auth.Principal{}}
+	modules := []gorbital.Module{opshttp.Module(o.Ops...), flagshttp.Module(), mailevents.Module(), exampleModule()}
 	logger := slog.New(slog.NewTextHandler(t.Output(), &slog.HandlerOptions{Level: slog.LevelError}))
 	var authenticator gorbital.Authenticator = tokens
 	if o.SignInMethods != nil {
-		authenticator = reportingTokens{Tokens: tokens, methods: o.SignInMethods}
+		authenticator = reportingTokens{testTokens: tokens, methods: o.SignInMethods}
 	}
 	opts := append([]gorbital.Option{gorbital.WithName("acme-api"), gorbital.WithLogger(logger), gorbital.WithAuth(authenticator), gorbital.WithModules(modules...)}, o.Gorbital...)
 	ctx := context.Background()
@@ -128,13 +129,13 @@ func Build(t testing.TB, cfg gorbital.Config, o Options) (*App, error) {
 			t.Errorf("Close() error = %v", err)
 		}
 	})
-	return &App{App: app, tokens: tokens, modules: modules}, nil
+	return &testApp{App: app, tokens: tokens, modules: modules}, nil
 }
 
 // SignIn returns the Authorization header of a new session for email, whose
 // user holds role (none when empty) besides the user role, and the user's
 // ID.
-func (a *App) SignIn(t testing.TB, email, role string) ([]string, string) {
+func (a *testApp) SignIn(t testing.TB, email, role string) ([]string, string) {
 	t.Helper()
 	id := "usr_" + strings.NewReplacer("@", "_", ".", "_").Replace(email)
 	perms := gorbital.Grants("user", a.modules...)
@@ -154,13 +155,13 @@ func (a *App) SignIn(t testing.TB, email, role string) ([]string, string) {
 }
 
 // SignOut ends the session of headers, as signing out does.
-func (a *App) SignOut(headers []string) {
+func (a *testApp) SignOut(headers []string) {
 	a.tokens.revoke(strings.TrimPrefix(headers[1], "Bearer "))
 }
 
 // StartWorkers runs the app, its HTTP server on a free port and its
 // background workers, until the test ends.
-func (a *App) StartWorkers(t testing.TB) {
+func (a *testApp) StartWorkers(t testing.TB) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -178,13 +179,13 @@ func (a *App) StartWorkers(t testing.TB) {
 	})
 }
 
-// Tokens is the test authenticator: bearer tokens issued by SignIn.
-type Tokens struct {
+// testTokens is the test authenticator: bearer tokens issued by SignIn.
+type testTokens struct {
 	mu         sync.Mutex
 	principals map[string]auth.Principal
 }
 
-func (s *Tokens) issue(p auth.Principal) string {
+func (s *testTokens) issue(p auth.Principal) string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
 	token := hex.EncodeToString(b)
@@ -194,14 +195,14 @@ func (s *Tokens) issue(p auth.Principal) string {
 	return token
 }
 
-func (s *Tokens) revoke(token string) {
+func (s *testTokens) revoke(token string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.principals, token)
 }
 
 // Middleware implements gorbital.Authenticator.
-func (s *Tokens) Middleware(*slog.Logger) func(http.Handler) http.Handler {
+func (s *testTokens) Middleware(*slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// As sign-in does: audit events carry the client's address and
@@ -221,7 +222,7 @@ func (s *Tokens) Middleware(*slog.Logger) func(http.Handler) http.Handler {
 
 // reportingTokens is the test authenticator reporting sign-in methods.
 type reportingTokens struct {
-	*Tokens
+	*testTokens
 	methods []gorbital.SignInMethod
 }
 
@@ -231,17 +232,17 @@ func (s reportingTokens) SignInMethods(gorbital.Config) []gorbital.SignInMethod 
 	return slices.Clone(s.methods)
 }
 
-// A Response is what the app answered.
-type Response struct {
+// A response is what the app answered.
+type response struct {
 	Code   int
 	Header http.Header
 	Body   string
 	JSON   map[string]any
 }
 
-// Do sends a request through h; headers are name and value pairs. The
+// do sends a request through h; headers are name and value pairs. The
 // client's address is 192.0.2.1, httptest's.
-func Do(t testing.TB, h http.Handler, method, path, body string, headers ...string) Response {
+func do(t testing.TB, h http.Handler, method, path, body string, headers ...string) response {
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if body != "" {
@@ -252,13 +253,13 @@ func Do(t testing.TB, h http.Handler, method, path, body string, headers ...stri
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
-	r := Response{Code: rec.Code, Header: rec.Header(), Body: rec.Body.String()}
+	r := response{Code: rec.Code, Header: rec.Header(), Body: rec.Body.String()}
 	_ = json.Unmarshal(rec.Body.Bytes(), &r.JSON)
 	return r
 }
 
-// WaitFor fails the test when cond isn't true within 20 seconds.
-func WaitFor(t testing.TB, what string, cond func() bool) {
+// waitFor fails the test when cond isn't true within 20 seconds.
+func waitFor(t testing.TB, what string, cond func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(20 * time.Second)
 	for !cond() {
@@ -269,19 +270,16 @@ func WaitFor(t testing.TB, what string, cond func() bool) {
 	}
 }
 
-// DefaultPingMessage is example.ping_message's default.
-const DefaultPingMessage = "pong"
-
-// Example is the golden app's example module: GET /v1/ping answers the
+// exampleModule is the golden app's example module: GET /v1/ping answers the
 // example.ping_message setting, with the server's time while the
 // example.ping_time flag is on for the caller; the heartbeat job logs.
-func Example() gorbital.Module {
+func exampleModule() gorbital.Module {
 	var message *settings.Setting[string]
 	var serverTime *flags.Flag
 	return gorbital.Module{
 		Name: "example",
 		Settings: func(r *settings.Registry) {
-			message = settings.String(r, "example.ping_message", DefaultPingMessage,
+			message = settings.String(r, "example.ping_message", "pong",
 				settings.Describe("Reply of GET /v1/ping. An example runtime setting: change it with PUT /ops/settings/example.ping_message."),
 				settings.MaxLen(100),
 				settings.Validate(func(s string) error {

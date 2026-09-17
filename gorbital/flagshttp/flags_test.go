@@ -9,7 +9,6 @@ import (
 
 	"gorbital.dev/config"
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/opstest"
 	"gorbital.dev/modules/flags"
 )
 
@@ -28,7 +27,7 @@ func flagState(version int, reason, state string) string {
 // example.ping_time feature, for the caller signed in with headers.
 func pingHasTime(t *testing.T, h http.Handler, headers ...string) bool {
 	t.Helper()
-	r := opstest.Do(t, h, "GET", "/v1/ping", "", headers...)
+	r := do(t, h, "GET", "/v1/ping", "", headers...)
 	if r.Code != http.StatusOK {
 		t.Fatalf("GET /v1/ping = %d %s", r.Code, r.Body)
 	}
@@ -39,7 +38,7 @@ func pingHasTime(t *testing.T, h http.Handler, headers ...string) bool {
 // clientFlags returns GET /v1/flags for the caller signed in with headers.
 func clientFlags(t *testing.T, h http.Handler, path string, headers ...string) map[string]any {
 	t.Helper()
-	r := opstest.Do(t, h, "GET", path, "", headers...)
+	r := do(t, h, "GET", path, "", headers...)
 	got, _ := r.JSON["flags"].(map[string]any)
 	if r.Code != http.StatusOK || got == nil || r.Header.Get("Cache-Control") != "private, no-store" {
 		t.Fatalf("GET %s = %d %s (Cache-Control %q), want the caller's flags, not cached", path, r.Code, r.Body, r.Header.Get("Cache-Control"))
@@ -52,7 +51,7 @@ func clientFlags(t *testing.T, h http.Handler, path string, headers ...string) m
 // history and audited, and the example flag changes GET /v1/ping and
 // GET /v1/flags for exactly the callers its rules pick.
 func TestFeatureFlagsEndToEnd(t *testing.T) {
-	a := opstest.New(t, opstest.Options{})
+	a := newTestApp(t, testAppOptions{})
 	h := a.Handler()
 	admin, adminID := a.SignIn(t, "admin@example.com", "platform_admin")
 	viewer, _ := a.SignIn(t, "viewer@example.com", "ops_viewer")
@@ -72,12 +71,12 @@ func TestFeatureFlagsEndToEnd(t *testing.T) {
 		{"a viewer resets a flag", "DELETE", pingTimeFlag, `{"version":0,"reason":"x"}`, viewer, 403, "forbidden"},
 		{"clients without a session", "GET", "/v1/flags", "", nil, 401, "unauthenticated"},
 	} {
-		if r := opstest.Do(t, h, tt.method, tt.path, tt.body, tt.headers...); r.Code != tt.code || r.JSON["code"] != tt.errCode {
+		if r := do(t, h, tt.method, tt.path, tt.body, tt.headers...); r.Code != tt.code || r.JSON["code"] != tt.errCode {
 			t.Errorf("%s: %s %s = %d %s, want %d %s", tt.name, tt.method, tt.path, r.Code, r.Body, tt.code, tt.errCode)
 		}
 	}
 
-	list := opstest.Do(t, h, "GET", "/ops/flags", "", viewer...)
+	list := do(t, h, "GET", "/ops/flags", "", viewer...)
 	listed, _ := list.JSON["flags"].([]any)
 	if list.Code != http.StatusOK || len(listed) == 0 {
 		t.Fatalf("GET /ops/flags as a viewer = %d %s", list.Code, list.Body)
@@ -88,7 +87,7 @@ func TestFeatureFlagsEndToEnd(t *testing.T) {
 			clientKeys[flag["key"].(string)] = true
 		}
 	}
-	flag := opstest.Do(t, h, "GET", pingTimeFlag, "", viewer...)
+	flag := do(t, h, "GET", pingTimeFlag, "", viewer...)
 	if state, _ := flag.JSON["state"].(map[string]any); flag.Code != http.StatusOK || flag.JSON["client"] != true || flag.JSON["version"] != float64(0) ||
 		flag.JSON["modified"] != false || state["enabled"] != false || state["percentage"] != nil {
 		t.Errorf("GET %s = %d %s, want the declared state: disabled", pingTimeFlag, flag.Code, flag.Body)
@@ -129,16 +128,16 @@ func TestFeatureFlagsEndToEnd(t *testing.T) {
 		{"an unknown flag's history", "GET", "/ops/flags/example.nope/history", "", 404, "flag_not_found"},
 		{"a reset without a reason", "DELETE", pingTimeFlag, `{"version":0,"reason":""}`, 422, "flag_reason_required"},
 	} {
-		if r := opstest.Do(t, h, tt.method, tt.path, tt.body, admin...); r.Code != tt.code || r.JSON["code"] != tt.errCode {
+		if r := do(t, h, tt.method, tt.path, tt.body, admin...); r.Code != tt.code || r.JSON["code"] != tt.errCode {
 			t.Errorf("%s: %s %s = %d %s, want %d %s", tt.name, tt.method, tt.path, r.Code, r.Body, tt.code, tt.errCode)
 		}
 	}
-	if r := opstest.Do(t, h, "GET", pingTimeFlag, "", admin...); r.JSON["version"] != float64(0) {
+	if r := do(t, h, "GET", pingTimeFlag, "", admin...); r.JSON["version"] != float64(0) {
 		t.Fatalf("after rejected changes, GET %s = %s, want version 0", pingTimeFlag, r.Body)
 	}
 
 	// Turned on for Ada only: a 0% rollout for everyone else.
-	set := opstest.Do(t, h, "PUT", pingTimeFlag, flagState(0, "try it with Ada",
+	set := do(t, h, "PUT", pingTimeFlag, flagState(0, "try it with Ada",
 		`{"enabled":true,"default":false,"orgs":{"allow":[],"deny":[]},"users":{"allow":[`+fmt.Sprintf("%q", adaID)+`],"deny":[]},"percentage":0}`), admin...)
 	if state, _ := set.JSON["state"].(map[string]any); set.Code != http.StatusOK || set.JSON["version"] != float64(1) || set.JSON["modified"] != true ||
 		set.JSON["updated_by"] != adminID || state["percentage"] != float64(0) {
@@ -150,7 +149,7 @@ func TestFeatureFlagsEndToEnd(t *testing.T) {
 	if clientFlags(t, h, "/v1/flags", ada...)["example.ping_time"] != true || clientFlags(t, h, "/v1/flags", bob...)["example.ping_time"] != false {
 		t.Error("GET /v1/flags doesn't follow the user allow list")
 	}
-	if r := opstest.Do(t, h, "PUT", pingTimeFlag, flagState(0, "stale", `{"enabled":false,"default":false,"orgs":{"allow":[],"deny":[]},"users":{"allow":[],"deny":[]}}`), admin...); r.Code != http.StatusConflict || r.JSON["code"] != "flag_version_conflict" {
+	if r := do(t, h, "PUT", pingTimeFlag, flagState(0, "stale", `{"enabled":false,"default":false,"orgs":{"allow":[],"deny":[]},"users":{"allow":[],"deny":[]}}`), admin...); r.Code != http.StatusConflict || r.JSON["code"] != "flag_version_conflict" {
 		t.Errorf("PUT with a stale version = %d %s, want 409 flag_version_conflict", r.Code, r.Body)
 	}
 
@@ -159,7 +158,7 @@ func TestFeatureFlagsEndToEnd(t *testing.T) {
 	fifty := func(version int, def bool) {
 		t.Helper()
 		body := flagState(version, "half", fmt.Sprintf(`{"enabled":true,"default":%v,"orgs":{"allow":[],"deny":[]},"users":{"allow":[],"deny":[]},"percentage":50}`, def))
-		if r := opstest.Do(t, h, "PUT", pingTimeFlag, body, admin...); r.Code != http.StatusOK {
+		if r := do(t, h, "PUT", pingTimeFlag, body, admin...); r.Code != http.StatusOK {
 			t.Fatalf("PUT %s = %d %s", pingTimeFlag, r.Code, r.Body)
 		}
 	}
@@ -183,7 +182,7 @@ func TestFeatureFlagsEndToEnd(t *testing.T) {
 		t.Error("an anonymous caller in a 50% rollout with default true didn't get the default")
 	}
 
-	history := opstest.Do(t, h, "GET", pingTimeFlag+"/history", "", viewer...)
+	history := do(t, h, "GET", pingTimeFlag+"/history", "", viewer...)
 	changes, _ := history.JSON["changes"].([]any)
 	if history.Code != http.StatusOK || len(changes) != 3 {
 		t.Fatalf("GET %s/history = %d %s, want 3 changes", pingTimeFlag, history.Code, history.Body)
@@ -192,7 +191,7 @@ func TestFeatureFlagsEndToEnd(t *testing.T) {
 		t.Errorf("first change = %v", first)
 	}
 
-	reset := opstest.Do(t, h, "DELETE", pingTimeFlag, `{"version":3,"reason":"experiment over"}`, admin...)
+	reset := do(t, h, "DELETE", pingTimeFlag, `{"version":3,"reason":"experiment over"}`, admin...)
 	if state, _ := reset.JSON["state"].(map[string]any); reset.Code != http.StatusOK || reset.JSON["version"] != float64(4) || reset.JSON["modified"] != false || state["enabled"] != false {
 		t.Errorf("DELETE %s = %d %s, want the declared state at version 4", pingTimeFlag, reset.Code, reset.Body)
 	}
@@ -201,7 +200,7 @@ func TestFeatureFlagsEndToEnd(t *testing.T) {
 	}
 
 	for action, want := range map[string]int{"flags.flag.changed": 3, "flags.flag.reset": 1} {
-		r := opstest.Do(t, h, "GET", "/ops/audit?action="+action+"&resource_id=example.ping_time", "", admin...)
+		r := do(t, h, "GET", "/ops/audit?action="+action+"&resource_id=example.ping_time", "", admin...)
 		events, _ := r.JSON["events"].([]any)
 		if r.Code != http.StatusOK || len(events) != want || events[0].(map[string]any)["actor_id"] != adminID {
 			t.Errorf("GET /ops/audit?action=%s = %d %s, want %d events by the operator", action, r.Code, r.Body, want)
@@ -216,7 +215,7 @@ func TestFeatureFlagsEndToEnd(t *testing.T) {
 // flag changed through /ops/flags on one is applied by the other without a
 // restart.
 func TestFlagChangeReachesAnotherInstance(t *testing.T) {
-	first := opstest.New(t, opstest.Options{})
+	first := newTestApp(t, testAppOptions{})
 	env := map[string]string{
 		"APP_ENV": "development", "APP_ADDR": "127.0.0.1:0", "DATABASE_URL": first.URL, "APP_DB_MAX_CONNS": "8", "APP_JOB_WORKERS": "4",
 		"LOG_ARCHIVE_DIR": t.TempDir(), "STORAGE_LOCAL_DIR": t.TempDir(),
@@ -225,7 +224,7 @@ func TestFlagChangeReachesAnotherInstance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
-	second, err := opstest.Build(t, cfg, opstest.Options{})
+	second, err := buildTestApp(t, cfg, testAppOptions{})
 	if err != nil {
 		t.Fatalf("New() second instance error = %v", err)
 	}
@@ -236,16 +235,16 @@ func TestFlagChangeReachesAnotherInstance(t *testing.T) {
 	secondAdmin, _ := second.SignIn(t, "admin@example.com", "platform_admin")
 
 	body := flagState(0, "two instances", `{"enabled":true,"default":false,"orgs":{"allow":[],"deny":[]},"users":{"allow":[],"deny":[]},"percentage":100}`)
-	if r := opstest.Do(t, first.Handler(), "PUT", pingTimeFlag, body, admin...); r.Code != http.StatusOK {
+	if r := do(t, first.Handler(), "PUT", pingTimeFlag, body, admin...); r.Code != http.StatusOK {
 		t.Fatalf("PUT %s on the first instance = %d %s", pingTimeFlag, r.Code, r.Body)
 	}
-	opstest.WaitFor(t, "the second instance to apply the flag", func() bool { return pingHasTime(t, second.Handler()) })
-	if r := opstest.Do(t, second.Handler(), "GET", pingTimeFlag, "", secondAdmin...); r.JSON["version"] != float64(1) {
+	waitFor(t, "the second instance to apply the flag", func() bool { return pingHasTime(t, second.Handler()) })
+	if r := do(t, second.Handler(), "GET", pingTimeFlag, "", secondAdmin...); r.JSON["version"] != float64(1) {
 		t.Errorf("GET %s on the second instance = %s, want version 1", pingTimeFlag, r.Body)
 	}
 
-	if r := opstest.Do(t, first.Handler(), "DELETE", pingTimeFlag, `{"version":1,"reason":"roll back"}`, admin...); r.Code != http.StatusOK {
+	if r := do(t, first.Handler(), "DELETE", pingTimeFlag, `{"version":1,"reason":"roll back"}`, admin...); r.Code != http.StatusOK {
 		t.Fatalf("DELETE %s on the first instance = %d %s", pingTimeFlag, r.Code, r.Body)
 	}
-	opstest.WaitFor(t, "the second instance to apply the reset", func() bool { return !pingHasTime(t, second.Handler()) })
+	waitFor(t, "the second instance to apply the reset", func() bool { return !pingHasTime(t, second.Handler()) })
 }

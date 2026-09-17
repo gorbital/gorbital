@@ -16,7 +16,6 @@ import (
 
 	"gorbital.dev/config"
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/opstest"
 	"gorbital.dev/modules/mail/suppressionpg"
 	"gorbital.dev/modules/postgres/pgtest"
 )
@@ -32,7 +31,7 @@ const envMailpitSMTP = "GORBITAL_TEST_MAILPIT_SMTP"
 
 // suppress puts email on the app's suppression list directly, as the
 // provider's webhook would, and returns its ID.
-func suppress(t *testing.T, a *opstest.App, email string, reason suppressionpg.Reason) int64 {
+func suppress(t *testing.T, a *testApp, email string, reason suppressionpg.Reason) int64 {
 	t.Helper()
 	// The golden test opened its own pool on the database URL; the app's
 	// pool is the same database.
@@ -56,7 +55,7 @@ func TestSuppressedAddressesGetNoEmail(t *testing.T) {
 		env["MAILPIT_SMTP_ADDR"] = addr
 		env["MAIL_DELIVERY"] = "mailpit"
 	}
-	a := opstest.New(t, opstest.Options{Env: env})
+	a := newTestApp(t, testAppOptions{Env: env})
 	a.StartWorkers(t)
 	h := a.Handler()
 	admin, _ := a.SignIn(t, "admin@example.com", "platform_admin")
@@ -66,7 +65,7 @@ func TestSuppressedAddressesGetNoEmail(t *testing.T) {
 	suppress(t, a, "spam@example.com", suppressionpg.ReasonComplaint)
 
 	// The test email goes through the mail worker like every other email.
-	if r := opstest.Do(t, h, "POST", "/ops/mail/test", `{"to":"bounced@example.com"}`, admin...); r.Code != http.StatusAccepted {
+	if r := do(t, h, "POST", "/ops/mail/test", `{"to":"bounced@example.com"}`, admin...); r.Code != http.StatusAccepted {
 		t.Fatalf("POST /ops/mail/test = %d %s", r.Code, r.Body)
 	}
 	run := lastMailJob(t, h, admin)
@@ -76,7 +75,7 @@ func TestSuppressedAddressesGetNoEmail(t *testing.T) {
 		t.Errorf("email job to a suppressed address = %v, want cancelled after one attempt, saying why without the address", run)
 	}
 
-	list := opstest.Do(t, h, "GET", "/ops/mail/suppressions", "", viewer...)
+	list := do(t, h, "GET", "/ops/mail/suppressions", "", viewer...)
 	items, _ := list.JSON["suppressions"].([]any)
 	if list.Code != http.StatusOK || len(items) != 2 {
 		t.Fatalf("GET /ops/mail/suppressions as ops_viewer = %d %s", list.Code, list.Body)
@@ -84,27 +83,27 @@ func TestSuppressedAddressesGetNoEmail(t *testing.T) {
 	if first, _ := items[1].(map[string]any); first["email"] != "bounced@example.com" || first["reason"] != "bounce" || first["source"] != "resend" {
 		t.Errorf("oldest suppression = %v", first)
 	}
-	if r := opstest.Do(t, h, "GET", "/ops/mail/suppressions?reason=complaint&limit=1", "", admin...); len(r.JSON["suppressions"].([]any)) != 1 || r.JSON["next_cursor"] != nil {
+	if r := do(t, h, "GET", "/ops/mail/suppressions?reason=complaint&limit=1", "", admin...); len(r.JSON["suppressions"].([]any)) != 1 || r.JSON["next_cursor"] != nil {
 		t.Errorf("GET /ops/mail/suppressions?reason=complaint = %s", r.Body)
 	}
-	if r := opstest.Do(t, h, "GET", "/ops/mail/suppressions?cursor=nope", "", admin...); r.Code != http.StatusBadRequest || r.JSON["code"] != "invalid_cursor" {
+	if r := do(t, h, "GET", "/ops/mail/suppressions?cursor=nope", "", admin...); r.Code != http.StatusBadRequest || r.JSON["code"] != "invalid_cursor" {
 		t.Errorf("invalid cursor = %d %s", r.Code, r.Body)
 	}
 
 	path := fmt.Sprintf("/ops/mail/suppressions/%d", id)
-	if r := opstest.Do(t, h, "DELETE", path, `{"reason":"mailbox exists again"}`, viewer...); r.Code != http.StatusForbidden {
+	if r := do(t, h, "DELETE", path, `{"reason":"mailbox exists again"}`, viewer...); r.Code != http.StatusForbidden {
 		t.Errorf("DELETE as ops_viewer = %d %s, want 403 (ops.mail.write)", r.Code, r.Body)
 	}
-	if r := opstest.Do(t, h, "DELETE", path, `{"reason":"  "}`, admin...); r.Code != http.StatusUnprocessableEntity || r.JSON["code"] != "mail_suppression_reason_required" {
+	if r := do(t, h, "DELETE", path, `{"reason":"  "}`, admin...); r.Code != http.StatusUnprocessableEntity || r.JSON["code"] != "mail_suppression_reason_required" {
 		t.Errorf("DELETE without a reason = %d %s, want 422 mail_suppression_reason_required", r.Code, r.Body)
 	}
-	if r := opstest.Do(t, h, "DELETE", path, `{"reason":"mailbox exists again"}`, admin...); r.Code != http.StatusOK || r.JSON["email"] != "bounced@example.com" {
+	if r := do(t, h, "DELETE", path, `{"reason":"mailbox exists again"}`, admin...); r.Code != http.StatusOK || r.JSON["email"] != "bounced@example.com" {
 		t.Fatalf("DELETE %s = %d %s", path, r.Code, r.Body)
 	}
-	if r := opstest.Do(t, h, "DELETE", path, `{"reason":"mailbox exists again"}`, admin...); r.Code != http.StatusNotFound || r.JSON["code"] != "mail_suppression_not_found" {
+	if r := do(t, h, "DELETE", path, `{"reason":"mailbox exists again"}`, admin...); r.Code != http.StatusNotFound || r.JSON["code"] != "mail_suppression_not_found" {
 		t.Errorf("DELETE twice = %d %s, want 404 mail_suppression_not_found", r.Code, r.Body)
 	}
-	events := opstest.Do(t, h, "GET", "/ops/audit?action=mail.suppression.removed", "", admin...)
+	events := do(t, h, "GET", "/ops/audit?action=mail.suppression.removed", "", admin...)
 	evs, _ := events.JSON["events"].([]any)
 	if len(evs) != 1 || !strings.Contains(events.Body, "mailbox exists again") || strings.Contains(events.Body, "bounced@") {
 		t.Errorf("GET /ops/audit?action=mail.suppression.removed = %s, want one event with the reason and without the address", events.Body)
@@ -115,7 +114,7 @@ func TestSuppressedAddressesGetNoEmail(t *testing.T) {
 		t.Logf("set %s to check that the address receives email again", envMailpitSMTP)
 		return
 	}
-	if r := opstest.Do(t, h, "POST", "/ops/mail/test", `{"to":"bounced@example.com"}`, admin...); r.Code != http.StatusAccepted {
+	if r := do(t, h, "POST", "/ops/mail/test", `{"to":"bounced@example.com"}`, admin...); r.Code != http.StatusAccepted {
 		t.Fatalf("POST /ops/mail/test = %d %s", r.Code, r.Body)
 	}
 	if run := lastMailJob(t, h, admin); run["state"] != "completed" {
@@ -128,8 +127,8 @@ func TestSuppressedAddressesGetNoEmail(t *testing.T) {
 func lastMailJob(t *testing.T, h http.Handler, bearer []string) map[string]any {
 	t.Helper()
 	var run map[string]any
-	opstest.WaitFor(t, "the email job to finish", func() bool {
-		jobs, _ := opstest.Do(t, h, "GET", "/ops/jobs/runs?kind=gorbital.mail.send&limit=1", "", bearer...).JSON["jobs"].([]any)
+	waitFor(t, "the email job to finish", func() bool {
+		jobs, _ := do(t, h, "GET", "/ops/jobs/runs?kind=gorbital.mail.send&limit=1", "", bearer...).JSON["jobs"].([]any)
 		if len(jobs) != 1 {
 			return false
 		}
@@ -142,8 +141,8 @@ func lastMailJob(t *testing.T, h http.Handler, bearer []string) map[string]any {
 // TestWebhookNeedsItsSecret checks that the provider webhook answers 404
 // without RESEND_WEBHOOK_SECRET, whatever the provider.
 func TestWebhookNeedsItsSecret(t *testing.T) {
-	a := opstest.New(t, opstest.Options{})
-	r := opstest.Do(t, a.Handler(), "POST", "/v1/webhooks/resend", `{"type":"email.bounced"}`,
+	a := newTestApp(t, testAppOptions{})
+	r := do(t, a.Handler(), "POST", "/v1/webhooks/resend", `{"type":"email.bounced"}`,
 		"svix-id", "msg_1", "svix-timestamp", "1789552800", "svix-signature", "v1,AAAA")
 	if r.Code != http.StatusNotFound || r.JSON["code"] != "webhook_not_found" {
 		t.Errorf("POST /v1/webhooks/resend without a secret = %d %s, want 404 webhook_not_found", r.Code, r.Body)
@@ -151,7 +150,7 @@ func TestWebhookNeedsItsSecret(t *testing.T) {
 }
 
 // testConfig loads a development configuration on a new database with env
-// on top, as opstest.New does.
+// on top, as newTestApp does.
 func testConfig(t *testing.T, env map[string]string) gorbital.Config {
 	t.Helper()
 	full := map[string]string{
@@ -173,10 +172,10 @@ func testConfig(t *testing.T, env map[string]string) gorbital.Config {
 // unexported, so the test checks the message. The RESEND_API_KEY checks
 // belong to gorbital's configuration, not to this module.
 func TestMailProviderConfiguration(t *testing.T) {
-	if _, err := opstest.Build(t, testConfig(t, map[string]string{"RESEND_WEBHOOK_SECRET": testWebhookSecret}), opstest.Options{}); err != nil {
+	if _, err := buildTestApp(t, testConfig(t, map[string]string{"RESEND_WEBHOOK_SECRET": testWebhookSecret}), testAppOptions{}); err != nil {
 		t.Errorf("New() with RESEND_WEBHOOK_SECRET error = %v", err)
 	}
-	_, err := opstest.Build(t, testConfig(t, map[string]string{"RESEND_WEBHOOK_SECRET": "whsec_not-base64!"}), opstest.Options{})
+	_, err := buildTestApp(t, testConfig(t, map[string]string{"RESEND_WEBHOOK_SECRET": "whsec_not-base64!"}), testAppOptions{})
 	if err == nil || !strings.Contains(err.Error(), "RESEND_WEBHOOK_SECRET") || strings.Contains(err.Error(), "not-base64") {
 		t.Errorf("New() with a malformed RESEND_WEBHOOK_SECRET error = %v, want one naming the variable without quoting it", err)
 	}
@@ -192,7 +191,7 @@ func TestInvalidWebhookSecretFailsNew(t *testing.T) {
 		"too short":   "whsec_" + base64.StdEncoding.EncodeToString([]byte("short")),
 		"only prefix": "whsec_",
 	} {
-		a, err := opstest.Build(t, testConfig(t, map[string]string{"RESEND_WEBHOOK_SECRET": secret}), opstest.Options{})
+		a, err := buildTestApp(t, testConfig(t, map[string]string{"RESEND_WEBHOOK_SECRET": secret}), testAppOptions{})
 		if err == nil || a != nil || !strings.Contains(err.Error(), "RESEND_WEBHOOK_SECRET") {
 			t.Errorf("%s: New() error = %v, want a configuration error naming RESEND_WEBHOOK_SECRET", name, err)
 		}
@@ -221,15 +220,15 @@ func bounceEvent(to, bounceType string) string {
 
 // TestResendWebhook checks POST /v1/webhooks/resend end to end (ADR-0062).
 func TestResendWebhook(t *testing.T) {
-	a := opstest.New(t, opstest.Options{Env: map[string]string{"RESEND_WEBHOOK_SECRET": testWebhookSecret}})
+	a := newTestApp(t, testAppOptions{Env: map[string]string{"RESEND_WEBHOOK_SECRET": testWebhookSecret}})
 	h := a.Handler()
 	admin, _ := a.SignIn(t, "admin@example.com", "platform_admin")
 	now := time.Now()
-	post := func(body string, headers ...string) opstest.Response {
-		return opstest.Do(t, h, "POST", "/v1/webhooks/resend", body, headers...)
+	post := func(body string, headers ...string) response {
+		return do(t, h, "POST", "/v1/webhooks/resend", body, headers...)
 	}
 	suppressed := func() map[string]string {
-		list, _ := opstest.Do(t, h, "GET", "/ops/mail/suppressions", "", admin...).JSON["suppressions"].([]any)
+		list, _ := do(t, h, "GET", "/ops/mail/suppressions", "", admin...).JSON["suppressions"].([]any)
 		out := map[string]string{}
 		for _, item := range list {
 			s, _ := item.(map[string]any)
@@ -310,14 +309,14 @@ func TestResendWebhook(t *testing.T) {
 
 	// Removing the address and replaying the captured request within the
 	// tolerance doesn't suppress it again.
-	list, _ := opstest.Do(t, h, "GET", "/ops/mail/suppressions", "", admin...).JSON["suppressions"].([]any)
+	list, _ := do(t, h, "GET", "/ops/mail/suppressions", "", admin...).JSON["suppressions"].([]any)
 	var hardID any
 	for _, item := range list {
 		if s, _ := item.(map[string]any); s["email"] == "hard@example.com" {
 			hardID = s["id"]
 		}
 	}
-	if r := opstest.Do(t, h, "DELETE", fmt.Sprintf("/ops/mail/suppressions/%v", hardID), `{"reason":"mailbox created again"}`, admin...); r.Code != http.StatusOK {
+	if r := do(t, h, "DELETE", fmt.Sprintf("/ops/mail/suppressions/%v", hardID), `{"reason":"mailbox created again"}`, admin...); r.Code != http.StatusOK {
 		t.Fatalf("DELETE suppression = %d %s", r.Code, r.Body)
 	}
 	if r := post(hard, hardHeaders...); r.Code != http.StatusNoContent {
@@ -327,7 +326,7 @@ func TestResendWebhook(t *testing.T) {
 		t.Error("a replayed webhook suppressed a removed address again")
 	}
 
-	events := opstest.Do(t, h, "GET", "/ops/audit?action=mail.suppression.added", "", admin...)
+	events := do(t, h, "GET", "/ops/audit?action=mail.suppression.added", "", admin...)
 	if list, _ := events.JSON["events"].([]any); len(list) != 2 || strings.Contains(events.Body, "@example.com") {
 		t.Errorf("GET /ops/audit?action=mail.suppression.added = %s, want 2 events without addresses", events.Body)
 	}

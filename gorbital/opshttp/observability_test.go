@@ -15,7 +15,6 @@ import (
 
 	"gorbital.dev/config"
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/opstest"
 	"gorbital.dev/modules/observability"
 )
 
@@ -27,11 +26,11 @@ import (
 // request collector by hand; an app's collector is internal, so the tests
 // run the app (StartWorkers) and wait for its periodic write, every 15
 // seconds.
-func obsWaitOverview(t *testing.T, h http.Handler, query string, headers []string, done func(opstest.Response) bool) opstest.Response {
+func obsWaitOverview(t *testing.T, h http.Handler, query string, headers []string, done func(response) bool) response {
 	t.Helper()
 	deadline := time.Now().Add(60 * time.Second)
 	for {
-		r := opstest.Do(t, h, "GET", "/ops/observability/overview"+query, "", headers...)
+		r := do(t, h, "GET", "/ops/observability/overview"+query, "", headers...)
 		if r.Code == http.StatusOK && done(r) {
 			return r
 		}
@@ -57,7 +56,7 @@ func obsFindRoute(list any, method, route string) map[string]any {
 // the overview's numbers per route, instance and minute, without any
 // requested path or query.
 func TestObservabilityOverview(t *testing.T) {
-	a := opstest.New(t, opstest.Options{})
+	a := newTestApp(t, testAppOptions{})
 	a.StartWorkers(t) // the collector writes the requests (see obsWaitOverview)
 	h := a.Handler()
 	admin, _ := a.SignIn(t, "admin@example.com", "platform_admin")
@@ -65,34 +64,34 @@ func TestObservabilityOverview(t *testing.T) {
 	user, _ := a.SignIn(t, "user@example.com", "")
 
 	for range 40 {
-		if r := opstest.Do(t, h, "GET", "/v1/ping", ""); r.Code != http.StatusOK {
+		if r := do(t, h, "GET", "/v1/ping", ""); r.Code != http.StatusOK {
 			t.Fatalf("GET /v1/ping = %d", r.Code)
 		}
 	}
 	for i := range 12 {
-		opstest.Do(t, h, "GET", fmt.Sprintf("/v1/secret-path-%d?token=hunter2", i), "")
+		do(t, h, "GET", fmt.Sprintf("/v1/secret-path-%d?token=hunter2", i), "")
 	}
-	if r := opstest.Do(t, h, "PUT", "/ops/settings/maintenance.enabled", `{"value":true,"version":0,"reason":"load test"}`, admin...); r.Code != http.StatusOK {
+	if r := do(t, h, "PUT", "/ops/settings/maintenance.enabled", `{"value":true,"version":0,"reason":"load test"}`, admin...); r.Code != http.StatusOK {
 		t.Fatalf("maintenance on = %d %s", r.Code, r.Body)
 	}
 	for range 10 {
-		if r := opstest.Do(t, h, "GET", "/v1/ping", ""); r.Code != http.StatusServiceUnavailable {
+		if r := do(t, h, "GET", "/v1/ping", ""); r.Code != http.StatusServiceUnavailable {
 			t.Fatalf("GET /v1/ping in maintenance = %d", r.Code)
 		}
 	}
-	if r := opstest.Do(t, h, "DELETE", "/ops/settings/maintenance.enabled", `{"version":1,"reason":"done"}`, admin...); r.Code != http.StatusOK {
+	if r := do(t, h, "DELETE", "/ops/settings/maintenance.enabled", `{"version":1,"reason":"done"}`, admin...); r.Code != http.StatusOK {
 		t.Fatalf("maintenance off = %d %s", r.Code, r.Body)
 	}
 
 	for _, headers := range [][]string{nil, user} {
-		if r := opstest.Do(t, h, "GET", "/ops/observability/overview", "", headers...); r.Code != http.StatusUnauthorized && r.Code != http.StatusForbidden {
+		if r := do(t, h, "GET", "/ops/observability/overview", "", headers...); r.Code != http.StatusUnauthorized && r.Code != http.StatusForbidden {
 			t.Errorf("GET /ops/observability/overview without the permission = %d", r.Code)
 		}
 	}
 	// Instead of flushRequests: wait until the whole load is written. The
 	// overview requests polled meanwhile are counted too, as successes of
 	// another route, so the totals below are checked against each other.
-	r := obsWaitOverview(t, h, "?window=5m", viewer, func(r opstest.Response) bool {
+	r := obsWaitOverview(t, h, "?window=5m", viewer, func(r response) bool {
 		top, _ := r.JSON["top_routes"].(map[string]any)
 		ping := obsFindRoute(top["by_requests"], "GET", "/v1/ping")
 		unmatched := obsFindRoute(top["by_requests"], "GET", "/")
@@ -127,7 +126,7 @@ func TestObservabilityOverview(t *testing.T) {
 		t.Errorf("by_errors = %v, want the 10 maintenance responses, answered before routing", byErrors)
 	}
 
-	system := opstest.Do(t, h, "GET", "/ops/system", "", viewer...)
+	system := do(t, h, "GET", "/ops/system", "", viewer...)
 	instances, _ := r.JSON["instances"].([]any)
 	if len(instances) != 1 || instances[0].(map[string]any)["instance_id"] != system.JSON["instance"].(map[string]any)["id"] ||
 		instances[0].(map[string]any)["requests"] != total {
@@ -141,12 +140,12 @@ func TestObservabilityOverview(t *testing.T) {
 		t.Errorf("minutes add up to %v requests, want %v", perMinute, total)
 	}
 
-	routes := opstest.Do(t, h, "GET", "/ops/observability/routes?window=1h&sort=errors&limit=1", "", viewer...)
+	routes := do(t, h, "GET", "/ops/observability/routes?window=1h&sort=errors&limit=1", "", viewer...)
 	if list, _ := routes.JSON["routes"].([]any); routes.Code != http.StatusOK || len(list) != 1 || obsFindRoute(list, "GET", "") == nil {
 		t.Errorf("GET /ops/observability/routes?sort=errors&limit=1 = %d %s", routes.Code, routes.Body)
 	}
 	for _, window := range []string{"90s", "25h", "0m", "soon"} {
-		if bad := opstest.Do(t, h, "GET", "/ops/observability/overview?window="+window, "", viewer...); bad.Code != http.StatusUnprocessableEntity || bad.JSON["code"] != "invalid_observability_window" {
+		if bad := do(t, h, "GET", "/ops/observability/overview?window="+window, "", viewer...); bad.Code != http.StatusUnprocessableEntity || bad.JSON["code"] != "invalid_observability_window" {
 			t.Errorf("window=%s: %d %s, want 422 invalid_observability_window", window, bad.Code, bad.Body)
 		}
 	}
@@ -155,7 +154,7 @@ func TestObservabilityOverview(t *testing.T) {
 // TestObservabilityAcrossInstances runs two instances on one database: the
 // overview on either counts both.
 func TestObservabilityAcrossInstances(t *testing.T) {
-	first := opstest.New(t, opstest.Options{})
+	first := newTestApp(t, testAppOptions{})
 	env := map[string]string{
 		"APP_ENV": "development", "APP_ADDR": "127.0.0.1:0", "DATABASE_URL": first.URL, "APP_DB_MAX_CONNS": "8", "APP_JOB_WORKERS": "4",
 		"LOG_ARCHIVE_DIR": t.TempDir(), "STORAGE_LOCAL_DIR": t.TempDir(),
@@ -164,7 +163,7 @@ func TestObservabilityAcrossInstances(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
-	second, err := opstest.Build(t, cfg, opstest.Options{})
+	second, err := buildTestApp(t, cfg, testAppOptions{})
 	if err != nil {
 		t.Fatalf("New() second instance error = %v", err)
 	}
@@ -175,13 +174,13 @@ func TestObservabilityAcrossInstances(t *testing.T) {
 	// instance, where the overview is read.
 	viewer, _ := second.SignIn(t, "viewer@example.com", "ops_viewer")
 	for range 7 {
-		opstest.Do(t, first.Handler(), "GET", "/v1/ping", "")
+		do(t, first.Handler(), "GET", "/v1/ping", "")
 	}
 	for range 5 {
-		opstest.Do(t, second.Handler(), "GET", "/v1/ping", "")
+		do(t, second.Handler(), "GET", "/v1/ping", "")
 	}
 
-	r := obsWaitOverview(t, second.Handler(), "", viewer, func(r opstest.Response) bool {
+	r := obsWaitOverview(t, second.Handler(), "", viewer, func(r response) bool {
 		instances, _ := r.JSON["instances"].([]any)
 		top, _ := r.JSON["top_routes"].(map[string]any)
 		ping := obsFindRoute(top["by_requests"], "GET", "/v1/ping")
@@ -248,7 +247,7 @@ func obsNextEvent(t *testing.T, events <-chan obsEvent, within time.Duration) ob
 // permission on connect, the per-user limit, events flushed as they come,
 // and the end of the stream when the session signs out.
 func TestObservabilityStream(t *testing.T) {
-	a := opstest.New(t, opstest.Options{})
+	a := newTestApp(t, testAppOptions{})
 	srv := httptest.NewServer(a.Handler())
 	defer srv.Close()
 	viewer, _ := a.SignIn(t, "viewer@example.com", "ops_viewer")
@@ -331,21 +330,21 @@ func TestObservabilityStream(t *testing.T) {
 // /ops, checks permissions, errors and audit events, and reads its report
 // as JSON and Markdown.
 func TestIncidentsThroughOps(t *testing.T) {
-	a := opstest.New(t, opstest.Options{})
+	a := newTestApp(t, testAppOptions{})
 	a.StartWorkers(t) // the release tracker records this instance
 	h := a.Handler()
 	admin, adminID := a.SignIn(t, "admin@example.com", "platform_admin")
 	viewer, _ := a.SignIn(t, "viewer@example.com", "ops_viewer")
 	const open = `{"title":"Checkout <b>failing</b> | now","severity":"sev1","summary":"Payments time out."}`
 
-	if r := opstest.Do(t, h, "POST", "/ops/incidents", open, viewer...); r.Code != http.StatusForbidden {
+	if r := do(t, h, "POST", "/ops/incidents", open, viewer...); r.Code != http.StatusForbidden {
 		t.Errorf("POST /ops/incidents as ops_viewer = %d, want 403", r.Code)
 	}
 	future := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
-	if r := opstest.Do(t, h, "POST", "/ops/incidents", `{"title":"Later","severity":"sev2","started_at":"`+future+`"}`, admin...); r.Code != http.StatusUnprocessableEntity || r.JSON["code"] != "invalid_incident" {
+	if r := do(t, h, "POST", "/ops/incidents", `{"title":"Later","severity":"sev2","started_at":"`+future+`"}`, admin...); r.Code != http.StatusUnprocessableEntity || r.JSON["code"] != "invalid_incident" {
 		t.Errorf("POST /ops/incidents starting in the future = %d %s, want 422 invalid_incident", r.Code, r.Body)
 	}
-	created := opstest.Do(t, h, "POST", "/ops/incidents", open, admin...)
+	created := do(t, h, "POST", "/ops/incidents", open, admin...)
 	if created.Code != http.StatusCreated || created.JSON["status"] != "investigating" || created.JSON["source"] != "manual" ||
 		created.JSON["created_by"].(map[string]any)["id"] != adminID || len(created.JSON["updates"].([]any)) != 1 {
 		t.Fatalf("POST /ops/incidents = %d %s", created.Code, created.Body)
@@ -353,29 +352,29 @@ func TestIncidentsThroughOps(t *testing.T) {
 	id := int64(created.JSON["id"].(float64))
 	path := fmt.Sprintf("/ops/incidents/%d", id)
 
-	if r := opstest.Do(t, h, "POST", path+"/updates", `{"message":"Provider outage confirmed.","status":"identified","severity":"sev2"}`, admin...); r.Code != http.StatusCreated ||
+	if r := do(t, h, "POST", path+"/updates", `{"message":"Provider outage confirmed.","status":"identified","severity":"sev2"}`, admin...); r.Code != http.StatusCreated ||
 		r.JSON["status"] != "identified" || r.JSON["severity"] != "sev2" || len(r.JSON["updates"].([]any)) != 2 {
 		t.Errorf("POST %s/updates = %d %s", path, r.Code, r.Body)
 	}
 	for query, want := range map[string]int{"?status=open": 1, "?status=resolved": 0, "?severity=sev2": 1, "?source=automatic": 0, "": 1} {
-		if r := opstest.Do(t, h, "GET", "/ops/incidents"+query, "", viewer...); r.Code != http.StatusOK || len(r.JSON["incidents"].([]any)) != want {
+		if r := do(t, h, "GET", "/ops/incidents"+query, "", viewer...); r.Code != http.StatusOK || len(r.JSON["incidents"].([]any)) != want {
 			t.Errorf("GET /ops/incidents%s = %d %s, want %d incidents", query, r.Code, r.Body, want)
 		}
 	}
-	if r := opstest.Do(t, h, "POST", path+"/resolve", `{"message":"Provider recovered."}`, admin...); r.Code != http.StatusOK || r.JSON["status"] != "resolved" || r.JSON["resolved_at"] == nil {
+	if r := do(t, h, "POST", path+"/resolve", `{"message":"Provider recovered."}`, admin...); r.Code != http.StatusOK || r.JSON["status"] != "resolved" || r.JSON["resolved_at"] == nil {
 		t.Errorf("POST %s/resolve = %d %s", path, r.Code, r.Body)
 	}
-	if r := opstest.Do(t, h, "POST", path+"/updates", `{"message":"late"}`, admin...); r.Code != http.StatusConflict || r.JSON["code"] != "incident_resolved" {
+	if r := do(t, h, "POST", path+"/updates", `{"message":"late"}`, admin...); r.Code != http.StatusConflict || r.JSON["code"] != "incident_resolved" {
 		t.Errorf("updating a resolved incident = %d %s, want 409 incident_resolved", r.Code, r.Body)
 	}
-	if r := opstest.Do(t, h, "GET", "/ops/incidents/999999", "", viewer...); r.Code != http.StatusNotFound || r.JSON["code"] != "incident_not_found" {
+	if r := do(t, h, "GET", "/ops/incidents/999999", "", viewer...); r.Code != http.StatusNotFound || r.JSON["code"] != "incident_not_found" {
 		t.Errorf("GET /ops/incidents/999999 = %d %s", r.Code, r.Body)
 	}
-	if r := opstest.Do(t, h, "GET", path, "", viewer...); r.Code != http.StatusOK || len(r.JSON["updates"].([]any)) != 3 {
+	if r := do(t, h, "GET", path, "", viewer...); r.Code != http.StatusOK || len(r.JSON["updates"].([]any)) != 3 {
 		t.Errorf("GET %s = %d %s, want 3 updates", path, r.Code, r.Body)
 	}
 
-	audit := opstest.Do(t, h, "GET", "/ops/audit?action_prefix=ops.incident.", "", viewer...)
+	audit := do(t, h, "GET", "/ops/audit?action_prefix=ops.incident.", "", viewer...)
 	events, _ := audit.JSON["events"].([]any)
 	if len(events) != 3 {
 		t.Fatalf("incident audit events = %s, want 3", audit.Body)
@@ -389,10 +388,10 @@ func TestIncidentsThroughOps(t *testing.T) {
 
 	// Instead of flushRequests: wait until the collector wrote the requests
 	// the report counts (see obsWaitOverview).
-	var report opstest.Response
+	var report response
 	deadline := time.Now().Add(60 * time.Second)
 	for {
-		report = opstest.Do(t, h, "GET", path+"/report", "", viewer...)
+		report = do(t, h, "GET", path+"/report", "", viewer...)
 		if requests, _ := report.JSON["requests"].(map[string]any); requests != nil && requests["requests"].(float64) >= 5 || time.Now().After(deadline) {
 			break
 		}
@@ -421,7 +420,7 @@ func TestIncidentsThroughOps(t *testing.T) {
 		if len(headers) == len(viewer) {
 			target += "?format=markdown"
 		}
-		md := opstest.Do(t, h, "GET", target, "", headers...)
+		md := do(t, h, "GET", target, "", headers...)
 		if md.Code != http.StatusOK || md.Header.Get("Content-Type") != "text/markdown; charset=utf-8" {
 			t.Fatalf("GET %s = %d %v", target, md.Code, md.Header)
 		}
@@ -442,7 +441,7 @@ func TestIncidentsThroughOps(t *testing.T) {
 // TestIncidentDetectionThroughJob writes a minute of failing requests and
 // runs incidents_detect: an automatic incident opens, recorded by the job.
 func TestIncidentDetectionThroughJob(t *testing.T) {
-	a := opstest.New(t, opstest.Options{})
+	a := newTestApp(t, testAppOptions{})
 	a.StartWorkers(t)
 	h := a.Handler()
 	admin, _ := a.SignIn(t, "admin@example.com", "platform_admin")
@@ -461,23 +460,23 @@ func TestIncidentDetectionThroughJob(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	def := opstest.Do(t, h, "GET", "/ops/jobs/definitions/incidents_detect", "", admin...)
+	def := do(t, h, "GET", "/ops/jobs/definitions/incidents_detect", "", admin...)
 	if config, _ := def.JSON["config"].(map[string]any); def.Code != http.StatusOK || config["schedule"] != "@every 1m" || config["enabled"] != true {
 		t.Errorf("incidents_detect definition = %d %s", def.Code, def.Body)
 	}
-	if r := opstest.Do(t, h, "POST", "/ops/jobs/definitions/incidents_detect/run", "", admin...); r.Code >= 300 {
+	if r := do(t, h, "POST", "/ops/jobs/definitions/incidents_detect/run", "", admin...); r.Code >= 300 {
 		t.Fatalf("run incidents_detect = %d %s", r.Code, r.Body)
 	}
 	var incidents []any
-	opstest.WaitFor(t, "an automatic incident", func() bool {
-		incidents, _ = opstest.Do(t, h, "GET", "/ops/incidents?source=automatic", "", admin...).JSON["incidents"].([]any)
+	waitFor(t, "an automatic incident", func() bool {
+		incidents, _ = do(t, h, "GET", "/ops/incidents?source=automatic", "", admin...).JSON["incidents"].([]any)
 		return len(incidents) == 1
 	})
 	inc := incidents[0].(map[string]any)
 	if inc["severity"] != "sev2" || inc["status"] != "investigating" || inc["created_by"].(map[string]any)["id"] != "incidents_detect" {
 		t.Errorf("automatic incident = %v", inc)
 	}
-	events, _ := opstest.Do(t, h, "GET", "/ops/audit?action=ops.incident.opened", "", admin...).JSON["events"].([]any)
+	events, _ := do(t, h, "GET", "/ops/audit?action=ops.incident.opened", "", admin...).JSON["events"].([]any)
 	if len(events) != 1 || events[0].(map[string]any)["actor_id"] != "incidents_detect" || events[0].(map[string]any)["actor_kind"] != "system" {
 		t.Errorf("audit events = %v, want ops.incident.opened by system incidents_detect", events)
 	}

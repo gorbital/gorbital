@@ -5,15 +5,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"gorbital.dev/gorbital/internal/opstest"
 )
 
 // TestOpsAllowedIPs: with OPS_ALLOWED_IPS, /ops/ answers only clients in
 // the ranges, by their address after APP_TRUSTED_PROXIES, and refuses the
 // others before the sign-in check (ADR-0085). Other routes are unaffected.
 func TestOpsAllowedIPs(t *testing.T) {
-	a := opstest.New(t, opstest.Options{Env: map[string]string{
+	a := newTestApp(t, testAppOptions{Env: map[string]string{
 		"OPS_ALLOWED_IPS":     "10.0.0.0/8, 2001:db8::/32",
 		"APP_TRUSTED_PROXIES": "192.0.2.100/32",
 	}})
@@ -58,7 +56,7 @@ func TestOpsAllowedIPs(t *testing.T) {
 	}
 
 	// Without OPS_ALLOWED_IPS every address reaches /ops/.
-	open := opstest.New(t, opstest.Options{})
+	open := newTestApp(t, testAppOptions{})
 	viewer, _ := open.SignIn(t, "viewer@example.com", "ops_viewer")
 	req := httptest.NewRequest(http.MethodGet, "/ops/settings", nil)
 	req.RemoteAddr = "198.51.100.7:4000"

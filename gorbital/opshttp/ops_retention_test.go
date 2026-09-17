@@ -3,27 +3,25 @@ package opshttp_test
 import (
 	"net/http"
 	"testing"
-
-	"gorbital.dev/gorbital/internal/opstest"
 )
 
 // This test is a v0.1 golden app's internal/app/ops_retention_test.go, run
 // against the library module.
 
 func TestOpsRetention(t *testing.T) {
-	a := opstest.New(t, opstest.Options{})
+	a := newTestApp(t, testAppOptions{})
 	h := a.Handler()
-	if r := opstest.Do(t, h, "GET", "/ops/retention", ""); r.Code != http.StatusUnauthorized {
+	if r := do(t, h, "GET", "/ops/retention", ""); r.Code != http.StatusUnauthorized {
 		t.Errorf("GET /ops/retention without a session = %d, want 401", r.Code)
 	}
 	viewer, _ := a.SignIn(t, "viewer@example.com", "ops_viewer")
 	// Sign-in isn't a module yet (Phase 5), so signing in records no audit
 	// event: an administrator's setting change records one instead.
 	admin, _ := a.SignIn(t, "admin@example.com", "platform_admin")
-	if r := opstest.Do(t, h, "PUT", "/ops/settings/example.ping_message", `{"value":"audited","version":0,"reason":"retention"}`, admin...); r.Code != http.StatusOK {
+	if r := do(t, h, "PUT", "/ops/settings/example.ping_message", `{"value":"audited","version":0,"reason":"retention"}`, admin...); r.Code != http.StatusOK {
 		t.Fatalf("PUT /ops/settings/example.ping_message = %d %s", r.Code, r.Body)
 	}
-	r := opstest.Do(t, h, "GET", "/ops/retention", "", viewer...)
+	r := do(t, h, "GET", "/ops/retention", "", viewer...)
 	if r.Code != http.StatusOK {
 		t.Fatalf("GET /ops/retention = %d %s", r.Code, r.Body)
 	}
@@ -56,10 +54,10 @@ func TestOpsRetention(t *testing.T) {
 		}
 	}
 
-	if r := opstest.Do(t, h, "GET", "/ops/jobs/definitions/retention", "", viewer...); r.Code != http.StatusOK {
+	if r := do(t, h, "GET", "/ops/jobs/definitions/retention", "", viewer...); r.Code != http.StatusOK {
 		t.Errorf("GET /ops/jobs/definitions/retention = %d, want the retention job defined", r.Code)
 	}
-	if r := opstest.Do(t, h, "GET", "/ops/settings/audit.retention", "", viewer...); r.Code != http.StatusOK || r.JSON["reason_required"] != true {
+	if r := do(t, h, "GET", "/ops/settings/audit.retention", "", viewer...); r.Code != http.StatusOK || r.JSON["reason_required"] != true {
 		t.Errorf("GET /ops/settings/audit.retention = %d %s, want a setting that needs a reason to change", r.Code, r.Body)
 	}
 }

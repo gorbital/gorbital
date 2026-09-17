@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"gorbital.dev/gorbital/internal/opstest"
 )
 
 // This test is TestEmailThroughOps from a v0.1 golden app's
@@ -43,12 +41,12 @@ func TestEmailThroughOps(t *testing.T) {
 		env["MAILPIT_SMTP_ADDR"] = addr
 		env["MAIL_DELIVERY"] = "mailpit"
 	}
-	a := opstest.New(t, opstest.Options{Env: env})
+	a := newTestApp(t, testAppOptions{Env: env})
 	a.StartWorkers(t)
 	h := a.Handler()
 	bearer, _ := a.SignIn(t, "admin@example.com", "platform_admin")
 
-	status := opstest.Do(t, h, "GET", "/ops/mail", "", bearer...)
+	status := do(t, h, "GET", "/ops/mail", "", bearer...)
 	details, _ := status.JSON["details"].(map[string]any)
 	if status.Code != http.StatusOK || status.JSON["provider"] != mailProviderName || status.JSON["delivery"] != "mailpit" ||
 		status.JSON["from_email"] != "no-reply@example.com" || status.JSON["from_name"] != "acme-api" || !maps.Equal(details, mailProviderDetails) {
@@ -56,30 +54,30 @@ func TestEmailThroughOps(t *testing.T) {
 	}
 
 	// Who emails appear to come from needs a reason (security review OPS-9).
-	if r := opstest.Do(t, h, "PUT", "/ops/settings/mail.reply_to", `{"value":"attacker@evil.test","version":0}`, bearer...); r.Code != 422 || r.JSON["code"] != "setting_reason_required" {
+	if r := do(t, h, "PUT", "/ops/settings/mail.reply_to", `{"value":"attacker@evil.test","version":0}`, bearer...); r.Code != 422 || r.JSON["code"] != "setting_reason_required" {
 		t.Errorf("PUT mail.reply_to without reason = %d %s, want 422 setting_reason_required", r.Code, r.Body)
 	}
 	for key, value := range map[string]string{"mail.from_email": "hello@acme.test", "mail.from_name": "Acme", "mail.reply_to": "support@acme.test"} {
-		if r := opstest.Do(t, h, "PUT", "/ops/settings/"+key, fmt.Sprintf(`{"value":%q,"version":0,"reason":"our sender"}`, value), bearer...); r.Code != http.StatusOK {
+		if r := do(t, h, "PUT", "/ops/settings/"+key, fmt.Sprintf(`{"value":%q,"version":0,"reason":"our sender"}`, value), bearer...); r.Code != http.StatusOK {
 			t.Fatalf("PUT /ops/settings/%s = %d %s", key, r.Code, r.Body)
 		}
 	}
-	if r := opstest.Do(t, h, "PUT", "/ops/settings/mail.from_email", `{"value":"not an email","version":1}`, bearer...); r.Code != 422 {
+	if r := do(t, h, "PUT", "/ops/settings/mail.from_email", `{"value":"not an email","version":1}`, bearer...); r.Code != 422 {
 		t.Errorf("invalid sender address = %d %s, want 422", r.Code, r.Body)
 	}
-	if r := opstest.Do(t, h, "GET", "/ops/mail", "", bearer...); r.JSON["from_email"] != "hello@acme.test" || r.JSON["reply_to"] != "support@acme.test" {
+	if r := do(t, h, "GET", "/ops/mail", "", bearer...); r.JSON["from_email"] != "hello@acme.test" || r.JSON["reply_to"] != "support@acme.test" {
 		t.Errorf("GET /ops/mail after changing the sender = %s", r.Body)
 	}
 
 	to := fmt.Sprintf("ops-%d@example.com", time.Now().UnixNano())
-	sent := opstest.Do(t, h, "POST", "/ops/mail/test", fmt.Sprintf(`{"to":%q}`, to), bearer...)
+	sent := do(t, h, "POST", "/ops/mail/test", fmt.Sprintf(`{"to":%q}`, to), bearer...)
 	if sent.Code != http.StatusAccepted || sent.JSON["status"] != "queued" || sent.JSON["to"] != to {
 		t.Fatalf("POST /ops/mail/test = %d %s", sent.Code, sent.Body)
 	}
-	if r := opstest.Do(t, h, "POST", "/ops/mail/test", `{"to":"nobody"}`, bearer...); r.Code != http.StatusUnprocessableEntity {
+	if r := do(t, h, "POST", "/ops/mail/test", `{"to":"nobody"}`, bearer...); r.Code != http.StatusUnprocessableEntity {
 		t.Errorf("POST /ops/mail/test with an invalid address = %d %s, want 422", r.Code, r.Body)
 	}
-	events := opstest.Do(t, h, "GET", "/ops/audit?action=mail.test.requested", "", bearer...)
+	events := do(t, h, "GET", "/ops/audit?action=mail.test.requested", "", bearer...)
 	if list, _ := events.JSON["events"].([]any); len(list) != 1 || strings.Contains(events.Body, to) {
 		t.Errorf("GET /ops/audit?action=mail.test.requested = %s, want one event without the recipient", events.Body)
 	}
@@ -98,7 +96,7 @@ func TestEmailThroughOps(t *testing.T) {
 			Address string `json:"Address"`
 		} `json:"ReplyTo"`
 	}
-	opstest.WaitFor(t, "the test email in Mailpit", func() bool {
+	waitFor(t, "the test email in Mailpit", func() bool {
 		resp, err := http.Get(mailpitAPI + "/api/v1/search?query=" + url.QueryEscape(`to:"`+to+`"`)) //nolint:gosec,noctx // test URL from the environment
 		if err != nil {
 			return false

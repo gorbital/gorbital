@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/opstest"
 )
 
 // This test is a v0.1 golden app's internal/app/providers_test.go, run
@@ -26,11 +25,11 @@ func TestSignInMethodsThroughOps(t *testing.T) {
 		{Key: "github", Name: "GitHub", Missing: []string{"GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"}, Guide: "AUTH_PROVIDERS.md#github-sign-in"},
 		{Key: "authenticator_app", Name: "Authenticator app", Enabled: true},
 	}
-	a := opstest.New(t, opstest.Options{SignInMethods: report})
+	a := newTestApp(t, testAppOptions{SignInMethods: report})
 	h := a.Handler()
 	viewer, _ := a.SignIn(t, "viewer@example.com", "ops_viewer")
 
-	r := opstest.Do(t, h, "GET", "/ops/auth/providers", "", viewer...)
+	r := do(t, h, "GET", "/ops/auth/providers", "", viewer...)
 	list, _ := r.JSON["methods"].([]any)
 	if r.Code != http.StatusOK || len(list) < 5 {
 		t.Fatalf("GET /ops/auth/providers = %d %s", r.Code, r.Body)
@@ -59,15 +58,15 @@ func TestSignInMethodsThroughOps(t *testing.T) {
 	// returns, so authhttp's tests check that.
 
 	user, _ := a.SignIn(t, "user@example.com", "")
-	if r := opstest.Do(t, h, "GET", "/ops/auth/providers", "", user...); r.Code != http.StatusForbidden {
+	if r := do(t, h, "GET", "/ops/auth/providers", "", user...); r.Code != http.StatusForbidden {
 		t.Errorf("GET /ops/auth/providers without an ops role = %d, want 403", r.Code)
 	}
 
 	// Not in the golden test: an authenticator that doesn't report its
 	// methods gets an empty list.
-	b := opstest.New(t, opstest.Options{})
+	b := newTestApp(t, testAppOptions{})
 	viewer, _ = b.SignIn(t, "viewer@example.com", "ops_viewer")
-	if r := opstest.Do(t, b.Handler(), "GET", "/ops/auth/providers", "", viewer...); r.Code != http.StatusOK || !strings.Contains(r.Body, `"methods":[]`) {
+	if r := do(t, b.Handler(), "GET", "/ops/auth/providers", "", viewer...); r.Code != http.StatusOK || !strings.Contains(r.Body, `"methods":[]`) {
 		t.Errorf("GET /ops/auth/providers without a report = %d %s, want an empty list", r.Code, r.Body)
 	}
 }

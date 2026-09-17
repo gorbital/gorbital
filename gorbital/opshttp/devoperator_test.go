@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"gorbital.dev/gorbital/internal/opstest"
 	authlib "gorbital.dev/modules/auth"
 )
 
@@ -23,11 +22,11 @@ const devToken = "q3Jt0tBq0Xvqf7i5Tq1hYw2m9x8Zr4Kc6Lp2Nd5Vb3E"
 
 // devServer serves an app with the dev console on over a real loopback
 // listener and returns the app and its URL.
-func devServer(t *testing.T, env map[string]string) (*opstest.App, string) {
+func devServer(t *testing.T, env map[string]string) (*testApp, string) {
 	t.Helper()
 	full := map[string]string{"DEV_CONSOLE_TOKEN": devToken}
 	maps.Copy(full, env)
-	a := opstest.New(t, opstest.Options{Env: full})
+	a := newTestApp(t, testAppOptions{Env: full})
 	srv := httptest.NewServer(a.Handler())
 	t.Cleanup(srv.Close)
 	return a, srv.URL
@@ -126,7 +125,7 @@ func TestDevOperator(t *testing.T) {
 	}
 
 	// Without the console there is no operator: the token is just an unknown one.
-	srv := httptest.NewServer(opstest.New(t, opstest.Options{}).Handler())
+	srv := httptest.NewServer(newTestApp(t, testAppOptions{}).Handler())
 	defer srv.Close()
 	if code, _, _ := devGet(t, srv.URL, "/ops/settings"); code != http.StatusUnauthorized {
 		t.Errorf("GET /ops/settings with the token but no console = %d, want 401", code)

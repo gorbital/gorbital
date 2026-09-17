@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/opstest"
 )
 
 // This test is TestOpsRateLimits from a v0.1 golden app's
@@ -26,7 +25,7 @@ func TestOpsRateLimits(t *testing.T) {
 		{Name: "ops.auth.write", Description: "Manage accounts and reset rate limits", Roles: []string{"platform_admin"}},
 	}}
 	env := map[string]string{"DEV_CONSOLE_TOKEN": devToken}
-	a := opstest.New(t, opstest.Options{Env: env, Gorbital: []gorbital.Option{gorbital.WithModules(signIn)}})
+	a := newTestApp(t, testAppOptions{Env: env, Gorbital: []gorbital.Option{gorbital.WithModules(signIn)}})
 	srv := httptest.NewServer(a.Handler())
 	t.Cleanup(srv.Close)
 	base := srv.URL

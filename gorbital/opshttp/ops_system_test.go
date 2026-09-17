@@ -6,21 +6,19 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-
-	"gorbital.dev/gorbital/internal/opstest"
 )
 
 // These tests are a v0.1 golden app's internal/app/ops_system_test.go, run
 // against the library module.
 
 func TestOpsSystem(t *testing.T) {
-	a := opstest.New(t, opstest.Options{})
+	a := newTestApp(t, testAppOptions{})
 	h := a.Handler()
-	if r := opstest.Do(t, h, "GET", "/ops/system", ""); r.Code != http.StatusUnauthorized {
+	if r := do(t, h, "GET", "/ops/system", ""); r.Code != http.StatusUnauthorized {
 		t.Errorf("GET /ops/system without a session = %d, want 401", r.Code)
 	}
 	viewer, _ := a.SignIn(t, "viewer@example.com", "ops_viewer")
-	r := opstest.Do(t, h, "GET", "/ops/system", "", viewer...)
+	r := do(t, h, "GET", "/ops/system", "", viewer...)
 	if r.Code != http.StatusOK {
 		t.Fatalf("GET /ops/system as ops_viewer = %d %s", r.Code, r.Body)
 	}
@@ -78,8 +76,8 @@ func TestOpsSystem(t *testing.T) {
 func TestOpsOperationsDeclareSecurity(t *testing.T) {
 	// The golden test wrote the app's OpenAPI document with app.WriteOpenAPI;
 	// here the app serves it.
-	a := opstest.New(t, opstest.Options{})
-	served := opstest.Do(t, a.Handler(), "GET", "/openapi.json", "")
+	a := newTestApp(t, testAppOptions{})
+	served := do(t, a.Handler(), "GET", "/openapi.json", "")
 	if served.Code != http.StatusOK {
 		t.Fatalf("GET /openapi.json = %d %s", served.Code, served.Body)
 	}

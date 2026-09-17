@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-
-	"gorbital.dev/gorbital/internal/opstest"
 )
 
 // This test is a v0.1 golden app's internal/app/ops_storage_test.go, run
@@ -111,10 +109,10 @@ func TestOpsStorage(t *testing.T) {
 	a, base2 := devServer(t, map[string]string{"STORAGE_LOCAL_DIR": dir})
 	viewer, _ := a.SignIn(t, "viewer@example.com", "ops_viewer")
 	h := a.Handler()
-	if r := opstest.Do(t, h, http.MethodGet, "/ops/storage", "", viewer...); r.Code != http.StatusOK {
+	if r := do(t, h, http.MethodGet, "/ops/storage", "", viewer...); r.Code != http.StatusOK {
 		t.Errorf("ops_viewer status = %d %s", r.Code, r.Body)
 	}
-	if r := opstest.Do(t, h, http.MethodDelete, "/ops/storage/object?key=x.txt", "", viewer...); r.Code != http.StatusForbidden {
+	if r := do(t, h, http.MethodDelete, "/ops/storage/object?key=x.txt", "", viewer...); r.Code != http.StatusForbidden {
 		t.Errorf("ops_viewer delete = %d %s", r.Code, r.Body)
 	}
 	_ = base2
