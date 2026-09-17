@@ -363,7 +363,7 @@ The threat model covers the framework, CLI and ecosystem, not only generated app
 | ~~Anchor edits: text insertion vs AST~~ | Resolved: parser-located text insertion ([spike](../spikes/anchor/README.md), ADR-0021) |
 | ~~Minimal first run under 60 seconds~~ | Resolved: 12.0 s cold, 1.6 s warm in the spike; 25.0 s cold, 4.8 s warm with the real CLI at the end of the foundation milestone (`scripts/first-run.sh`) |
 | ~~Scalar docs visual check in a real browser~~ | Resolved: Scalar replaced by the gorbital reference, checked in a browser in a generated app and on the site ([ADR-0049](adr/0049-public-docs-and-website.md)) |
-| Publish the library at `gorbital.dev` | Open: domain hardening, public repository, first tags (until then apps use `--local`) |
+| ~~Publish the library at `gorbital.dev`~~ | Resolved: `v0.1.0` published on 2026-09-17; `go install gorbital.dev/cli/cmd/orb@latest` |
 | External security review | Open: the stability and security review work is built (in v0.1.0) and `v1.0.0` awaits a third party's sign-off; maintainer actions (GitHub teams and branch protection, `release` environment, tag rulesets, code of conduct contact) are listed in [ADR-0053](adr/0053-internal-security-review.md) |
 | ~~Row-level security~~ | Resolved: optional fifth isolation layer, `orb add rls` ([ADR-0061](adr/0061-row-level-security.md)) |
 | Local dev console | APIs resolved: `/_dev/` in `modules/devconsole` ([ADR-0065](adr/0065-local-dev-console-apis.md)). Open: no console UI is built; the Dev Portal in gorbital-dashboards stays on mock data |

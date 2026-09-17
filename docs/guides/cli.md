@@ -92,10 +92,9 @@ orb new my-api --no-start                 # create it, but don't start orb dev
 | Go module path | `--module` | the app name |
 | Preset (Minimal or Full) | `--preset minimal\|full` | `minimal` (Custom arrives later) |
 | Tenancy (Full only): records belong to users, or to organisations | `--tenancy single\|multi` | `single` |
-| gorbital checkout | `--local <path>` | the checkout you run `orb` inside, if any |
 | Initialise git | `--no-git` | yes |
 
-Other flags: `--skip-tidy` (don't run `go mod tidy`), `--json`, `--yes`, `--no-input`, `--plain`.
+Other flags: `--local <path>` (use a gorbital checkout instead of the published library; default: the checkout you run `orb` inside, if any), `--skip-tidy` (don't run `go mod tidy`), `--json`, `--yes`, `--no-input`, `--plain`.
 
 Questions come one at a time. Each answered question folds into one line, and values you passed by flag are listed the same way, so every answer is on screen before the last question: create the app, yes or no.
 
