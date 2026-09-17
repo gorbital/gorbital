@@ -12,6 +12,11 @@
 //     site that rebinds its own name to 127.0.0.1 still sends its own name;
 //   - the connection comes from a loopback address, so an app listening on
 //     every interface doesn't serve the console to its network;
+//   - the request carries no forwarding headers (Forwarded, X-Forwarded-For,
+//     X-Forwarded-Host, X-Real-IP, True-Client-IP, CF-Connecting-IP, CF-Ray,
+//     CDN-Loop): a reverse proxy or tunnel on this machine, such as
+//     cloudflared for orb dev --tunnel, connects from loopback and may even
+//     send a local Host, but adds them (ADR-0086);
 //   - an Authorization: Bearer header carries the console token (at least
 //     [MinTokenLength] characters; orb dev generates 256 bits per run),
 //     compared in constant time.
@@ -292,6 +297,10 @@ func (c *Console) handler(logger *slog.Logger) http.Handler {
 
 		if reason := c.refuse(r); reason != "" {
 			c.logRefusal(r, logger, reason)
+			if reason == refusedForwarded {
+				httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusForbidden, "forbidden", "the dev console answers only direct local connections, not requests forwarded by a proxy or tunnel"))
+				return
+			}
 			if reason == refusedToken {
 				h.Set("WWW-Authenticate", `Bearer realm="dev console"`)
 				httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusUnauthorized, "unauthorized", "send the dev console token printed by orb dev as Authorization: Bearer <token>"))
@@ -333,9 +342,10 @@ func (c *Console) handler(logger *slog.Logger) http.Handler {
 
 // Reasons a request is refused.
 const (
-	refusedHost  = "host"
-	refusedPeer  = "peer"
-	refusedToken = "token"
+	refusedHost      = "host"
+	refusedPeer      = "peer"
+	refusedForwarded = "forwarded"
+	refusedToken     = "token"
 )
 
 // refuse returns why r may not use the console, or "".
@@ -345,6 +355,9 @@ func (c *Console) refuse(r *http.Request) string {
 	}
 	if !loopbackPeer(r.RemoteAddr) {
 		return refusedPeer
+	}
+	if forwarded(r.Header) {
+		return refusedForwarded
 	}
 	if !c.validToken(r.Header.Get("Authorization")) {
 		return refusedToken
@@ -405,6 +418,22 @@ func allowedHost(host, port string) bool {
 	switch strings.ToLower(name) {
 	case "localhost", "127.0.0.1", "[::1]":
 		return hostPort == port
+	}
+	return false
+}
+
+// forwardingHeaders are set by reverse proxies, CDNs and tunnels to pass on
+// the client they received a request from. Cloudflare's tunnel (cloudflared)
+// sends CF-Connecting-IP, CF-Ray, CDN-Loop and X-Forwarded-For.
+var forwardingHeaders = []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Real-Ip", "True-Client-Ip", "Cf-Connecting-Ip", "Cf-Ray", "Cdn-Loop"}
+
+// forwarded reports whether a request came through a proxy or tunnel: it
+// carries any forwarding header, even an empty one.
+func forwarded(h http.Header) bool {
+	for _, name := range forwardingHeaders {
+		if _, ok := h[name]; ok {
+			return true
+		}
 	}
 	return false
 }

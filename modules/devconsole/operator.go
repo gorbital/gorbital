@@ -10,10 +10,11 @@ import (
 
 // Operator returns middleware that lets a request under prefix (such as
 // "/ops/") act as a, the development operator, when it carries the console
-// token as Authorization: Bearer and passes the console's Host and loopback
-// checks (ADR-0066). Every other request reaches next unchanged, so the
-// app's own authentication still applies to it; a request with the token
-// but a wrong Host or a remote peer is logged as refused and continues
+// token as Authorization: Bearer and passes the console's Host, loopback and
+// forwarding checks (ADR-0066, ADR-0086). Every other request reaches next
+// unchanged, so the app's own authentication still applies to it; a request
+// with the token but a wrong Host, a remote peer or forwarding headers (a
+// proxy or tunnel such as cloudflared) is logged as refused and continues
 // without the operator.
 //
 // The Dev Portal uses it to call the app's operations APIs in development
@@ -41,6 +42,8 @@ func (c *Console) Operator(prefix string, a actor.Actor, logger *slog.Logger) fu
 				c.logRefusal(r, logger, refusedHost)
 			case !loopbackPeer(r.RemoteAddr):
 				c.logRefusal(r, logger, refusedPeer)
+			case forwarded(r.Header):
+				c.logRefusal(r, logger, refusedForwarded)
 			default:
 				r = r.WithContext(actor.With(r.Context(), a))
 			}

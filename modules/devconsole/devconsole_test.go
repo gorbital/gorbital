@@ -657,3 +657,43 @@ func post(t *testing.T, base, path, body string) result {
 	out, _ := io.ReadAll(resp.Body)
 	return result{resp.StatusCode, resp.Header, string(out)}
 }
+
+// TestConsoleRefusesTunnelledRequests simulates requests arriving through a
+// tunnel on this machine (orb dev --tunnel, ADR-0086): cloudflared connects
+// from loopback, forwards the public Host (or, configured to, a local one)
+// and adds Cloudflare's forwarding headers. None may reach the console, even
+// with the token.
+func TestConsoleRefusesTunnelledRequests(t *testing.T) {
+	base, _ := newServer(t, appHandler())
+	_, port, _ := net.SplitHostPort(strings.TrimPrefix(base, "http://"))
+	cloudflare := []string{
+		"Cf-Connecting-Ip", "203.0.113.7",
+		"X-Forwarded-For", "203.0.113.7",
+		"X-Forwarded-Proto", "https",
+		"Cf-Ray", "8c0ffee000000000-AMS",
+		"Cf-Visitor", `{"scheme":"https"}`,
+		"Cdn-Loop", "cloudflare",
+	}
+	for _, host := range []string{"calm-river-demo.trycloudflare.com", "dev-api.example.com", "localhost:" + port, "127.0.0.1:" + port} {
+		for _, path := range []string{"/_dev/", "/_dev/config", "/_dev"} {
+			r := get(t, base, path, host, true, cloudflare...)
+			if r.code != http.StatusForbidden || problemCode(t, r.body) != "forbidden" || strings.Contains(r.body, "endpoints") {
+				t.Errorf("tunnelled %s%s = %d %s, want 403 forbidden", host, path, r.code, r.body)
+			}
+		}
+	}
+	// Any one forwarding header is enough, whatever its value.
+	for _, header := range []string{"Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Real-Ip", "True-Client-Ip", "Cf-Connecting-Ip", "Cf-Ray", "Cdn-Loop"} {
+		if r := get(t, base, "/_dev/", "localhost:"+port, true, header, "127.0.0.1"); r.code != http.StatusForbidden || !strings.Contains(r.body, "forwarded by a proxy or tunnel") {
+			t.Errorf("local request with %s = %d %s, want 403", header, r.code, r.body)
+		}
+	}
+	// A direct local request still works, and the app's own routes go
+	// through the tunnel as before.
+	if r := get(t, base, "/_dev/", "localhost:"+port, true); r.code != http.StatusOK {
+		t.Errorf("direct local request = %d %s", r.code, r.body)
+	}
+	if r := get(t, base, "/v1/ping", "calm-river-demo.trycloudflare.com", false, cloudflare...); r.code != http.StatusOK || r.body != "app" {
+		t.Errorf("app route through the tunnel = %d %q", r.code, r.body)
+	}
+}
