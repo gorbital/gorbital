@@ -17,7 +17,8 @@
 // actor holding its ops.* permission; the module declares the roles
 // platform_admin (every permission) and ops_viewer (reading). When
 // OPS_ALLOWED_IPS is set, requests from other client addresses get 403
-// ip_not_allowed (ADR-0085).
+// ip_not_allowed (ADR-0085); gorbital.New applies that to every /ops/
+// route, sign-in's operator endpoints included, not only to this module's.
 //
 // The module needs an app built by gorbital.New (or gorbital.Main), which
 // gives it the job manager, health checks and what every module declared
@@ -32,7 +33,6 @@ import (
 	"fmt"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/httpx/ipfilter"
 
 	"gorbital.dev/gorbital/opshttp/internal/delivery"
 	opsdomain "gorbital.dev/gorbital/opshttp/internal/domain"
@@ -89,13 +89,6 @@ func Module(opts ...Option) gorbital.Module {
 					panic(err) // reported by gorbital.New as an error naming the module
 				}
 				svc = opsusecase.NewService(deps)
-				if allowed := platform.Config.OpsAllowedIPs; len(allowed) > 0 {
-					filter, err := ipfilter.New(allowed, nil)
-					if err != nil {
-						panic(fmt.Errorf("OPS_ALLOWED_IPS: %w", err))
-					}
-					r = r.Group("", gorbital.Use(filter))
-				}
 			}
 			delivery.RegisterSettings(r, svc)
 			delivery.RegisterFlags(r, svc)

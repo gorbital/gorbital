@@ -98,14 +98,22 @@ type Config struct {
 	ClockSkew time.Duration
 	// PermissionsClaim names the claim holding the caller's permissions: a
 	// list of strings, or one space-separated string such as "scope".
-	// Default: [DefaultPermissionsClaim].
+	// Default: [DefaultPermissionsClaim]. The default actor mapping drops
+	// permissions under [ReservedPermissionPrefix], the operations console's
+	// namespace; grant those with ActorFrom instead.
 	PermissionsClaim string
 	// ActorFrom returns the actor for verified claims, replacing the
 	// default: a user whose ID is "sub" and whose permissions are
-	// PermissionsClaim. Return a service actor for machine tokens, map the
-	// provider's permission names to the app's, or set OrgID. An error
-	// refuses the token. The actor's kind must be user or service, with an
-	// ID.
+	// PermissionsClaim, less those under [ReservedPermissionPrefix]. Return
+	// a service actor for machine tokens, map the provider's permission
+	// names to the app's, or set OrgID. An error refuses the token. The
+	// actor's kind must be user or service, with an ID.
+	//
+	// What it returns is trusted as it stands: the permissions it sets are
+	// what guard.Permission and the operations console check, and its StepUp
+	// is empty unless it fills it, so a permission an app grants only to a
+	// session with a second factor is granted outright. Map the provider's
+	// names to the app's rather than passing a claim through.
 	ActorFrom func(Claims) (actor.Actor, error)
 }
 
@@ -239,10 +247,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Authenticator, error
 	if err != nil || !allowedKeysURL(u) {
 		return nil, fmt.Errorf("jwt: the JWKS URL %q must be an https URL, or http on a loopback address", cfg.JWKSURL)
 	}
-	client := o.client
-	if client == nil {
-		client = &http.Client{Timeout: fetchTimeout, CheckRedirect: checkRedirect}
-	}
+	client := keysClient(o.client)
 	a.keys = newKeySet(u.String(), client, o.now)
 	if err := a.keys.load(ctx); err != nil {
 		return nil, err
@@ -275,6 +280,26 @@ func allowedKeysURL(u *url.URL) bool {
 		return ip != nil && ip.IsLoopback()
 	}
 	return false
+}
+
+// keysClient returns the client that fetches the provider's keys. An app's
+// own client (WithHTTPClient) is copied, so the redirect allowlist and the
+// fetch timeout still apply: without them Go's default policy follows up to
+// ten redirects to any scheme and host, and a redirect from the provider's
+// JWKS endpoint would let another server supply the keys every token is
+// verified against.
+func keysClient(c *http.Client) *http.Client {
+	if c == nil {
+		return &http.Client{Timeout: fetchTimeout, CheckRedirect: checkRedirect}
+	}
+	copied := *c
+	if copied.CheckRedirect == nil {
+		copied.CheckRedirect = checkRedirect
+	}
+	if copied.Timeout <= 0 {
+		copied.Timeout = fetchTimeout
+	}
+	return &copied
 }
 
 func checkRedirect(req *http.Request, via []*http.Request) error {
@@ -375,8 +400,22 @@ func (a *Authenticator) audienceMatches(c Claims) bool {
 	return false
 }
 
+// ReservedPermissionPrefix is the permission namespace of the framework's
+// own operations console (gorbital.dev/gorbital/opshttp). The default actor
+// mapping drops permissions under it, because /ops authorizes on the actor's
+// permissions alone and the claim a provider puts them in is often not fully
+// under the operator's control: an OAuth "scope" claim is asked for by the
+// client, and several providers map user-editable metadata into it. An app
+// that does grant its operators /ops through the provider says so with
+// [Config.ActorFrom], which this never touches.
+const ReservedPermissionPrefix = "ops."
+
 func (a *Authenticator) defaultActor(c Claims) (actor.Actor, error) {
-	return actor.Actor{Kind: actor.KindUser, ID: c.Subject, Permissions: c.Strings(a.permissionsClaim)}, nil
+	permissions := c.Strings(a.permissionsClaim)
+	permissions = slices.DeleteFunc(permissions, func(p string) bool {
+		return strings.HasPrefix(p, ReservedPermissionPrefix)
+	})
+	return actor.Actor{Kind: actor.KindUser, ID: c.Subject, Permissions: permissions}, nil
 }
 
 // The middleware's refusals.

@@ -343,10 +343,15 @@ func LoadConfig(src config.Source) (Config, error) {
 	} else {
 		cfg.TrustedCallers = callers
 	}
-	if allowed, err := ipfilter.ParsePrefixes(get("OPS_ALLOWED_IPS")); err != nil {
+	opsAllowedIPs := get("OPS_ALLOWED_IPS")
+	if allowed, err := ipfilter.ParsePrefixes(opsAllowedIPs); err != nil {
 		errs = append(errs, fmt.Errorf("OPS_ALLOWED_IPS: %w", err))
 	} else if _, err := ipfilter.New(allowed, nil); err != nil {
 		errs = append(errs, fmt.Errorf("OPS_ALLOWED_IPS: %w", err))
+	} else if len(allowed) == 0 && strings.TrimSpace(opsAllowedIPs) != "" {
+		// A value of nothing but separators parses to no ranges, which
+		// would leave /ops/ open to every address without a word.
+		errs = append(errs, fmt.Errorf("OPS_ALLOWED_IPS: %q lists no address range; leave it unset to allow every address", opsAllowedIPs))
 	} else {
 		cfg.OpsAllowedIPs = allowed
 	}

@@ -429,3 +429,100 @@ func BenchmarkTimeout(b *testing.B) {
 		})
 	}
 }
+
+// TestTimeoutUnwrapBeforeTheDeadline: a handler that unwraps the writer
+// before the deadline and writes through it afterwards is still stopped at
+// the deadline.
+//
+// Unwrap used to answer from the timeout state at the moment it was called,
+// so a handler holding the unwrapped writer across the deadline wrote to the
+// real writer with no lock, concurrently with the 503. That was a data race
+// on the response's header map -- an unrecoverable "concurrent map writes"
+// that kills the process -- and it put the handler's headers and body on the
+// 503 (internal security review, 2026-09, HTTP-2). Run with -race.
+func TestTimeoutUnwrapBeforeTheDeadline(t *testing.T) {
+	passed := make(chan struct{})
+	var writeErr error
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		unwrapped := w.(interface{ Unwrap() http.ResponseWriter }).Unwrap()
+		<-passed // the deadline has gone by; the 503 is being written
+		unwrapped.Header().Set("X-Internal-Backend", "db-primary-7")
+		unwrapped.WriteHeader(http.StatusOK)
+		_, writeErr = unwrapped.Write([]byte("handler body after the timeout"))
+	})
+	rec := httptest.NewRecorder()
+	time.AfterFunc(40*time.Millisecond, func() { close(passed) })
+	timeout.New(10*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if writeErr != nil {
+		t.Errorf("late write through Unwrap: error = %v, want nil", writeErr)
+	}
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "handler body") {
+		t.Errorf("the handler's body reached the response: %q", rec.Body)
+	}
+	if got := rec.Header().Get("X-Internal-Backend"); got != "" {
+		t.Errorf("the handler's header reached the 503: %q", got)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/problem+json" {
+		t.Errorf("Content-Type = %q, want the problem's", got)
+	}
+}
+
+// TestTimeoutUnwrapReachesTheController: the guarded writer Unwrap returns
+// still carries flushing, hijacking and the deadlines, so
+// http.ResponseController works through it.
+func TestTimeoutUnwrapReachesTheController(t *testing.T) {
+	var errs []error
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		rc := http.NewResponseController(w.(interface{ Unwrap() http.ResponseWriter }).Unwrap())
+		_, _ = w.Write([]byte("hello"))
+		errs = []error{rc.Flush(), rc.SetReadDeadline(time.Now().Add(time.Minute))}
+	})
+	rec := httptest.NewRecorder()
+	timeout.New(time.Minute)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	// httptest.ResponseRecorder supports Flush but not deadlines; what
+	// matters is that neither call reports ErrNotSupported for a missing
+	// method on the guarded writer.
+	if errs[0] != nil {
+		t.Errorf("Flush through the unwrapped writer = %v", errs[0])
+	}
+	if errors.Is(errs[1], http.ErrHandlerTimeout) {
+		t.Errorf("SetReadDeadline before the deadline = %v", errs[1])
+	}
+	if rec.Body.String() != "hello" {
+		t.Errorf("body = %q", rec.Body)
+	}
+}
+
+// TestTimeoutEarlyHintsHeadersDontReachThe503: a 103 Early Hints response
+// copies the handler's headers into the real header map without starting
+// the response, so the timeout answer must clear them rather than send the
+// handler's headers with its 503 (internal security review, 2026-09,
+// HTTP-3). As in TestTimeoutEarlyHints, httptest.ResponseRecorder keeps the
+// first status, the 103; what matters here is the header map the 503 went
+// out with.
+func TestTimeoutEarlyHintsHeadersDontReachThe503(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Link", "</app.css>; rel=preload")
+		w.Header().Set("X-Internal-Backend", "db-primary-7")
+		w.WriteHeader(http.StatusEarlyHints)
+		<-r.Context().Done()
+	})
+	rec := httptest.NewRecorder()
+	timeout.New(10*time.Millisecond)(handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	if !strings.Contains(rec.Body.String(), "request_timeout") {
+		t.Fatalf("body = %q, want the timeout problem", rec.Body)
+	}
+	for _, name := range []string{"Link", "X-Internal-Backend"} {
+		if got := rec.Header().Get(name); got != "" {
+			t.Errorf("the 503 went out with the handler's %s: %q", name, got)
+		}
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/problem+json" {
+		t.Errorf("Content-Type = %q, want the problem's", got)
+	}
+}

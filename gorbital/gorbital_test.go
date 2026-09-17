@@ -527,3 +527,81 @@ func TestDeclareErrors(t *testing.T) {
 		})
 	}
 }
+
+// TestCustomizeCantReplaceGuards: a Customize option that replaces the
+// operation's middleware with entries of its own is refused, even when it
+// leaves the slice the same length. Comparing only the length let a route
+// keep its bearer security requirement and its x-gorbital-guards extension
+// in the OpenAPI document while answering anonymous requests, because the
+// sign-in check and the guards had been replaced by the app's own
+// middleware (internal security review, 2026-09, GUARD-1).
+func TestCustomizeCantReplaceGuards(t *testing.T) {
+	pass := func(hctx huma.Context, next func(huma.Context)) { next(hctx) }
+	tests := map[string]struct {
+		opts []gorbital.RouteOption
+		want int // middleware entries the route has before Customize runs
+	}{
+		"the sign-in check": {
+			opts: []gorbital.RouteOption{gorbital.Customize(func(_ huma.API, op *huma.Operation) {
+				op.Middlewares = huma.Middlewares{pass}
+			})},
+			want: 1,
+		},
+		"a guard": {
+			opts: []gorbital.RouteOption{
+				guard.Permission("books.book.write"),
+				gorbital.Customize(func(_ huma.API, op *huma.Operation) {
+					op.Middlewares = huma.Middlewares{pass, pass}
+				}),
+			},
+			want: 2,
+		},
+		"one entry of the chain": {
+			opts: []gorbital.RouteOption{
+				guard.Permission("books.book.write"),
+				gorbital.Customize(func(_ huma.API, op *huma.Operation) { op.Middlewares[0] = pass }),
+			},
+			want: 2,
+		},
+		"the chain reordered": {
+			opts: []gorbital.RouteOption{
+				guard.Permission("books.book.write"),
+				gorbital.Customize(func(_ huma.API, op *huma.Operation) {
+					op.Middlewares[0], op.Middlewares[1] = op.Middlewares[1], op.Middlewares[0]
+				}),
+			},
+			want: 2,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			a := newTestAPI(t, withBearer())
+			err := gorbital.Mount(a.api, a.mapper, gorbital.Deps{}, gorbital.Module{Name: "books", Routes: func(r *gorbital.Router, _ gorbital.Deps) {
+				gorbital.Post(r, "/v1/books", createBook, tt.opts...)
+			}})
+			if err == nil {
+				rec, p := do(t, a.mux, http.MethodPost, "/v1/books", `{"title":"Dune"}`)
+				t.Fatalf("Mount() = nil; the route was registered and an anonymous POST answered %d %q", rec.Code, p.Code)
+			}
+			if !strings.Contains(err.Error(), "can't change the method, path, operation ID, security or middleware") {
+				t.Errorf("Mount() error = %v", err)
+			}
+		})
+	}
+}
+
+// TestCustomizeKeepsWorkingOnTheOperation: the guard rejects only changes to
+// the middleware chain; the fields Customize exists for still work.
+func TestCustomizeKeepsWorkingOnTheOperation(t *testing.T) {
+	a := newTestAPI(t, withBearer())
+	err := gorbital.Mount(a.api, a.mapper, gorbital.Deps{}, gorbital.Module{Name: "books", Routes: func(r *gorbital.Router, _ gorbital.Deps) {
+		gorbital.Post(r, "/v1/books", createBook, guard.Permission("books.book.write"),
+			gorbital.Customize(func(_ huma.API, op *huma.Operation) { op.MaxBodyBytes = 4096 }))
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := operation(t, a.api, http.MethodPost, "/v1/books").MaxBodyBytes; got != 4096 {
+		t.Errorf("MaxBodyBytes = %d, want 4096", got)
+	}
+}

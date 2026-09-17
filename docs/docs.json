@@ -138,7 +138,8 @@
           "name": "Security",
           "pages": [
             { "title": "Security overview", "slug": "technical/security", "source": "docs/security/README.md" },
-            { "title": "Internal review, September 2026", "slug": "technical/security/2026-09-internal-review", "source": "docs/security/2026-09-internal-review.md" }
+            { "title": "Internal review, September 2026", "slug": "technical/security/2026-09-internal-review", "source": "docs/security/2026-09-internal-review.md" },
+            { "title": "Internal review of the v0.2 diff, September 2026", "slug": "technical/security/2026-09-v0.2-internal-review", "source": "docs/security/2026-09-v0.2-internal-review.md" }
           ]
         },
         {

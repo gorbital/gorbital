@@ -353,6 +353,11 @@ func TestLoadConfigOpsAllowedIPs(t *testing.T) {
 		{"office", nil, "OPS_ALLOWED_IPS"},
 		{"10.0.0.0/33", nil, "OPS_ALLOWED_IPS"},
 		{"::ffff:10.0.0.0/64", nil, "OPS_ALLOWED_IPS"},
+		// A value of nothing but separators used to parse to no ranges and
+		// leave /ops/ open to every address without a word (internal
+		// security review, 2026-09, OPS-2).
+		{",", nil, "OPS_ALLOWED_IPS"},
+		{" , ", nil, "OPS_ALLOWED_IPS"},
 	} {
 		cfg, err := load(map[string]string{"OPS_ALLOWED_IPS": tt.value})
 		checkErr(t, "OPS_ALLOWED_IPS="+tt.value, err, tt.wantErr)

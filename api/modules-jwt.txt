@@ -6,6 +6,8 @@ pkg gorbital.dev/modules/jwt, const MaxClockSkew = 300000000000
 pkg gorbital.dev/modules/jwt, const MaxClockSkew time.Duration
 pkg gorbital.dev/modules/jwt, const MaxTokenBytes = 16384
 pkg gorbital.dev/modules/jwt, const MaxTokenBytes ideal-int
+pkg gorbital.dev/modules/jwt, const ReservedPermissionPrefix = "ops."
+pkg gorbital.dev/modules/jwt, const ReservedPermissionPrefix ideal-string
 pkg gorbital.dev/modules/jwt, func New(context.Context, Config, ...Option) (*Authenticator, error)
 pkg gorbital.dev/modules/jwt, func WithClock(func() time.Time) Option
 pkg gorbital.dev/modules/jwt, func WithHMACSecret([]byte) Option

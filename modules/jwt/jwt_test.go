@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -617,5 +618,125 @@ func TestMiddlewareAccessNote(t *testing.T) {
 	h.ServeHTTP(httptest.NewRecorder(), req)
 	if !strings.Contains(logs.String(), "user_id=auth0|usr_1") {
 		t.Errorf("access log lacks the user: %s", logs.String())
+	}
+}
+
+// TestAppClientKeepsTheRedirectPolicy: an app's own HTTP client
+// (WithHTTPClient), such as one with a proxy or custom roots, still fetches
+// the JWKS under the redirect allowlist and the fetch timeout. Without them
+// Go's default policy follows up to ten redirects to any scheme and host, so
+// one redirect out of the provider's JWKS endpoint would let another server
+// supply the keys every token is verified against (internal security review,
+// 2026-09, JWT-1).
+func TestAppClientKeepsTheRedirectPolicy(t *testing.T) {
+	testKeys()
+	c := newClock()
+	redirecting := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A host that is neither https nor loopback, so the allowlist
+		// refuses it; the request is never made.
+		http.Redirect(w, r, "http://attacker.example.com/jwks.json", http.StatusFound)
+	}))
+	defer redirecting.Close()
+
+	cfg := Config{
+		Issuer:    "https://idp.example.com/",
+		Audiences: []string{"https://api.example.com"},
+		JWKSURL:   redirecting.URL + "/.well-known/jwks.json",
+	}
+	appClient := &http.Client{Timeout: 5 * time.Second}
+	for name, client := range map[string]*http.Client{
+		"the default client":  nil,
+		"an app's own client": appClient,
+	} {
+		t.Run(name, func(t *testing.T) {
+			opts := []Option{WithClock(c.Now)}
+			if client != nil {
+				opts = append(opts, WithHTTPClient(client))
+			}
+			_, err := New(context.Background(), cfg, opts...)
+			if err == nil {
+				t.Fatal("New() followed a JWKS redirect to a plain-http host")
+			}
+			if !strings.Contains(err.Error(), "refusing a JWKS redirect") {
+				t.Errorf("New() error = %v, want the redirect refusal", err)
+			}
+		})
+	}
+	if appClient.CheckRedirect != nil || appClient.Timeout != 5*time.Second {
+		t.Error("WithHTTPClient's client was modified; keysClient must copy it")
+	}
+}
+
+// TestKeysClient: keysClient fills in the redirect allowlist and the fetch
+// timeout an app's client leaves unset, and keeps the ones it sets.
+func TestKeysClient(t *testing.T) {
+	refuse := func(*http.Request, []*http.Request) error { return errors.New("app") }
+	if got := keysClient(nil); got.CheckRedirect == nil || got.Timeout != fetchTimeout {
+		t.Errorf("keysClient(nil) = %+v", got)
+	}
+	got := keysClient(&http.Client{})
+	if got.CheckRedirect == nil || got.Timeout != fetchTimeout {
+		t.Errorf("keysClient(empty) = %+v", got)
+	}
+	if err := got.CheckRedirect(httptest.NewRequest(http.MethodGet, "http://idp.example.com/jwks", nil), nil); err == nil {
+		t.Error("the filled-in policy allowed a plain-http redirect")
+	}
+	got = keysClient(&http.Client{Timeout: time.Second, CheckRedirect: refuse})
+	if got.Timeout != time.Second || got.CheckRedirect(nil, nil) == nil {
+		t.Error("keysClient replaced the app's own timeout or redirect policy")
+	}
+}
+
+// TestDefaultActorDropsOpsPermissions: the operations console authorizes on
+// the actor's permissions alone, so the default actor mapping must not let a
+// provider's claim carry ops.* permissions. Without this, a token whose
+// permissions (or client-requested "scope") claim contained
+// "ops.settings.write" reached /ops as a platform administrator, and with an
+// empty StepUp it skipped the second factor those permissions normally need
+// (internal security review, 2026-09, JWT-2).
+func TestDefaultActorDropsOpsPermissions(t *testing.T) {
+	testKeys()
+	c := newClock()
+	p := newIDP(t, publicJWK(rsaKey, "rsa-1", "RS256"))
+	a := newAuthenticator(t, p, c, Config{})
+
+	cl := claims(c.Now())
+	cl["permissions"] = []string{"ops.settings.write", "books.book.read", "ops.audit.read"}
+	var got actor.Actor
+	h := a.Middleware(nil)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got, _ = actor.From(r.Context())
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/ops/settings", nil)
+	req.Header.Set("Authorization", "Bearer "+sign(t, rsaKey, "rsa-1", jose.RS256, cl))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("the token was refused: %d %s", rec.Code, rec.Body)
+	}
+	if !slices.Equal(got.Permissions, []string{"books.book.read"}) {
+		t.Errorf("permissions = %v, want only the app's own", got.Permissions)
+	}
+	ctx := actor.With(context.Background(), got)
+	for _, permission := range []string{"ops.settings.write", "ops.audit.read"} {
+		if err := actor.Require(ctx, permission); !errors.Is(err, actor.ErrForbidden) {
+			t.Errorf("Require(%q) = %v, want ErrForbidden", permission, err)
+		}
+	}
+
+	// ActorFrom stays in charge: an app that does grant /ops through its
+	// provider says so there.
+	cfg := Config{ActorFrom: func(c Claims) (actor.Actor, error) {
+		return actor.Actor{Kind: actor.KindUser, ID: c.Subject, Permissions: c.Strings("permissions")}, nil
+	}}
+	b := newAuthenticator(t, p, c, cfg)
+	h = b.Middleware(nil)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		got, _ = actor.From(r.Context())
+	}))
+	req = httptest.NewRequest(http.MethodGet, "/ops/settings", nil)
+	req.Header.Set("Authorization", "Bearer "+sign(t, rsaKey, "rsa-1", jose.RS256, cl))
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	if !slices.Contains(got.Permissions, "ops.settings.write") {
+		t.Errorf("ActorFrom's permissions = %v, want them kept", got.Permissions)
 	}
 }

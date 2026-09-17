@@ -17,7 +17,7 @@ gorbital.Main(
 )
 ```
 
-Its paths, operation IDs, request and response schemas, error codes, permissions, roles and audit actions are those of the ops module a v0.1 app generated, and are public API (ADR-0015). Every operation needs an actor holding its ops.\* permission; the module declares the roles platform\_admin (every permission) and ops\_viewer (reading). When OPS\_ALLOWED\_IPS is set, requests from other client addresses get 403 ip\_not\_allowed (ADR-0085).
+Its paths, operation IDs, request and response schemas, error codes, permissions, roles and audit actions are those of the ops module a v0.1 app generated, and are public API (ADR-0015). Every operation needs an actor holding its ops.\* permission; the module declares the roles platform\_admin (every permission) and ops\_viewer (reading). When OPS\_ALLOWED\_IPS is set, requests from other client addresses get 403 ip\_not\_allowed (ADR-0085); gorbital.New applies that to every /ops/ route, sign-in's operator endpoints included, not only to this module's.
 
 The module needs an app built by gorbital.New (or gorbital.Main), which gives it the job manager, health checks and what every module declared through gorbital.Platform; mounted by hand with gorbital.Mount, it registers its routes for the OpenAPI document only.
 
