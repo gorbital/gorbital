@@ -298,7 +298,7 @@
         {
           "name": "Recipes",
           "pages": [
-            { "title": "Internal admin tool, part 1", "slug": "examples/recipes/internal-admin-tool", "source": "docs/examples/recipes/internal-admin-tool.md" },
+            { "title": "Internal admin tool", "slug": "examples/recipes/internal-admin-tool", "source": "docs/examples/recipes/internal-admin-tool.md" },
             { "title": "Multi-tenant invoicing", "slug": "examples/recipes/multi-tenant-invoicing", "source": "docs/examples/recipes/multi-tenant-invoicing.md" },
             { "title": "Receiving payment webhooks", "slug": "examples/recipes/receiving-payment-webhooks", "source": "docs/examples/recipes/receiving-payment-webhooks.md" },
             { "title": "Mobile backend with an external identity provider", "slug": "examples/recipes/mobile-backend-with-an-idp", "source": "docs/examples/recipes/mobile-backend-with-an-idp.md" },
