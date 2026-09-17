@@ -269,6 +269,11 @@ func layoutDiff(plan *layoutPlan) string {
 	return genplan.Diff(genplan.Plan{Changes: changes})
 }
 
+// hasItem reports whether the move recorded a line of this kind.
+func (m *layoutMove) hasItem(kind string) bool {
+	return slices.ContainsFunc(m.res.Items, func(item layoutItem) bool { return item.Kind == kind })
+}
+
 // report is UPGRADE-v0.2.md: what the move did, file by file, what it kept
 // and what is left for the developer.
 func (m *layoutMove) report() []byte {
@@ -314,7 +319,7 @@ func (m *layoutMove) report() []byte {
 			}
 		}
 	}
-	if len(m.res.Manual) > 0 || len(m.res.Conflicts) > 0 {
+	if m.hasItem(itemManual) || m.hasItem(itemFollowUp) || len(m.res.Conflicts) > 0 {
 		b.WriteString("\n## Left for you\n\n")
 		for _, item := range m.res.Items {
 			if item.Kind != itemManual && item.Kind != itemFollowUp {
