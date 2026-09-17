@@ -8,10 +8,11 @@ import "gorbital.dev/modules/devconsole"
 
 Package devconsole serves development-only JSON APIs under /\_dev/ for a local console (ADR-0065): what the app wired, its routes, the environment variables it read (secrets only as set or unset), recent requests and log records with live streams, captured email, migration state and recent job runs.
 
-The console exposes an app's internals, so every request must pass three checks before anything else runs:
+The console exposes an app's internals, so every request must pass four checks before anything else runs:
 
   - the Host header names localhost, 127.0.0.1 or \[::1] with the port the request arrived on, which defeats DNS rebinding: a page on another site that rebinds its own name to 127.0.0.1 still sends its own name;
   - the connection comes from a loopback address, so an app listening on every interface doesn't serve the console to its network;
+  - the request carries no forwarding headers (Forwarded, X-Forwarded-For, X-Forwarded-Host, X-Real-IP, True-Client-IP, CF-Connecting-IP, CF-Ray, CDN-Loop): a reverse proxy or tunnel on this machine, such as cloudflared for orb dev --tunnel, connects from loopback and may even send a local Host, but adds them (ADR-0086);
   - an Authorization: Bearer header carries the console token (at least [MinTokenLength](#MinTokenLength) characters; orb dev generates 256 bits per run), compared in constant time.
 
 Responses never carry CORS headers, and all say Cache-Control: no-store. The app decides whether the console exists at all: gorbital apps mount it only when APP\_ENV is development and DEV\_CONSOLE\_TOKEN is set, and refuse to start in production with the token set.
@@ -387,7 +388,7 @@ Mount returns a handler serving the console for paths under [Prefix](#Prefix) (a
 func (c *Console) Operator(prefix string, a actor.Actor, logger *slog.Logger) func(http.Handler) http.Handler
 ```
 
-Operator returns middleware that lets a request under prefix (such as "/ops/") act as a, the development operator, when it carries the console token as Authorization: Bearer and passes the console's Host and loopback checks (ADR-0066). Every other request reaches next unchanged, so the app's own authentication still applies to it; a request with the token but a wrong Host or a remote peer is logged as refused and continues without the operator.
+Operator returns middleware that lets a request under prefix (such as "/ops/") act as a, the development operator, when it carries the console token as Authorization: Bearer and passes the console's Host, loopback and forwarding checks (ADR-0066, ADR-0086). Every other request reaches next unchanged, so the app's own authentication still applies to it; a request with the token but a wrong Host, a remote peer or forwarding headers (a proxy or tunnel such as cloudflared) is logged as refused and continues without the operator.
 
 The Dev Portal uses it to call the app's operations APIs in development without a signed-in administrator: orb dev adds the token to proxied requests, and the app grants a the permissions it chooses, typically its platform administrator role's. Audit events record a as the actor. A nil console returns middleware that does nothing, so apps can wire it unconditionally: without DEV\_CONSOLE\_TOKEN there is no console, and in production the token is refused at startup.
 

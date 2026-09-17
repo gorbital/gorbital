@@ -4,7 +4,7 @@
 // records with live streams, captured email, migration state and recent job
 // runs.
 //
-// The console exposes an app's internals, so every request must pass three
+// The console exposes an app's internals, so every request must pass four
 // checks before anything else runs:
 //
 //   - the Host header names localhost, 127.0.0.1 or [::1] with the port the
