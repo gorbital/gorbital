@@ -75,6 +75,8 @@ type App struct {
 	deps        Deps
 	settings    builtinSettings
 	catalog     *auth.Catalog
+	orgCatalog  *auth.Catalog // organisation roles and permissions (Permission.OrgRoles)
+	orgs        OrgAuthorizer // guard.OrgMember's, set by an organisations module
 	migrations  fs.FS
 	jobsManager *jobs.Manager
 	releases    *releases.Tracker
@@ -227,17 +229,20 @@ func (a *App) build(ctx context.Context) error {
 	// Declarations first, then the stores that freeze them (ADR-0083).
 	reg := settings.NewRegistry()
 	flagReg := flags.NewRegistry()
-	a.catalog = auth.NewCatalog()
+	a.catalog, a.orgCatalog = auth.NewCatalog(), auth.NewCatalog()
 	if a.rateLimiters, err = collectRateLimiters(a.modules); err != nil {
 		return err
 	}
 	if err := catchPanic("gorbital", "settings", func() { a.settings = declareSettings(reg, o.name) }); err != nil {
 		return err
 	}
-	if err := Declare(Declarations{Permissions: a.catalog, Settings: reg, Flags: flagReg}, a.modules...); err != nil {
+	if err := Declare(Declarations{Permissions: a.catalog, OrgPermissions: a.orgCatalog, Settings: reg, Flags: flagReg}, a.modules...); err != nil {
 		return err
 	}
 	if err := declareRoles(a.catalog, a.modules); err != nil {
+		return err
+	}
+	if err := declareOrgRoles(a.orgCatalog, a.modules); err != nil {
 		return err
 	}
 	settingsStore, err := settings.NewStore(ctx, pool, reg, recorder, settings.WithLogger(a.logger))
@@ -394,8 +399,11 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
-	api, mux, mounted, err := buildAPI(cfg, o, a.modules, a.deps)
+	api, mux, mounted, err := buildAPI(cfg, o, a.modules, a.deps, a.orgs)
 	if err != nil {
+		return err
+	}
+	if err := checkOrgRoutes(mounted); err != nil {
 		return err
 	}
 	if err := checkGuardLimiters(a.rateLimiters, mounted); err != nil {
@@ -606,6 +614,7 @@ func (a *App) buildPlatform() error {
 	a.platform = &Platform{
 		Config: a.cfg, Name: a.o.name, StartedAt: a.started, InstanceID: a.releases.InstanceID(),
 		Health: a.health, Jobs: a.jobsManager, MailSender: a.settings.mailDefaults(), Migrations: a.migrations,
+		Authenticator: a.o.auth, OrgPermissions: a.orgCatalog,
 		app: a,
 	}
 	for _, m := range a.modules {

@@ -4,6 +4,8 @@ package delivery
 
 import (
 	"context"
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/internal/operation"
 	"net/http"
 	"time"
 
@@ -132,7 +134,7 @@ type handler struct {
 // signed-in user; operations on an organisation answer 404 org_not_found to
 // anyone who isn't a member. An API key needs each operation's permission in
 // its scopes, and can't join or leave organisations (ADR-0058).
-func Register(api huma.API, svc *orgsusecase.Service) {
+func Register(r *gorbital.Router, svc *orgsusecase.Service) {
 	h := &handler{svc: svc}
 	op := func(o huma.Operation) huma.Operation {
 		o.Tags, o.Security = []string{"Organisations"}, openapi.Bearer
@@ -144,85 +146,85 @@ func Register(api huma.API, svc *orgsusecase.Service) {
 		return op(o)
 	}
 
-	huma.Register(api, op(huma.Operation{
+	operation.Register(r, op(huma.Operation{
 		OperationID: "orgs-list", Method: http.MethodGet, Path: "/v1/orgs",
 		Summary: "List your organisations", Description: "Your personal workspace first, then by name.",
 		Errors: []int{http.StatusForbidden},
 	}), h.list)
-	huma.Register(api, op(huma.Operation{
+	operation.Register(r, op(huma.Operation{
 		OperationID: "orgs-create", Method: http.MethodPost, Path: "/v1/orgs",
 		Summary:       "Create an organisation",
 		Description:   "You become its owner. Your email address must be verified, and you can own up to `orgs.max_owned` organisations.",
 		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusForbidden, http.StatusConflict, http.StatusUnprocessableEntity},
 	}), h.create)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-get", Method: http.MethodGet, Path: "/v1/orgs/{orgId}",
 		Summary: "Get an organisation",
 	}), h.get)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-rename", Method: http.MethodPatch, Path: "/v1/orgs/{orgId}",
 		Summary: "Rename an organisation", Errors: []int{http.StatusConflict, http.StatusUnprocessableEntity},
 	}), h.rename)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-delete", Method: http.MethodDelete, Path: "/v1/orgs/{orgId}",
 		Summary:       "Delete an organisation",
 		Description:   "Members lose access at once. An owner can restore it until the retention period (`orgs.deleted_org_retention`) ends; then it is purged with its data. Personal workspaces can't be deleted.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusConflict},
 	}), h.delete)
-	huma.Register(api, op(huma.Operation{
+	operation.Register(r, op(huma.Operation{
 		OperationID: "orgs-restore", Method: http.MethodPost, Path: "/v1/orgs/{orgId}/restore",
 		Summary:     "Restore a deleted organisation",
 		Description: "Needs the same role as deleting it. Restoring counts toward `orgs.max_owned` like creating.",
 		Errors:      []int{http.StatusForbidden, http.StatusNotFound, http.StatusConflict},
 	}), h.restore)
 
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-members-list", Method: http.MethodGet, Path: "/v1/orgs/{orgId}/members",
 		Summary: "List members", Description: "Owners first, then in the order they joined.",
 	}), h.members)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-members-change-role", Method: http.MethodPatch, Path: "/v1/orgs/{orgId}/members/{userId}",
 		Summary:     "Change a member's role",
 		Description: "Nobody can give or change a role above their own, only owners change owners, and the last owner can't be demoted.",
 		Errors:      []int{http.StatusConflict, http.StatusUnprocessableEntity},
 	}), h.changeRole)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-members-remove", Method: http.MethodDelete, Path: "/v1/orgs/{orgId}/members/{userId}",
 		Summary: "Remove a member", DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusConflict},
 	}), h.removeMember)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-leave", Method: http.MethodPost, Path: "/v1/orgs/{orgId}/leave",
 		Summary: "Leave an organisation", Description: "The last owner can't leave, and nobody leaves their personal workspace. API keys can't leave organisations.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusConflict},
 	}), h.leave)
 
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-invitations-list", Method: http.MethodGet, Path: "/v1/orgs/{orgId}/invitations",
 		Summary: "List open invitations", Description: "Invitations that weren't accepted or revoked, expired ones included, newest first.",
 	}), h.invitations)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-invitations-create", Method: http.MethodPost, Path: "/v1/orgs/{orgId}/invitations",
 		Summary:       "Invite someone",
 		Description:   "Emails a link to the frontend page in `orgs.invitation_url`. Your email address must be verified. Accepting needs an account whose verified email is the invited address, while you are still a member who may give the role.",
 		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusConflict, http.StatusUnprocessableEntity, http.StatusTooManyRequests},
 	}), h.invite)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-invitations-resend", Method: http.MethodPost, Path: "/v1/orgs/{orgId}/invitations/{invitationId}/resend",
 		Summary: "Resend an invitation", Description: "Sends a new link with a new expiry; the old link stops working. You become the invitation's inviter.",
 		Errors: []int{http.StatusConflict, http.StatusTooManyRequests},
 	}), h.resend)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-invitations-revoke", Method: http.MethodDelete, Path: "/v1/orgs/{orgId}/invitations/{invitationId}",
 		Summary: "Revoke an invitation", DefaultStatus: http.StatusNoContent,
 	}), h.revoke)
-	huma.Register(api, op(huma.Operation{
+	operation.Register(r, op(huma.Operation{
 		OperationID: "invitations-accept", Method: http.MethodPost, Path: "/v1/invitations/accept",
 		Summary: "Accept an invitation", Description: "API keys can't accept invitations.",
 		Errors: []int{http.StatusForbidden, http.StatusNotFound, http.StatusConflict},
 	}), h.accept)
 
-	registerSettings(api, h, inOrg)
-	registerFlags(api, h, inOrg)
+	registerSettings(r, h, inOrg)
+	registerFlags(r, h, inOrg)
 }
 
 func (h *handler) list(ctx context.Context, _ *struct{}) (*orgListOutput, error) {

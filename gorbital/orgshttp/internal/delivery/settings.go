@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/internal/operation"
 	"net/http"
 	"time"
 
@@ -95,29 +97,29 @@ type orgSettingHistoryInput struct {
 
 // registerSettings adds the operations on an organisation's own runtime
 // settings (ADR-0056). Members read them; owners and admins change them.
-func registerSettings(api huma.API, h *handler, inOrg func(huma.Operation) huma.Operation) {
-	huma.Register(api, inOrg(huma.Operation{
+func registerSettings(r *gorbital.Router, h *handler, inOrg func(huma.Operation) huma.Operation) {
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-settings-list", Method: http.MethodGet, Path: "/v1/orgs/{orgId}/settings",
 		Summary:     "List the organisation's settings",
 		Description: "The runtime settings an organisation may set for itself, with the value it gets. Settings it hasn't set follow the platform value.",
 	}), h.settings)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-settings-get", Method: http.MethodGet, Path: "/v1/orgs/{orgId}/settings/{key}",
 		Summary: "Get an organisation setting",
 	}), h.setting)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-settings-set", Method: http.MethodPut, Path: "/v1/orgs/{orgId}/settings/{key}",
 		Summary:     "Set the organisation's own value",
 		Description: "Within the setting's constraints. Send the `version` you read; a newer version returns `setting_version_conflict`.",
 		Errors:      []int{http.StatusConflict, http.StatusUnprocessableEntity},
 	}), h.setSetting)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-settings-reset", Method: http.MethodDelete, Path: "/v1/orgs/{orgId}/settings/{key}",
 		Summary:     "Go back to the platform value",
 		Description: "Removes the organisation's own value (`reason` in the body when required).",
 		Errors:      []int{http.StatusConflict, http.StatusUnprocessableEntity},
 	}), h.resetSetting)
-	huma.Register(api, inOrg(huma.Operation{
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-settings-history", Method: http.MethodGet, Path: "/v1/orgs/{orgId}/settings/{key}/history",
 		Summary: "List changes to an organisation setting",
 	}), h.settingHistory)
@@ -126,7 +128,7 @@ func registerSettings(api huma.API, h *handler, inOrg func(huma.Operation) huma.
 func (h *handler) settings(ctx context.Context, in *orgInput) (*orgSettingListOutput, error) {
 	views, err := h.svc.Settings(ctx, orgslib.ID(in.OrgID))
 	if err != nil {
-		return nil, err
+		return nil, settingError(err)
 	}
 	out := &orgSettingListOutput{Body: OrgSettingList{Items: make([]OrgSettingResponse, len(views))}}
 	for i, v := range views {
@@ -138,7 +140,7 @@ func (h *handler) settings(ctx context.Context, in *orgInput) (*orgSettingListOu
 func (h *handler) setting(ctx context.Context, in *orgSettingInput) (*orgSettingOutput, error) {
 	v, err := h.svc.Setting(ctx, orgslib.ID(in.OrgID), in.Key)
 	if err != nil {
-		return nil, err
+		return nil, settingError(err)
 	}
 	return &orgSettingOutput{Body: orgSettingResponse(v)}, nil
 }
@@ -158,7 +160,7 @@ func (h *handler) setSetting(ctx context.Context, in *setOrgSettingInput) (*orgS
 func (h *handler) resetSetting(ctx context.Context, in *resetOrgSettingInput) (*orgSettingOutput, error) {
 	v, err := h.svc.ResetSetting(ctx, orgslib.ID(in.OrgID), in.Key, settings.Change{Version: in.Body.Version, Reason: in.Body.Reason})
 	if err != nil {
-		return nil, err
+		return nil, settingError(err)
 	}
 	return &orgSettingOutput{Body: orgSettingResponse(v)}, nil
 }
@@ -166,7 +168,7 @@ func (h *handler) resetSetting(ctx context.Context, in *resetOrgSettingInput) (*
 func (h *handler) settingHistory(ctx context.Context, in *orgSettingHistoryInput) (*orgSettingHistoryOutput, error) {
 	entries, err := h.svc.SettingHistory(ctx, orgslib.ID(in.OrgID), in.Key, in.Before, in.Limit)
 	if err != nil {
-		return nil, err
+		return nil, settingError(err)
 	}
 	out := &orgSettingHistoryOutput{Body: OrgSettingHistory{Items: make([]OrgSettingChange, len(entries))}}
 	for i, e := range entries {
@@ -179,11 +181,24 @@ func (h *handler) settingHistory(ctx context.Context, in *orgSettingHistoryInput
 }
 
 // settingError turns a rejected value into a problem carrying the reason,
-// which never includes the value itself.
+// which never includes the value itself. The settings store's other errors
+// get the problems the operations API maps them to (opshttp), so an app
+// without /ops answers as a v0.1 app did.
 func settingError(err error) error {
 	var invalid *settings.InvalidValueError
-	if errors.As(err, &invalid) {
+	switch {
+	case errors.As(err, &invalid):
 		return httpx.NewProblem(http.StatusUnprocessableEntity, "invalid_setting_value", invalid.Reason)
+	case errors.Is(err, settings.ErrNotOrgOverridable):
+		return err // mapped by the module
+	case errors.Is(err, settings.ErrUnknownSetting):
+		return httpx.NewProblem(http.StatusNotFound, "setting_not_found", "no setting has this key")
+	case errors.Is(err, settings.ErrVersionConflict):
+		return httpx.NewProblem(http.StatusConflict, "setting_version_conflict", "the setting changed since it was read; read it again")
+	case errors.Is(err, settings.ErrReasonRequired):
+		return httpx.NewProblem(http.StatusUnprocessableEntity, "setting_reason_required", "a reason is required to change this setting")
+	case errors.Is(err, settings.ErrInvalidValue):
+		return httpx.NewProblem(http.StatusUnprocessableEntity, "invalid_setting_value", "the value is not valid for this setting")
 	}
 	return err
 }

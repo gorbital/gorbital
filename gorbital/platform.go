@@ -14,6 +14,7 @@ import (
 	"gorbital.dev/actor"
 	"gorbital.dev/health"
 	"gorbital.dev/mail"
+	"gorbital.dev/modules/auth"
 	"gorbital.dev/modules/jobs"
 	"gorbital.dev/modules/settings"
 
@@ -50,6 +51,14 @@ type Platform struct {
 	// Migrations are every migration Migrate applies: the library's, the
 	// modules' and the app's, merged.
 	Migrations fs.FS
+	// Authenticator is the app's authenticator ([WithAuth]), or nil.
+	Authenticator Authenticator
+	// OrgPermissions is the organisation catalog: every module's
+	// organisation permissions ([Permission.OrgRoles]) and a role for each
+	// organisation role they name, with the permissions the modules grant
+	// it. It isn't frozen, so the organisations module can require a second
+	// factor for roles before freezing it.
+	OrgPermissions *auth.Catalog
 
 	app *App
 }

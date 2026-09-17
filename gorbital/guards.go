@@ -123,7 +123,10 @@ type sharedLimiter struct {
 }
 
 // guardMiddleware returns the operation middleware that runs guard.
-func (g *registry) guardMiddleware(module string, op *huma.Operation, guard route.Guard) (func(huma.Context, func(huma.Context)), error) {
+func (g *registry) guardMiddleware(module string, op *huma.Operation, guard route.Guard, public bool) (func(huma.Context, func(huma.Context)), error) {
+	if guard.Org != nil {
+		return g.orgMiddleware(module, op, guard, public)
+	}
 	check := guard.Check
 	if guard.Limit != nil {
 		name := guard.Limit.Name
@@ -146,7 +149,7 @@ func (g *registry) guardMiddleware(module string, op *huma.Operation, guard rout
 	if check == nil {
 		return nil, fmt.Errorf("guard %q has no check", guard.Name)
 	}
-	routeAttr := attribute.String("http.route", op.Path)
+	routeAttr := routeAttribute(op.Path)
 	return func(hctx huma.Context, next func(huma.Context)) {
 		err := check(hctx)
 		if err == nil {
@@ -156,6 +159,9 @@ func (g *registry) guardMiddleware(module string, op *huma.Operation, guard rout
 		g.refuse(hctx, module, guard.Name, routeAttr, err)
 	}, nil
 }
+
+// routeAttribute is a refusal's route attribute.
+func routeAttribute(path string) attribute.KeyValue { return attribute.String("http.route", path) }
 
 // refuse writes a guard's refusal as problem+json and records it.
 func (g *registry) refuse(hctx huma.Context, module, guard string, routeAttr attribute.KeyValue, err error) {

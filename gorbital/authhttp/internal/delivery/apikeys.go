@@ -345,10 +345,11 @@ type orgServiceAccountKeyIDInput struct {
 }
 
 // RegisterOrgServiceAccounts adds organisations' service accounts under
-// /v1/orgs/{orgId}/service-accounts (ADR-0058). Nothing mounts it until
-// organisations move into the library (Phase 7); multi-tenant apps call it;
-// the use cases need Config.Orgs. A nil svc registers the operations without
-// their dependencies, for exporting the OpenAPI document.
+// /v1/orgs/{orgId}/service-accounts (ADR-0058). The organisations module
+// (gorbital.dev/gorbital/orgshttp) mounts it through
+// Authenticator.OrgServiceAccountRoutes; the use cases need Config.Orgs. A
+// nil svc registers the operations without their dependencies, for
+// exporting the OpenAPI document.
 func RegisterOrgServiceAccounts(router *gorbital.Router, svc *authusecase.Service) {
 	h, r := &handler{svc: svc}, routesOn(router)
 	org := func(op huma.Operation) huma.Operation {

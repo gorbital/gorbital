@@ -2,6 +2,8 @@ package delivery
 
 import (
 	"context"
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/internal/operation"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -22,8 +24,8 @@ type orgFlagsOutput struct {
 
 // registerFlags adds the operation listing feature flags in an organisation
 // (ADR-0057). Every member reads them.
-func registerFlags(api huma.API, h *handler, inOrg func(huma.Operation) huma.Operation) {
-	huma.Register(api, inOrg(huma.Operation{
+func registerFlags(r *gorbital.Router, h *handler, inOrg func(huma.Operation) huma.Operation) {
+	operation.Register(r, inOrg(huma.Operation{
 		OperationID: "orgs-flags-list", Method: http.MethodGet, Path: "/v1/orgs/{orgId}/flags",
 		Summary:     "List your feature flags in the organisation",
 		Description: "Like GET /v1/flags, as a member acting in the organisation: its allow and deny lists apply, and percentage rollouts use the organisation, so members get the same answers unless a user list names them.",

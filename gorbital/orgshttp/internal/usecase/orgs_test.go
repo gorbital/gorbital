@@ -3,10 +3,13 @@ package usecase_test
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io/fs"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,8 +20,11 @@ import (
 	authlib "gorbital.dev/modules/auth"
 	orgslib "gorbital.dev/modules/orgs"
 	"gorbital.dev/modules/postgres/pgtest"
+	"gorbital.dev/modules/settings"
 
-	"example.com/acme-api/db/migrations"
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/authhttp"
+	"gorbital.dev/gorbital/orgshttp"
 	orgsdomain "gorbital.dev/gorbital/orgshttp/internal/domain"
 	orgsrepository "gorbital.dev/gorbital/orgshttp/internal/repository"
 	orgsusecase "gorbital.dev/gorbital/orgshttp/internal/usecase"
@@ -84,6 +90,27 @@ func (f *fakeEmails) token(t *testing.T, to string) string {
 	return ""
 }
 
+// migrationsFS holds what the use cases need of a multi-tenant app's
+// history, as gorbital.Migrate merges it: the settings tables, sign-in's
+// accounts and the organisations module's own migrations.
+func migrationsFS(t *testing.T) fs.FS {
+	t.Helper()
+	files := fstest.MapFS{}
+	add := func(m gorbital.Migration) {
+		data, err := fs.ReadFile(m.FS, m.File)
+		if err != nil {
+			t.Fatal(err)
+		}
+		files[fmt.Sprintf("%d_%s.sql", m.Version, m.Name)] = &fstest.MapFile{Data: data}
+	}
+	add(gorbital.Migration{Version: 20260914000001, Name: "settings", FS: settings.Migrations, File: "00001_settings.sql"})
+	add(gorbital.Migration{Version: 20260918000001, Name: "settings_org_values", FS: settings.Migrations, File: "00002_settings_org_values.sql"})
+	for _, m := range append(authhttp.New().Module().Migrations, orgshttp.Module(nil).Migrations...) {
+		add(m)
+	}
+	return files
+}
+
 type fixture struct {
 	svc    *orgsusecase.Service
 	emails *fakeEmails
@@ -113,7 +140,7 @@ func newFixture(t *testing.T, opts ...func(*orgsusecase.Config)) *fixture {
 	t.Helper()
 	f := &fixture{
 		emails: &fakeEmails{}, audit: &fakeRecorder{},
-		pool: pgtest.New(t, pgtest.WithMigrations(migrations.FS)),
+		pool: pgtest.New(t, pgtest.WithMigrations(migrationsFS(t))),
 		now:  time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC),
 	}
 	for _, name := range []string{"ada", "bob", "carol", "dan", "erin"} {

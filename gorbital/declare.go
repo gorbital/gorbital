@@ -15,8 +15,12 @@ type PermissionDeclarer interface {
 
 // Declarations are the registries [Declare] adds modules' declarations to.
 type Declarations struct {
-	// Permissions receives every module's permissions; nil skips them.
+	// Permissions receives every module's platform permissions; nil skips
+	// them.
 	Permissions PermissionDeclarer
+	// OrgPermissions receives every module's organisation permissions, those
+	// with [Permission.OrgRoles]; nil skips them.
+	OrgPermissions PermissionDeclarer
 	// Settings and Flags are required when a module declares settings or
 	// flags.
 	Settings *settings.Registry
@@ -28,9 +32,13 @@ type Declarations struct {
 // settings and flags stores and before freezing the permission catalog; then
 // grant each role its permissions with [Grants].
 //
+// Permissions with OrgRoles go to d.OrgPermissions, the others to
+// d.Permissions; grant organisation roles theirs with [OrgGrants].
+//
 // It returns an error naming the module for an invalid or duplicate module
-// name, a permission declared by two modules, a missing registry, or an
-// invalid declaration (which the registries report by panicking).
+// name, a permission declared by two modules, a permission with both Roles
+// and OrgRoles, a missing registry, or an invalid declaration (which the
+// registries report by panicking).
 func Declare(d Declarations, modules ...Module) error {
 	if err := validateModules(modules); err != nil {
 		return err
@@ -41,15 +49,23 @@ func Declare(d Declarations, modules ...Module) error {
 			if prev, ok := owner[p.Name]; ok {
 				return fmt.Errorf("gorbital: permission %q is declared by modules %q and %q", p.Name, prev, m.Name)
 			}
+			if len(p.Roles) > 0 && len(p.OrgRoles) > 0 {
+				return fmt.Errorf("gorbital: module %q: permission %q has both Roles and OrgRoles; a permission is held on the platform or in an organisation", m.Name, p.Name)
+			}
 			owner[p.Name] = m.Name
 		}
 	}
 	for _, m := range modules {
-		if d.Permissions != nil {
-			for _, p := range m.Permissions {
-				if err := catchPanic(m.Name, "permission "+p.Name, func() { d.Permissions.Permission(p.Name, p.Description) }); err != nil {
-					return err
-				}
+		for _, p := range m.Permissions {
+			target := d.Permissions
+			if len(p.OrgRoles) > 0 {
+				target = d.OrgPermissions
+			}
+			if target == nil {
+				continue
+			}
+			if err := catchPanic(m.Name, "permission "+p.Name, func() { target.Permission(p.Name, p.Description) }); err != nil {
+				return err
 			}
 		}
 		if m.Settings != nil {
@@ -72,13 +88,30 @@ func Declare(d Declarations, modules ...Module) error {
 	return nil
 }
 
-// Grants returns the permissions the modules give to role, sorted and
-// without duplicates, for declaring the role in the permission catalog.
+// Grants returns the permissions the modules give to the platform role
+// role, sorted and without duplicates, for declaring the role in the
+// permission catalog.
 func Grants(role string, modules ...Module) []string {
 	var perms []string
 	for _, m := range modules {
 		for _, p := range m.Permissions {
 			if slices.Contains(p.Roles, role) {
+				perms = append(perms, p.Name)
+			}
+		}
+	}
+	slices.Sort(perms)
+	return slices.Compact(perms)
+}
+
+// OrgGrants returns the permissions the modules give to the organisation
+// role role ([Permission.OrgRoles]), sorted and without duplicates, for
+// declaring the role in the organisation catalog.
+func OrgGrants(role string, modules ...Module) []string {
+	var perms []string
+	for _, m := range modules {
+		for _, p := range m.Permissions {
+			if slices.Contains(p.OrgRoles, role) {
 				perms = append(perms, p.Name)
 			}
 		}

@@ -32,7 +32,7 @@ type versionOutput struct {
 // buildAPI creates the API with every module's routes on a new mux: the
 // OpenAPI document, /version, the docs when enabled, and problem+json for
 // unknown routes. Health checks and the middleware are the caller's.
-func buildAPI(cfg Config, o options, modules []Module, deps Deps) (huma.API, *http.ServeMux, *registry, error) {
+func buildAPI(cfg Config, o options, modules []Module, deps Deps, orgs OrgAuthorizer) (huma.API, *http.ServeMux, *registry, error) {
 	logger := deps.Logger
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
@@ -67,7 +67,7 @@ func buildAPI(cfg Config, o options, modules []Module, deps Deps) (huma.API, *ht
 		return &versionOutput{Body: buildinfo.Read()}, nil
 	})
 
-	reg, err := mount(api, mapper, deps, modules)
+	reg, err := mount(api, mapper, deps, orgs, modules)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -119,7 +119,7 @@ func writeOpenAPI(w io.Writer, o options) error {
 	if err := validateModules(modules); err != nil {
 		return err
 	}
-	api, _, _, err := buildAPI(cfg, o, modules, Deps{})
+	api, _, _, err := buildAPI(cfg, o, modules, Deps{}, nil)
 	if err != nil {
 		return err
 	}

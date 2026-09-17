@@ -57,6 +57,8 @@ type Authenticator struct {
 	catalog *authlib.Catalog
 	svc     *usecase.Service // nil until Setup with a database, as when exporting the OpenAPI document
 	limits  *rateLimits      // nil until Setup with a database
+	// orgs are the app's organisations (UseOrganisations), or nil.
+	orgs Organisations
 
 	// opts are New's options.
 	opts options
@@ -194,6 +196,9 @@ func (a *Authenticator) Setup(ctx context.Context, s gorbital.AuthSetup) error {
 		ResetCodeTTL:            a.settings.resetCodeTTL,
 		DeletedAccountRetention: a.settings.deletedAccountRetention,
 		UnverifiedAccountTTL:    a.settings.unverifiedAccountTTL,
+		// Organisations take part once connected (orgs.go).
+		Hooks: orgHooks{a: a},
+		Orgs:  orgAccess{a: a},
 	})
 	if err != nil {
 		return err

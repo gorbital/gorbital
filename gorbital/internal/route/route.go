@@ -57,8 +57,21 @@ type Guard struct {
 	// Limit, when set, is resolved to a limiter at registration and
 	// checked instead of Check.
 	Limit *Limit
+	// Org, when set, makes the guard check organisation membership with the
+	// app's organisation authorizer instead of Check (guard.OrgMember).
+	Org *Org
 	// Err makes registration fail, for a guard built with invalid arguments.
 	Err error
+}
+
+// OrgIDParam is the path parameter guard.OrgMember reads the organisation
+// ID from.
+const OrgIDParam = "orgId"
+
+// Org is the membership check of guard.OrgMember.
+type Org struct {
+	// Permission is the permission the member's role must grant.
+	Permission string
 }
 
 // Limit is a rate limit a guard applies.

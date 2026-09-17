@@ -198,7 +198,7 @@ func register[I, O any](r *Router, method, path string, handler func(context.Con
 			reg.fail(fmt.Errorf("gorbital: module %q: %s %s: %w", r.module, method, full, g.Err))
 			return
 		}
-		mw, err := reg.guardMiddleware(r.module, &op, g)
+		mw, err := reg.guardMiddleware(r.module, &op, g, cfg.Public)
 		if err != nil {
 			reg.fail(fmt.Errorf("gorbital: module %q: %s %s: %w", r.module, method, full, err))
 			return
@@ -254,6 +254,10 @@ type registry struct {
 	paths      map[string]string // method and path with parameters blanked → module
 	limiters   map[string]sharedLimiter
 	refusals   metric.Int64Counter
+	// orgs authorizes guard.OrgMember; nil outside an app built by New
+	// with an organisations module. orgRoutes are the routes that use it.
+	orgs      OrgAuthorizer
+	orgRoutes []string
 }
 
 func newRegistry(api huma.API, mapper *httpx.Mapper, rateLimits *ratelimitpg.Store) *registry {

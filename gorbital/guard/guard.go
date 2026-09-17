@@ -101,6 +101,42 @@ func RecentReauth() gorbital.RouteOption {
 	})
 }
 
+// OrgMember refuses callers who aren't members of the organisation in the
+// route's {orgId} path parameter with a role granting permission, for
+// routes under /v1/orgs/{orgId}/ (ADR-0023, ADR-0048). It asks the app's
+// organisations module (gorbital.dev/gorbital/orgshttp), as
+// orgs.RequireMember does, on every request:
+//
+//   - 404 org_not_found when the organisation doesn't exist, is deleted, has
+//     a malformed ID, or the caller isn't a member: the three look the same,
+//     so organisation IDs can't be probed;
+//   - 403 mfa_required when the member's role grants permission only to a
+//     session signed in with a second factor, never to API keys;
+//   - 403 forbidden when the role doesn't grant it.
+//
+// Members are users with a session, their API keys (within the keys'
+// scopes), and the organisation's own service accounts through their keys;
+// a service account never reaches another organisation. Platform roles grant
+// nothing in an organisation.
+//
+// On success, the actor acts in the organisation: its OrgID is set and its
+// permissions are those of the member's role, so audit events carry the
+// organisation, guards after it such as [Permission] check organisation
+// permissions, and the request's database connections carry the
+// organisation for row-level security (postgres.WithOrg, ADR-0061).
+// Declare the permission with gorbital.Permission.OrgRoles.
+//
+// Registration fails when the path has no {orgId} or the route is public,
+// and gorbital.New fails when the app has no organisations module.
+func OrgMember(permission string) gorbital.RouteOption {
+	return addGuard(route.Guard{
+		Name:     "org_member:" + permission,
+		Statuses: []int{http.StatusForbidden, http.StatusNotFound},
+		Org:      &route.Org{Permission: permission},
+		Err:      validName("permission", permission),
+	})
+}
+
 // A RateLimitOption configures [RateLimit].
 type RateLimitOption func(*rateLimit)
 

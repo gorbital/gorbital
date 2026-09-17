@@ -16,6 +16,7 @@ replace (
 	gorbital.dev/modules/mail/suppressionpg => ../modules/mail/suppressionpg
 	gorbital.dev/modules/observability => ../modules/observability
 	gorbital.dev/modules/openapi => ../modules/openapi
+	gorbital.dev/modules/orgs => ../modules/orgs
 	gorbital.dev/modules/postgres => ../modules/postgres
 	gorbital.dev/modules/ratelimitpg => ../modules/ratelimitpg
 	gorbital.dev/modules/releases => ../modules/releases
@@ -33,6 +34,7 @@ require (
 	gorbital.dev/modules/flags v0.1.0
 	gorbital.dev/modules/jobs v0.1.0
 	gorbital.dev/modules/openapi v0.1.0
+	gorbital.dev/modules/orgs v0.1.0
 	gorbital.dev/modules/postgres v0.1.0
 	gorbital.dev/modules/settings v0.1.0
 	gorbital.dev/modules/storage v0.1.0

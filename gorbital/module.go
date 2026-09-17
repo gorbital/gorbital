@@ -98,9 +98,16 @@ type Module struct {
 type Permission struct {
 	Name        string
 	Description string
-	// Roles are the roles that hold the permission, such as "user". A role
-	// the app doesn't declare grants nothing.
+	// Roles are the platform roles that hold the permission, such as
+	// "user". A role the app doesn't declare grants nothing.
 	Roles []string
+	// OrgRoles are the organisation roles that hold the permission, such
+	// as "owner", "admin" and "member" (ADR-0023, ADR-0048): a member holds
+	// it only while acting in an organisation, through guard.OrgMember. A
+	// permission with OrgRoles is an organisation permission: it is
+	// declared in the organisation catalog ([Platform.OrgPermissions]), not
+	// the platform's, and can't have Roles too.
+	OrgRoles []string
 }
 
 // Deps are the app's shared dependencies, passed to each module's Routes.
