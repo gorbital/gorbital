@@ -815,7 +815,7 @@ What `orb eject` can't follow is refused with instructions rather than guessed: 
 
 ### Proven by
 
-`TestEjectedModulesPass` ejects `flags`, `ops`, `orgs` and `auth` into a copy of Shelfie, `orgs` into the invoicing recipe, and `mailevents` into the admin tool with the module added: after each, gofmt, `go build`, `go vet`, the exported OpenAPI, Postman collection and `llms.txt` identical to the committed ones, `orb doctor` ok for `modules`, `gorbital.lock` and each `ejected`, and a second ejection refused; then golangci-lint and the app's whole test suite with the ejected modules' tests. `TestEjectDryRunWritesNothing`, `TestEjectRefusals`, `TestEjectRefusesOtherApps` (v0.1 layout, no `gorbital.Main`, a `main.go` it can't follow), `TestDoctorEjectedModules`, `TestRewriteGoImports` and `TestChangelogMentions` cover the rest.
+`TestEjectedModulesPass` ejects `flags`, `ops`, `orgs` and `auth` into a copy of Shelfie, `flags`, `mailevents`, `ops` and `auth` into a copy of the golden app `examples/full-single`, `orgs` and `auth` into `examples/full-multi`, `orgs` into the invoicing recipe, and `mailevents` into the admin tool with the module added: after each, gofmt, `go build`, `go vet`, the exported OpenAPI, Postman collection and `llms.txt` identical to the committed ones, `orb doctor` ok for `modules`, `gorbital.lock` and each `ejected`, and a second ejection refused; then golangci-lint and the app's whole test suite with the ejected modules' tests. `TestEjectDryRunWritesNothing`, `TestEjectRefusals`, `TestEjectRefusesOtherApps` (v0.1 layout, no `gorbital.Main`, a `main.go` it can't follow), `TestDoctorEjectedModules`, `TestRewriteGoImports` and `TestChangelogMentions` cover the rest.
 
 ### Known gaps
 

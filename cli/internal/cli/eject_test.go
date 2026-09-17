@@ -15,8 +15,23 @@ import (
 // the working directory.
 func copyExampleApp(t *testing.T, name string) string {
 	t.Helper()
+	return copyAppAt(t, filepath.Join("examples", "apps", name), name)
+}
+
+// copyGoldenApp copies a golden app of examples/, such as full-single, the
+// app orb new writes.
+func copyGoldenApp(t *testing.T, name string) string {
+	t.Helper()
+	return copyAppAt(t, filepath.Join("examples", name), name)
+}
+
+// copyAppAt copies the app at rel in the repository into a temporary
+// directory, with its replace directives pointing at the checkout, and
+// commits it.
+func copyAppAt(t *testing.T, rel, name string) string {
+	t.Helper()
 	isolateGit(t)
-	src := filepath.Join(repoRoot(t), "examples", "apps", name)
+	src := filepath.Join(repoRoot(t), rel)
 	dir := filepath.Join(t.TempDir(), name)
 	err := filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -40,11 +55,28 @@ func copyExampleApp(t *testing.T, name string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	goMod := readFile(t, filepath.Join(dir, "go.mod"))
-	writeFile(t, filepath.Join(dir, "go.mod"), strings.ReplaceAll(goMod, " => ../../..", " => "+repoRoot(t)))
+	writeFile(t, filepath.Join(dir, "go.mod"), absoluteReplaces(t, readFile(t, filepath.Join(dir, "go.mod")), src))
 	t.Chdir(dir)
 	commitAll(t, "Create app")
 	return dir
+}
+
+// absoluteReplaces rewrites the relative replace directives of an app in
+// the repository to absolute paths, so a copy elsewhere builds.
+func absoluteReplaces(t *testing.T, goMod, appDir string) string {
+	t.Helper()
+	var out []string
+	for line := range strings.Lines(goMod) {
+		if from, path, ok := strings.Cut(strings.TrimRight(line, "\r\n"), " => "); ok && strings.HasPrefix(path, "../") {
+			absolute, err := filepath.Abs(filepath.Join(appDir, filepath.FromSlash(path)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			line = from + " => " + absolute + "\n"
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "")
 }
 
 func eject(t *testing.T, wantCode int, args ...string) (ejectResult, string) {

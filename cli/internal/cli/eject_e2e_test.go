@@ -32,6 +32,22 @@ func TestEjectedModulesPass(t *testing.T) {
 		checkLintAndTests(t, dir)
 	})
 
+	t.Run("a new single-tenant app: flags, mailevents, ops, auth", func(t *testing.T) {
+		dir := copyGoldenApp(t, "full-single")
+		for _, module := range []string{"flags", "mailevents", "ops", "auth"} {
+			ejectAndCheck(t, dir, module)
+		}
+		checkLintAndTests(t, dir)
+	})
+
+	t.Run("a new multi-tenant app: orgs, auth", func(t *testing.T) {
+		dir := copyGoldenApp(t, "full-multi")
+		for _, module := range []string{"orgs", "auth"} {
+			ejectAndCheck(t, dir, module)
+		}
+		checkLintAndTests(t, dir)
+	})
+
 	t.Run("invoicing: orgs", func(t *testing.T) {
 		dir := copyExampleApp(t, "invoicing")
 		ejectAndCheck(t, dir, "orgs")
