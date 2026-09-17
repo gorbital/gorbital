@@ -22,8 +22,8 @@ import (
 // copies of the library's migrations under the versions the frozen table
 // maps them to.
 var goldenMigrations = []string{
-	filepath.Join("..", "examples", "full-single", "db", "migrations"),
-	filepath.Join("..", "examples", "full-multi", "db", "migrations"),
+	filepath.Join("..", "examples", "v0.1", "full-single", "db", "migrations"),
+	filepath.Join("..", "examples", "v0.1", "full-multi", "db", "migrations"),
 }
 
 // TestLibraryMigrationsMatchV01Apps: every entry of the frozen version table

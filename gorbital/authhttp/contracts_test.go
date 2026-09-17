@@ -23,12 +23,12 @@ import (
 // The contract tests compare sign-in in the library with the frozen v0.1.0
 // contracts (internal/contracts/v0.1.0) and with the v0.1 golden app's
 // source, which is unchanged since the v0.1.0 tag
-// (examples/full-single/internal/modules/auth and internal/app).
+// (examples/v0.1/full-single/internal/modules/auth and internal/app).
 
 var (
 	repo      = filepath.Join("..", "..")
 	frozen    = filepath.Join(repo, "internal", "contracts", "v0.1.0", "examples", "full-single", "api")
-	goldenApp = filepath.Join(repo, "examples", "full-single")
+	goldenApp = filepath.Join(repo, "examples", "v0.1", "full-single")
 )
 
 // signInPrefixes are the paths of v0.1's OpenAPI document that sign-in
@@ -335,7 +335,7 @@ func TestModuleMigrationsMatchV01Apps(t *testing.T) {
 	for _, app := range []string{"full-single", "full-multi"} {
 		for _, m := range moduleMigrations() {
 			name := strconv.FormatInt(m.Version, 10) + "_" + m.Name + ".sql"
-			want := readFile(t, filepath.Join(repo, "examples", app, "db", "migrations", name))
+			want := readFile(t, filepath.Join(repo, "examples", "v0.1", app, "db", "migrations", name))
 			got, err := fs.ReadFile(m.FS, m.File)
 			if err != nil {
 				t.Fatal(err)

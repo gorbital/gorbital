@@ -35,7 +35,7 @@ import (
 var repo = filepath.Join("..", "..", "..")
 
 // golden is the v0.1 golden app whose wiring the modules replace.
-var golden = filepath.Join(repo, "examples", "full-single", "internal")
+var golden = filepath.Join(repo, "examples", "v0.1", "full-single", "internal")
 
 const (
 	appName  = "acme-api"

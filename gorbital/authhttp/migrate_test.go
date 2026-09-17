@@ -32,7 +32,7 @@ func TestMigrateOnV01DatabaseIsNoOp(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer pool.Close()
-			appFS := os.DirFS(filepath.Join(repo, "examples", app, "db", "migrations"))
+			appFS := os.DirFS(filepath.Join(repo, "examples", "v0.1", app, "db", "migrations"))
 			if applied, err := postgres.Migrate(ctx, pool, appFS); err != nil || len(applied) == 0 {
 				t.Fatalf("v0.1 migrate = %v, %v", applied, err)
 			}

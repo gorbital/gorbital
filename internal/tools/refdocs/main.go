@@ -87,11 +87,11 @@ func run(root string, write bool, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	multi, err := dumpApp(root, "full-multi")
+	multi, err := dumpApp(root, "v0.1/full-multi")
 	if err != nil {
 		return err
 	}
-	single, err := dumpApp(root, "full-single")
+	single, err := dumpApp(root, "v0.1/full-single")
 	if err != nil {
 		return err
 	}

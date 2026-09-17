@@ -17,7 +17,7 @@ func TestMailMatchesGoldenApp(t *testing.T) {
 		t.Fatalf("RenderMail() error = %v", err)
 	}
 	for _, app := range []string{"full-single", "full-multi"} {
-		golden := filepath.Join("..", "..", "..", "examples", app)
+		golden := filepath.Join("..", "..", "..", "examples", "v0.1", app)
 		for path, content := range map[string][]byte{InfraMailPath: r.InfraMail, InfraMailTestPath: r.InfraMailTest} {
 			want, err := os.ReadFile(filepath.Join(golden, path))
 			if err != nil {

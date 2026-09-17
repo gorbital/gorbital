@@ -101,7 +101,7 @@ func appFiles(t *testing.T, dir string) map[string][]byte {
 // TestGoldenAppsDontDrift checks that examples/full-multi is
 // examples/full-single plus organisations and nothing else.
 func TestGoldenAppsDontDrift(t *testing.T) {
-	root := filepath.Join("..", "..", "examples")
+	root := filepath.Join("..", "..", "examples", "v0.1")
 	single, multi := appFiles(t, filepath.Join(root, "full-single")), appFiles(t, filepath.Join(root, "full-multi"))
 
 	paths := make([]string, 0, len(single)+len(multi))

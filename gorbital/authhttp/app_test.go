@@ -29,7 +29,7 @@ import (
 )
 
 // These tests are a v0.1 app's HTTP tests of sign-in
-// (examples/full-single/internal/app), run against an app built with
+// (examples/v0.1/full-single/internal/app), run against an app built with
 // gorbital.New and this package: the move into the library is proven by the
 // same assertions passing. Test apps are named like the golden app, whose
 // name appears in emails and authenticator app URIs.

@@ -28,7 +28,7 @@ func TestModuleMigrationsMatchV01App(t *testing.T) {
 			t.Fatal(err)
 		}
 		name := strconv.FormatInt(m.Version, 10) + "_" + m.Name + ".sql"
-		want, err := os.ReadFile(filepath.Join(repo, "examples", "full-multi", "db", "migrations", name))
+		want, err := os.ReadFile(filepath.Join(repo, "examples", "v0.1", "full-multi", "db", "migrations", name))
 		if err != nil || !bytes.Equal(got, want) {
 			t.Errorf("%s differs from full-multi's %s (%v)", m.File, name, err)
 		}
@@ -47,7 +47,7 @@ func TestMigrateOnV01DatabaseIsNoOp(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Close()
-	appFS := os.DirFS(filepath.Join(repo, "examples", "full-multi", "db", "migrations"))
+	appFS := os.DirFS(filepath.Join(repo, "examples", "v0.1", "full-multi", "db", "migrations"))
 	if applied, err := postgres.Migrate(ctx, pool, appFS); err != nil || len(applied) == 0 {
 		t.Fatalf("v0.1 migrate = %v, %v", applied, err)
 	}

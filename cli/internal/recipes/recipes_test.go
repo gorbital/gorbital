@@ -17,8 +17,8 @@ import (
 // template directory.
 var goldenApps = []struct{ templates, preset, tenancy, dir string }{
 	{"minimal", "minimal", "single", "../../../examples/minimal"},
-	{"full", "full", "single", "../../../examples/full-single"},
-	{"full-multi", "full", "multi", "../../../examples/full-multi"},
+	{"full", "full", "single", "../../../examples/v0.1/full-single"},
+	{"full-multi", "full", "multi", "../../../examples/v0.1/full-multi"},
 }
 
 // goldenFiles returns the files of the golden app at dir that git tracks or

@@ -351,6 +351,6 @@ func addRowLevelSecurity(t *testing.T, dir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	policy := readFile(t, filepath.Join(repoRoot(t), "examples", "full-multi", "db", "row_level_security.sql"))
+	policy := readFile(t, filepath.Join(repoRoot(t), "examples", "v0.1", "full-multi", "db", "row_level_security.sql"))
 	writeFile(t, filepath.Join(dir, "db", "migrations", version+"_row_level_security.sql"), policy)
 }

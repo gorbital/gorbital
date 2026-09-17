@@ -214,7 +214,7 @@ func frozenSurface(t *testing.T) surface {
 
 // golden is where the v0.1 modules and their wiring still live, unconverted
 // until Phase 9.
-var golden = filepath.Join(repo, "examples", "full-single", "internal")
+var golden = filepath.Join(repo, "examples", "v0.1", "full-single", "internal")
 
 var codePattern = regexp.MustCompile(`Code: "([a-z_]+)"`)
 

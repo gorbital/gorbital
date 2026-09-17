@@ -30,7 +30,7 @@ import (
 // full-multi's frozen v0.1.0 contracts (roadmap item 73).
 
 // goldenMulti is the multi-tenant golden app.
-var goldenMulti = filepath.Join(repo, "examples", "full-multi", "internal")
+var goldenMulti = filepath.Join(repo, "examples", "v0.1", "full-multi", "internal")
 
 // multiPrefixes are the endpoints of the built-in modules of a multi-tenant
 // app: prefixes and organisations'.

@@ -10,7 +10,7 @@ import (
 )
 
 // TestJobMatchesGoldenApp checks that generating the heartbeat job with its
-// defaults reproduces examples/full-single exactly (ADR-0021, ADR-0035).
+// defaults reproduces examples/v0.1/full-single exactly (ADR-0021, ADR-0035).
 func TestJobMatchesGoldenApp(t *testing.T) {
 	files, err := RenderJob(JobData{
 		Module:      "example.com/acme-api",
@@ -28,14 +28,14 @@ func TestJobMatchesGoldenApp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderJob() error = %v", err)
 	}
-	golden := filepath.Join("..", "..", "..", "examples", "full-single")
+	golden := filepath.Join("..", "..", "..", "examples", "v0.1", "full-single")
 	for _, f := range files {
 		want, err := os.ReadFile(filepath.Join(golden, f.Path))
 		if err != nil {
 			t.Fatalf("read golden %s: %v", f.Path, err)
 		}
 		if string(f.Content) != string(want) {
-			t.Errorf("generated %s differs from examples/full-single:\n--- generated\n%s\n--- golden\n%s", f.Path, f.Content, want)
+			t.Errorf("generated %s differs from examples/v0.1/full-single:\n--- generated\n%s\n--- golden\n%s", f.Path, f.Content, want)
 		}
 	}
 }

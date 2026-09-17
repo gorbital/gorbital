@@ -32,7 +32,7 @@ import (
 )
 
 // These tests are a v0.1 multi-tenant app's HTTP tests of organisations
-// (examples/full-multi/internal/app: orgs_test.go, orgs_service_accounts_test.go,
+// (examples/v0.1/full-multi/internal/app: orgs_test.go, orgs_service_accounts_test.go,
 // org_settings_test.go, org_flags_test.go, rls_test.go and the organisation
 // parts of projects_test.go), run against an app built with gorbital.New,
 // authhttp, opshttp, flagshttp and this package. The golden app's projects
@@ -402,7 +402,7 @@ func asAppRole(t *testing.T, dbURL string) string {
 // orb add rls copies into a migration, on the database at dbURL.
 func enableRowLevelSecurity(t *testing.T, dbURL string) {
 	t.Helper()
-	sql, err := os.ReadFile(filepath.Join(repo, "examples", "full-multi", "db", "row_level_security.sql"))
+	sql, err := os.ReadFile(filepath.Join(repo, "examples", "v0.1", "full-multi", "db", "row_level_security.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

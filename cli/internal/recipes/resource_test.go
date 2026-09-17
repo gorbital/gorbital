@@ -13,8 +13,8 @@ import (
 var updateGolden = flag.Bool("update", false, "rewrite the golden apps' projects modules from the resource templates")
 
 const (
-	goldenFullSingle = "../../../examples/full-single"
-	goldenFullMulti  = "../../../examples/full-multi"
+	goldenFullSingle = "../../../examples/v0.1/full-single"
+	goldenFullMulti  = "../../../examples/v0.1/full-multi"
 )
 
 // goldenResources are the golden apps whose projects module orb gen resource

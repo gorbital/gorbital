@@ -13,8 +13,8 @@ import (
 // goldenApps maps each golden app to the template directory it generates.
 var goldenApps = []struct{ src, dst string }{
 	{"../../../examples/minimal", "minimal"},
-	{"../../../examples/full-single", "full"},
-	{"../../../examples/full-multi", "full-multi"},
+	{"../../../examples/v0.1/full-single", "full"},
+	{"../../../examples/v0.1/full-multi", "full-multi"},
 }
 
 func main() {
