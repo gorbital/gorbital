@@ -15,15 +15,24 @@ import (
 	"example.com/shelfie/internal/modules/books/usecase"
 )
 
-// newApp builds Shelfie with the options main.go passes to gorbital.Main.
+// newApp builds Shelfie with the options main.go passes to gorbital.Main,
+// signed in as gorbitaltest's principals instead of sign-in's accounts.
+// Organisations need real accounts, so modules working in organisations,
+// such as club books, are left out; accounts_test.go builds them.
 func newApp(t *testing.T) *gorbitaltest.App {
 	t.Helper()
 	return gorbitaltest.New(t,
 		gorbital.WithName("shelfie"),
 		gorbital.WithModules(opshttp.Module(), flagshttp.Module()),
-		gorbital.WithModules(modules.All()...),
+		gorbital.WithModules(slices.DeleteFunc(modules.All(), inOrganisations)...),
 		gorbital.WithMigrations(migrations.FS),
 	)
+}
+
+// inOrganisations reports a module with organisation permissions, whose
+// routes need the organisations module.
+func inOrganisations(m gorbital.Module) bool {
+	return slices.ContainsFunc(m.Permissions, func(p gorbital.Permission) bool { return len(p.OrgRoles) > 0 })
 }
 
 // The permissions of the roles opshttp declares, as a signed-in operator's

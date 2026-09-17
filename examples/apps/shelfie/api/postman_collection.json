@@ -5417,6 +5417,1538 @@
       ]
     },
     {
+      "name": "Organisations",
+      "item": [
+        {
+          "name": "Accept an invitation",
+          "request": {
+            "method": "POST",
+            "description": "API keys can't accept invitations.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/invitations/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "invitations",
+                "accept"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List your organisations",
+          "request": {
+            "method": "GET",
+            "description": "Your personal workspace first, then by name.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create an organisation",
+          "request": {
+            "method": "POST",
+            "description": "You become its owner. Your email address must be verified, and you can own up to `orgs.max_owned` organisations.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get an organisation",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rename an organisation",
+          "request": {
+            "method": "PATCH",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"version\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete an organisation",
+          "request": {
+            "method": "DELETE",
+            "description": "Members lose access at once. An owner can restore it until the retention period (`orgs.deleted_org_retention`) ends; then it is purged with its data. Personal workspaces can't be deleted.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List your feature flags in the organisation",
+          "request": {
+            "method": "GET",
+            "description": "Like GET /v1/flags, as a member acting in the organisation: its allow and deny lists apply, and percentage rollouts use the organisation, so members get the same answers unless a user list names them.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/flags",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "flags"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List open invitations",
+          "request": {
+            "method": "GET",
+            "description": "Invitations that weren't accepted or revoked, expired ones included, newest first.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/invitations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "invitations"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Invite someone",
+          "request": {
+            "method": "POST",
+            "description": "Emails a link to the frontend page in `orgs.invitation_url`. Your email address must be verified. Accepting needs an account whose verified email is the invited address, while you are still a member who may give the role.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/invitations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "invitations"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ada@example.com\",\n  \"role\": \"member\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Revoke an invitation",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/invitations/:invitationId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "invitations",
+                ":invitationId"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "invitationId",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resend an invitation",
+          "request": {
+            "method": "POST",
+            "description": "Sends a new link with a new expiry; the old link stops working. You become the invitation's inviter.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/invitations/:invitationId/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "invitations",
+                ":invitationId",
+                "resend"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "invitationId",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Leave an organisation",
+          "request": {
+            "method": "POST",
+            "description": "The last owner can't leave, and nobody leaves their personal workspace. API keys can't leave organisations.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/leave",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "leave"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List members",
+          "request": {
+            "method": "GET",
+            "description": "Owners first, then in the order they joined.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "members"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change a member's role",
+          "request": {
+            "method": "PATCH",
+            "description": "Nobody can give or change a role above their own, only owners change owners, and the last owner can't be demoted.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/members/:userId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "members",
+                ":userId"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "userId",
+                  "value": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Remove a member",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/members/:userId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "members",
+                ":userId"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "userId",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Restore a deleted organisation",
+          "request": {
+            "method": "POST",
+            "description": "Needs the same role as deleting it. Restoring counts toward `orgs.max_owned` like creating.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/restore",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "restore"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List the organisation's service accounts",
+          "request": {
+            "method": "GET",
+            "description": "Service accounts are non-human members with one organisation role, which authenticate with API keys and act only in this organisation. Owners and admins manage them.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a service account",
+          "request": {
+            "method": "POST",
+            "description": "The role must be one you could give a member, and not owner or a role that requires two-factor authentication.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Billing sync\",\n  \"role\": \"member\",\n  \"description\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get a service account",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change a service account",
+          "request": {
+            "method": "PATCH",
+            "description": "Disabling it revokes all its keys at once.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"string\",\n  \"disabled\": false,\n  \"name\": \"string\",\n  \"role\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete a service account",
+          "request": {
+            "method": "DELETE",
+            "description": "Deletes its keys too.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List a service account's API keys",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id/keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id",
+                "keys"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create an API key for a service account",
+          "request": {
+            "method": "POST",
+            "description": "Returns the key once. Scopes must be permissions the service account's role grants. Send your password unless this session verified a second factor in the last 10 minutes.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id/keys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id",
+                "keys"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expires_at\": \"2026-09-15T12:00:00Z\",\n  \"name\": \"CI deploys\",\n  \"password\": \"string\",\n  \"scopes\": [\n    \"string\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Revoke a service account's API key",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/service-accounts/:id/keys/:keyId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "service-accounts",
+                ":id",
+                "keys",
+                ":keyId"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lknnwg23tpob"
+                },
+                {
+                  "key": "id",
+                  "value": "svc_nbswy3dpeb3w64tmmq"
+                },
+                {
+                  "key": "keyId",
+                  "value": "key_nbswy3dpeb3w64tmmq"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List the organisation's settings",
+          "request": {
+            "method": "GET",
+            "description": "The runtime settings an organisation may set for itself, with the value it gets. Settings it hasn't set follow the platform value.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "settings"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get an organisation setting",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/settings/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "settings",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "key",
+                  "value": "orgs.invitation_ttl"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set the organisation's own value",
+          "request": {
+            "method": "PUT",
+            "description": "Within the setting's constraints. Send the `version` you read; a newer version returns `setting_version_conflict`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/settings/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "settings",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "key",
+                  "value": "orgs.invitation_ttl"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": null,\n  \"version\": 0,\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Go back to the platform value",
+          "request": {
+            "method": "DELETE",
+            "description": "Removes the organisation's own value (`reason` in the body when required).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/settings/:key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "settings",
+                ":key"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "key",
+                  "value": "orgs.invitation_ttl"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 0,\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List changes to an organisation setting",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/settings/:key/history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "settings",
+                ":key",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "before",
+                  "value": "0",
+                  "description": "Return changes older than this change ID",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "string"
+                },
+                {
+                  "key": "key",
+                  "value": "orgs.invitation_ttl"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Club books",
+      "item": [
+        {
+          "name": "List the organisation's club books",
+          "request": {
+            "method": "GET",
+            "description": "Newest first unless `sort` says otherwise; sort by one of `created_at`, `updated_at`, `title` or `author`. Paginate with `cursor`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/club-books",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "club-books"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0",
+                  "description": "Maximum number of items to return (default 20, max 100)",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "Opaque cursor from a previous response's next_cursor",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "-created_at",
+                  "description": "Comma-separated sort fields; prefix a field with - for descending order",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "proposed",
+                  "description": "Only club books with this status",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a club book",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/club-books",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "club-books"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"string\",\n  \"author\": \"string\",\n  \"note\": \"string\",\n  \"status\": \"proposed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get a club book",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/club-books/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "club-books",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "clb_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update a club book",
+          "request": {
+            "method": "PATCH",
+            "description": "Send the fields to change and the `version` you read.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/club-books/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "club-books",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "clb_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 1,\n  \"author\": \"string\",\n  \"note\": \"string\",\n  \"status\": \"proposed\",\n  \"title\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete a club book",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/club-books/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "club-books",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "clb_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Phone sign-in",
       "item": [
         {

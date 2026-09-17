@@ -9,6 +9,7 @@ import (
 	"gorbital.dev/gorbital"
 	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/gorbitaltest"
+	"gorbital.dev/gorbital/orgshttp"
 
 	"example.com/shelfie/db/migrations"
 	"example.com/shelfie/internal/modules"
@@ -19,14 +20,16 @@ import (
 
 // docs:start new-accounts-app
 
-// newAccountsApp builds Shelfie's sign-in with its options and every module
-// of modules.All.
+// newAccountsApp builds Shelfie's sign-in with its options, every module of
+// modules.All, and organisations for the book clubs (chapter 8).
 func newAccountsApp(t *testing.T) *gorbitaltest.App {
 	t.Helper()
+	auth := authhttp.New(signInOptions()...)
 	return gorbitaltest.New(t,
 		gorbital.WithName("shelfie"),
-		gorbital.WithAuth(authhttp.New(signInOptions()...)),
+		gorbital.WithAuth(auth),
 		gorbital.WithModules(modules.All()...),
+		gorbital.WithModules(orgshttp.Module(auth)),
 		gorbital.WithMigrations(migrations.FS),
 	)
 }

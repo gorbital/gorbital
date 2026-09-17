@@ -190,6 +190,46 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 
 - [List your feature flags](/docs/feature-flags/flags-list.md): `GET /v1/flags`
 
+## Organisations
+
+- [Accept an invitation](/docs/organisations/invitations-accept.md): `POST /v1/invitations/accept`
+- [List your organisations](/docs/organisations/orgs-list.md): `GET /v1/orgs`
+- [Create an organisation](/docs/organisations/orgs-create.md): `POST /v1/orgs`
+- [Get an organisation](/docs/organisations/orgs-get.md): `GET /v1/orgs/{orgId}`
+- [Rename an organisation](/docs/organisations/orgs-rename.md): `PATCH /v1/orgs/{orgId}`
+- [Delete an organisation](/docs/organisations/orgs-delete.md): `DELETE /v1/orgs/{orgId}`
+- [List your feature flags in the organisation](/docs/organisations/orgs-flags-list.md): `GET /v1/orgs/{orgId}/flags`
+- [List open invitations](/docs/organisations/orgs-invitations-list.md): `GET /v1/orgs/{orgId}/invitations`
+- [Invite someone](/docs/organisations/orgs-invitations-create.md): `POST /v1/orgs/{orgId}/invitations`
+- [Revoke an invitation](/docs/organisations/orgs-invitations-revoke.md): `DELETE /v1/orgs/{orgId}/invitations/{invitationId}`
+- [Resend an invitation](/docs/organisations/orgs-invitations-resend.md): `POST /v1/orgs/{orgId}/invitations/{invitationId}/resend`
+- [Leave an organisation](/docs/organisations/orgs-leave.md): `POST /v1/orgs/{orgId}/leave`
+- [List members](/docs/organisations/orgs-members-list.md): `GET /v1/orgs/{orgId}/members`
+- [Change a member's role](/docs/organisations/orgs-members-change-role.md): `PATCH /v1/orgs/{orgId}/members/{userId}`
+- [Remove a member](/docs/organisations/orgs-members-remove.md): `DELETE /v1/orgs/{orgId}/members/{userId}`
+- [Restore a deleted organisation](/docs/organisations/orgs-restore.md): `POST /v1/orgs/{orgId}/restore`
+- [List the organisation's service accounts](/docs/organisations/orgs-list-service-accounts.md): `GET /v1/orgs/{orgId}/service-accounts`
+- [Create a service account](/docs/organisations/orgs-create-service-account.md): `POST /v1/orgs/{orgId}/service-accounts`
+- [Get a service account](/docs/organisations/orgs-get-service-account.md): `GET /v1/orgs/{orgId}/service-accounts/{id}`
+- [Change a service account](/docs/organisations/orgs-update-service-account.md): `PATCH /v1/orgs/{orgId}/service-accounts/{id}`
+- [Delete a service account](/docs/organisations/orgs-delete-service-account.md): `DELETE /v1/orgs/{orgId}/service-accounts/{id}`
+- [List a service account's API keys](/docs/organisations/orgs-list-service-account-keys.md): `GET /v1/orgs/{orgId}/service-accounts/{id}/keys`
+- [Create an API key for a service account](/docs/organisations/orgs-create-service-account-key.md): `POST /v1/orgs/{orgId}/service-accounts/{id}/keys`
+- [Revoke a service account's API key](/docs/organisations/orgs-revoke-service-account-key.md): `DELETE /v1/orgs/{orgId}/service-accounts/{id}/keys/{keyId}`
+- [List the organisation's settings](/docs/organisations/orgs-settings-list.md): `GET /v1/orgs/{orgId}/settings`
+- [Get an organisation setting](/docs/organisations/orgs-settings-get.md): `GET /v1/orgs/{orgId}/settings/{key}`
+- [Set the organisation's own value](/docs/organisations/orgs-settings-set.md): `PUT /v1/orgs/{orgId}/settings/{key}`
+- [Go back to the platform value](/docs/organisations/orgs-settings-reset.md): `DELETE /v1/orgs/{orgId}/settings/{key}`
+- [List changes to an organisation setting](/docs/organisations/orgs-settings-history.md): `GET /v1/orgs/{orgId}/settings/{key}/history`
+
+## Club books
+
+- [List the organisation's club books](/docs/club-books/clubbooks-list.md): `GET /v1/orgs/{orgId}/club-books`
+- [Create a club book](/docs/club-books/clubbooks-create.md): `POST /v1/orgs/{orgId}/club-books`
+- [Get a club book](/docs/club-books/clubbooks-get.md): `GET /v1/orgs/{orgId}/club-books/{id}`
+- [Update a club book](/docs/club-books/clubbooks-update.md): `PATCH /v1/orgs/{orgId}/club-books/{id}`
+- [Delete a club book](/docs/club-books/clubbooks-delete.md): `DELETE /v1/orgs/{orgId}/club-books/{id}`
+
 ## Phone sign-in
 
 - [Set your phone number](/docs/phone-sign-in/phonelogin-put-v1-phone.md): `PUT /v1/phone`

@@ -5,13 +5,15 @@ of gorbital's Examples tab, built chapter by chapter. Every code block on
 those pages is included from this directory.
 
 ```text
-cmd/api/main.go                 gorbital.Main with the app's modules and migrations
+cmd/api/main.go                 gorbital.Main with the app's modules, organisations and migrations
 cmd/api/signin.go               sign-in's options and hooks, and the SMS sender
 db/migrations/                  the app's own migrations
 internal/modules/modules.gen.go the module list (orb gen modules; don't edit)
 internal/modules/books/         a module: module.go, domain/, usecase/, repository/, delivery/
 internal/modules/profiles/      readers' profiles, filled at registration (chapter 6)
 internal/modules/phonelogin/    phone-code sign-in through authhttp's SignIn (chapter 7)
+internal/modules/shelves/       readers' shelves, as orb gen module wrote them (chapter 9)
+internal/modules/clubbooks/     book clubs' reading lists, as orb gen module --org wrote them (chapter 8)
 api/                            the OpenAPI document, a Postman collection and llms.txt
 ```
 
@@ -33,7 +35,9 @@ go run ./cmd/api
 
 Readers register with `POST /v1/auth/register`, which also takes a
 `display_name` (chapter 6). In development, phone sign-in codes are written
-to the log instead of texted (chapter 7).
+to the log instead of texted (chapter 7). A book club is an organisation:
+`POST /v1/orgs`, then invitations, and its reading list under
+`/v1/orgs/{orgId}/club-books` (chapter 8).
 
 ## Test it
 

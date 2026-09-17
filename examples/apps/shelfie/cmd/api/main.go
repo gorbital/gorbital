@@ -14,6 +14,7 @@ import (
 	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/flagshttp"
 	"gorbital.dev/gorbital/opshttp"
+	"gorbital.dev/gorbital/orgshttp"
 
 	"example.com/shelfie/db/migrations"
 	"example.com/shelfie/internal/modules"
@@ -29,6 +30,7 @@ func main() {
 		gorbital.WithModules(opshttp.Module(), flagshttp.Module()), // /ops/ and /v1/flags, built in
 		gorbital.WithModules(modules.All()...),                     // internal/modules/modules.gen.go
 		gorbital.WithModules(phonelogin.Module(auth, smsSender())), // takes the authenticator, so it's added here
+		gorbital.WithModules(orgshttp.Module(auth)),                // book clubs: organisations, members and invitations
 		gorbital.WithMigrations(migrations.FS),                     // db/migrations
 	)
 }
