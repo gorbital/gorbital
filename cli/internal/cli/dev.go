@@ -597,7 +597,7 @@ func (d *devRunner) start() error {
 	// The app logs JSON (appEnv). The log store gets the JSON as it is;
 	// the terminal and the portal's console get it rendered for people
 	// (portal.RenderPretty), with colours only on a terminal.
-	console := newTextRenderer(d.hub.Writer("app"), false)
+	console := &textRenderer{w: d.hub.Writer("app"), console: true}
 	stdout := io.Writer(newTextRenderer(os.Stdout, isTerminal(os.Stdout)))
 	stderr := io.Writer(newTextRenderer(d.rawOut, isTerminal(d.rawOut)))
 	if d.logs != nil {
@@ -641,6 +641,8 @@ type textRenderer struct {
 	w     io.Writer
 	buf   []byte
 	color bool
+	// console renders without the time: the portal's console shows its own.
+	console bool
 }
 
 func newTextRenderer(w io.Writer, color bool) *textRenderer { return &textRenderer{w: w, color: color} }
@@ -660,7 +662,11 @@ func (t *textRenderer) Write(p []byte) (int, error) {
 		}
 		line := string(t.buf[:i])
 		t.buf = t.buf[i+1:]
-		if _, err := io.WriteString(t.w, portal.RenderPretty(line, t.color)+"\n"); err != nil {
+		rendered := portal.RenderPretty(line, t.color)
+		if t.console {
+			rendered = portal.RenderPrettyLine(line)
+		}
+		if _, err := io.WriteString(t.w, rendered+"\n"); err != nil {
 			return len(p), err
 		}
 	}
