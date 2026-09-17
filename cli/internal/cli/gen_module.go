@@ -23,8 +23,9 @@ import (
 const genModuleUsage = `Usage: orb gen module <Name> <field:type>... [flags]
 
 Generates a module for an app on gorbital.Main (ADR-0083): records that
-belong to the signed-in user, in internal/modules/<names>/ with four layers
-and one file per operation in each:
+belong to the signed-in user, or with --org to an organisation, in
+internal/modules/<names>/ with four layers and one file per operation in
+each:
 
   module.go                  name, error codes, permissions, routes
   domain/                    the record, its rules, its errors
@@ -47,6 +48,13 @@ Field types:
 The first required string field is the title. For example:
   orb gen module Shelf name:string:unique description:text 'visibility:enum(private,shared)' --plural Shelves
 
+With --org, the routes are under /v1/orgs/{orgId}/<names>, guarded by
+guard.OrgMember, the permissions go to the organisation roles owner, admin
+and member, and the table has org_id NOT NULL referencing orgs. The app needs
+the organisations module: add orgshttp.Module(auth) in main.go. When the app
+has row-level security (a *_row_level_security.sql migration, or rls: true in
+gorbital.yaml), the migration adds the organisation policy.
+
 In an app on the v0.1 layout (internal/app/modules.go), use orb gen resource.
 `
 
@@ -59,8 +67,11 @@ type genModuleResult struct {
 	// Permissions are the read and write permissions the routes require.
 	Permissions []string `json:"permissions"`
 	Migration   string   `json:"migration"`
-	Files       []string `json:"files"`
-	DryRun      bool     `json:"dry_run"`
+	// RowLevelSecurity reports an organisation module whose migration adds
+	// the row-level security policy, in apps that have it (ADR-0061).
+	RowLevelSecurity bool     `json:"row_level_security,omitempty"`
+	Files            []string `json:"files"`
+	DryRun           bool     `json:"dry_run"`
 }
 
 // App layouts orb gen tells apart.
@@ -103,7 +114,7 @@ func runGenModule(ctx context.Context, args []string, stdin io.Reader, stdout, s
 	var in moduleInput
 	flags.StringVar(&in.plural, "plural", "", "plural name when adding -s or -es is wrong, such as Shelves")
 	flags.StringVar(&in.idPrefix, "id-prefix", "", "2 to 8 lowercase letters that start every ID (default: derived from the name, such as shl)")
-	flags.BoolVar(&in.org, "org", false, "records belong to an organisation (arrives with v0.2 Phase 7; refused until then)")
+	flags.BoolVar(&in.org, "org", false, "records belong to an organisation: routes under /v1/orgs/{orgId}/ with guard.OrgMember (needs orgshttp)")
 	dryRun := flags.Bool("dry-run", false, "show what would be generated without writing")
 	diff := flags.Bool("diff", false, "print the plan as a unified diff")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
@@ -138,7 +149,7 @@ type genModuleRun struct {
 }
 
 func genModule(ctx context.Context, app appInfo, in moduleInput, run genModuleRun, stdin io.Reader, stdout, stderr io.Writer) error {
-	if err := checkModuleApp(app, in.org); err != nil {
+	if err := checkModuleApp(app); err != nil {
 		return err
 	}
 	ask := shouldPrompt(run.prompts, run.asJSON, stdin, stdout)
@@ -188,21 +199,24 @@ func genModule(ctx context.Context, app appInfo, in moduleInput, run genModuleRu
 	if !run.dryRun {
 		fmt.Fprintf(stdout, "\nNext:\n%s\nThe code is yours: change the rules in %s/domain and the SQL in %s/repository.\n",
 			numbered(plan.Next), data.Dir(), data.Dir())
+		if data.Org {
+			fmt.Fprintf(stdout, "Every organisation role (owner, admin, member) gets %s and %s; change OrgRoles in %s/module.go.\n", data.PermRead(), data.PermWrite(), data.Dir())
+		}
+		if result.RowLevelSecurity {
+			fmt.Fprintf(stdout, "The migration forces row-level security on %s with the organisation policy.\n", data.Table)
+		}
 	}
 	return nil
 }
 
 // checkModuleApp checks that the app can take a module before any question
 // is asked.
-func checkModuleApp(app appInfo, org bool) error {
+func checkModuleApp(app appInfo) error {
 	switch appLayout(app.dir) {
 	case layoutV01:
 		return errV01Layout
 	case "":
 		return fmt.Errorf("%s isn't an app on gorbital.Main: orb gen module needs gorbital.dev/gorbital in go.mod or internal/modules/modules.gen.go", app.dir)
-	}
-	if org {
-		return usageError("--org: organisation-scoped modules need guard.OrgMember, which arrives with organisations in v0.2 (Phase 7); generate the module without --org, owned by users, for now")
 	}
 	return nil
 }
@@ -237,7 +251,7 @@ func promptModule(in *moduleInput, p promptFlags, stdin io.Reader, stderr io.Wri
 // modules.gen.go listing the new module.
 func planModule(app appInfo, in moduleInput, now time.Time) (genplan.Plan, recipes.ModuleData, error) {
 	var none recipes.ModuleData
-	if err := checkModuleApp(app, in.org); err != nil {
+	if err := checkModuleApp(app); err != nil {
 		return genplan.Plan{}, none, err
 	}
 	switch {
@@ -257,7 +271,11 @@ func planModule(app appInfo, in moduleInput, now time.Time) (genplan.Plan, recip
 	if err != nil {
 		return genplan.Plan{}, none, err
 	}
-	data, err := recipes.NewModuleData(app.module, in.name, fields, recipes.ResourceOptions{Plural: in.plural, IDPrefix: in.idPrefix, Migration: version})
+	opts := recipes.ResourceOptions{Plural: in.plural, IDPrefix: in.idPrefix, Migration: version, Scope: recipes.ScopeUser}
+	if in.org {
+		opts.Scope, opts.RLS = recipes.ScopeOrg, mainAppRowLevelSecurity(app.dir)
+	}
+	data, err := recipes.NewModuleData(app.module, in.name, fields, opts)
 	if err != nil {
 		return genplan.Plan{}, none, usageError(err.Error())
 	}
@@ -301,12 +319,19 @@ func planModule(app appInfo, in moduleInput, now time.Time) (genplan.Plan, recip
 		"go test ./" + data.Dir() + "/...",
 		"go run ./cmd/api, sign in, then POST " + data.RoutePath(),
 	}
+	if data.Org {
+		plan.Next[3] = "go run ./cmd/api, sign in, find your personal workspace's ID with GET /v1/orgs, then POST " + data.RoutePath()
+		if !mainUsesOrgs(app.dir) {
+			plan.Next = append([]string{orgsNextStep}, plan.Next...)
+		}
+	}
 	if !mainUsesModuleList(app.dir) {
 		plan.Next = append([]string{"Add gorbital.WithModules(modules.All()...) to gorbital.Main in cmd/api/main.go, importing " + app.module + "/internal/modules"}, plan.Next...)
 	}
 	plan.Result = genModuleResult{
-		Name: data.Ident, Module: data.Package, Route: data.RoutePath(), Table: data.Table, Scope: recipes.ScopeUser,
-		Permissions: []string{data.PermRead(), data.PermWrite()}, Migration: data.MigrationPath(), Files: plan.Paths(),
+		Name: data.Ident, Module: data.Package, Route: data.RoutePath(), Table: data.Table, Scope: data.Scope(),
+		Permissions: []string{data.PermRead(), data.PermWrite()}, Migration: data.MigrationPath(),
+		RowLevelSecurity: data.RLS, Files: plan.Paths(),
 	}
 	return plan, data, nil
 }
@@ -350,21 +375,54 @@ func checkMigrationsPackage(dir string) error {
 
 // mainUsesModuleList reports whether cmd/api passes modules.All to
 // gorbital.Main.
-func mainUsesModuleList(dir string) bool {
+func mainUsesModuleList(dir string) bool { return mainMentions(dir, "modules.All()") }
+
+// orgsNextStep is orb gen module --org's first step in an app without the
+// organisations module. orb gen never edits main.go (ADR-0083).
+const orgsNextStep = "Add the organisations module, which guard.OrgMember needs, to gorbital.Main in cmd/api/main.go: " +
+	"gorbital.WithModules(orgshttp.Module(auth)), importing gorbital.dev/gorbital/orgshttp, where auth is the authenticator " +
+	"passed to gorbital.WithAuth (auth := authhttp.New()); tests that build the app from modules.All() need both too"
+
+// mainUsesOrgs reports whether cmd/api adds the organisations module.
+func mainUsesOrgs(dir string) bool { return mainMentions(dir, "orgshttp") }
+
+// mainMentions reports whether a non-test Go file of cmd/api contains s.
+func mainMentions(dir, s string) bool {
 	matches, _ := filepath.Glob(filepath.Join(dir, "cmd", "api", "*.go"))
 	for _, m := range matches {
-		if src, err := os.ReadFile(m); err == nil && bytes.Contains(src, []byte("modules.All()")) {
+		if strings.HasSuffix(m, "_test.go") {
+			continue
+		}
+		if src, err := os.ReadFile(m); err == nil && bytes.Contains(src, []byte(s)) {
 			return true
 		}
 	}
 	return false
 }
 
+// mainAppRowLevelSecurity reports whether an app on gorbital.Main has
+// row-level security: a *_row_level_security.sql migration, the name orb add
+// rls gives it, or rls: true in gorbital.yaml, as orb add rls records it. An
+// organisation module's migration then adds the policy, which that
+// migration gave only the tables that existed when it ran.
+func mainAppRowLevelSecurity(dir string) bool {
+	matches, _ := filepath.Glob(filepath.Join(dir, "db", "migrations", "*_row_level_security.sql"))
+	return len(matches) > 0 || appRowLevelSecurity(dir)
+}
+
 func moduleSummary(d recipes.ModuleData, plan genplan.Plan) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "  Module:      %s (table %s, IDs like %s_…)\n", d.Package, d.Table, d.IDPrefix)
-	fmt.Fprintf(&b, "  API:         %s, for the signed-in user's %s\n", d.RoutePath(), d.PluralHuman)
-	fmt.Fprintf(&b, "  Permissions: %s, %s (the user role)\n", d.PermRead(), d.PermWrite())
+	if d.Org {
+		fmt.Fprintf(&b, "  API:         %s, for an organisation's %s (guard.OrgMember)\n", d.RoutePath(), d.PluralHuman)
+		fmt.Fprintf(&b, "  Permissions: %s, %s (organisation roles owner, admin and member)\n", d.PermRead(), d.PermWrite())
+		if d.RLS {
+			b.WriteString("  Security:    row-level security policy in the migration\n")
+		}
+	} else {
+		fmt.Fprintf(&b, "  API:         %s, for the signed-in user's %s\n", d.RoutePath(), d.PluralHuman)
+		fmt.Fprintf(&b, "  Permissions: %s, %s (the user role)\n", d.PermRead(), d.PermWrite())
+	}
 	b.WriteString("  Fields:\n")
 	for _, f := range d.Fields {
 		var kind string

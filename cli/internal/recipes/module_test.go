@@ -25,13 +25,36 @@ func shelvesData(t *testing.T) ModuleData {
 	return d
 }
 
+// clubBooksData is the golden organisation module's command:
+//
+//	orb gen module ClubBook title:string:unique 'author:string?' 'status:enum(proposed,reading,finished)' note:text --org
+func clubBooksData(t *testing.T) ModuleData {
+	t.Helper()
+	fields, err := ParseModuleFields([]string{"title:string:unique", "author:string?", "status:enum(proposed,reading,finished)", "note:text"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := NewModuleData("example.com/shelfie", "ClubBook", fields, ResourceOptions{Scope: ScopeOrg, Migration: "20260920000005"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
 // TestModuleMatchesShelfie checks that orb gen module reproduces
-// examples/apps/shelfie's shelves module and its migration exactly, and
-// that the architecture test it writes into apps without one is Shelfie's
+// examples/apps/shelfie's shelves module (owned by users), its clubbooks
+// module (owned by organisations) and their migrations exactly, and that
+// the architecture test it writes into apps without one is Shelfie's
 // (ADR-0083). After changing the templates, run
 // go test -run TestModuleMatchesShelfie -update and review Shelfie's diff.
 func TestModuleMatchesShelfie(t *testing.T) {
-	files, err := RenderModule(shelvesData(t))
+	for _, d := range []ModuleData{shelvesData(t), clubBooksData(t)} {
+		t.Run(d.Package, func(t *testing.T) { checkGoldenModule(t, d) })
+	}
+}
+
+func checkGoldenModule(t *testing.T, d ModuleData) {
+	files, err := RenderModule(d)
 	if err != nil {
 		t.Fatalf("RenderModule() error = %v", err)
 	}
@@ -65,7 +88,7 @@ func TestModuleMatchesShelfie(t *testing.T) {
 	for _, f := range files {
 		written[f.Path] = true
 	}
-	err = filepath.WalkDir(filepath.Join(goldenShelfie, "internal", "modules", "shelves"), func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir(filepath.Join(goldenShelfie, filepath.FromSlash(d.Dir())), func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
@@ -97,8 +120,12 @@ func TestModuleNames(t *testing.T) {
 			t.Errorf("NewModuleData(%s) error = %v, want %q", tt.name, err, tt.want)
 		}
 	}
-	if _, err := NewModuleData("example.com/app", "Shelf", title, ResourceOptions{Plural: "Shelves", Scope: ScopeOrg, Migration: "20260101000000"}); err == nil || !strings.Contains(err.Error(), "Phase 7") {
-		t.Errorf("NewModuleData(org) error = %v, want the Phase 7 refusal", err)
+	d, err := NewModuleData("example.com/app", "Shelf", title, ResourceOptions{Plural: "Shelves", Scope: ScopeOrg, RLS: true, Migration: "20260101000000"})
+	if err != nil || !d.Org || !d.RLS || d.RoutePath() != "/v1/orgs/{orgId}/shelves" || d.Guard() != "guard.OrgMember" {
+		t.Errorf("NewModuleData(org) = %+v, %v; want an organisation module with row-level security", d, err)
+	}
+	if d, err := NewModuleData("example.com/app", "Shelf", title, ResourceOptions{Plural: "Shelves", RLS: true, Migration: "20260101000000"}); err != nil || d.Org || d.RLS || d.RoutePath() != "/v1/shelves" {
+		t.Errorf("NewModuleData(user, RLS) = %+v, %v; want a user module without row-level security", d, err)
 	}
 }
 

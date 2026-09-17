@@ -1,7 +1,14 @@
+⟦- if .Org -⟧
+// Package ⟦.Package⟧ is the ⟦.PluralHuman⟧ module: ⟦.PluralHuman⟧ that belong to an
+// organisation, whose members reach them through their role, in four layers
+// (domain, usecase, repository, delivery) with one file per operation in
+// each. orb gen module wrote it; the code is yours to change.
+⟦- else -⟧
 // Package ⟦.Package⟧ is the ⟦.PluralHuman⟧ module: ⟦.PluralHuman⟧ that belong to the
 // signed-in user, in four layers (domain, usecase, repository, delivery)
 // with one file per operation in each. orb gen module wrote it; the code is
 // yours to change.
+⟦- end⟧
 package ⟦.Package⟧
 
 import (
@@ -15,7 +22,34 @@ import (
 	"⟦.Module⟧/internal/modules/⟦.Package⟧/repository"
 	"⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
 )
-
+⟦if .Org⟧
+// Module returns the ⟦.PluralHuman⟧ module. main.go adds it with every other
+// module through modules.All; its routes need the organisations module
+// (orgshttp.Module), which answers guard.OrgMember. Error codes and
+// permission names are public API: add new ones, never change existing
+// ones.
+func Module() gorbital.Module {
+	return gorbital.Module{
+		Name: ⟦quote .Package⟧,
+		// guard.OrgMember answers org_not_found for an organisation the caller
+		// isn't a member of, and forbidden for a role without the permission.
+		Errors: []httpx.Mapping{
+			{Err: domain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+			{Err: domain.ErrInvalid⟦.Ident⟧, Status: http.StatusUnprocessableEntity, Code: "validation_failed", Detail: "the ⟦.Human⟧ is not valid"},
+			{Err: domain.Err⟦.Ident⟧NotFound, Status: http.StatusNotFound, Code: "⟦.Snake⟧_not_found", Detail: "the organisation has no ⟦.Human⟧ with this ID"},
+⟦- range .Uniques⟧
+			{Err: domain.Err⟦$.Ident⟧⟦.Ident⟧Taken, Status: http.StatusConflict, Code: "⟦$.Snake⟧_⟦.Name⟧_taken", Detail: "the organisation already has ⟦$.A⟧ ⟦$.Human⟧ with this ⟦.Human⟧"},
+⟦- end⟧
+			{Err: domain.Err⟦.Ident⟧VersionConflict, Status: http.StatusConflict, Code: "⟦.Snake⟧_version_conflict", Detail: "the ⟦.Human⟧ changed since you read it; get it again and retry"},
+		},
+		// Organisation permissions: every member holds them through their
+		// role in the organisation, an API key only when its scopes include
+		// them. Platform roles grant nothing in an organisation.
+		Permissions: []gorbital.Permission{
+			{Name: usecase.PermRead, Description: "See the organisation's ⟦.PluralHuman⟧", OrgRoles: []string{"owner", "admin", "member"}},
+			{Name: usecase.PermWrite, Description: "Create, change and delete the organisation's ⟦.PluralHuman⟧", OrgRoles: []string{"owner", "admin", "member"}},
+		},
+⟦- else⟧
 // Module returns the ⟦.PluralHuman⟧ module. main.go adds it with every other
 // module through modules.All. Error codes and permission names are public
 // API: add new ones, never change existing ones.
@@ -37,6 +71,7 @@ func Module() gorbital.Module {
 			{Name: usecase.PermRead, Description: "See your ⟦.PluralHuman⟧", Roles: []string{"user"}},
 			{Name: usecase.PermWrite, Description: "Create, change and delete your ⟦.PluralHuman⟧", Roles: []string{"user"}},
 		},
+⟦- end⟧
 		Routes: func(r *gorbital.Router, d gorbital.Deps) {
 			// d is zero while the OpenAPI document is exported: the service
 			// is built, but no use case runs.

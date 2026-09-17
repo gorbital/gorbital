@@ -8,19 +8,33 @@ import (
 // Errors of the ⟦.PluralHuman⟧ use cases. module.go maps each to an HTTP status
 // and a problem code, which are public API.
 var (
+⟦- if .Org⟧
+	// ErrUnauthenticated reports an operation without a member acting in
+	// the organisation: a route without guard.OrgMember. An organisation the
+	// caller isn't a member of never reaches the use cases; the guard
+	// answers org_not_found.
+	ErrUnauthenticated = errors.New(⟦quote (print .Package ": a member of the organisation is required")⟧)
+⟦- else⟧
 	// ErrUnauthenticated reports an operation without a signed-in user: a
 	// service account's API key owns no ⟦.PluralHuman⟧.
 	ErrUnauthenticated = errors.New(⟦quote (print .Package ": a signed-in user is required")⟧)
+⟦- end⟧
 
 	// ErrInvalid⟦.Ident⟧ reports invalid fields. The error is a
 	// *ValidationError.
 	ErrInvalid⟦.Ident⟧ = errors.New(⟦quote (print .Package ": invalid " .Human)⟧)
 
+⟦if .Org -⟧
+	// Err⟦.Ident⟧NotFound reports ⟦.A⟧ ⟦.Human⟧ that doesn't exist in the
+	// organisation, such as another organisation's. The two aren't told
+	// apart, so IDs can't be probed.
+⟦- else -⟧
 	// Err⟦.Ident⟧NotFound reports ⟦.A⟧ ⟦.Human⟧ that doesn't exist or belongs to
 	// someone else. The two aren't told apart, so IDs can't be probed.
+⟦- end⟧
 	Err⟦.Ident⟧NotFound = errors.New(⟦quote (print .Package ": " .Human " not found")⟧)
 ⟦range .Uniques⟧
-	// Err⟦$.Ident⟧⟦.Ident⟧Taken reports ⟦.A⟧ ⟦.Human⟧ the owner already uses,
+	// Err⟦$.Ident⟧⟦.Ident⟧Taken reports ⟦.A⟧ ⟦.Human⟧ the ⟦if $.Org⟧organisation⟦else⟧owner⟦end⟧ already uses,
 	// ignoring case.
 	Err⟦$.Ident⟧⟦.Ident⟧Taken = errors.New(⟦quote (print $.Package ": " $.Human " " .Human " is already taken")⟧)
 ⟦end⟧

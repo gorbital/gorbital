@@ -25,11 +25,11 @@ func TestNew⟦.Ident⟧(t *testing.T) {
 ⟦- range .Enums⟧
 	f.⟦.Ident⟧ = ""
 ⟦- end⟧
-	⟦.Var⟧, err := domain.New⟦.Ident⟧("⟦.IDPrefix⟧_1", "usr_1", f, now)
+	⟦.Var⟧, err := domain.New⟦.Ident⟧("⟦.IDPrefix⟧_1", ⟦if .Org⟧"org_1", ⟦end⟧"usr_1", f, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ⟦.Var⟧.⟦.Ident⟧Fields != validFields() || ⟦.Var⟧.ID != "⟦.IDPrefix⟧_1" || ⟦.Var⟧.OwnerID != "usr_1" || ⟦.Var⟧.Version != 1 ||
+	if ⟦.Var⟧.⟦.Ident⟧Fields != validFields() || ⟦.Var⟧.ID != "⟦.IDPrefix⟧_1" || ⟦if .Org⟧⟦.Var⟧.OrgID != "org_1" || ⟦.Var⟧.CreatedBy != "usr_1"⟦else⟧⟦.Var⟧.OwnerID != "usr_1"⟦end⟧ || ⟦.Var⟧.Version != 1 ||
 		!⟦.Var⟧.CreatedAt.Equal(now) || !⟦.Var⟧.UpdatedAt.Equal(now) {
 		t.Errorf("New⟦.Ident⟧() = %+v, want trimmed text⟦if .HasEnums⟧ and default choices⟦end⟧", ⟦.Var⟧)
 	}
@@ -59,7 +59,7 @@ func TestNew⟦.Ident⟧Validates(t *testing.T) {
 	for _, tt := range tests {
 		f := validFields()
 		tt.edit(&f)
-		_, err := domain.New⟦.Ident⟧("⟦.IDPrefix⟧_1", "usr_1", f, now)
+		_, err := domain.New⟦.Ident⟧("⟦.IDPrefix⟧_1", ⟦if .Org⟧"org_1", ⟦end⟧"usr_1", f, now)
 		if tt.wantFields == nil {
 			if err != nil {
 				t.Errorf("%s: New⟦.Ident⟧() error = %v", tt.name, err)
@@ -82,7 +82,7 @@ func TestNew⟦.Ident⟧Validates(t *testing.T) {
 }
 
 func TestApply(t *testing.T) {
-	⟦.Var⟧, err := domain.New⟦.Ident⟧("⟦.IDPrefix⟧_1", "usr_1", validFields(), now)
+	⟦.Var⟧, err := domain.New⟦.Ident⟧("⟦.IDPrefix⟧_1", ⟦if .Org⟧"org_1", ⟦end⟧"usr_1", validFields(), now)
 	if err != nil {
 		t.Fatal(err)
 	}

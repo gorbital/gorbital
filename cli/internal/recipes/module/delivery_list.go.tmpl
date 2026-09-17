@@ -11,6 +11,9 @@ import (
 )
 
 type list⟦.Plural⟧Input struct {
+⟦- if .Org⟧
+	OrgID string `path:"orgId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy"`
+⟦- end⟧
 	page.Params
 ⟦- range .Enums⟧
 	⟦.Ident⟧ string `query:"⟦.Name⟧" enum:"⟦.EnumTag⟧" doc:"Only ⟦$.PluralHuman⟧ with this ⟦.Human⟧"`
@@ -28,7 +31,7 @@ type ⟦.Var⟧PageOutput struct {
 }
 
 func (h handlers) list⟦.Plural⟧(ctx context.Context, in *list⟦.Plural⟧Input) (*⟦.Var⟧PageOutput, error) {
-	res, err := h.svc.List⟦.Plural⟧(ctx, usecase.List⟦.Plural⟧Input{
+	res, err := h.svc.List⟦.Plural⟧(ctx, ⟦if .Org⟧in.OrgID, ⟦end⟧usecase.List⟦.Plural⟧Input{
 		Page: in.Params,
 ⟦- range .Enums⟧
 		⟦.Ident⟧: domain.⟦.Ident⟧(in.⟦.Ident⟧),

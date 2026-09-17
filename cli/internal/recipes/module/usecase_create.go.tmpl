@@ -6,6 +6,16 @@ import (
 	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
 )
 
+⟦- if .Org⟧
+// Create⟦.Ident⟧ adds ⟦.A⟧ ⟦.Human⟧ to the organisation orgID, created by the member
+// acting in it.
+func (s *Service) Create⟦.Ident⟧(ctx context.Context, orgID string, f domain.⟦.Ident⟧Fields) (domain.⟦.Ident⟧, error) {
+	member, err := memberID(ctx, orgID)
+	if err != nil {
+		return domain.⟦.Ident⟧{}, err
+	}
+	⟦.Var⟧, err := domain.New⟦.Ident⟧(s.newID(), orgID, member, f, s.clock())
+⟦- else⟧
 // Create⟦.Ident⟧ adds ⟦.A⟧ ⟦.Human⟧ owned by the signed-in user.
 func (s *Service) Create⟦.Ident⟧(ctx context.Context, f domain.⟦.Ident⟧Fields) (domain.⟦.Ident⟧, error) {
 	owner, err := ownerID(ctx)
@@ -13,6 +23,7 @@ func (s *Service) Create⟦.Ident⟧(ctx context.Context, f domain.⟦.Ident⟧F
 		return domain.⟦.Ident⟧{}, err
 	}
 	⟦.Var⟧, err := domain.New⟦.Ident⟧(s.newID(), owner, f, s.clock())
+⟦- end⟧
 	if err != nil {
 		return domain.⟦.Ident⟧{}, err
 	}

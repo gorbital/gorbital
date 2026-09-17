@@ -8,6 +8,9 @@ import (
 )
 
 type update⟦.Ident⟧Input struct {
+⟦- if .Org⟧
+	OrgID string `path:"orgId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy"`
+⟦- end⟧
 	ID   string `path:"id" maxLength:"64" example:"⟦.IDPrefix⟧_mfrggzdfmztwq2lkmfrggzdfmy"`
 	Body struct {
 		Version int64 `json:"version" minimum:"1" doc:"The version you read. If the ⟦.Human⟧ changed since, the update fails with ⟦.Snake⟧_version_conflict."`
@@ -35,7 +38,7 @@ func (h handlers) update⟦.Ident⟧(ctx context.Context, in *update⟦.Ident⟧
 		changes.⟦.Ident⟧ = &value
 	}
 ⟦- end⟧
-	⟦.Var⟧, err := h.svc.Update⟦.Ident⟧(ctx, in.ID, usecase.Update⟦.Ident⟧Input{Version: in.Body.Version, Changes: changes})
+	⟦.Var⟧, err := h.svc.Update⟦.Ident⟧(ctx, ⟦if .Org⟧in.OrgID, ⟦end⟧in.ID, usecase.Update⟦.Ident⟧Input{Version: in.Body.Version, Changes: changes})
 	if err != nil {
 		return nil, fieldErrors(err, "body")
 	}

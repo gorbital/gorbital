@@ -18,7 +18,7 @@ func listOptions() page.Options {
 	}
 }
 
-// List⟦.Plural⟧Input selects a page of the signed-in user's ⟦.PluralHuman⟧.
+// List⟦.Plural⟧Input selects a page of ⟦if .Org⟧an organisation's⟦else⟧the signed-in user's⟦end⟧ ⟦.PluralHuman⟧.
 type List⟦.Plural⟧Input struct {
 	Page page.Params
 ⟦- range .Enums⟧
@@ -36,6 +36,15 @@ type cursor struct {
 	ID   string    `json:"i"`
 }
 
+⟦- if .Org⟧
+// List⟦.Plural⟧ returns a page of the organisation orgID's ⟦.PluralHuman⟧, sorted by
+// one field (newest first by default).
+func (s *Service) List⟦.Plural⟧(ctx context.Context, orgID string, in List⟦.Plural⟧Input) (page.Result[domain.⟦.Ident⟧], error) {
+	var none page.Result[domain.⟦.Ident⟧]
+	if _, err := memberID(ctx, orgID); err != nil {
+		return none, err
+	}
+⟦- else⟧
 // List⟦.Plural⟧ returns a page of the signed-in user's ⟦.PluralHuman⟧, sorted by one
 // field (newest first by default).
 func (s *Service) List⟦.Plural⟧(ctx context.Context, in List⟦.Plural⟧Input) (page.Result[domain.⟦.Ident⟧], error) {
@@ -44,6 +53,7 @@ func (s *Service) List⟦.Plural⟧(ctx context.Context, in List⟦.Plural⟧Inp
 	if err != nil {
 		return none, err
 	}
+⟦- end⟧
 	req, err := in.Page.Request(listOptions())
 	if err != nil {
 		return none, err
@@ -58,7 +68,7 @@ func (s *Service) List⟦.Plural⟧(ctx context.Context, in List⟦.Plural⟧Inp
 ⟦- end⟧
 
 	q := ListQuery{
-		OwnerID: owner,
+		⟦if .Org⟧OrgID: orgID⟦else⟧OwnerID: owner⟦end⟧,
 ⟦- range .Enums⟧
 		⟦.Ident⟧: in.⟦.Ident⟧,
 ⟦- end⟧

@@ -16,6 +16,9 @@ type ⟦.Ident⟧Response struct {
 ⟦- range .Fields⟧
 	⟦.Ident⟧ string `json:"⟦.Name⟧"⟦if .IsEnum⟧ enum:"⟦.EnumTag⟧"⟦end⟧`
 ⟦- end⟧
+⟦- if .Org⟧
+	CreatedBy string `json:"created_by" example:"usr_mfrggzdfmztwq2lkmfrggzdfmy" doc:"The member who created it"`
+⟦- end⟧
 	Version   int64     `json:"version" example:"1" doc:"Increases with every change; send it back when updating"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -27,6 +30,9 @@ type ⟦.Var⟧Output struct {
 
 // ⟦.Var⟧IDInput is the path of the routes on one ⟦.Human⟧.
 type ⟦.Var⟧IDInput struct {
+⟦- if .Org⟧
+	OrgID string `path:"orgId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy"`
+⟦- end⟧
 	ID string `path:"id" maxLength:"64" example:"⟦.IDPrefix⟧_mfrggzdfmztwq2lkmfrggzdfmy"`
 }
 
@@ -35,6 +41,9 @@ func toResponse(⟦.Var⟧ domain.⟦.Ident⟧) ⟦.Ident⟧Response {
 		ID: ⟦.Var⟧.ID,
 ⟦- range .Fields⟧
 		⟦.Ident⟧: ⟦if .IsEnum⟧string(⟦$.Var⟧.⟦.Ident⟧)⟦else⟧⟦$.Var⟧.⟦.Ident⟧⟦end⟧,
+⟦- end⟧
+⟦- if .Org⟧
+		CreatedBy: ⟦.Var⟧.CreatedBy,
 ⟦- end⟧
 		Version:   ⟦.Var⟧.Version,
 		CreatedAt: ⟦.Var⟧.CreatedAt,

@@ -7,12 +7,15 @@ import (
 )
 
 type create⟦.Ident⟧Input struct {
+⟦- if .Org⟧
+	OrgID string `path:"orgId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy"`
+⟦- end⟧
 	Body struct {
 ⟦- range .Fields⟧
 ⟦- if .IsEnum⟧
 		⟦.Ident⟧ string `json:"⟦.Name⟧,omitempty" enum:"⟦.EnumTag⟧" default:"⟦.FirstValue.Value⟧"`
 ⟦- else if eq .MinLength 1⟧
-		⟦.Ident⟧ string `json:"⟦.Name⟧" minLength:"1" maxLength:"⟦.MaxLength⟧"⟦if .Unique⟧ doc:"Unique among your ⟦$.PluralHuman⟧, ignoring case"⟦end⟧`
+		⟦.Ident⟧ string `json:"⟦.Name⟧" minLength:"1" maxLength:"⟦.MaxLength⟧"⟦if .Unique⟧ doc:"⟦if $.Org⟧Unique in the organisation⟦else⟧Unique among your ⟦$.PluralHuman⟧⟦end⟧, ignoring case"⟦end⟧`
 ⟦- else⟧
 		⟦.Ident⟧ string `json:"⟦.Name⟧,omitempty" maxLength:"⟦.MaxLength⟧"`
 ⟦- end⟧
@@ -21,7 +24,7 @@ type create⟦.Ident⟧Input struct {
 }
 
 func (h handlers) create⟦.Ident⟧(ctx context.Context, in *create⟦.Ident⟧Input) (*⟦.Var⟧Output, error) {
-	⟦.Var⟧, err := h.svc.Create⟦.Ident⟧(ctx, domain.⟦.Ident⟧Fields{
+	⟦.Var⟧, err := h.svc.Create⟦.Ident⟧(ctx, ⟦if .Org⟧in.OrgID, ⟦end⟧domain.⟦.Ident⟧Fields{
 ⟦- range .Fields⟧
 		⟦.Ident⟧: ⟦if .IsEnum⟧domain.⟦.Ident⟧(in.Body.⟦.Ident⟧)⟦else⟧in.Body.⟦.Ident⟧⟦end⟧,
 ⟦- end⟧

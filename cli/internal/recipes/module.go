@@ -3,7 +3,6 @@ package recipes
 import (
 	"bytes"
 	"embed"
-	"errors"
 	"fmt"
 	"go/format"
 	"go/token"
@@ -36,27 +35,27 @@ var reservedModuleNames = func() map[string]bool {
 		guard httpx http page actor audit postgres pgx pgxpool context errors fmt slog rand base32 time strings
 		utf8 slices url testing any bool byte error int string true false nil append len cap make new min max
 		ctx err in out h r s c q id tx sql rows tag next current changed fields owner none sort after items last same blank choice later kept unchanged value msg errs values f now fe e v i t b w ok name edit tests body list first status dir cmp queries sorts desc key handlers routes changes invalid problem item trail action filtered website collection titles bobs
-		res req app ada bob svc known cursor limit want got tt invalid reader created updated title`) {
+		res req app ada bob svc known cursor limit want got tt invalid reader created updated title
+		auth authhttp orgshttp member org orgs orgID workspace workspaces key keys expires stranger signUp userID adaID adaOrg bobOrg bobItem readOnly actorID db ctx left`) {
 		names[n] = true
 	}
 	return names
 }()
 
 // ModuleData fills the module templates: a resource's names and fields
-// (ResourceData, always owned by a user until organisation guards exist),
-// with the generated code's own helpers.
+// (ResourceData), owned by a user or, with Org, by an organisation, with the
+// generated code's own helpers.
 type ModuleData struct {
 	ResourceData
 }
 
 // NewModuleData validates a module and derives every name. fields come from
-// ParseModuleFields. Organisation scope isn't available yet, so o.Scope must
-// be empty or ScopeUser.
+// ParseModuleFields. o.Scope is ScopeUser (the default) or ScopeOrg; o.RLS
+// adds the row-level security policy to an organisation module's migration.
 func NewModuleData(module, name string, fields []Field, o ResourceOptions) (ModuleData, error) {
-	if o.Scope == ScopeOrg {
-		return ModuleData{}, errors.New("organisation-scoped modules arrive with guard.OrgMember (v0.2 Phase 7); generate a user-owned module for now")
+	if o.Scope == "" {
+		o.Scope = ScopeUser
 	}
-	o.Scope, o.RLS = ScopeUser, false
 	r, err := NewResourceData(module, name, fields, o)
 	if err != nil {
 		return ModuleData{}, err
@@ -94,8 +93,56 @@ func (d ModuleData) MigrationPath() string {
 	return "db/migrations/" + d.Migration + "_" + d.Table + ".sql"
 }
 
-// RoutePath is the collection's path, such as /v1/shelves.
-func (d ModuleData) RoutePath() string { return "/v1/" + d.Route }
+// RoutePath is the collection's path, such as /v1/shelves, or
+// /v1/orgs/{orgId}/club-books for an organisation module.
+func (d ModuleData) RoutePath() string {
+	if d.Org {
+		return "/v1/orgs/{orgId}/" + d.Route
+	}
+	return "/v1/" + d.Route
+}
+
+// ScopeVar is the Go parameter naming whose records an operation reaches:
+// orgID or ownerID.
+func (d ModuleData) ScopeVar() string {
+	if d.Org {
+		return "orgID"
+	}
+	return "ownerID"
+}
+
+// ScopeColumn is the column holding ScopeVar: org_id or owner_id.
+func (d ModuleData) ScopeColumn() string {
+	if d.Org {
+		return "org_id"
+	}
+	return "owner_id"
+}
+
+// ScopeField is the domain field holding ScopeVar: OrgID or OwnerID.
+func (d ModuleData) ScopeField() string {
+	if d.Org {
+		return "OrgID"
+	}
+	return "OwnerID"
+}
+
+// Guard is the guard the routes check their permission with:
+// guard.OrgMember in an organisation, guard.Permission otherwise.
+func (d ModuleData) Guard() string {
+	if d.Org {
+		return "guard.OrgMember"
+	}
+	return "guard.Permission"
+}
+
+// Scope is ScopeOrg or ScopeUser.
+func (d ModuleData) Scope() string {
+	if d.Org {
+		return ScopeOrg
+	}
+	return ScopeUser
+}
 
 // PermRead and PermWrite are the module's permission names.
 func (d ModuleData) PermRead() string { return d.Package + "." + d.Snake + ".read" }
@@ -158,13 +205,22 @@ func (d ModuleData) BodyChoice() string {
 	return ", " + strconv.Quote(e.Name) + ": " + strconv.Quote(e.LastValue().Value)
 }
 
+// testTemplate is the template of the module's HTTP tests: an organisation
+// module's sign up real accounts, which organisations need.
+func (d ModuleData) testTemplate() string {
+	if d.Org {
+		return "module_org_test.go"
+	}
+	return "module_test.go"
+}
+
 // moduleTemplates maps each template to the file it renders, relative to
 // the app.
 func (d ModuleData) moduleTemplates() []struct{ tmpl, path string } {
 	dir := d.Dir() + "/"
 	return []struct{ tmpl, path string }{
 		{"module.go", dir + "module.go"},
-		{"module_test.go", dir + d.Package + "_test.go"},
+		{d.testTemplate(), dir + d.Package + "_test.go"},
 		{"domain.go", dir + "domain/" + d.Snake + ".go"},
 		{"domain_errors.go", dir + "domain/errors.go"},
 		{"domain_test.go", dir + "domain/" + d.Snake + "_test.go"},

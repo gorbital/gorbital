@@ -16,9 +16,17 @@ type handlers struct {
 	svc *usecase.Service
 }
 
+⟦- if .Org⟧
+// Register adds the ⟦.PluralHuman⟧ routes to r, under an organisation. Every
+// route requires a signed-in member of the organisation in the path whose
+// role grants the permission its guard names (guard.OrgMember): anyone else
+// gets 404 org_not_found, as if the organisation didn't exist. The use cases
+// reach only that organisation's ⟦.PluralHuman⟧.
+⟦- else⟧
 // Register adds the ⟦.PluralHuman⟧ routes to r. Every route requires a signed-in
 // user (deny by default) and the permission its guard names; the use cases
 // reach only that user's ⟦.PluralHuman⟧.
+⟦- end⟧
 func Register(r *gorbital.Router, svc *usecase.Service) {
 	h := handlers{svc: svc}
 	⟦.PluralVar⟧ := r.Group(⟦quote .RoutePath⟧, gorbital.Tags(⟦quote .PluralTitle⟧))
@@ -26,23 +34,23 @@ func Register(r *gorbital.Router, svc *usecase.Service) {
 	gorbital.Post(⟦.PluralVar⟧, "", h.create⟦.Ident⟧, gorbital.OperationID("⟦.Package⟧-create"),
 		gorbital.Summary("Create ⟦.A⟧ ⟦.Human⟧"), gorbital.Status(http.StatusCreated),
 		gorbital.Errors(⟦if .HasUniques⟧http.StatusConflict, ⟦end⟧http.StatusUnprocessableEntity),
-		guard.Permission(usecase.PermWrite))
+		⟦.Guard⟧(usecase.PermWrite))
 	gorbital.Get(⟦.PluralVar⟧, "", h.list⟦.Plural⟧, gorbital.OperationID("⟦.Package⟧-list"),
-		gorbital.Summary("List your ⟦.PluralHuman⟧"),
+		gorbital.Summary("List ⟦if .Org⟧the organisation's⟦else⟧your⟦end⟧ ⟦.PluralHuman⟧"),
 		gorbital.Description("Newest first unless `sort` says otherwise; sort by one of ⟦.SortListCode⟧. Paginate with `cursor`."),
 		gorbital.Errors(http.StatusBadRequest, http.StatusUnprocessableEntity),
-		guard.Permission(usecase.PermRead))
+		⟦.Guard⟧(usecase.PermRead))
 	gorbital.Get(⟦.PluralVar⟧, "/{id}", h.get⟦.Ident⟧, gorbital.OperationID("⟦.Package⟧-get"),
 		gorbital.Summary("Get ⟦.A⟧ ⟦.Human⟧"),
 		gorbital.Errors(http.StatusNotFound),
-		guard.Permission(usecase.PermRead))
+		⟦.Guard⟧(usecase.PermRead))
 	gorbital.Patch(⟦.PluralVar⟧, "/{id}", h.update⟦.Ident⟧, gorbital.OperationID("⟦.Package⟧-update"),
 		gorbital.Summary("Update ⟦.A⟧ ⟦.Human⟧"),
 		gorbital.Description("Send the fields to change and the `version` you read."),
 		gorbital.Errors(http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity),
-		guard.Permission(usecase.PermWrite))
+		⟦.Guard⟧(usecase.PermWrite))
 	gorbital.Delete(⟦.PluralVar⟧, "/{id}", h.delete⟦.Ident⟧, gorbital.OperationID("⟦.Package⟧-delete"),
 		gorbital.Summary("Delete ⟦.A⟧ ⟦.Human⟧"), gorbital.Status(http.StatusNoContent),
 		gorbital.Errors(http.StatusNotFound),
-		guard.Permission(usecase.PermWrite))
+		⟦.Guard⟧(usecase.PermWrite))
 }

@@ -36,7 +36,7 @@ var select⟦.Plural⟧SQL = func() map[string]string {
 			}
 			queries[name] = `
 	SELECT ` + ⟦.Var⟧Columns + ` FROM ⟦.Table⟧
-	WHERE owner_id = $1
+	WHERE ⟦.ScopeColumn⟧ = $1
 ⟦- range $i, $f := .Enums⟧
 	  AND ($⟦$.EnumPlaceholder $i⟧::text = '' OR ⟦$f.Name⟧ = $⟦$.EnumPlaceholder $i⟧)
 ⟦- end⟧
@@ -48,7 +48,7 @@ var select⟦.Plural⟧SQL = func() map[string]string {
 	return queries
 }()
 
-// Select⟦.Plural⟧ returns up to q.Limit of an owner's ⟦.PluralHuman⟧ in q.Sort
+// Select⟦.Plural⟧ returns up to q.Limit of ⟦if .Org⟧an organisation's⟦else⟧an owner's⟦end⟧ ⟦.PluralHuman⟧ in q.Sort
 // order, starting after q.After.
 func (s *Store) Select⟦.Plural⟧(ctx context.Context, q usecase.ListQuery) ([]domain.⟦.Ident⟧, error) {
 	name := q.Sort.Field
@@ -75,7 +75,7 @@ func (s *Store) Select⟦.Plural⟧(ctx context.Context, q usecase.ListQuery) ([
 	if q.After != nil {
 		afterID = q.After.ID
 	}
-	rows, err := s.db.Query(ctx, sql, q.OwnerID, q.After != nil, after, afterID, q.Limit⟦range .Enums⟧, q.⟦.Ident⟧⟦end⟧)
+	rows, err := s.db.Query(ctx, sql, q.⟦.ScopeField⟧, q.After != nil, after, afterID, q.Limit⟦range .Enums⟧, q.⟦.Ident⟧⟦end⟧)
 	if err != nil {
 		return nil, err
 	}

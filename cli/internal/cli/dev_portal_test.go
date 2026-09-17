@@ -364,8 +364,9 @@ func TestPortalModuleAndMiddlewareGenerators(t *testing.T) {
 	if err != nil || plan.Generator != "module" || len(plan.Changes) != 27 || plan.Result.(genModuleResult).Route != "/v1/shelves" {
 		t.Fatalf("module plan = %+v, %v", plan, err)
 	}
-	if _, err := gens["module"].Plan(ctx, json.RawMessage(`{"name":"Shelf","fields":["name:string"],"org":true}`)); err == nil || !strings.Contains(err.Error(), "Phase 7") {
-		t.Errorf("module plan with org = %v", err)
+	if plan, err := gens["module"].Plan(ctx, json.RawMessage(`{"name":"Shelf","fields":["name:string"],"plural":"Shelves","org":true}`)); err != nil ||
+		plan.Result.(genModuleResult).Route != "/v1/orgs/{orgId}/shelves" || plan.Result.(genModuleResult).Scope != "org" {
+		t.Errorf("module plan with org = %+v, %v", plan, err)
 	}
 	if _, err := gens["module"].Apply(ctx, json.RawMessage(`{"name":"Shelf","fields":["name:string:unique","description:text","visibility:enum(private,shared)"],"plural":"Shelves"}`), true); err != nil {
 		t.Fatal(err)
