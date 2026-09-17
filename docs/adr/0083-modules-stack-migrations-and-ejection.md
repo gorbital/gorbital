@@ -608,7 +608,6 @@ A module whose `Module` takes arguments isn't listed by `orb gen modules` (it re
 - The documentation strings of the password fields still say "at least 12 characters" with `MinPasswordLength`; the 422 detail gives the real minimum.
 - Service accounts aren't user accounts: `OnRegister` doesn't run for them.
 - `AfterLogin` hooks that ignore their context outlive the response.
-- `orb doctor` (Phase 8) needs to know modules whose `Module` takes arguments.
 
 ## Why
 

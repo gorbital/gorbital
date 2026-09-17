@@ -18,7 +18,7 @@ func TestDoctorOnAMainApp(t *testing.T) {
 		t.Errorf("layout = %q, want main", res.Layout)
 	}
 	for name, want := range map[string]string{
-		"modules":  "internal/modules/modules.gen.go lists 1 module: books",
+		"modules":  "internal/modules/modules.gen.go lists 2 modules: books, profiles", // phonelogin takes arguments: main.go adds it
 		"stack":    "the default middleware stack",
 		"timeout":  "30s (APP_REQUEST_TIMEOUT)", // .env.example sets it
 		"database": "at migration 20260920000001, none pending",
@@ -58,7 +58,8 @@ func TestDoctorFindsMainAppProblems(t *testing.T) {
 	dir := newMainApp(t, true)
 	writeFile(t, ".env", readFile(t, ".env.example")+"\nAPP_REQUEST_TIMEOUT=2m\n")
 	// A module modules.gen.go doesn't list, a directory that isn't a module,
-	// and a custom stack without Auth.
+	// and a custom stack without Auth. Shelfie's phonelogin, whose Module
+	// takes arguments, isn't reported: main.go adds it.
 	writeFile(t, filepath.Join(dir, "internal", "modules", "reviews", "module.go"), "package reviews\n\nimport \"gorbital.dev/gorbital\"\n\nfunc Module() gorbital.Module { return gorbital.Module{Name: \"reviews\"} }\n")
 	writeFile(t, filepath.Join(dir, "internal", "modules", "shared", "util.go"), "package shared\n")
 	writeFile(t, filepath.Join(dir, "cmd", "api", "stack.go"), `package main

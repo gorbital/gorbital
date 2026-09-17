@@ -173,12 +173,26 @@ func findModules(app appInfo) ([]appModule, error) {
 	return modules, nil
 }
 
+// Kinds of module declaration a package can have.
+const (
+	noModule       = iota
+	moduleNoArgs   // func Module() gorbital.Module: orb gen modules lists it
+	moduleWithArgs // func Module(...) gorbital.Module: main.go adds it itself
+)
+
 // declaresModule reports whether the Go package in dir declares func
 // Module() gorbital.Module, and the package's name.
 func declaresModule(dir string) (string, bool, error) {
+	pkg, kind, err := moduleDeclaration(dir)
+	return pkg, kind == moduleNoArgs, err
+}
+
+// moduleDeclaration returns the kind of Module function the Go package in
+// dir declares, and the package's name when it declares one.
+func moduleDeclaration(dir string) (string, int, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return "", false, err
+		return "", noModule, err
 	}
 	fset := token.NewFileSet()
 	for _, e := range entries {
@@ -188,18 +202,20 @@ func declaresModule(dir string) (string, bool, error) {
 		}
 		file, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.SkipObjectResolution)
 		if err != nil {
-			return "", false, fmt.Errorf("parse %s: %w", filepath.Join(dir, name), err)
+			return "", noModule, fmt.Errorf("parse %s: %w", filepath.Join(dir, name), err)
 		}
-		if moduleFunc(file) {
-			return file.Name.Name, true, nil
+		if kind := moduleFunc(file); kind != noModule {
+			return file.Name.Name, kind, nil
 		}
 	}
-	return "", false, nil
+	return "", noModule, nil
 }
 
-// moduleFunc reports whether file declares func Module() X.Module, where X
-// is the file's name for gorbital.dev/gorbital.
-func moduleFunc(file *ast.File) bool {
+// moduleFunc returns whether file declares func Module() X.Module
+// (moduleNoArgs), a Module function with parameters returning X.Module
+// (moduleWithArgs), or neither, where X is the file's name for
+// gorbital.dev/gorbital.
+func moduleFunc(file *ast.File) int {
 	local := ""
 	for _, imp := range file.Imports {
 		if path, err := strconv.Unquote(imp.Path.Value); err == nil && path == gorbitalImportPath {
@@ -210,11 +226,11 @@ func moduleFunc(file *ast.File) bool {
 		}
 	}
 	if local == "" || local == "_" || local == "." {
-		return false
+		return noModule
 	}
 	for _, decl := range file.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Recv != nil || fn.Name.Name != "Module" || fn.Type.TypeParams != nil || len(fn.Type.Params.List) > 0 {
+		if !ok || fn.Recv != nil || fn.Name.Name != "Module" || fn.Type.TypeParams != nil {
 			continue
 		}
 		results := fn.Type.Results
@@ -226,10 +242,13 @@ func moduleFunc(file *ast.File) bool {
 			continue
 		}
 		if x, ok := sel.X.(*ast.Ident); ok && x.Name == local {
-			return true
+			if len(fn.Type.Params.List) > 0 {
+				return moduleWithArgs
+			}
+			return moduleNoArgs
 		}
 	}
-	return false
+	return noModule
 }
 
 // renderModules returns modules.gen.go for modules, gofmt-formatted.

@@ -37,10 +37,15 @@ func (d *doctor) modules(app appInfo) {
 	}
 	found := plan.Result.(genModulesResult).Modules
 
-	// Directories with Go code but no func Module() aren't in the app.
+	// Directories with Go code but no func Module() aren't in the app. A
+	// Module that takes arguments, such as the authenticator, isn't listed
+	// either: main.go adds it on its own line (ADR-0083).
 	for _, e := range entries {
 		name := e.Name()
 		if !e.IsDir() || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "testdata" || slices.Contains(found, name) {
+			continue
+		}
+		if _, kind, err := moduleDeclaration(filepath.Join(root, name)); err == nil && kind == moduleWithArgs {
 			continue
 		}
 		if hasGoFiles(filepath.Join(root, name)) {
