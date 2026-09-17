@@ -4,16 +4,16 @@ package delivery
 
 import (
 	"context"
-	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/operation"
 	"net/http"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"gorbital.dev/gorbital"
 	"gorbital.dev/modules/openapi"
 	orgslib "gorbital.dev/modules/orgs"
 
+	"gorbital.dev/gorbital/internal/operation"
 	orgsdomain "gorbital.dev/gorbital/orgshttp/internal/domain"
 	orgsusecase "gorbital.dev/gorbital/orgshttp/internal/usecase"
 )
@@ -130,7 +130,7 @@ type handler struct {
 	svc *orgsusecase.Service
 }
 
-// Register adds the organisation operations to api. Every operation needs a
+// Register adds the organisation operations to r. Every operation needs a
 // signed-in user; operations on an organisation answer 404 org_not_found to
 // anyone who isn't a member. An API key needs each operation's permission in
 // its scopes, and can't join or leave organisations (ADR-0058).

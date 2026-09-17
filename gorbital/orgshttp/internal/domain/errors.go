@@ -3,7 +3,7 @@ package domain
 import "errors"
 
 // Errors returned by the orgs use cases. Their HTTP codes are mapped in
-// internal/app/module_orgs.go. An organisation the caller can't see is
+// orgshttp's module.go. An organisation the caller can't see is
 // orgs.ErrOrgNotFound from gorbital.dev/modules/orgs.
 var (
 	// ErrUnauthenticated reports an operation without a signed-in user.

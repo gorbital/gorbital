@@ -2,13 +2,14 @@ package delivery
 
 import (
 	"context"
-	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/operation"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"gorbital.dev/gorbital"
 	orgslib "gorbital.dev/modules/orgs"
+
+	"gorbital.dev/gorbital/internal/operation"
 )
 
 // OrgFlagsResponse is whether each client feature flag is on in the

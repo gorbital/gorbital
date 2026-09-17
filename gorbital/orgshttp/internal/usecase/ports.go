@@ -11,7 +11,7 @@ import (
 	orgsdomain "gorbital.dev/gorbital/orgshttp/internal/domain"
 )
 
-// The use cases own this port; internal/modules/orgs/repository implements
+// The use cases own this port; orgshttp/internal/repository implements
 // it with SQL.
 
 // Store reads and writes organisations, members and invitations. Unless a

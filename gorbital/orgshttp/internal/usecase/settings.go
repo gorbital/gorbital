@@ -9,7 +9,7 @@ import (
 )
 
 // Permissions on an organisation's own runtime settings (ADR-0056). The org
-// catalog in internal/app/permissions.go grants them to roles. They are
+// catalog in orgshttp's module.go grants them to roles. They are
 // public API.
 const (
 	PermSettingsRead  = "orgs.settings.read"
@@ -18,7 +18,7 @@ const (
 
 // Settings returns the runtime settings an organisation may set for itself,
 // with its own values where it has them. Only settings declared
-// settings.OrgOverridable in internal/app/settings.go are listed.
+// settings.OrgOverridable, by any module, are listed.
 func (s *Service) Settings(ctx context.Context, orgID orgslib.ID) ([]settings.View, error) {
 	if _, _, err := orgslib.RequireMember(ctx, s.store, s.catalog, orgID, PermSettingsRead); err != nil {
 		return nil, storeError("list settings", err)

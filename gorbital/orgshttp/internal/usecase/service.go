@@ -2,7 +2,7 @@
 // members, invitations, personal workspaces, deletion and purging
 // (ADR-0048). Every operation on an organisation starts with
 // orgs.RequireMember, which checks membership and the role's permission.
-// Change it freely.
+// orgshttp wires it (ADR-0083).
 package usecase
 
 import (
@@ -24,7 +24,7 @@ import (
 )
 
 // Permissions the orgs module checks. The org catalog in
-// internal/app/permissions.go grants them to roles. They are public API.
+// orgshttp's module.go grants them to roles. They are public API.
 const (
 	PermOrgRead       = "orgs.org.read"
 	PermOrgUpdate     = "orgs.org.update"
@@ -37,7 +37,7 @@ const (
 )
 
 // Platform permissions the orgs module checks outside an organisation. The
-// user role in internal/app/permissions.go grants them to every user, so
+// user role, through orgshttp's module.go, grants them to every user, so
 // only an API key scoped without them is refused (ADR-0058). They are public
 // API.
 const (
