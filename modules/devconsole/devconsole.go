@@ -144,7 +144,8 @@ type Sources struct {
 	Extensions []Extension
 }
 
-// Extension serves the console endpoints under Prefix with Handler, after
+// Extension serves the console endpoints under Prefix (and Prefix without its
+// final slash) with Handler, after
 // the console's Host, loopback, forwarding and token checks and with its
 // response headers (Cache-Control: no-store, no CORS). The handler answers
 // every method itself. The index lists Prefix in Index.Extensions.
@@ -390,10 +391,11 @@ var builtinPaths = []string{
 	Prefix + "mail", Prefix + "migrations", Prefix + "jobs",
 }
 
-// extension returns the handler of the extension serving path, or nil.
+// extension returns the handler of the extension serving path (under its
+// prefix, or the prefix without its final slash), or nil.
 func (c *Console) extension(path string) http.Handler {
 	for _, e := range c.sources.Extensions {
-		if strings.HasPrefix(path, e.Prefix) {
+		if strings.HasPrefix(path, e.Prefix) || path == strings.TrimSuffix(e.Prefix, "/") {
 			return e.Handler
 		}
 	}

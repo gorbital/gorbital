@@ -731,6 +731,9 @@ func TestExtensions(t *testing.T) {
 	if calls != 0 {
 		t.Errorf("the extension ran %d times for refused requests", calls)
 	}
+	if r := get(t, base, "/_dev/auth/test", "", true); r.code != 200 || r.body != "GET /_dev/auth/test" {
+		t.Errorf("GET the prefix without its slash = %d %q", r.code, r.body)
+	}
 	if r := get(t, base, "/_dev/auth/other", "", true); r.code != http.StatusNotFound {
 		t.Errorf("outside the prefix = %d, want 404", r.code)
 	}
