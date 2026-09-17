@@ -13,7 +13,13 @@ import (
 //
 //	04:23:35 INFO  GET /ops/settings → 200 · 2 ms · 13 KB · req_1ea7d5be455144b9
 //	04:23:35 WARN  job ran  job=heartbeat job_id=7 attempt=2
-func RenderPretty(line string, color bool) string {
+func RenderPretty(line string, color bool) string { return renderPretty(line, color, true) }
+
+// RenderPrettyLine is RenderPretty without the time, for a console that
+// shows its own.
+func RenderPrettyLine(line string) string { return renderPretty(line, false, false) }
+
+func renderPretty(line string, color, withTime bool) string {
 	if !strings.HasPrefix(line, "{") {
 		return line
 	}
@@ -28,8 +34,10 @@ func RenderPretty(line string, color bool) string {
 		return "\x1b[" + code + "m" + s + "\x1b[0m"
 	}
 	var b strings.Builder
-	b.WriteString(paint("2", r.Time.Local().Format("15:04:05")))
-	b.WriteByte(' ')
+	if withTime {
+		b.WriteString(paint("2", r.Time.Local().Format("15:04:05")))
+		b.WriteByte(' ')
+	}
 	level := r.Level
 	if level == "" {
 		level = "INFO"
