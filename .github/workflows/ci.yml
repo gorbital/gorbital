@@ -137,8 +137,8 @@ jobs:
         working-directory: cli
         run: |
           go generate ./internal/recipes/
-          git diff --exit-code -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi
-          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi)"
+          git diff --exit-code -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2
+          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2)"
       - name: exported Go API matches the listings in api/ (ADR-0054)
         run: go run -C internal/tools/apicheck .
       - name: docs/reference matches the golden apps' error codes, audit actions, permissions, settings and jobs
@@ -160,7 +160,13 @@ jobs:
         run: |
           go run ./cmd/api openapi > api/openapi.json
           git diff --exit-code -- api/openapi.json
-      - name: new Minimal and Full apps pass their tests and accept the generators; orb add mail switches providers and the app still builds
+      - name: api/openapi.json matches the v0.1-layout golden apps' code
+        run: |
+          for app in examples/v0.1/full-single examples/v0.1/full-multi; do
+            (cd "$app" && go run ./cmd/api openapi > api/openapi.json)
+          done
+          git diff --exit-code -- examples/v0.1
+      - name: new Minimal and Full apps (on gorbital.Main) pass their tests and accept the generators; orb add mail switches providers in new and v0.1-layout apps, which still build
         working-directory: cli
         env:
           ORB_E2E: "1"
