@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"gorbital.dev/config"
+	"gorbital.dev/modules/postgres"
 	"gorbital.dev/modules/postgres/pgtest"
 )
 
@@ -156,7 +157,28 @@ func TestMainMigratesAndReports(t *testing.T) {
 		t.Fatalf("migrate --status --json = %d %s", code, stderr.String())
 	}
 	var s migrationStatus
-	if err := json.Unmarshal(stdout.Bytes(), &s); err != nil || s.Pending != 0 || s.Current != 20260918000061 {
+	if err := json.Unmarshal(stdout.Bytes(), &s); err != nil || s.Pending != 0 || s.Current != 20260918000061 || s.RowLevelSecurity != nil {
 		t.Errorf("status = %s (%v), want every migration applied", stdout.String(), err)
+	}
+
+	// With row-level security on, the status reports what orb doctor shows,
+	// as a v0.1 app's does: here, a superuser the policies don't apply to.
+	pool, err := postgres.Open(context.Background(), config.NewSecret(vars["DATABASE_URL"]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if _, err := pool.Exec(context.Background(), `CREATE TABLE notes (id text PRIMARY KEY, org_id text NOT NULL);
+		ALTER TABLE notes ENABLE ROW LEVEL SECURITY; ALTER TABLE notes FORCE ROW LEVEL SECURITY;
+		CREATE POLICY org_isolation ON notes USING (org_id = current_setting('gorbital.org_id', true))`); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	if code := run(context.Background(), []string{"migrate", "--status", "--json"}, env(vars), &stdout, &stderr, nil); code != 0 {
+		t.Fatalf("migrate --status --json = %d %s", code, stderr.String())
+	}
+	s = migrationStatus{}
+	if err := json.Unmarshal(stdout.Bytes(), &s); err != nil || len(s.RowLevelSecurity) != 1 || !strings.Contains(s.RowLevelSecurity[0], "BYPASSRLS") {
+		t.Errorf("status with row-level security = %s (%v), want the bypassing role reported", stdout.String(), err)
 	}
 }

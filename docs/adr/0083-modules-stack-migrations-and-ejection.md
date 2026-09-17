@@ -747,6 +747,8 @@ The library's names keep their promise through `gorbital/internal/integration` (
 | `orb gen resource` | Runs `orb gen module`; in a multi-tenant app records belong to organisations by default, as in v0.1 | Unchanged |
 | `orb gen job` | Refuses (exit 2) and points at `Module.Jobs` | Unchanged |
 | `orb dev` | `go run ./cmd/api migrate`, `go run ./cmd/api seed` | `cmd/migrate`, `cmd/seed` |
+| New migration versions (`orb gen migration`, `orb gen module`, `orb add rls`, `orb add orgs`) | At least one after the newest built-in migration (`latestBuiltinMigration`, checked against the library by a test), since the app's `db/migrations` doesn't hold them: the library's versions run ahead of the calendar, and goose refuses a migration older than the database's newest | The app's files hold the library's copies, as before |
+| `orb doctor`'s row-level security check | `migrate --status --json` of `gorbital.Main` now reports `row_level_security` problems as v0.1's did (library change) | Unchanged |
 
 The Dev Portal's module form offers `--org` (gorbital-dashboards `framework/phase-9-templates`, synced into orb).
 

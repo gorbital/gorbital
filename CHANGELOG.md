@@ -14,6 +14,11 @@ v0.2 turns gorbital into a framework apps import: routes, guards, the middleware
 - `authhttp`'s `seed [--email]` command: the development administrator with two-factor authentication, as v0.1's `cmd/seed`.
 - `gorbital.WithStorageFunc`: a nil store with a nil error keeps the built-in storage (the local driver for `STORAGE_DRIVER=local`).
 - `gorbital.Platform.Permissions`: the platform permission catalog.
+- `migrate --status --json` of `gorbital.Main` reports `row_level_security` problems, as v0.1's `cmd/migrate` does, for `orb doctor`; the text form prints them as warnings.
+
+### Fixed
+
+- `orb gen migration`, `orb gen module`, `orb add rls` and `orb add orgs` in an app on `gorbital.Main` give new migrations versions after the newest built-in migration, which the app's `db/migrations` doesn't hold; a version before it was refused on a migrated database.
 - Dev Portal: the module generator's form offers `--org`.
 
 - Decision records for the v0.2 line: [ADR-0081](docs/adr/0081-a-framework-you-import.md) (a framework you import), [ADR-0082](docs/adr/0082-routes-guards-and-middleware.md) (routes, guards and middleware), [ADR-0083](docs/adr/0083-modules-stack-migrations-and-ejection.md) (modules, the default stack, migrations and ejection), [ADR-0084](docs/adr/0084-versioned-documentation.md) (versioned documentation).

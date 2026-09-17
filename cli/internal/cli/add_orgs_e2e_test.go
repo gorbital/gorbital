@@ -109,13 +109,17 @@ func TestAddOrgsConvertsADatabase(t *testing.T) {
 	isolateGit(t)
 	work := t.TempDir()
 
+	// v0.1-layout apps: in the v0.2 layout the organisations module's
+	// migrations are older than a single-tenant database's (ADR-0083, Phase 9
+	// known gaps), so orb add orgs converts new databases only there.
 	newApp := func(name string, args ...string) string {
 		t.Helper()
 		t.Chdir(work)
-		if code, _, errOut := runOrb(t, append([]string{"new", name, "--local", repo, "--no-git", "--json", "--preset", "full"}, args...)...); code != 0 {
-			t.Fatalf("orb new %s = %d: %s", name, code, errOut)
+		tenancy := "single"
+		if len(args) == 2 {
+			tenancy = args[1]
 		}
-		dir := filepath.Join(work, name)
+		dir := writeV01App(t, work, name, tenancy, repo)
 		writeFile(t, filepath.Join(dir, "internal", "schematool", "main.go"), strings.Replace(schemaTool, "MODULE", name, 1))
 		return dir
 	}

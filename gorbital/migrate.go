@@ -277,6 +277,10 @@ type migrationStatus struct {
 	Current       int64  `json:"current"`
 	Latest        int64  `json:"latest"`
 	Pending       int    `json:"pending"`
+	// RowLevelSecurity lists problems that keep row-level security from
+	// protecting organisations' rows, as a v0.1 app's status reports them
+	// (ADR-0061); orb doctor shows each.
+	RowLevelSecurity []string `json:"row_level_security,omitempty"`
 }
 
 // readMigrationStatus reads the database's migration state and changes
@@ -303,7 +307,11 @@ func readMigrationStatus(ctx context.Context, cfg Config, cfgErr error, o option
 	if err != nil {
 		return migrationStatus{DatabaseError: "read the migration state: " + err.Error()}
 	}
-	return migrationStatus{Current: state.Current, Latest: state.Latest, Pending: state.Pending}
+	warnings, err := rowLevelSecurityWarnings(ctx, pool)
+	if err != nil {
+		return migrationStatus{DatabaseError: "read row-level security: " + err.Error()}
+	}
+	return migrationStatus{Current: state.Current, Latest: state.Latest, Pending: state.Pending, RowLevelSecurity: warnings}
 }
 
 // memFS is a read-only in-memory file system of files in its root, the

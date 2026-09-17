@@ -152,6 +152,9 @@ func runCommand(ctx context.Context, name string, args []string, src config.Sour
 				return errors.New(s.DatabaseError)
 			}
 			fmt.Fprintf(stdout, "migrations: database at %d, newest file %d, %d pending\n", s.Current, s.Latest, s.Pending)
+			for _, warning := range s.RowLevelSecurity {
+				fmt.Fprintf(stdout, "warning: %s\n", warning)
+			}
 			return nil
 		}
 		if cfgErr != nil {

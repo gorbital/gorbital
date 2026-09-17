@@ -236,11 +236,24 @@ func promptResource(name *string, specs *[]string, p promptFlags, stdin io.Reade
 	return nil
 }
 
+// latestBuiltinMigration is the newest version of the migrations gorbital's
+// built-in modules and frozen table serve (gorbital.Migrate), checked
+// against the library by TestLatestBuiltinMigration.
+const latestBuiltinMigration int64 = 20260918000070
+
 // nextMigrationVersion returns now as a migration version, or one more than
 // the newest migration's version when that isn't earlier, so the new
 // migration always runs last.
 func nextMigrationVersion(dir string, now time.Time) (string, error) {
 	version := now.UTC().Format("20060102150405")
+	// An app on gorbital.Main doesn't hold the built-in modules' migrations,
+	// which run in the same history: a new migration must still come after
+	// the newest of them, or goose refuses it on a database that ran them.
+	if isGorbitalApp(dir) {
+		if floor := strconv.FormatInt(latestBuiltinMigration+1, 10); version < floor {
+			version = floor
+		}
+	}
 	entries, err := os.ReadDir(filepath.Join(dir, "db", "migrations"))
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", fmt.Errorf("%s has no db/migrations: migrations and resources are generated in apps created with the Full preset", dir)

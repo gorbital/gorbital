@@ -26,15 +26,15 @@ func newGitApp(t *testing.T, args ...string) {
 	commitAll(t, "Create app")
 }
 
-// newV01GitApp writes a Full app of tenancy in the v0.1 layout, as orb v0.1
-// created them and this orb still upgrades them, with its lock, commits it
-// and makes it the working directory.
-func newV01GitApp(t *testing.T, tenancy string) {
+// writeV01App writes a Full app named name of tenancy in the v0.1 layout
+// into parent/name, as orb v0.1 created them, with its lock; local is a
+// gorbital checkout for replace directives, or "". With local it runs go
+// mod tidy, as orb new does.
+func writeV01App(t *testing.T, parent, name, tenancy, local string) string {
 	t.Helper()
-	isolateGit(t)
-	dir := filepath.Join(t.TempDir(), "shop-api")
-	in := lockInputs{Name: "shop-api", Module: "shop-api", Preset: "full", Tenancy: tenancy, Mail: recipes.MailResend}
-	tree, err := inputsTree(recipes.Embedded(), in, in.Mail, recipes.Data{Name: in.Name, Module: in.Module, LibraryVersion: recipes.LibraryVersion})
+	dir := filepath.Join(parent, name)
+	in := lockInputs{Name: name, Module: name, Preset: "full", Tenancy: tenancy, Mail: recipes.MailResend}
+	tree, err := inputsTree(recipes.Embedded(), in, in.Mail, recipes.Data{Name: in.Name, Module: in.Module, LibraryVersion: recipes.LibraryVersion, Local: local})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,6 +46,19 @@ func newV01GitApp(t *testing.T, tenancy string) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(dir, lockPath), string(b))
+	if local != "" {
+		goIn(t, dir, "mod", "tidy")
+	}
+	return dir
+}
+
+// newV01GitApp writes a Full app of tenancy in the v0.1 layout, as orb v0.1
+// created them and this orb still upgrades them, with its lock, commits it
+// and makes it the working directory.
+func newV01GitApp(t *testing.T, tenancy string) {
+	t.Helper()
+	isolateGit(t)
+	dir := writeV01App(t, t.TempDir(), "shop-api", tenancy, "")
 	t.Chdir(dir)
 	commitAll(t, "Create app")
 }

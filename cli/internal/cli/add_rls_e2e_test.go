@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gorbital.dev/cli/internal/recipes"
 )
 
 // TestAddRLS proves orb add rls on a real database: a multi-tenant app's
@@ -19,6 +21,12 @@ import (
 // app's own tests, which connect as a role without bypass, pass with every
 // policy in place. Set ORB_E2E=1 and GORBITAL_TEST_DATABASE_URL to run it.
 func TestAddRLS(t *testing.T) {
+	for _, layout := range []string{recipes.LayoutV01, recipes.LayoutV02} {
+		t.Run(layout, func(t *testing.T) { testAddRLS(t, layout) })
+	}
+}
+
+func testAddRLS(t *testing.T, layout string) {
 	adminURL := os.Getenv("GORBITAL_TEST_DATABASE_URL")
 	if os.Getenv("ORB_E2E") == "" || adminURL == "" {
 		t.Skip("set ORB_E2E=1 and GORBITAL_TEST_DATABASE_URL to run the end-to-end test")
@@ -30,15 +38,26 @@ func TestAddRLS(t *testing.T) {
 	isolateGit(t)
 	work := t.TempDir()
 	t.Chdir(work)
-	if code, _, errOut := runOrb(t, "new", "rls-api", "--local", repo, "--no-git", "--json", "--preset", "full", "--tenancy", "multi"); code != 0 {
-		t.Fatalf("orb new = %d: %s", code, errOut)
+	var dir string
+	if layout == recipes.LayoutV01 {
+		dir = writeV01App(t, work, "rls-api", recipes.TenancyMulti, repo)
+	} else {
+		if code, _, errOut := runOrb(t, "new", "rls-api", "--local", repo, "--no-git", "--json", "--preset", "full", "--tenancy", "multi"); code != 0 {
+			t.Fatalf("orb new = %d: %s", code, errOut)
+		}
+		dir = filepath.Join(work, "rls-api")
 	}
-	dir := filepath.Join(work, "rls-api")
 	writeFile(t, filepath.Join(dir, "internal", "schematool", "main.go"), strings.Replace(schemaTool, "MODULE", "rls-api", 1))
 	tool := func(args ...string) string {
 		t.Helper()
 		cmd := exec.Command("go", append([]string{"run", "./internal/schematool"}, args...)...)
 		cmd.Dir = dir
+		if layout == recipes.LayoutV02 && args[0] == "migrate" {
+			// The library's migrations and the app's, merged by gorbital.Main.
+			cmd = exec.Command("go", "run", "./cmd/api", "migrate")
+			cmd.Dir = dir
+			cmd.Env = append(os.Environ(), "APP_ENV=development", "DATABASE_URL="+args[1])
+		}
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("schematool %s: %v\n%s", args[0], err, out)
@@ -135,7 +154,11 @@ func TestAddRLS(t *testing.T) {
 	if out, err := regen.CombinedOutput(); err != nil {
 		t.Fatalf("regenerate api files: %v\n%s", err, out)
 	}
-	record := exec.Command("go", "test", "./internal/app", "-run", "^TestPublicSurface$", "-update")
+	surfacePkg := "./internal/app"
+	if layout == recipes.LayoutV02 {
+		surfacePkg = "./internal/modules"
+	}
+	record := exec.Command("go", "test", surfacePkg, "-run", "^TestPublicSurface$", "-update")
 	record.Dir = dir
 	if out, err := record.CombinedOutput(); err != nil {
 		t.Fatalf("record api/surface.json: %v\n%s", err, out)
