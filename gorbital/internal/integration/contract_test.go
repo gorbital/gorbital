@@ -36,9 +36,13 @@ var prefixes = []string{"/v1/auth/", "/ops/", "/v1/flags", "/v1/webhooks/resend"
 const exportEnv = "GORBITAL_INTEGRATION_EXPORT"
 
 func TestMain(m *testing.M) {
-	if os.Getenv(exportEnv) == "1" {
+	switch os.Getenv(exportEnv) {
+	case "1":
 		os.Args = []string{"integration", "openapi"}
 		gorbital.Main(options(authhttp.New())...)
+	case "multi":
+		os.Args = []string{"integration", "openapi"}
+		gorbital.Main(multiOptions(authhttp.New())...)
 	}
 	os.Exit(m.Run())
 }
