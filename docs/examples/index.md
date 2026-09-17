@@ -32,7 +32,7 @@ Each recipe is a small runnable app that solves one problem end to end.
 
 | Recipe | Shows | Arrives with |
 |---|---|---|
-| Multi-tenant invoicing | Organisations, tenancy and row-level security for billing data | Phase 7 |
+| [Multi-tenant invoicing](recipes/multi-tenant-invoicing.md) | Companies as organisations with `orgshttp`, invitations, `orb gen module --org`, `guard.OrgMember`, organisation permissions, the row-level security migration in an app on `gorbital.Main`, tests as a database role without bypass | Phase 7 |
 | [Internal admin tool, part 1: operations](recipes/internal-admin-tool.md) | `/ops` in an app on `gorbital.Main`: a module's runtime setting, client flag, retention and named rate limiter; restricting `/ops` with `OPS_ALLOWED_IPS`. Part 2 (reviewing changes, further restrictions) comes later | Phase 4 (part 2: Phase 10) |
 | Mobile backend with an external identity provider | Signing in with JWTs from another provider | Phase 10 |
 | Receiving payment webhooks | Signature verification, idempotency, `InsertTx` | Phase 10 |
