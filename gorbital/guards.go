@@ -120,9 +120,7 @@ func (g *registry) guardMiddleware(module string, op *huma.Operation, guard rout
 		check = func(hctx huma.Context) error {
 			d, err := taker.Take(hctx.Context(), key(hctx.Context(), hctx))
 			if err != nil || d.Allowed {
-				// A limiter that can't decide allows the request
-				// (ratelimit.Taker).
-				return nil
+				return nil //nolint:nilerr // a limiter that can't decide allows the request (ratelimit.Taker)
 			}
 			return &rateLimited{retryAfter: int(math.Ceil(d.RetryAfter.Seconds()))}
 		}

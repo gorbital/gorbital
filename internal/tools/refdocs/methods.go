@@ -555,7 +555,7 @@ func (s *methodsSite) packageProblems(p *libPackage) []problem {
 			if strings.TrimSpace(f.Doc) == "" {
 				add(f.Decl.Name.Pos(), ident, msgNoDoc)
 			}
-			if len(f.Examples) == 0 && s.since.of(p.importPath, ident) == nextVersion {
+			if len(f.Examples) == 0 && !implementsStandard(f) && s.since.of(p.importPath, ident) == nextVersion {
 				add(f.Decl.Name.Pos(), ident, msgNoExample)
 			}
 		}
@@ -577,6 +577,22 @@ func (s *methodsSite) packageProblems(p *libPackage) []problem {
 		funcs(t.Methods)
 	}
 	return out
+}
+
+// standardMethods are methods whose meaning a standard interface defines
+// (error, fmt.Stringer, io.Writer, http.ResponseWriter's writes, http.Handler, and the
+// Unwrap convention of errors and http.ResponseController). An Example would
+// only repeat the interface, so they are exempt from the example rule; they
+// still need doc comments.
+var standardMethods = map[string]bool{
+	"Error": true, "String": true, "Write": true, "WriteHeader": true,
+	"ServeHTTP": true, "Unwrap": true,
+}
+
+// implementsStandard reports whether f is a method named after a standard
+// interface's method.
+func implementsStandard(f *doc.Func) bool {
+	return f.Recv != "" && standardMethods[f.Name]
 }
 
 // anchorOf is a function's identifier and anchor: Name, or Type.Method.

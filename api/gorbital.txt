@@ -13,6 +13,7 @@ pkg gorbital.dev/gorbital, func Put[I any, O any](*Router, string, func(context.
 pkg gorbital.dev/gorbital, func Status(int) RouteOption
 pkg gorbital.dev/gorbital, func Summary(string) RouteOption
 pkg gorbital.dev/gorbital, func Tags(...string) RouteOption
+pkg gorbital.dev/gorbital, func Use(...func(http.Handler) http.Handler) RouteOption
 pkg gorbital.dev/gorbital, method (*Router) Group(string, ...RouteOption) *Router
 pkg gorbital.dev/gorbital, type Declarations struct
 pkg gorbital.dev/gorbital, type Declarations struct, Flags *flags.Registry
@@ -25,11 +26,13 @@ pkg gorbital.dev/gorbital, type Deps struct, Flags *flags.Store
 pkg gorbital.dev/gorbital, type Deps struct, Jobs *jobs.Client
 pkg gorbital.dev/gorbital, type Deps struct, Logger *slog.Logger
 pkg gorbital.dev/gorbital, type Deps struct, Mailer mail.Sender
+pkg gorbital.dev/gorbital, type Deps struct, RateLimits *ratelimitpg.Store
 pkg gorbital.dev/gorbital, type Deps struct, Settings *settings.Store
 pkg gorbital.dev/gorbital, type Deps struct, Storage storage.Store
 pkg gorbital.dev/gorbital, type Module struct
 pkg gorbital.dev/gorbital, type Module struct, Errors []httpx.Mapping
 pkg gorbital.dev/gorbital, type Module struct, Flags func(*flags.Registry)
+pkg gorbital.dev/gorbital, type Module struct, Middleware []func(http.Handler) http.Handler
 pkg gorbital.dev/gorbital, type Module struct, Name string
 pkg gorbital.dev/gorbital, type Module struct, Permissions []Permission
 pkg gorbital.dev/gorbital, type Module struct, Routes func(*Router, Deps)
@@ -42,4 +45,22 @@ pkg gorbital.dev/gorbital, type PermissionDeclarer interface { Permission }
 pkg gorbital.dev/gorbital, type PermissionDeclarer interface, Permission(string, string)
 pkg gorbital.dev/gorbital, type RouteOption = route.Option
 pkg gorbital.dev/gorbital, type Router struct
+pkg gorbital.dev/gorbital/guard, func ByAPIKey() RateLimitOption
+pkg gorbital.dev/gorbital/guard, func ByIP() RateLimitOption
+pkg gorbital.dev/gorbital/guard, func ByUser() RateLimitOption
+pkg gorbital.dev/gorbital/guard, func Named(string) RateLimitOption
+pkg gorbital.dev/gorbital/guard, func New(Spec) gorbital.RouteOption
+pkg gorbital.dev/gorbital/guard, func Permission(string) gorbital.RouteOption
 pkg gorbital.dev/gorbital/guard, func Public() gorbital.RouteOption
+pkg gorbital.dev/gorbital/guard, func RateLimit(int, time.Duration, ...RateLimitOption) gorbital.RouteOption
+pkg gorbital.dev/gorbital/guard, func RecentReauth() gorbital.RouteOption
+pkg gorbital.dev/gorbital/guard, method (Request) Header(string) string
+pkg gorbital.dev/gorbital/guard, method (Request) Operation() *huma.Operation
+pkg gorbital.dev/gorbital/guard, method (Request) PathParam(string) string
+pkg gorbital.dev/gorbital/guard, method (Request) Query(string) string
+pkg gorbital.dev/gorbital/guard, type RateLimitOption func(*rateLimit)
+pkg gorbital.dev/gorbital/guard, type Request struct
+pkg gorbital.dev/gorbital/guard, type Spec struct
+pkg gorbital.dev/gorbital/guard, type Spec struct, Check func(context.Context, Request) error
+pkg gorbital.dev/gorbital/guard, type Spec struct, Name string
+pkg gorbital.dev/gorbital/guard, type Spec struct, Statuses []int

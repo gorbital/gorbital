@@ -78,15 +78,14 @@ func Get[I, O any](r *Router, path string, h func(context.Context, *I) (*O, erro
 |---|---|---|
 | `guard.Public()` | — | — |
 | `guard.Permission(name)` | 403 `forbidden`; 403 `mfa_required` for a step-up permission | `actor.Actor.Can`, `auth.Catalog` |
-| `guard.Role(name)` | 403 `forbidden` | the actor's roles |
 | `guard.RecentReauth()` | 403 `reauthentication_required` (**new code**: the session must have signed in or verified a second factor within `auth.RecentVerification`) | `auth.Principal.RecentlySignedIn`, `RecentlyVerified` |
 | `guard.RateLimit(n, window, opts...)` | 429 `rate_limited` with `Retry-After` | `ratelimitpg` (in-memory fallback), keyed `ByUser` (default), `ByAPIKey` or `ByIP`; limiter names appear in `/ops/auth/rate-limits` |
-| `guard.Idempotent()` | 400 `invalid_idempotency_key`, 409 `idempotency_in_progress`, 422 `idempotency_key_reused` | `modules/idempotency` |
 | `guard.OrgMember(permission)` (Phase 7) | 403/404 as `orgs.RequireMember` | `orgs` |
-| `guard.New(guard.Spec{Name, Errors, Check})` | the error `Check` returns, mapped by `Errors` or the module's mappings | — |
+| `guard.New(guard.Spec{Name, Statuses, Check})` | the error `Check` returns, mapped by the module's `Errors` (or an `*httpx.Problem`) | — |
 
 - Guards run as operation middleware in the order declared (group guards first), before input parsing. A refusal is written with `huma.WriteErr`, so it is problem+json with the request ID like every other error.
-- `Check func(ctx context.Context, req guard.Request) error`; `guard.Request` exposes path parameters and the operation. `nil` allows; a mapped error refuses; an unmapped error is a 500, logged once.
+- `Check func(ctx context.Context, req guard.Request) error`; `guard.Request` exposes `PathParam`, `Query`, `Header` and `Operation`. `nil` allows; a mapped error refuses; an unmapped error is a 500, logged once. `Spec.Statuses` lists the statuses for the OpenAPI document; the mappings stay in the module's `Errors`, the one place a module maps errors.
+- Not built, by decision during Phase 2 (2026-09-17): `guard.Role`, because actors carry permissions, not roles, and checks belong on permissions; `guard.Idempotent`, because the default stack already applies idempotency keys to every signed-in POST and PATCH, so a route option would add nothing.
 - Each guard adds its security requirement and error responses to the operation's OpenAPI, and names itself in `x-gorbital-guards`.
 - Refusals are counted by guard name and route pattern (bounded cardinality); spans record the refusing guard. No log line per refusal.
 
@@ -101,9 +100,11 @@ request → app stack (ADR-0083) → module Middleware → group Use → route U
 | App | `gorbital.WithMiddleware(mws...)`, after the authentication, rate-limit and idempotency steps; `gorbital.WithMiddlewareFunc(func(Deps) httpx.Middleware)` when it needs dependencies |
 | Module | `Module.Middleware []httpx.Middleware` |
 | Group, route | `gorbital.Use(mws...)`. There is no way to remove an inherited middleware from one route: routes that need different middleware go in their own group. `guard.Public()` is the one exception, for the default authentication check |
-| Whole stack | `gorbital.WithStack(func(s gorbital.Stack) []httpx.Middleware)`; `Stack` has one field per built-in step; omitting `Recover` or `Auth` logs a warning at start and is reported by `orb doctor` |
+| Whole stack | `gorbital.WithStack(func(s gorbital.Stack) []httpx.Middleware)`; `Stack` has one field per built-in step; omitting `Recover` or `Auth` logs a warning at start and is reported by `orb doctor` (Phase 3) |
 
-The route adapter unwraps the Huma context, runs the middleware chain, and continues with a context rebuilt from the (possibly replaced) request and writer, so context values set by middleware reach the handler.
+The route adapter builds each route's middleware chain once at registration. Per request it stores Huma's continuation in the request's context, runs the chain, and continues with a Huma context rebuilt from the (possibly replaced) request and writer, so context values set by middleware reach the handler. Measured cost: a fixed 5 allocations per request whatever the number of middlewares ([benchmarks](../benchmarks.md)).
+
+Rate-limit guards resolve their limiter at registration: from `Deps.RateLimits` (`ratelimitpg`, shared across instances) when set, otherwise an in-memory `ratelimit.Limiter` per instance. A limiter name used with two different limits fails `Mount`.
 
 `httpx.Capture(w)` exposes status, bytes and headers to middleware that reads the response (extracted from `AccessLog`).
 

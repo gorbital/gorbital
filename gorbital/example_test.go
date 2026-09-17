@@ -422,3 +422,41 @@ func ExampleDeprecated() {
 	// Output:
 	// GET /v1/books/{id} id=books-get-v1-books-by-id summary="Get v1 books by ID" tags=[] secured=true deprecated=true
 }
+
+func ExampleUse() {
+	// requireClientVersion refuses mobile apps older than min.
+	requireClientVersion := func(min string) func(http.Handler) http.Handler {
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("X-App-Version") < min {
+					httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusUpgradeRequired, "app_outdated", "update the app to continue"))
+					return
+				}
+				next.ServeHTTP(w, r)
+			})
+		}
+	}
+
+	mux, api, mapper := newAPI()
+	err := gorbital.Mount(api, mapper, gorbital.Deps{}, gorbital.Module{
+		Name: "books",
+		Routes: func(r *gorbital.Router, d gorbital.Deps) {
+			books := r.Group("/v1/books", gorbital.Use(requireClientVersion("2.4.0")))
+			gorbital.Get(books, "/{id}", findBook)
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	for _, version := range []string{"2.3.9", "2.4.0"} {
+		req := httptest.NewRequest(http.MethodGet, "/v1/books/bok_1", nil)
+		req.Header.Set("X-App-Version", version)
+		req = req.WithContext(actor.With(req.Context(), actor.Actor{Kind: actor.KindUser, ID: "usr_1"}))
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		fmt.Println(version, rec.Code)
+	}
+	// Output:
+	// 2.3.9 426
+	// 2.4.0 200
+}

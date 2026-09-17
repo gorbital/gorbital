@@ -36,7 +36,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
   - [`Module`](#Module)
   - [`Permission`](#Permission)
   - [`PermissionDeclarer`](#PermissionDeclarer)
-  - [`RouteOption`](#RouteOption): [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags)
+  - [`RouteOption`](#RouteOption): [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Use`](#Use)
   - [`Router`](#Router): [`Router.Group`](#Router.Group)
 
 ## Functions
@@ -357,6 +357,7 @@ gorbital: module "books" declares flags, but Declarations.Flags is nil
 <a id="Deps.Settings"></a>
 <a id="Deps.Flags"></a>
 <a id="Deps.Storage"></a>
+<a id="Deps.RateLimits"></a>
 <a id="Deps.Logger"></a>
 
 ### type Deps
@@ -370,6 +371,9 @@ type Deps struct {
 	Settings *settings.Store
 	Flags    *flags.Store
 	Storage  storage.Store
+	// RateLimits shares guard.RateLimit budgets across instances; without
+	// it, each instance counts on its own.
+	RateLimits *ratelimitpg.Store
 	// Logger is tagged with the module's name by [Mount].
 	Logger *slog.Logger
 }
@@ -410,6 +414,7 @@ Output:
 <a id="Module.Permissions"></a>
 <a id="Module.Settings"></a>
 <a id="Module.Flags"></a>
+<a id="Module.Middleware"></a>
 
 ### type Module
 
@@ -437,6 +442,10 @@ type Module struct {
 	// Flags declares the module's feature flags. [Declare] calls it once,
 	// before the flags store is built.
 	Flags func(r *flags.Registry)
+
+	// Middleware runs on every route of the module, before group and route
+	// middleware (see [Use]).
+	Middleware []func(http.Handler) http.Handler
 }
 ```
 
@@ -785,6 +794,70 @@ Output:
 
 ```text
 GET /v1/books/{id} id=books-get-v1-books-by-id summary="Get v1 books by ID" tags=[Books Library] secured=true deprecated=false
+```
+
+<a id="Use"></a>
+
+#### func Use
+
+```go
+func Use(middlewares ...func(http.Handler) http.Handler) RouteOption
+```
+
+Use adds middleware to a route, or to every route of a group. Middleware runs in the order given, after the module's and the group's middleware and before the route's guards and input parsing (ADR-0082). Any standard middleware works:
+
+```go
+books := r.Group("/v1/books", gorbital.Use(requireClientVersion("2.4.0")))
+```
+
+A route can't remove middleware its group added: put routes that need different middleware in their own group.
+
+Route middleware needs an API built on Huma's humago adapter, as openapi.New builds it.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// requireClientVersion refuses mobile apps older than min.
+requireClientVersion := func(min string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("X-App-Version") < min {
+				httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusUpgradeRequired, "app_outdated", "update the app to continue"))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+mux, api, mapper := newAPI()
+err := gorbital.Mount(api, mapper, gorbital.Deps{}, gorbital.Module{
+	Name: "books",
+	Routes: func(r *gorbital.Router, d gorbital.Deps) {
+		books := r.Group("/v1/books", gorbital.Use(requireClientVersion("2.4.0")))
+		gorbital.Get(books, "/{id}", findBook)
+	},
+})
+if err != nil {
+	panic(err)
+}
+for _, version := range []string{"2.3.9", "2.4.0"} {
+	req := httptest.NewRequest(http.MethodGet, "/v1/books/bok_1", nil)
+	req.Header.Set("X-App-Version", version)
+	req = req.WithContext(actor.With(req.Context(), actor.Actor{Kind: actor.KindUser, ID: "usr_1"}))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	fmt.Println(version, rec.Code)
+}
+```
+
+Output:
+
+```text
+2.3.9 426
+2.4.0 200
 ```
 
 <a id="Router"></a>

@@ -108,7 +108,7 @@ gorbital.Get(books, "/{id}", h.getBook)                                     // s
 gorbital.Get(r.Group("/v1/catalog", guard.Public()), "/{id}", h.catalogBook) // anyone
 ```
 
-Forgetting a guard can't expose a route; forgetting `guard.Public()` gives a 401 that you'll notice at once. Permission checks, rate limits and custom guards arrive in Phase 2 ([ADR-0082](../adr/0082-routes-guards-and-middleware.md)); until then, check permissions in the handler with `actor.Require(ctx, PermRead)`.
+Forgetting a guard can't expose a route; forgetting `guard.Public()` gives a 401 that you'll notice at once. Permissions, rate limits, re-authentication, your own guards and middleware are in [Guards and middleware](guards-and-middleware.md).
 
 ## Errors in routes
 

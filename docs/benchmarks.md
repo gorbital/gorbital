@@ -45,6 +45,18 @@ The `Benchmarks` workflow (`.github/workflows/bench.yml`) runs `scripts/bench.sh
 | `gorbital.New` start time and memory versus v0.1 `full-single` | ≤ +10 % |
 | `go list -deps` count and binary size of the golden apps | No growth without a note on this page |
 
+## Measured: routes, guards and middleware (v0.2, Phases 1–2)
+
+`BenchmarkRequest` and `BenchmarkRouteMiddleware` in `gorbital/bench_test.go`, a signed-in GET, Apple M1 Max, Go 1.26.0, 2026-09-17:
+
+| Route | Time | Memory | Allocations | Budget |
+|---|---|---|---|---|
+| Registered directly with `huma.Register` | 1.31–1.34 µs | 1658 B | 19 | — |
+| Registered with `gorbital.Get` (sign-in check) | 1.30–1.36 µs | 1658 B | 19 | ≤ 1 extra allocation, ≤ 5 %: **met** (0, no measurable difference) |
+| With `guard.Permission` | 1.36–1.39 µs | 1690 B | 21 | 0 allocations on the allow path: **met** (the 2 over the row above are the benchmark's own actor context) |
+| With `gorbital.Use`, 1 middleware | 1.49–1.54 µs | 2130 B | 26 | No budget: a fixed 5 allocations, about +11 % |
+| With `gorbital.Use`, 5 middlewares | 1.53–1.56 µs | 2130 B | 26 | Same cost as 1: the chain is built once per route |
+
 ## Baselines: v0.1.0 golden apps
 
 Measured on 2026-09-17 at tag `v0.1.0` (`aaf77d3`) with `scripts/bench-baseline.sh`, 5 counted starts per app after one warm-up start.

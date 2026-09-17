@@ -39,6 +39,7 @@ Every app uses httpx: generated apps build the server and the middleware chain i
 - Types:
   - [`AccessNote`](#AccessNote): [`AccessNoteFrom`](#AccessNoteFrom), [`AccessNote.Add`](#AccessNote.Add)
   - [`CORSOptions`](#CORSOptions)
+  - [`Captured`](#Captured): [`Capture`](#Capture), [`Captured.Bytes`](#Captured.Bytes), [`Captured.Status`](#Captured.Status), [`Captured.Unwrap`](#Captured.Unwrap), [`Captured.Write`](#Captured.Write), [`Captured.WriteHeader`](#Captured.WriteHeader), [`Captured.WroteHeader`](#Captured.WroteHeader)
   - [`FieldError`](#FieldError)
   - [`Mapper`](#Mapper): [`NewMapper`](#NewMapper), [`Mapper.Add`](#Mapper.Add), [`Mapper.Match`](#Mapper.Match), [`Mapper.Problem`](#Mapper.Problem), [`Mapper.Write`](#Mapper.Write)
   - [`Mapping`](#Mapping)
@@ -211,6 +212,213 @@ type CORSOptions struct {
 CORSOptions configure [CORS](#CORS).
 
 *Since `v0.1.0`*
+
+<a id="Captured"></a>
+<a id="Captured.ResponseWriter"></a>
+
+### type Captured
+
+```go
+type Captured struct {
+	http.ResponseWriter
+	// contains filtered or unexported fields
+}
+```
+
+Captured is a response writer that records what the handler wrote, for middleware that reads the response after the handler returns: its status, whether headers were sent, and the body size. Create one with [Capture](#Capture).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+cw := httpx.Capture(httptest.NewRecorder())
+cw.WriteHeader(http.StatusCreated)
+_, _ = cw.Write([]byte(`{"id":"bok_1"}`))
+fmt.Println(cw.Status(), cw.Bytes(), cw.WroteHeader())
+```
+
+Output:
+
+```text
+201 14 true
+```
+
+<a id="Capture"></a>
+
+#### func Capture
+
+```go
+func Capture(w http.ResponseWriter) *Captured
+```
+
+Capture returns w wrapped to record the response, or w itself when it is already a \*Captured, so several middlewares share one record. Pass the result to the next handler:
+
+```
+cw := httpx.Capture(w)
+next.ServeHTTP(cw, r)
+if cw.Status() >= 500 { … }
+```
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// logErrors logs every response with a 5xx status.
+logErrors := func(logger *slog.Logger) httpx.Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			cw := httpx.Capture(w)
+			next.ServeHTTP(cw, r)
+			if cw.Status() >= 500 {
+				logger.ErrorContext(r.Context(), "server error", "status", cw.Status(), "bytes", cw.Bytes())
+			}
+		})
+	}
+}
+
+failing := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	http.Error(w, "database unavailable", http.StatusServiceUnavailable)
+})
+rec := httptest.NewRecorder()
+logErrors(slog.New(slog.DiscardHandler))(failing).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/books", nil))
+fmt.Println(rec.Code)
+```
+
+Output:
+
+```text
+503
+```
+
+<a id="Captured.Bytes"></a>
+
+#### func (*Captured) Bytes
+
+```go
+func (w *Captured) Bytes() int64
+```
+
+Bytes returns the number of body bytes written.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+cw := httpx.Capture(httptest.NewRecorder())
+_, _ = fmt.Fprint(cw, "hello, ")
+_, _ = fmt.Fprint(cw, "world")
+fmt.Println(cw.Bytes())
+```
+
+Output:
+
+```text
+12
+```
+
+<a id="Captured.Status"></a>
+
+#### func (*Captured) Status
+
+```go
+func (w *Captured) Status() int
+```
+
+Status returns the status the handler sent: 200 when it wrote a body without calling WriteHeader, or wrote nothing at all.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+cw := httpx.Capture(httptest.NewRecorder())
+fmt.Println(cw.Status()) // nothing written yet: 200, as net/http sends
+cw.WriteHeader(http.StatusNotFound)
+fmt.Println(cw.Status())
+```
+
+Output:
+
+```text
+200
+404
+```
+
+<a id="Captured.Unwrap"></a>
+
+#### func (*Captured) Unwrap
+
+```go
+func (w *Captured) Unwrap() http.ResponseWriter
+```
+
+Unwrap supports http.ResponseController (flushing, deadlines).
+
+*Since `v0.2.0 (unreleased)`*
+
+<a id="Captured.Write"></a>
+
+#### func (*Captured) Write
+
+```go
+func (w *Captured) Write(b []byte) (int, error)
+```
+
+Write records an implicit 200 status and the number of bytes written.
+
+*Since `v0.2.0 (unreleased)`*
+
+<a id="Captured.WriteHeader"></a>
+
+#### func (*Captured) WriteHeader
+
+```go
+func (w *Captured) WriteHeader(code int)
+```
+
+WriteHeader records the first status code and forwards it.
+
+*Since `v0.2.0 (unreleased)`*
+
+<a id="Captured.WroteHeader"></a>
+
+#### func (*Captured) WroteHeader
+
+```go
+func (w *Captured) WroteHeader() bool
+```
+
+WroteHeader reports whether the handler has sent the status and headers, after which a middleware can no longer change them.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// A middleware that sets a header only while it still can.
+addVersion := func(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cw := httpx.Capture(w)
+		next.ServeHTTP(cw, r)
+		if !cw.WroteHeader() {
+			cw.Header().Set("X-Version", "1")
+			cw.WriteHeader(http.StatusNoContent)
+		}
+	})
+}
+rec := httptest.NewRecorder()
+addVersion(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})).ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/", nil))
+fmt.Println(rec.Code, rec.Header().Get("X-Version"))
+```
+
+Output:
+
+```text
+204 1
+```
 
 <a id="FieldError"></a>
 <a id="FieldError.Location"></a>

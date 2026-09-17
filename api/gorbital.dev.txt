@@ -148,6 +148,7 @@ pkg gorbital.dev/httpx, func AccessLog(*slog.Logger) Middleware
 pkg gorbital.dev/httpx, func AccessNoteFrom(context.Context) *AccessNote
 pkg gorbital.dev/httpx, func BodyLimit(int64) Middleware
 pkg gorbital.dev/httpx, func CORS(CORSOptions) (Middleware, error)
+pkg gorbital.dev/httpx, func Capture(http.ResponseWriter) *Captured
 pkg gorbital.dev/httpx, func Chain(http.Handler, ...Middleware) http.Handler
 pkg gorbital.dev/httpx, func CrossOrigin(...string) (Middleware, error)
 pkg gorbital.dev/httpx, func DefaultCode(int) string
@@ -165,6 +166,12 @@ pkg gorbital.dev/httpx, func WithShutdownTimeout(time.Duration) ServerOption
 pkg gorbital.dev/httpx, func WithTimeouts(time.Duration, time.Duration, time.Duration, time.Duration) ServerOption
 pkg gorbital.dev/httpx, func WriteProblem(http.ResponseWriter, *http.Request, *Problem)
 pkg gorbital.dev/httpx, method (*AccessNote) Add(...slog.Attr)
+pkg gorbital.dev/httpx, method (*Captured) Bytes() int64
+pkg gorbital.dev/httpx, method (*Captured) Status() int
+pkg gorbital.dev/httpx, method (*Captured) Unwrap() http.ResponseWriter
+pkg gorbital.dev/httpx, method (*Captured) Write([]byte) (int, error)
+pkg gorbital.dev/httpx, method (*Captured) WriteHeader(int)
+pkg gorbital.dev/httpx, method (*Captured) WroteHeader() bool
 pkg gorbital.dev/httpx, method (*Mapper) Add(...Mapping) error
 pkg gorbital.dev/httpx, method (*Mapper) Match(error) (*Problem, bool)
 pkg gorbital.dev/httpx, method (*Mapper) Problem(context.Context, error) *Problem
@@ -174,6 +181,7 @@ pkg gorbital.dev/httpx, method (*Problem) Error() string
 pkg gorbital.dev/httpx, method (*Problem) GetStatus() int
 pkg gorbital.dev/httpx, method (*Server) Addr(context.Context) (string, error)
 pkg gorbital.dev/httpx, method (*Server) Run(context.Context) error
+pkg gorbital.dev/httpx, method (Captured) Header() http.Header
 pkg gorbital.dev/httpx, type AccessNote struct
 pkg gorbital.dev/httpx, type CORSOptions struct
 pkg gorbital.dev/httpx, type CORSOptions struct, AllowCredentials bool
@@ -182,6 +190,8 @@ pkg gorbital.dev/httpx, type CORSOptions struct, AllowedMethods []string
 pkg gorbital.dev/httpx, type CORSOptions struct, AllowedOrigins []string
 pkg gorbital.dev/httpx, type CORSOptions struct, ExposedHeaders []string
 pkg gorbital.dev/httpx, type CORSOptions struct, MaxAge time.Duration
+pkg gorbital.dev/httpx, type Captured struct
+pkg gorbital.dev/httpx, type Captured struct, embedded http.ResponseWriter
 pkg gorbital.dev/httpx, type FieldError struct
 pkg gorbital.dev/httpx, type FieldError struct, Location string
 pkg gorbital.dev/httpx, type FieldError struct, Message string

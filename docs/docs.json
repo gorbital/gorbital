@@ -24,6 +24,7 @@
           "pages": [
             { "title": "Add your first resource", "slug": "guides/first-resource", "source": "docs/start/first-resource.md" },
             { "title": "Modules and routes", "slug": "guides/modules-and-routes", "source": "docs/guides/modules-and-routes.md" },
+            { "title": "Guards and middleware", "slug": "guides/guards-and-middleware", "source": "docs/guides/guards-and-middleware.md" },
             { "title": "Organisations", "slug": "guides/organisations", "source": "docs/start/organisations.md" },
             { "title": "Upgrading apps", "slug": "guides/upgrading", "source": "docs/start/upgrading.md" }
           ]
