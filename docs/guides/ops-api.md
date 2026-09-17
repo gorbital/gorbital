@@ -1,6 +1,45 @@
 # Ops API reference
 
-Admin APIs of the Full preset (`internal/modules/ops`), implemented in `examples/full-single`. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0036](../adr/0036-audit-storage.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md), [ADR-0038](../adr/0038-authentication-v0-2.md), [ADR-0040](../adr/0040-release-tracking.md), [ADR-0064](../adr/0064-live-observability-and-incidents.md).
+Admin APIs of the Full preset: `internal/modules/ops` in a v0.1 app, implemented in `examples/full-single`, and the built-in module `gorbital.dev/gorbital/opshttp` in an app on `gorbital.Main` (v0.2), with the same paths, operation IDs, schemas, error codes, permissions and audit actions. The full schema is in the app's `api/openapi.json` and at `/docs`. Decisions: [ADR-0026](../adr/0026-operations-apis.md), [ADR-0031](../adr/0031-runtime-settings.md), [ADR-0033](../adr/0033-background-jobs.md), [ADR-0036](../adr/0036-audit-storage.md), [ADR-0037](../adr/0037-email-setup-and-delivery.md), [ADR-0038](../adr/0038-authentication-v0-2.md), [ADR-0040](../adr/0040-release-tracking.md), [ADR-0064](../adr/0064-live-observability-and-incidents.md).
+
+## Adding it to an app
+
+A v0.1 app has the ops module in `internal/modules/ops` and needs nothing: it keeps working against v0.2 of the library. An app on `gorbital.Main` adds the built-in module in `main.go`, with the client flags API and the email provider's webhook when it wants them ([Your main.go](main-go.md)):
+
+```go
+gorbital.Main(
+	gorbital.WithAuth(auth),
+	gorbital.WithModules(opshttp.Module(), flagshttp.Module(), mailevents.Module()),
+	gorbital.WithModules(modules.All()...),
+	gorbital.WithMigrations(migrations.FS),
+)
+```
+
+| Module | Serves | Declares |
+|---|---|---|
+| `opshttp.Module(opts...)` | `/ops/*` below, but accounts and service accounts, which come with sign-in | the `ops.*` permissions, the roles `platform_admin` and `ops_viewer`, the `ops_test_email` rate limiter |
+| `flagshttp.Module()` | `GET /v1/flags` ([feature flags](feature-flags.md)) | `flags.flag.read`, held by the `user` role |
+| `mailevents.Module()` | `POST /v1/webhooks/resend` ([email](email.md)): on when `RESEND_WEBHOOK_SECRET` is set; a malformed secret stops the app at start | the `mail.suppression.added` audit action |
+
+Options of `opshttp.Module`: `opshttp.MailProvider(opshttp.ProviderSMTP)` when `GET /ops/mail` should report SMTP instead of Resend, and `opshttp.SignInMethods(list)` for what `GET /ops/auth/providers` lists (empty without it).
+
+What the endpoints report comes from the whole app, not from one module ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#phase-4-implementation-notes-2026-09-17)): every job defined by gorbital and the modules is in `/ops/jobs`, every setting and flag in `/ops/settings` and `/ops/flags`, every named rate limiter (the built-in `auth_ip`, those modules declare in `Module.RateLimiters`, and those `guard.RateLimit` creates) in `/ops/auth/rate-limits`, and every kind of data a module keeps in `/ops/retention` (`Module.Retention`).
+
+`ops.auth.write`, which rate-limit resets check, is sign-in's permission: an app has it with sign-in's module (Phase 5).
+
+### Restricting /ops to your network
+
+Set `OPS_ALLOWED_IPS` to the addresses and ranges that may call `/ops/`, such as a VPN's ([environment variables](environment-variables.md#operations), [security layers](security-layers.md#ip-filter)):
+
+```bash
+OPS_ALLOWED_IPS=10.8.0.0/16,2001:db8:42::/48,203.0.113.7
+```
+
+Other clients get 403 `ip_not_allowed`, before the sign-in check, guards and input parsing, and the address isn't echoed. The address is the client's after `APP_TRUSTED_PROXIES`, so behind a load balancer set that too, or every request comes from the balancer. Other routes aren't affected. Unset, `/ops/` answers every address, as in v0.1, and relies on sign-in, permissions and second factors.
+
+### The dev console's operator
+
+In development, when `orb dev` runs the app with its dev console token, the token acts on `/ops/` as a system actor named `dev-console` holding `platform_admin`'s permissions, so the Dev Portal can operate the app before anyone signs in ([dev console](dev-console.md), [ADR-0066](../adr/0066-dev-portal.md)). It runs in the stack's `Auth` step, only from loopback with a localhost `Host`, and never in production, which refuses the token.
 
 ## Authentication
 
@@ -182,6 +221,8 @@ How long data is kept is a runtime setting per kind of data ([ADR-0051](../adr/0
 | `observability_minutes` | `observability.retention` | 24 hours (1 hour to 7 days) | `observability_cleanup` job, hourly ([observability](observability.md)) |
 | `idempotency_keys` | `idempotency.retention` | 24 hours (1 hour to 7 days) | `idempotency_cleanup` job, hourly ([idempotency](idempotency.md)) |
 | `deleted_organisations` (multi-tenant apps) | `orgs.deleted_org_retention` | 30 days | `orgs_purge` job |
+
+In an app on `gorbital.Main`, the list is what gorbital builds (the first rows above but `deleted_accounts`) followed by each module's `Module.Retention`, in module order: sign-in adds its accounts, and a module of yours adds its data with a runtime setting and either a `Delete` function the `retention` job calls, or the job of its own that deletes it ([modules and routes](modules-and-routes.md)).
 
 Each policy shows `retention` (a Go duration) and `retention_seconds`, the enforcing `job` with its `last_run` and `next_run_at`, and `oldest_at` for the data the `retention` job deletes. The job deletes 5,000 rows per statement until nothing is older, and records a `retention.purged` audit event with the row count and cutoff for each kind of data, so a shortened retention stays visible after the rows are gone.
 
@@ -475,7 +516,7 @@ Operators' view of accounts ([ADR-0070](../adr/0070-operators-account-apis.md)):
 | `DELETE /ops/auth/users/{id}/passkeys/{passkeyId}`, `…/identities/{identityId}` | Removes a passkey; unlinks a Google, Apple or GitHub account | 204 |
 | `POST /ops/auth/users/{id}/mfa/enroll`, `…/mfa/reset` | Turns on an authenticator app (secret and recovery codes, shown once); removes every second factor and ends sessions | 201, 204 |
 | `POST /ops/auth/users/{id}/impersonate` | Starts a session as the user (`mfa_verified` decides whether roles requiring a second factor apply); only with the dev console, 403 `impersonation_off` elsewhere; audited as `auth.user.impersonated` | 201 `{token, session, user}` |
-| `GET /ops/auth/rate-limits` | The app's rate limiters: name and what their keys are | 200 `{limiters}` |
+| `GET /ops/auth/rate-limits` | The app's rate limiters: name and what their keys are; in an app on `gorbital.Main`, also the modules' and those `guard.RateLimit` creates, described with their routes | 200 `{limiters}` |
 | `POST /ops/auth/rate-limits/reset` | Forgets a key's budget under a limiter (`name`, `key`), audited as `ops.rate_limit.reset` naming the limiter only | 200 `{reset}` |
 
 ## Service accounts

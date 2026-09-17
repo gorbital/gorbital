@@ -195,7 +195,10 @@
           "pages": [
             { "title": "gorbital", "slug": "methods/gorbital", "source": "docs/methods/gorbital.md" },
             { "title": "guard", "slug": "methods/gorbital-guard", "source": "docs/methods/gorbital-guard.md" },
-            { "title": "gorbitaltest", "slug": "methods/gorbital-gorbitaltest", "source": "docs/methods/gorbital-gorbitaltest.md" }
+            { "title": "gorbitaltest", "slug": "methods/gorbital-gorbitaltest", "source": "docs/methods/gorbital-gorbitaltest.md" },
+            { "title": "opshttp", "slug": "methods/gorbital-opshttp", "source": "docs/methods/gorbital-opshttp.md" },
+            { "title": "flagshttp", "slug": "methods/gorbital-flagshttp", "source": "docs/methods/gorbital-flagshttp.md" },
+            { "title": "mailevents", "slug": "methods/gorbital-mailevents", "source": "docs/methods/gorbital-mailevents.md" }
           ]
         },
         {
@@ -262,7 +265,14 @@
           "pages": [
             { "title": "0. Start a project", "slug": "examples/shelfie/start-a-project", "source": "docs/examples/shelfie/00-start-a-project.md" },
             { "title": "1. A books module", "slug": "examples/shelfie/books-module", "source": "docs/examples/shelfie/01-books-module.md" },
-            { "title": "4. Tests", "slug": "examples/shelfie/tests", "source": "docs/examples/shelfie/04-tests.md" }
+            { "title": "4. Tests", "slug": "examples/shelfie/tests", "source": "docs/examples/shelfie/04-tests.md" },
+            { "title": "5. Operations", "slug": "examples/shelfie/operations", "source": "docs/examples/shelfie/05-operations.md" }
+          ]
+        },
+        {
+          "name": "Recipes",
+          "pages": [
+            { "title": "Internal admin tool, part 1", "slug": "examples/recipes/internal-admin-tool", "source": "docs/examples/recipes/internal-admin-tool.md" }
           ]
         }
       ]

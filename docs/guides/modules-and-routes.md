@@ -75,6 +75,9 @@ func Module() gorbital.Module {
 | `Middleware` | Middleware on every route of the module | Around each route ([Guards and middleware](guards-and-middleware.md)) |
 | `Jobs` | Background jobs, with `jobs.Define` | Once, by `gorbital.New`, before the job client exists: in the `Deps` it receives, `Jobs` is nil and `Mailer` works once jobs run. Keep `d` in the worker and use it in `Work` |
 | `Migrations` | Migrations served from the module (built-in modules) | Merged by `gorbital.Migrate` with the library's and `db/migrations`, by version. Your own modules keep theirs in `db/migrations`, so tables can reference each other |
+| `RateLimiters` | Names and descriptions of the limiters the module creates itself on `Deps.RateLimits` (`guard.RateLimit`'s are listed without it) | Listed by `GET /ops/auth/rate-limits`, where operators reset a key; a name declared twice stops `New` |
+| `Retention` | How long each kind of the module's data is kept (`gorbital.Retention`): its runtime setting, and a `Delete` function the built-in `retention` job calls daily, or the module's own job that deletes it | Once, by `gorbital.New`, with the `Deps` `Jobs` receives; listed by `GET /ops/retention` |
+| `Platform` | For gorbital's built-in modules (`opshttp`, `mailevents`): receives `*gorbital.Platform`, what `New` built for the whole app, and checks the module's configuration | Once, by `gorbital.New`, after every store and before any `Routes`; an error stops the start as a configuration error. Your modules use `Deps` |
 
 Keep what `Settings` and `Flags` return in variables of the `Module` function, as `pageSize` above, and pass them to your handlers. There's no lookup by name.
 
@@ -113,6 +116,7 @@ Paths and prefixes are empty or start with a slash, and never end with one.
 | `Status(http.StatusCreated)` | The success status | 200, or 204 for an output without a body |
 | `Errors(http.StatusNotFound)` | Error statuses to document | Only those guards document |
 | `Deprecated()` | Marks the operation deprecated | — |
+| `Customize(func(api, op))` | Anything else on the Huma operation, such as a streaming response's media type or a schema added to the API ([Methods](../methods/gorbital.md#Customize)). It can't change the method, path, operation ID, security or middleware | — |
 | `guard.Public()` | See below | The route requires sign-in |
 
 **Operation IDs are public API**: client generators name functions after them. Set `OperationID` on routes you publish, so moving a route doesn't rename a client's function.
@@ -152,6 +156,7 @@ Both return an error naming the module, so the app stops at start instead of mis
 | A protected route on an API without the bearer scheme | `… requires authentication, but the API declares no bearer security scheme` |
 | A setting or flag the registry refuses (invalid or duplicate key) | `gorbital: module "shelves": settings: settings: shared.limit: declared twice` |
 | An input or output type Huma can't document | `gorbital: module "books": POST /v1/books: …` |
+| A rate limiter or retention declared twice, or a retention without a setting or with no (or two) ways of deleting its data (`New` only) | `gorbital: retention of "notes" is declared by modules "notes" and "archive"` |
 
 ## Using modules in a v0.1 app
 

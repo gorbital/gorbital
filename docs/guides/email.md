@@ -128,7 +128,7 @@ Sending again to an address that doesn't exist, or to someone who marked your em
 
 ### Connect Resend's webhook
 
-Your API must be reachable from the internet over https (in development, use a tunnel such as `cloudflared tunnel --url http://127.0.0.1:8080`).
+Your API must be reachable from the internet over https (in development, use a tunnel such as `cloudflared tunnel --url http://127.0.0.1:8080`). A v0.1 app serves the webhook from `internal/modules/mailevents`; an app on `gorbital.Main` adds `gorbital.WithModules(mailevents.Module())` in `main.go` ([Methods](../methods/gorbital-mailevents.md)), which refuses to start with a malformed secret.
 
 1. Open [resend.com/webhooks](https://resend.com/webhooks) and choose **Add Webhook**.
 2. Endpoint URL: `https://<your API>/v1/webhooks/resend`.

@@ -9,7 +9,7 @@ Four layers you add when your app needs them: a **request timeout**, an **IP fil
 | [Signed webhooks](#signed-webhooks) | Forged, replayed or oversized provider webhooks | `guard.Webhook(v)` ([Methods](../methods/gorbital-guard.md#Webhook)), `gorbital.dev/webhook` ([Methods](../methods/webhook.md)) |
 | [External identity providers](#external-identity-providers-jwt) | Accepting forged, expired or misdirected tokens from Auth0, Clerk, Supabase, Firebase or Cognito | `gorbital.dev/modules/jwt` ([Methods](../methods/modules-jwt.md)) |
 
-> **Status in v0.2 previews.** The layers are in the library, and apps on `gorbital.Main` get the request timeout in their default stack. `/ops` behind `OPS_ALLOWED_IPS`, and the recipes *Mobile backend with an external identity provider* and *Receiving payment webhooks* come with later phases of the [roadmap](../v0.2-roadmap.md#phase-10-security-layers). Until then, add them to your chain yourself as shown below.
+> **Status in v0.2 previews.** The layers are in the library. Apps on `gorbital.Main` get the request timeout in their default stack, and `/ops` behind `OPS_ALLOWED_IPS` with the built-in operations module. The recipes *Mobile backend with an external identity provider* and *Receiving payment webhooks* come with later phases of the [roadmap](../v0.2-roadmap.md#phase-10-security-layers); until then, add the other layers to your chain yourself as shown below.
 
 ## Request timeout
 
@@ -48,6 +48,16 @@ Each request's context gets a deadline. Pass `r.Context()` (or the Huma handler'
 **What it doesn't do.** It can't stop a handler that ignores its context: the handler keeps its goroutine, and its connection stays open until it returns (an HTTP/1.1 client already has the complete 503). It doesn't limit how long a client takes to send its request; `httpx.Server` sets the connection read and write timeouts for that.
 
 ## IP filter
+
+**Apps on `gorbital.Main` with the operations API** (`opshttp.Module()`) set `OPS_ALLOWED_IPS` to a comma-separated list of ranges and addresses ([environment variables](environment-variables.md#operations)):
+
+```bash
+OPS_ALLOWED_IPS=10.8.0.0/16,2001:db8:42::/48,203.0.113.7
+```
+
+`LoadConfig` parses it with `httpx.ParsePrefixes` and reports a bad entry with the other configuration errors, and every `/ops/` route runs `httpx.IPFilter` with it as the allow list, first among the route's middleware: before the sign-in check, guards and input parsing ([ops API](ops-api.md#restricting-ops-to-your-network)). Unset, nothing changes.
+
+**Any other `net/http` app**, or other routes, use the middleware directly:
 
 ```go
 allow, err := httpx.ParsePrefixes(os.Getenv("OPS_ALLOWED_IPS")) // "10.0.0.0/8, 2001:db8::/32, 203.0.113.7"

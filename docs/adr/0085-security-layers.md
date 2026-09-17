@@ -66,7 +66,7 @@ Constraints: core packages depend on the standard library, the OpenTelemetry API
 - The address is `RemoteAddr` as `TrustedProxies` left it; IPv4-mapped IPv6 addresses compare as IPv4 and IPv6 zones are ignored. A `RemoteAddr` that isn't an address is refused.
 - Deny wins; an empty allow list allows every address not denied; both empty is a no-op. Refusal: 403 **`ip_not_allowed`** (new), without echoing the address.
 - Refused at construction: invalid ranges; a deny range covering a whole family (`0.0.0.0/0`, `::/0`, `ErrDenyAll`): it would refuse every request, and the intent is almost always "only these ranges", which is what `allow` says; an allow range inside a deny range, which could never match; IPv4-mapped ranges shorter than /96, which mix families. Allow `0.0.0.0/0` is accepted (IPv4 only).
-- `ParsePrefixes` reads `OPS_ALLOWED_IPS`-style lists: CIDR or single addresses, masked, mapped addresses turned into IPv4. **Integration (Phase 4):** `/ops` behind `IPFilter` when `OPS_ALLOWED_IPS` is set.
+- `ParsePrefixes` reads `OPS_ALLOWED_IPS`-style lists: CIDR or single addresses, masked, mapped addresses turned into IPv4. **Integration (done with Phase 4, 2026-09-17):** `LoadConfig` reads `OPS_ALLOWED_IPS` into `Config.OpsAllowedIPs`, reporting every problem with the others, and `opshttp` puts each `/ops/` route behind `IPFilter(allowed, nil)` as its first middleware, before the sign-in check (ADR-0083, Phase 4 notes).
 
 ### `gorbital.dev/webhook` and `guard.Webhook`
 
@@ -135,7 +135,7 @@ Constraints: core packages depend on the standard library, the OpenTelemetry API
 ## Consequences
 
 - New core package `gorbital.dev/webhook`; new module `gorbital.dev/modules/jwt` (CI test, lint and govulncheck lists; release finds it); additive API in `httpx` and `gorbital/guard`.
-- Integration left to later phases: `OPS_ALLOWED_IPS` on `/ops` (Phase 4), recipes *Mobile backend with an external identity provider* and *Receiving payment webhooks*, Shelfie chapter 10.
+- Integration left to later phases: recipes *Mobile backend with an external identity provider* and *Receiving payment webhooks*, Shelfie chapter 10.
 - Guide: [Security layers](../guides/security-layers.md).
 
 ## Implementation notes (2026-09-17)

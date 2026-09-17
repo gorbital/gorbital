@@ -64,4 +64,4 @@ Don't add `t.Parallel()` to tests that build an app: two apps built at once in o
 
 ## Next
 
-Chapter 5 adds operations: `/ops`, and runtime settings and flags declared by the books module (Phase 4).
+[5. Operations](05-operations.md): `/ops`, and a runtime setting and a flag declared by the books module.

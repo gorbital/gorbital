@@ -34,7 +34,7 @@ A few checks belong to the driver or provider an app passes instead of to `LoadC
 | `APPLE_PRIVATE_KEY`, `WEBAUTHN_APPLE_APP_IDS`, `WEBAUTHN_ANDROID_APPS` | Parsed at start | Read and required together as before; parsed by the authenticator (Phase 5) |
 | `STORAGE_DRIVER` other than `local` | The app opens S3 | Checked as before; the app passes the store: `gorbital.WithStorageFunc(func(cfg gorbital.Config) (storage.Store, error) { … cfg.Storage … })`. Without it, the start fails naming the option |
 | `RESEND_API_KEY` | Required with `MAIL_DELIVERY=provider` | The app passes its provider with `gorbital.WithMailer` or `WithMailerFunc` (reading `cfg.Mail.ResendAPIKey`), which production requires; the provider checks its key |
-| `RESEND_WEBHOOK_SECRET` | Format checked at start | Read; its format is checked by the mail events module (Phase 4) |
+| `RESEND_WEBHOOK_SECRET` | Format checked at start | Read; its format is checked at start by `mailevents.Module()` when the app has it, as a configuration error (exit code 2) |
 | `SMTP_*` | Read by `infra_mail.go` after `orb add mail --provider smtp` | Not read by gorbital: build the sender with `gorbital.dev/modules/mail/smtp` in `WithMailerFunc` |
 
 `openapi` reads no variables, as `api openapi` doesn't in v0.1 apps.
@@ -56,6 +56,14 @@ Read in `config.go` by both presets.
 | `APP_TRUSTED_CALLERS` | No | empty | `10.1.0.0/16` | Same as `APP_TRUSTED_PROXIES` | Gateways and internal services whose `X-Request-ID` and W3C trace context (`traceparent`, `tracestate`, `baggage`) the app keeps. Other clients get a generated request ID and a new trace linked to theirs, so they can't hide from tracing, force sampling or reuse another request's IDs. Matched against the client address after `APP_TRUSTED_PROXIES`: list your load balancer only if it sets those headers itself and drops clients' values |
 | `APP_MAX_BODY_BYTES` | No | `1048576` | `5242880` | Positive integer | Request body limit; larger bodies get 413 `request_too_large` |
 | `APP_REQUEST_TIMEOUT` | No | `30s` | `10s` | Go duration shorter than `60s` (the server's write timeout), or `0` | Apps on `gorbital.Main` only: a handler that hasn't started its response by then gets 503 `request_timeout`, and its context is cancelled |
+
+## Operations
+
+Apps on `gorbital.Main` with the operations API (`opshttp.Module()`, [ops API](ops-api.md#adding-it-to-an-app)).
+
+| Variable | Required | Default | Example | Validation | Description |
+|---|---|---|---|---|---|
+| `OPS_ALLOWED_IPS` | No | empty | `10.8.0.0/16,2001:db8:42::/48,203.0.113.7` | Comma-separated CIDR ranges or IP addresses (`httpx.ParsePrefixes`): a range is masked (`10.0.0.5/8` is `10.0.0.0/8`), IPv4 written as IPv6 becomes IPv4, and IPv4-mapped ranges shorter than `/96` are refused; every bad entry is reported at once | Client addresses allowed to call `/ops/`; others get 403 `ip_not_allowed` before the sign-in check. Matched against the address after `APP_TRUSTED_PROXIES`, so set that behind a load balancer. Empty allows every address ([security layers](security-layers.md#ip-filter), [ADR-0085](../adr/0085-security-layers.md)) |
 
 ## Database
 
@@ -195,3 +203,4 @@ Both Full golden apps' `.env.example` files (`examples/full-single`, `examples/f
 | `APPLE_PRIVATE_KEY` | Read by the code; mentioned in the comment above `APPLE_PRIVATE_KEY_FILE` rather than as its own line, by design |
 | `*_FILE` variants | Supported for every secret; listed only for `DATABASE_URL` and the Apple key |
 | `SMTP_*` | Appear in the `orb:begin mail` block only after `orb add mail --provider smtp`; a new app lists `RESEND_API_KEY` there |
+| `OPS_ALLOWED_IPS`, `APP_REQUEST_TIMEOUT` | Read by apps on `gorbital.Main` only, so not in the v0.1 golden apps' files; Shelfie's `.env.example` lists them |

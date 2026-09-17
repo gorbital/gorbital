@@ -1,6 +1,6 @@
 # ADR-0083: Modules, the default stack, migrations and ejection
 
-**Status:** Accepted (2026-09-17); amended in Phase 3 (2026-09-17): the layered module layout, the authenticator's optional methods, and [implementation notes](#phase-3-implementation-notes-2026-09-17) · **Amends:** ADR-0017, ADR-0022, ADR-0039, ADR-0050 · **Builds on:** ADR-0081, ADR-0082
+**Status:** Accepted (2026-09-17); amended in Phase 3 (2026-09-17): the layered module layout, the authenticator's optional methods, and [implementation notes](#phase-3-implementation-notes-2026-09-17); amended in Phase 4 (2026-09-17): how built-in modules reach what the app built, rate limiters and retention declared by modules ([implementation notes](#phase-4-implementation-notes-2026-09-17)) · **Amends:** ADR-0017, ADR-0022, ADR-0039, ADR-0050 · **Builds on:** ADR-0081, ADR-0082
 
 ## Context
 
@@ -254,6 +254,73 @@ Measured with `scripts/bench-baseline.sh`, 9 starts each, back to back on the sa
 | A migration conflict silently changes an existing database | Conflicting content for one version fails naming both files before connecting; released versions are frozen and tested against the golden apps |
 | Commands contributed by a module shadow `migrate` or `serve` | Refused at start (exit 2) |
 | Production starts with development tools | `LoadConfig`'s refusals are v0.1's (dev console token, local storage, `devmail`/`mailpit`, http origins); `migrate-down` refuses production; `New` refuses `provider` delivery without a provider |
+
+## Phase 4 implementation notes (2026-09-17)
+
+The operations API, client flags and email events moved from the golden apps' `internal/modules/{ops,flags,mailevents}` into `gorbital.dev/gorbital/opshttp`, `flagshttp` and `mailevents` ([roadmap](../v0.2-roadmap.md#phase-4-ops-flags-and-mail-events-in-the-library), items 53–57). The golden apps stay on v0.1 wiring (Phase 9 converts the templates); their HTTP tests run against the library modules.
+
+### Layout of a built-in module
+
+- `opshttp` keeps the golden module's layers under `opshttp/internal/{domain,usecase,delivery}`, unexported, with the use cases and SQL-free delivery files as they were. The public surface is what an app configures: `Module(opts...)`, `MailProvider`, `SignInMethods` and `SignInMethod`. `flagshttp` exports `Module` and `PermRead`; `mailevents` exports `Module`.
+- The delivery files keep v0.1's `huma.Operation` declarations. `gorbital/internal/operation.Register` registers each on the `gorbital.Router`, translating its fields to route options (`OperationID`, `Summary`, `Description`, `Tags`, `Errors`, `Status`, `guard.Public()` for an operation without security) and panicking, reported by `Mount` naming the module, for a field it would drop. The move reads as a diff of imports and `huma.Register(api,` → `operation.Register(r,`.
+- Two operations need what no route option sets: the event stream's and the incident report's response media types, and schemas added to the API's registry. **`gorbital.Customize(func(api huma.API, op *huma.Operation))`** was added for them: it runs after deny by default and the guards have built the operation, and registration fails when it changes the method, path, operation ID, security requirements or operation middleware, so it can't remove protection.
+
+### How built-in modules reach what the app built
+
+`/ops` reports on things that exist once per app and that `New` builds after `Deps`: the job manager, the instance ID and start time, the readiness checks, the merged migrations, the configuration, and what every module declared. The mail events module needs the configuration (`RESEND_WEBHOOK_SECRET`) and must refuse a malformed secret when the app starts.
+
+| Option | Verdict |
+|---|---|
+| A `Deps` field per internal (`JobsManager`, `Health`, `Releases`, `Config`, …) | Rejected: every app module would receive eight fields only `/ops` reads, against §2's rule, and `Routes` can't return a configuration error |
+| A lookup on `Deps` (by type, by name, or type assertions on `Deps.Audit`) | Rejected: a service locator; what a module needs stops being visible in its code |
+| `gorbital` importing and wiring `opshttp` | Rejected: the dependency points the wrong way, and every app would compile `/ops` |
+| `opshttp.Module(app)` taking internals in `main.go` | Rejected: `Main` builds the app after `main.go` runs; nothing exists to pass |
+| **`Module.Platform func(p *Platform) error` and a dedicated `Platform` type** | **Chosen** |
+
+- **`Platform`** holds `Config`, `Name`, `StartedAt`, `InstanceID`, `Health`, `Jobs` (the job manager), `MailSender` (the `mail.*` settings) and `Migrations` (merged), and the methods `RateLimiters()`, `Retention()`, `Authenticate(ctx, r)` and `OnShutdown(fn)`. It is documented as being for built-in modules; app modules use `Deps`. Its fields can grow with the built-in modules (sign-in's needs are Phase 5's).
+- **`Module.Platform`** is called once by `New`, after every store, the job client, release tracking and the dev console exist and before any module's `Routes`, in module order. A module keeps the pointer in its constructor's closure, as it keeps settings (§1). An error is a configuration error (exit 2); a panic an ordinary error naming the module. It isn't called when `openapi` exports the document with zero `Deps`, so `Routes` registers the same operations with a service that never runs.
+- **Stores that are only a pool wrapper** (`auditpg`, `releases`, `suppressionpg`, `observability` stores) are built by the module from `Deps.DB` instead of being exposed on `Platform`; the operations API records its audit events through `Deps.Audit` like every module. Only what has one instance per app, or state, is on `Platform`.
+- **Why not two fields on `Deps`** even though two built-in modules use `Platform`: `Deps` is what every module receives and reads as the app's dependencies; `Platform` is internals that follow gorbital's own needs. Keeping them apart keeps §2's rule meaningful.
+
+### Rate limiters and retention declared by modules (item 55)
+
+| Field | Replaces in a v0.1 app | Behaviour |
+|---|---|---|
+| `Module.RateLimiters []RateLimiter` (name, keys, description) | The list in `rate_limits.go` | `Platform.RateLimiters()` returns the built-in `auth_ip`, the modules' in module order, then every limiter `guard.RateLimit` created, by name, with its key kind and routes (`guard.RateLimit on POST /v1/books`). A name declared twice, or declared and used by a guard, fails `New` naming both |
+| `Module.Retention func(d Deps) []Retention` (data, setting, one of `Delete`, `Job` or `EnforcedBy`, `Oldest`) | The targets of the retention job in `app.go` and the policies of `retention.go` | Called with the `Deps` `Jobs` receives, before the job definitions. gorbital's own retention comes first (audit events, settings, flags and job definition history, request minutes, idempotency keys, release instances); the retention job deletes every `Retention` with `Delete`; a `Job` must be defined (checked once the job manager exists); duplicate data names fail naming both modules. Sign-in's accounts and organisations' deleted organisations join through their modules (Phases 5 and 7) |
+
+### Behaviour kept, and the differences
+
+The contract is proven by tests rather than asserted: `gorbital/internal/contract` exports the OpenAPI of an app built by `gorbital.Main` with the three modules and checks it with `openapi.CheckCompatible` against both frozen v0.1.0 documents, and also field by field: every operation and every shared schema is identical except for the `x-gorbital-guards` extension the router adds. It checks that the modules map every error code of the golden apps' `module_ops.go`, `module_flags.go` and `module_mailevents.go`, record every audit action of the golden modules, and declare every `ops.*` and `flags.*` permission of v0.1.0 with the same role grants, all present in the frozen `surface.json`. The golden apps' HTTP tests for `/ops`, `/v1/flags` and the webhook (settings, jobs, audit, releases, email, suppressions, storage, system, retention, rate limits, sign-in methods, observability overview, streams and two instances, incidents and detection, flags end to end and across instances, the Resend webhook, the dev operator) run against the library modules through `gorbital/internal/opstest`, which stands in for sign-in with bearer tokens until Phase 5.
+
+| Difference | Why |
+|---|---|
+| A request without an actor gets 401 before its input is parsed, so an invalid body from an anonymous caller is 401 instead of 422 | Deny by default (ADR-0082) |
+| Streams check their session again by running the app's `Auth` step on the stream's request (`Platform.Authenticate`) instead of calling sign-in with its token | Works with any authenticator (sign-in, `modules/jwt`); the context's values aren't carried over, so an earlier actor can't survive a revoked session. In development the dev console's operator keeps its stream, where v0.1 ended it after the first event |
+| `/ops/auth/providers` lists what `opshttp.SignInMethods` returns, empty without it | The report is the authenticator's; the option keeps `opshttp` from importing sign-in |
+| `GET /ops/mail` reports Resend unless `opshttp.MailProvider(ProviderSMTP)` | The provider is passed to `WithMailer` as a `mail.Sender`, which doesn't name itself |
+| `ops.auth.write` (rate-limit resets) isn't declared by `opshttp` | v0.1 declares it for sign-in's account management; sign-in's module declares it in Phase 5, and two declarations would fail `New`. Until then an app on `Main` without an authenticator granting it can list limiters but not reset them |
+| `platform_admin` and `ops_viewer` don't require a second factor by themselves | v0.1's `permissions.go` calls `RequireMFA` on the catalog, which the authenticator applies when it builds a session's actor; `Module` has no way to say it yet. Phase 5 decides how sign-in learns which roles require it |
+| `/ops/system` reports migrations against the merged history (library, modules and `db/migrations`) | The app's own `db/migrations` alone isn't what `migrate` applies |
+
+### `OPS_ALLOWED_IPS` and the dev operator
+
+- `LoadConfig` parses `OPS_ALLOWED_IPS` with `httpx.ParsePrefixes` into `Config.OpsAllowedIPs` and checks it with `httpx.IPFilter`, reporting problems with the others. `opshttp` puts every route in a group with `gorbital.Use(httpx.IPFilter(allowed, nil))`: the first middleware of each operation, before the sign-in check, guards and input parsing, on the address `TrustedProxies` resolved. A stack step was considered and rejected: a custom `WithStack` could drop it silently, and it matters only when the module is there. The authenticator still runs first for refused addresses.
+- The dev operator (ADR-0066) is part of the `Auth` step, as §4 lists it: the authenticator, then `devconsole.Operator("/ops/", …)` with the permissions the catalog grants `platform_admin`. Without the dev console (production refuses its token) it adds nothing.
+
+### Mail events keep their verifier
+
+`guard.Webhook` (ADR-0085) was not used: an app without `RESEND_WEBHOOK_SECRET` answers 404 `webhook_not_found`, which a guard verifying first would turn into 401; Huma's header validation (422 for oversized signature headers) would move after verification; and refused deliveries are logged by the use case. The module wraps `resend.VerifyWebhook`, which uses `gorbital.dev/webhook` already, exactly as a v0.1 app's `infra_mail.go`.
+
+### Threat model
+
+| Threat | Mitigation |
+|---|---|
+| A client outside `OPS_ALLOWED_IPS` claims an allowed address in `X-Forwarded-For` | The filter reads the address after `TrustedProxies`, which honours the header only from `APP_TRUSTED_PROXIES`; tested with a trusted proxy, the proxy itself and an untrusted client |
+| An app module uses `Platform` to reach more than it should | `Platform` holds nothing an app's own `main.go` couldn't build or read (the job manager, configuration, health); it grants no permission. Documented as built-in only |
+| `Customize` removes a route's authentication or guards | Changes to security, middleware, method, path or operation ID fail registration |
+| A revoked session keeps streaming | `Authenticate` runs on a context without the request's values, so the actor comes only from the credentials; streams end within one interval, tested by signing out |
+| The dev console's token operates `/ops` outside development | The console exists only with `APP_ENV=development`, `LoadConfig` refuses the token in production, and the operator checks loopback and a localhost `Host` |
 
 ## Why
 

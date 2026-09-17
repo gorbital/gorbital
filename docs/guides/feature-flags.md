@@ -107,6 +107,8 @@ flag '{"version":3,"reason":"incident 42","state":{"enabled":false,"default":tru
 
 ## Clients
 
+In an app on `gorbital.Main`, a module declares its flags in `Module.Flags` ([modules and routes](modules-and-routes.md)) and the endpoint comes with `gorbital.WithModules(flagshttp.Module())` ([Methods](../methods/gorbital-flagshttp.md)); a v0.1 app has it in `internal/modules/flags`.
+
 `GET /v1/flags` (signed in, permission `flags.flag.read`, which the `user` role gives every user; an API key needs it in its scopes) returns the client flags evaluated for the caller, with `Cache-Control: private, no-store`:
 
 ```json

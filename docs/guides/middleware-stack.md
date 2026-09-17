@@ -20,7 +20,7 @@ Outermost first:
 | 10 | `CrossOrigin` | Refuses state-changing browser requests from other sites (`http.CrossOriginProtection`), except Apple's sign-in callback and notifications, which carry their own proof | 403 `cross_origin_request_denied` | `APP_CORS_ORIGINS` |
 | 11 | `BodyLimit` | Refuses larger bodies, and cuts off undeclared ones at the limit | 413 `request_too_large` | `APP_MAX_BODY_BYTES` |
 | 12 | `Maintenance` | While `maintenance.enabled` is on, answers every request with 503 except health checks, `/version`, docs, `/.well-known/`, `/ops/` and `/v1/auth/` (`httpx.Maintenance`) | 503 `maintenance` | Runtime settings `maintenance.enabled`, `maintenance.message`, `maintenance.retry_after` |
-| 13 | `Auth` | Runs the authenticator's middleware ([`WithAuth`](main-go.md#the-file)), which sets who is calling; passes requests on unchanged without an authenticator | Whatever the authenticator answers, such as 503 `auth_unavailable` | `WithAuth` |
+| 13 | `Auth` | Runs the authenticator's middleware ([`WithAuth`](main-go.md#the-file)), which sets who is calling; passes requests on unchanged without an authenticator. In development with the dev console on, a request to `/ops/` carrying its token from loopback then acts as the `dev-console` operator with `platform_admin`'s permissions ([ADR-0066](../adr/0066-dev-portal.md)) | Whatever the authenticator answers, such as 503 `auth_unavailable` | `WithAuth`; `DEV_CONSOLE_TOKEN` |
 | 14 | `RateLimit` | Limits non-GET requests under `/v1/auth/`, and sign-in redirects, per client address, shared by every instance | 429 `rate_limited` | Runtime setting `auth.ip_requests_per_minute` |
 | 15 | `Idempotency` | Replays the stored response of a signed-in POST or PATCH retried with the same `Idempotency-Key` ([idempotency](idempotency.md)) | 400, 409, 422, 503, or the replayed response | Runtime setting `idempotency.retention` |
 | — | [`WithMiddleware`](#adding-your-own) | Your middleware, in the order the options are given | Anything | — |
@@ -98,7 +98,7 @@ h := httpx.Maintenance(httpx.MaintenanceOptions{
 })(mux)
 ```
 
-A path in `Open` ending in `/` keeps everything under it open; other paths match exactly. Keep health checks open, or your load balancer takes every instance out of rotation. In an app on `gorbital.Main`, operators switch it with `PUT /ops/settings/maintenance.enabled` (Phase 4), and every instance follows within a second.
+A path in `Open` ending in `/` keeps everything under it open; other paths match exactly. Keep health checks open, or your load balancer takes every instance out of rotation. In an app on `gorbital.Main`, operators switch it with `PUT /ops/settings/maintenance.enabled` (with `opshttp.Module()`), and every instance follows within a second.
 
 ## Related
 

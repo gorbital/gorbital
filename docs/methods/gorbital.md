@@ -36,6 +36,8 @@ func Module() gorbital.Module {
 }
 ```
 
+gorbital's own modules are packages of this module, added the same way: gorbital.dev/gorbital/opshttp (the operations API under /ops/), gorbital.dev/gorbital/flagshttp (GET /v1/flags) and gorbital.dev/gorbital/mailevents (the email provider's webhook). They read what the app built for all modules through [Module.Platform](#Module.Platform) (ADR-0083).
+
 Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 
 ## Contents
@@ -58,7 +60,10 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
   - [`Option`](#Option): [`WithAuth`](#WithAuth), [`WithLogger`](#WithLogger), [`WithMailer`](#WithMailer), [`WithMailerFunc`](#WithMailerFunc), [`WithMiddleware`](#WithMiddleware), [`WithMiddlewareFunc`](#WithMiddlewareFunc), [`WithMigrations`](#WithMigrations), [`WithModules`](#WithModules), [`WithName`](#WithName), [`WithStack`](#WithStack), [`WithStorage`](#WithStorage), [`WithStorageFunc`](#WithStorageFunc)
   - [`Permission`](#Permission)
   - [`PermissionDeclarer`](#PermissionDeclarer)
-  - [`RouteOption`](#RouteOption): [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Timeout`](#Timeout), [`Use`](#Use)
+  - [`Platform`](#Platform): [`Platform.Authenticate`](#Platform.Authenticate), [`Platform.OnShutdown`](#Platform.OnShutdown), [`Platform.RateLimiters`](#Platform.RateLimiters), [`Platform.Retention`](#Platform.Retention)
+  - [`RateLimiter`](#RateLimiter)
+  - [`Retention`](#Retention)
+  - [`RouteOption`](#RouteOption): [`Customize`](#Customize), [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Timeout`](#Timeout), [`Use`](#Use)
   - [`Router`](#Router): [`Router.Group`](#Router.Group)
   - [`Stack`](#Stack): [`Stack.Default`](#Stack.Default)
   - [`StorageConfig`](#StorageConfig)
@@ -800,6 +805,7 @@ true
 <a id="Config.CORSOrigins"></a>
 <a id="Config.TrustedProxies"></a>
 <a id="Config.TrustedCallers"></a>
+<a id="Config.OpsAllowedIPs"></a>
 <a id="Config.MaxBodyBytes"></a>
 <a id="Config.RequestTimeout"></a>
 <a id="Config.OTLPEndpoint"></a>
@@ -843,6 +849,11 @@ type Config struct {
 	// TrustedCallers are the gateways whose X-Request-ID and trace context
 	// the app accepts (APP_TRUSTED_CALLERS).
 	TrustedCallers []netip.Prefix
+	// OpsAllowedIPs are the client addresses allowed to call the operations
+	// API under /ops/ (OPS_ALLOWED_IPS, comma-separated ranges or
+	// addresses; ADR-0085). Empty allows every address. The address is the
+	// client's after APP_TRUSTED_PROXIES.
+	OpsAllowedIPs []netip.Prefix
 	// MaxBodyBytes limits request bodies (APP_MAX_BODY_BYTES, default 1 MiB).
 	MaxBodyBytes int64
 	// RequestTimeout is how long a handler may take before the Timeout
@@ -1196,6 +1207,9 @@ Output:
 <a id="Module.Middleware"></a>
 <a id="Module.Jobs"></a>
 <a id="Module.Migrations"></a>
+<a id="Module.RateLimiters"></a>
+<a id="Module.Retention"></a>
+<a id="Module.Platform"></a>
 
 ### type Module
 
@@ -1242,6 +1256,25 @@ type Module struct {
 	// app's db/migrations ([WithMigrations]) so tables of different modules
 	// can reference each other; built-in modules declare theirs here.
 	Migrations []Migration
+
+	// RateLimiters describe the named limiters the module creates on
+	// Deps.RateLimits, for /ops/auth/rate-limits. A name declared twice
+	// fails New naming both modules.
+	RateLimiters []RateLimiter
+
+	// Retention says how long the module's data is kept and what deletes
+	// it, for /ops/retention; the built-in retention job deletes what has
+	// a Delete function. [New] calls it once, before defining the jobs,
+	// with the Deps Jobs receives.
+	Retention func(d Deps) []Retention
+
+	// Platform receives what New built for the whole app, after every
+	// store and before any module's Routes. It is for gorbital's built-in
+	// modules (see [Platform]). An error from it, such as an invalid
+	// secret in the configuration, fails New as a configuration error. It
+	// isn't called when the OpenAPI document is exported without a
+	// database.
+	Platform func(p *Platform) error
 }
 ```
 
@@ -1304,6 +1337,23 @@ digest := gorbital.Module{
 	},
 }
 _ = digest
+```
+
+**Example (platform)**
+
+```go
+// A built-in module checks its configuration when the app starts: an
+// error is a configuration error (exit status 2 from Main).
+module := gorbital.Module{
+	Name: "payments",
+	Platform: func(p *gorbital.Platform) error {
+		if p.Config.Production() && p.Config.Mail.ResendWebhookSecret.IsZero() {
+			return errors.New("RESEND_WEBHOOK_SECRET is required in production")
+		}
+		return nil
+	},
+}
+_ = module
 ```
 
 <a id="Option"></a>
@@ -1648,6 +1698,285 @@ Output:
 [books.book.read books.book.write]
 ```
 
+<a id="Platform"></a>
+<a id="Platform.Config"></a>
+<a id="Platform.Name"></a>
+<a id="Platform.StartedAt"></a>
+<a id="Platform.InstanceID"></a>
+<a id="Platform.Health"></a>
+<a id="Platform.Jobs"></a>
+<a id="Platform.MailSender"></a>
+<a id="Platform.Migrations"></a>
+
+### type Platform
+
+```go
+type Platform struct {
+	// Config is the app's configuration.
+	Config Config
+	// Name is the app's name ([WithName]).
+	Name string
+	// StartedAt is when New started building the app.
+	StartedAt time.Time
+	// InstanceID identifies this process in /ops/releases and in request
+	// metrics.
+	InstanceID string
+	// Health runs the readiness checks of /readyz.
+	Health *health.Checker
+	// Jobs manages job definitions, runs and queues.
+	Jobs *jobs.Manager
+	// MailSender are the runtime settings that fill every email's sender.
+	MailSender mail.Defaults
+	// Migrations are every migration Migrate applies: the library's, the
+	// modules' and the app's, merged.
+	Migrations fs.FS
+	// contains filtered or unexported fields
+}
+```
+
+A Platform is what [New](#New) builds for the app as a whole, beyond [Deps](#Deps): the job manager, the instance's identity and health, the configuration, and what every module declared about its data and rate limits. The operations API (gorbital.dev/gorbital/opshttp) reports on them and the mail events module (gorbital.dev/gorbital/mailevents) reads its webhook secret from the configuration; they receive it through [Module.Platform](#Module.Platform).
+
+Platform is for gorbital's built-in modules. App modules use Deps: a Platform's fields follow what the built-in modules need, and grow with them (ADR-0083).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+A built-in module keeps the Platform New gives it, and uses it in its routes; app modules use Deps.
+
+```go
+module := func() gorbital.Module {
+	var platform *gorbital.Platform
+	return gorbital.Module{
+		Name:     "status",
+		Platform: func(p *gorbital.Platform) error { platform = p; return nil },
+		Routes: func(r *gorbital.Router, d gorbital.Deps) {
+			gorbital.Get(r, "/ops/status", func(ctx context.Context, _ *struct{}) (*struct{ Body string }, error) {
+				return &struct{ Body string }{Body: platform.Name + " " + platform.InstanceID}, nil
+			})
+		},
+	}
+}
+_ = gorbital.WithModules(module())
+```
+
+<a id="Platform.Authenticate"></a>
+
+#### func (*Platform) Authenticate
+
+```go
+func (p *Platform) Authenticate(ctx context.Context, r *http.Request) (actor.Actor, bool)
+```
+
+Authenticate runs the app's authentication step again for r, such as a long-running stream checking that its session hasn't ended: the authenticator ([WithAuth](#WithAuth)) and, in development, the dev console's operator on /ops/. It sees r's headers and client address, but none of the values in r's context, so an actor set before doesn't carry over. It returns the actor the step resolved, and false when the request isn't authenticated any more.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// A server-sent events stream checks every few seconds that the
+// request's session hasn't ended.
+stillSignedIn := func(ctx context.Context, p *gorbital.Platform, r *http.Request) (context.Context, bool) {
+	a, ok := p.Authenticate(ctx, r)
+	if !ok {
+		return ctx, false
+	}
+	return actor.With(ctx, a), true
+}
+_ = stillSignedIn
+```
+
+<a id="Platform.OnShutdown"></a>
+
+#### func (*Platform) OnShutdown
+
+```go
+func (p *Platform) OnShutdown(fn func())
+```
+
+OnShutdown adds fn to what runs when [App.Run](#App.Run) starts shutting down, before the server stops taking requests, such as closing streams that would hold it open.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// Long-lived streams end when the app starts shutting down, so the
+// server doesn't wait for them.
+stop := make(chan struct{})
+module := gorbital.Module{
+	Name: "feed",
+	Platform: func(p *gorbital.Platform) error {
+		p.OnShutdown(func() { close(stop) })
+		return nil
+	},
+}
+_ = module
+```
+
+<a id="Platform.RateLimiters"></a>
+
+#### func (*Platform) RateLimiters
+
+```go
+func (p *Platform) RateLimiters() []RateLimiter
+```
+
+RateLimiters returns every named rate limiter of the app: the built-in one of the RateLimit step (auth\_ip), those modules declare in Module.RateLimiters, in module order, then those guard.RateLimit creates, by name.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// GET /ops/auth/rate-limits lists every limiter, so operators know what
+// they can reset.
+list := func(p *gorbital.Platform) {
+	for _, l := range p.RateLimiters() {
+		fmt.Printf("%s (keys: %s): %s\n", l.Name, l.Keys, l.Description)
+	}
+}
+_ = list
+```
+
+<a id="Platform.Retention"></a>
+
+#### func (*Platform) Retention
+
+```go
+func (p *Platform) Retention() []Retention
+```
+
+Retention returns how long each kind of data is kept: what gorbital builds, then each module's Module.Retention, in module order.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// GET /ops/retention reads each kind of data's setting.
+report := func(ctx context.Context, p *gorbital.Platform) {
+	for _, r := range p.Retention() {
+		fmt.Printf("%s: kept %s (%s)\n", r.Data, r.Setting.Get(ctx), r.Setting.Key())
+	}
+}
+_ = report
+```
+
+<a id="RateLimiter"></a>
+<a id="RateLimiter.Name"></a>
+<a id="RateLimiter.Keys"></a>
+<a id="RateLimiter.Description"></a>
+
+### type RateLimiter
+
+```go
+type RateLimiter struct {
+	// Name is the limiter's name, as passed to ratelimitpg.Store.Limiter,
+	// such as "auth_login". Names are unique in an app.
+	Name string
+	// Keys says what a key is, such as "client IP address" or "actor ID",
+	// so operators know what to reset.
+	Keys string
+	// Description says what the limiter protects.
+	Description string
+}
+```
+
+A RateLimiter describes a named rate limiter a module creates on Deps.RateLimits, for GET /ops/auth/rate-limits, where operators reset a key's budget. Limiters of guard.RateLimit are listed without one.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// A module creating its own limiter on the shared store declares it, so
+// /ops/auth/rate-limits lists it.
+var limiter *ratelimitpg.Limiter
+module := gorbital.Module{
+	Name:         "imports",
+	RateLimiters: []gorbital.RateLimiter{{Name: "imports_uploads", Keys: "user ID", Description: "CSV uploads per user"}},
+	Routes: func(r *gorbital.Router, d gorbital.Deps) {
+		if d.RateLimits != nil {
+			var err error
+			limiter, err = d.RateLimits.Limiter("imports_uploads", func(context.Context) ratelimit.Limit {
+				return ratelimit.Per(10, time.Hour)
+			})
+			if err != nil {
+				panic(err)
+			}
+		}
+	},
+}
+_, _ = module, limiter
+```
+
+<a id="Retention"></a>
+<a id="Retention.Data"></a>
+<a id="Retention.Setting"></a>
+<a id="Retention.Delete"></a>
+<a id="Retention.Job"></a>
+<a id="Retention.EnforcedBy"></a>
+<a id="Retention.Oldest"></a>
+
+### type Retention
+
+```go
+type Retention struct {
+	// Data names the data, such as "audit_events", in /ops/retention, logs
+	// and retention.purged audit events. Names are unique in an app.
+	Data string
+	// Setting is the runtime setting that holds how long the data is kept.
+	Setting *settings.Setting[time.Duration]
+	// Delete removes up to limit rows older than before and returns how
+	// many it removed. The built-in retention job calls it every day, with
+	// the time Setting's value ago.
+	Delete func(ctx context.Context, before time.Time, limit int) (int64, error)
+	// Job is the name of the job that deletes the data, when the module
+	// deletes it with a job of its own, such as "auth_cleanup".
+	Job string
+	// EnforcedBy says what deletes the data when no job does, such as
+	// "each instance, when it starts".
+	EnforcedBy string
+	// Oldest returns when the oldest stored row was written, and false when
+	// there is none. Leave it nil when that can't be read cheaply.
+	Oldest func(ctx context.Context) (time.Time, bool, error)
+}
+```
+
+A Retention is how long one kind of a module's data is kept and what deletes it, listed by GET /ops/retention. Exactly one of Delete, Job and EnforcedBy says what deletes the data.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// A module keeps notes for a runtime setting's duration; the built-in
+// retention job deletes older ones every day, and /ops/retention lists
+// the policy.
+var keep *settings.Setting[time.Duration]
+module := gorbital.Module{
+	Name: "notes",
+	Settings: func(r *settings.Registry) {
+		keep = settings.Duration(r, "notes.retention", 90*24*time.Hour,
+			settings.Describe("How long deleted notes are kept."), settings.Group("retention"))
+	},
+	Retention: func(d gorbital.Deps) []gorbital.Retention {
+		return []gorbital.Retention{{
+			Data:    "deleted_notes",
+			Setting: keep,
+			Delete: func(ctx context.Context, before time.Time, limit int) (int64, error) {
+				tag, err := d.DB.Exec(ctx, `DELETE FROM notes WHERE id IN (
+					SELECT id FROM notes WHERE deleted_at < $1 LIMIT $2)`, before, limit)
+				return tag.RowsAffected(), err
+			},
+		}}
+	},
+}
+_ = gorbital.WithModules(module)
+```
+
 <a id="RouteOption"></a>
 
 ### type RouteOption
@@ -1675,6 +2004,66 @@ Output:
 
 ```text
 GET /v1/books/{id} id=books-get-v1-books-by-id summary="Get a book" tags=[Books] secured=true deprecated=false
+```
+
+<a id="Customize"></a>
+
+#### func Customize
+
+```go
+func Customize(fn func(api huma.API, op *huma.Operation)) RouteOption
+```
+
+Customize changes the Huma operation before it is registered, for what the other options don't set, such as a response's media types for a streaming route, Huma's body limit, or schemas added to the API's registry. fn receives the API and the operation as the other options, guards and deny by default have built it, and runs once, at registration. Customize options run in the order given.
+
+fn can't change the method, path, operation ID, security requirements or operation middleware: registration fails when it does, so a route can't leave deny by default or its guards behind.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+stream := func(context.Context, *struct{}) (*huma.StreamResponse, error) {
+	return &huma.StreamResponse{Body: func(hctx huma.Context) {
+		hctx.SetHeader("Content-Type", "text/event-stream")
+		_, _ = hctx.BodyWriter().Write([]byte("event: tick\ndata: {}\n\n"))
+	}}, nil
+}
+_, api, mapper := newAPI()
+err := gorbital.Mount(api, mapper, gorbital.Deps{}, gorbital.Module{
+	Name: "clock",
+	Routes: func(r *gorbital.Router, d gorbital.Deps) {
+		gorbital.Get(r, "/v1/ticks", stream, gorbital.Customize(func(api huma.API, op *huma.Operation) {
+			// Document the event stream and the schema of its events.
+			tick := api.OpenAPI().Components.Schemas.Schema(reflect.TypeFor[Tick](), true, "")
+			op.Responses = map[string]*huma.Response{"200": {
+				Description: "Server-sent events: tick, with a Tick",
+				Content:     map[string]*huma.MediaType{"text/event-stream": {Schema: &huma.Schema{Type: huma.TypeString, Description: tick.Ref}}},
+			}}
+		}))
+	},
+})
+fmt.Println(err)
+for mediaType := range api.OpenAPI().Paths["/v1/ticks"].Get.Responses["200"].Content {
+	fmt.Println(mediaType)
+}
+
+// What protects a route can't be customized away.
+err = gorbital.Mount(api, mapper, gorbital.Deps{}, gorbital.Module{
+	Name: "leaky",
+	Routes: func(r *gorbital.Router, d gorbital.Deps) {
+		gorbital.Get(r, "/v1/secrets", stream, gorbital.Customize(func(_ huma.API, op *huma.Operation) { op.Security = nil }))
+	},
+})
+fmt.Println(err)
+```
+
+Output:
+
+```text
+<nil>
+text/event-stream
+gorbital: module "leaky": GET /v1/secrets: a Customize option can't change the method, path, operation ID, security or middleware of a route
 ```
 
 <a id="Deprecated"></a>
