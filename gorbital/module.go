@@ -58,6 +58,21 @@ type Module struct {
 	// Middleware runs on every route of the module, before group and route
 	// middleware (see [Use]).
 	Middleware []func(http.Handler) http.Handler
+
+	// Jobs defines the module's background jobs with jobs.Define. [New]
+	// calls it once, before the job client exists, because the client is
+	// built from the definitions. So in the Deps it receives, Jobs is nil,
+	// and Mailer queues through the job client [New] builds next: a worker
+	// keeps d and uses it when a job runs, never inside Jobs itself. A
+	// worker that enqueues other jobs gets the client from its context with
+	// river.ClientFromContext.
+	Jobs func(defs *jobs.Definitions, d Deps)
+
+	// Migrations are the module's migrations, merged by version with the
+	// library's and the app's (ADR-0083). App modules keep theirs in the
+	// app's db/migrations ([WithMigrations]) so tables of different modules
+	// can reference each other; built-in modules declare theirs here.
+	Migrations []Migration
 }
 
 // A Permission is a permission a module checks, such as "books.book.write".

@@ -132,6 +132,8 @@ pkg gorbital.dev/health, type Status struct, Checks map[string]CheckStatus
 pkg gorbital.dev/health, type Status struct, Status string
 pkg gorbital.dev/httpx, const DefaultIdleTimeout = 120000000000
 pkg gorbital.dev/httpx, const DefaultIdleTimeout time.Duration
+pkg gorbital.dev/httpx, const DefaultMaintenanceMessage = "the service is down for maintenance; try again later"
+pkg gorbital.dev/httpx, const DefaultMaintenanceMessage ideal-string
 pkg gorbital.dev/httpx, const DefaultMaxHeaderBytes = 1048576
 pkg gorbital.dev/httpx, const DefaultMaxHeaderBytes ideal-int
 pkg gorbital.dev/httpx, const DefaultReadHeaderTimeout = 5000000000
@@ -152,6 +154,7 @@ pkg gorbital.dev/httpx, func Capture(http.ResponseWriter) *Captured
 pkg gorbital.dev/httpx, func Chain(http.Handler, ...Middleware) http.Handler
 pkg gorbital.dev/httpx, func CrossOrigin(...string) (Middleware, error)
 pkg gorbital.dev/httpx, func DefaultCode(int) string
+pkg gorbital.dev/httpx, func Maintenance(MaintenanceOptions) Middleware
 pkg gorbital.dev/httpx, func NewMapper(*slog.Logger, ...Mapping) (*Mapper, error)
 pkg gorbital.dev/httpx, func NewProblem(int, string, string) *Problem
 pkg gorbital.dev/httpx, func NewServer(string, http.Handler, ...ServerOption) *Server
@@ -195,6 +198,11 @@ pkg gorbital.dev/httpx, type Captured struct, embedded http.ResponseWriter
 pkg gorbital.dev/httpx, type FieldError struct
 pkg gorbital.dev/httpx, type FieldError struct, Location string
 pkg gorbital.dev/httpx, type FieldError struct, Message string
+pkg gorbital.dev/httpx, type MaintenanceOptions struct
+pkg gorbital.dev/httpx, type MaintenanceOptions struct, Enabled config.Value[bool]
+pkg gorbital.dev/httpx, type MaintenanceOptions struct, Message config.Value[string]
+pkg gorbital.dev/httpx, type MaintenanceOptions struct, Open []string
+pkg gorbital.dev/httpx, type MaintenanceOptions struct, RetryAfter config.Value[time.Duration]
 pkg gorbital.dev/httpx, type Mapper struct
 pkg gorbital.dev/httpx, type Mapping struct
 pkg gorbital.dev/httpx, type Mapping struct, Code string

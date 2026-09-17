@@ -33,7 +33,7 @@ Every app uses httpx: generated apps build the server and the middleware chain i
 
 ## Contents
 
-- Constants: [`DefaultReadHeaderTimeout`](#DefaultReadHeaderTimeout), [`DefaultReadTimeout`](#DefaultReadTimeout), [`DefaultWriteTimeout`](#DefaultWriteTimeout), [`DefaultIdleTimeout`](#DefaultIdleTimeout), [`DefaultShutdownTimeout`](#DefaultShutdownTimeout), [`DefaultMaxHeaderBytes`](#DefaultMaxHeaderBytes), [`ProblemContentType`](#ProblemContentType)
+- Constants: [`DefaultReadHeaderTimeout`](#DefaultReadHeaderTimeout), [`DefaultReadTimeout`](#DefaultReadTimeout), [`DefaultWriteTimeout`](#DefaultWriteTimeout), [`DefaultIdleTimeout`](#DefaultIdleTimeout), [`DefaultShutdownTimeout`](#DefaultShutdownTimeout), [`DefaultMaxHeaderBytes`](#DefaultMaxHeaderBytes), [`DefaultMaintenanceMessage`](#DefaultMaintenanceMessage), [`ProblemContentType`](#ProblemContentType)
 - Variables: [`ErrTrustAll`](#ErrTrustAll)
 - Functions: [`Chain`](#Chain), [`DefaultCode`](#DefaultCode), [`ParseTrustedProxies`](#ParseTrustedProxies), [`WriteProblem`](#WriteProblem)
 - Types:
@@ -41,9 +41,10 @@ Every app uses httpx: generated apps build the server and the middleware chain i
   - [`CORSOptions`](#CORSOptions)
   - [`Captured`](#Captured): [`Capture`](#Capture), [`Captured.Bytes`](#Captured.Bytes), [`Captured.Status`](#Captured.Status), [`Captured.Unwrap`](#Captured.Unwrap), [`Captured.Write`](#Captured.Write), [`Captured.WriteHeader`](#Captured.WriteHeader), [`Captured.WroteHeader`](#Captured.WroteHeader)
   - [`FieldError`](#FieldError)
+  - [`MaintenanceOptions`](#MaintenanceOptions)
   - [`Mapper`](#Mapper): [`NewMapper`](#NewMapper), [`Mapper.Add`](#Mapper.Add), [`Mapper.Match`](#Mapper.Match), [`Mapper.Problem`](#Mapper.Problem), [`Mapper.Write`](#Mapper.Write)
   - [`Mapping`](#Mapping)
-  - [`Middleware`](#Middleware): [`AccessLog`](#AccessLog), [`BodyLimit`](#BodyLimit), [`CORS`](#CORS), [`CrossOrigin`](#CrossOrigin), [`Recover`](#Recover), [`RequestID`](#RequestID), [`RequestIDFrom`](#RequestIDFrom), [`SecureHeaders`](#SecureHeaders), [`TrustedProxies`](#TrustedProxies)
+  - [`Middleware`](#Middleware): [`AccessLog`](#AccessLog), [`BodyLimit`](#BodyLimit), [`CORS`](#CORS), [`CrossOrigin`](#CrossOrigin), [`Maintenance`](#Maintenance), [`Recover`](#Recover), [`RequestID`](#RequestID), [`RequestIDFrom`](#RequestIDFrom), [`SecureHeaders`](#SecureHeaders), [`TrustedProxies`](#TrustedProxies)
   - [`Problem`](#Problem): [`NewProblem`](#NewProblem), [`Problem.ContentType`](#Problem.ContentType), [`Problem.Error`](#Problem.Error), [`Problem.GetStatus`](#Problem.GetStatus)
   - [`SecureHeadersOptions`](#SecureHeadersOptions)
   - [`Server`](#Server): [`NewServer`](#NewServer), [`Server.Addr`](#Server.Addr), [`Server.Run`](#Server.Run)
@@ -72,6 +73,16 @@ const (
 Server timeouts used by [NewServer](#NewServer) unless overridden.
 
 *Since `v0.1.0`*
+
+<a id="DefaultMaintenanceMessage"></a>
+
+```go
+const DefaultMaintenanceMessage = "the service is down for maintenance; try again later"
+```
+
+DefaultMaintenanceMessage is the problem detail [Maintenance](#Maintenance) sends while MaintenanceOptions.Message is unset or empty.
+
+*Since `v0.2.0 (unreleased)`*
 
 <a id="ProblemContentType"></a>
 
@@ -437,6 +448,56 @@ FieldError describes one invalid input field. It never echoes the submitted valu
 
 *Since `v0.1.0`*
 
+<a id="MaintenanceOptions"></a>
+<a id="MaintenanceOptions.Enabled"></a>
+<a id="MaintenanceOptions.Message"></a>
+<a id="MaintenanceOptions.RetryAfter"></a>
+<a id="MaintenanceOptions.Open"></a>
+
+### type MaintenanceOptions
+
+```go
+type MaintenanceOptions struct {
+	// Enabled turns maintenance mode on. Nil never turns it on.
+	Enabled config.Value[bool]
+	// Message is the problem detail clients see; nil or empty sends
+	// DefaultMaintenanceMessage.
+	Message config.Value[string]
+	// RetryAfter is sent in the Retry-After header, in whole seconds; nil or
+	// less than a second sends none.
+	RetryAfter config.Value[time.Duration]
+	// Open are the paths that keep being served while maintenance mode is
+	// on. A path ending in a slash covers everything under it, so "/ops/"
+	// keeps /ops/settings open; other paths match exactly. Keep health
+	// checks open, or load balancers take every instance out of rotation.
+	Open []string
+}
+```
+
+MaintenanceOptions configures [Maintenance](#Maintenance). The values are read on every request, so runtime settings (config.Value) switch maintenance mode on every instance without a restart.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+opts := httpx.MaintenanceOptions{
+	Enabled: config.Static(true),
+	Message: config.Static("Back at 10:00 UTC"),
+	// Health checks exactly, and everything under /ops/.
+	Open: []string{"/livez", "/readyz", "/ops/"},
+}
+rec := httptest.NewRecorder()
+httpx.Maintenance(opts)(http.NotFoundHandler()).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/books", nil))
+fmt.Println(rec.Code, rec.Header().Get("Content-Type"))
+```
+
+Output:
+
+```text
+503 application/problem+json
+```
+
 <a id="Mapper"></a>
 
 ### type Mapper
@@ -591,6 +652,44 @@ func CrossOrigin(trustedOrigins ...string) (Middleware, error)
 CrossOrigin protects against cross-site request forgery using the browser's Sec-Fetch-Site and Origin headers ([http.CrossOriginProtection](https://pkg.go.dev/net/http#CrossOriginProtection)). Non-browser clients, which send neither header, are allowed. Denied requests receive a 403 problem with code "cross\_origin\_request\_denied".
 
 *Since `v0.1.0`*
+
+<a id="Maintenance"></a>
+
+#### func Maintenance
+
+```go
+func Maintenance(opts MaintenanceOptions) Middleware
+```
+
+Maintenance answers every request with 503 and the problem code maintenance while opts.Enabled is on, except requests for opts.Open paths (ADR-0051). It reads the values from opts on each request and does no other work, so it costs no database query when the values are runtime settings.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+books := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, "books") })
+// In an app, Enabled, Message and RetryAfter are runtime settings, so
+// operators switch every instance without a restart.
+h := httpx.Maintenance(httpx.MaintenanceOptions{
+	Enabled:    config.Static(true),
+	RetryAfter: config.Static(5 * time.Minute),
+	Open:       []string{"/livez", "/readyz"},
+})(books)
+
+for _, path := range []string{"/v1/books", "/readyz"} {
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	fmt.Println(path, rec.Code, rec.Header().Get("Retry-After"))
+}
+```
+
+Output:
+
+```text
+/v1/books 503 300
+/readyz 200
+```
 
 <a id="Recover"></a>
 
