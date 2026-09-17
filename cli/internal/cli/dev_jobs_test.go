@@ -130,3 +130,43 @@ func TestJobSources(t *testing.T) {
 		t.Errorf("jobSources(empty) = %v, %v", jobs, err)
 	}
 }
+
+// TestJobSourcesFromModules lists the jobs an app on gorbital.Main declares
+// in its modules, where there is no internal/app (ADR-0083).
+func TestJobSourcesFromModules(t *testing.T) {
+	dir := t.TempDir()
+	write := func(p, content string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, p)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, p), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("internal/modules/books/module.go", `package books
+
+func Module() gorbital.Module {
+	return gorbital.Module{
+		Name: "books",
+		Jobs: func(defs *jobs.Definitions, d gorbital.Deps) {
+			jobs.Define(defs, jobs.Definition[digestArgs]{
+				Name:        "books.digest",
+				Description: "Sends the weekly digest.",
+			})
+		},
+	}
+}
+`)
+	write("internal/modules/books/module_test.go", `package books
+
+// jobs.Define(defs, jobs.Definition[x]{ Name: "books.ignored" })
+`)
+	found, err := jobSources(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found) != 1 || found[0].Name != "books.digest" || found[0].Definition != "internal/modules/books/module.go" || found[0].Package != "books" {
+		t.Fatalf("jobSources = %+v", found)
+	}
+}
