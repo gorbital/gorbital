@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -259,22 +260,43 @@ func register[I, O any](r *Router, method, path string, handler func(context.Con
 }
 
 // customize runs fns on op, refusing changes to what identifies and protects
-// the route.
+// the route. The middleware is compared entry by entry, not only by length:
+// replacing an entry would drop the sign-in check or a guard while leaving
+// the OpenAPI document saying the route is protected.
 func customize(api huma.API, op *huma.Operation, fns []func(huma.API, *huma.Operation)) error {
 	if len(fns) == 0 {
 		return nil
 	}
-	method, path, id, security, middlewares := op.Method, op.Path, op.OperationID, fmt.Sprint(op.Security), len(op.Middlewares)
+	method, path, id, security := op.Method, op.Path, op.OperationID, fmt.Sprint(op.Security)
+	middlewares := slices.Clone(op.Middlewares)
 	for _, fn := range fns {
 		if fn == nil {
 			return errors.New("the function passed to Customize is nil")
 		}
 		fn(api, op)
 	}
-	if op.Method != method || op.Path != path || op.OperationID != id || fmt.Sprint(op.Security) != security || len(op.Middlewares) != middlewares {
+	if op.Method != method || op.Path != path || op.OperationID != id || fmt.Sprint(op.Security) != security ||
+		!sameMiddlewares(middlewares, op.Middlewares) {
 		return errors.New("a Customize option can't change the method, path, operation ID, security or middleware of a route")
 	}
 	return nil
+}
+
+// sameMiddlewares reports whether b holds the same middleware functions as a,
+// in the same order. Functions aren't comparable, so each is identified by
+// its code pointer; the chain's entries are built by unexported functions of
+// this package (adapt, requireActor, guardMiddleware), so nothing outside it
+// can produce an entry with one of their code pointers.
+func sameMiddlewares(a, b huma.Middlewares) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if reflect.ValueOf(a[i]).Pointer() != reflect.ValueOf(b[i]).Pointer() {
+			return false
+		}
+	}
+	return true
 }
 
 // registry holds what [Mount] has registered so far, across modules.
