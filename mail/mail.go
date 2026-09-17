@@ -84,8 +84,9 @@ func validAddress(a Address) error {
 }
 
 // addressPattern matches text shaped like an email address, including a
-// domain literal such as user@[192.0.2.1].
-var addressPattern = regexp.MustCompile("[\\p{L}\\p{N}!#$%&'*+/=?^_`{|}~.-]+@(?:[\\p{L}\\p{N}-]+(?:\\.[\\p{L}\\p{N}-]+)*|\\[[^\\]\\s]*\\])")
+// domain literal such as user@[192.0.2.1]. Letters may carry combining
+// marks (\p{M}), as in a decomposed "rene\u0301@example.com".
+var addressPattern = regexp.MustCompile("[\\p{L}\\p{M}\\p{N}!#$%&'*+/=?^_`{|}~.-]+@(?:[\\p{L}\\p{M}\\p{N}-]+(?:\\.[\\p{L}\\p{M}\\p{N}-]+)*|\\[[^\\]\\s]*\\])")
 
 // RedactedAddress replaces email addresses in text redacted by
 // [RedactAddresses].

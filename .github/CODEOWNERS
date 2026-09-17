@@ -31,3 +31,4 @@
 # Public contracts
 /api/                               @gorbital/maintainers
 /docs/adr/                          @gorbital/maintainers
+/internal/contracts/                @gorbital/maintainers

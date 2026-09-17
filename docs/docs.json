@@ -151,6 +151,7 @@
           "pages": [
             { "title": "Testing", "slug": "technical/testing", "source": "docs/guides/testing.md" },
             { "title": "Stability and compatibility", "slug": "technical/stability", "source": "docs/guides/stability.md" },
+            { "title": "Benchmarks", "slug": "technical/benchmarks", "source": "docs/benchmarks.md" },
             { "title": "Running in production", "slug": "technical/production", "source": "docs/guides/production.md" },
             { "title": "Upgrade notes", "slug": "technical/upgrade-notes", "source": "docs/guides/upgrade-notes.md" }
           ]
