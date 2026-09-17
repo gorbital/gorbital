@@ -150,7 +150,7 @@ type serviceAccountKeyIDInput struct {
 
 // registerAPIKeys adds the signed-in user's API keys and the platform's
 // service accounts (ADR-0058).
-func registerAPIKeys(r *gorbital.Router, h *handler, signedIn func(huma.Operation) huma.Operation) {
+func registerAPIKeys(r *routes, h *handler, signedIn func(huma.Operation) huma.Operation) {
 	route(r, signedIn(huma.Operation{
 		OperationID: "auth-list-api-keys", Method: http.MethodGet, Path: "/v1/auth/api-keys",
 		Summary: "List your API keys", Errors: []int{http.StatusForbidden},
@@ -349,8 +349,8 @@ type orgServiceAccountKeyIDInput struct {
 // organisations move into the library (Phase 7); multi-tenant apps call it;
 // the use cases need Config.Orgs. A nil svc registers the operations without
 // their dependencies, for exporting the OpenAPI document.
-func RegisterOrgServiceAccounts(r *gorbital.Router, svc *authusecase.Service) {
-	h := &handler{svc: svc}
+func RegisterOrgServiceAccounts(router *gorbital.Router, svc *authusecase.Service) {
+	h, r := &handler{svc: svc}, routesOn(router)
 	org := func(op huma.Operation) huma.Operation {
 		op.Tags, op.Security = []string{"Organisations"}, openapi.Bearer
 		op.Errors = append([]int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound}, op.Errors...)

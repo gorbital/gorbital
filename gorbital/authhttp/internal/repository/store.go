@@ -38,3 +38,14 @@ func (s *Store) InTx(ctx context.Context, fn func(tx authusecase.Store) error) e
 		return fn(&Store{db: tx})
 	})
 }
+
+// Tx returns the transaction a store from InTx runs on, for the app's hooks
+// that write in sign-in's transaction; false for a store on the pool.
+func Tx(store authusecase.Store) (pgx.Tx, bool) {
+	s, ok := store.(*Store)
+	if !ok || s.pool != nil {
+		return nil, false
+	}
+	tx, ok := s.db.(pgx.Tx)
+	return tx, ok
+}

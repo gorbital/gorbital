@@ -87,7 +87,9 @@ type LogoutAllResponse struct {
 
 type acceptedOutput struct{ Body AcceptedResponse }
 
-type loginOutput struct {
+// LoginOutput is a sign-in's response: a session (200) or a second-factor
+// challenge (202).
+type LoginOutput struct {
 	Status    int
 	SetCookie []http.Cookie `header:"Set-Cookie"`
 	Body      LoginResponse
@@ -105,14 +107,6 @@ type logoutAllOutput struct {
 type meOutput struct{ Body MeResponse }
 
 type sessionListOutput struct{ Body SessionList }
-
-type registerInput struct {
-	Body struct {
-		_        struct{} `json:"-" additionalProperties:"true"`
-		Email    string   `json:"email" maxLength:"254" example:"ada@example.com"`
-		Password string   `json:"password" maxLength:"512" doc:"At least 12 characters"`
-	}
-}
 
 type loginInput struct {
 	Body struct {
@@ -174,12 +168,28 @@ type handler struct {
 	cookie string
 }
 
+// Config is how authhttp's options change the operations Register adds.
+// The zero Config (with Cookie) registers v0.1's operations.
+type Config struct {
+	// Cookie names the session cookie browsers receive.
+	Cookie string
+	// Middleware runs on every operation under /v1/auth/, after the
+	// module's and before the guards (authhttp's RouteMiddleware).
+	Middleware []func(http.Handler) http.Handler
+	// Registration registers POST /v1/auth/register; nil leaves it out
+	// (authhttp's WithoutRegistration). DefaultRegistration is v0.1's.
+	Registration Registration
+}
+
 // Register adds the authentication operations to r, with v0.1's operation
-// IDs, paths and documentation. Browsers receive the session in the cookie
-// named cookie. A nil svc registers the operations without their
-// dependencies, for exporting the OpenAPI document.
-func Register(r *gorbital.Router, svc *authusecase.Service, cookie string) {
-	h := &handler{svc: svc, cookie: cookie}
+// IDs, paths and documentation. A nil svc registers the operations without
+// their dependencies, for exporting the OpenAPI document.
+func Register(router *gorbital.Router, svc *authusecase.Service, c Config) {
+	h := &handler{svc: svc, cookie: c.Cookie}
+	r := routesOn(router)
+	if len(c.Middleware) > 0 {
+		r.signIn = router.Group("", gorbital.Use(c.Middleware...))
+	}
 	public := func(op huma.Operation) huma.Operation {
 		op.Tags = []string{"Auth"}
 		return op
@@ -191,13 +201,9 @@ func Register(r *gorbital.Router, svc *authusecase.Service, cookie string) {
 	}
 	limited := []int{http.StatusUnprocessableEntity, http.StatusTooManyRequests}
 
-	route(r, public(huma.Operation{
-		OperationID: "auth-register", Method: http.MethodPost, Path: "/v1/auth/register",
-		Summary: "Create an account",
-		Description: "Emails a 6-digit verification code. The response, and how long it takes, are the same whether or not the address already has an account. " +
-			"Registering again before verifying keeps the password only when it is the same; otherwise the account is left without one, and the owner sets it with `POST /v1/auth/password/forgot` after verifying.",
-		DefaultStatus: http.StatusAccepted, Errors: append(limited, http.StatusServiceUnavailable),
-	}), h.register)
+	if c.Registration != nil {
+		c.Registration(r, h)
+	}
 	route(r, public(huma.Operation{
 		OperationID: "auth-verify-email", Method: http.MethodPost, Path: "/v1/auth/verify-email",
 		Summary: "Verify an email address with its code",
@@ -270,13 +276,6 @@ func Register(r *gorbital.Router, svc *authusecase.Service, cookie string) {
 	registerOpsUsers(r, h)
 }
 
-func (h *handler) register(ctx context.Context, in *registerInput) (*acceptedOutput, error) {
-	if err := h.svc.Register(ctx, in.Body.Email, in.Body.Password); err != nil {
-		return nil, authError(err)
-	}
-	return &acceptedOutput{Body: AcceptedResponse{Status: "check_your_email", Message: "Check your email for a 6-digit code to verify your address."}}, nil
-}
-
 func (h *handler) verify(ctx context.Context, in *verifyInput) (*struct{}, error) {
 	return nil, authError(h.svc.VerifyEmail(ctx, in.Body.Email, in.Body.Code))
 }
@@ -288,7 +287,7 @@ func (h *handler) resend(ctx context.Context, in *emailInput) (*acceptedOutput, 
 	return &acceptedOutput{Body: AcceptedResponse{Status: "check_your_email", Message: "If the address is waiting for verification, a new code is on its way."}}, nil
 }
 
-func (h *handler) login(ctx context.Context, in *loginInput) (*loginOutput, error) {
+func (h *handler) login(ctx context.Context, in *loginInput) (*LoginOutput, error) {
 	res, err := h.svc.Login(ctx, in.Body.Email, in.Body.Password)
 	if err != nil {
 		return nil, authError(err)
@@ -298,9 +297,9 @@ func (h *handler) login(ctx context.Context, in *loginInput) (*loginOutput, erro
 
 // session is the response for a new session: the token in a cookie, or in
 // the body for transport bearer.
-func (h *handler) session(res authusecase.LoginResult, transport string) *loginOutput {
+func (h *handler) session(res authusecase.LoginResult, transport string) *LoginOutput {
 	user, session := userResponse(res.User), sessionResponse(res.Session, true)
-	out := &loginOutput{Status: http.StatusOK, Body: LoginResponse{User: &user, Session: &session}}
+	out := &LoginOutput{Status: http.StatusOK, Body: LoginResponse{User: &user, Session: &session}}
 	if transport == authdomain.TransportBearer {
 		out.Body.Token = res.Token
 	} else {
@@ -379,16 +378,22 @@ func (h *handler) deleteAccount(ctx context.Context, in *deleteAccountInput) (*c
 }
 
 // authError adds the reason to a rejected password and the wait to a rate
-// limit; other errors are mapped by the module's Errors (authhttp's module.go).
-func authError(err error) error {
+// limit, and answers an app hook's refusal with its code and 403; other errors are mapped by the module's Errors (authhttp's module.go).
+func authError(err error) error { return AuthError(err) }
+
+// AuthError is authError, for authhttp.
+func AuthError(err error) error {
 	var weak *authlib.PasswordError
 	var limited *authdomain.RateLimitError
+	var refused *authdomain.Refusal
 	switch {
 	case errors.As(err, &weak):
 		return httpx.NewProblem(http.StatusUnprocessableEntity, "weak_password", "the password "+weak.Reason)
 	case errors.As(err, &limited):
 		seconds := max(int(limited.RetryAfter.Round(time.Second)/time.Second), 1)
 		return httpx.NewProblem(http.StatusTooManyRequests, "too_many_attempts", fmt.Sprintf("too many attempts; try again in %d seconds", seconds))
+	case errors.As(err, &refused):
+		return httpx.NewProblem(http.StatusForbidden, refused.Code, refused.Detail)
 	}
 	return err
 }

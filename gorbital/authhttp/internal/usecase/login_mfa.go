@@ -30,6 +30,7 @@ func (s *Service) LoginMFA(ctx context.Context, challengeToken string, factor au
 	case factor.Passkey == nil && strings.TrimSpace(factor.Code) != "" && s.keyring == nil:
 		return LoginResult{}, authdomain.ErrMFAUnavailable
 	}
+	started := authdomain.ChallengeMethod(challengeToken)
 	var (
 		res            LoginResult
 		userID, method string
@@ -63,12 +64,12 @@ func (s *Service) LoginMFA(ctx context.Context, challengeToken string, factor au
 		if err := tx.ConsumeMFAChallenge(ctx, c.ID, s.now()); err != nil {
 			return err
 		}
-		res, err = s.startSession(ctx, tx, u, true, client)
+		res, err = s.startSignIn(ctx, tx, u, true, client, started, method)
 		return err
 	})
 	switch {
 	case err != nil:
-		return LoginResult{}, dbError("finish sign-in", err)
+		return LoginResult{}, s.signInFailed(ctx, "finish sign-in", userID, started, err, client)
 	case limited:
 		s.mfaFailed(ctx, userID, "rate_limited", client)
 		return LoginResult{}, &authdomain.RateLimitError{RetryAfter: retry}
@@ -84,7 +85,8 @@ func (s *Service) LoginMFA(ctx context.Context, challengeToken string, factor au
 	if method == authdomain.MFAMethodRecoveryCode {
 		s.recoveryCodeUsed(ctx, res.User, remaining)
 	}
-	s.loginSucceeded(ctx, res, method)
+	s.loginSucceeded(ctx, res, started, method)
+	s.afterLogin(ctx, res, started, method)
 	return res, nil
 }
 

@@ -365,11 +365,11 @@ func (s *Service) FinishPasskeyLogin(ctx context.Context, ceremonyToken string, 
 		if err := tx.UpdatePasskeyUse(ctx, stored.ID, cred.Record, int64(cred.SignCount), cred.BackupState, s.now()); err != nil {
 			return err
 		}
-		res, err = s.startSession(ctx, tx, user, true, client)
+		res, err = s.startSignIn(ctx, tx, user, true, client, authdomain.MethodPasskey, "")
 		return err
 	})
 	if err != nil {
-		return LoginResult{}, dbError("passkey sign-in", err)
+		return LoginResult{}, s.signInFailed(ctx, "passkey sign-in", user.ID, authdomain.MethodPasskey, err, client)
 	}
 	if clone {
 		s.cloneWarning(ctx, user.ID, stored.ID)
@@ -378,7 +378,8 @@ func (s *Service) FinishPasskeyLogin(ctx context.Context, ceremonyToken string, 
 		s.loginFailed(ctx, user.ID, "invalid_passkey", client)
 		return LoginResult{}, authdomain.ErrInvalidPasskey
 	}
-	s.loginSucceeded(ctx, res, authdomain.MFAMethodPasskey)
+	s.loginSucceeded(ctx, res, authdomain.MethodPasskey, authdomain.MFAMethodPasskey)
+	s.afterLogin(ctx, res, authdomain.MethodPasskey, "")
 	return res, nil
 }
 

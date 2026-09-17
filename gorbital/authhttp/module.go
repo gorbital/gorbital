@@ -40,7 +40,7 @@ func (a *Authenticator) Module() gorbital.Module {
 		Name:         "auth",
 		Errors:       errorMappings(),
 		Permissions:  permissions(),
-		Settings:     func(r *settings.Registry) { *a.settings = declareSettings(r) },
+		Settings:     func(r *settings.Registry) { *a.settings = declareSettings(r, a.opts.apiKeyMaxTTL) },
 		Jobs:         a.defineJobs,
 		Migrations:   moduleMigrations(),
 		RateLimiters: slices.Clone(limiters),
@@ -48,9 +48,21 @@ func (a *Authenticator) Module() gorbital.Module {
 		Routes: func(r *gorbital.Router, _ gorbital.Deps) {
 			// svc is nil while the OpenAPI document is exported: the
 			// operations are registered, but no use case runs.
-			delivery.Register(r, a.service(), authlib.DefaultCookieName)
+			delivery.Register(r, a.service(), a.routes())
 		},
 	}
+}
+
+// routes are how the options change sign-in's operations.
+func (a *Authenticator) routes() delivery.Config {
+	c := delivery.Config{Cookie: authlib.DefaultCookieName, Middleware: a.opts.routeMiddleware, Registration: a.opts.registration}
+	switch {
+	case a.opts.closed:
+		c.Registration = nil
+	case c.Registration == nil:
+		c.Registration = delivery.DefaultRegistration
+	}
+	return c
 }
 
 // moduleMigrations are sign-in's migrations with the versions v0.1 apps
@@ -88,8 +100,8 @@ func permissions() []gorbital.Permission {
 
 // declareRoles declares the user role every account holds when no module
 // grants it a permission, and requires a second factor for the ops roles,
-// as a v0.1 app's permissions.go does.
-func declareRoles(catalog *authlib.Catalog) (err error) {
+// as a v0.1 app's permissions.go does, and for the roles of RequireMFA.
+func declareRoles(catalog *authlib.Catalog, requireMFA []string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("authhttp: permission catalog: %v", r)
@@ -102,6 +114,15 @@ func declareRoles(catalog *authlib.Catalog) (err error) {
 		if catalog.HasRole(role) {
 			catalog.RequireMFA(role)
 		}
+	}
+	for _, role := range requireMFA {
+		switch {
+		case role == usecase.RoleUser:
+			return fmt.Errorf("authhttp: RequireMFA(%q): every account holds the user role, which can't require a second factor", role)
+		case !catalog.HasRole(role):
+			return fmt.Errorf("authhttp: RequireMFA(%q): no module declares the role (gorbital.Module.Permissions)", role)
+		}
+		catalog.RequireMFA(role)
 	}
 	return nil
 }
@@ -182,6 +203,7 @@ func errorMappings() []httpx.Mapping {
 		{Err: authdomain.ErrSocialLinkRequired, Status: http.StatusForbidden, Code: "social_link_required", Detail: "an account with this email address exists; sign in to it and link this provider from the account"},
 		{Err: authdomain.ErrIdentityInUse, Status: http.StatusConflict, Code: "identity_in_use", Detail: "this Google, Apple or GitHub account is linked to another account"},
 		{Err: authlib.ErrHasherBusy, Status: http.StatusServiceUnavailable, Code: "auth_unavailable", Detail: "authentication is temporarily unavailable; try again shortly"},
+		{Err: authdomain.ErrRegistrationClosed, Status: http.StatusForbidden, Code: "registration_closed", Detail: "this app doesn't create accounts by signing up; ask for an invitation, or sign in to an existing account"},
 
 		// API keys and service accounts (ADR-0058).
 		{Err: authdomain.ErrSessionRequired, Status: http.StatusForbidden, Code: "session_required", Detail: "sign in to do this: an API key can't manage accounts, sessions or API keys"},

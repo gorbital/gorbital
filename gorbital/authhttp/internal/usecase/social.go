@@ -337,6 +337,8 @@ func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, re
 		}
 		u, err = tx.SelectUserByEmail(ctx, normalized, true)
 		switch {
+		case errors.Is(err, authdomain.ErrUserNotFound) && s.closed:
+			return authdomain.ErrRegistrationClosed // nothing written yet
 		case errors.Is(err, authdomain.ErrUserNotFound):
 			// Only a provider authoritative for the address proves it; otherwise
 			// the account stays unverified, so whoever proves the address later
@@ -367,7 +369,10 @@ func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, re
 		}
 		identity.UserID = u.ID
 		identity.CreatedAt = now
-		return tx.InsertIdentity(ctx, identity)
+		if err := tx.InsertIdentity(ctx, identity); err != nil || !created {
+			return err
+		}
+		return s.onRegister(ctx, tx, NewAccount{User: u, Method: id.Provider, Name: id.Name, Client: client}, nil)
 	}
 	// Two first sign-ins of one person can race to create the account or the
 	// identity: the loser's transaction rolls back, and its retry finds what
@@ -388,6 +393,17 @@ func (s *Service) signInWithIdentity(ctx context.Context, id social.Identity, re
 	case errors.Is(err, authdomain.ErrSocialEmailUnverified):
 		s.loginFailed(ctx, "", "social_email_unverified", client)
 		return LoginResult{}, err
+	case errors.Is(err, authdomain.ErrRegistrationClosed):
+		e := userEvent("auth.login.failed", "", client)
+		e.Outcome, e.Metadata = audit.OutcomeFailure, map[string]any{"reason": "registration_closed", "provider": id.Provider}
+		s.audit(ctx, e)
+		return LoginResult{}, err
+	case err != nil && isRefusal(err):
+		r, _ := refusal(err)
+		e := userEvent("auth.login.failed", "", client)
+		e.Outcome, e.Metadata = audit.OutcomeFailure, map[string]any{"reason": "refused", "code": r.Code, "provider": id.Provider, "new_account": true}
+		s.audit(ctx, e)
+		return LoginResult{}, r
 	case errors.Is(err, authdomain.ErrSocialLinkRequired):
 		e := userEvent("auth.login.failed", u.ID, client)
 		e.Outcome, e.Metadata = audit.OutcomeFailure, map[string]any{"reason": "social_link_required", "provider": id.Provider}
@@ -559,21 +575,22 @@ func (s *Service) startSocialSession(ctx context.Context, u authdomain.User, pro
 	case err != nil:
 		return LoginResult{}, dbError("sign in", err)
 	case len(methods) > 0:
-		return s.startChallenge(ctx, u, "", false, client, methods)
+		return s.startChallenge(ctx, u, "", false, client, methods, provider)
 	}
 	var res LoginResult
 	err = s.store.InTx(ctx, func(tx Store) error {
 		var err error
-		res, err = s.startSession(ctx, tx, u, false, client)
+		res, err = s.startSignIn(ctx, tx, u, false, client, provider, "")
 		return err
 	})
 	if err != nil {
-		return LoginResult{}, dbError("sign in", err)
+		return LoginResult{}, s.signInFailed(ctx, "sign in", u.ID, provider, err, client)
 	}
 	e := userEvent("auth.login.succeeded", u.ID, client)
 	e.ActorKind, e.ActorID = actor.KindUser, u.ID
 	e.Metadata = map[string]any{"session_id": res.Session.ID, "method": provider}
 	s.audit(ctx, e)
+	s.afterLogin(ctx, res, provider, "")
 	return res, nil
 }
 

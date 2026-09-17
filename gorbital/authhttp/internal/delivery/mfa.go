@@ -7,7 +7,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"gorbital.dev/gorbital"
 
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
 )
@@ -78,7 +77,7 @@ type disableTOTPInput struct {
 }
 
 // registerMFA adds the two-factor authentication operations (ADR-0043).
-func registerMFA(r *gorbital.Router, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
+func registerMFA(r *routes, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
 	unavailable := []int{http.StatusConflict, http.StatusTooManyRequests, http.StatusServiceUnavailable}
 
 	route(r, public(huma.Operation{
@@ -128,7 +127,7 @@ func secondFactor(code, recoveryCode string, pk *PasskeyFactor) (authdomain.Seco
 	return factor, nil
 }
 
-func (h *handler) loginMFA(ctx context.Context, in *loginMFAInput) (*loginOutput, error) {
+func (h *handler) loginMFA(ctx context.Context, in *loginMFAInput) (*LoginOutput, error) {
 	factor, err := secondFactor(in.Body.Code, in.Body.RecoveryCode, in.Body.Passkey)
 	if err != nil {
 		return nil, err

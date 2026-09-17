@@ -79,8 +79,9 @@ func (s *Service) DeleteAccount(ctx context.Context, password string, factor aut
 
 // CreateUser creates an account for an operator, for example the first
 // administrator. The actor in ctx is recorded. It returns
-// auth.ErrInvalidEmail, an *auth.PasswordError, ErrEmailTaken or
-// ErrActorRequired.
+// auth.ErrInvalidEmail, an *auth.PasswordError, ErrEmailTaken,
+// ErrActorRequired, or the OnRegister hook's *domain.Refusal, which rolls
+// the account back.
 func (s *Service) CreateUser(ctx context.Context, email, password string, emailVerified bool) (authdomain.User, error) {
 	if _, err := requireActor(ctx); err != nil {
 		return authdomain.User{}, err
@@ -101,11 +102,22 @@ func (s *Service) CreateUser(ctx context.Context, email, password string, emailV
 	if emailVerified {
 		verifiedAt = &now
 	}
-	u, err := s.store.InsertUser(ctx, authdomain.User{
-		ID: authlib.NewID("usr"), Email: email, NormalizedEmail: normalized, PasswordHash: hash, EmailVerifiedAt: verifiedAt, CreatedAt: now,
+	var u authdomain.User
+	err = s.store.InTx(ctx, func(tx Store) error {
+		var err error
+		u, err = tx.InsertUser(ctx, authdomain.User{
+			ID: authlib.NewID("usr"), Email: email, NormalizedEmail: normalized, PasswordHash: hash, EmailVerifiedAt: verifiedAt, CreatedAt: now,
+		})
+		if err != nil {
+			return err
+		}
+		return s.onRegister(ctx, tx, NewAccount{User: u, Method: authdomain.MethodOperator, Client: authlib.ClientInfoFromContext(ctx)}, nil)
 	})
 	if errors.Is(err, authdomain.ErrEmailTaken) {
 		return authdomain.User{}, err
+	}
+	if r, ok := refusal(err); ok {
+		return authdomain.User{}, r
 	}
 	if err != nil {
 		return authdomain.User{}, dbError("create user", err)

@@ -2,12 +2,12 @@ package delivery
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"gorbital.dev/gorbital"
 	"gorbital.dev/modules/openapi"
 
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
@@ -143,7 +143,7 @@ type opsRevokedOutput struct{ Body OpsRevokedResponse }
 type opsTOTPEnrollmentOutput struct{ Body OpsTOTPEnrollmentResponse }
 
 // registerOpsUsers adds the operators' account APIs.
-func registerOpsUsers(r *gorbital.Router, h *handler) {
+func registerOpsUsers(r *routes, h *handler) {
 	ops := func(op huma.Operation) huma.Operation {
 		op.Tags, op.Security = []string{"Ops: auth"}, openapi.Bearer
 		op.Errors = append([]int{http.StatusUnauthorized, http.StatusForbidden}, op.Errors...)
@@ -244,6 +244,9 @@ func (h *handler) opsListUsers(ctx context.Context, in *opsUserListInput) (*opsU
 
 func (h *handler) opsCreateUser(ctx context.Context, in *opsCreateUserInput) (*opsUserOutput, error) {
 	u, err := h.svc.CreateUser(ctx, in.Body.Email, in.Body.Password, in.Body.EmailVerified)
+	if refused, ok := errors.AsType[*authdomain.Refusal](err); ok {
+		return nil, authError(refused) // the app's OnRegister hook; other errors keep v0.1's mappings
+	}
 	if err != nil {
 		return nil, err
 	}

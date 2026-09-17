@@ -26,6 +26,17 @@ import (
 //   - an address with a verified account gets an "account exists" notice, at
 //     most once a minute.
 func (s *Service) Register(ctx context.Context, email, password string) error {
+	return s.RegisterWithFields(ctx, email, password, nil)
+}
+
+// RegisterWithFields is Register with the app's extra registration fields
+// (authhttp's RegisterFields), which the OnRegister hook receives in the
+// transaction that creates the account. A hook's error, refusal or not,
+// rolls the account back and is logged, and the result is still nil: a
+// response that differed would tell whoever registers that the address had
+// no account, because hooks run only for new accounts. Refuse bad fields
+// with their validation instead, which runs for every request.
+func (s *Service) RegisterWithFields(ctx context.Context, email, password string, fields any) error {
 	email, normalized, err := authlib.NormalizeEmail(email)
 	if err != nil {
 		return err
@@ -46,6 +57,7 @@ func (s *Service) Register(ctx context.Context, email, password string) error {
 	var (
 		userID, to, code string
 		created, exists  bool
+		hookErr          error
 	)
 	err = s.store.InTx(ctx, func(tx Store) error {
 		u, err := tx.SelectUserByEmail(ctx, normalized, true)
@@ -58,6 +70,10 @@ func (s *Service) Register(ctx context.Context, email, password string) error {
 				return err
 			}
 			created = true
+			if err := s.onRegister(ctx, tx, NewAccount{User: u, Method: authdomain.MethodPassword, Client: client}, fields); err != nil {
+				hookErr = err
+				return err
+			}
 		case err != nil:
 			return err
 		case u.EmailVerified():
@@ -86,6 +102,9 @@ func (s *Service) Register(ctx context.Context, email, password string) error {
 		return err
 	})
 	switch {
+	case hookErr != nil:
+		s.logger.ErrorContext(ctx, "registration refused by the app's OnRegister hook; the account was rolled back", "err", hookErr)
+		return nil
 	case errors.Is(err, authdomain.ErrEmailTaken):
 		return nil // registered at the same moment by another request
 	case err != nil:

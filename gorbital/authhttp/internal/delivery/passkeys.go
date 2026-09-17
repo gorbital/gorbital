@@ -8,7 +8,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"gorbital.dev/gorbital"
 
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
 	authusecase "gorbital.dev/gorbital/authhttp/internal/usecase"
@@ -98,7 +97,7 @@ type passkeySecondFactorInput struct {
 }
 
 // registerPasskeys adds the passkey operations (ADR-0044).
-func registerPasskeys(r *gorbital.Router, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
+func registerPasskeys(r *routes, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
 	unavailable := []int{http.StatusServiceUnavailable}
 
 	route(r, signedIn(huma.Operation{
@@ -215,7 +214,7 @@ func (h *handler) passkeyLoginOptions(ctx context.Context, _ *struct{}) (*passke
 	return ceremonyOutput(c), nil
 }
 
-func (h *handler) passkeyLogin(ctx context.Context, in *passkeyLoginInput) (*loginOutput, error) {
+func (h *handler) passkeyLogin(ctx context.Context, in *passkeyLoginInput) (*LoginOutput, error) {
 	credential, err := json.Marshal(in.Body.Credential)
 	if err != nil {
 		return nil, err

@@ -68,6 +68,13 @@ type Config struct {
 	Issuer string
 	// Hooks let other modules take part in creating and deleting accounts.
 	Hooks AccountHooks
+	// SignInHooks let the app take part in sign-in and account creation,
+	// inside sign-in's transactions (authhttp's options).
+	SignInHooks SignInHooks
+	// RegistrationClosed refuses a first Google, Apple or GitHub sign-in of
+	// an address without an account (ErrRegistrationClosed); authhttp also
+	// leaves out POST /v1/auth/register.
+	RegistrationClosed bool
 	// Impersonation lets operators start a session as any user
 	// (Impersonate); apps turn it on only with the dev console, so never in
 	// production (ADR-0070).
@@ -142,6 +149,8 @@ type Service struct {
 	defaultReturnTo string
 	issuer          string
 	hooks           AccountHooks
+	signInHooks     SignInHooks
+	closed          bool
 	orgs            OrgAccess
 	impersonation   bool
 	now             func() time.Time
@@ -186,6 +195,8 @@ func NewService(c Config) (*Service, error) {
 		defaultReturnTo:  c.DefaultReturnTo,
 		issuer:           orDefault(c.Issuer, "app"),
 		hooks:            c.Hooks,
+		signInHooks:      c.SignInHooks,
+		closed:           c.RegistrationClosed,
 		orgs:             c.Orgs,
 		impersonation:    c.Impersonation,
 		now:              c.Now,
@@ -354,6 +365,9 @@ func dbError(op string, err error) error {
 	}
 	if errors.Is(err, authdomain.ErrAccountBanned) {
 		return authdomain.ErrAccountBanned // every sign-in path starts a session (ADR-0070)
+	}
+	if r, ok := refusal(err); ok {
+		return r // an app's hook refused, inside the transaction
 	}
 	return fmt.Errorf("auth: %s: %v", op, err) //nolint:errorlint // driver errors aren't API (ADR-0018)
 }

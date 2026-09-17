@@ -57,6 +57,9 @@ type Authenticator struct {
 	svc     *usecase.Service // nil until Setup with a database, as when exporting the OpenAPI document
 	limits  *rateLimits      // nil until Setup with a database
 
+	// opts are New's options.
+	opts options
+
 	// endpoints point Google, Apple and GitHub at a fake provider in tests.
 	endpoints providerEndpoints
 }
@@ -65,8 +68,15 @@ type Authenticator struct {
 // gorbital.LoadConfig reads (AUTH_ENCRYPTION_KEYS, WEBAUTHN_*, GOOGLE_*,
 // APPLE_*, GITHUB_*, APP_PUBLIC_URL, AUTH_DEFAULT_RETURN_TO): each sign-in
 // method is on when its variables are set. Use one Authenticator per app.
-func New() *Authenticator {
-	return &Authenticator{settings: &authSettings{}}
+//
+// Without options it is v0.1's sign-in. Options change the password policy
+// ([MinPasswordLength], [PasswordPolicy]), second factors ([RequireMFA]), API
+// keys ([APIKeyMaxTTL]), sign-up ([WithoutRegistration], [RegisterFields]),
+// emails ([Brand]) and the routes ([RouteMiddleware]), and add hooks
+// ([BeforeLogin], [AfterLogin], [OnRegister]). [Authenticator.CheckConfig]
+// reports an invalid option.
+func New(opts ...Option) *Authenticator {
+	return &Authenticator{settings: &authSettings{}, opts: newOptions(opts)}
 }
 
 // Middleware authenticates each request with its session cookie
@@ -92,8 +102,11 @@ func (a *Authenticator) Middleware(logger *slog.Logger) func(http.Handler) http.
 // parse; and WEBAUTHN_ORIGINS must be on WEBAUTHN_RP_ID. It returns every
 // problem joined, with v0.1's messages. gorbital.New and gorbital.Main call
 // it before anything connects, and exit with status 2 on its error.
+//
+// It also reports the options [New] received that can't apply, such as
+// [MinPasswordLength] below 12, after the configuration's problems.
 func (a *Authenticator) CheckConfig(cfg gorbital.Config) error {
-	return errors.Join(checkConfig(cfg)...)
+	return errors.Join(append(checkConfig(cfg), a.opts.errs...)...)
 }
 
 // Setup builds sign-in from the app's configuration and dependencies:
@@ -120,8 +133,11 @@ func (a *Authenticator) Setup(ctx context.Context, s gorbital.AuthSetup) error {
 	if s.Permissions == nil {
 		return errors.New("authhttp: AuthSetup.Permissions is nil")
 	}
+	if err := errors.Join(a.opts.errs...); err != nil {
+		return err
+	}
 	a.name, a.catalog = s.Name, s.Permissions
-	if err := declareRoles(s.Permissions); err != nil {
+	if err := declareRoles(s.Permissions, a.opts.requireMFA); err != nil {
 		return err
 	}
 	if s.Deps.DB == nil {
@@ -159,7 +175,10 @@ func (a *Authenticator) Setup(ctx context.Context, s gorbital.AuthSetup) error {
 		DefaultReturnTo:         s.Config.Auth.DefaultReturnTo,
 		Catalog:                 s.Permissions,
 		Recorder:                d.Audit,
-		Emails:                  authlib.NewBrandedEmails(d.Mailer, brand(s.Name, s.Config)),
+		Emails:                  authlib.NewBrandedEmails(d.Mailer, a.brand(s.Name, s.Config)),
+		PasswordChecker:         a.opts.passwordChecker(),
+		SignInHooks:             a.opts.hooks(d.Logger.With("source", "auth")),
+		RegistrationClosed:      a.opts.closed,
 		Keyring:                 keyring(s.Config),
 		Issuer:                  s.Name,
 		Passkeys:                passkeys(s.Name, s.Config),
@@ -177,7 +196,7 @@ func (a *Authenticator) Setup(ctx context.Context, s gorbital.AuthSetup) error {
 	a.svc, a.limits = svc, limits
 
 	a.mountWellKnown(s)
-	s.MailPreviews(authlib.BrandedEmailPreviews(brand(s.Name, s.Config))...)
+	s.MailPreviews(authlib.BrandedEmailPreviews(a.brand(s.Name, s.Config))...)
 	reportSignInMethods(ctx, s.Config, d.Logger)
 	return nil
 }
@@ -190,9 +209,20 @@ func (a *Authenticator) service() *usecase.Service {
 }
 
 // brand is what every email sign-in sends has in common (ADR-0078): the
-// app's name, linking to its public URL.
-func brand(name string, cfg gorbital.Config) mail.Brand {
-	return mail.Brand{Name: name, URL: cfg.Auth.PublicURL}
+// app's name, linking to its public URL, or the Brand option with those as
+// its defaults.
+func (a *Authenticator) brand(name string, cfg gorbital.Config) mail.Brand {
+	b := mail.Brand{}
+	if a.opts.brand != nil {
+		b = *a.opts.brand
+	}
+	if b.Name == "" {
+		b.Name = name
+	}
+	if b.URL == "" {
+		b.URL = cfg.Auth.PublicURL
+	}
+	return b
 }
 
 // keyring returns the parsed AUTH_ENCRYPTION_KEYS, or nil without keys.

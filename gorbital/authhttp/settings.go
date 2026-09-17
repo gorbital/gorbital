@@ -34,8 +34,13 @@ type authSettings struct {
 // declared reports whether Module's Settings declared the settings.
 func (s *authSettings) declared() bool { return s.sessionIdleTTL != nil }
 
-// declareSettings declares sign-in's runtime settings.
-func declareSettings(reg *settings.Registry) authSettings {
+// declareSettings declares sign-in's runtime settings. apiKeyCap is the
+// longest auth.api_key_max_ttl operators may set (APIKeyMaxTTL; a year by
+// default).
+func declareSettings(reg *settings.Registry, apiKeyCap time.Duration) authSettings {
+	if apiKeyCap == 0 {
+		apiKeyCap = maxAPIKeyMaxTTL
+	}
 	return authSettings{
 		sessionIdleTTL: settings.Duration(reg, "auth.session_idle_ttl", authlib.DefaultSessionIdleTTL,
 			settings.Describe("How long a signed-in session lasts without being used."),
@@ -112,9 +117,9 @@ func declareSettings(reg *settings.Registry) authSettings {
 			settings.ReasonRequired(),
 		),
 		// API keys (ADR-0058).
-		apiKeyMaxTTL: settings.Duration(reg, "auth.api_key_max_ttl", authlib.DefaultAPIKeyMaxTTL,
+		apiKeyMaxTTL: settings.Duration(reg, "auth.api_key_max_ttl", min(authlib.DefaultAPIKeyMaxTTL, apiKeyCap),
 			settings.Describe("The longest lifetime of a new API key. Every key needs an expiry within it; existing keys keep theirs."),
-			settings.Range(24*time.Hour, 365*24*time.Hour),
+			settings.Range(minAPIKeyMaxTTL, apiKeyCap),
 			settings.ReasonRequired(),
 		),
 		apiKeyFailures: settings.Int(reg, "auth.api_key_failures_per_minute", usecase.DefaultAPIKeyFailures,

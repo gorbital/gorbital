@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -22,7 +23,8 @@ import (
 //
 // Any other Operation field would be dropped silently, so route panics on
 // one; gorbital.Mount reports the panic as a registration error.
-func route[I, O any](r *gorbital.Router, op huma.Operation, handler func(context.Context, *I) (*O, error)) {
+func route[I, O any](rs *routes, op huma.Operation, handler func(context.Context, *I) (*O, error)) {
+	r := rs.router(op.Path)
 	if err := unsupported(op); err != nil {
 		panic(fmt.Sprintf("authhttp: %s %s: %v", op.Method, op.Path, err))
 	}
@@ -52,6 +54,23 @@ func route[I, O any](r *gorbital.Router, op huma.Operation, handler func(context
 	default:
 		panic(fmt.Sprintf("authhttp: %s %s: unsupported method", op.Method, op.Path))
 	}
+}
+
+// routes are the routers sign-in's operations are registered on: signIn
+// for /v1/auth/ (with authhttp's RouteMiddleware), base for the rest.
+type routes struct {
+	base, signIn *gorbital.Router
+}
+
+// routesOn registers every operation on r.
+func routesOn(r *gorbital.Router) *routes { return &routes{base: r, signIn: r} }
+
+// router returns the router for an operation's path.
+func (rs *routes) router(path string) *gorbital.Router {
+	if strings.HasPrefix(path, "/v1/auth/") {
+		return rs.signIn
+	}
+	return rs.base
 }
 
 // unsupported reports an Operation field route doesn't carry over.

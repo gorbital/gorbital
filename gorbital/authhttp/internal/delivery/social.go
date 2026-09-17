@@ -11,7 +11,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"gorbital.dev/gorbital"
 
 	authlib "gorbital.dev/modules/auth"
 
@@ -153,7 +152,7 @@ type appleNotificationInput struct {
 
 // registerSocial adds the Google, Apple (ADR-0046) and GitHub (ADR-0059)
 // operations.
-func registerSocial(r *gorbital.Router, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
+func registerSocial(r *routes, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
 	unavailable := []int{http.StatusServiceUnavailable}
 	login := []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusServiceUnavailable}
 
@@ -317,7 +316,11 @@ func (h *handler) finishSocial(ctx context.Context, provider, state, browser, co
 // socialErrorCode is the error code a failed web sign-in returns in the
 // fragment; the same codes as the JSON errors.
 func socialErrorCode(err error) string {
+	if refused, ok := errors.AsType[*authdomain.Refusal](err); ok {
+		return refused.Code
+	}
 	for target, code := range map[error]string{
+		authdomain.ErrRegistrationClosed:    "registration_closed",
 		authdomain.ErrInvalidState:          "invalid_state",
 		authdomain.ErrInvalidSocialToken:    "invalid_social_token",
 		authdomain.ErrSocialEmailUnverified: "social_email_unverified",
@@ -356,7 +359,7 @@ func (h *handler) socialNonce(ctx context.Context, in *providerInput) (*socialNo
 	return &socialNonceOutput{Body: SocialNonceResponse{Nonce: nonce, ExpiresAt: expires}}, nil
 }
 
-func (h *handler) googleToken(ctx context.Context, in *googleTokenInput) (*loginOutput, error) {
+func (h *handler) googleToken(ctx context.Context, in *googleTokenInput) (*LoginOutput, error) {
 	res, err := h.svc.SignInWithIDToken(ctx, authdomain.ProviderGoogle, in.Body.IDToken, in.Body.Nonce, "", "")
 	if err != nil {
 		return nil, authError(err)
@@ -364,7 +367,7 @@ func (h *handler) googleToken(ctx context.Context, in *googleTokenInput) (*login
 	return h.signedIn(res, in.Body.Transport), nil
 }
 
-func (h *handler) appleToken(ctx context.Context, in *appleTokenInput) (*loginOutput, error) {
+func (h *handler) appleToken(ctx context.Context, in *appleTokenInput) (*LoginOutput, error) {
 	res, err := h.svc.SignInWithIDToken(ctx, authdomain.ProviderApple, in.Body.IDToken, in.Body.Nonce, in.Body.AuthorizationCode, in.Body.Name)
 	if err != nil {
 		return nil, authError(err)
@@ -414,11 +417,18 @@ func (h *handler) appleNotification(ctx context.Context, in *appleNotificationIn
 	return nil, authError(h.svc.HandleAppleNotification(ctx, in.Body.Payload))
 }
 
+// SignedIn is the response of a sign-in through res: a session in the
+// cookie named cookie or, for transport bearer, in the body (200), or a
+// second-factor challenge (202). authhttp's SignIn answers with it.
+func SignedIn(res authusecase.LoginResult, transport, cookie string) *LoginOutput {
+	return (&handler{cookie: cookie}).signedIn(res, transport)
+}
+
 // signedIn is the response for a sign-in: a session, or 202 with a
 // second-factor challenge.
-func (h *handler) signedIn(res authusecase.LoginResult, transport string) *loginOutput {
+func (h *handler) signedIn(res authusecase.LoginResult, transport string) *LoginOutput {
 	if c := res.Challenge; c != nil {
-		return &loginOutput{Status: http.StatusAccepted, Body: LoginResponse{
+		return &LoginOutput{Status: http.StatusAccepted, Body: LoginResponse{
 			MFA: &MFAChallenge{ChallengeToken: c.Token, Methods: c.Methods, ExpiresAt: c.ExpiresAt},
 		}}
 	}

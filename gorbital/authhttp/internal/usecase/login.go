@@ -96,7 +96,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (LoginResul
 	case err != nil:
 		return LoginResult{}, dbError("login", err)
 	case len(methods) > 0:
-		return s.startChallenge(ctx, u, password, rehash, client, methods)
+		return s.startChallenge(ctx, u, password, rehash, client, methods, authdomain.MethodPassword)
 	}
 
 	var res LoginResult
@@ -105,13 +105,14 @@ func (s *Service) Login(ctx context.Context, email, password string) (LoginResul
 			return err
 		}
 		var err error
-		res, err = s.startSession(ctx, tx, u, false, client)
+		res, err = s.startSignIn(ctx, tx, u, false, client, authdomain.MethodPassword, "")
 		return err
 	})
 	if err != nil {
-		return LoginResult{}, dbError("login", err)
+		return LoginResult{}, s.signInFailed(ctx, "login", u.ID, authdomain.MethodPassword, err, client)
 	}
-	s.loginSucceeded(ctx, res, "")
+	s.loginSucceeded(ctx, res, authdomain.MethodPassword, "")
+	s.afterLogin(ctx, res, authdomain.MethodPassword, "")
 	return res, nil
 }
 
@@ -145,11 +146,14 @@ func (s *Service) secondFactorMethods(ctx context.Context, userID string) ([]str
 	return append(methods, authdomain.MFAMethodRecoveryCode), nil
 }
 
-// startChallenge stores a sign-in challenge for a user whose password
-// matched, to finish with LoginMFA.
-func (s *Service) startChallenge(ctx context.Context, u authdomain.User, password string, rehash bool, client authlib.ClientInfo, methods []string) (LoginResult, error) {
+// startChallenge stores a sign-in challenge for a user whose first factor
+// (method) is verified, to finish with LoginMFA. The challenge token names
+// the method (domain.ChallengeToken).
+func (s *Service) startChallenge(ctx context.Context, u authdomain.User, password string, rehash bool, client authlib.ClientInfo, methods []string, method string) (LoginResult, error) {
 	now := s.now()
-	token, tokenHash := authlib.NewToken()
+	raw, _ := authlib.NewToken()
+	token := authdomain.ChallengeToken(raw, method)
+	tokenHash := authlib.HashToken(token)
 	c := authdomain.MFAChallenge{
 		ID: authlib.NewID("mfc"), UserID: u.ID, TokenHash: tokenHash, MaxAttempts: authlib.MFAChallengeMaxAttempts,
 		ExpiresAt: now.Add(authlib.MFAChallengeTTL), IP: client.IP, UserAgent: client.UserAgent, CreatedAt: now,
@@ -176,6 +180,29 @@ func (s *Service) rehash(ctx context.Context, tx Store, userID, password string,
 		return tx.RehashPassword(ctx, userID, newHash)
 	}
 	return nil
+}
+
+// startSignIn creates a session for u in tx, verified with a second factor
+// when mfaVerified, once u's factors are verified: a banned account is
+// refused first, then the app's BeforeLogin hook runs. method and
+// secondFactor say how u signed in.
+func (s *Service) startSignIn(ctx context.Context, tx Store, u authdomain.User, mfaVerified bool, client authlib.ClientInfo, method, secondFactor string) (LoginResult, error) {
+	if u.Banned() {
+		return LoginResult{}, authdomain.ErrAccountBanned
+	}
+	if err := s.beforeLogin(ctx, tx, u, method, secondFactor, client); err != nil {
+		return LoginResult{}, err
+	}
+	return s.startSession(ctx, tx, u, mfaVerified, client)
+}
+
+// signInFailed returns the error of a sign-in whose session couldn't be
+// created, recording a hook's refusal.
+func (s *Service) signInFailed(ctx context.Context, op, userID, method string, err error, client authlib.ClientInfo) error {
+	if r, ok := refusal(err); ok {
+		s.loginRefused(ctx, userID, method, r, client)
+	}
+	return dbError(op, err)
 }
 
 // startSession creates a session for u in tx, verified with a second factor
@@ -206,14 +233,18 @@ func (s *Service) startSession(ctx context.Context, tx Store, u authdomain.User,
 	return LoginResult{Token: token, Session: session, User: u}, nil
 }
 
-// loginSucceeded records a new session; method names its second factor, or
-// passkey for a passwordless sign-in.
-func (s *Service) loginSucceeded(ctx context.Context, res LoginResult, method string) {
+// loginSucceeded records a new session; mfaMethod names its second factor,
+// or passkey for a passwordless sign-in. method, how the sign-in started, is
+// recorded unless it is a password or a passkey, which v0.1's events imply.
+func (s *Service) loginSucceeded(ctx context.Context, res LoginResult, method, mfaMethod string) {
 	e := userEvent("auth.login.succeeded", res.User.ID, authlib.ClientInfoFromContext(ctx))
 	e.ActorKind, e.ActorID = actor.KindUser, res.User.ID
 	e.Metadata = map[string]any{"session_id": res.Session.ID}
-	if method != "" {
-		e.Metadata["mfa_method"] = method
+	if mfaMethod != "" {
+		e.Metadata["mfa_method"] = mfaMethod
+	}
+	if method != authdomain.MethodPassword && method != authdomain.MethodPasskey {
+		e.Metadata["method"] = method
 	}
 	s.audit(ctx, e)
 }
