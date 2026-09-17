@@ -336,7 +336,12 @@ func (s *Server) serveAuth(w http.ResponseWriter, r *http.Request) {
 		Name: CookieName, Value: r.URL.Query().Get("t"), Path: "/",
 		HttpOnly: true, SameSite: http.SameSiteStrictMode,
 	})
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	// next chooses the page to land on: a path of this portal only.
+	target := "/"
+	if next := r.URL.Query().Get("next"); strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") && !strings.Contains(next, "\\") {
+		target = next
+	}
+	http.Redirect(w, r, target, http.StatusSeeOther)
 }
 
 // logRefusal logs a refused request at most once per refusalLogEvery.
