@@ -82,7 +82,7 @@ type Deps struct {
 }
 ```
 
-A plain struct: no container, no lookup by type. A field is added only when two built-in modules need it. What sign-in exposes to other modules (the user record, `SignIn` for new sign-in methods) is decided with Phase 6, under one constraint: `gorbital.dev/gorbital` must not import `authhttp`.
+A plain struct: no container, no lookup by type. A field is added only when two built-in modules need it. What sign-in exposes to other modules (the user record, `SignIn` for new sign-in methods) is decided with Phase 6, under one constraint: `gorbital.dev/gorbital` must not import `authhttp`. Decided: no `Deps` field; a module that needs sign-in takes the `*authhttp.Authenticator` as an argument ([Phase 6 notes](#custom-sign-in-methods-how-a-module-reaches-sign-in)).
 
 ### 3. App layout
 
@@ -497,6 +497,118 @@ In apps on `gorbital.Main`: `modules.gen.go` missing or stale (fail; a build out
 ### Not built
 
 An sqlc-based repository variant (`--sqlc`): possible later, generating queries from the same migration, but it adds a tool to every app's workflow and a second template to keep golden. Relations between generated modules, soft delete and search stay out, as in ADR-0039.
+
+## Phase 6 implementation notes: sign-in options, hooks and custom methods (2026-09-17)
+
+Phase 5 moved sign-in into `authhttp` unchanged; Phase 6 turns the reasons v0.1 apps edited their generated auth module into options and hooks, and lets a module add a sign-in method. Items 64–70 are in the [roadmap](../v0.2-roadmap.md#phase-6-sign-in-options-hooks-and-custom-methods). Without options, `authhttp.New()` is Phase 5's sign-in: the contract tests against the frozen v0.1.0 document pass unchanged, and a v0.1 app, which doesn't link `authhttp`, sees nothing.
+
+### Public surface
+
+| Added | For |
+|---|---|
+| `New(opts ...Option)`, `Option` | Compatible with every call to `New()`; `apicheck` records the signature change of an unreleased function |
+| `MinPasswordLength`, `PasswordPolicy`, `RequireMFA`, `APIKeyMaxTTL`, `WithoutRegistration`, `Brand`, `RouteMiddleware` | Item 64 |
+| `BeforeLogin`, `AfterLogin`, `OnRegister`, `Refuse`, `Refusal`, `LoginAttempt`, `LoginEvent`, `NewAccount`, `User` | Item 65 |
+| `RegisterFields[T]` | Item 66 |
+| `Authenticator.SignIn`, `SignInRequest`, `SignedIn`, `Authenticator.User`, `ErrUserNotFound` | Item 67 |
+
+Invalid options (a minimum below 12, a nil hook, registration fields named `email`, `RegisterFields` with `WithoutRegistration`) are collected by `New` and returned by `CheckConfig`, which `gorbital.New` and `Main` call before anything connects (exit 2), and by `Setup`. `RequireMFA`'s roles can only be checked against the catalog, so `Setup` reports those. No option panics; `Refuse` does (below).
+
+### Options: kept and dropped
+
+Each option needed a reason a v0.1 app gave for editing its module. Deployment values stay in environment variables.
+
+| Option | Verdict |
+|---|---|
+| `Password(MinLength, PasswordPolicy)` | **Kept as `MinPasswordLength(n)` and `PasswordPolicy(check)`**: apps set `PasswordChecker` in v0.1. The minimum only rises (12–128): a lower one would weaken the default silently. Policies run through `auth.ValidatePassword`, before hashing or any lookup, for every request, so they can't reveal whether an address has an account |
+| `MFA(TOTP, RecoveryCodes)` | **Dropped; `RequireMFA(roles...)` instead.** Turning TOTP off in code while `AUTH_ENCRYPTION_KEYS` is set would lock out every enrolled account (`mfa_unavailable`); turning recovery codes off removes the only self-service recovery. v0.1 never allowed either. What apps needed, and Phase 5 recorded as a gap, is requiring a second factor for their own roles |
+| `Passkeys`, `Google`, `Apple`, `GitHub` | **Dropped.** Their values differ per environment (client IDs, RP ID, origins) and include secrets, which stay in `_FILE` variables; a code override would make `/ops/auth/providers` and `auth-providers`, which report `Config`, disagree with what runs; and a method is already off by leaving its variables unset. No v0.1 app edited provider construction |
+| `APIKeys(MaxTTL)` | **Kept as `APIKeyMaxTTL(d)`**: it narrows the range of the runtime setting `auth.api_key_max_ttl` to at most `d` and lowers its default to `d`, so operators can shorten it and never exceed the app's policy, and `/ops/settings` shows the real range |
+| `WithoutRegistration` | **Kept.** `POST /v1/auth/register` isn't registered (404, absent from the document, so clients generated from it don't offer sign-up); a first Google, Apple or GitHub sign-in of an unknown address is refused with the new code `registration_closed` (403, or `#error=registration_closed`), before anything is written. Operators' accounts, verification, reset, linking and custom methods keep working. There are no invitations in `authhttp` yet (organisations are Phase 7) |
+| `Prefix` | **Dropped.** Moving `/v1/auth` breaks the callback URLs registered at Google, Apple and GitHub (`/v1/auth/{provider}/callback`) and Apple's server notification URL, the stack's `CrossOrigin` exceptions for Apple's cross-site posts, the `auth_ip` rate limit on `/v1/auth/`, `SignInMethods`' callback details, the web and mobile client templates, and the frozen contract. An app that needs another path proxies it |
+| `Brand` | **Kept**: logo, support address and footer (`mail.Brand`), with the app's name and `APP_PUBLIC_URL` as defaults; the dev console's previews use it |
+| `Middleware` | **Kept as `RouteMiddleware`**, because `Authenticator.Middleware` already names the authentication middleware. It runs on the `/v1/auth/` operations only (a CAPTCHA, a country filter), after the stack and before sign-in's checks, through a route group; `/ops/auth/users` and `/ops/service-accounts` are unchanged |
+
+### Hooks
+
+| Hook | Runs | Its error |
+|---|---|---|
+| `BeforeLogin(ctx, tx, LoginAttempt)` | Every sign-in (password, passkey, Google, Apple, GitHub, `SignIn`) once every factor is verified, the second included, and after the ban check, in the transaction that creates the session; not for impersonation (development only) | `Refuse`: 403 with the code; anything else: 500. The transaction rolls back |
+| `AfterLogin(ctx, LoginEvent)` | After the session is committed and audited | Logged; a panic is recovered and logged; the response waits at most 5 seconds, then the context is cancelled |
+| `OnRegister(ctx, tx, NewAccount)` | In the transaction that inserts an account: registration (`password`), a first provider sign-in (`google`, `apple`, `github`, with the provider's name), `CreateUser` (`operator`) | Rolls the account back; the answer depends on the path (below) |
+
+**When `BeforeLogin` runs.** Three placements were weighed:
+
+| Placement | Verdict |
+|---|---|
+| Before credentials are checked | Rejected: the hook would run, and could answer, for unknown addresses and wrong passwords, becoming an enumeration and timing oracle, and it would see unauthenticated input |
+| After the first factor, before the challenge | Rejected: a refusal would tell someone holding only the password something about the account that v0.1 shows only after the second factor (bans are checked when the session is created), and a hook could be tempted to decide on half-verified sign-ins |
+| **After every factor and the ban check, in the session's transaction** | **Chosen**: the hook never sees a failed sign-in, so it adds no oracle and no timing difference; a refusal reaches only someone who passed every check; bans and second factors can't be skipped because both run first and the hook can only return an error; what it writes commits only with the session |
+
+The hook gets the `pgx.Tx`: sign-in holds a transaction open anyway, and a second connection from `Deps.DB` would contend with it (and hooks are built in `main.go`, before `Deps` exist). `AfterLogin` has no transaction; it runs after the commit.
+
+**What a client receives when `OnRegister` fails.** Email registration answers 202 whether or not the address has an account (AUTH-S-4), and hooks run only for new accounts, so any other answer would disclose that the address was free. The account is rolled back, the error logged, and the answer stays 202. Refusing bad input belongs to validation that runs for every request: `RegisterFields`' tags and `Resolve`, and `PasswordPolicy`. A first provider sign-in (identity proven by the provider) and an operator's creation (trusted) answer 403 with the refusal's code, or 500.
+
+**Refusal codes.** `Refuse(code, detail)` panics on a code that isn't lowercase snake_case of 3–64 characters or is built in: every problem code of the v0.1.0 Full apps (their example modules' aside, checked against the frozen `surface.json` files), the generic code of each status, sign-in's mappings and the codes added since. The item suggested validating at `New`; `New` can't see the codes a hook returns at run time without making apps declare them twice, so the check moved to `Refuse`, and the documented pattern is a package variable, which fails when the program starts, before `New`. A `*Refusal` built by hand is checked again when a hook returns it, and a reserved code answers 500, so a hook can never impersonate `invalid_credentials` or `account_banned`.
+
+**Tracing.** Spans `authhttp.BeforeLogin`, `authhttp.AfterLogin` and `authhttp.OnRegister`, with `gorbital.auth.method` and `gorbital.auth.refused`; a failing hook sets the span's error status. Hooks never receive passwords, tokens or codes: `LoginEvent` has the session's ID, not its token.
+
+**Audit.** A refusal records `auth.login.failed` with `reason: refused` and the code (and `provider`, `new_account` for a refused provider sign-up); `registration_closed` records `reason: registration_closed`. `auth.login.succeeded` gains `method` for sign-ins that aren't a password or a passkey (providers already had it). No new audit action.
+
+### Registration fields
+
+`RegisterFields[T](save)` registers `POST /v1/auth/register` with the body `delivery.RegisterBody[T]`: v0.1's email and password, `T` in a field hidden from JSON, a `TransformSchema` adding `T`'s properties and required fields to the body schema, and an `UnmarshalJSON` decoding the one object twice (into the base fields and into `T`). Huma validates the raw body against the merged schema before decoding and calls `Resolve` on `*T` (it finds resolvers in nested fields), so `T`'s rules run for every request. `additionalProperties` stays `true`, so v0.1 clients sending extra properties keep working. The schema is named after `T` (`RegisterBodyRegistrationFields`); only apps that opt in see it.
+
+| Option | Verdict |
+|---|---|
+| `reflect.StructOf` embedding `T` beside email and password | Rejected: `StructOf` can't create the unexported `_` field that carries `additionalProperties`, and panics on embedded types with methods unless they come first, which `Resolve` needs |
+| A `SchemaProvider` returning a hand-built schema | Rejected: an inline schema loses the component and Huma's generation of `T`'s tags |
+| `Fields any` on `NewAccount` with a type assertion in `OnRegister` | Rejected: untyped for the only hook that uses them |
+| **A generic body with `TransformSchema` and `UnmarshalJSON`, and a typed `save` after the `OnRegister` hooks** | **Chosen** |
+
+`FuzzRegisterBody` checks the decoding never panics and gives exactly what decoding the base fields and `T` separately gives, so fields can't change sign-in's values. Accounts created without registration (providers, operators) run `OnRegister` but not `save`; the guide and Shelfie chapter 6 show completing a profile later.
+
+### Custom sign-in methods: how a module reaches sign-in
+
+`SignIn` must return what `POST /v1/auth/login` returns (200 with a cookie or a token, or 202 with a challenge) and apply what it applies. `gorbital` must not import `authhttp`.
+
+| Option | Verdict |
+|---|---|
+| `Deps.Auth`, an interface in `gorbital` set when the authenticator implements it | Rejected: the result is an HTTP response with sign-in's schema (`LoginResponse`, cookies, transports), which would have to move into `gorbital` or be `any`; every module would receive sign-in whether it uses it or not; and `Deps` gains a field only when two built-in modules need it (§ 2) |
+| A lookup such as `authhttp.From(deps)` or a registry | Rejected: a service locator |
+| **The module takes the `*authhttp.Authenticator` as an argument (`phonelogin.Module(auth, sender)`), and `main.go` passes the value it gives to `WithAuth`** | **Chosen**: the dependency is explicit and typed, visible in `main.go`, and costs nothing to modules that don't sign anyone in. `SignIn` and `User` fail with a plain error before `Setup`, so a misuse surfaces in the first test |
+
+A module whose `Module` takes arguments isn't listed by `orb gen modules` (it recognises `func Module() gorbital.Module`), so `main.go` adds it on its own line; Phase 8's `orb doctor` must not report such a folder as missing from `modules.gen.go`. `Deps.Auth` in item 67 is replaced by this.
+
+`SignIn(ctx, SignInRequest{UserID, Method, Transport})`: an unknown or deleted account answers 401 `invalid_credentials`; then the account's `auth_login` and `auth_login_address` limits (429), an unverified address (403 `email_not_verified`, as login refuses it), two-factor authentication (202), the ban (403), `BeforeLogin`, the session, `auth.login.succeeded` with `method`, `AfterLogin`. The method name is lowercase snake_case and can't be a built-in method's (`password`, `passkey`, `google`, …), so audit events can't be forged to look like another method. v0.1 has no new-device emails, so there is nothing more to apply. `SignIn` verifies nothing about the method: its documentation, the guide and Shelfie's chapter 7 list what a module must (a credential bound to the account, single-use short-lived codes stored hashed, attempt limits per credential and per client, the same answer whether an account exists, the user ID from the verified credential and never from the request).
+
+**The method through a second factor.** `LoginMFA` must know how a sign-in started, for `BeforeLogin` (an app refusing phone sign-in for administrators must not be bypassed by an administrator with two-factor authentication) and for the audit event. v0.1's `auth_mfa_challenges` has no column for it, and a migration would break Phase 5's promise that a v0.1 database migrates as a no-op and would need the column before the code that reads it. Instead the challenge token of a sign-in that didn't start with a password is `<random>.<method>`, and the stored hash covers the whole string: changing or removing the method makes the challenge unknown (`invalid_mfa`, tested). Password challenges keep v0.1's token. Tokens stay opaque to clients and within the 256-character limit.
+
+### Threat model: Phase 6
+
+| Threat | Mitigation | Proven by |
+|---|---|---|
+| **A hook becomes an enumeration or timing oracle** | `BeforeLogin` runs only after every factor; unknown addresses, wrong passwords, unverified addresses, failed second factors and bans never reach it. `OnRegister` errors don't change registration's 202. `RegisterFields` validation and `PasswordPolicy` run for every request, before any lookup. Registration's response padding (`auth.DefaultMinResponseTime`, 300 ms) still covers the hooks, as long as they are fast (documented) | `TestBeforeLogin` (responses for an unknown address and a wrong password equal an app without the hook; the hook is never called), `TestOnRegister` (a failing hook answers as for an existing address), `TestRegisterFields` (422 for new and existing addresses) |
+| **A hook skips a ban or the second factor** | Both are checked before `BeforeLogin`; hooks can only return an error, never create a session or change the attempt | `TestBeforeLogin` (banned: `account_banned`, hook not called), `TestHooksCantSkipTheSecondFactor`, `TestSignInCustomMethod` (202 then `login/mfa`) |
+| **A hook fails open** | Any error that isn't a refusal fails the sign-in with 500; the cause is logged, never sent | `TestBeforeLogin` |
+| **A refusal impersonates a built-in code** | `Refuse` panics on reserved codes; a hand-built `Refusal` with one answers 500 | `TestRefuse`, `TestRefusalCodesExcludeV010Codes`, `TestBeforeLogin` |
+| **An account is half created** | `OnRegister` and `RegisterFields` run in the account's transaction for every creation path; an error rolls back the account, the app's rows, the audit event and the verification email | `TestOnRegister` (registration, operator, Google), `TestRegisterFields` |
+| **`SignIn` signs in someone the module didn't verify** | By design `SignIn` trusts the caller; its contract, the guide and the example state what to verify; the method is audited by name; login's limits, verified address, bans and second factor still apply | `TestSignInCustomMethod`; Shelfie's `TestPhoneSignIn`, `TestPhoneCodesAreBounded` |
+| **A second factor is finished under another method's name** | The method is inside the hashed challenge token | `TestSignInCustomMethod` (forged and stripped suffixes: `invalid_mfa`), `TestChallengeToken` |
+| **Registration fields override sign-in's** | `T` can't name `email` or `password` (any case); decoding is checked against separate decoding | `TestInvalidOptions`, `FuzzRegisterBody` |
+| **Pre-registration of someone's address plants profile data** | Hooks don't run again when an unverified address registers again, so the first registrant's fields stay; v0.1 already removes their password and methods when the owner proves the address. Documented: treat registration fields as unverified input the owner can edit, never for authorization | The guide; residual risk |
+| **A slow hook exhausts connections or delays sign-in** | `BeforeLogin` holds the session's transaction: documented to stay a few queries, bounded by `APP_REQUEST_TIMEOUT`; `AfterLogin` bounded at 5 s (a hook that ignores its context keeps running in its goroutine, documented) | `TestAfterLogin` |
+| **Secrets reach app code or traces** | Hook types carry no password, token or code; spans carry the method and the refusal code only | Type definitions; `TestHooksCantSkipTheSecondFactor` checks the event doesn't contain the token |
+| **Options weaken defaults** | The password minimum only rises; the API key cap only narrows; TOTP and recovery codes can't be turned off; `RequireMFA` can't target `user` | `TestInvalidOptions`, `TestPasswordOptions`, `TestAPIKeyMaxTTL`, `TestRequireMFA` |
+| **Sign-up without registration** | `WithoutRegistration` removes the route and refuses provider sign-ups before writing | `TestWithoutRegistration` (the native and web flows) |
+| **Route middleware reaches operators' APIs** | `RouteMiddleware` is registered on a group for `/v1/auth/` paths only | `TestBrandAndRouteMiddleware` |
+
+### Known gaps
+
+- The documentation strings of the password fields still say "at least 12 characters" with `MinPasswordLength`; the 422 detail gives the real minimum.
+- Service accounts aren't user accounts: `OnRegister` doesn't run for them.
+- `AfterLogin` hooks that ignore their context outlive the response.
+- `orb doctor` (Phase 8) needs to know modules whose `Module` takes arguments.
 
 ## Why
 

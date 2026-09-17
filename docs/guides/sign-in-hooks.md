@@ -1,6 +1,6 @@
 # Sign-in hooks
 
-How an app runs its own code when someone signs in or an account is created, without owning sign-in: refuse a suspended reader, record a login, create a profile and a default workspace. Hooks are [options](configuring-sign-in.md) of `authhttp.New` ([Methods](../methods/gorbital-authhttp.md#BeforeLogin)); the decisions are in [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md), Phase 6 of the [v0.2 roadmap](../v0.2-roadmap.md).
+How an app runs its own code when someone signs in or an account is created, without owning sign-in: refuse a suspended reader, record a login, create a profile and a default workspace. Hooks are [options](configuring-sign-in.md) of `authhttp.New` ([Methods](../methods/gorbital-authhttp.md#BeforeLogin)); the decisions are in [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#phase-6-implementation-notes-sign-in-options-hooks-and-custom-methods-2026-09-17), Phase 6 of the [v0.2 roadmap](../v0.2-roadmap.md).
 
 | Hook | Runs | Can refuse | Transaction |
 |---|---|---|---|

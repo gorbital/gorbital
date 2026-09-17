@@ -79,4 +79,4 @@ The address is the client's after `APP_TRUSTED_PROXIES`: behind a load balancer,
 
 ## Next
 
-6. Configuring sign-in (Phase 6): options and hooks.
+[6. Accounts](06-accounts.md): registration fields, a shelf for every new reader, and suspended readers, with sign-in's options and hooks.

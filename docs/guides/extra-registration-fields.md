@@ -1,6 +1,6 @@
 # Extra registration fields
 
-How an app asks for more than an email address and a password when people register, such as a display name or a country, without owning sign-in. The option is [`authhttp.RegisterFields`](../methods/gorbital-authhttp.md#RegisterFields); the decisions are in [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md), Phase 6 of the [v0.2 roadmap](../v0.2-roadmap.md).
+How an app asks for more than an email address and a password when people register, such as a display name or a country, without owning sign-in. The option is [`authhttp.RegisterFields`](../methods/gorbital-authhttp.md#RegisterFields); the decisions are in [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#phase-6-implementation-notes-sign-in-options-hooks-and-custom-methods-2026-09-17), Phase 6 of the [v0.2 roadmap](../v0.2-roadmap.md).
 
 ## The fields
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"testing"
@@ -171,6 +172,16 @@ func TestWithoutRegistration(t *testing.T) {
 	if r := google("g-new", "new@gmail.com"); r.code != http.StatusForbidden || r.json["code"] != "registration_closed" || a.countUsers(t, "new@gmail.com") != 0 {
 		t.Errorf("first Google sign-in = %d %s", r.code, r.body)
 	}
+	// A web sign-in gets the code in the redirect's fragment.
+	start := do(t, h, "GET", "/v1/auth/google/start?return_to="+url.QueryEscape("https://app.example.com/after"), "")
+	location, _ := url.Parse(start.header.Get("Location"))
+	q := location.Query()
+	code := srv.Code(socialtest.Claims{Subject: "g-web", Audience: "web-client", Email: "web@gmail.com", EmailVerified: true, Nonce: q.Get("nonce")}, "")
+	callback := do(t, h, "GET", "/v1/auth/google/callback?code="+url.QueryEscape(code)+"&state="+url.QueryEscape(q.Get("state")), "", "Cookie", "__Host-oauth="+cookieValue(start, "__Host-oauth"))
+	if callback.code != http.StatusSeeOther || callback.header.Get("Location") != "https://app.example.com/after#error=registration_closed" || cookieValue(callback, "__Host-session") != "" {
+		t.Errorf("web Google sign-up = %d %q", callback.code, callback.header.Get("Location"))
+	}
+
 	// An account an operator created signs in, with its password or Google.
 	a.verifiedUser(t, "ada@gmail.com")
 	if r := do(t, h, "POST", "/v1/auth/login", login("ada@gmail.com", testPassword)); r.code != http.StatusOK {

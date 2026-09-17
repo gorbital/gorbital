@@ -6,9 +6,12 @@ those pages is included from this directory.
 
 ```text
 cmd/api/main.go                 gorbital.Main with the app's modules and migrations
+cmd/api/signin.go               sign-in's options and hooks, and the SMS sender
 db/migrations/                  the app's own migrations
 internal/modules/modules.gen.go the module list (orb gen modules; don't edit)
 internal/modules/books/         a module: module.go, domain/, usecase/, repository/, delivery/
+internal/modules/profiles/      readers' profiles, filled at registration (chapter 6)
+internal/modules/phonelogin/    phone-code sign-in through authhttp's SignIn (chapter 7)
 api/                            the OpenAPI document, a Postman collection and llms.txt
 ```
 
@@ -28,8 +31,9 @@ go run ./cmd/api migrate
 go run ./cmd/api
 ```
 
-Sign-in arrives in a later chapter: until then, every route of the books
-module answers 401, and the tests sign in with gorbitaltest.
+Readers register with `POST /v1/auth/register`, which also takes a
+`display_name` (chapter 6). In development, phone sign-in codes are written
+to the log instead of texted (chapter 7).
 
 ## Test it
 

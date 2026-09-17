@@ -282,6 +282,8 @@
             { "title": "4. Tests", "slug": "examples/shelfie/tests", "source": "docs/examples/shelfie/04-tests.md" },
             { "title": "5. Operations", "slug": "examples/shelfie/operations", "source": "docs/examples/shelfie/05-operations.md" },
             { "title": "9. Generators", "slug": "examples/shelfie/generators", "source": "docs/examples/shelfie/09-generators.md" }
+            { "title": "6. Accounts", "slug": "examples/shelfie/accounts", "source": "docs/examples/shelfie/06-accounts.md" },
+            { "title": "7. Phone-code sign-in", "slug": "examples/shelfie/phone-code-sign-in", "source": "docs/examples/shelfie/07-phone-code-sign-in.md" }
           ]
         },
         {

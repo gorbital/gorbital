@@ -1,6 +1,6 @@
 # Adding a sign-in method
 
-How a module of the app adds a way to sign in that sign-in doesn't have, such as a code sent to a phone, and gets the same sessions, second factors, bans, hooks, rate limits and audit events as a password. The methods are [`Authenticator.SignIn`](../methods/gorbital-authhttp.md#Authenticator.SignIn) and [`Authenticator.User`](../methods/gorbital-authhttp.md#Authenticator.User); the decisions are in [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md), Phase 6 of the [v0.2 roadmap](../v0.2-roadmap.md).
+How a module of the app adds a way to sign in that sign-in doesn't have, such as a code sent to a phone, and gets the same sessions, second factors, bans, hooks, rate limits and audit events as a password. The methods are [`Authenticator.SignIn`](../methods/gorbital-authhttp.md#Authenticator.SignIn) and [`Authenticator.User`](../methods/gorbital-authhttp.md#Authenticator.User); the decisions are in [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#phase-6-implementation-notes-sign-in-options-hooks-and-custom-methods-2026-09-17), Phase 6 of the [v0.2 roadmap](../v0.2-roadmap.md).
 
 Before writing one, check sign-in doesn't already do what you need: passkeys, Google, Apple and GitHub are built in ([authentication](authentication.md)). A method of your own is code you must get right; this guide lists what that takes.
 
