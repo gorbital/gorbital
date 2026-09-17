@@ -23,7 +23,7 @@ Shelfie is a reading-tracker API for a web and a mobile app: people keep a shelf
 | 8. Book clubs | Organisations, `guard.OrgMember`, row-level security | Phase 7 |
 | [9. Generators](shelfie/09-generators.md) | `orb gen module`, `orb gen middleware`, `orb routes`, `orb doctor` | Phase 8 |
 | 10. Hardening and partners | Timeouts, `/ops` IP allow list, verifying partner webhooks | Phase 10 |
-| 11. Deploy | Production configuration, migrations in CI, health checks | Phase 11 |
+| 11. Deploy | Production configuration, migrations in CI, health checks | Phase 12 |
 
 Chapters are numbered in reading order, not in the order they're written: chapters 2 and 3 follow once sign-in can be shown end to end.
 

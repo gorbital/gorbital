@@ -26,6 +26,7 @@ The link holds this run's portal token. Opening it once sets a cookie in your br
 | `--portal-port 3110` | Listen on another port |
 | `DEV_PORTAL_PORT=3110` in `.env` | The same, for good |
 | `DEV_PORTAL_TOKEN` in the shell running `orb dev` | Use that token instead of a random one, for a tool that needs the same token across runs; it must be 32 to 512 visible ASCII characters and is never written to `.env` |
+| `--tunnel quick`, `--tunnel named` (`--tunnel-hostname`) | Also start a [tunnel](../dev-portal/tunnel.md) to the app with your cloudflared |
 
 A taken port stops `orb dev` before anything starts, naming the port and the ways to move it.
 
@@ -63,7 +64,7 @@ curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:3100/_portal/app/_dev/ro
 |---|---|
 | `GET /_portal/api/status` | `portal` (orb version, whether a UI is bundled, start time), `project` (name, module, preset, tenancy, features, mail provider, directory, whether it has a database), `app` (below), `links` (`api`, `docs`, and `mail`, `console`, `grafana` when they apply), `generators` (names) |
 | `GET /_portal/api/output?limit=200` | The most recent lines the app and `orb dev` wrote, oldest first: `{"time", "stream": "app"\|"orb", "text"}`. `orb dev` keeps 2,000 |
-| `GET /_portal/api/events` | Server-Sent Events: a `state` event first, then the latest `schema` status (below), then `state`, `output` and `schema` events as they happen, `: keep-alive` every 15 seconds, `dropped` with a count when the client fell behind, and a final `end` after 30 minutes or when `orb dev` stops. At most 8 streams at once |
+| `GET /_portal/api/events` | Server-Sent Events: a `state` event first, then the latest `schema` status (below) and, while a tunnel runs, its `tunnel` status, then `state`, `output`, `schema` and `tunnel` events as they happen, `: keep-alive` every 15 seconds, `dropped` with a count when the client fell behind, and a final `end` after 30 minutes or when `orb dev` stops. At most 8 streams at once |
 | `POST /_portal/api/app/restart` | Rebuilds and restarts the app; 202 with the status. `stop` ends the process and leaves it stopped until `start` or a file change; `start` starts a stopped app without rebuilding; `migrate` applies pending migrations (`go run ./cmd/migrate`) without a restart, 409 in an app without a database. 409 while an earlier request is still being handled |
 | `POST /_portal/api/generators/{job\|resource\|migration}/plan` | Body `{"input": {…}}`. Answers the plan: every file the generator would write, with its content (and the current content of files it changes), the summary `orb gen` shows, and the next steps. Nothing is written |
 | `POST /_portal/api/generators/{name}/apply` | The same body, plus `"allow_dirty": true` to skip the clean-git check. Plans again and writes; 409 `plan_conflict` if a file changed since the plan |
@@ -92,6 +93,19 @@ The app's status:
 `state` is `preparing` (services, migrations, seed data), `building`, `running` or `stopped`; `problem` holds the last build or migration failure until the next success (the previous version keeps running meanwhile, as it does in the terminal); `console` says whether the app serves `/_dev/`.
 
 Generator inputs are the flags of `orb gen job`, `orb gen resource` and `orb gen migration` with underscores: `{"name": "CleanupSessions", "schedule": "30 2 * * *", "timeout": "5m", "max_attempts": 8, "queue": "maintenance"}`, `{"name": "Project", "fields": ["name:string:unique", "status:enum(active,archived)"], "scope": "user"}`, `{"name": "add_customer_phone"}`. Defaults and validation are the CLI's; unknown fields are refused. `orb gen … --dry-run` is the same plan printed.
+
+### Tunnel
+
+`orb dev --tunnel quick|named`, or the Tunnel screen, puts the app (only the app) on a public HTTPS address with your own `cloudflared` ([Tunnel](../dev-portal/tunnel.md), [ADR-0086](../adr/0086-dev-portal-tunnel.md)). Development only; the named tunnel's token (`CLOUDFLARE_TUNNEL_TOKEN` or `CLOUDFLARE_TUNNEL_TOKEN_FILE`) is never part of an answer.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /_portal/api/tunnel` | `status` (`state`: `off`, `starting`, `connected`, `stopping` or `failed`; `mode`, `public_url`, `hostname`, `stable`, `target`, `pid`, `problem`, `restarts`, the last `check`, cloudflared's last 100 lines as `log` with secrets redacted), `cloudflared` (`found`, `path`, `version`), `install` steps per OS, the named tunnel's `hostname` and `hostname_source`, `token_source` or `token_problem`, `app_env`, `allowed`, `target` |
+| `POST /_portal/api/tunnel/start` | `{"mode": "quick"\|"named", "hostname": "dev-api.example.com"}`; 202 with the same object. 422 `cloudflared_missing`, `not_development`, `tunnel_token_missing`, `tunnel_token_invalid`, `tunnel_hostname_missing`, `tunnel_hostname_invalid`, `no_app_address`; 400 `invalid_tunnel_mode` |
+| `POST /_portal/api/tunnel/stop`, `restart` | 202 with the same object; stopping waits for cloudflared's process group to exit |
+| `POST /_portal/api/tunnel/check` | `{"url", "ok", "status", "detail", "checked_at", "latency_ms"}` for `GET <public URL>/livez` compared with the app's own; 409 `tunnel_not_connected` |
+| `GET /_portal/api/tunnel/setup` | `changes` (`key`, `current`, `proposed`, `reason`, `optional`) and `set` (the required ones, as `PUT env` takes them), `callbacks` (`provider`, `label`, `url`, `method`, `path`, `where`, `configured`), `routes_known`, `warnings`; 409 without a public URL |
+| `PUT /_portal/api/tunnel/settings` | `{"hostname"}`: saves a named tunnel's hostname in `.orb/portal/tunnel.json` |
 
 ### Schema changes from code
 
@@ -136,6 +150,7 @@ When a file changes and won't be applied, `orb dev` also says so in the terminal
 | Schema | The tables and their foreign keys as a diagram, by schema; drag to arrange, export as PNG, SVG or Mermaid; click through to the Table Editor | `/_portal/api/db/tables`, `foreign-keys` |
 | Objects | Functions, triggers, enums, extensions, indexes and views, each with create and drop as migrations | `/_portal/api/db/functions`, `enums`, `extensions`, `views`, `tables/{schema}/{table}`, `ddl/…` |
 | Migrations | Every migration file with its SQL and state; apply pending, roll back, redo; create an empty one; the live status banner (pending, out of order, edited, needs restart) refreshed by every `schema` event | `/_portal/api/db/migrations`, `/_portal/api/db/schema-status`, `/_portal/api/app/migrate…`, `/_portal/api/generators/migration/…` |
+| Tunnel | cloudflared's state and install steps, quick or named, start, stop and restart, the public URL and its reachability, cloudflared's output, the `.env` changes for the address applied through the env editor, the URLs to register with Google, Apple, GitHub and Resend ([Tunnel](../dev-portal/tunnel.md)) | `/_portal/api/tunnel…`, the `tunnel` event, `PUT /_portal/api/env` |
 | Authentication | Accounts with search and paging; an account's sessions, passkeys, linked providers, second factors and pending codes (with the code from the inbox); create, verify, ban, delete, roles, end sessions, reset MFA; act as a user in the route tester; sign-in providers; rate limiters with reset | `/ops/auth/users…`, `/ops/auth/providers`, `/ops/auth/rate-limits`, `/_dev/mail` |
 | Table Editor | Every table of every schema, its rows in a grid with filters, sorts and pages; insert, edit, duplicate and delete rows; new tables and columns as migrations shown before they are written; the table's definition; CSV import and export | `/_portal/api/db/…` |
 

@@ -41,6 +41,27 @@ Sign-in methods
 
 Files the backend serves for native apps, generated from the variables (nothing to upload): `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json`. They must be reachable on `WEBAUTHN_RP_ID`'s domain; when a separate web frontend serves that domain, it proxies the two paths to the API.
 
+## Testing on a real domain
+
+`localhost` is enough for email, authenticator apps and passkeys in a browser on your machine. Google, Apple and GitHub sign-in from a phone, Apple's web sign-in (which refuses `http` return URLs), passkeys on a real domain and provider webhooks need the app on a public HTTPS address. In development, `orb dev` gives it one with a [tunnel](../dev-portal/tunnel.md) ([ADR-0086](../adr/0086-dev-portal-tunnel.md)):
+
+1. Create a **named** tunnel in the Cloudflare dashboard with a hostname such as `dev-api.example.com` pointing at the app's port, and put its token in `.env` as `CLOUDFLARE_TUNNEL_TOKEN`. A quick tunnel (`*.trycloudflare.com`) works for webhooks and a phone, but its URL changes on every run, so callbacks registered with it and passkeys created on it break the next day.
+2. Start it: the Dev Portal's **Tunnel** screen, or `orb dev --tunnel named --tunnel-hostname dev-api.example.com`.
+3. Apply the `.env` changes the screen proposes: `APP_PUBLIC_URL=https://dev-api.example.com`, `WEBAUTHN_RP_ID=dev-api.example.com`, `WEBAUTHN_ORIGINS=https://dev-api.example.com`, `AUTH_DEFAULT_RETURN_TO` when it pointed at `localhost`, and `APP_TRUSTED_PROXIES` for loopback so rate limits see the visitor's address. `orb dev` restarts the app.
+4. Register the addresses the screen lists for that hostname (use a separate OAuth client or app for development, so production's settings stay untouched):
+
+| Provider | Register | Value |
+|---|---|---|
+| Google | Web application client → Authorized redirect URIs | `https://dev-api.example.com/v1/auth/google/callback` |
+| Apple | Services ID → Sign in with Apple → Domains and Subdomains; Return URLs | `dev-api.example.com`; `https://dev-api.example.com/v1/auth/apple/callback` |
+| Apple | App ID → Server-to-Server Notification Endpoint | `https://dev-api.example.com/v1/auth/apple/notifications` |
+| GitHub | An OAuth App for this hostname → Authorization callback URL | `https://dev-api.example.com/v1/auth/github/callback` |
+| Resend (email events) | Webhooks → Add endpoint (`email.bounced`, `email.complained`); secret in `RESEND_WEBHOOK_SECRET` | `https://dev-api.example.com/v1/webhooks/resend` |
+
+5. Open `https://dev-api.example.com/docs` on the phone or laptop and sign in.
+
+While the tunnel runs, the app is reachable by anyone with the address: its sign-in and public routes included. The dev console and the development operator refuse tunnelled requests; stop the tunnel when you're done. Passkeys created on the tunnel's hostname work only there; set `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGINS` back to empty to use `localhost` again.
+
 ## Later stages
 
 The generated `AUTH_PROVIDERS.md` ends with checklists for when the web frontend, iOS app and Android app are built: which endpoints to call, the Associated Domains entitlement, Credential Manager, Sign in with Apple and Google SDK setup, and where to store tokens. The backend already provides everything those clients need.

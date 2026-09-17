@@ -151,6 +151,9 @@ The sender (`mail.from_name`, `mail.from_email`, `mail.reply_to`) is a runtime s
 | `DEV_CONSOLE_TOKEN` | No | empty | set by `orb dev` | Secret. Turns on the development-only [dev console APIs](dev-console.md) under `/_dev/` when `APP_ENV` is `development`; requests need it as `Authorization: Bearer`, a localhost `Host` and a loopback connection. 32 to 512 visible ASCII characters (`DEV_CONSOLE_TOKEN must be 32 to 512 visible ASCII characters`). Set in production, the app refuses to start (`DEV_CONSOLE_TOKEN is for local development only`). `orb dev` generates a new one per run and never writes it to a file: leave it empty in `.env` ([ADR-0065](../adr/0065-local-dev-console-apis.md)). All presets |
 | `DEV_PORTAL_TOKEN` | No | random per run | set by `orb dev` | Secret, `orb dev`'s own (not the app's): the Dev Portal's session token, in the link it prints; the portal sets it as the `orb_portal` cookie ([Dev Portal](dev-portal.md)) |
 | `DEV_PORTAL_PORT` | No | `3100` | `3101` | `orb dev`'s own: the port the Dev Portal listens on, at 127.0.0.1 (`orb dev --portal-port` overrides it) |
+| `CLOUDFLARE_TUNNEL_TOKEN` | For a named tunnel | empty | `eyJhIjoi…` | **Secret**, `orb dev`'s own: the token of your Cloudflare tunnel, passed to cloudflared in its environment and never to the app ([Tunnel](../dev-portal/tunnel.md)). `CLOUDFLARE_TUNNEL_TOKEN_FILE` names a file holding it instead (not both) |
+| `ORB_TUNNEL_HOSTNAME` | No | empty | `dev-api.example.com` | `orb dev`'s own: the named tunnel's public hostname (`--tunnel-hostname` or the Tunnel screen otherwise) |
+| `ORB_CLOUDFLARED` | No | `cloudflared` on `PATH` | `/opt/homebrew/bin/cloudflared` | `orb dev`'s own: the cloudflared program to run for tunnels |
 
 ## Compose ports
 

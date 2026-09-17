@@ -42,13 +42,14 @@ Every request must pass three checks, in this order:
 |---|---|
 | The `Host` header is exactly `localhost`, `127.0.0.1` or `[::1]` with the port the app listens on | 403 `forbidden` |
 | The connection comes from a loopback address (so an app listening on `0.0.0.0` doesn't serve the console to your network) | 403 `forbidden` |
+| The request carries no forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host`, `X-Real-IP`, `True-Client-IP`, `CF-Connecting-IP`, `CF-Ray`, `CDN-Loop`): a tunnel or proxy on your machine connects from loopback, so this is what keeps [`orb dev --tunnel`](../dev-portal/tunnel.md) from opening the console to the internet ([ADR-0086](../adr/0086-dev-portal-tunnel.md)) | 403 `forbidden` |
 | `Authorization: Bearer <token>` holds the token | 401 `unauthorized` |
 
 Responses are JSON (errors are problem+json like the rest of the API), say `Cache-Control: no-store`, and never carry CORS headers. Only GET (and HEAD) is accepted. The token is never accepted in a query string or cookie.
 
 ### Acting on `/ops/` with the token
 
-In Full apps the token also opens the [operations APIs](ops-api.md) in development ([ADR-0066](../adr/0066-dev-portal.md)): a request under `/ops/` with `Authorization: Bearer <token>` that passes the same Host and loopback checks runs as the system actor `dev-console` with the platform administrator's permissions, and audit events record it that way. The Dev Portal uses this through `orb dev`'s proxy; scripts can too:
+In Full apps the token also opens the [operations APIs](ops-api.md) in development ([ADR-0066](../adr/0066-dev-portal.md)): a request under `/ops/` with `Authorization: Bearer <token>` that passes the same Host, loopback and forwarding checks runs as the system actor `dev-console` with the platform administrator's permissions, and audit events record it that way. The Dev Portal uses this through `orb dev`'s proxy; scripts can too:
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/jobs/definitions
@@ -162,7 +163,7 @@ A stream sends each new item (`request` or `log`), a `: keep-alive` comment ever
 | Symptom | Cause |
 |---|---|
 | 404 `no route matches GET /_dev/…` | The console is off: run through `orb dev`, or set `DEV_CONSOLE_TOKEN` with `APP_ENV=development`. Apps created with a development build before the dev console need the upgrade ([upgrade notes](upgrade-notes.md#before-v010-development-builds)) |
-| 403 `forbidden` | Use `http://127.0.0.1:<port>`, `http://localhost:<port>` or `http://[::1]:<port>`, from the same machine. Proxies must send one of those as `Host` |
+| 403 `forbidden` | Use `http://127.0.0.1:<port>`, `http://localhost:<port>` or `http://[::1]:<port>`, from the same machine. Proxies must send one of those as `Host` and add no forwarding headers (`X-Forwarded-For` and the like); requests through a tunnel are always refused |
 | 401 `unauthorized` | The token is missing or from an earlier `orb dev` run |
 | 503 on `/_dev/mail` | Mailpit isn't running, or `MAILPIT_WEB_PORT` doesn't match `compose.yaml`; with `MAIL_DELIVERY=devmail` the endpoint isn't served at all (the inbox is the portal's) |
 | Stream shows nothing through a proxy | The proxy buffers the response; `X-Accel-Buffering: no` is set for nginx |

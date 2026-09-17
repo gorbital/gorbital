@@ -40,7 +40,7 @@ The sidebar has four sections.
 |---|---|
 | Overview | [Overview](overview.md): the app's state, its output as it happens, restart, stop and start |
 | Inspect | [Routes](routes.md), [Requests and Logs](requests-and-logs.md), [Modules and Audit](modules-and-audit.md), [Observability](observability.md) |
-| Bench | [Jobs](jobs.md), [Mail](mail.md), [Settings and flags](settings-and-flags.md), [Environment](environment.md), [Authentication](authentication.md), [Database](database.md), [Storage](storage.md), [Git](git.md), [Generators](generators.md), [Project settings](project-settings.md) |
+| Bench | [Jobs](jobs.md), [Mail](mail.md), [Settings and flags](settings-and-flags.md), [Environment](environment.md), [Authentication](authentication.md), [Tunnel](tunnel.md), [Database](database.md), [Storage](storage.md), [Git](git.md), [Generators](generators.md), [Project settings](project-settings.md) |
 | Database | [Table Editor](table-editor.md), [SQL Editor](sql-editor.md), [Schema, Objects and Migrations](schema-objects-migrations.md) |
 
 ⌘K opens a palette that jumps to a page, to one of the app's routes, or to an app action. The sidebar badges are live: the route count, the captured mail, the pending migrations.

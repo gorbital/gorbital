@@ -650,8 +650,12 @@ It also serves the [Dev Portal](dev-portal.md) at http://127.0.0.1:3100 and open
 | `--portal-port` | `DEV_PORTAL_PORT` from `.env` or the environment, else 3100 |
 | `--no-portal` | serve the Dev Portal |
 | `--no-open` | open the Dev Portal in a browser (never in CI or when output isn't a terminal) |
+| `--tunnel quick\|named` | no tunnel. Also exposes the app, and only the app, on a public HTTPS address with your own `cloudflared` ([Tunnel](../dev-portal/tunnel.md), [ADR-0086](../adr/0086-dev-portal-tunnel.md)): `quick` gets a random `trycloudflare.com` URL, new on every run (webhooks, phones); `named` runs your tunnel from the Cloudflare dashboard with `CLOUDFLARE_TUNNEL_TOKEN` (or `CLOUDFLARE_TUNNEL_TOKEN_FILE`) from `.env` (sign-in callbacks, passkeys). Development only. Stopped with `orb dev`; a quick tunnel follows the app to a new port |
+| `--tunnel-hostname` | `ORB_TUNNEL_HOSTNAME`, else the hostname saved from the Dev Portal. The named tunnel's public hostname, such as `dev-api.example.com`; only with `--tunnel named` |
 
 Without Docker, a Full app stops with a message: install and start Docker, or point `DATABASE_URL` at an existing PostgreSQL and use `--no-services`. Without the CLI, the same steps are `cp .env.example .env` (and a key in `AUTH_ENCRYPTION_KEYS`), `docker compose up -d --wait`, `set -a; . ./.env; set +a` to export `.env`, `go run ./cmd/migrate`, `go run ./cmd/seed` and `go run ./cmd/api`.
+
+With `--tunnel`, `orb dev` prints the tunnel's lines as they happen (`orb: tunnel https://… → http://127.0.0.1:8080`, `connected`, `reachable`, cloudflared's errors, `tunnel stopped`); it has no JSON output, and `GET /_portal/api/tunnel` is the machine-readable status. It exits with status 2 for a wrong `--tunnel` value or `--tunnel-hostname` without `--tunnel named`, and 1 when the tunnel can't start: cloudflared isn't installed (the install steps for your system follow), `APP_ENV` isn't development, or the named tunnel's token or hostname is missing or invalid.
 
 The port check listens on `127.0.0.1` only. On macOS, a program listening on all addresses (such as another Docker project's PostgreSQL on `0.0.0.0:5432`) isn't detected, and `docker compose up` then fails with `Bind for 0.0.0.0:5432 failed: port is already allocated`; move the port the same way.
 
