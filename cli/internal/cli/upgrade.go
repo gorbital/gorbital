@@ -415,7 +415,7 @@ func releaseCheckout(ctx context.Context, appDir, local string) (string, error) 
 func checkoutOutsideApp(ctx context.Context, appDir, checkout string) error {
 	appTop, err := gitOutput(ctx, appDir, "rev-parse", "--show-toplevel")
 	if err != nil {
-		return nil // not in git: orb upgrade refuses such apps before this
+		return nil //nolint:nilerr // not in git: orb upgrade refuses such apps before this
 	}
 	appTop, err = filepath.EvalSymlinks(appTop)
 	if err != nil {
