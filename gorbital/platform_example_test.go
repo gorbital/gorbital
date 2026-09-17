@@ -91,6 +91,39 @@ func ExamplePlatform_RateLimiters() {
 	_ = list
 }
 
+func ExamplePlatform_SignInMethods() {
+	// GET /ops/auth/providers lists what the authenticator reports, and for
+	// each method that is off, what turns it on.
+	report := func(p *gorbital.Platform) {
+		for _, m := range p.SignInMethods() {
+			if m.Enabled {
+				fmt.Printf("on: %s %s\n", m.Name, m.Detail)
+			} else {
+				fmt.Printf("off: %s, set %v (%s)\n", m.Name, m.Missing, m.Guide)
+			}
+		}
+	}
+	_ = report
+}
+
+// An authenticator reports its sign-in methods with a SignInMethods method,
+// which Platform.SignInMethods calls with the app's configuration.
+func ExampleSignInMethod() {
+	methods := func(cfg gorbital.Config) []gorbital.SignInMethod {
+		if cfg.Auth.GitHubClientID != "" {
+			return []gorbital.SignInMethod{{Key: "github", Name: "GitHub sign-in", Enabled: true, Detail: "client " + cfg.Auth.GitHubClientID}}
+		}
+		return []gorbital.SignInMethod{{
+			Key: "github", Name: "GitHub sign-in",
+			Missing: []string{"GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"}, Guide: "AUTH_PROVIDERS.md#github-sign-in",
+		}}
+	}
+	for _, m := range methods(gorbital.Config{}) {
+		fmt.Println(m.Key, m.Enabled, m.Missing)
+	}
+	// Output: github false [GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET]
+}
+
 func ExamplePlatform_Retention() {
 	// GET /ops/retention reads each kind of data's setting.
 	report := func(ctx context.Context, p *gorbital.Platform) {

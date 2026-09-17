@@ -92,6 +92,48 @@ type Retention struct {
 	Oldest func(ctx context.Context) (time.Time, bool, error)
 }
 
+// A SignInMethod is a way to sign in and whether the app has it configured,
+// as GET /ops/auth/providers lists it and the auth-providers command prints
+// it (ADR-0045). It never holds configuration values.
+type SignInMethod struct {
+	// Key identifies the method, such as "passkeys".
+	Key string
+	// Name is how people call it, such as "Passkeys in browsers".
+	Name    string
+	Enabled bool
+	// Detail describes an enabled method, such as its relying party ID;
+	// never a secret.
+	Detail string
+	// Missing are the environment variables that turn a disabled method on.
+	Missing []string
+	// Guide is the documentation section that explains the method, such as
+	// "AUTH_PROVIDERS.md#passkeys".
+	Guide string
+}
+
+// signInReporter is the optional method of an authenticator that reports
+// its sign-in methods.
+type signInReporter interface {
+	SignInMethods(cfg Config) []SignInMethod
+}
+
+// SignInMethods returns the sign-in methods the app's authenticator
+// ([WithAuth]) reports for the configuration, through its optional method
+//
+//	SignInMethods(cfg gorbital.Config) []gorbital.SignInMethod
+//
+// It returns an empty list without an authenticator or when the
+// authenticator doesn't report its methods.
+// gorbital.dev/gorbital/authhttp reports every method a v0.1 app listed.
+func (p *Platform) SignInMethods() []SignInMethod {
+	if r, ok := p.app.o.auth.(signInReporter); ok {
+		if methods := r.SignInMethods(p.Config); methods != nil {
+			return methods
+		}
+	}
+	return []SignInMethod{}
+}
+
 // RateLimiters returns every named rate limiter of the app: the built-in
 // one of the RateLimit step (auth_ip), those modules declare in
 // Module.RateLimiters, in module order, then those guard.RateLimit

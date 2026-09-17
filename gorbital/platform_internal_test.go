@@ -179,6 +179,52 @@ func TestPlatformAuthenticate(t *testing.T) {
 	}
 }
 
+// reportingAuth is principalAuth that reports its sign-in methods from the
+// configuration.
+type reportingAuth struct{ principalAuth }
+
+func (reportingAuth) SignInMethods(cfg Config) []SignInMethod {
+	return []SignInMethod{
+		{Key: "email_password", Name: "Email and password", Enabled: true},
+		{Key: "passkeys", Name: "Passkeys in browsers", Enabled: cfg.Auth.WebAuthnRPID != "", Missing: []string{"WEBAUTHN_RP_ID"}},
+	}
+}
+
+// silentAuth reports its sign-in methods as nil.
+type silentAuth struct{ principalAuth }
+
+func (silentAuth) SignInMethods(Config) []SignInMethod { return nil }
+
+func TestPlatformSignInMethods(t *testing.T) {
+	var deleted []string
+	for _, tt := range []struct {
+		name string
+		auth Option
+		want []string
+	}{
+		{"reporting authenticator", WithAuth(reportingAuth{}), []string{"email_password", "passkeys"}},
+		{"authenticator without the method", WithAuth(principalAuth{}), []string{}},
+		{"authenticator reporting nil", WithAuth(silentAuth{}), []string{}},
+		{"no authenticator", nil, []string{}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var p *Platform
+			if _, err := testApp(t, nil, io.Discard, tt.auth, WithModules(notesModule(&p, &deleted))); err != nil {
+				t.Fatal(err)
+			}
+			methods := p.SignInMethods()
+			keys := []string{}
+			for _, m := range methods {
+				keys = append(keys, m.Key)
+			}
+			// Never nil: /ops/auth/providers answers an empty list.
+			if methods == nil || !slices.Equal(keys, tt.want) {
+				t.Errorf("SignInMethods() = %#v, want keys %v", methods, tt.want)
+			}
+		})
+	}
+}
+
 func TestPlatformOnShutdown(t *testing.T) {
 	var p *Platform
 	var deleted []string

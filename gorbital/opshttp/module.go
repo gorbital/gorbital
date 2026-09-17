@@ -43,8 +43,7 @@ import (
 type Option func(*options)
 
 type options struct {
-	mailProvider  string
-	signInMethods func() []SignInMethod
+	mailProvider string
 }
 
 // Mail providers GET /ops/mail reports.
@@ -59,31 +58,6 @@ const (
 // how email is sent: that is gorbital.WithMailer's.
 func MailProvider(name string) Option {
 	return func(o *options) { o.mailProvider = name }
-}
-
-// A SignInMethod is a sign-in method and whether the app has it configured,
-// as GET /ops/auth/providers lists it (ADR-0045). It never holds
-// configuration values.
-type SignInMethod struct {
-	// Key identifies the method, such as "passkeys".
-	Key string
-	// Name is how people call it, such as "Passkeys in browsers".
-	Name    string
-	Enabled bool
-	// Detail describes an enabled method, such as its relying party ID;
-	// never a secret.
-	Detail string
-	// Missing are the environment variables that turn a disabled method on.
-	Missing []string
-	// Guide is the documentation section that explains the method.
-	Guide string
-}
-
-// SignInMethods sets what GET /ops/auth/providers lists, usually the
-// authenticator's own report, called on every request. Without it the list
-// is empty.
-func SignInMethods(list func() []SignInMethod) Option {
-	return func(o *options) { o.signInMethods = list }
 }
 
 // Module returns the operations API. Its name is "ops".
@@ -152,8 +126,11 @@ const (
 )
 
 // permissions are the ops.* permissions and the roles that hold them, as a
-// v0.1 app's permissions.go declares them. ops.auth.write, which rate-limit
-// resets check, is sign-in's: the authenticator's module declares it.
+// v0.1 app's permissions.go declares them. ops.auth.read, which
+// /ops/auth/providers and /ops/auth/rate-limits check, and ops.auth.write,
+// which rate-limit resets check, are sign-in's: gorbital.dev/gorbital/authhttp
+// declares them with the same roles, as it checks them for /ops/auth/users.
+// Declared by both modules, they would fail gorbital.New.
 func permissions() []gorbital.Permission {
 	admin := []string{rolePlatformAdmin}
 	both := []string{rolePlatformAdmin, roleOpsViewer}
@@ -172,7 +149,6 @@ func permissions() []gorbital.Permission {
 		{Name: opsdomain.PermMailWrite, Description: "Remove addresses from the email suppression list", Roles: admin},
 		{Name: opsdomain.PermStorageRead, Description: "Browse file storage", Roles: both},
 		{Name: opsdomain.PermStorageWrite, Description: "Upload, move and delete files and create signed URLs", Roles: admin},
-		{Name: opsdomain.PermAuthRead, Description: "See which sign-in methods are configured", Roles: both},
 		{Name: opsdomain.PermSystemRead, Description: "See an instance's health checks, database pool, migrations and runtime", Roles: both},
 		{Name: opsdomain.PermObservabilityRead, Description: "See request rates, errors and latency across instances, and stream them", Roles: both},
 		{Name: opsdomain.PermIncidentsRead, Description: "Read incidents, their timelines and reports", Roles: both},

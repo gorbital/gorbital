@@ -54,21 +54,3 @@ func ExampleMailProvider() {
 	// relay with gorbital.WithMailer.
 	_ = gorbital.WithModules(opshttp.Module(opshttp.MailProvider(opshttp.ProviderSMTP)))
 }
-
-func ExampleSignInMethods() {
-	// GET /ops/auth/providers lists what the authenticator reports.
-	methods := func() []opshttp.SignInMethod {
-		return []opshttp.SignInMethod{
-			{Key: "password", Name: "Email and password", Enabled: true},
-			{Key: "google", Name: "Sign in with Google", Missing: []string{"GOOGLE_CLIENT_ID"}},
-		}
-	}
-	_ = gorbital.WithModules(opshttp.Module(opshttp.SignInMethods(methods)))
-}
-
-func ExampleSignInMethod() {
-	m := opshttp.SignInMethod{Key: "passkeys", Name: "Passkeys in browsers", Enabled: true, Detail: "relying party api.example.com"}
-	fmt.Println(m.Key, m.Enabled)
-	// Output:
-	// passkeys true
-}

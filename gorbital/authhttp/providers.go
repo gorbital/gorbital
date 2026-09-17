@@ -15,32 +15,27 @@ import (
 // where to find it and where to paste it.
 const providersGuide = "AUTH_PROVIDERS.md"
 
-// signInMethod is a sign-in method and whether it is configured, as
-// GET /ops/auth/providers reports it (ADR-0045).
-type signInMethod struct {
-	Key     string
-	Name    string
-	Enabled bool
-	// Detail says how an enabled method is configured, without secrets.
-	Detail string
-	// Missing are the environment variables that turn a method on, and
-	// Guide where AUTH_PROVIDERS.md explains them.
-	Missing []string
-	Guide   string
+// SignInMethods reports each sign-in method a v0.1 app has, whether cfg
+// configures it and, for the ones that are off, the environment variables
+// that turn them on and the section of AUTH_PROVIDERS.md that explains them
+// (ADR-0045). It never includes secret values. The operations API lists
+// them in GET /ops/auth/providers (gorbital.Platform.SignInMethods), and the
+// auth-providers command prints them.
+func (a *Authenticator) SignInMethods(cfg gorbital.Config) []gorbital.SignInMethod {
+	return signInMethods(cfg)
 }
 
-// signInMethods reports each sign-in method and, for the ones that are off,
-// the environment variables that turn them on (ADR-0045). It never includes
-// secret values.
-func signInMethods(cfg gorbital.Config) []signInMethod {
+// signInMethods is SignInMethods, which doesn't depend on the
+// Authenticator.
+func signInMethods(cfg gorbital.Config) []gorbital.SignInMethod {
 	w, _ := loadWebAuthn(cfg)
 	a := cfg.Auth
 	web := w.RPID != ""
-	method := func(key, name string, enabled bool, detail string, missing []string, section string) signInMethod {
+	method := func(key, name string, enabled bool, detail string, missing []string, section string) gorbital.SignInMethod {
 		if enabled {
-			return signInMethod{Key: key, Name: name, Enabled: true, Detail: detail}
+			return gorbital.SignInMethod{Key: key, Name: name, Enabled: true, Detail: detail}
 		}
-		return signInMethod{Key: key, Name: name, Missing: missing, Guide: providersGuide + "#" + section}
+		return gorbital.SignInMethod{Key: key, Name: name, Missing: missing, Guide: providersGuide + "#" + section}
 	}
 	packages := make([]string, len(w.AndroidApps))
 	for i, app := range w.AndroidApps {
@@ -50,7 +45,7 @@ func signInMethods(cfg gorbital.Config) []signInMethod {
 		return "callback " + a.PublicURL + "/v1/auth/" + provider + "/callback"
 	}
 	google, gitHub := a.GoogleClientID != "", a.GitHubClientID != ""
-	return []signInMethod{
+	return []gorbital.SignInMethod{
 		{Key: "email_password", Name: "Email and password", Enabled: true},
 		method("authenticator_app", "Authenticator apps (2FA)", !a.EncryptionKeys.IsZero(), "",
 			[]string{"AUTH_ENCRYPTION_KEYS"}, "authenticator-apps"),

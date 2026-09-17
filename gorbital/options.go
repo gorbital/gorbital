@@ -32,7 +32,10 @@ func (f optionFunc) apply(o *options) { f(o) }
 // method Setup(ctx, AuthSetup) error receives the app's configuration,
 // dependencies and permission catalog before it serves, and one with a
 // method CheckConfig(Config) error checks the configuration first
-// ([AuthSetup]). gorbital.dev/gorbital/authhttp has all of them.
+// ([AuthSetup]), and one with a method SignInMethods(Config) []SignInMethod
+// reports its sign-in methods to the operations API
+// ([Platform.SignInMethods]). gorbital.dev/gorbital/authhttp has all of
+// them.
 type Authenticator interface {
 	Middleware(logger *slog.Logger) func(http.Handler) http.Handler
 }

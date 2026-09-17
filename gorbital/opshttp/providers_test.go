@@ -6,29 +6,27 @@ import (
 	"strings"
 	"testing"
 
+	"gorbital.dev/gorbital"
 	"gorbital.dev/gorbital/internal/opstest"
-	"gorbital.dev/gorbital/opshttp"
 )
 
 // This test is a v0.1 golden app's internal/app/providers_test.go, run
-// against the library module. Sign-in isn't a module yet (Phase 5): the
-// golden app's authenticator reported its methods, which the test now gives
-// the module through the opshttp.SignInMethods option, as the golden app
-// reported them in development without provider configuration.
+// against the library module with a test authenticator that reports the
+// methods, as the golden app reported them in development without provider
+// configuration. gorbital/internal/integration runs it with authhttp's own
+// report.
 
 // TestSignInMethodsThroughOps checks GET /ops/auth/providers (ADR-0045):
 // each method's status and what's missing, never values.
 func TestSignInMethodsThroughOps(t *testing.T) {
-	report := func() []opshttp.SignInMethod {
-		return []opshttp.SignInMethod{
-			{Key: "password", Name: "Email and password", Enabled: true},
-			{Key: "passkeys", Name: "Passkeys in browsers", Enabled: true, Detail: "RP ID localhost, origins http://localhost:8080"},
-			{Key: "passkeys_ios", Name: "Passkeys in iOS apps", Missing: []string{"WEBAUTHN_APPLE_APP_IDS"}, Guide: "AUTH_PROVIDERS.md#passkeys-in-ios-apps"},
-			{Key: "github", Name: "GitHub", Missing: []string{"GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"}, Guide: "AUTH_PROVIDERS.md#github-sign-in"},
-			{Key: "authenticator_app", Name: "Authenticator app", Enabled: true},
-		}
+	report := []gorbital.SignInMethod{
+		{Key: "password", Name: "Email and password", Enabled: true},
+		{Key: "passkeys", Name: "Passkeys in browsers", Enabled: true, Detail: "RP ID localhost, origins http://localhost:8080"},
+		{Key: "passkeys_ios", Name: "Passkeys in iOS apps", Missing: []string{"WEBAUTHN_APPLE_APP_IDS"}, Guide: "AUTH_PROVIDERS.md#passkeys-in-ios-apps"},
+		{Key: "github", Name: "GitHub", Missing: []string{"GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"}, Guide: "AUTH_PROVIDERS.md#github-sign-in"},
+		{Key: "authenticator_app", Name: "Authenticator app", Enabled: true},
 	}
-	a := opstest.New(t, opstest.Options{Ops: []opshttp.Option{opshttp.SignInMethods(report)}})
+	a := opstest.New(t, opstest.Options{SignInMethods: report})
 	h := a.Handler()
 	viewer, _ := a.SignIn(t, "viewer@example.com", "ops_viewer")
 
@@ -57,18 +55,19 @@ func TestSignInMethodsThroughOps(t *testing.T) {
 		t.Errorf("authenticator_app = %v, want enabled with encryption keys", m)
 	}
 	// The golden test also checked that the response doesn't hold
-	// AUTH_ENCRYPTION_KEYS: the module only reports what the option returns,
-	// so that is the authenticator's to test (Phase 5).
+	// AUTH_ENCRYPTION_KEYS: the module only reports what the authenticator
+	// returns, so authhttp's tests check that.
 
 	user, _ := a.SignIn(t, "user@example.com", "")
 	if r := opstest.Do(t, h, "GET", "/ops/auth/providers", "", user...); r.Code != http.StatusForbidden {
 		t.Errorf("GET /ops/auth/providers without an ops role = %d, want 403", r.Code)
 	}
 
-	// Not in the golden test: without the option, the list is empty.
+	// Not in the golden test: an authenticator that doesn't report its
+	// methods gets an empty list.
 	b := opstest.New(t, opstest.Options{})
 	viewer, _ = b.SignIn(t, "viewer@example.com", "ops_viewer")
 	if r := opstest.Do(t, b.Handler(), "GET", "/ops/auth/providers", "", viewer...); r.Code != http.StatusOK || !strings.Contains(r.Body, `"methods":[]`) {
-		t.Errorf("GET /ops/auth/providers without SignInMethods = %d %s, want an empty list", r.Code, r.Body)
+		t.Errorf("GET /ops/auth/providers without a report = %d %s, want an empty list", r.Code, r.Body)
 	}
 }

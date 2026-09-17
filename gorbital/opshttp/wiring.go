@@ -70,8 +70,9 @@ func serviceDeps(d gorbital.Deps, p *gorbital.Platform, o options) (opsusecase.D
 		Releases: releaseLog,
 		Mailer:   d.Mailer,
 		Mail:     mailInfo(p, o.mailProvider),
-		// What /ops/auth/providers reports (ADR-0045).
-		SignInMethods: signInMethods(o.signInMethods),
+		// What /ops/auth/providers reports: the authenticator's sign-in
+		// methods (ADR-0045).
+		SignInMethods: signInMethods(p),
 		// The limiters and their resets for /ops/auth/rate-limits (ADR-0070).
 		RateLimits: rateLimitAdmin{platform: p, store: d.RateLimits},
 		// Suppressed addresses for /ops/mail/suppressions (ADR-0062).
@@ -128,13 +129,10 @@ func mailInfo(p *gorbital.Platform, provider string) opsusecase.MailInfo {
 	return info
 }
 
-// signInMethods adapts the SignInMethods option to the use cases.
-func signInMethods(list func() []SignInMethod) func() []opsdomain.SignInMethod {
-	if list == nil {
-		return func() []opsdomain.SignInMethod { return []opsdomain.SignInMethod{} }
-	}
+// signInMethods reports the sign-in methods of the app's authenticator.
+func signInMethods(p *gorbital.Platform) func() []opsdomain.SignInMethod {
 	return func() []opsdomain.SignInMethod {
-		methods := list()
+		methods := p.SignInMethods()
 		out := make([]opsdomain.SignInMethod, len(methods))
 		for i, m := range methods {
 			out[i] = opsdomain.SignInMethod(m)

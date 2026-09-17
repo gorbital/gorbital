@@ -44,9 +44,14 @@ import (
 	"gorbital.dev/modules/settings"
 )
 
-// signInPermissions are the platform administrator's permissions that
-// sign-in declares in v0.1 apps, such as rate-limit resets.
-var signInPermissions = []string{"ops.auth.write", "ops.service_accounts.read", "ops.service_accounts.write"}
+// signInPermissions are the permissions of the ops roles that sign-in
+// (gorbital.dev/gorbital/authhttp) declares, such as ops.auth.read for
+// /ops/auth/providers and ops.auth.write for rate-limit resets, with the
+// roles v0.1 apps grant them to.
+var signInPermissions = map[string][]string{
+	"platform_admin": {"ops.auth.read", "ops.auth.write", "ops.service_accounts.read", "ops.service_accounts.write"},
+	"ops_viewer":     {"ops.auth.read", "ops.service_accounts.read"},
+}
 
 // An App is an app with the built-in modules and the example module, on
 // its own database.
@@ -65,6 +70,10 @@ type Options struct {
 	Ops []opshttp.Option
 	// Gorbital are more options of gorbital.New.
 	Gorbital []gorbital.Option
+	// SignInMethods, when set, are the sign-in methods the test
+	// authenticator reports (gorbital.Platform.SignInMethods). Without it,
+	// the authenticator doesn't report any.
+	SignInMethods []gorbital.SignInMethod
 }
 
 // New builds the app on a new, migrated database, and closes it when the
@@ -101,7 +110,11 @@ func Build(t testing.TB, cfg gorbital.Config, o Options) (*App, error) {
 	tokens := &Tokens{principals: map[string]auth.Principal{}}
 	modules := []gorbital.Module{opshttp.Module(o.Ops...), flagshttp.Module(), mailevents.Module(), Example()}
 	logger := slog.New(slog.NewTextHandler(t.Output(), &slog.HandlerOptions{Level: slog.LevelError}))
-	opts := append([]gorbital.Option{gorbital.WithName("acme-api"), gorbital.WithLogger(logger), gorbital.WithAuth(tokens), gorbital.WithModules(modules...)}, o.Gorbital...)
+	var authenticator gorbital.Authenticator = tokens
+	if o.SignInMethods != nil {
+		authenticator = reportingTokens{Tokens: tokens, methods: o.SignInMethods}
+	}
+	opts := append([]gorbital.Option{gorbital.WithName("acme-api"), gorbital.WithLogger(logger), gorbital.WithAuth(authenticator), gorbital.WithModules(modules...)}, o.Gorbital...)
 	ctx := context.Background()
 	if err := gorbital.Migrate(ctx, cfg, io.Discard, opts...); err != nil {
 		t.Fatalf("Migrate() error = %v", err)
@@ -131,9 +144,7 @@ func (a *App) SignIn(t testing.TB, email, role string) ([]string, string) {
 			t.Fatalf("SignIn: no module grants the role %q", role)
 		}
 	}
-	if role == "platform_admin" {
-		perms = append(perms, signInPermissions...)
-	}
+	perms = append(perms, signInPermissions[role]...)
 	slices.Sort(perms)
 	token := a.tokens.issue(auth.Principal{
 		UserID: id, SessionID: "ses_" + id, Permissions: slices.Compact(perms),
@@ -206,6 +217,18 @@ func (s *Tokens) Middleware(*slog.Logger) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// reportingTokens is the test authenticator reporting sign-in methods.
+type reportingTokens struct {
+	*Tokens
+	methods []gorbital.SignInMethod
+}
+
+// SignInMethods implements the optional authenticator method
+// gorbital.Platform.SignInMethods calls.
+func (s reportingTokens) SignInMethods(gorbital.Config) []gorbital.SignInMethod {
+	return slices.Clone(s.methods)
 }
 
 // A Response is what the app answered.
