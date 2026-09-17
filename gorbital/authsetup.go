@@ -50,11 +50,14 @@ type AuthSetup struct {
 	// Handle serves a handler outside the OpenAPI document on the app's mux,
 	// behind the middleware stack, such as the /.well-known files passkeys
 	// need. The pattern is an http.ServeMux pattern with a method, such as
-	// "GET /.well-known/assetlinks.json". The dev console lists it. It does
-	// nothing from Main.
+	// "GET /.well-known/assetlinks.json". The dev console lists it. Call it
+	// during Setup: New mounts the handlers once Setup returns, and fails
+	// for a pattern that conflicts with another route. It does nothing from
+	// Main.
 	Handle func(pattern string, handler http.Handler)
 	// MailPreviews adds emails the dev console previews and sends with
-	// sample data (ADR-0074). It does nothing from Main.
+	// sample data (ADR-0074). Call it during Setup. It does nothing from
+	// Main.
 	MailPreviews func(previews ...auth.EmailPreview)
 }
 

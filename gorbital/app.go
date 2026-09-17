@@ -406,7 +406,9 @@ func (a *App) build(ctx context.Context) error {
 		mux.Handle(storageLocalPath+"/", a.storageURLs)
 	}
 	for _, h := range a.handlers {
-		mux.Handle(h.pattern, h.handler)
+		if err := catchPanic("gorbital", "authenticator handler "+h.pattern, func() { mux.Handle(h.pattern, h.handler) }); err != nil {
+			return err
+		}
 	}
 
 	stack, err := a.stack(ipLimiter, idempotencyStore)

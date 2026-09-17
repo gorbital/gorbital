@@ -143,3 +143,20 @@ func TestAuthSetupFromNew(t *testing.T) {
 		t.Errorf("/_dev/mail/previews = %d %s, want the authenticator's and the test message", code, body)
 	}
 }
+
+// conflictingAuth adds a handler whose pattern a module's route has.
+type conflictingAuth struct{ setupAuth }
+
+func (a *conflictingAuth) Setup(_ context.Context, s AuthSetup) error {
+	s.Handle("GET /v1/books", http.NotFoundHandler())
+	return nil
+}
+
+func TestAuthSetupHandlerConflict(t *testing.T) {
+	books := Module{Name: "books", Routes: func(r *Router, _ Deps) {
+		Get(r, "/v1/books", func(context.Context, *struct{}) (*struct{}, error) { return nil, nil })
+	}}
+	if _, err := testApp(t, nil, io.Discard, WithAuth(&conflictingAuth{}), WithModules(books)); err == nil || !strings.Contains(err.Error(), "authenticator handler GET /v1/books") {
+		t.Errorf("New() with a conflicting authenticator handler = %v, want an error naming the pattern", err)
+	}
+}
