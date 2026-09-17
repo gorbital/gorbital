@@ -391,7 +391,7 @@ func (d *doctor) database(ctx context.Context, env []string) {
 	}
 	switch {
 	case s.ConfigError != "":
-		d.add(doctorFail, "configuration", firstLine(s.ConfigError), "set the variables in .env or the environment; .env.example documents each")
+		d.add(doctorFail, "configuration", configProblems(s.ConfigError), "set the variables in .env or the environment; .env.example documents each")
 	case s.DatabaseError != "":
 		d.add(doctorWarn, "database", "unreachable: "+firstLine(s.DatabaseError), "start it with orb dev (or docker compose up -d --wait) and check DATABASE_URL")
 	case s.Current > s.Latest && isGorbitalApp(d.dir):
@@ -469,4 +469,35 @@ func versionAtLeast(have, want string) bool {
 func firstLine(s string) string {
 	line, _, _ := strings.Cut(strings.TrimSpace(s), "\n")
 	return line
+}
+
+// configErrorPrefix is what an app's LoadConfig puts in front of the
+// per-variable problems, on a line of its own.
+const configErrorPrefix = "invalid configuration:"
+
+// configProblems turns an app's configuration error into one line naming
+// every variable. LoadConfig joins the problems under an "invalid
+// configuration:" line that carries nothing itself, so firstLine would throw
+// the detail away; older apps (and migrate --status without --json) repeat
+// the prefix. Whatever is left of the message is kept, so a shape this
+// doesn't know still reaches the report.
+func configProblems(s string) string {
+	rest := strings.TrimSpace(s)
+	for {
+		trimmed := strings.TrimSpace(strings.TrimPrefix(rest, configErrorPrefix))
+		if trimmed == rest {
+			break
+		}
+		rest = trimmed
+	}
+	var problems []string
+	for _, line := range strings.Split(rest, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			problems = append(problems, line)
+		}
+	}
+	if len(problems) == 0 {
+		return firstLine(s) // nothing but the prefix: keep the message as it is
+	}
+	return strings.Join(problems, "; ")
 }

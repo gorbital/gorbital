@@ -155,6 +155,41 @@ func TestDoctorFindsProblems(t *testing.T) {
 	}
 }
 
+// TestDoctorReportsEveryConfigurationProblem: an app's LoadConfig joins its
+// problems under an "invalid configuration:" line that says nothing itself,
+// so the report has to keep the lines under it, not just the first one
+// (CLI-12d).
+func TestDoctorReportsEveryConfigurationProblem(t *testing.T) {
+	newV01GitApp(t, recipes.TenancySingle)
+	writeFile(t, ".env", readFile(t, ".env.example"))
+	fakeDoctorCommands(t, `{"config_error":"invalid configuration:\nAPP_ADDR \"8080\" is not host:port\nAPP_DB_MAX_CONNS must be between 1 and 1000, got \"nope\"\nMAIL_DELIVERY must be devmail, mailpit or provider, got \"post\""}`)
+
+	c := check(doctorRun(t, 1), "configuration")
+	if c.Status != doctorFail {
+		t.Fatalf("configuration check = %+v, want a failure", c)
+	}
+	for _, want := range []string{"APP_ADDR", "APP_DB_MAX_CONNS", "MAIL_DELIVERY"} {
+		if !strings.Contains(c.Detail, want) {
+			t.Errorf("configuration detail = %q, want it to name %s", c.Detail, want)
+		}
+	}
+	if strings.Contains(c.Detail, "\n") {
+		t.Errorf("configuration detail = %q, want one line", c.Detail)
+	}
+
+	// The prefix carries nothing, and apps repeat it; neither reaches the
+	// report.
+	for _, in := range []string{
+		"invalid configuration:\nAPP_ENV is required",
+		"invalid configuration: invalid configuration:\nAPP_ENV is required",
+		"invalid configuration: APP_ENV is required",
+	} {
+		if got := configProblems(in); got != "APP_ENV is required" {
+			t.Errorf("configProblems(%q) = %q", in, got)
+		}
+	}
+}
+
 func TestDoctorOnAMinimalApp(t *testing.T) {
 	newGitApp(t, "--preset", "minimal")
 	fakeDoctorCommands(t, "")
