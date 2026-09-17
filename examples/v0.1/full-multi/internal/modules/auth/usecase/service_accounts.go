@@ -150,7 +150,7 @@ func (s *Service) UpdateServiceAccount(ctx context.Context, orgID, id string, pa
 			return err
 		}
 		if state = s.canManage(callerRole, a); state != nil {
-			return nil //nolint:nilerr // state is the refusal, returned after the transaction ends
+			return nil
 		}
 		name, description := a.Name, a.Description
 		if patch.Name != nil && *patch.Name != name {
@@ -160,13 +160,13 @@ func (s *Service) UpdateServiceAccount(ctx context.Context, orgID, id string, pa
 			description, changed = *patch.Description, append(changed, "description")
 		}
 		if a.Name, a.Description, state = authdomain.ServiceAccountFields(name, description); state != nil {
-			return nil //nolint:nilerr // state is the refusal, returned after the transaction ends
+			return nil
 		}
 		if patch.Roles != nil {
 			roles, err := s.serviceAccountRoles(orgID, callerRole, *patch.Roles)
 			if err != nil {
 				state = err
-				return nil //nolint:nilerr // state is the refusal, returned after the transaction ends
+				return nil
 			}
 			if !slices.Equal(roles, a.Roles) {
 				a.Roles, changed = roles, append(changed, "roles")
@@ -225,7 +225,7 @@ func (s *Service) DeleteServiceAccount(ctx context.Context, orgID, id string) er
 			return err
 		}
 		if state = s.canManage(callerRole, a); state != nil {
-			return nil //nolint:nilerr // state is the refusal, returned after the transaction ends
+			return nil
 		}
 		_, err := tx.DeleteServiceAccount(ctx, orgID, id)
 		return err
@@ -293,7 +293,7 @@ func (s *Service) CreateServiceAccountKey(ctx context.Context, orgID, id, passwo
 			return err
 		}
 		if state = s.canManage(callerRole, a); state != nil {
-			return nil //nolint:nilerr // state is the refusal, returned after the transaction ends
+			return nil
 		}
 		if a.Disabled() {
 			state = authdomain.ErrServiceAccountDisabled

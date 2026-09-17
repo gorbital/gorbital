@@ -250,10 +250,10 @@ func (st *ObservabilityStream) Run(token string, send func(Overview) error) Stre
 }
 
 func streamEnd(ctx context.Context) StreamEnd {
-	switch cause := context.Cause(ctx); {
-	case errors.Is(cause, observability.ErrStreamExpired):
+	switch context.Cause(ctx) {
+	case observability.ErrStreamExpired:
 		return StreamMaxDuration
-	case errors.Is(cause, observability.ErrStreamsClosed):
+	case observability.ErrStreamsClosed:
 		return StreamShuttingDown
 	default:
 		return StreamClientGone

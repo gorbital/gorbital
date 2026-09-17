@@ -64,10 +64,13 @@ func useRelease(t *testing.T, release recipes.Release) *string {
 // isolateGit gives git a fixed identity and no user or system config.
 func isolateGit(t *testing.T) {
 	t.Helper()
-	empty := filepath.Join(t.TempDir(), "gitconfig")
-	writeFile(t, empty, "")
+	// gc.auto and maintenance.auto off: git otherwise forks a background
+	// gc after a commit, which can still be writing into .git/objects when
+	// t.TempDir() removes the app, failing the test in cleanup.
+	cfg := filepath.Join(t.TempDir(), "gitconfig")
+	writeFile(t, cfg, "[gc]\n\tauto = 0\n[maintenance]\n\tauto = false\n")
 	for k, v := range map[string]string{
-		"GIT_CONFIG_GLOBAL": empty, "GIT_CONFIG_NOSYSTEM": "1",
+		"GIT_CONFIG_GLOBAL": cfg, "GIT_CONFIG_NOSYSTEM": "1",
 		"GIT_AUTHOR_NAME": "orb test", "GIT_AUTHOR_EMAIL": "test@example.com",
 		"GIT_COMMITTER_NAME": "orb test", "GIT_COMMITTER_EMAIL": "test@example.com",
 	} {

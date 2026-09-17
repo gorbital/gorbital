@@ -76,10 +76,13 @@ jobs:
   lint:
     name: lint ${{ matrix.module }}
     runs-on: ubuntu-latest
+    # examples/v0.1/* are frozen: they generate the v0.1 templates, and
+    # orb upgrade --layout v0.2 refuses an app that doesn't match them byte
+    # for byte (ADR-0083). They are built and tested, never linted.
     strategy:
       fail-fast: false
       matrix:
-        module: [".", modules/auditpg, modules/auth, modules/devconsole, modules/flags, modules/idempotency, modules/jobs, modules/jwt, modules/mail/resend, modules/mail/smtp, modules/mail/suppressionpg, modules/observability, modules/openapi, modules/orgs, modules/postgres, modules/ratelimitpg, modules/releases, modules/settings, modules/storage, modules/telemetry, gorbital, cli, examples/full-multi, examples/full-single, examples/minimal, examples/v0.1/full-multi, examples/v0.1/full-single, internal/tools/apicheck, internal/tools/docscheck, internal/tools/refdocs]
+        module: [".", modules/auditpg, modules/auth, modules/devconsole, modules/flags, modules/idempotency, modules/jobs, modules/jwt, modules/mail/resend, modules/mail/smtp, modules/mail/suppressionpg, modules/observability, modules/openapi, modules/orgs, modules/postgres, modules/ratelimitpg, modules/releases, modules/settings, modules/storage, modules/telemetry, gorbital, cli, examples/full-multi, examples/full-single, examples/minimal, internal/tools/apicheck, internal/tools/docscheck, internal/tools/refdocs]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
