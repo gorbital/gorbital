@@ -11,7 +11,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-
 	authlib "gorbital.dev/modules/auth"
 
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"

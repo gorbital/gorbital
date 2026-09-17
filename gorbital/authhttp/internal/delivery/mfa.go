@@ -7,7 +7,6 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
 )
 
