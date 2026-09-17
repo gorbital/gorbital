@@ -366,7 +366,7 @@ The checks Phase 3 moved out of `LoadConfig` run in `CheckConfig` with v0.1's me
 
 The delivery files register v0.1's `huma.Operation` literals through one helper, `route`, which passes the operation ID, method, path, tags, summary, description, success status and error statuses to `gorbital.Get`/`Post`/… and panics on any other field set (none is), so nothing is dropped silently. An operation without `Security` gets `guard.Public()`.
 
-**Order of responses on signed-in routes.** gorbital's routes check for an actor before parsing the input (ADR-0082); v0.1's sign-in routes parse first and their use cases answer 401. An unauthenticated request with an invalid body got 422 `validation_failed` in v0.1 and would get 401 through `requireActor`. To keep v0.1's behaviour, `delivery.route` sets `route.Config.ActorCheckedByHandler`, an internal field of `gorbital/internal/route` that keeps the security requirement and the 401 in the document but leaves the check to the use case. No public option sets it. Every signed-in operation called without credentials answers 401 `unauthenticated`, or 400 or 422 for a missing or invalid body, never anything else (`TestSignedInRoutesRefuseAnonymous`), and `x-gorbital-guards` still says `authenticated`. Checking before parsing for sign-in too is a deliberate follow-up with its own changelog entry, and ejected code (Phase 9), which can't import the internal package, gets that behaviour.
+**Order of responses on signed-in routes.** gorbital's routes check for an actor before parsing the input (ADR-0082); v0.1's sign-in routes parse first and their use cases answer 401. An unauthenticated request with an invalid body got 422 `validation_failed` in v0.1 and would get 401 through `requireActor`. To keep v0.1's behaviour, `delivery.route` sets `route.Config.ActorCheckedByHandler`, an internal field of `gorbital/internal/route` that keeps the security requirement and the 401 in the document but leaves the check to the use case. No public option sets it. Every signed-in operation called without credentials answers 401 `unauthenticated`, or 400 or 422 for a missing or invalid body, never anything else (`TestSignedInRoutesRefuseAnonymous`), and `x-gorbital-guards` still says `authenticated`. Checking before parsing for sign-in too is a deliberate follow-up with its own changelog entry. *Since Phase 9* the field is the public option `gorbital.AuthenticateAfterInput()`, and the router checks the actor after validation instead of leaving it to the use case, so an ejected sign-in module keeps this order ([Phase 9 notes](#gorbital-internals-the-modules-imported)).
 
 ### What moved into gorbital, and what waits for Phase 4
 
@@ -759,6 +759,72 @@ The Dev Portal's module form offers `--org` (gorbital-dashboards `framework/phas
 - `orb gen job` doesn't generate module jobs, and the Dev Portal's job screen links job definitions to `internal/app/job_*.go` only.
 - An app's `TestPublicSurface` no longer notices a library name disappearing; the library's checks do.
 - `orb new` offers no way to create a v0.1-layout app.
+## Phase 9 implementation notes: orb eject (2026-09-17)
+
+`orb eject <auth|flags|mailevents|ops|orgs>` (roadmap item 84) implements §7. Guide: [Ejecting a module](../guides/ejecting-a-module.md); command reference: [CLI](../guides/cli.md#orb-eject).
+
+### What is copied, and where
+
+| Decision | Why |
+|---|---|
+| The package is read from the directory `go list -m -json gorbital.dev/gorbital` reports in the app (the module cache, downloaded with `go mod download` when missing, or a `replace` directive's directory), not from `go.mod`'s version string alone | The app's build is what the copy must match, local checkouts included |
+| `<package>/internal/<layer>/…` becomes `internal/modules/<module>/<layer>/…`; any other directory under `internal/` refuses the ejection | An app module has the four layers of §3 below it, and the app's architecture test enforces it; `internal/modules` is internal to the app already |
+| The package keeps its name (`package authhttp` in `internal/modules/auth`), and imports of it get that name explicitly | Every call site in the app, `main.go`'s options and hooks included, stays as it is, so the only edit to the app is an import path. Renaming the package to the directory would rewrite every file using it, and `flags`, `orgs` and `auth` collide with `gorbital.dev/modules/{flags,orgs,auth}`, which the modules import |
+| Tests are copied, except files starting with `//orb:noeject <reason>` | Contract tests read the gorbital repository (the frozen v0.1.0 contracts, the golden apps' migrations, row-level security SQL, every Go file); they prove the library, not the app. Helpers other tests use were moved out of them. The command lists what it left out |
+| Imports of modules the lock records as ejected are mapped too, in the copy and in the app's files (ejecting `auth` rewrites the ejected `orgs`' imports) | Ejected modules use each other's copies, in either order the app allows |
+
+### gorbital internals the modules imported
+
+An app can't import `gorbital.dev/gorbital/internal/...`. Each import was resolved so the built-in modules depend on public API only, rather than copying internals into apps or refusing:
+
+| Import | Used for | Resolution |
+|---|---|---|
+| `internal/operation` (opshttp, flagshttp, mailevents, orgshttp) | Registering v0.1 `huma.Operation` declarations on a `Router` | Made public as `gorbital.dev/gorbital/operation` (`Register`). It uses public API only, and `orb upgrade --layout v0.2` can turn `huma.Register(api, op, h)` into `operation.Register(r, op, h)` mechanically |
+| `internal/route` (authhttp's `delivery/routes.go`) | `route.Config.ActorCheckedByHandler`: sign-in's signed-in routes left the actor check to their use cases, after input validation (v0.1's order of responses) | Replaced by the public route option `gorbital.AuthenticateAfterInput()`, which the **router** enforces after validation, just before the handler, with the same 401 problem. It fails closed where the old field relied on every use case checking; registration refuses it with `guard.Public` or guards (which run before parsing). Sign-in's contract tests, HTTP tests and the frozen OpenAPI comparison pass unchanged |
+| `internal/builtinjobs` (opshttp's wiring) | The retention job's name for `/ops/retention` | `gorbital.RetentionJob`, a literal checked against `builtinjobs.Retention` by a test |
+| `internal/opstest` (opshttp, flagshttp, mailevents tests) | A test app with bearer tokens and the golden app's example module | Each module keeps the part its tests use in `testapp_test.go`: three copies of test code, so each module's tests are self-contained. A public test kit for built-in modules was rejected: it would be API for the library's own tests |
+
+`authhttp/internal/{jobs,migrations,signintest}` and `orgshttp/internal/{jobs,migrations}` moved under layers (`delivery/jobs/…`, `delivery/signintest`, `repository/migrations`). `gorbital/internal/ejectable` keeps it so: every file eject copies imports no gorbital internal, every internal package is under a layer with an app's layer rules, `//orb:noeject` is on test files only with a reason, and the modules' tests compile without the marked files (`go test -overlay`).
+
+### main.go and the rest of the app
+
+| Option | Verdict |
+|---|---|
+| Rewrite the constructor call (`authhttp.New(...)` → `auth.New(...)`) with go/ast | Rejected: the package name stays, so the call needs no change; other files use the package too (Shelfie's `phonelogin` and `profiles` take `*authhttp.Authenticator`, `signin.go` builds its options, tests build apps) |
+| **Rewrite the import path in every Go file of the app that imports the package, by editing the import spec's byte range found with go/parser, then gofmt** | **Chosen**: everything else stays byte for byte, and the change reads as one line per file in the plan's diff |
+
+What `orb eject` can't follow is refused with instructions rather than guessed: no call to `gorbital.Main` in `cmd/api`, the package not imported by `cmd/api` (nothing to eject), imported as `_` or `.`, or never called through its constructor (`authhttp.New`, `<package>.Module`).
+
+`orgshttp.Module` takes `*authhttp.Authenticator`, so an app using the library's `orgshttp` can't use an ejected sign-in's authenticator. `orb eject` asks `go list -deps` which library packages the app builds import the module and refuses, naming `orb eject orgs` to run first. The check is generic: it follows imports, not a list.
+
+### Migrations, the module list and the architecture test
+
+- Migrations the module declares with `gorbital.Migration` literals (read with go/ast, including elements of a `[]gorbital.Migration` literal) are copied to `db/migrations/<version>_<name>.sql` byte for byte, which §6's merge treats as the declared migration. The copied module keeps declaring them: its own tests migrate test databases from its embedded files, and removing the declaration would edit code for no behaviour change. A version already used by another file in `db/migrations` refuses the ejection; an identical file is noted. An app without `db/migrations` gets a note.
+- `orb gen modules` (so `orb dev` and `go generate`) skips directories the lock records as ejected: `flagshttp` and `mailevents` declare `func Module() gorbital.Module` and would otherwise be listed twice, and moving them from `main.go` into `modules.gen.go` would change the modules' order (settings, permission catalogs, `/ops` listings). `orb doctor`'s `modules` check skips them too.
+- The generated architecture test said "modules never import each other". Modules that take the authenticator import sign-in's root package, which becomes an app module when ejected. The rule is now: a module may import another module's root package, never its layers; the template and the example apps' copies changed. Alternatives rejected: reading `gorbital.lock` from the test (a test coupled to orb's file), and keeping ejected code outside `internal/modules` (against §7).
+
+### gorbital.lock, orb doctor and orb upgrade
+
+- The lock gains `ejected`: `module`, `package`, `version`, `date` and `sha256`, a hash of the package's source as copied (paths and contents, `//orb:noeject` files included). An app without a lock (apps on `gorbital.Main` not created by `orb new`) gets one with only `ejected`; reading such a lock skips the inputs check, and `orb upgrade` refuses it. Entries are validated (known module, its package, once each). `orb upgrade` and `orb add orgs` keep the entries when they rewrite the lock.
+- `orb doctor`'s `ejected` check hashes the package at the version the app requires now (`go list -m`): equal is ok, different a warning with up to three changelog entries of later versions that name the package (`CHANGELOG.md` of `gorbital.dev` at the version the app requires), a missing directory a failure. A hash rather than a version comparison also notices changes from a local checkout.
+- `orb upgrade` never changes an ejected module's files; merging library fixes into the copy is the app's.
+
+### Exit codes and output
+
+0 when ejected (or planned, with `--dry-run`); 1 for every refusal and failure, and when `go mod tidy` fails after the files are written (the error says so); 2 for an unknown module, more than one, or none with `--no-input` or without a terminal; 130 when cancelled at the confirmation. `--json` is documented in the CLI reference and recorded in `testdata/json/eject.json`.
+
+### Proven by
+
+`TestEjectedModulesPass` ejects `flags`, `ops`, `orgs` and `auth` into a copy of Shelfie, `orgs` into the invoicing recipe, and `mailevents` into the admin tool with the module added: after each, gofmt, `go build`, `go vet`, the exported OpenAPI, Postman collection and `llms.txt` identical to the committed ones, `orb doctor` ok for `modules`, `gorbital.lock` and each `ejected`, and a second ejection refused; then golangci-lint and the app's whole test suite with the ejected modules' tests. `TestEjectDryRunWritesNothing`, `TestEjectRefusals`, `TestEjectRefusesOtherApps` (v0.1 layout, no `gorbital.Main`, a `main.go` it can't follow), `TestDoctorEjectedModules`, `TestRewriteGoImports` and `TestChangelogMentions` cover the rest.
+
+### Known gaps
+
+- Going back to the library is manual (documented in the guide); so is ejecting several modules in one plan.
+- Doc comments in the copy still name library paths (`gorbital.dev/gorbital/authhttp`), and sign-in's tracer keeps its name.
+- The organisations module's row-level security tests aren't copied (they run full-multi's SQL from the repository); the app's own tests cover its policy.
+- The Dev Portal has no eject form.
+- A lock `orb eject` creates has an empty `inputs` object.
+- `orb upgrade --layout v0.2` (item 85) must record modules it keeps from a v0.1 app's generated code the same way; see the functions named in the roadmap notes.
 
 ## Why
 
