@@ -3,8 +3,6 @@ package cli
 import (
 	"bytes"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -117,16 +115,11 @@ func TestPromptJobSkipsQuestionsAnsweredByFlags(t *testing.T) {
 }
 
 func TestPromptNewAsksForMissingValues(t *testing.T) {
-	checkout := t.TempDir()
-	if err := os.WriteFile(filepath.Join(checkout, "go.mod"), []byte("module gorbital.dev\n\ngo 1.26.0\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
 	stdin := answers(
 		"shop-api",                 // app name
 		"github.com/acme/shop-api", // module path
 		"2",                        // preset: full
 		"2",                        // tenancy: multi
-		checkout,                   // gorbital checkout
 		"n",                        // git init: no
 	)
 
@@ -138,8 +131,12 @@ func TestPromptNewAsksForMissingValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("promptNew() error = %v\noutput:\n%s", err, out.String())
 	}
-	if name != "shop-api" || module != "github.com/acme/shop-api" || preset != "full" || tenancy != "multi" || local != checkout || !noGit {
+	if name != "shop-api" || module != "github.com/acme/shop-api" || preset != "full" || tenancy != "multi" || local != "" || !noGit {
 		t.Errorf("answers = name %q, module %q, preset %q, tenancy %q, local %q, noGit %v\noutput:\n%s", name, module, preset, tenancy, local, noGit, out.String())
+	}
+	// Without --local the published library is used, not asked for.
+	if s := out.String(); strings.Contains(s, "gorbital checkout") {
+		t.Errorf("prompts asked for a gorbital checkout:\n%s", s)
 	}
 	// Plain mode prints each answer itself: no folded lines, no colour.
 	if s := out.String(); strings.Contains(s, "✓") || strings.Contains(s, "\x1b[") {

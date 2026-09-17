@@ -79,8 +79,8 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 		return err
 	}
 
-	// Until the library is published, apps need a checkout; use the one the
-	// command runs in when none is given.
+	// Apps use the published library unless --local names a checkout; inside a
+	// checkout, use that one, for working on gorbital itself.
 	detected := false
 	if *local == "" {
 		if dir := findCheckout(); dir != "" {
@@ -157,7 +157,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 		var out bytes.Buffer
 		if err := runIn(ctx, name, &out, "go", "mod", "tidy"); err != nil {
 			return fmt.Errorf("created %s, but go mod tidy failed: %w\n%s"+
-				"  if gorbital isn't published yet, create the app with --local <path to gorbital checkout>", name, err, out.String())
+				"  check your network and GOPROXY, or create the app from a checkout with --local <path to gorbital checkout>", name, err, out.String())
 		}
 		step("ran go mod tidy")
 	}
@@ -302,21 +302,12 @@ func promptNew(name, module, preset, tenancy, local *string, noGit *bool, set ma
 		a.answered("tenancy", *tenancy)
 	}
 
-	if !set["local"] {
-		input := huh.NewInput().Title(a.title("gorbital checkout")).Inline(true).Prompt("").
-			Placeholder("/path/to/gorbital").Value(local).
-			Validate(func(s string) error {
-				if strings.TrimSpace(s) == "" {
-					return errors.New("enter the path of your gorbital checkout")
-				}
-				_, err := resolveLocal(s)
-				return err
-			})
-		if err := a.ask(input, "gorbital checkout", func() string { return *local }); err != nil {
-			return err
-		}
-	} else {
+	// The library comes from the module proxy; only --local, or running inside
+	// a checkout, uses a checkout instead, so there is nothing to ask.
+	if *local != "" {
 		a.answered("gorbital checkout", *local)
+	} else {
+		a.answered("library", "gorbital.dev "+recipes.LibraryVersion)
 	}
 
 	gitInit := !*noGit
