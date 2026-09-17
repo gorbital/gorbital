@@ -327,6 +327,26 @@ func Check(script string) []Warning {
 	return warnings
 }
 
+// ddlPattern matches a statement that changes the schema: CREATE, ALTER,
+// DROP, TRUNCATE and COMMENT ON, whatever the object (tables, columns,
+// indexes, types, views, functions, triggers, schemas, extensions). It is
+// deliberately wide: a false positive only refreshes the portal's views.
+var ddlPattern = regexp.MustCompile(`(?i)^\s*(CREATE|ALTER|DROP|TRUNCATE|COMMENT)\b`)
+
+// IsDDL reports whether script has a statement that changes the schema
+// (ADR-0080). It splits statements as Check does, so a DDL statement
+// hidden inside a dollar-quoted body after a semicolon is missed; the
+// statement that opens the body is not.
+func IsDDL(script string) bool {
+	clean := stripStrings.ReplaceAllStringFunc(stripComments.ReplaceAllStringFunc(script, blank), blank)
+	for _, stmt := range strings.Split(clean, ";") {
+		if ddlPattern.MatchString(stmt) {
+			return true
+		}
+	}
+	return false
+}
+
 // blank replaces s with spaces and newlines, keeping positions.
 func blank(s string) string {
 	b := []byte(s)

@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Eve
 
 Nothing here is tagged yet. v1.0 (stable, awaiting the external security review) and v1.1 (done) are both on the development branch; each keeps its own section so the v1.0 release notes stay separate.
 
+### Live schema status ([ADR-0080](docs/adr/0080-live-schema-status.md))
+
+#### Added
+
+- `orb dev` publishes a `schema` event on `/_portal/api/events` (`Event.Schema`, sent to new streams right after the first `state` event) after every migrate run, whenever a file under `db/migrations` changes and after the SQL editor commits a DDL statement, and serves the same object at `GET /_portal/api/db/schema-status`: `database`, `source` (`startup`, `code`, `migrate`, `portal`, `sql`), `checked_at`, `applied` (what the run applied), `pending` (`file`, `version`, `reason` `new` or `out_of_order`), `edited`, `needs_restart`, `problem` (the last migrate error). `portal.SchemaStatus`, `Hub.SetSchema`, `Hub.Schema`, `portal.ComputeSchemaStatus`, `portal.MigrationRecord`, `pgmeta.IsDDL`.
+- `db/migrations` is watched even with `orb dev --no-reload`, on its own snapshot: a changed file that won't be applied on its own (no reload, the app stopped or failed, a failed migrate) is reported in the terminal (`orb: db/migrations changed (… is not applied); restart the app to apply it (Dev Portal → Restart)`) and as `needs_restart` in the status. With `--no-reload` the portal's Restart and migrate requests now run, instead of waiting forever.
+- Files edited after they were applied are found: `orb dev` records each applied file's SHA-256 in `.orb/portal/migrations.json` after every successful migrate run (files seen applied for the first time are recorded as they are) and names a mismatch in the terminal and in `edited`, with the fix (Migrations → Redo in development, or a new migration).
+- The Dev Portal's Database and Migrations screens show a banner from the status (pending files with Restart or Apply pending, edited files with Redo, out-of-order files, the migrate error), and the Schema, Objects and Table Editor screens refetch on every `schema` event ([guide](docs/guides/dev-portal.md#schema-changes-from-code)).
+
 ### Log archive ([ADR-0079](docs/adr/0079-hourly-log-archive.md))
 
 #### Added

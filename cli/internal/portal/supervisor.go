@@ -78,14 +78,15 @@ type OutputLine struct {
 	Text   string `json:"text"`
 }
 
-// Event is what the portal streams to the UI: a state change or an output
-// line.
+// Event is what the portal streams to the UI: a state change, an output
+// line or a schema status (ADR-0080).
 type Event struct {
-	// Type is "state" or "output".
-	Type   string      `json:"type"`
-	Time   time.Time   `json:"time"`
-	State  *AppStatus  `json:"state,omitempty"`
-	Output *OutputLine `json:"output,omitempty"`
+	// Type is "state", "output" or "schema".
+	Type   string        `json:"type"`
+	Time   time.Time     `json:"time"`
+	State  *AppStatus    `json:"state,omitempty"`
+	Output *OutputLine   `json:"output,omitempty"`
+	Schema *SchemaStatus `json:"schema,omitempty"`
 }
 
 // Limits of the output buffer.
@@ -110,6 +111,8 @@ type Hub struct {
 	full  bool
 	subs  map[*Subscription]struct{}
 	now   func() time.Time
+	// schema is the latest schema status, served to new subscribers.
+	schema *SchemaStatus
 }
 
 // Subscription receives events added after it subscribed. Events that don't
@@ -158,6 +161,24 @@ func (h *Hub) SetState(s AppStatus) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.publish(Event{Type: "state", Time: h.now(), State: &s})
+}
+
+// SetSchema keeps s as the latest schema status and tells subscribers.
+func (h *Hub) SetSchema(s SchemaStatus) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.schema = &s
+	h.publish(Event{Type: "schema", Time: h.now(), Schema: &s})
+}
+
+// Schema returns the latest schema status, if one was set.
+func (h *Hub) Schema() (SchemaStatus, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.schema == nil {
+		return SchemaStatus{}, false
+	}
+	return *h.schema, true
 }
 
 // publish offers e to every subscriber. The caller holds the mutex.

@@ -71,9 +71,22 @@ Four tiles: the current version (its name and when), pending files, applied file
 
 The three actions answer 202; the outcome arrives as state events and the list refreshes. A failed migrate shows the supervisor's problem with a link to the Overview's output.
 
+### The live status banner
+
+Above the list, a banner from the live schema status ([ADR-0080](../adr/0080-live-schema-status.md)), refreshed by every `schema` event `orb dev` sends: after each migrate run, whenever a file under `db/migrations` changes (even with `orb dev --no-reload`), and after the SQL editor commits a DDL statement. It shows:
+
+| When | The banner says | Button |
+|---|---|---|
+| Files are pending and `orb dev` will apply them on its own (reload on, app running) | The files, and that the next rebuild applies them | none needed; Apply pending works too |
+| Files are pending and `needs_restart` (no reload, app stopped or failed, last migrate failed) | The files and why they wait; the migrate error when there is one | Restart: `POST /_portal/api/app/restart` rebuilds, applies the pending files and starts the new build, with or without reload |
+| A pending file is `out_of_order` (its version is below the highest applied one) | goose won't apply it in order | Rename it after the newest migration |
+| A file was `edited` after it was applied | PostgreSQL still has the old version; goose never re-reads an applied file | Redo (`migrate-redo`, development only) rolls the last migration back and applies the file as it is now; older or shared files need a new migration |
+
+The same words appear in `orb dev`'s terminal, once per change. `applied` in the status lists what the last run applied, so the banner can say "applied 20260917000020_x.sql" after a restart.
+
 ### Where it comes from
 
-`GET /_portal/api/db/migrations`, `POST /_portal/api/app/migrate`, `migrate-down`, `migrate-redo`, `POST /_portal/api/generators/migration/plan` and `apply` ([ADR-0069](../adr/0069-schema-visualiser-objects-and-migrations.md), [database guide](../guides/database.md#migrations)).
+`GET /_portal/api/db/migrations`, `GET /_portal/api/db/schema-status` and the `schema` event, `POST /_portal/api/app/migrate`, `migrate-down`, `migrate-redo`, `POST /_portal/api/generators/migration/plan` and `apply` ([ADR-0069](../adr/0069-schema-visualiser-objects-and-migrations.md), [ADR-0080](../adr/0080-live-schema-status.md), [database guide](../guides/database.md#migrations)).
 
 ### Notes
 
