@@ -12,12 +12,17 @@ import (
 )
 
 // goldenApps maps each golden app to the template directory it generates.
-var goldenApps = []struct{ src, dst string }{
-	{"../../../examples/minimal", "minimal"},
-	{"../../../examples/v0.1/full-single", "full"},
-	{"../../../examples/v0.1/full-multi", "full-multi"},
-	{"../../../examples/full-single", "v0.2/full"},
-	{"../../../examples/full-multi", "v0.2/full-multi"},
+var goldenApps = []struct {
+	src, dst string
+	// main marks golden apps on gorbital.Main, whose generated files hold
+	// library text that isn't theirs to rename.
+	main bool
+}{
+	{"../../../examples/minimal", "minimal", false},
+	{"../../../examples/v0.1/full-single", "full", false},
+	{"../../../examples/v0.1/full-multi", "full-multi", false},
+	{"../../../examples/full-single", "v0.2/full", true},
+	{"../../../examples/full-multi", "v0.2/full-multi", true},
 }
 
 func main() {
@@ -36,6 +41,9 @@ func main() {
 			os.Exit(1)
 		}
 		var opts []generate.Option
+		if app.main {
+			opts = append(opts, generate.KeepLibraryLiterals())
+		}
 		if ok {
 			opts = append(opts, generate.OnlyFiles(files))
 		} else {

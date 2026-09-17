@@ -125,9 +125,11 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	}
 	if appLayout(app.dir) == layoutMain {
 		// In an app on gorbital.Main, orb gen resource is orb gen module
-		// (ADR-0083): the same fields and flags, the new layout.
+		// (ADR-0083): the same fields and flags, the new layout. As in v0.1,
+		// records belong to organisations by default in a multi-tenant app.
 		fmt.Fprintln(stderr, "orb: this app is on gorbital.Main, so orb gen resource runs orb gen module")
-		in := moduleInput{name: name, specs: specs, plural: *plural, idPrefix: *idPrefix, org: *scope == recipes.ScopeOrg}
+		org := *scope == recipes.ScopeOrg || (*scope == "" && appTenancy(app.dir) == recipes.TenancyMulti)
+		in := moduleInput{name: name, specs: specs, plural: *plural, idPrefix: *idPrefix, org: org}
 		return genModule(ctx, app, in, genModuleRun{dryRun: *dryRun, asJSON: *asJSON, allowDirty: *allowDirty, prompts: p}, stdin, stdout, stderr)
 	}
 	if _, err := checkResourceApp(app, *scope); err != nil {

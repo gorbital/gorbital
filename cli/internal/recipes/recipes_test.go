@@ -293,6 +293,9 @@ func TestTemplatesUpToDate(t *testing.T) {
 				t.Fatal(err)
 			}
 			var opts []generate.Option
+			if golden.layout == recipes.LayoutV02 {
+				opts = append(opts, generate.KeepLibraryLiterals())
+			}
 			if tracked := goldenFiles(t, golden.dir); tracked != nil {
 				opts = append(opts, generate.OnlyFiles(tracked))
 			}

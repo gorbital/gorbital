@@ -75,6 +75,27 @@ func TestRunRejectsLeaks(t *testing.T) {
 	}
 }
 
+// TestRunKeepsLibraryLiterals: text of the library that contains the
+// placeholder name, such as an OpenAPI example of a built-in module, isn't
+// turned into the app's name.
+func TestRunKeepsLibraryLiterals(t *testing.T) {
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "go.mod"), []byte("module example.com/acme-api\n\ngo 1.26.0\n\nrequire gorbital.dev v0.0.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "openapi.json"), []byte(`{"title":"acme-api","example":"acme-api-7d9f8-x2kq"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "out")
+	if err := Run(src, dst, KeepLibraryLiterals()); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(filepath.Join(dst, "openapi.json.tmpl"))
+	if want := `{"title":"⟦.Name⟧","example":"acme-api-7d9f8-x2kq"}`; string(got) != want {
+		t.Errorf("template = %s, want %s", got, want)
+	}
+}
+
 func TestSkippedLocalEnvironmentFiles(t *testing.T) {
 	for rel, want := range map[string]bool{
 		".env":                   true,

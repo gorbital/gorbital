@@ -31,6 +31,20 @@ const (
 	PlaceholderName   = "acme-api"
 )
 
+// libraryLiterals are text of the gorbital library that contains the
+// placeholder name and reaches a golden app's generated files, such as an
+// example value in the OpenAPI document of a built-in module. With
+// KeepLibraryLiterals they stay as they are: every app on gorbital.Main gets
+// them from the library unchanged. v0.1 apps held that code themselves, so
+// their templates, frozen, replace it.
+var libraryLiterals = []string{
+	"acme-api-7d9f8-x2kq", // opshttp: the example instance host of GET /ops/releases
+}
+
+// libraryLiteralMark stands in for a library literal while the placeholders
+// are replaced.
+const libraryLiteralMark = "\x00library literal %d\x00"
+
 // libraryModule is the gorbital library's module path; its modules are
 // gorbital.dev/modules/...
 const libraryModule = "gorbital.dev"
@@ -62,7 +76,14 @@ func Skipped(rel string) bool {
 type Option func(*options)
 
 type options struct {
-	files map[string]bool
+	files        map[string]bool
+	keepLiterals bool
+}
+
+// KeepLibraryLiterals makes Run leave the library's text that contains the
+// placeholder name as it is, for golden apps on gorbital.Main.
+func KeepLibraryLiterals() Option {
+	return func(o *options) { o.keepLiterals = true }
 }
 
 // OnlyFiles makes Run template only the golden app files in files
@@ -124,7 +145,7 @@ func Run(src, dst string, opts ...Option) error {
 	}
 	defer os.RemoveAll(tmp)
 
-	if err := writeTemplates(src, tmp, goModTemplate, o.files); err != nil {
+	if err := writeTemplates(src, tmp, goModTemplate, o); err != nil {
 		return err
 	}
 
@@ -139,7 +160,8 @@ func Run(src, dst string, opts ...Option) error {
 // writeTemplates reads the golden app and writes templates through os.Root,
 // so symlinks can't redirect reads or writes outside src and dst. A non-nil
 // only limits the files read to those in it.
-func writeTemplates(src, dst string, goModTemplate []byte, only map[string]bool) error {
+func writeTemplates(src, dst string, goModTemplate []byte, o options) error {
+	only := o.files
 	srcRoot, err := os.OpenRoot(src)
 	if err != nil {
 		return err
@@ -175,8 +197,18 @@ func writeTemplates(src, dst string, goModTemplate []byte, only map[string]bool)
 		case strings.Contains(text, repositoryPath):
 			return fmt.Errorf("generate: %s refers to %q, a path into the gorbital repository that generated apps don't have", rel, repositoryPath)
 		}
+		if o.keepLiterals {
+			for i, literal := range libraryLiterals {
+				text = strings.ReplaceAll(text, literal, fmt.Sprintf(libraryLiteralMark, i))
+			}
+		}
 		text = strings.ReplaceAll(text, PlaceholderModule, LeftDelim+".Module"+RightDelim)
 		text = strings.ReplaceAll(text, PlaceholderName, LeftDelim+".Name"+RightDelim)
+		if o.keepLiterals {
+			for i, literal := range libraryLiterals {
+				text = strings.ReplaceAll(text, fmt.Sprintf(libraryLiteralMark, i), literal)
+			}
+		}
 		if dir := path.Dir(rel); dir != "." {
 			if err := dstRoot.MkdirAll(dir, 0o755); err != nil {
 				return err

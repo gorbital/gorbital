@@ -144,6 +144,7 @@ func TestNewCreatesApp(t *testing.T) {
 					return err
 				}
 				b, _ := os.ReadFile(p)
+				b = bytes.ReplaceAll(b, []byte("acme-api-7d9f8-x2kq"), nil) // an OpenAPI example of the library's /ops
 				for _, leak := range []string{"acme-api", "⟦", "../../"} {
 					if bytes.Contains(b, []byte(leak)) {
 						t.Errorf("%s contains %q from the golden app or its templates", p, leak)
@@ -260,9 +261,10 @@ func TestSnapshotDetectsChanges(t *testing.T) {
 // TestNewAppBuildsAndPassesItsTests creates an app of each preset against
 // this checkout, then vets it and runs its own test suite. A Full app's
 // database tests run when GORBITAL_TEST_DATABASE_URL is set; afterwards the
-// generators users run next must leave it building and passing its tests,
-// including a generated migration that changes a generated resource's table.
-// Set ORB_E2E=1 to run it.
+// generators users run next must leave it building and passing its tests:
+// a module (with orb gen resource, its alias, in a multi-tenant app), a
+// migration that changes the module's table, middleware, and the switch to
+// SMTP. Set ORB_E2E=1 to run it.
 func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 	if os.Getenv("ORB_E2E") == "" {
 		t.Skip("set ORB_E2E=1 to run the end-to-end test")
@@ -284,13 +286,17 @@ func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 				return
 			}
 			t.Chdir(name)
-			// In a multi-tenant app the resource belongs to organisations (--scope org by default).
-			generators := [][]string{
-				{"gen", "resource", "Customer", "email:string:unique", "notes:text", "tier:enum(free,pro)", "--yes"},
-				{"gen", "job", "SendDigest", "--every", "1h", "--yes"},
-				{"gen", "migration", "add_phone", "--yes"},
+			module := []string{"gen", "module", "Customer", "email:string:unique", "notes:text", "tier:enum(free,pro)", "nickname:string?", "--yes"}
+			if app.tenancy == recipes.TenancyMulti {
+				// orb gen resource is orb gen module, owned by organisations by default here.
+				module = []string{"gen", "resource", "Customer", "email:string:unique", "notes:text", "tier:enum(free,pro)", "--yes"}
 			}
-			table := "customers"
+			generators := [][]string{
+				module,
+				{"gen", "migration", "add_phone", "--yes"},
+				{"gen", "middleware", "RequireClientVersion", "--module", "customers"},
+				{"add", "mail", "--provider", "smtp", "--smtp-host", "smtp.example.com", "--allow-dirty", "--skip-tidy", "--json"},
+			}
 			for _, args := range generators {
 				if code, _, errOut := runOrb(t, args...); code != 0 {
 					t.Fatalf("orb %s in a new Full app = %d: %s", strings.Join(args, " "), code, errOut)
@@ -301,18 +307,17 @@ func TestNewAppBuildsAndPassesItsTests(t *testing.T) {
 			if len(added) != 1 {
 				t.Fatalf("orb gen migration wrote %v, want one add_phone migration", added)
 			}
-			sql := readFile(t, added[0]) + "ALTER TABLE " + table + " ADD COLUMN phone text NOT NULL DEFAULT '';\n"
+			sql := readFile(t, added[0]) + "ALTER TABLE customers ADD COLUMN phone text NOT NULL DEFAULT '';\n"
 			if err := os.WriteFile(added[0], []byte(sql), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			// As orb gen resource's next steps say: the new endpoints change the
-			// spec, and the new error codes, audit actions, permissions and job
-			// are recorded in api/surface.json.
-			if out, err := exec.Command("go", "run", "./cmd/api", "openapi", "--dir", "api").CombinedOutput(); err != nil {
-				t.Fatalf("go run ./cmd/api openapi --dir api: %v\n%s", err, out)
-			}
-			if out, err := exec.Command("go", "test", "./internal/app", "-run", "TestPublicSurface", "-update").CombinedOutput(); err != nil {
-				t.Fatalf("go test ./internal/app -run TestPublicSurface -update: %v\n%s", err, out)
+			// As the generators' next steps say: the new endpoints change the
+			// spec, and the new error codes, audit actions and permissions are
+			// recorded in api/surface.json.
+			for _, args := range [][]string{{"mod", "tidy"}, {"run", "./cmd/api", "openapi", "--dir", "api"}, {"test", "./internal/modules", "-run", "TestPublicSurface", "-update"}} {
+				if out, err := exec.Command("go", args...).CombinedOutput(); err != nil {
+					t.Fatalf("go %s: %v\n%s", strings.Join(args, " "), err, out)
+				}
 			}
 			goIn(t, ".", "vet", "./...")
 			goIn(t, ".", "test", "./...")

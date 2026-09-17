@@ -168,6 +168,26 @@ func TestV02AddRLS(t *testing.T) {
 	}
 }
 
+// TestV02GenResource: in a multi-tenant app on gorbital.Main, orb gen
+// resource writes an organisation module unless --scope user says otherwise,
+// as it does in v0.1.
+func TestV02GenResource(t *testing.T) {
+	newGitApp(t, "--preset", "full", "--tenancy", "multi")
+	for _, tt := range []struct {
+		args  []string
+		scope string
+	}{
+		{[]string{"gen", "resource", "Customer", "name:string", "--allow-dirty", "--json"}, recipes.ScopeOrg},
+		{[]string{"gen", "resource", "Note", "title:string", "--scope", "user", "--allow-dirty", "--json"}, recipes.ScopeUser},
+	} {
+		code, out, errOut := runOrb(t, tt.args...)
+		var res genModuleResult
+		if code != 0 || json.Unmarshal([]byte(out), &res) != nil || res.Scope != tt.scope || !strings.Contains(errOut, "runs orb gen module") {
+			t.Errorf("orb %v = %d %s %s; want a module of scope %s", tt.args, code, out, errOut, tt.scope)
+		}
+	}
+}
+
 func TestV02AddMail(t *testing.T) {
 	newGitApp(t, "--preset", "full")
 	res := addMail(t, "--provider", "smtp", "--smtp-host", "smtp.example.com")
