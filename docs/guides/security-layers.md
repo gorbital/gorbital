@@ -187,7 +187,24 @@ Verification proves who sent a request, not that it's the first time: providers 
 INSERT INTO webhook_deliveries (id, received_at) VALUES ($1, now()) ON CONFLICT DO NOTHING
 ```
 
-and skip the change when no row was inserted, answering 2xx so the sender stops retrying.
+and skip the change when no row was inserted, answering 2xx so the sender stops retrying. Whole apps doing it: Shelfie's [chapter 10](../examples/shelfie/10-hardening.md), and the recipe [Receiving payment webhooks](../examples/recipes/receiving-payment-webhooks.md), which enqueues the side effect in the same transaction.
+
+### Let the sender add fields
+
+A route's input is a Go struct, and Huma refuses a body with a property the struct doesn't have. That is right for your own clients and wrong for a webhook: a provider adds a field to an event, and every delivery becomes a 422 it retries for a day. Accept the rest:
+
+```go
+type paymentEventInput struct {
+	Body struct {
+		ID   string `json:"id"`
+		Type string `json:"type"`
+		// …
+		_ struct{} `additionalProperties:"true"`
+	}
+}
+```
+
+Handle the event types you know and answer 2xx to the others, having done nothing: a webhook you can't act on is not an error the sender can fix.
 
 **What it doesn't do.** It doesn't protect a leaked secret (rotate it), check that the event makes sense for your data, or stop a sender from delivering events out of order: use the event's own timestamps or versions when order matters.
 
