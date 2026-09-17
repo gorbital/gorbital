@@ -79,6 +79,10 @@ type App struct {
 	releases    *releases.Tracker
 	collector   *observability.Collector
 	storageURLs http.Handler // local storage's signed URLs; nil for other drivers
+	// handlers and mailPreviews are what the authenticator's Setup added
+	// (AuthSetup.Handle, AuthSetup.MailPreviews).
+	handlers     []handledRoute
+	mailPreviews []auth.EmailPreview
 
 	// What built-in modules read through the Platform (platform.go).
 	platform     *Platform
@@ -115,6 +119,9 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*App, error) {
 	o := newOptions(opts)
 	modules := o.allModules()
 	if err := validateModules(modules); err != nil {
+		return nil, err
+	}
+	if err := o.checkAuthConfig(cfg); err != nil {
 		return nil, err
 	}
 	if cfg.DatabaseURL.IsZero() {
@@ -297,6 +304,10 @@ func (a *App) build(ctx context.Context) error {
 		Logger:     a.logger,
 	}
 
+	if err := a.setupAuth(ctx); err != nil {
+		return err
+	}
+
 	// How long data is kept: what New builds, then the modules' (ADR-0051).
 	a.retention, err = collectRetention([]Retention{
 		{Data: "audit_events", Setting: a.settings.auditRetention, Delete: recorder.DeleteBefore, Oldest: recorder.Oldest},
@@ -393,6 +404,9 @@ func (a *App) build(ctx context.Context) error {
 	mux.Handle("GET /readyz", a.health.Readiness())
 	if a.storageURLs != nil {
 		mux.Handle(storageLocalPath+"/", a.storageURLs)
+	}
+	for _, h := range a.handlers {
+		mux.Handle(h.pattern, h.handler)
 	}
 
 	stack, err := a.stack(ipLimiter, idempotencyStore)
@@ -604,6 +618,14 @@ func (a *App) buildPlatform() error {
 	return nil
 }
 
+// roleDescriptions describe the roles of v0.1 apps, whose names are public
+// API, as a v0.1 app's permissions.go does.
+var roleDescriptions = map[string]string{
+	"user":           "Held by every signed-in user without a grant; by API keys only within their scopes",
+	"platform_admin": "Operates the platform: every /ops permission",
+	"ops_viewer":     "Reads operational data without changing anything",
+}
+
 // declareRoles declares every role the modules' permissions name, with the
 // permissions the modules grant it.
 func declareRoles(catalog *auth.Catalog, modules []Module) error {
@@ -615,8 +637,12 @@ func declareRoles(catalog *auth.Catalog, modules []Module) error {
 	}
 	slices.Sort(roles)
 	for _, role := range slices.Compact(roles) {
+		description, ok := roleDescriptions[role]
+		if !ok {
+			description = "Granted by the app's modules"
+		}
 		if err := catchPanic("gorbital", "role "+role, func() {
-			catalog.Role(role, "Granted by the app's modules", Grants(role, modules...)...)
+			catalog.Role(role, description, Grants(role, modules...)...)
 		}); err != nil {
 			return err
 		}

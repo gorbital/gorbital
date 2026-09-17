@@ -7,6 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"gorbital.dev/gorbital"
 	"gorbital.dev/modules/openapi"
 
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
@@ -149,12 +150,12 @@ type serviceAccountKeyIDInput struct {
 
 // registerAPIKeys adds the signed-in user's API keys and the platform's
 // service accounts (ADR-0058).
-func registerAPIKeys(api huma.API, h *handler, signedIn func(huma.Operation) huma.Operation) {
-	huma.Register(api, signedIn(huma.Operation{
+func registerAPIKeys(r *gorbital.Router, h *handler, signedIn func(huma.Operation) huma.Operation) {
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-list-api-keys", Method: http.MethodGet, Path: "/v1/auth/api-keys",
 		Summary: "List your API keys", Errors: []int{http.StatusForbidden},
 	}), h.listAPIKeys)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-create-api-key", Method: http.MethodPost, Path: "/v1/auth/api-keys",
 		Summary: "Create an API key",
 		Description: "Returns the key once. Programs send it as `Authorization: Bearer <key>` and act as you, with your current permissions limited to the key's scopes, " +
@@ -164,7 +165,7 @@ func registerAPIKeys(api huma.API, h *handler, signedIn func(huma.Operation) hum
 		DefaultStatus: http.StatusCreated,
 		Errors:        []int{http.StatusForbidden, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusTooManyRequests},
 	}), h.createAPIKey)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-revoke-api-key", Method: http.MethodDelete, Path: "/v1/auth/api-keys/{id}",
 		Summary: "Revoke an API key", Description: "The key stops working at once.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusForbidden, http.StatusNotFound},
@@ -175,36 +176,36 @@ func registerAPIKeys(api huma.API, h *handler, signedIn func(huma.Operation) hum
 		op.Errors = append([]int{http.StatusUnauthorized, http.StatusForbidden}, op.Errors...)
 		return op
 	}
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-list-service-accounts", Method: http.MethodGet, Path: "/ops/service-accounts",
 		Summary: "List service accounts", Description: "Platform service accounts: non-human principals with platform roles, which authenticate with API keys.",
 	}), h.listServiceAccounts)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-create-service-account", Method: http.MethodPost, Path: "/ops/service-accounts",
 		Summary: "Create a service account",
 		Description: "Roles that require two-factor authentication, such as the ops roles, can't be given: API keys never reach `/ops`. " +
 			"Create keys with `POST /ops/service-accounts/{id}/keys`.",
 		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusConflict, http.StatusUnprocessableEntity},
 	}), h.createServiceAccount)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-get-service-account", Method: http.MethodGet, Path: "/ops/service-accounts/{id}",
 		Summary: "Get a service account", Errors: []int{http.StatusNotFound},
 	}), h.getServiceAccount)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-update-service-account", Method: http.MethodPatch, Path: "/ops/service-accounts/{id}",
 		Summary: "Change a service account", Description: "Disabling it revokes all its keys at once.",
 		Errors: []int{http.StatusNotFound, http.StatusUnprocessableEntity},
 	}), h.updateServiceAccount)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-delete-service-account", Method: http.MethodDelete, Path: "/ops/service-accounts/{id}",
 		Summary: "Delete a service account", Description: "Deletes its keys too.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusNotFound},
 	}), h.deleteServiceAccount)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-list-service-account-keys", Method: http.MethodGet, Path: "/ops/service-accounts/{id}/keys",
 		Summary: "List a service account's API keys", Errors: []int{http.StatusNotFound},
 	}), h.listServiceAccountKeys)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-create-service-account-key", Method: http.MethodPost, Path: "/ops/service-accounts/{id}/keys",
 		Summary: "Create an API key for a service account",
 		Description: "Returns the key once. Scopes must be permissions the service account's roles grant. " +
@@ -212,7 +213,7 @@ func registerAPIKeys(api huma.API, h *handler, signedIn func(huma.Operation) hum
 		DefaultStatus: http.StatusCreated,
 		Errors:        []int{http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusTooManyRequests},
 	}), h.createServiceAccountKey)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-revoke-service-account-key", Method: http.MethodDelete, Path: "/ops/service-accounts/{id}/keys/{keyId}",
 		Summary: "Revoke a service account's API key", DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusNotFound},
 	}), h.revokeServiceAccountKey)
@@ -347,7 +348,7 @@ type orgServiceAccountKeyIDInput struct {
 // /v1/orgs/{orgId}/service-accounts (ADR-0058). Multi-tenant apps call it;
 // the use cases need Config.Orgs. A nil svc registers the operations without
 // their dependencies, for exporting the OpenAPI document.
-func RegisterOrgServiceAccounts(api huma.API, svc *authusecase.Service) {
+func RegisterOrgServiceAccounts(r *gorbital.Router, svc *authusecase.Service) {
 	h := &handler{svc: svc}
 	org := func(op huma.Operation) huma.Operation {
 		op.Tags, op.Security = []string{"Organisations"}, openapi.Bearer
@@ -355,44 +356,44 @@ func RegisterOrgServiceAccounts(api huma.API, svc *authusecase.Service) {
 		return op
 	}
 	const base = "/v1/orgs/{orgId}/service-accounts"
-	huma.Register(api, org(huma.Operation{
+	route(r, org(huma.Operation{
 		OperationID: "orgs-list-service-accounts", Method: http.MethodGet, Path: base,
 		Summary: "List the organisation's service accounts",
 		Description: "Service accounts are non-human members with one organisation role, which authenticate with API keys and act only in this organisation. " +
 			"Owners and admins manage them.",
 	}), h.listOrgServiceAccounts)
-	huma.Register(api, org(huma.Operation{
+	route(r, org(huma.Operation{
 		OperationID: "orgs-create-service-account", Method: http.MethodPost, Path: base,
 		Summary:       "Create a service account",
 		Description:   "The role must be one you could give a member, and not owner or a role that requires two-factor authentication.",
 		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusConflict, http.StatusUnprocessableEntity},
 	}), h.createOrgServiceAccount)
-	huma.Register(api, org(huma.Operation{
+	route(r, org(huma.Operation{
 		OperationID: "orgs-get-service-account", Method: http.MethodGet, Path: base + "/{id}",
 		Summary: "Get a service account",
 	}), h.getOrgServiceAccount)
-	huma.Register(api, org(huma.Operation{
+	route(r, org(huma.Operation{
 		OperationID: "orgs-update-service-account", Method: http.MethodPatch, Path: base + "/{id}",
 		Summary: "Change a service account", Description: "Disabling it revokes all its keys at once.",
 		Errors: []int{http.StatusUnprocessableEntity},
 	}), h.updateOrgServiceAccount)
-	huma.Register(api, org(huma.Operation{
+	route(r, org(huma.Operation{
 		OperationID: "orgs-delete-service-account", Method: http.MethodDelete, Path: base + "/{id}",
 		Summary: "Delete a service account", Description: "Deletes its keys too.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusUnprocessableEntity},
 	}), h.deleteOrgServiceAccount)
-	huma.Register(api, org(huma.Operation{
+	route(r, org(huma.Operation{
 		OperationID: "orgs-list-service-account-keys", Method: http.MethodGet, Path: base + "/{id}/keys",
 		Summary: "List a service account's API keys",
 	}), h.listOrgServiceAccountKeys)
-	huma.Register(api, org(huma.Operation{
+	route(r, org(huma.Operation{
 		OperationID: "orgs-create-service-account-key", Method: http.MethodPost, Path: base + "/{id}/keys",
 		Summary: "Create an API key for a service account",
 		Description: "Returns the key once. Scopes must be permissions the service account's role grants. " +
 			"Send your password unless this session verified a second factor in the last 10 minutes.",
 		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusConflict, http.StatusUnprocessableEntity, http.StatusTooManyRequests},
 	}), h.createOrgServiceAccountKey)
-	huma.Register(api, org(huma.Operation{
+	route(r, org(huma.Operation{
 		OperationID: "orgs-revoke-service-account-key", Method: http.MethodDelete, Path: base + "/{id}/keys/{keyId}",
 		Summary: "Revoke a service account's API key", DefaultStatus: http.StatusNoContent,
 	}), h.revokeOrgServiceAccountKey)

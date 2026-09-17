@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"net"
 	"slices"
+	"strings"
 
 	"gorbital.dev/actor"
 	"gorbital.dev/buildinfo"
+	"gorbital.dev/mail"
 	"gorbital.dev/modules/auth"
 	"gorbital.dev/modules/devconsole"
 	"gorbital.dev/modules/jobs"
@@ -51,7 +53,8 @@ func (a *App) buildDevConsole() error {
 			state, err := postgres.Migrations(ctx, a.deps.DB, a.migrations)
 			return devconsole.Migrations{Current: state.Current, Latest: state.Latest, Pending: state.Pending}, err
 		},
-		Jobs: a.devJobRuns,
+		Jobs:         a.devJobRuns,
+		MailPreviews: a.devMailPreviews(),
 	}
 	if a.cfg.MailDelivery == MailMailpit {
 		host, _, err := net.SplitHostPort(a.cfg.MailpitAddr)
@@ -172,8 +175,45 @@ func (a *App) devRoutes(context.Context) ([]devconsole.Route, error) {
 	for _, p := range paths {
 		routes = append(routes, devconsole.Route{Method: "GET", Path: p, Tags: []string{}, Source: devconsole.RouteHandler})
 	}
+	for _, h := range a.handlers {
+		method, path, _ := strings.Cut(h.pattern, " ")
+		routes = append(routes, devconsole.Route{Method: method, Path: path, Tags: []string{}, Source: devconsole.RouteHandler})
+	}
 	devconsole.SortRoutes(routes)
 	return routes, nil
+}
+
+// devMailPreviews renders the app's emails with sample data for the Dev
+// Portal's template preview (ADR-0074): the authenticator's messages and a
+// plain test message. Sending goes through the app's mailer, so a preview
+// lands in the inbox the way a real message does.
+func (a *App) devMailPreviews() *devconsole.MailPreviewer {
+	brand := mail.Brand{Name: a.o.name, URL: a.cfg.Auth.PublicURL}
+	kinds := map[string]func(ctx context.Context, to string) (mail.Message, error){}
+	var previews []devconsole.MailPreview
+	for _, p := range a.mailPreviews {
+		kinds[p.Name] = p.Build
+		previews = append(previews, devconsole.MailPreview{Name: p.Name, Description: p.Description, Category: p.Category})
+	}
+	previews = append(previews, devconsole.MailPreview{Name: "test", Description: "A plain message, to check delivery", Category: "test"})
+	kinds["test"] = func(_ context.Context, to string) (mail.Message, error) {
+		return brand.Message(to, "Test email from "+a.o.name, "test", mail.Email{
+			Preheader:  "If you can read it, email delivery works",
+			Title:      "Email delivery works",
+			Paragraphs: []string{"This is a test message from " + a.o.name + ". If you can read it, email delivery works."},
+		}), nil
+	}
+	return &devconsole.MailPreviewer{
+		Previews: previews,
+		Build: func(ctx context.Context, name, to string) (mail.Message, error) {
+			build, ok := kinds[name]
+			if !ok {
+				return mail.Message{}, devconsole.ErrUnknownPreview
+			}
+			return build(ctx, to)
+		},
+		Send: func(ctx context.Context, m mail.Message) error { return a.deps.Mailer.Send(ctx, m) },
+	}
 }
 
 // routeTags returns the tags of routes, sorted and without duplicates.

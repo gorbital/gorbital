@@ -11,6 +11,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"gorbital.dev/gorbital"
 	"gorbital.dev/httpx"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/openapi"
@@ -175,7 +176,7 @@ type handler struct {
 
 // Register adds the authentication operations to api. Browsers receive the
 // session in the cookie named cookie.
-func Register(api huma.API, svc *authusecase.Service, cookie string) {
+func Register(r *gorbital.Router, svc *authusecase.Service, cookie string) {
 	h := &handler{svc: svc, cookie: cookie}
 	public := func(op huma.Operation) huma.Operation {
 		op.Tags = []string{"Auth"}
@@ -188,39 +189,39 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 	}
 	limited := []int{http.StatusUnprocessableEntity, http.StatusTooManyRequests}
 
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-register", Method: http.MethodPost, Path: "/v1/auth/register",
 		Summary: "Create an account",
 		Description: "Emails a 6-digit verification code. The response, and how long it takes, are the same whether or not the address already has an account. " +
 			"Registering again before verifying keeps the password only when it is the same; otherwise the account is left without one, and the owner sets it with `POST /v1/auth/password/forgot` after verifying.",
 		DefaultStatus: http.StatusAccepted, Errors: append(limited, http.StatusServiceUnavailable),
 	}), h.register)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-verify-email", Method: http.MethodPost, Path: "/v1/auth/verify-email",
 		Summary: "Verify an email address with its code",
 		Description: "Each code allows 5 attempts, and each address `auth.code_attempts` a day across codes (429). Verifying signs out every device and removes any passkey, " +
 			"authenticator app or Google, Apple or GitHub link added before the address was proven.",
 		DefaultStatus: http.StatusNoContent, Errors: limited,
 	}), h.verify)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-resend-verification", Method: http.MethodPost, Path: "/v1/auth/verify-email/resend",
 		Summary: "Send a new verification code", Description: "At most once a minute per address.",
 		DefaultStatus: http.StatusAccepted, Errors: limited,
 	}), h.resend)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-login", Method: http.MethodPost, Path: "/v1/auth/login",
 		Summary: "Sign in",
 		Description: "Starts a session (200). Browsers get an HttpOnly `__Host-session` cookie; native apps pass `\"transport\": \"bearer\"` and get the token in the response. " +
 			"For an account with two-factor authentication the response is 202 with `mfa.challenge_token` instead: finish with `POST /v1/auth/login/mfa`.",
 		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity, http.StatusTooManyRequests, http.StatusServiceUnavailable},
 	}), h.login)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-forgot-password", Method: http.MethodPost, Path: "/v1/auth/password/forgot",
 		Summary:       "Email a password reset code",
 		Description:   "The response is the same whether or not the address has an account.",
 		DefaultStatus: http.StatusAccepted, Errors: limited,
 	}), h.forgot)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-reset-password", Method: http.MethodPost, Path: "/v1/auth/password/reset",
 		Summary: "Set a new password with a reset code",
 		Description: "Signs out every device. Two-factor authentication stays on, except on an account whose address wasn't verified yet: the code verifies it, " +
@@ -228,43 +229,43 @@ func Register(api huma.API, svc *authusecase.Service, cookie string) {
 		DefaultStatus: http.StatusNoContent, Errors: append(limited, http.StatusServiceUnavailable),
 	}), h.reset)
 
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-me", Method: http.MethodGet, Path: "/v1/auth/me",
 		Summary: "Get the signed-in user",
 	}), h.me)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-logout", Method: http.MethodPost, Path: "/v1/auth/logout",
 		Summary: "Sign out this device", DefaultStatus: http.StatusNoContent,
 	}), h.logout)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-logout-all", Method: http.MethodPost, Path: "/v1/auth/logout-all",
 		Summary: "Sign out every device",
 	}), h.logoutAll)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-change-password", Method: http.MethodPut, Path: "/v1/auth/password",
 		Summary: "Change the password", Description: "Signs out other devices.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusUnprocessableEntity},
 	}), h.changePassword)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-list-sessions", Method: http.MethodGet, Path: "/v1/auth/sessions",
 		Summary: "List signed-in devices",
 	}), h.sessions)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-revoke-session", Method: http.MethodDelete, Path: "/v1/auth/sessions/{id}",
 		Summary: "Sign out one device", DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusNotFound},
 	}), h.revokeSession)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-delete-account", Method: http.MethodDelete, Path: "/v1/auth/me",
 		Summary:       "Delete the account",
 		Description:   "Requires the password, and with two-factor authentication on a code, recovery code or passkey response (start one with `POST /v1/auth/passkeys/verification`). Signs out every device.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusServiceUnavailable},
 	}), h.deleteAccount)
 
-	registerMFA(api, h, public, signedIn)
-	registerPasskeys(api, h, public, signedIn)
-	registerSocial(api, h, public, signedIn)
-	registerAPIKeys(api, h, signedIn)
-	registerOpsUsers(api, h)
+	registerMFA(r, h, public, signedIn)
+	registerPasskeys(r, h, public, signedIn)
+	registerSocial(r, h, public, signedIn)
+	registerAPIKeys(r, h, signedIn)
+	registerOpsUsers(r, h)
 }
 
 func (h *handler) register(ctx context.Context, in *registerInput) (*acceptedOutput, error) {

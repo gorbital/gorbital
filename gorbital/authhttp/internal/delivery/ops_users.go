@@ -7,6 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"gorbital.dev/gorbital"
 	"gorbital.dev/modules/openapi"
 
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
@@ -142,82 +143,82 @@ type opsRevokedOutput struct{ Body OpsRevokedResponse }
 type opsTOTPEnrollmentOutput struct{ Body OpsTOTPEnrollmentResponse }
 
 // registerOpsUsers adds the operators' account APIs.
-func registerOpsUsers(api huma.API, h *handler) {
+func registerOpsUsers(r *gorbital.Router, h *handler) {
 	ops := func(op huma.Operation) huma.Operation {
 		op.Tags, op.Security = []string{"Ops: auth"}, openapi.Bearer
 		op.Errors = append([]int{http.StatusUnauthorized, http.StatusForbidden}, op.Errors...)
 		return op
 	}
 	notFound := []int{http.StatusNotFound}
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-list-users", Method: http.MethodGet, Path: "/ops/auth/users",
 		Summary: "List accounts", Description: "Newest first; `q` matches part of the address or an ID. Deleted accounts aren't listed; banned ones are.",
 		Errors: []int{http.StatusBadRequest},
 	}), h.opsListUsers)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-create-user", Method: http.MethodPost, Path: "/ops/auth/users",
 		Summary: "Create an account", Description: "As `orb dev`'s seed data does: the address can be marked verified.",
 		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusConflict, http.StatusUnprocessableEntity},
 	}), h.opsCreateUser)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-get-user", Method: http.MethodGet, Path: "/ops/auth/users/{id}",
 		Summary: "Get an account", Description: "With its sessions, passkeys, linked providers, second factors and usable codes (without the codes: they arrive by email).",
 		Errors: notFound,
 	}), h.opsGetUser)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-delete-user", Method: http.MethodDelete, Path: "/ops/auth/users/{id}",
 		Summary: "Delete an account", Description: "What the owner's own deletion does, without their password: sessions and keys are revoked, providers unlinked, and the data removed after the retention period.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusNotFound, http.StatusConflict},
 	}), h.opsDeleteUser)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-verify-user-email", Method: http.MethodPost, Path: "/ops/auth/users/{id}/verify-email",
 		Summary: "Mark an address verified", DefaultStatus: http.StatusNoContent, Errors: notFound,
 	}), h.opsVerifyUserEmail)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-ban-user", Method: http.MethodPost, Path: "/ops/auth/users/{id}/ban",
 		Summary: "Ban an account", Description: "The account can't sign in; its sessions and API keys are revoked at once.",
 		DefaultStatus: http.StatusNoContent, Errors: notFound,
 	}), h.opsBanUser)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-unban-user", Method: http.MethodPost, Path: "/ops/auth/users/{id}/unban",
 		Summary: "Lift a ban", DefaultStatus: http.StatusNoContent, Errors: notFound,
 	}), h.opsUnbanUser)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-grant-user-role", Method: http.MethodPost, Path: "/ops/auth/users/{id}/roles",
 		Summary: "Grant a platform role", Description: "The address must be verified.",
 		Errors: []int{http.StatusNotFound, http.StatusForbidden, http.StatusUnprocessableEntity},
 	}), h.opsGrantRole)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-revoke-user-role", Method: http.MethodDelete, Path: "/ops/auth/users/{id}/roles/{role}",
 		Summary: "Revoke a platform role", Errors: []int{http.StatusNotFound, http.StatusUnprocessableEntity},
 	}), h.opsRevokeRole)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-revoke-user-sessions", Method: http.MethodDelete, Path: "/ops/auth/users/{id}/sessions",
 		Summary: "End every session of an account", Errors: notFound,
 	}), h.opsRevokeUserSessions)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-revoke-user-session", Method: http.MethodDelete, Path: "/ops/auth/users/{id}/sessions/{sessionId}",
 		Summary: "End one session of an account", DefaultStatus: http.StatusNoContent, Errors: notFound,
 	}), h.opsRevokeUserSession)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-remove-user-passkey", Method: http.MethodDelete, Path: "/ops/auth/users/{id}/passkeys/{passkeyId}",
 		Summary: "Remove a passkey from an account", DefaultStatus: http.StatusNoContent, Errors: notFound,
 	}), h.opsRemoveUserPasskey)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-remove-user-identity", Method: http.MethodDelete, Path: "/ops/auth/users/{id}/identities/{identityId}",
 		Summary: "Unlink a Google, Apple or GitHub account", DefaultStatus: http.StatusNoContent, Errors: notFound,
 	}), h.opsRemoveUserIdentity)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-enroll-user-totp", Method: http.MethodPost, Path: "/ops/auth/users/{id}/mfa/enroll",
 		Summary: "Turn on an authenticator app for an account", Description: "Returns the secret and recovery codes once, as seed data does for the administrator.",
 		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusNotFound, http.StatusConflict, http.StatusServiceUnavailable},
 	}), h.opsEnrollUserTOTP)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-reset-user-mfa", Method: http.MethodPost, Path: "/ops/auth/users/{id}/mfa/reset",
 		Summary: "Reset an account's second factors", Description: "Removes the authenticator app, passkeys and recovery codes and ends every session, for a person locked out.",
 		DefaultStatus: http.StatusNoContent, Errors: notFound,
 	}), h.opsResetUserMFA)
-	huma.Register(api, ops(huma.Operation{
+	route(r, ops(huma.Operation{
 		OperationID: "ops-impersonate-user", Method: http.MethodPost, Path: "/ops/auth/users/{id}/impersonate",
 		Summary:       "Start a session as an account (development only)",
 		Description:   "Available only while the app runs with the dev console (`orb dev`); production answers 403 `impersonation_off`. The session is audited as `auth.user.impersonated`.",

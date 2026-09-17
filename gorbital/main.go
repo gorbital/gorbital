@@ -202,6 +202,9 @@ func runCommand(ctx context.Context, name string, args []string, src config.Sour
 			if err != nil {
 				return err
 			}
+			if err := o.setupAuthForCommand(ctx, cfg); err != nil {
+				return err
+			}
 			return c.Run(ctx, cfg, args, stdout)
 		}
 	}

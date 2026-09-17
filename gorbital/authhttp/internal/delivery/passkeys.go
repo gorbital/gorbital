@@ -8,6 +8,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"gorbital.dev/gorbital"
+
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
 	authusecase "gorbital.dev/gorbital/authhttp/internal/usecase"
 )
@@ -96,56 +98,56 @@ type passkeySecondFactorInput struct {
 }
 
 // registerPasskeys adds the passkey operations (ADR-0044).
-func registerPasskeys(api huma.API, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
+func registerPasskeys(r *gorbital.Router, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
 	unavailable := []int{http.StatusServiceUnavailable}
 
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-begin-passkey-registration", Method: http.MethodPost, Path: "/v1/auth/passkeys/registration",
 		Summary: "Start adding a passkey",
 		Description: "Returns the options for `navigator.credentials.create()`. Send the password unless this session verified a second factor in the last 10 minutes; " +
 			"once the account has two-factor authentication on, the session must also have verified one.",
 		Errors: []int{http.StatusConflict, http.StatusServiceUnavailable},
 	}), h.beginPasskeyRegistration)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-create-passkey", Method: http.MethodPost, Path: "/v1/auth/passkeys",
 		Summary:       "Add a passkey",
 		Description:   "Send the browser's response to the registration options. Verifies this session with a second factor; the account's first second factor also returns recovery codes.",
 		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusConflict, http.StatusUnprocessableEntity, http.StatusServiceUnavailable},
 	}), h.createPasskey)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-list-passkeys", Method: http.MethodGet, Path: "/v1/auth/passkeys",
 		Summary: "List passkeys",
 	}), h.listPasskeys)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-rename-passkey", Method: http.MethodPatch, Path: "/v1/auth/passkeys/{id}",
 		Summary: "Rename a passkey", DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusNotFound, http.StatusUnprocessableEntity},
 	}), h.renamePasskey)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-remove-passkey", Method: http.MethodDelete, Path: "/v1/auth/passkeys/{id}",
 		Summary:       "Remove a passkey",
 		Description:   "Send the password unless this session verified a second factor in the last 10 minutes. Not allowed for the last second factor while a role requires two-factor authentication.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusNotFound, http.StatusConflict},
 	}), h.removePasskey)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-begin-passkey-verification", Method: http.MethodPost, Path: "/v1/auth/passkeys/verification",
 		Summary: "Confirm a change with a passkey",
 		Description: "Returns options for `navigator.credentials.get()` limited to the user's passkeys. Send the response as `passkey` when deleting the account, " +
 			"turning off the authenticator app or replacing recovery codes.",
 		Errors: []int{http.StatusConflict, http.StatusServiceUnavailable},
 	}), h.beginPasskeyVerification)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-passkey-login-options", Method: http.MethodPost, Path: "/v1/auth/passkeys/login/options",
 		Summary:     "Start signing in with a passkey",
 		Description: "Returns the options for `navigator.credentials.get()`. No email or password: the chosen passkey names the account.",
 		Errors:      unavailable,
 	}), h.passkeyLoginOptions)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-passkey-login", Method: http.MethodPost, Path: "/v1/auth/passkeys/login",
 		Summary:     "Sign in with a passkey",
 		Description: "Send the passkey's response. Starts a session verified with a second factor, like `POST /v1/auth/login/mfa`.",
 		Errors:      []int{http.StatusUnauthorized, http.StatusServiceUnavailable},
 	}), h.passkeyLogin)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-login-mfa-passkey", Method: http.MethodPost, Path: "/v1/auth/login/mfa/passkey",
 		Summary:     "Start a passkey second factor",
 		Description: "After a 202 from `POST /v1/auth/login` listing `passkey`: returns options limited to the account's passkeys. Send the response to `POST /v1/auth/login/mfa`.",

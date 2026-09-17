@@ -8,8 +8,8 @@ import (
 
 	"gorbital.dev/modules/postgres/pgtest"
 
-	"gorbital.dev/gorbital/authhttp/internal/migrations"
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
+	"gorbital.dev/gorbital/authhttp/internal/migrations"
 	authrepository "gorbital.dev/gorbital/authhttp/internal/repository"
 	authusecase "gorbital.dev/gorbital/authhttp/internal/usecase"
 )

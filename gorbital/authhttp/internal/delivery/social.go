@@ -11,6 +11,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"gorbital.dev/gorbital"
+
 	authlib "gorbital.dev/modules/auth"
 
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
@@ -151,55 +153,55 @@ type appleNotificationInput struct {
 
 // registerSocial adds the Google, Apple (ADR-0046) and GitHub (ADR-0059)
 // operations.
-func registerSocial(api huma.API, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
+func registerSocial(r *gorbital.Router, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
 	unavailable := []int{http.StatusServiceUnavailable}
 	login := []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusServiceUnavailable}
 
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-start-social", Method: http.MethodGet, Path: "/v1/auth/{provider}/start",
 		Summary: "Sign in with Google, Apple or GitHub in a browser",
 		Description: "Open it in the browser (a link or redirect, not fetch): it sets a short-lived cookie and redirects to the provider. The provider returns to the callback, " +
 			"which redirects to `return_to` signed in, or with `#mfa_challenge_token=…&methods=…` for a second factor, or `#error=<code>`.",
 		DefaultStatus: http.StatusFound, Errors: []int{http.StatusUnprocessableEntity, http.StatusServiceUnavailable},
 	}), h.startSocial)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-google-callback", Method: http.MethodGet, Path: "/v1/auth/google/callback",
 		Summary: "Google's return to the API", Description: "Google redirects here; the API redirects to the sign-in's `return_to`.",
 		DefaultStatus: http.StatusSeeOther,
 	}), h.googleCallback)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-github-callback", Method: http.MethodGet, Path: "/v1/auth/github/callback",
 		Summary: "GitHub's return to the API", Description: "GitHub redirects here; the API redirects to the sign-in's or link's `return_to`.",
 		DefaultStatus: http.StatusSeeOther,
 	}), h.gitHubCallback)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-apple-callback", Method: http.MethodPost, Path: "/v1/auth/apple/callback",
 		Summary: "Apple's return to the API", Description: "Apple posts the result here; the API redirects to the sign-in's `return_to`.",
 		DefaultStatus: http.StatusSeeOther,
 	}), h.appleCallback)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-social-nonce", Method: http.MethodPost, Path: "/v1/auth/{provider}/nonce",
 		Summary:     "Get a nonce for a native sign-in",
 		Description: "Put the nonce in Google's or Apple's SDK request, then send the ID token with it to `POST /v1/auth/{provider}/token`. It works once, for 5 minutes.",
 		Errors:      unavailable,
 	}), h.socialNonce)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-google-token", Method: http.MethodPost, Path: "/v1/auth/google/token",
 		Summary:     "Sign in with a Google ID token",
 		Description: "For iOS and Android apps. Returns a session like `POST /v1/auth/login`, or 202 with a second-factor challenge.",
 		Errors:      login,
 	}), h.googleToken)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-apple-token", Method: http.MethodPost, Path: "/v1/auth/apple/token",
 		Summary:     "Sign in with an Apple ID token",
 		Description: "For iOS apps. Returns a session like `POST /v1/auth/login`, or 202 with a second-factor challenge.",
 		Errors:      login,
 	}), h.appleToken)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-list-identities", Method: http.MethodGet, Path: "/v1/auth/identities",
 		Summary: "List linked Google, Apple and GitHub accounts",
 	}), h.listIdentities)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-link-identity", Method: http.MethodPost, Path: "/v1/auth/identities",
 		Summary: "Link a Google or Apple account",
 		Description: "Links the provider account of an ID token to the signed-in user: get a nonce from `POST /v1/auth/{provider}/nonce`, put it in the SDK's " +
@@ -210,7 +212,7 @@ func registerSocial(api huma.API, h *handler, public, signedIn func(huma.Operati
 		DefaultStatus: http.StatusCreated,
 		Errors:        []int{http.StatusForbidden, http.StatusConflict, http.StatusTooManyRequests, http.StatusServiceUnavailable},
 	}), h.linkIdentity)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-start-identity-link", Method: http.MethodPost, Path: "/v1/auth/{provider}/link",
 		Summary: "Start linking a GitHub account",
 		Description: "GitHub has no ID token for `POST /v1/auth/identities`, so a signed-in user links it through GitHub's page. Call this with the " +
@@ -220,13 +222,13 @@ func registerSocial(api huma.API, h *handler, public, signedIn func(huma.Operati
 			"(`identity_in_use`, `unauthenticated`, `invalid_state`, `access_denied`). Nobody is signed in by it.",
 		Errors: []int{http.StatusForbidden, http.StatusUnprocessableEntity, http.StatusTooManyRequests, http.StatusServiceUnavailable},
 	}), h.startLink)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-remove-identity", Method: http.MethodDelete, Path: "/v1/auth/identities/{id}",
 		Summary:       "Unlink a Google, Apple or GitHub account",
 		Description:   "Send the password unless this session verified a second factor in the last 10 minutes. Not allowed for the account's last way to sign in.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusNotFound, http.StatusConflict},
 	}), h.removeIdentity)
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-apple-notifications", Method: http.MethodPost, Path: "/v1/auth/apple/notifications",
 		Summary:     "Apple's server-to-server notifications",
 		Description: "Register this URL in the App ID's Sign in with Apple settings. Apple posts consent and email changes signed with its keys.",

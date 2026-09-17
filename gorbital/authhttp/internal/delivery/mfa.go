@@ -7,6 +7,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"gorbital.dev/gorbital"
+
 	authdomain "gorbital.dev/gorbital/authhttp/internal/domain"
 )
 
@@ -76,36 +78,36 @@ type disableTOTPInput struct {
 }
 
 // registerMFA adds the two-factor authentication operations (ADR-0043).
-func registerMFA(api huma.API, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
+func registerMFA(r *gorbital.Router, h *handler, public, signedIn func(huma.Operation) huma.Operation) {
 	unavailable := []int{http.StatusConflict, http.StatusTooManyRequests, http.StatusServiceUnavailable}
 
-	huma.Register(api, public(huma.Operation{
+	route(r, public(huma.Operation{
 		OperationID: "auth-login-mfa", Method: http.MethodPost, Path: "/v1/auth/login/mfa",
 		Summary: "Finish signing in with a second factor",
 		Description: "After a 202 from `POST /v1/auth/login`: send the challenge token with a code from the authenticator app, a recovery code, or a passkey's response " +
 			"(start it with `POST /v1/auth/login/mfa/passkey`). Each sign-in allows 5 attempts within 5 minutes; each code works once.",
 		Errors: []int{http.StatusUnauthorized, http.StatusTooManyRequests, http.StatusServiceUnavailable},
 	}), h.loginMFA)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-start-totp", Method: http.MethodPost, Path: "/v1/auth/mfa/totp",
 		Summary:     "Start setting up an authenticator app",
 		Description: "Requires the password. Returns a secret, an otpauth:// URI and a QR code image, shown once. It turns on when a code is confirmed with `POST /v1/auth/mfa/totp/confirm`.",
 		Errors:      unavailable,
 	}), h.startTOTP)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-confirm-totp", Method: http.MethodPost, Path: "/v1/auth/mfa/totp/confirm",
 		Summary:     "Turn on the authenticator app",
 		Description: "Send a code from the authenticator app. Returns 10 recovery codes, shown once, verifies this session with a second factor and signs out other devices.",
 		Errors:      unavailable,
 	}), h.confirmTOTP)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-disable-totp", Method: http.MethodDelete, Path: "/v1/auth/mfa/totp",
 		Summary: "Turn off the authenticator app",
 		Description: "Requires the password and a code, recovery code or passkey response (start one with `POST /v1/auth/passkeys/verification`); signs out other devices. " +
 			"Not allowed while a role requires two-factor authentication and no passkey is left.",
 		DefaultStatus: http.StatusNoContent, Errors: unavailable,
 	}), h.disableTOTP)
-	huma.Register(api, signedIn(huma.Operation{
+	route(r, signedIn(huma.Operation{
 		OperationID: "auth-regenerate-recovery-codes", Method: http.MethodPost, Path: "/v1/auth/mfa/recovery-codes",
 		Summary:     "Replace the recovery codes",
 		Description: "Send a code from the authenticator app or a passkey's response (start one with `POST /v1/auth/passkeys/verification`). Returns 10 new codes, shown once; the old codes stop working.",

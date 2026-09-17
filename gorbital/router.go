@@ -188,7 +188,9 @@ func register[I, O any](r *Router, method, path string, handler func(context.Con
 		}
 		op.Security = openapi.Bearer
 		op.Errors = append([]int{http.StatusUnauthorized}, op.Errors...)
-		op.Middlewares = append(op.Middlewares, requireActor(reg.api))
+		if !cfg.ActorCheckedByHandler {
+			op.Middlewares = append(op.Middlewares, requireActor(reg.api))
+		}
 		guards[0] = "authenticated"
 	}
 	for _, g := range cfg.Guards {
