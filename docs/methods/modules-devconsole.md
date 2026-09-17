@@ -39,6 +39,7 @@ Stability: stable (ADR-0015, ADR-0065). The Go API follows the stability promise
   - [`Console`](#Console): [`New`](#New), [`Console.Close`](#Console.Close), [`Console.Middleware`](#Console.Middleware), [`Console.Mount`](#Console.Mount), [`Console.Operator`](#Console.Operator), [`Console.RecordRequest`](#Console.RecordRequest)
   - [`EnvKey`](#EnvKey)
   - [`EnvKeys`](#EnvKeys): [`EnvKeys.List`](#EnvKeys.List), [`EnvKeys.Read`](#EnvKeys.Read), [`EnvKeys.ReadSecret`](#EnvKeys.ReadSecret)
+  - [`Extension`](#Extension)
   - [`Flag`](#Flag)
   - [`Index`](#Index)
   - [`Job`](#Job)
@@ -483,6 +484,61 @@ ReadSecret records a variable read as a secret: only whether it is set.
 
 *Since `v0.1.0`*
 
+<a id="Extension"></a>
+<a id="Extension.Prefix"></a>
+<a id="Extension.Handler"></a>
+
+### type Extension
+
+```go
+type Extension struct {
+	// Prefix is a path under /_dev/ ending in a slash, such as
+	// "/_dev/auth/test/". It must not contain a built-in endpoint.
+	Prefix  string
+	Handler http.Handler
+}
+```
+
+Extension serves the console endpoints under Prefix (and Prefix without its final slash) with Handler, after the console's Host, loopback, forwarding and token checks and with its response headers (Cache-Control: no-store, no CORS). The handler answers every method itself. The index lists Prefix in Index.Extensions.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+An extension serves more development endpoints under /\_dev/, behind the console's Host, loopback, forwarding-header and token checks, as sign-in's tests do at /\_dev/auth/test/.
+
+```go
+token := "0123456789abcdef0123456789abcdef-example"
+tests := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	_, _ = io.WriteString(w, `{"path":"`+r.URL.Path+`"}`)
+})
+console, err := devconsole.New(token, devconsole.WithAddr("127.0.0.1:8080"), devconsole.WithSources(devconsole.Sources{
+	Extensions: []devconsole.Extension{{Prefix: "/_dev/auth/test/", Handler: tests}},
+}))
+if err != nil {
+	panic(err)
+}
+handler := console.Mount(http.NotFoundHandler(), slog.New(slog.DiscardHandler))
+
+request := func(withToken bool) int {
+	req := httptest.NewRequest(http.MethodGet, "/_dev/auth/test/results/slt_1", nil)
+	req.Host, req.RemoteAddr = "127.0.0.1:8080", "127.0.0.1:50000"
+	if withToken {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec.Code
+}
+fmt.Println(request(true), request(false))
+```
+
+Output:
+
+```text
+200 401
+```
+
 <a id="Flag"></a>
 <a id="Flag.Key"></a>
 <a id="Flag.Group"></a>
@@ -518,6 +574,7 @@ Flag is a declared feature flag and its current state, with target lists summari
 
 <a id="Index"></a>
 <a id="Index.Endpoints"></a>
+<a id="Index.Extensions"></a>
 
 ### type Index
 
@@ -525,6 +582,9 @@ Flag is a declared feature flag and its current state, with target lists summari
 type Index struct {
 	// Endpoints are the paths this app serves, sorted.
 	Endpoints []string `json:"endpoints"`
+	// Extensions are the path prefixes extensions serve, sorted
+	// ([Sources.Extensions]).
+	Extensions []string `json:"extensions"`
 }
 ```
 
@@ -1183,6 +1243,7 @@ Setting is a declared runtime setting and its current value.
 <a id="Sources.Migrations"></a>
 <a id="Sources.Jobs"></a>
 <a id="Sources.MailPreviews"></a>
+<a id="Sources.Extensions"></a>
 
 ### type Sources
 
@@ -1207,6 +1268,9 @@ type Sources struct {
 	// /_dev/mail/previews, /_dev/mail/preview, POST /_dev/mail/preview/send);
 	// see [MailPreviewer].
 	MailPreviews *MailPreviewer
+	// Extensions serve more endpoints under /_dev/, such as sign-in's
+	// tests at /_dev/auth/test/ (ADR-0087), behind the same checks.
+	Extensions []Extension
 }
 ```
 

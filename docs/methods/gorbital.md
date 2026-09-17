@@ -730,6 +730,7 @@ http://localhost:8080 http://localhost:8080/docs localhost
 <a id="AuthSetup.DevConsole"></a>
 <a id="AuthSetup.Handle"></a>
 <a id="AuthSetup.MailPreviews"></a>
+<a id="AuthSetup.DevEndpoints"></a>
 
 ### type AuthSetup
 
@@ -764,6 +765,13 @@ type AuthSetup struct {
 	// sample data (ADR-0074). Call it during Setup. It does nothing from
 	// Main.
 	MailPreviews func(previews ...auth.EmailPreview)
+	// DevEndpoints serves handler under prefix, a path under /_dev/ ending
+	// in a slash such as "/_dev/auth/test/", as part of the development
+	// console: behind its Host, loopback, forwarding-header and token checks
+	// (ADR-0065, ADR-0086), for development tools such as sign-in's tests
+	// (ADR-0087). Call it during Setup. It does nothing when DevConsole is
+	// false and from Main; New fails for a prefix the console refuses.
+	DevEndpoints func(prefix string, handler http.Handler)
 }
 ```
 

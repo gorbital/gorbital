@@ -84,6 +84,7 @@ pkg gorbital.dev/gorbital, type AuthSetup struct
 pkg gorbital.dev/gorbital, type AuthSetup struct, Config Config
 pkg gorbital.dev/gorbital, type AuthSetup struct, Deps Deps
 pkg gorbital.dev/gorbital, type AuthSetup struct, DevConsole bool
+pkg gorbital.dev/gorbital, type AuthSetup struct, DevEndpoints func(string, http.Handler)
 pkg gorbital.dev/gorbital, type AuthSetup struct, Handle func(string, http.Handler)
 pkg gorbital.dev/gorbital, type AuthSetup struct, MailPreviews func(...auth.EmailPreview)
 pkg gorbital.dev/gorbital, type AuthSetup struct, Name string
