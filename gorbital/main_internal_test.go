@@ -131,7 +131,9 @@ func TestOpenAPIExportIsStable(t *testing.T) {
 		t.Errorf("document = %s", first.String())
 	}
 
-	dir := t.TempDir()
+	// A directory that doesn't exist yet is created: a new app's first
+	// export shouldn't fail because nobody made api/ by hand.
+	dir := filepath.Join(t.TempDir(), "api")
 	if code := run(context.Background(), []string{"openapi", "--dir", dir}, env(nil), io.Discard, os.Stderr, opts); code != 0 {
 		t.Fatalf("openapi --dir = %d", code)
 	}
