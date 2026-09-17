@@ -29,6 +29,10 @@ The link holds this run's portal token. Opening it once sets a cookie in your br
 
 A taken port stops `orb dev` before anything starts, naming the port and the ways to move it.
 
+### Landing on a page
+
+The link accepts `next`, a path of the portal to land on once the cookie is set: `http://127.0.0.1:3100/_portal/auth?t=<token>&next=/database/schema`. Only paths of the portal itself are accepted; anything else lands on the Overview.
+
 ## What it serves
 
 | Path | What |
