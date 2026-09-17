@@ -17,15 +17,18 @@ import (
 
 	"example.com/shelfie/db/migrations"
 	"example.com/shelfie/internal/modules"
+	"example.com/shelfie/internal/modules/phonelogin"
 )
 
 // docs:start main
 func main() {
+	auth := authhttp.New(signInOptions()...) // sign-in: accounts, sessions, MFA, passkeys, API keys; signin.go
 	gorbital.Main(
 		gorbital.WithName("shelfie"),
-		gorbital.WithAuth(authhttp.New()),                          // sign-in: accounts, sessions, MFA, passkeys, API keys
+		gorbital.WithAuth(auth),
 		gorbital.WithModules(opshttp.Module(), flagshttp.Module()), // /ops/ and /v1/flags, built in
 		gorbital.WithModules(modules.All()...),                     // internal/modules/modules.gen.go
+		gorbital.WithModules(phonelogin.Module(auth, smsSender())), // takes the authenticator, so it's added here
 		gorbital.WithMigrations(migrations.FS),                     // db/migrations
 	)
 }

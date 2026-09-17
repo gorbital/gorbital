@@ -11,6 +11,7 @@ import (
 	"gorbital.dev/gorbital"
 
 	"example.com/shelfie/internal/modules/books"
+	"example.com/shelfie/internal/modules/profiles"
 	"example.com/shelfie/internal/modules/shelves"
 )
 
@@ -18,6 +19,7 @@ import (
 func All() []gorbital.Module {
 	return []gorbital.Module{
 		books.Module(),
+		profiles.Module(),
 		shelves.Module(),
 	}
 }

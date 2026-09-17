@@ -571,6 +571,30 @@
         ],
         "type": "object"
       },
+      "ConfirmPhoneInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "examples": [
+              "123456"
+            ],
+            "pattern": "^[0-9]{6}$",
+            "type": "string"
+          },
+          "phone": {
+            "examples": [
+              "+447700900123"
+            ],
+            "maxLength": 32,
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "code"
+        ],
+        "type": "object"
+      },
       "CreateBookInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -600,33 +624,6 @@
         },
         "required": [
           "title"
-        ],
-        "type": "object"
-      },
-      "CreateShelfInputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "maxLength": 2000,
-            "type": "string"
-          },
-          "name": {
-            "description": "Unique among your shelves, ignoring case",
-            "maxLength": 100,
-            "minLength": 1,
-            "type": "string"
-          },
-          "visibility": {
-            "default": "private",
-            "enum": [
-              "private",
-              "shared"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
         ],
         "type": "object"
       },
@@ -3230,6 +3227,32 @@
         ],
         "type": "object"
       },
+      "ProfileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "examples": [
+              "GB"
+            ],
+            "type": "string"
+          },
+          "display_name": {
+            "examples": [
+              "Ada"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "QueueControlInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -3456,9 +3479,20 @@
         },
         "type": "object"
       },
-      "RegisterInputBody": {
+      "RegisterBodyRegistrationFields": {
         "additionalProperties": true,
         "properties": {
+          "country": {
+            "description": "ISO 3166-1 alpha-2 code, such as GB",
+            "pattern": "^[A-Z]{2}$",
+            "type": "string"
+          },
+          "display_name": {
+            "description": "How other readers see you",
+            "maxLength": 50,
+            "minLength": 1,
+            "type": "string"
+          },
           "email": {
             "examples": [
               "ada@example.com"
@@ -3474,7 +3508,8 @@
         },
         "required": [
           "email",
-          "password"
+          "password",
+          "display_name"
         ],
         "type": "object"
       },
@@ -4090,6 +4125,37 @@
         ],
         "type": "object"
       },
+      "SendSignInCodeInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "phone": {
+            "examples": [
+              "+447700900123"
+            ],
+            "maxLength": 32,
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "type": "object"
+      },
+      "SentOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "check_your_phone"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
       "ServiceAccountBody": {
         "additionalProperties": true,
         "properties": {
@@ -4280,6 +4346,23 @@
           "state",
           "version",
           "reason"
+        ],
+        "type": "object"
+      },
+      "SetPhoneInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "phone": {
+            "description": "E.164; spaces and dashes are ignored",
+            "examples": [
+              "+447700900123"
+            ],
+            "maxLength": 32,
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
         ],
         "type": "object"
       },
@@ -4532,7 +4615,7 @@
         ],
         "type": "object"
       },
-      "ShelfPage": {
+      "ShelfListOutputBody": {
         "additionalProperties": false,
         "properties": {
           "items": {
@@ -4543,10 +4626,6 @@
               "array",
               "null"
             ]
-          },
-          "next_cursor": {
-            "description": "Pass as cursor to get the next page; absent on the last page",
-            "type": "string"
           }
         },
         "required": [
@@ -4561,34 +4640,15 @@
             "format": "date-time",
             "type": "string"
           },
-          "description": {
-            "type": "string"
-          },
           "id": {
             "examples": [
-              "shl_mfrggzdfmztwq2lkmfrggzdfmy"
+              "shf_mfrggzdfmztwq2lkmfrggzdfmy"
             ],
             "type": "string"
           },
           "name": {
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "version": {
-            "description": "Increases with every change; send it back when updating",
             "examples": [
-              1
-            ],
-            "format": "int64",
-            "type": "integer"
-          },
-          "visibility": {
-            "enum": [
-              "private",
-              "shared"
+              "Reading"
             ],
             "type": "string"
           }
@@ -4596,11 +4656,40 @@
         "required": [
           "id",
           "name",
-          "description",
-          "visibility",
-          "version",
-          "created_at",
-          "updated_at"
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "SignInInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "examples": [
+              "123456"
+            ],
+            "pattern": "^[0-9]{6}$",
+            "type": "string"
+          },
+          "phone": {
+            "examples": [
+              "+447700900123"
+            ],
+            "maxLength": 32,
+            "type": "string"
+          },
+          "transport": {
+            "default": "cookie",
+            "description": "cookie (browsers): an HttpOnly session cookie; bearer (native apps): the token in the response",
+            "enum": [
+              "cookie",
+              "bearer"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "code"
         ],
         "type": "object"
       },
@@ -5393,6 +5482,25 @@
         ],
         "type": "object"
       },
+      "UpdateProfileInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "country": {
+            "description": "ISO 3166-1 alpha-2 code",
+            "pattern": "^[A-Z]{2}$",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 50,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name"
+        ],
+        "type": "object"
+      },
       "UpdateServiceAccountInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -5416,37 +5524,6 @@
             "type": "array"
           }
         },
-        "type": "object"
-      },
-      "UpdateShelfInputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "description": {
-            "maxLength": 2000,
-            "type": "string"
-          },
-          "name": {
-            "maxLength": 100,
-            "minLength": 1,
-            "type": "string"
-          },
-          "version": {
-            "description": "The version you read. If the shelf changed since, the update fails with shelf_version_conflict.",
-            "format": "int64",
-            "minimum": 1,
-            "type": "integer"
-          },
-          "visibility": {
-            "enum": [
-              "private",
-              "shared"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "version"
-        ],
         "type": "object"
       },
       "UserResponse": {
@@ -16744,7 +16821,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterInputBody"
+                "$ref": "#/components/schemas/RegisterBodyRegistrationFields"
               }
             }
           },
@@ -17872,84 +17949,23 @@
         ]
       }
     },
-    "/v1/shelves": {
-      "get": {
-        "description": "Newest first unless `sort` says otherwise; sort by one of `created_at`, `updated_at` or `name`. Paginate with `cursor`.",
-        "operationId": "shelves-list",
-        "parameters": [
-          {
-            "description": "Maximum number of items to return (default 20, max 100)",
-            "explode": false,
-            "in": "query",
-            "name": "limit",
-            "schema": {
-              "description": "Maximum number of items to return (default 20, max 100)",
-              "format": "int64",
-              "maximum": 100,
-              "minimum": 0,
-              "type": "integer"
+    "/v1/phone": {
+      "put": {
+        "description": "Texts a code to confirm it with POST /v1/phone/confirm.",
+        "operationId": "phonelogin-put-v1-phone",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPhoneInputBody"
+              }
             }
           },
-          {
-            "description": "Opaque cursor from a previous response's next_cursor",
-            "explode": false,
-            "in": "query",
-            "name": "cursor",
-            "schema": {
-              "description": "Opaque cursor from a previous response's next_cursor",
-              "maxLength": 512,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Comma-separated sort fields; prefix a field with - for descending order",
-            "explode": false,
-            "in": "query",
-            "name": "sort",
-            "schema": {
-              "description": "Comma-separated sort fields; prefix a field with - for descending order",
-              "examples": [
-                "-created_at"
-              ],
-              "maxLength": 200,
-              "type": "string"
-            }
-          },
-          {
-            "description": "Only shelves with this visibility",
-            "explode": false,
-            "in": "query",
-            "name": "visibility",
-            "schema": {
-              "description": "Only shelves with this visibility",
-              "enum": [
-                "private",
-                "shared"
-              ],
-              "type": "string"
-            }
-          }
-        ],
+          "required": true
+        },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ShelfPage"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "400": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Bad Request"
+          "202": {
+            "description": "Accepted"
           },
           "401": {
             "content": {
@@ -17981,6 +17997,16 @@
             },
             "description": "Unprocessable Entity"
           },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
           "500": {
             "content": {
               "application/problem+json": {
@@ -17997,17 +18023,21 @@
             "bearer": []
           }
         ],
-        "summary": "List your shelves",
+        "summary": "Set your phone number",
         "tags": [
-          "Shelves"
+          "Phone sign-in"
         ],
         "x-gorbital-guards": [
           "authenticated",
-          "permission:shelves.shelf.read"
+          "permission:phonelogin.phone.write",
+          "rate_limit:5/1h0m0s"
         ]
-      },
+      }
+    },
+    "/v1/phone-sign-in": {
       "post": {
-        "operationId": "shelves-create",
+        "description": "Answers as POST /v1/auth/login does: 200 with the session, or 202 with a second-factor challenge to finish with POST /v1/auth/login/mfa.",
+        "operationId": "phonelogin-post-v1-phone-sign-in",
         "parameters": [
           {
             "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
@@ -18026,22 +18056,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateShelfInputBody"
+                "$ref": "#/components/schemas/SignInInputBody"
               }
             }
           },
           "required": true
         },
         "responses": {
-          "201": {
+          "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ShelfResponse"
+                  "$ref": "#/components/schemas/LoginResponse"
                 }
               }
             },
-            "description": "Created"
+            "description": "OK",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "401": {
             "content": {
@@ -18063,7 +18100,7 @@
             },
             "description": "Forbidden"
           },
-          "409": {
+          "422": {
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -18071,7 +18108,87 @@
                 }
               }
             },
-            "description": "Conflict"
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Sign in with a texted code",
+        "tags": [
+          "Phone sign-in"
+        ],
+        "x-gorbital-guards": [
+          "public",
+          "rate_limit:20/1h0m0s"
+        ]
+      }
+    },
+    "/v1/phone-sign-in/code": {
+      "post": {
+        "description": "The response is the same whether or not an account confirmed the number.",
+        "operationId": "phonelogin-post-v1-phone-sign-in-code",
+        "parameters": [
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendSignInCodeInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentOutputBody"
+                }
+              }
+            },
+            "description": "Accepted"
           },
           "422": {
             "content": {
@@ -18083,6 +18200,16 @@
             },
             "description": "Unprocessable Entity"
           },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
           "500": {
             "content": {
               "application/problem+json": {
@@ -18092,40 +18219,55 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Create a shelf",
+        "summary": "Text a sign-in code",
         "tags": [
-          "Shelves"
+          "Phone sign-in"
         ],
         "x-gorbital-guards": [
-          "authenticated",
-          "permission:shelves.shelf.write"
+          "public",
+          "rate_limit:10/1h0m0s"
         ]
       }
     },
-    "/v1/shelves/{id}": {
-      "delete": {
-        "operationId": "shelves-delete",
+    "/v1/phone/confirm": {
+      "post": {
+        "operationId": "phonelogin-post-v1-phone-confirm",
         "parameters": [
           {
-            "in": "path",
-            "name": "id",
-            "required": true,
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
             "schema": {
-              "examples": [
-                "shl_mfrggzdfmztwq2lkmfrggzdfmy"
-              ],
-              "maxLength": 64,
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
               "type": "string"
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmPhoneInputBody"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "204": {
             "description": "No Content"
@@ -18150,16 +18292,6 @@
             },
             "description": "Forbidden"
           },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -18169,6 +18301,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           },
           "500": {
             "content": {
@@ -18186,37 +18328,27 @@
             "bearer": []
           }
         ],
-        "summary": "Delete a shelf",
+        "summary": "Confirm your phone number",
         "tags": [
-          "Shelves"
+          "Phone sign-in"
         ],
         "x-gorbital-guards": [
           "authenticated",
-          "permission:shelves.shelf.write"
+          "permission:phonelogin.phone.write",
+          "rate_limit:10/1h0m0s"
         ]
-      },
+      }
+    },
+    "/v1/profile": {
       "get": {
-        "operationId": "shelves-get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "examples": [
-                "shl_mfrggzdfmztwq2lkmfrggzdfmy"
-              ],
-              "maxLength": 64,
-              "type": "string"
-            }
-          }
-        ],
+        "description": "404 profile_incomplete until the reader creates it: readers who signed up with Google, Apple or GitHub complete it with PUT.",
+        "operationId": "profiles-get-v1-profile",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ShelfResponse"
+                  "$ref": "#/components/schemas/ProfileResponse"
                 }
               }
             },
@@ -18252,16 +18384,6 @@
             },
             "description": "Not Found"
           },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Unprocessable Entity"
-          },
           "500": {
             "content": {
               "application/problem+json": {
@@ -18278,49 +18400,22 @@
             "bearer": []
           }
         ],
-        "summary": "Get a shelf",
+        "summary": "Get your profile",
         "tags": [
-          "Shelves"
+          "Profiles"
         ],
         "x-gorbital-guards": [
           "authenticated",
-          "permission:shelves.shelf.read"
+          "permission:profiles.profile.read"
         ]
       },
-      "patch": {
-        "description": "Send the fields to change and the `version` you read.",
-        "operationId": "shelves-update",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "examples": [
-                "shl_mfrggzdfmztwq2lkmfrggzdfmy"
-              ],
-              "maxLength": 64,
-              "type": "string"
-            }
-          },
-          {
-            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
-            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
-            "in": "header",
-            "name": "Idempotency-Key",
-            "schema": {
-              "maxLength": 255,
-              "minLength": 1,
-              "pattern": "^[!-~]+$",
-              "type": "string"
-            }
-          }
-        ],
+      "put": {
+        "operationId": "profiles-put-v1-profile",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateShelfInputBody"
+                "$ref": "#/components/schemas/UpdateProfileInputBody"
               }
             }
           },
@@ -18331,7 +18426,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ShelfResponse"
+                  "$ref": "#/components/schemas/ProfileResponse"
                 }
               }
             },
@@ -18356,26 +18451,6 @@
               }
             },
             "description": "Forbidden"
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            },
-            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -18403,13 +18478,73 @@
             "bearer": []
           }
         ],
-        "summary": "Update a shelf",
+        "summary": "Create or change your profile",
         "tags": [
-          "Shelves"
+          "Profiles"
         ],
         "x-gorbital-guards": [
           "authenticated",
-          "permission:shelves.shelf.write"
+          "permission:profiles.profile.write"
+        ]
+      }
+    },
+    "/v1/shelves": {
+      "get": {
+        "operationId": "books-get-v1-shelves",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShelfListOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List your shelves",
+        "tags": [
+          "Books"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:books.book.read"
         ]
       }
     },

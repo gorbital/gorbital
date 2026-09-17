@@ -4916,7 +4916,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"ada@example.com\",\n  \"password\": \"string\"\n}",
+              "raw": "{\n  \"display_name\": \"string\",\n  \"email\": \"ada@example.com\",\n  \"password\": \"string\",\n  \"country\": \"string\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5381,6 +5381,32 @@
               ]
             }
           }
+        },
+        {
+          "name": "List your shelves",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/shelves",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "shelves"
+              ]
+            }
+          }
         }
       ]
     },
@@ -5417,13 +5443,13 @@
       ]
     },
     {
-      "name": "Shelves",
+      "name": "Phone sign-in",
       "item": [
         {
-          "name": "List your shelves",
+          "name": "Set your phone number",
           "request": {
-            "method": "GET",
-            "description": "Newest first unless `sort` says otherwise; sort by one of `created_at`, `updated_at` or `name`. Paginate with `cursor`.",
+            "method": "PUT",
+            "description": "Texts a code to confirm it with POST /v1/phone/confirm.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -5433,47 +5459,116 @@
                 }
               ]
             },
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
-              "raw": "{{baseUrl}}/v1/shelves",
+              "raw": "{{baseUrl}}/v1/phone",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "v1",
-                "shelves"
-              ],
-              "query": [
-                {
-                  "key": "limit",
-                  "value": "0",
-                  "description": "Maximum number of items to return (default 20, max 100)",
-                  "disabled": true
-                },
-                {
-                  "key": "cursor",
-                  "value": "string",
-                  "description": "Opaque cursor from a previous response's next_cursor",
-                  "disabled": true
-                },
-                {
-                  "key": "sort",
-                  "value": "-created_at",
-                  "description": "Comma-separated sort fields; prefix a field with - for descending order",
-                  "disabled": true
-                },
-                {
-                  "key": "visibility",
-                  "value": "private",
-                  "description": "Only shelves with this visibility",
-                  "disabled": true
-                }
+                "phone"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+447700900123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         },
         {
-          "name": "Create a shelf",
+          "name": "Sign in with a texted code",
+          "request": {
+            "method": "POST",
+            "description": "Answers as POST /v1/auth/login does: 200 with the session, or 202 with a second-factor challenge to finish with POST /v1/auth/login/mfa.",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/phone-sign-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "phone-sign-in"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\",\n  \"phone\": \"+447700900123\",\n  \"transport\": \"cookie\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Text a sign-in code",
+          "request": {
+            "method": "POST",
+            "description": "The response is the same whether or not an account confirmed the number.",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/phone-sign-in/code",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "phone-sign-in",
+                "code"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+447700900123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Confirm your phone number",
           "request": {
             "method": "POST",
             "auth": {
@@ -5497,18 +5592,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/v1/shelves",
+              "raw": "{{baseUrl}}/v1/phone/confirm",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "v1",
-                "shelves"
+                "phone",
+                "confirm"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"visibility\": \"private\"\n}",
+              "raw": "{\n  \"code\": \"123456\",\n  \"phone\": \"+447700900123\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5516,11 +5612,17 @@
               }
             }
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "Profiles",
+      "item": [
         {
-          "name": "Get a shelf",
+          "name": "Get your profile",
           "request": {
             "method": "GET",
+            "description": "404 profile_incomplete until the reader creates it: readers who signed up with Google, Apple or GitHub complete it with PUT.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -5532,29 +5634,21 @@
             },
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/v1/shelves/:id",
+              "raw": "{{baseUrl}}/v1/profile",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "v1",
-                "shelves",
-                ":id"
-              ],
-              "variable": [
-                {
-                  "key": "id",
-                  "value": "shl_mfrggzdfmztwq2lkmfrggzdfmy"
-                }
+                "profile"
               ]
             }
           }
         },
         {
-          "name": "Update a shelf",
+          "name": "Create or change your profile",
           "request": {
-            "method": "PATCH",
-            "description": "Send the fields to change and the `version` you read.",
+            "method": "PUT",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -5566,73 +5660,28 @@
             },
             "header": [
               {
-                "key": "Idempotency-Key",
-                "value": "string",
-                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
-              },
-              {
                 "key": "Content-Type",
                 "value": "application/json"
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/v1/shelves/:id",
+              "raw": "{{baseUrl}}/v1/profile",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "v1",
-                "shelves",
-                ":id"
-              ],
-              "variable": [
-                {
-                  "key": "id",
-                  "value": "shl_mfrggzdfmztwq2lkmfrggzdfmy"
-                }
+                "profile"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"version\": 1,\n  \"description\": \"string\",\n  \"name\": \"string\",\n  \"visibility\": \"private\"\n}",
+              "raw": "{\n  \"display_name\": \"string\",\n  \"country\": \"string\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
                 }
               }
-            }
-          }
-        },
-        {
-          "name": "Delete a shelf",
-          "request": {
-            "method": "DELETE",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{token}}"
-                }
-              ]
-            },
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/v1/shelves/:id",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "v1",
-                "shelves",
-                ":id"
-              ],
-              "variable": [
-                {
-                  "key": "id",
-                  "value": "shl_mfrggzdfmztwq2lkmfrggzdfmy"
-                }
-              ]
             }
           }
         }

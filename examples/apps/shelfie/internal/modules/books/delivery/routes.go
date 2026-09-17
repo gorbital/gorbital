@@ -36,6 +36,9 @@ func Register(r *gorbital.Router, svc *usecase.Service) {
 		gorbital.Summary("Change a book"), guard.Permission(usecase.PermWrite))
 	gorbital.Delete(books, "/{id}", h.deleteBook,
 		gorbital.Summary("Remove a book"), gorbital.Status(http.StatusNoContent), guard.Permission(usecase.PermWrite))
+
+	gorbital.Get(r.Group("/v1/shelves", gorbital.Tags("Books")), "", h.listShelves,
+		gorbital.Summary("List your shelves"), guard.Permission(usecase.PermRead))
 }
 
 // docs:end routes

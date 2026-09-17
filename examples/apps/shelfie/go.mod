@@ -3,9 +3,11 @@ module example.com/shelfie
 go 1.26.0
 
 require (
+	github.com/danielgtaylor/huma/v2 v2.39.1
 	github.com/jackc/pgx/v5 v5.11.0
 	gorbital.dev v0.1.0
 	gorbital.dev/gorbital v0.2.0
+	gorbital.dev/modules/auth v0.1.0
 	gorbital.dev/modules/flags v0.1.0
 	gorbital.dev/modules/postgres v0.1.0
 	gorbital.dev/modules/settings v0.1.0
@@ -16,7 +18,6 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/coreos/go-oidc/v3 v3.21.0 // indirect
-	github.com/danielgtaylor/huma/v2 v2.39.1 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
@@ -80,7 +81,6 @@ require (
 	google.golang.org/grpc v1.83.2 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gorbital.dev/modules/auditpg v0.1.0 // indirect
-	gorbital.dev/modules/auth v0.1.0 // indirect
 	gorbital.dev/modules/devconsole v0.1.0 // indirect
 	gorbital.dev/modules/idempotency v0.1.0 // indirect
 	gorbital.dev/modules/jobs v0.1.0 // indirect
