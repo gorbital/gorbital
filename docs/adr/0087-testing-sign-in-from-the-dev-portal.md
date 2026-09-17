@@ -23,7 +23,7 @@ What exists:
 
 The tests are endpoints of the app under `/_dev/auth/test/`, served only while the dev console exists (`APP_ENV=development` with `DEV_CONSOLE_TOKEN`), behind the console's four checks. The portal reaches them through its proxy, which adds the token; the browser never holds it.
 
-To keep sign-in's code in sign-in's package, the console gains **extensions** (`devconsole.Sources.Extensions`: a prefix under `/_dev/` and a handler; listed in the index as `extensions`) and the authenticator gets **`gorbital.AuthSetup.DevEndpoints`**, which does nothing unless the console is on. `authhttp` registers its tests there during `Setup`. New, which refuses prefixes that overlap the console's own endpoints.
+To keep sign-in's code in sign-in's package, the console gains **extensions** (`devconsole.Sources.Extensions`: a prefix under `/_dev/` and a handler; listed in the index as `extensions`) and the authenticator gets **`gorbital.AuthSetup.DevEndpoints`**, which does nothing unless the console is on. `authhttp` registers its tests there during `Setup`. `devconsole.New` refuses prefixes that overlap the console's own endpoints.
 
 ### 2. Offline checks
 
@@ -42,7 +42,7 @@ Deviation from the brief: the clock is not checked offline (there is nothing to 
 
 ### 3. Network checks
 
-`POST /_dev/auth/test/{google|apple|github}/check` requests the provider's keys (GitHub: its API root) and compares the answer's `Date` with this computer's clock (warn from 10 s, fail from 1 minute, the tolerance of ID tokens), then sends the configured client credentials to the token endpoint with an authorization code no one issued. A provider that accepts the client refuses only the code (`invalid_grant`, GitHub `bad_verification_code`); one that doesn't answers `invalid_client` (GitHub `incorrect_client_credentials`) first. For Apple this proves the Team ID, Key ID, key and Services ID belong together without a browser. It is the same `Provider.Exchange` sign-in uses.
+`POST /_dev/auth/test/{google|apple|github}/check` requests the provider's token endpoint and compares the answer's `Date` (plus `Age`, when a cache answered) with this computer's clock (warn from 10 s, fail from 1 minute, the tolerance of ID tokens), then sends the configured client credentials to the token endpoint with an authorization code no one issued. A provider that accepts the client refuses only the code (`invalid_grant`, GitHub `bad_verification_code`); one that doesn't answers `invalid_client` (GitHub `incorrect_client_credentials`) first. For Apple this proves the Team ID, Key ID, key and Services ID belong together without a browser. It is the same `Provider.Exchange` sign-in uses. Keys endpoints aren't used for the clock: caches answer them, with a `Date` minutes old (checked against Google on 2026-09-17: a first version reported a 42 s skew that wasn't there).
 
 ### 4. Live round trips for Google, Apple and GitHub
 

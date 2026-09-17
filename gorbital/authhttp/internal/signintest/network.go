@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,17 +43,19 @@ func (t *Tester) NetworkChecks(ctx context.Context, provider string) (LiveChecks
 	return out, nil
 }
 
-// reachability requests the provider's keys (Google, Apple) or API
-// (GitHub), and compares the answer's Date with this computer's clock.
+// reachability requests the provider's token endpoint, sign-in's own
+// dependency, and compares the answer's Date with this computer's clock.
+// Keys endpoints are answered from caches, whose Date is old (Google's are
+// cached for hours).
 func (t *Tester) reachability(ctx context.Context, provider string) []Check {
 	target := ""
 	switch provider {
 	case social.Google:
-		target = t.cfg.GoogleEndpoints.KeysURL
+		target = t.cfg.GoogleEndpoints.TokenURL
 	case social.Apple:
-		target = t.cfg.AppleEndpoints.KeysURL
+		target = t.cfg.AppleEndpoints.TokenURL
 	case social.GitHub:
-		target = strings.TrimRight(t.cfg.GitHubEndpoints.APIURL, "/") + "/"
+		target = t.cfg.GitHubEndpoints.TokenURL
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -70,18 +73,24 @@ func (t *Tester) reachability(ctx context.Context, provider string) []Check {
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
 	_ = resp.Body.Close()
 	checks := []Check{}
+	// Any answer below 500 means the endpoint is there: a GET on a token
+	// endpoint is refused.
 	if resp.StatusCode >= 500 {
 		checks = append(checks, warn("provider_reachable", providerLabel(provider)+" answered "+resp.Status+" at "+target, "try again later; the provider may be having trouble", ""))
 	} else {
 		checks = append(checks, ok("provider_reachable", providerLabel(provider)+" answers at "+target+" ("+after.Sub(before).Round(time.Millisecond).String()+")"))
 	}
-	return append(checks, clockCheck(provider, resp.Header.Get("Date"), before, after))
+	return append(checks, clockCheck(provider, resp.Header.Get("Date"), resp.Header.Get("Age"), before, after))
 }
 
-// clockCheck compares a response's Date header with the local time halfway
-// through the request. Date has one-second precision.
-func clockCheck(provider, date string, before, after time.Time) Check {
+// clockCheck compares a response's Date header, plus its Age when a cache
+// answered, with the local time halfway through the request. Date has
+// one-second precision.
+func clockCheck(provider, date, age string, before, after time.Time) Check {
 	remote, err := http.ParseTime(date)
+	if seconds, aerr := strconv.Atoi(strings.TrimSpace(age)); err == nil && aerr == nil && seconds > 0 {
+		remote = remote.Add(time.Duration(seconds) * time.Second)
+	}
 	if err != nil {
 		return Check{Code: "clock_skew", Status: StatusSkip, Message: providerLabel(provider) + " sent no usable Date header, so the clock couldn't be compared"}
 	}

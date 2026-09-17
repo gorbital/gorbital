@@ -25,7 +25,7 @@ A card per method: Google, Apple, GitHub, Passkeys, Authenticator apps and Email
 
 | Check | How |
 |---|---|
-| `provider_reachable` | Requests the provider's signing keys (GitHub: its API) |
+| `provider_reachable` | Requests the provider's token endpoint |
 | `clock_skew` | Compares the provider's `Date` with this computer's clock: a warning from 10 seconds, a failure from a minute, where ID tokens start to look issued in the future and Apple refuses client secrets |
 | `client_credentials` | Sends your client ID and secret (for Apple, a client secret signed with your key) to the token endpoint with a made-up code. A provider that accepts the client refuses only the code (`invalid_grant`): that's a pass. `invalid_client` means the ID, secret, key or team don't belong together |
 

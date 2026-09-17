@@ -483,11 +483,25 @@ func TestNetworkChecks(t *testing.T) {
 		t.Errorf("fast clock = %+v", c)
 	}
 	unreachable := newFixture(t, func(c *Config) {
-		c.GoogleEndpoints.KeysURL = "http://127.0.0.1:1/keys"
+		c.GoogleEndpoints.TokenURL = "http://127.0.0.1:1/token"
 	})
 	res, _ = unreachable.t.NetworkChecks(context.Background(), social.Google)
 	if c, _ := findCheck(res.Checks, "provider_reachable"); c.Status != StatusFail {
 		t.Errorf("unreachable = %+v", c)
+	}
+}
+
+func TestClockCheck(t *testing.T) {
+	now := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
+	date := now.Add(-50 * time.Second).Format(http.TimeFormat)
+	if c := clockCheck("google", date, "50", now, now); c.Status != StatusOK {
+		t.Errorf("a cached answer with Age = %+v, want ok", c)
+	}
+	if c := clockCheck("google", date, "", now, now); c.Status != StatusWarn {
+		t.Errorf("50 seconds ahead = %+v, want a warning", c)
+	}
+	if c := clockCheck("google", "", "", now, now); c.Status != StatusSkip {
+		t.Errorf("no Date = %+v", c)
 	}
 }
 
