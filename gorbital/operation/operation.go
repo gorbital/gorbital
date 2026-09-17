@@ -8,6 +8,8 @@
 // replace huma.Register(api, op, handler) with Register(r, op, handler).
 // New code uses gorbital.Get, gorbital.Post and the other verbs with route
 // options instead.
+//
+// Stability: experimental until v0.2.0 (ADR-0015, ADR-0083).
 package operation
 
 import (
