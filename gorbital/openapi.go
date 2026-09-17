@@ -149,7 +149,7 @@ func writeAPIFiles(dir string, o options) error {
 	}
 	// The directory is created when it isn't there: a new module's first
 	// export shouldn't fail because nobody made api/ by hand.
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil { //nolint:gosec // the directory comes from --dir, typed by the developer running the command
 		return fmt.Errorf("create %s: %w", dir, err)
 	}
 	files := map[string][]byte{"openapi.json": spec.Bytes(), "postman_collection.json": postman, "llms.txt": llms}

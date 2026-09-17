@@ -15,10 +15,15 @@ var ErrTrustAll = errors.New("httpx: a trusted proxy range can't cover every add
 
 // ParseTrustedProxies reads a comma-separated list of CIDR ranges or single
 // addresses, such as "10.0.0.0/8, 192.0.2.10". An empty list trusts nothing.
-// It refuses ranges covering every IPv4 or IPv6 address ([ErrTrustAll]).
+// Ranges are masked ("10.0.0.5/8" is 10.0.0.0/8), and IPv4 addresses written
+// in IPv6 form ("::ffff:10.0.0.5") become IPv4, as peer addresses are
+// compared; an address with a zone ("fe80::1%en0") is refused, as it could
+// never match one. It refuses ranges covering every IPv4 or IPv6 address
+// ([ErrTrustAll]), including "::ffff:0.0.0.0/96", which is every IPv4
+// address written in IPv6 form.
 func ParseTrustedProxies(list string) ([]netip.Prefix, error) {
 	var out []netip.Prefix
-	for _, item := range strings.Split(list, ",") {
+	for item := range strings.SplitSeq(list, ",") {
 		item = strings.TrimSpace(item)
 		if item == "" {
 			continue
@@ -26,17 +31,46 @@ func ParseTrustedProxies(list string) ([]netip.Prefix, error) {
 		p, err := netip.ParsePrefix(item)
 		if err != nil {
 			addr, addrErr := netip.ParseAddr(item)
-			if addrErr != nil {
+			if addrErr != nil || addr.Zone() != "" {
 				return nil, fmt.Errorf("httpx: trusted proxy %q is not a CIDR range or IP address", item)
 			}
 			p = netip.PrefixFrom(addr, addr.BitLen())
 		}
+		// Canonicalise before the trust-all check: "::ffff:0.0.0.0/96" is
+		// 0.0.0.0/0 once unmapped, and trusts every IPv4 client.
+		p, err = canonicalPrefix(p)
+		if err != nil {
+			return nil, err
+		}
 		if p.Bits() == 0 {
 			return nil, fmt.Errorf("%w: %q", ErrTrustAll, item)
 		}
-		out = append(out, p.Masked())
+		out = append(out, p)
 	}
 	return out, nil
+}
+
+// canonicalPrefix masks p and turns an IPv4-mapped IPv6 range into its IPv4
+// range, which is what the addresses compared here are: remoteAddr and
+// forwardedClient unmap every address they read, so a mapped range could
+// never match. A mapped range shorter than /96 mixes families and is
+// refused.
+//
+// It is ipfilter.canonicalPrefix (httpx/ipfilter/ipfilter.go) with this
+// package's error wording; the two are duplicated rather than shared
+// because ipfilter imports httpx, and the rule is small enough to state
+// twice. Change both together.
+func canonicalPrefix(p netip.Prefix) (netip.Prefix, error) {
+	if !p.IsValid() {
+		return netip.Prefix{}, fmt.Errorf("httpx: invalid trusted proxy range %v", p)
+	}
+	if p.Addr().Is4In6() {
+		if p.Bits() < 96 {
+			return netip.Prefix{}, fmt.Errorf("httpx: trusted proxy range %v mixes IPv4-mapped and IPv6 addresses; write the IPv4 range", p)
+		}
+		p = netip.PrefixFrom(p.Addr().Unmap(), p.Bits()-96)
+	}
+	return p.Masked(), nil
 }
 
 // TrustedProxies sets each request's RemoteAddr to its client's address when

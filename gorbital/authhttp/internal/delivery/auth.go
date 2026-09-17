@@ -179,6 +179,12 @@ type Config struct {
 	// Registration registers POST /v1/auth/register; nil leaves it out
 	// (authhttp's WithoutRegistration). DefaultRegistration is v0.1's.
 	Registration Registration
+	// MinPasswordLength is the shortest password the app accepts
+	// (authhttp's MinPasswordLength). 0, or auth.MinPasswordLength, leaves
+	// v0.1's wording, so the document stays v0.1's byte for byte; a higher
+	// one is stated instead of 12 wherever a password field documents the
+	// minimum.
+	MinPasswordLength int
 }
 
 // Register adds the authentication operations to r, with v0.1's operation
@@ -187,6 +193,9 @@ type Config struct {
 func Register(router *gorbital.Router, svc *authusecase.Service, c Config) {
 	h := &handler{svc: svc, cookie: c.Cookie}
 	r := routesOn(router)
+	if c.MinPasswordLength > authlib.MinPasswordLength {
+		r.minPassword = c.MinPasswordLength
+	}
 	if len(c.Middleware) > 0 {
 		r.signIn = router.Group("", gorbital.Use(c.Middleware...))
 	}
@@ -229,13 +238,13 @@ func Register(router *gorbital.Router, svc *authusecase.Service, c Config) {
 		Description:   "The response is the same whether or not the address has an account.",
 		DefaultStatus: http.StatusAccepted, Errors: limited,
 	}), h.forgot)
-	route(r, public(huma.Operation{
+	passwordRoute(r, public(huma.Operation{
 		OperationID: "auth-reset-password", Method: http.MethodPost, Path: "/v1/auth/password/reset",
 		Summary: "Set a new password with a reset code",
 		Description: "Signs out every device. Two-factor authentication stays on, except on an account whose address wasn't verified yet: the code verifies it, " +
 			"as `POST /v1/auth/verify-email` does. Codes share the limit of `auth.code_attempts` a day per address (429).",
 		DefaultStatus: http.StatusNoContent, Errors: append(limited, http.StatusServiceUnavailable),
-	}), h.reset)
+	}), h.reset, passwordField{"password", newPasswordDocFormat})
 
 	route(r, signedIn(huma.Operation{
 		OperationID: "auth-me", Method: http.MethodGet, Path: "/v1/auth/me",
@@ -249,11 +258,11 @@ func Register(router *gorbital.Router, svc *authusecase.Service, c Config) {
 		OperationID: "auth-logout-all", Method: http.MethodPost, Path: "/v1/auth/logout-all",
 		Summary: "Sign out every device",
 	}), h.logoutAll)
-	route(r, signedIn(huma.Operation{
+	passwordRoute(r, signedIn(huma.Operation{
 		OperationID: "auth-change-password", Method: http.MethodPut, Path: "/v1/auth/password",
 		Summary: "Change the password", Description: "Signs out other devices.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusUnprocessableEntity},
-	}), h.changePassword)
+	}), h.changePassword, passwordField{"new_password", passwordDocFormat})
 	route(r, signedIn(huma.Operation{
 		OperationID: "auth-list-sessions", Method: http.MethodGet, Path: "/v1/auth/sessions",
 		Summary: "List signed-in devices",

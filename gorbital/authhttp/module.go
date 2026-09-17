@@ -55,7 +55,10 @@ func (a *Authenticator) Module() gorbital.Module {
 
 // routes are how the options change sign-in's operations.
 func (a *Authenticator) routes() delivery.Config {
-	c := delivery.Config{Cookie: authlib.DefaultCookieName, Middleware: a.opts.routeMiddleware, Registration: a.opts.registration}
+	c := delivery.Config{
+		Cookie: authlib.DefaultCookieName, Middleware: a.opts.routeMiddleware,
+		Registration: a.opts.registration, MinPasswordLength: a.opts.minPasswordLength,
+	}
 	if t := a.signInTester(); t != nil {
 		// Test round trips return to the real callbacks; they are answered
 		// before anything else sees them (ADR-0087).
