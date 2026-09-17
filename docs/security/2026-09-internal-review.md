@@ -1,10 +1,10 @@
 # Internal security review, September 2026
 
-Pre-1.0 review of the gorbital library, the `orb` CLI and generator, and the golden apps (roadmap v1.0 item 1, [ADR-0053](../adr/0053-internal-security-review.md)). Reviewed and fixed on 2026-09-16 on branch `v1`.
+Pre-1.0 review of the gorbital library, the `orb` CLI and generator, and the golden apps (roadmap: stability and security review, item 1, [ADR-0053](../adr/0053-internal-security-review.md)). Reviewed and fixed on 2026-09-16 on branch `v1`.
 
 **Result:** 45 finding IDs from six area reviews; two pairs describe the same weakness, so **43 distinct findings**: 2 High, 7 Medium, 28 Low, 6 Info. Every finding is fixed; four smaller parts of three findings are accepted with reasons below. No Critical finding, no cross-tenant data access, no MFA bypass, no SQL injection.
 
-This review was done by the project, not by an independent party. v1.0 still waits for the external review ([limitations](#limitations), [open maintainer actions](#open-maintainer-actions)).
+This review was done by the project, not by an independent party. `v1.0.0` still waits for the external review ([limitations](#limitations), [open maintainer actions](#open-maintainer-actions)).
 
 ## Scope and method
 
@@ -161,7 +161,7 @@ Residual risks noted by the fix groups, not separate findings:
 
 ## Open maintainer actions
 
-These can't be done from the repository and block a public v1.0:
+These can't be done from the repository and block `v1.0.0`:
 
 | Action | Where | Threat model |
 |---|---|---|
@@ -174,7 +174,7 @@ These can't be done from the repository and block a public v1.0:
 
 ## Limitations
 
-- **Internal reviewers.** The people who reviewed the code are close to the project; the review is no substitute for the external one v1.0 requires.
+- **Internal reviewers.** The people who reviewed the code are close to the project; the review is no substitute for the external one `v1.0.0` requires.
 - **No load or timing measurement over a network.** Rate limits, the hashing queue, readiness caching and response-time padding are tested in unit and integration tests against local PostgreSQL, not under production-like load.
 - **golangci-lint wasn't run locally** (not installed); `gofmt`, `go vet`, the race detector and govulncheck were. GitHub CI was paused, so workflow changes (CLI-6) weren't run on Actions.
 - **Scope:** client templates, the gorbital-web site and the dashboards weren't reviewed; nor were third-party services (Resend, Google, Apple) beyond how the apps call them.

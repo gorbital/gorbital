@@ -27,21 +27,20 @@ orb upgrade
 ```
 
 ```text output
-upgrade shop-api from v0.4.0 to gorbital v0.5.0
+upgrade shop-api from v0.1.0 to gorbital v0.1.1
 
   merged    internal/app/routes.go
   update    internal/modules/ops/delivery/system.go
-  create    db/migrations/20260915000006_auth_social.sql
 
-  committed on branch orb-upgrade/v0.5.0
+  committed on branch orb-upgrade/v0.1.1
 
   next: go test ./...
-        then merge orb-upgrade/v0.5.0
+        then merge orb-upgrade/v0.1.1
 ```
 
 </div>
 
-Apps created before v0.5 name the release that created them: `orb upgrade --from v0.4.0`. With conflicts, the command exits with code 1, commits nothing and lists the files to resolve and the commands to finish.
+The output above is an example. `v0.1.0` is the first public release; an app created with a development build before it, whose `gorbital.lock` records no release or commit, names the gorbital commit that created it: `orb upgrade --from <commit>` (see [upgrade notes](../guides/upgrade-notes.md#before-v010-development-builds)). With conflicts, the command exits with code 1, commits nothing and lists the files to resolve and the commands to finish.
 
 ## Add organisations to an existing app
 

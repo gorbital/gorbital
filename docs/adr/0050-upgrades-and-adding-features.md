@@ -2,6 +2,8 @@
 
 **Status:** Accepted (2026-09-15) · **Amends:** ADR-0014, ADR-0016, ADR-0021, ADR-0041, ADR-0048 · **Amended by:** ADR-0053 (checksum patterns, validated lock inputs, merge base only from a gorbital checkout outside the app), ADR-0061 (lock input `rls` and `orb add rls`)
 
+> Note (2026-09-17): the pre-release tags v0.2.0–v0.5.0 (and their `cli/` tags) were never public and were removed; the first public release is v0.1.0. Apps from development builds whose lock records no release or commit run `orb upgrade --from <commit>` ([upgrade notes](../guides/upgrade-notes.md#before-v010-development-builds)).
+
 ## Context
 
 v0.5 promises `orb upgrade` (a 3-way merge on a branch), `orb add orgs` (single-tenant to multi-tenant) and the Custom preset. Its definition of done: an app generated with an earlier release and edited by script upgrades with no lost edits.

@@ -61,7 +61,7 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Ops API reference](guides/ops-api.md) | `/ops/*` endpoints, permissions, error codes, audit actions |
 | [CLI](guides/cli.md) | Every `orb` command and flag |
 | [Testing](guides/testing.md) | What's tested, helpers, commands, drift checks, CI |
-| [Stability and compatibility](guides/stability.md) | What 1.0 promises not to break and the checks that enforce it: API listings, `api/surface.json`, the `/ops` baseline, `--json` schemas, scaffold compatibility, reference pages |
+| [Stability and compatibility](guides/stability.md) | What v0 gives you, what `v1.0.0` promises not to break, and the checks that enforce it: API listings, `api/surface.json`, the `/ops` baseline, `--json` schemas, scaffold compatibility, reference pages |
 | [Running in production](guides/production.md) | Image, configuration, migrations, scaling, observability (including Prometheus), operations, what never to do |
 | [Upgrade notes](guides/upgrade-notes.md) | What changes for existing apps in each release, and what to do before deploying |
 | [Local development](guides/local-development.md) | Working on the gorbital repository |

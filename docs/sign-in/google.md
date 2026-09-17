@@ -72,7 +72,7 @@ The consent screen is the page Google shows people when they sign in: your app's
 
 1. **Open Google Auth Platform**
 
-   In the menu (☰) → **APIs & Services** → **OAuth consent screen**. This opens **Google Auth Platform**. Click **Get started**.
+   In the navigation menu (the three-line icon) → **APIs & Services** → **OAuth consent screen**. This opens **Google Auth Platform**. Click **Get started**.
 
    You don't need to enable any API in **APIs & Services → Library** for sign-in.
 

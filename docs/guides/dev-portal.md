@@ -173,4 +173,4 @@ The development server proxies `/_portal/` to `orb dev` on port 3100 (`ORB_PORTA
 | 403 `forbidden` | The request came through another host name, from another machine, or is a write without `X-Orb-Portal`. Use `http://127.0.0.1:3100` or `http://localhost:3100` from this machine |
 | 502 `app_unavailable` from `/_portal/app/…` | The app isn't running (see its state and output on the Overview page), or `APP_ADDR` changed and it hasn't restarted |
 | The portal shows a placeholder page | This `orb` was built without the UI: run `scripts/sync-portal.sh` and reinstall, or run the UI from source (above) |
-| `/_portal/app/_dev/…` answers 404 | The app has no dev console: it runs without `DEV_CONSOLE_TOKEN`, or predates v1.1 ([upgrade notes](upgrade-notes.md)) |
+| `/_portal/app/_dev/…` answers 404 | The app has no dev console: it runs without `DEV_CONSOLE_TOKEN`, or was created with a development build before the dev console ([upgrade notes](upgrade-notes.md#before-v010-development-builds)) |

@@ -161,7 +161,7 @@ A stream sends each new item (`request` or `log`), a `: keep-alive` comment ever
 
 | Symptom | Cause |
 |---|---|
-| 404 `no route matches GET /_dev/…` | The console is off: run through `orb dev`, or set `DEV_CONSOLE_TOKEN` with `APP_ENV=development`. Apps created before v1.1 need the upgrade ([upgrade notes](upgrade-notes.md)) |
+| 404 `no route matches GET /_dev/…` | The console is off: run through `orb dev`, or set `DEV_CONSOLE_TOKEN` with `APP_ENV=development`. Apps created with a development build before the dev console need the upgrade ([upgrade notes](upgrade-notes.md#before-v010-development-builds)) |
 | 403 `forbidden` | Use `http://127.0.0.1:<port>`, `http://localhost:<port>` or `http://[::1]:<port>`, from the same machine. Proxies must send one of those as `Host` |
 | 401 `unauthorized` | The token is missing or from an earlier `orb dev` run |
 | 503 on `/_dev/mail` | Mailpit isn't running, or `MAILPIT_WEB_PORT` doesn't match `compose.yaml`; with `MAIL_DELIVERY=devmail` the endpoint isn't served at all (the inbox is the portal's) |

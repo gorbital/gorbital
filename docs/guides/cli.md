@@ -319,7 +319,7 @@ What it changes:
 | `.env.example` | The block between `# orb:begin mail` and `# orb:end mail` holds the provider's variables; the `# aps:` markers of apps generated before the rename are read too and rewritten as `# orb:` |
 | `.env` | Updated if it exists, or created from `.env.example` when there are values to save; values already there are kept. It is always left with mode 0600: an existing `.env` that other users could read (as `cp .env.example .env` makes it) is narrowed, with a warning |
 | `gorbital.yaml` | `mail: resend` or `mail: smtp` |
-| `gorbital.lock` | The provider and the new hashes of the files above that `orb` tracks (apps created before v0.5 keep their lock as it is) |
+| `gorbital.lock` | The provider and the new hashes of the files above that `orb` tracks (a format v1 lock, from development builds before `orb upgrade`, is kept as it is) |
 | `go.mod` | Requires the provider module (with a `replace` to your gorbital checkout when the app uses one), then `go mod tidy` |
 
 After confirming, it prints numbered next steps: where to get the Resend key and verify your domain (or which SMTP variables are left), how to set the sender with `PUT /ops/settings/mail.from_email`, and how to send a test email with `POST /ops/mail/test`. The sender name, address and reply-to are runtime settings, so they're never asked here.
@@ -375,7 +375,7 @@ Brings the files `orb` wrote into your app up to this release, on a branch, with
 ```bash
 orb upgrade --dry-run          # what would change, per file; writes nothing
 orb upgrade                    # apply on branch orb-upgrade/<version>
-orb upgrade --from v0.4.0      # apps created before v0.5 name the release that created them
+orb upgrade --from <commit>    # apps whose lock records no release or commit name the gorbital commit that created them
 ```
 
 It rebuilds every file exactly as the release recorded in `gorbital.lock` wrote it, checks each against the hash in the lock, and merges per file:
@@ -400,7 +400,7 @@ A checkout must be the top of its own git repository, outside the app's reposito
 
 | Flag | Default |
 |---|---|
-| `--from` | the release in `gorbital.lock`. Needed for apps created before v0.5 and by development builds without a recorded commit |
+| `--from` | the release in `gorbital.lock`. Needed for apps with a format v1 lock (development builds before `orb upgrade`) and apps created by development builds without a recorded commit: pass that gorbital commit |
 | `--local` | detected, as above |
 | `--dry-run`, `--json` | off |
 | `--skip-tidy` | run `go mod tidy` |
@@ -423,12 +423,12 @@ orb doctor · shop-api (full, single tenancy)
 
   ok    go             go1.26.8; go.mod needs 1.26.0
   ok    git            installed
-  ok    orb            v0.5.0 built with go1.26.8
+  ok    orb            v0.1.0 built with go1.26.8
   ok    gorbital.yaml  full preset, single tenancy
   warn  docker         Docker isn't running or isn't installed
                        fix: start Docker Desktop (or Docker Engine with Compose v2): orb dev runs PostgreSQL and Mailpit in it
-  ok    gorbital.lock  from orb v0.5.0; 3 of 214 files gorbital wrote are edited or removed
-  ok    library        gorbital.dev v0.5.0
+  ok    gorbital.lock  from orb v0.1.0; 3 of 214 files gorbital wrote are edited or removed
+  ok    library        gorbital.dev v0.1.0
   ok    anchors        every line generators insert at is in place
   ok    .env           has every variable .env.example has
   ok    api files      openapi.json, postman_collection.json and llms.txt match the code
@@ -442,7 +442,7 @@ orb doctor · shop-api (full, single tenancy)
 |---|---|---|
 | `go`, `git`, `docker` | Go isn't installed | Go is older than `go.mod` needs; git isn't installed; Docker isn't running (Full preset) |
 | `orb` | | `orb` was built with a Go release older than 1.26.5, which lacks `os.Root` security fixes; reinstall it with the latest Go patch release |
-| `gorbital.yaml`, `gorbital.lock` | Either is unreadable, or the lock was written by a newer `orb` | The lock is missing, from before v0.5, or from an older `orb` (run `orb upgrade`) |
+| `gorbital.yaml`, `gorbital.lock` | Either is unreadable, or the lock was written by a newer `orb` | The lock is missing, format v1 (from a development build before `orb upgrade`), or from an older `orb` (run `orb upgrade`) |
 | `library` | A `replace` directive points at something that isn't an gorbital checkout | `go.mod` doesn't require `gorbital.dev` |
 | `anchor` (Full preset) | A line generators insert after is gone: `//orb:anchor modules`, `//orb:anchor jobs`, `//orb:anchor user-permissions`, `//orb:anchor org-permissions` (multi-tenant), or the mail block in `.env.example` | |
 | `.env` (Full preset) | It holds secrets and git doesn't ignore it | It's missing, git doesn't ignore it, or it lacks variables `.env.example` has |
@@ -513,4 +513,4 @@ The port check listens on `127.0.0.1` only. On macOS, a program listening on all
 | `orb doctor` | `app`, `preset`, `tenancy`, `checks` (`name`, `status`, `detail`, `fix`), `failures`, `warnings` |
 | `orb version` | `version`, `recipe`, `library` |
 
-Commands, flags, exit codes and JSON fields are public API from CLI 1.0 ([ADR-0015](../adr/0015-public-api-and-stability-tiers.md)). Within `schemaVersion` 1, fields are only added; check the version before reading the rest. The shape of each output is recorded in `cli/internal/cli/testdata/json` and checked by `TestJSONOutputs` ([stability](stability.md), [ADR-0054](../adr/0054-api-freeze-and-scaffold-compatibility.md)).
+Commands, flags, exit codes and JSON fields are public API from `v1.0.0` ([ADR-0015](../adr/0015-public-api-and-stability-tiers.md)). Within `schemaVersion` 1, fields are only added; check the version before reading the rest. The shape of each output is recorded in `cli/internal/cli/testdata/json` and checked by `TestJSONOutputs` ([stability](stability.md), [ADR-0054](../adr/0054-api-freeze-and-scaffold-compatibility.md)).

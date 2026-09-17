@@ -2,9 +2,15 @@
 
 ## Supported versions
 
-gorbital is pre-1.0: only the latest release receives security fixes, and fixes may require an upgrade to it.
+Before `v1.0.0` ([stability](docs/guides/stability.md#before-v100)):
 
-From 1.0 ([ADR-0016](docs/adr/0016-scaffold-compatibility-and-upgrades.md)):
+| Version | Security fixes |
+|---|---|
+| Latest v0.x release | Yes |
+| Earlier v0.x releases | No: upgrade to the latest; a v0 minor release may need the steps in the [upgrade notes](docs/guides/upgrade-notes.md) |
+| Development builds before `v0.1.0` | No: upgrade to the latest release |
+
+From `v1.0.0` ([ADR-0016](docs/adr/0016-scaffold-compatibility-and-upgrades.md)):
 
 | Version | Security fixes |
 |---|---|
