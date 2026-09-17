@@ -1,6 +1,6 @@
 # ADR-0081: A framework you import
 
-**Status:** Accepted (2026-09-17) · **Amends:** ADR-0019, ADR-0022, the [architecture principles](../architecture.md#2-principles) · **Roadmap:** [v0.2](../v0.2-roadmap.md)
+**Status:** Accepted (2026-09-17); §3 amended in Phase 3 (2026-09-17) · **Amends:** ADR-0019, ADR-0022, the [architecture principles](../architecture.md#2-principles) · **Roadmap:** [v0.2](../v0.2-roadmap.md)
 
 ## Context
 
@@ -76,14 +76,14 @@ app (cmd/api/main.go, internal/modules/, db/migrations)
 
 ```text
 Main(opts...)
-  subcommand      serve (default) · migrate · migrate-down · openapi · roles · grant-role · revoke-role · reset-mfa · rotate-auth-keys · auth-providers
+  subcommand      serve (default) · migrate · migrate-down · openapi · version; built-in modules add theirs (roles, grant-role, … from Phase 5) as Commands
   LoadConfig      every problem reported at once, each naming its variable
   New             telemetry → pool → audit → settings and flags registries (from modules) → stores → jobs → mail → auth → modules' routes → stack → handler
   Run             core app.Run: server, job workers, release heartbeat; signals, drain, shutdown order (ADR-0017)
   exit code       0 ok · 1 runtime error · 2 usage or configuration error
 ```
 
-Migrations run only from `migrate` (ADR-0017). Every step `New` performs is a public constructor an app can call itself.
+Migrations run only from `migrate` (ADR-0017). Every step `New` performs is a public constructor an app can call itself. What Phase 3 built, and the options it added (`WithStorageFunc`, `WithMailerFunc`, `WithMigrations`, `WithName`), are recorded in [ADR-0083's implementation notes](0083-modules-stack-migrations-and-ejection.md#phase-3-implementation-notes-2026-09-17), with D17 re-evaluated on measured numbers: the Minimal preset keeps composing core packages directly.
 
 ### 4. API tiers
 

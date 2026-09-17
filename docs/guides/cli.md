@@ -290,6 +290,20 @@ Then write the SQL under `-- +goose Up`, run `go run ./cmd/migrate` and `go test
 
 Safety checks: the app must have `db/migrations`; the name may only use letters, digits, hyphens and underscores (at most 60), so it can't reach a path or the SQL; an existing file is never overwritten; the git repository must be clean unless `--allow-dirty`.
 
+## `orb gen modules`
+
+Writes `internal/modules/modules.gen.go` in an app on `gorbital.Main` (v0.2): the function `All`, listing every directory under `internal/modules` whose package declares `func Module() gorbital.Module`, sorted by name, for `gorbital.WithModules(modules.All()...)` ([Your main.go](main-go.md#the-module-list)).
+
+```bash
+orb gen modules
+orb gen modules --dry-run      # says whether the file would change; writes nothing
+go generate ./internal/modules # the same: the generated file carries the directive
+```
+
+Flags: `--dry-run`, `--json`, `--no-input` (it never prompts). It needs no clean git tree: it writes only its own generated file, and nothing when the file is up to date.
+
+Modules are found by parsing Go files (`go/parser`), never by building or running code: test files, `testdata` and directories starting with `.` or `_` are skipped; a `Module` function with parameters, a receiver or another return type isn't a module. `orb dev` runs it before every build when the app already has `modules.gen.go`, so adding a module directory is enough; apps without the file (v0.1 apps) are left alone.
+
 ## `orb add mail`
 
 Sets up email in an app created with the Full preset: Resend or any SMTP server. Run it again to switch provider. Full walkthrough: [email guide](email.md).
@@ -511,6 +525,7 @@ The port check listens on `127.0.0.1` only. On macOS, a program listening on all
 | `orb gen job` | `name`, `definition`, `files`, `dry_run` |
 | `orb gen resource` | `name`, `module`, `route`, `table`, `scope`, `files`, `dry_run`, `row_level_security` (when the migration has the policy) |
 | `orb gen migration` | `name`, `version`, `file`, `dry_run` |
+| `orb gen modules` | `file`, `modules`, `changed`, `dry_run` |
 | `orb add mail` | `provider`, `already_configured`, `files`, `env_variables`, `modules`, `dry_run` |
 | `orb add rls` | `name`, `already_on`, `migration`, `files`, `dry_run` |
 | `orb add orgs`, `orb upgrade` | `name`, `from`, `to`, `up_to_date`, `branch`, `changes` (`path`, `action`, `note`), `conflicts`, `unproven`, `committed`, `dry_run`, `user_scoped_modules` (`orb add orgs`) |

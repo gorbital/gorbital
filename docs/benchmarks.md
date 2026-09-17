@@ -22,12 +22,13 @@ git worktree remove ../gorbital-base
 
 `BENCHCOUNT=10` runs each benchmark more times. One package by hand: `go test -run '^$' -bench . -benchmem -count 6 ./modules/flags/`.
 
-Existing benchmarks: `modules/devconsole` (`RecordRequest`, `Middleware`, `LogHandler`), `modules/flags` (`Enabled`), `modules/observability` (`Middleware`, `WriteMinutes`, `Summary`), `modules/postgres` (`RowLevelSecurity`), `modules/ratelimitpg` (`Take`), `modules/settings` (`SettingGet`).
+Existing benchmarks: `gorbital` (`Request`, `RouteMiddleware`, `New`), `modules/devconsole` (`RecordRequest`, `Middleware`, `LogHandler`), `modules/flags` (`Enabled`), `modules/observability` (`Middleware`, `WriteMinutes`, `Summary`), `modules/postgres` (`RowLevelSecurity`), `modules/ratelimitpg` (`Take`), `modules/settings` (`SettingGet`).
 
 A golden app's size and startup:
 
 ```bash
 scripts/bench-baseline.sh examples/full-single       # RUNS=5 by default
+scripts/bench-baseline.sh examples/apps/shelfie      # an app on gorbital.Main
 ```
 
 It prints the dependency counts, the stripped binary size, and the median time and memory to start until `GET /readyz` answers 200 (details in the script's header). Full apps need `GORBITAL_TEST_DATABASE_URL`: the script creates, migrates and drops a database `bench_<app>`.
@@ -56,6 +57,33 @@ The `Benchmarks` workflow (`.github/workflows/bench.yml`) runs `scripts/bench.sh
 | With `guard.Permission` | 1.36–1.39 µs | 1690 B | 21 | 0 allocations on the allow path: **met** (the 2 over the row above are the benchmark's own actor context) |
 | With `gorbital.Use`, 1 middleware | 1.49–1.54 µs | 2130 B | 26 | No budget: a fixed 5 allocations, about +11 % |
 | With `gorbital.Use`, 5 middlewares | 1.53–1.56 µs | 2130 B | 26 | Same cost as 1: the chain is built once per route |
+
+## Measured: gorbital.Main apps (v0.2, Phase 3)
+
+### Size and startup
+
+`scripts/bench-baseline.sh` with `RUNS=9`, the three apps back to back on 2026-09-17 (Apple M1 Max, Go 1.26.0, PostgreSQL 18 in Docker, load average about 6). The script migrates an app on `gorbital.Main` with its own `migrate` command.
+
+| App | Packages (`go list -deps ./cmd/api`) | Modules (`go list -m all`) | Stripped binary | Startup to `/readyz` 200 (median) | RSS at ready (median) |
+|---|---|---|---|---|---|
+| `examples/minimal` (v0.1 wiring, no database) | 456 | 169 | 18 543 234 bytes (17.7 MiB) | 54 ms | 19 952 KiB (19.5 MiB) |
+| `examples/apps/shelfie` (`gorbital.Main`, one module, no sign-in yet) | 584 | 266 | 26 155 282 bytes (24.9 MiB) | 58 ms and 74 ms (two runs of 9) | 29 968 and 29 920 KiB (29.2 MiB) |
+| `examples/full-single` (v0.1 wiring, sign-in and `/ops`) | 674 | 449 | 35 843 778 bytes (34.2 MiB) | 145 ms | 57 840 KiB (56.5 MiB) |
+
+Against the v0.1.0 baselines below: `full-single` is unchanged in packages and binary size (674, 35 843 778 bytes); `minimal`'s binary grew by 16 bytes, with the same packages, while core `httpx` gained `Maintenance`, which Minimal doesn't call. Startup times differ from the baselines' for the same `full-single` code because the machine's load differed: compare rows of one table only.
+
+**Not a like-for-like budget check yet.** The budget compares `gorbital.New` with v0.1 `full-single`, but Shelfie has no sign-in or `/ops` modules, which are most of `full-single`'s start-up work; the comparison becomes meaningful when those are library modules (Phases 4–5). What the numbers do settle is D17 ([ADR-0083](adr/0083-modules-stack-migrations-and-ejection.md#d17-the-minimal-preset-re-evaluated-with-numbers)): an app on `gorbital.New` costs 128 packages, 7.3 MiB of binary and about 10 MiB of memory more than Minimal before it has a feature, so Minimal keeps composing core packages directly.
+
+### `gorbital.New`
+
+`BenchmarkNew` in `gorbital/new_bench_test.go`: `New` and `Close` of an app with one module on a migrated database, `-count 5`, same machine and session:
+
+| Construction | Time per New + Close | Memory | Allocations |
+|---|---|---|---|
+| `gorbital.New`, one module | 22.1–30.4 ms | 390–394 KiB | 3 630–3 636 |
+| v0.1 `full-single` `app.New` (a throwaway benchmark in `internal/app`, not committed) | 49.9–53.9 ms | 22.2 MiB | 33 366–33 396 |
+
+Most of `full-single`'s difference is sign-in (passkeys, keys, providers) and the ops module, which `gorbital.New` doesn't build yet.
 
 ## Baselines: v0.1.0 golden apps
 

@@ -23,6 +23,8 @@ func TestCreateBook(t *testing.T) {
 
 Requests carry a principal set with [App.As](#App.As), as the authenticator would set it, so tests don't sign in. Email modules send and jobs they enqueue are stored as jobs, which [App.Mail](#App.Mail) and [App.Jobs](#App.Jobs) read back: workers don't run in tests, so nothing is delivered.
 
+Don't build apps in parallel tests of one package (t.Parallel): Huma keeps its error constructor in a package-level variable, which each app sets to its own error mappings (openapi.InstallErrors), so two apps built at once race.
+
 Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 
 ## Contents

@@ -20,6 +20,11 @@
 // are stored as jobs, which [App.Mail] and [App.Jobs] read back: workers
 // don't run in tests, so nothing is delivered.
 //
+// Don't build apps in parallel tests of one package (t.Parallel): Huma keeps
+// its error constructor in a package-level variable, which each app sets to
+// its own error mappings (openapi.InstallErrors), so two apps built at once
+// race.
+//
 // Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 package gorbitaltest
 

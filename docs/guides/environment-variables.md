@@ -7,6 +7,7 @@ Three groups of programs read the environment, and each has its own variables:
 | Reader | Where | Variables |
 |---|---|---|
 | A generated app (`cmd/api`, `cmd/migrate`, `cmd/seed`) | `internal/app/config.go`, `social.go`, `passkeys.go`, `infra_mail.go` | [App](#app-server), [database](#database), [authentication](#authentication), [email](#email), [telemetry](#telemetry) |
+| An app on `gorbital.Main` (v0.2) | `gorbital.LoadConfig` | The same, with [a few checks moved](#apps-on-gorbitalmain) |
 | Docker Compose, from the app's `compose.yaml` | Interpolated by `docker compose`, which reads `.env` itself | [Compose ports](#compose-ports) |
 | `orb`, and the gorbital repository's tests | `cli/`, `modules/postgres/pgtest`, root `compose.yaml` | [CLI](#cli), [tests](#tests) |
 
@@ -20,6 +21,23 @@ Three groups of programs read the environment, and each has its own variables:
 - **`APP_ENV` is required.** Without it the app refuses to start, so a deployment that forgets it can't run with development's relaxed checks. `orb dev` sets `development` when neither your shell nor `.env` sets it. `api openapi` reads no variables: the OpenAPI document describes the code, not a deployment.
 - **`APP_ENV=production` tightens rules.** Marked **Prod** below: required values, https-only URLs, Mailpit refused, docs off by default.
 - **Environment holds secrets and infrastructure only.** Tunables such as code lifetimes and the email sender are runtime settings in PostgreSQL, changed through `/ops/settings` ([runtime settings](runtime-settings.md)). A value is never in both.
+
+## Apps on gorbital.Main
+
+A v0.2 app built with [`gorbital.Main`](main-go.md) has no `internal/app/config.go`: `gorbital.LoadConfig` reads every variable on this page that a Full app reads, with the same names, defaults, messages and production refusals, and reports every problem at once, one line per variable ([Methods](../methods/gorbital.md#LoadConfig)). A v0.1 deployment's environment works unchanged. The configuration errors end the program with exit code 2.
+
+A few checks belong to the driver or provider an app passes instead of to `LoadConfig`, so an app that doesn't use one doesn't compile it ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#configuration-what-moved-out-of-loadconfig)):
+
+| Variable | In a v0.1 app | In an app on `gorbital.Main` |
+|---|---|---|
+| `AUTH_ENCRYPTION_KEYS` | Required in production | Its format is checked when set; the authenticator requires it (sign-in, Phase 5). An app without sign-in, or with external identity tokens, needs none |
+| `APPLE_PRIVATE_KEY`, `WEBAUTHN_APPLE_APP_IDS`, `WEBAUTHN_ANDROID_APPS` | Parsed at start | Read and required together as before; parsed by the authenticator (Phase 5) |
+| `STORAGE_DRIVER` other than `local` | The app opens S3 | Checked as before; the app passes the store: `gorbital.WithStorageFunc(func(cfg gorbital.Config) (storage.Store, error) { … cfg.Storage … })`. Without it, the start fails naming the option |
+| `RESEND_API_KEY` | Required with `MAIL_DELIVERY=provider` | The app passes its provider with `gorbital.WithMailer` or `WithMailerFunc` (reading `cfg.Mail.ResendAPIKey`), which production requires; the provider checks its key |
+| `RESEND_WEBHOOK_SECRET` | Format checked at start | Read; its format is checked by the mail events module (Phase 4) |
+| `SMTP_*` | Read by `infra_mail.go` after `orb add mail --provider smtp` | Not read by gorbital: build the sender with `gorbital.dev/modules/mail/smtp` in `WithMailerFunc` |
+
+`openapi` reads no variables, as `api openapi` doesn't in v0.1 apps.
 
 ## App server
 

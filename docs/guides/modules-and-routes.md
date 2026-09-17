@@ -2,7 +2,22 @@
 
 A **module** is one feature of your app, declared in one value: its routes, the errors it returns, the permissions it checks, and its runtime settings and feature flags. The package is `gorbital.dev/gorbital` ([Methods](../methods/gorbital.md)); the decisions are [ADR-0082](../adr/0082-routes-guards-and-middleware.md) and [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md).
 
-> **Status: v0.2, in progress.** Modules and routes are in the library now. `gorbital.Main`, which builds the whole app from a list of modules, arrives in Phase 3 of the [v0.2 roadmap](../v0.2-roadmap.md). Until then, a v0.1 app adds modules to its existing `internal/app` with `Declare` and `Mount`, as shown [below](#using-modules-in-a-v01-app).
+> **Status: v0.2, in progress.** Modules, routes and [`gorbital.Main`](main-go.md), which builds the whole app from a list of modules, are in the library. A v0.1 app can also add modules to its existing `internal/app` with `Declare` and `Mount`, as shown [below](#using-modules-in-a-v01-app).
+
+## Where a module lives
+
+Each module is a directory under `internal/modules`, in four layers with one file per operation ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#3-app-layout)); `internal/modules/modules.gen.go` lists the modules for `main.go` ([Your main.go](main-go.md#the-module-list)):
+
+```text
+internal/modules/books/
+├── module.go         func Module() gorbital.Module: name, errors, permissions, routes
+├── domain/           book.go, errors.go: types and rules, standard library only
+├── usecase/          service.go, ports.go (the Store the repository implements), create_book.go, get_book.go, …
+├── repository/       store.go, insert_book.go, select_book.go, …: SQL, one operation per file
+└── delivery/         routes.go (the route table), responses.go, create_book.go, get_book.go, …: input, output and handler per file
+```
+
+`domain` imports only the standard library; `usecase` defines the ports; `delivery` never imports `repository`; `module.go` wires the layers. [Shelfie's books module](../examples/shelfie/01-books-module.md) is a complete one. The example below keeps everything in one file to show the `Module` value itself.
 
 ## A module
 
@@ -57,6 +72,9 @@ func Module() gorbital.Module {
 | `Errors` | Mappings from your errors to problem responses | Added by `Mount` |
 | `Permissions` | Permissions the module checks and the roles that hold them | Declared by `Declare` |
 | `Settings`, `Flags` | Runtime settings and feature flags | Declared by `Declare`, before their stores are built |
+| `Middleware` | Middleware on every route of the module | Around each route ([Guards and middleware](guards-and-middleware.md)) |
+| `Jobs` | Background jobs, with `jobs.Define` | Once, by `gorbital.New`, before the job client exists: in the `Deps` it receives, `Jobs` is nil and `Mailer` works once jobs run. Keep `d` in the worker and use it in `Work` |
+| `Migrations` | Migrations served from the module (built-in modules) | Merged by `gorbital.Migrate` with the library's and `db/migrations`, by version. Your own modules keep theirs in `db/migrations`, so tables can reference each other |
 
 Keep what `Settings` and `Flags` return in variables of the `Module` function, as `pageSize` above, and pass them to your handlers. There's no lookup by name.
 
@@ -137,7 +155,7 @@ Both return an error naming the module, so the app stops at start instead of mis
 
 ## Using modules in a v0.1 app
 
-Until `gorbital.Main` arrives, add modules to the app you have. Three places in `internal/app` change.
+A v0.1 app doesn't have to move to `gorbital.Main` to use modules: add them to the app you have. Three places in `internal/app` change.
 
 **1. Declare** permissions, settings and flags where the registries are built: `permissions.go` and `app.go`.
 
@@ -208,7 +226,7 @@ func TestGetBookRequiresSignIn(t *testing.T) {
 }
 ```
 
-A test kit that builds the whole app and signs requests in (`gorbitaltest`) arrives in Phase 3.
+In an app on `gorbital.Main`, test through the whole app instead, with [gorbitaltest](testing-with-gorbitaltest.md): a database per test, the real middleware stack, and callers you name.
 
 ## Performance
 

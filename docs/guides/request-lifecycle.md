@@ -2,6 +2,8 @@
 
 What happens between a client sending a request to a Full app and receiving the response, in order, with the file and function responsible for each step. Read it next to `examples/full-single/internal/app/routes.go`.
 
+> In an app on `gorbital.Main` (v0.2), the middleware is built by the library as `gorbital.Stack`, in the same order: see [The middleware stack](middleware-stack.md), which replaces section 2 for those apps, and [Guards and middleware](guards-and-middleware.md) for what runs between the router and the handler. Sections 3 to 8 describe both.
+
 ```text
 client
   │  POST /v1/projects   Authorization: Bearer …   {"name": "First"}
@@ -39,7 +41,7 @@ AccessLog writes one line; the span ends
 
 ## 2. Middleware
 
-`buildHTTP` wraps the mux with `httpx.Chain(telemetry.RecordRoute(observability.RecordRoute(mux)), middlewares...)`; the first in the list runs first. In development with `DEV_CONSOLE_TOKEN` (set by `orb dev`), `console.Mount` puts the [dev console APIs](dev-console.md) in front of the whole chain: requests to `/_dev/` never reach this middleware (no CORS, maintenance mode, authentication or request counts) and pass the console's own Host, loopback and token checks instead; every other path goes through the chain unchanged. Without the token, `Mount` returns the chain itself. The two `RecordRoute` wrappers hand the matched route pattern back to the telemetry and request-count middleware, because the session middleware passes a copy of the request to the mux and `http.ServeMux` sets the pattern on that copy.
+In an app on `gorbital.Main`, read [The middleware stack](middleware-stack.md) instead. In a v0.1 app, `buildHTTP` wraps the mux with `httpx.Chain(telemetry.RecordRoute(observability.RecordRoute(mux)), middlewares...)`; the first in the list runs first. In development with `DEV_CONSOLE_TOKEN` (set by `orb dev`), `console.Mount` puts the [dev console APIs](dev-console.md) in front of the whole chain: requests to `/_dev/` never reach this middleware (no CORS, maintenance mode, authentication or request counts) and pass the console's own Host, loopback and token checks instead; every other path goes through the chain unchanged. Without the token, `Mount` returns the chain itself. The two `RecordRoute` wrappers hand the matched route pattern back to the telemetry and request-count middleware, because the session middleware passes a copy of the request to the mux and `http.ServeMux` sets the pattern on that copy.
 
 | # | Middleware | Package | What it does | Can answer |
 |---|---|---|---|---|

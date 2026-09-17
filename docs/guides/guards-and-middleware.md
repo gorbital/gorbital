@@ -152,7 +152,7 @@ Attach it at the level it belongs to:
 | Every route of a module | `gorbital.Module{Middleware: []func(http.Handler) http.Handler{…}}` |
 | A group | `r.Group("/v1/books", gorbital.Use(mw))` |
 | One route | `gorbital.Get(r, "/v1/books/{id}", h.getBook, gorbital.Use(mw))` |
-| The whole app | The app's stack: `routes.go` in a v0.1 app; `gorbital.WithMiddleware` from Phase 3 |
+| The whole app | The app's stack: `routes.go` in a v0.1 app; `gorbital.WithMiddleware` in an app on `gorbital.Main` ([The middleware stack](middleware-stack.md)) |
 
 ### Rules
 

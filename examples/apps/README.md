@@ -4,6 +4,12 @@ Runnable applications for the documentation's **Examples** tab ([roadmap](../../
 
 Unlike the golden apps next to this directory (`examples/minimal`, `examples/full-single`, `examples/full-multi`), which are the templates `orb new` renders, these apps are only documentation.
 
+## Apps
+
+| App | What it shows |
+|---|---|
+| [`shelfie`](shelfie/README.md) | The reading-tracker API of the Shelfie chapters: `gorbital.Main`, a module in four layers with one file per operation, `gorbitaltest` |
+
 ## Layout
 
 One directory per app, each its own Go module:

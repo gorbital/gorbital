@@ -59,6 +59,10 @@ pool := pgtest.New(t, pgtest.WithMigrations(migrations.FS))
 
 `WithMigrations(fsys)` migrates a template once per distinct set of files; each test's database is `CREATE DATABASE … TEMPLATE …`, which takes milliseconds. `WithMaxConns(n)` defaults to 4. Stale templates from old migration sets are removed by `docker compose down -v`.
 
+### `gorbitaltest`
+
+`gorbital.dev/gorbital/gorbitaltest` builds an app on `gorbital.Main`'s options per test, on its own migrated database, and sends requests through the whole middleware stack as a user or API key you name, with problem assertions and the email and jobs the app queued. See [Testing with gorbitaltest](testing-with-gorbitaltest.md).
+
 ### `passkeytest`
 
 `gorbital.dev/modules/auth/passkey/passkeytest` creates and signs WebAuthn attestation and assertion responses like a real authenticator, so registration, passwordless sign-in, passkeys as a second factor and clone detection run in `go test`.

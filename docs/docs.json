@@ -25,6 +25,9 @@
             { "title": "Add your first resource", "slug": "guides/first-resource", "source": "docs/start/first-resource.md" },
             { "title": "Modules and routes", "slug": "guides/modules-and-routes", "source": "docs/guides/modules-and-routes.md" },
             { "title": "Guards and middleware", "slug": "guides/guards-and-middleware", "source": "docs/guides/guards-and-middleware.md" },
+            { "title": "Your main.go", "slug": "guides/main-go", "source": "docs/guides/main-go.md" },
+            { "title": "The middleware stack", "slug": "guides/middleware-stack", "source": "docs/guides/middleware-stack.md" },
+            { "title": "Testing with gorbitaltest", "slug": "guides/testing-with-gorbitaltest", "source": "docs/guides/testing-with-gorbitaltest.md" },
             { "title": "Organisations", "slug": "guides/organisations", "source": "docs/start/organisations.md" },
             { "title": "Upgrading apps", "slug": "guides/upgrading", "source": "docs/start/upgrading.md" }
           ]
@@ -250,6 +253,14 @@
         {
           "name": "Examples",
           "pages": [{ "title": "Overview", "slug": "examples", "source": "docs/examples/index.md" }]
+        },
+        {
+          "name": "Shelfie",
+          "pages": [
+            { "title": "0. Start a project", "slug": "examples/shelfie/start-a-project", "source": "docs/examples/shelfie/00-start-a-project.md" },
+            { "title": "1. A books module", "slug": "examples/shelfie/books-module", "source": "docs/examples/shelfie/01-books-module.md" },
+            { "title": "4. Tests", "slug": "examples/shelfie/tests", "source": "docs/examples/shelfie/04-tests.md" }
+          ]
         }
       ]
     },

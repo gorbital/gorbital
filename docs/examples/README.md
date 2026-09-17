@@ -6,7 +6,8 @@ Notes for contributors writing a page in the Examples tab ([index.md](index.md))
 
 | What | Where |
 |---|---|
-| A Shelfie chapter or a recipe page | `docs/examples/<name>.md`, listed in the Examples tab of `docs/docs.json` |
+| A Shelfie chapter | `docs/examples/shelfie/<nn>-<name>.md`, listed in the Examples tab of `docs/docs.json` |
+| A recipe page | `docs/examples/<name>.md`, listed there too |
 | The app | `examples/apps/<app>/` (for example `examples/apps/shelfie/`), a Go module CI builds and tests |
 
 Each phase that ships a feature adds or extends its chapter in the same pull request as the feature ([v0.2 roadmap](../v0.2-roadmap.md#what-every-phase-writes)).
@@ -16,20 +17,20 @@ Each phase that ships a feature adds or extends its chapter in the same pull req
 Mark the region in the app's source with a pair of comments naming it:
 
 ```go
-// docs:start createBook
-func (h *handler) createBook(w http.ResponseWriter, r *http.Request) {
+// docs:start create-book
+func (h handlers) createBook(ctx context.Context, in *createBookInput) (*bookOutput, error) {
 	// ...
 }
-// docs:end createBook
+// docs:end create-book
 ```
 
 On the page, put an HTML comment on its own line where the code goes. It holds the word `include`, the file path from the repository root, `#`, and the region name:
 
 ```text
-<!-- include examples/apps/shelfie/modules/books/handlers.go#createBook -->
+<!-- include examples/apps/shelfie/internal/modules/books/delivery/create_book.go#create-book -->
 ```
 
-The docs site resolves includes when it syncs the docs (`pnpm sync-docs` in gorbital-web) and fails the build when the file or the marker is missing, so a renamed function breaks the docs build rather than leaving stale code on a page. The marker lines themselves aren't shown.
+`#` and `--` comments mark regions too (`.env.example`, SQL), and without `#name` the whole file is included. The docs site resolves includes when it syncs the docs (`pnpm sync-docs` in gorbital-web) and fails the build when the file or the marker is missing, so a renamed function breaks the docs build rather than leaving stale code on a page. The marker lines themselves aren't shown.
 
 Rules:
 
