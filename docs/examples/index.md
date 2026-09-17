@@ -3,7 +3,7 @@
 Real applications built with gorbital, explained step by step. Each chapter adds one feature to a working app, and the code on every page is included from that app's source, which CI builds and tests, so the text can't drift from code that compiles.
 
 > [!NOTE]
-> The examples arrive with the v0.2 phases that ship the features they use ([v0.2 roadmap](../v0.2-roadmap.md#the-examples-tab)). Chapters 0, 1, 4, 5, 6, 7 and 9 of Shelfie, and part 1 of the *Internal admin tool* recipe, are written; the tables below say which phase brings the others.
+> The examples arrive with the v0.2 phases that ship the features they use ([v0.2 roadmap](../v0.2-roadmap.md#the-examples-tab)). Chapters 0, 1, 4, 5, 6, 7, 8 and 9 of Shelfie, and part 1 of the *Internal admin tool* recipe, are written; the tables below say which phase brings the others.
 
 ## Shelfie
 
@@ -19,7 +19,7 @@ Shelfie is a reading-tracker API for a web and a mobile app: people keep a shelf
 | [5. Operations](shelfie/05-operations.md) | `opshttp` and `flagshttp` in `main.go`, a runtime setting and a flag declared by a module, `OPS_ALLOWED_IPS` | Phase 4 |
 | [6. Accounts](shelfie/06-accounts.md) | `authhttp` options, `RegisterFields` into a profiles module, `OnRegister` creating a default shelf, `BeforeLogin` refusing suspended readers | Phase 6 |
 | [7. Phone-code sign-in](shelfie/07-phone-code-sign-in.md) | A sign-in method of the app's own through `Authenticator.SignIn`, with a fake SMS sender in tests | Phase 6 |
-| 8. Book clubs | Organisations, `guard.OrgMember`, row-level security | Phase 7 |
+| [8. Book clubs](shelfie/08-book-clubs.md) | Clubs as organisations with `orgshttp`, invitations, `orb gen module --org`, `guard.OrgMember`, organisation permissions, cross-club isolation, row-level security, tests with `SignUp` | Phase 7 |
 | [9. Generators](shelfie/09-generators.md) | `orb gen module`, `orb gen middleware`, `orb routes`, `orb doctor` | Phase 8 |
 | 10. Hardening and partners | Timeouts, `/ops` IP allow list, verifying partner webhooks | Phase 10 |
 | 11. Deploy | Production configuration, migrations in CI, health checks | Phase 12 |

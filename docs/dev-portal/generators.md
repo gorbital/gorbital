@@ -10,7 +10,7 @@ A card per generator the status lists (the count is the sidebar's badge): Module
 
 | Generator | Form | After apply |
 |---|---|---|
-| `module` | For apps on `gorbital.Main`: the record name, the fields (name, type including optional `string?`, enum values, unique; paste specs such as `name:string:unique`), plural and ID prefix; organisation scope is shown disabled until Phase 7. Writes the layered module, its migration and tests, and `modules.gen.go` ([Generating code](../guides/generating-code.md)). In an app on the v0.1 layout the plan answers 422 and points at Resource | Apply migrations, then restart |
+| `module` | For apps on `gorbital.Main`: the record name, the fields (name, type including optional `string?`, enum values, unique; paste specs such as `name:string:unique`), plural and ID prefix; and organisation scope (`orb gen module --org`: routes under `/v1/orgs/{orgId}/…` with `guard.OrgMember`), which the API accepts; the screen shows it disabled until the Dev Portal UI is updated. Writes the layered module, its migration and tests, and `modules.gen.go` ([Generating code](../guides/generating-code.md)). In an app on the v0.1 layout the plan answers 422 and points at Resource | Apply migrations, then restart |
 | `middleware` | For apps on `gorbital.Main`: the name and the kind: module middleware (a module name), a guard (a module name) or global middleware. The plan's next steps give the line that wires it (`gorbital.Use(…)`, the error mapping for a guard, `gorbital.WithMiddleware(…)`); nothing else is edited | Restart |
 | `resource` | Name, belongs to (user or organisation), the fields (name, type, enum values, unique), plural, ID prefix. The rules are the CLI's: snake_case, reserved names, unique on strings only, at least one string, at most 20 fields | Apply migrations, then restart |
 | `job` | A link to the Jobs screen's New job sheet ([Jobs](jobs.md)) | Restart |
@@ -37,6 +37,6 @@ A card per generator the status lists (the count is the sidebar's badge): Module
 ## Notes
 
 - A generator that needs the database is gated on the Minimal preset ("needs the Full preset").
-- Inputs of the Phase 8 generators: `module` takes `{"name", "fields": ["name:string:unique", …], "plural", "id_prefix", "org"}` (`org: true` answers 422 until Phase 7); `middleware` takes `{"name", "module", "global", "guard"}` (exactly one of `module` and `global`; `guard` needs `module`). Their `plan.result` is `orb gen module --json`'s and `orb gen middleware --json`'s result.
+- Inputs of the Phase 8 generators: `module` takes `{"name", "fields": ["name:string:unique", …], "plural", "id_prefix", "org"}` (`org: true` plans an organisation module, as `--org` does); `middleware` takes `{"name", "module", "global", "guard"}` (exactly one of `module` and `global`; `guard` needs `module`). Their `plan.result` is `orb gen module --json`'s and `orb gen middleware --json`'s result.
 - The portal's usage errors (422 `generator_failed`) are the CLI's own messages, shown under the field the flag names.
 - Every generated file is yours from then on; `orb upgrade` merges newer templates into your edits ([upgrading apps](../start/upgrading.md)).

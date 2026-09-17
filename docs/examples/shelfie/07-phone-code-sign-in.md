@@ -85,4 +85,4 @@ With an authenticator app on, the phone code is only the first factor:
 
 ## Next
 
-8. Book clubs (Phase 7): organisations, `guard.OrgMember` and row-level security.
+[8. Book clubs](08-book-clubs.md): clubs as organisations, a reading list generated with `orb gen module --org`, `guard.OrgMember` and row-level security.

@@ -212,7 +212,7 @@ Safety checks: the app must have `internal/app/jobs.go` with the anchor; existin
 
 ## `orb gen resource`
 
-In an app on `gorbital.Main`, `orb gen resource` runs [`orb gen module`](#orb-gen-module) with the same name, fields and flags (`--scope org` is refused like `--org`) and says so; what follows describes apps on the v0.1 layout.
+In an app on `gorbital.Main`, `orb gen resource` runs [`orb gen module`](#orb-gen-module) with the same name, fields and flags (`--scope org` is `--org`; without `--scope` the module is owned by users) and says so; what follows describes apps on the v0.1 layout.
 
 Generates a module for records that belong to the signed-in user, in an app created with the Full preset: domain rules, use cases, a repository with hand-written SQL, `/v1/<names>` endpoints, tests and a migration. In a multi-tenant app (`orb new --tenancy multi`) records belong to an organisation instead: endpoints under `/v1/orgs/{orgId}/<names>`, every use case checks membership and a `<module>.<resource>.read` or `.write` permission with `orgs.RequireMember`, and the tests include non-members, roles without the permission and cross-organisation requests ([ADR-0048](../adr/0048-organisations-v0-4.md)). Everything it writes is your code to change ([ADR-0039](../adr/0039-resource-module-template.md)); `examples/full-single/internal/modules/projects` is exactly what it generates for the first example below, and `examples/full-multi/internal/modules/projects` what it generates there.
 
@@ -308,11 +308,12 @@ Modules are found by parsing Go files (`go/parser`), never by building or runnin
 
 ## `orb gen module`
 
-Generates a module in an app on `gorbital.Main` (v0.2): records that belong to the signed-in user, in `internal/modules/<names>/` with four layers and **one file per operation** in each, the route table in `delivery/routes.go`, a migration, tests, and the module added to `modules.gen.go` ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#3-app-layout)). Everything it writes is your code; [Generating code](generating-code.md) goes through it file by file. Shelfie's `internal/modules/shelves` is exactly what the first example writes ([chapter 9](../examples/shelfie/09-generators.md)).
+Generates a module in an app on `gorbital.Main` (v0.2): records that belong to the signed-in user, or with `--org` to an organisation, in `internal/modules/<names>/` with four layers and **one file per operation** in each, the route table in `delivery/routes.go`, a migration, tests, and the module added to `modules.gen.go` ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#3-app-layout)). Everything it writes is your code; [Generating code](generating-code.md) goes through it file by file. Shelfie's `internal/modules/shelves` is exactly what the first example writes ([chapter 9](../examples/shelfie/09-generators.md)).
 
 ```bash
 orb gen module Shelf name:string:unique description:text 'visibility:enum(private,shared)' --plural Shelves
 orb gen module Reader name:string 'nickname:string?' --dry-run --diff
+orb gen module ClubBook title:string:unique 'author:string?' 'status:enum(proposed,reading,finished)' note:text --org
 orb gen module                                          # asks for the name and fields
 ```
 
@@ -324,14 +325,14 @@ Quote enum fields and optional strings: shells treat parentheses and `?` special
 | Fields | positional, after the name | required |
 | (flag only) Plural | `--plural Shelves` | the name with -s, -es or -ies; the module, table and route come from it |
 | (flag only) ID prefix | `--id-prefix shl` (2 to 8 lowercase letters) | first letter and the next consonants |
-| (flag only) Organisation scope | `--org` | refused until organisations and `guard.OrgMember` arrive (v0.2 Phase 7): the module is owned by users |
+| (flag only) Organisation scope | `--org` | off: the records belong to the signed-in user. With it, to an organisation (below) |
 
 Other flags: `--dry-run`, `--diff` (prints the plan as a unified diff), `--json`, `--allow-dirty`, `--yes`, `--no-input`, `--plain`.
 
 | Field | Means |
 |---|---|
 | `name:string` | 1 to 100 characters, required, sortable |
-| `name:string:unique` | The same, unique among each user's records, ignoring case (409 `<record>_<field>_taken`) |
+| `name:string:unique` | The same, unique among each user's records (with `--org`, each organisation's), ignoring case (409 `<record>_<field>_taken`) |
 | `nickname:string?` | 0 to 100 characters, optional, sortable; can't be unique |
 | `notes:text` | Up to 2000 characters, optional |
 | `status:enum(open,done)` | One of 2 to 20 snake_case values, the first by default; lists filter by it |
@@ -356,6 +357,18 @@ What it writes for `Shelf`:
 | `internal/modules/modules.gen.go` | Rewritten with the new module ([`orb gen modules`](#orb-gen-modules)) |
 
 Then `go run ./cmd/api migrate` (`orb dev` does it), `go run ./cmd/api openapi --dir api` and `go test ./...`. When `cmd/api` doesn't pass `modules.All()` to `gorbital.Main`, the next steps say to add it.
+
+**With `--org`** the same files are written for an organisation's records ([Generating code](generating-code.md#organisations); Shelfie's `internal/modules/clubbooks` is the second example, [chapter 8](../examples/shelfie/08-book-clubs.md)):
+
+| What changes | With `--org` |
+|---|---|
+| Routes | Under `/v1/orgs/{orgId}/<names>`, each with `guard.OrgMember(usecase.PermRead)` or `(usecase.PermWrite)`: a caller who isn't a member gets 404 `org_not_found`, a role without the permission 403 `forbidden` |
+| Permissions | Organisation permissions, `OrgRoles: owner, admin, member`, so every member reads and writes; an API key only within its scopes |
+| Use cases and SQL | Take the organisation ID from the path, check it is the one the guard authorized, and filter every statement on `org_id`; the record has `OrgID` and `CreatedBy`, and responses `created_by`. Another organisation's record is 404 `<record>_not_found` |
+| Migration | `org_id text NOT NULL`, `UNIQUE (org_id, id)`, unique and sort indexes led by `org_id`, the foreign key to `orgs` with `ON DELETE CASCADE` (added when the migration runs with the organisations module's tables, so another module's test app migrates without them), and the `org_isolation` row-level security policy when the app has row-level security: a `db/migrations/*_row_level_security.sql` migration or `rls: true` in `gorbital.yaml` |
+| Tests | Real accounts through `gorbitaltest.App.SignUp` in an app with `authhttp` and `orgshttp`: each user's personal workspace, other users get `org_not_found` on every route, another organisation's record is not found, read-only API keys get 403, pages, versions, audit events with `org_id`, and purging an organisation deleting its records |
+
+The plan never edits `main.go`. When `cmd/api` doesn't mention `orgshttp`, the first next step says to add `gorbital.WithModules(orgshttp.Module(auth))`, where `auth` is the authenticator passed to `gorbital.WithAuth`; `gorbital.New` refuses routes with `guard.OrgMember` without it, so tests that build the app from `modules.All()` need it too. `--json` adds `"scope": "org"` and `"row_level_security": true` when the migration carries the policy.
 
 Safety checks: the app must be on `gorbital.Main` (`gorbital.dev/gorbital` in `go.mod` or `modules.gen.go`) and have `db/migrations` as a Go package (`migrations.FS`); no file or module directory is overwritten; the git repository must be clean unless `--allow-dirty`. In an app on the v0.1 layout it stops and points at `orb gen resource`.
 

@@ -4,7 +4,7 @@ Readers of Shelfie have a display name other readers see and a country for local
 
 ## 1. Sign-in's options
 
-`main.go` builds the authenticator first, so chapter 7 can hand it to a module too:
+`main.go` builds the authenticator first, so chapters 7 and 8 can hand it to modules too:
 
 <!-- include examples/apps/shelfie/cmd/api/main.go#main -->
 

@@ -5,6 +5,7 @@ In an app on `gorbital.Main`, `orb gen module` writes a new module and `orb gen 
 | Command | Writes |
 |---|---|
 | `orb gen module Shelf name:string:unique …` | `internal/modules/shelves/` (a layered module), its migration, and `modules.gen.go` |
+| `orb gen module ClubBook title:string:unique … --org` | The same for records that belong to an organisation, under `/v1/orgs/{orgId}/…` with `guard.OrgMember` |
 | `orb gen middleware RequireClientVersion --module books` | A middleware and its test in the module's `delivery/` |
 | `orb gen middleware ActiveSubscription --module books --guard` | A guard, its error and its test in the module's `delivery/` |
 | `orb gen middleware TenantHeader --global` | A middleware and its test in `internal/middleware/` |
@@ -123,7 +124,47 @@ The migration creates the table with a `CHECK` per field limit and enum, a uniqu
 
 ### Organisations
 
-`--org` is refused until organisations arrive in the library with `guard.OrgMember` (v0.2 Phase 7). Generate the module owned by users; the org-scoped variant will scope the routes under `/v1/orgs/{orgId}/…` with the guard.
+With `--org`, the records belong to an organisation instead of a user, and its members reach them through their role. The layout, the file names and the operations are the same; what differs is who may call a route, what every statement filters on, and the tests. Shelfie's club books are the example, which this command writes unchanged ([chapter 8](../examples/shelfie/08-book-clubs.md)):
+
+```bash
+orb gen module ClubBook title:string:unique 'author:string?' 'status:enum(proposed,reading,finished)' note:text --org
+```
+
+The app needs the organisations module, `gorbital.dev/gorbital/orgshttp`, which answers `guard.OrgMember` and owns the `orgs` table. `orb gen module` never edits `main.go`: when `cmd/api` doesn't mention `orgshttp`, its first next step is to add it, with the authenticator `main.go` already passes to `gorbital.WithAuth`:
+
+```go
+auth := authhttp.New()
+gorbital.Main(
+	gorbital.WithAuth(auth),
+	gorbital.WithModules(modules.All()...),
+	gorbital.WithModules(orgshttp.Module(auth)), // takes the authenticator, so it's on its own line
+	gorbital.WithMigrations(migrations.FS),
+)
+```
+
+`gorbital.New` refuses an app whose routes use `guard.OrgMember` without it, so tests that build the app from `modules.All()` need `authhttp` and `orgshttp` too, or leave out the modules with organisation permissions (Shelfie's `cmd/api/operations_test.go` does, because its tests sign in as `gorbitaltest.User` principals, which aren't accounts).
+
+**Routes and the guard.** `delivery/routes.go` groups the routes under `/v1/orgs/{orgId}/club-books`, and every route has `guard.OrgMember(usecase.PermRead)` or `guard.OrgMember(usecase.PermWrite)` instead of `guard.Permission`. The guard asks the organisations module about the `{orgId}` of the path before the body is read: someone who isn't a member, an unknown or deleted organisation and a malformed ID all get 404 `org_not_found`, so organisation IDs can't be probed; a role without the permission gets 403 `forbidden`, and one that needs a second factor 403 `mfa_required`. On success the actor acts in the organisation (its `OrgID` and the role's permissions) and the request's database connections carry it for row-level security. Each input type has ``OrgID string `path:"orgId"` ``.
+
+**Permissions.** `module.go` declares `clubbooks.club_book.read` and `.write` with `OrgRoles: []string{"owner", "admin", "member"}`: organisation permissions, which the organisations module gives to those roles, so every member reads and writes, as v0.1's organisation resources were. Platform roles grant nothing in an organisation, and an API key only what its scopes include. To keep members to reading, drop `"member"` from the write permission.
+
+**Use cases and SQL.** Each use case takes the organisation ID from the path (`CreateClubBook(ctx, orgID, fields)`, `GetClubBook(ctx, orgID, id)`, …). `memberID` in `service.go` checks that the actor acts in that organisation, which the guard guarantees, and returns the member's ID, a user or the organisation's own service account; without the guard the use case answers 401 rather than trusting the path. The record has `OrgID` and `CreatedBy` (in responses, `created_by`), and every statement filters on `org_id` or inserts it: `WHERE id = $1 AND org_id = $2`, never relying on row-level security alone. Another organisation's club book is 404 `club_book_not_found`, as an unknown ID is. Audit events carry the organisation, which the recorder takes from the actor.
+
+**The migration.**
+
+| Part | Why |
+|---|---|
+| `org_id text NOT NULL` | Every row belongs to one organisation; `NOT NULL` is what the row-level security migration looks for |
+| `created_by text NOT NULL`, no foreign key | For display and audit; access comes only from membership, and records outlive their creator |
+| `UNIQUE (org_id, id)` | Other organisation tables can reference `(org_id, id)`, so a row can only point at a record of its own organisation |
+| Unique indexes on `(org_id, lower(field))`, sort indexes led by `org_id` | Unique per organisation; every list reads one organisation |
+| The foreign key to `orgs (id) ON DELETE CASCADE`, in a `DO` block | Purging an organisation (`orgs_purge`, after its restore period) deletes its records. It is added when `orgs` exists, which it does whenever the app's migrations run with `orgshttp`; another module's test app, built without organisations, migrates without it instead of failing |
+| `ENABLE` and `FORCE ROW LEVEL SECURITY` and the `org_isolation` policy, only in apps with row-level security | See below |
+| `-- +goose Down` | Drops the table, with its policy |
+
+**Row-level security.** It is optional ([Row-level security](row-level-security.md)). `orb add rls` needs the `gorbital.lock` of an app created with `orb new --tenancy multi`, so in an app on `gorbital.Main` you add the policy migration yourself, under a version after your latest, named `<version>_row_level_security.sql`: its `DO` block gives every table with `org_id NOT NULL` that exists when it runs the policy. `orb gen module --org` then detects row-level security, from a `db/migrations/*_row_level_security.sql` file or `rls: true` in `gorbital.yaml` (what `orb add rls` records), and adds the same policy to the new table's migration, since the `DO` block has already run. Without either, the migration has no policy, as v0.1's `orb gen resource --scope org` did before `orb add rls`, and the table is covered when you add the policy migration later. `--json` reports `"row_level_security": true` when the migration carries the policy.
+
+**Tests.** `clubbooks_test.go` builds the app with `authhttp`, `orgshttp` and the module, and signs up real accounts with `gorbitaltest.App.SignUp`: organisation members are sign-in's accounts, which `gorbitaltest.User` principals aren't. Each account gets a personal workspace, found with `GET /v1/orgs`. The tests cover create and get (`created_by` is the member), the rules, a title taken in one organisation but free in another, deny by default (401), another user on every route of the first organisation (404 `org_not_found`, also for an unknown and a malformed organisation ID), the first organisation's club book under the other's path (404 `club_book_not_found` on get, update and delete, and an empty list), a read-only API key (403 on writes), pages, versions, the audit trail with the member and the organisation, and purging an organisation deleting its club books.
 
 ## Adding an operation by hand
 
@@ -179,4 +220,4 @@ Until you write the rule every request passes, so wiring the generated code in c
 
 ## Not generated
 
-Relations between modules (reference another module's IDs in SQL; modules never import each other), soft delete, search, file fields, org-scoped modules (Phase 7), and an sqlc-based repository variant (a possible later option, noted in ADR-0083).
+Relations between modules (reference another module's IDs in SQL; modules never import each other), soft delete, search, file fields, and an sqlc-based repository variant (a possible later option, noted in ADR-0083).
