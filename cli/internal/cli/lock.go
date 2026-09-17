@@ -34,6 +34,43 @@ type lockFile struct {
 	Orb        lockOrb      `json:"orb"`
 	Inputs     lockInputs   `json:"inputs"`
 	Files      []lockedFile `json:"files"`
+	// Ejected are the built-in modules orb eject copied into the app, which
+	// the app owns from then on (ADR-0083). A lock orb eject creates in an
+	// app orb new didn't write has only these.
+	Ejected []lockEjected `json:"ejected,omitempty"`
+}
+
+// lockEjected records a built-in module orb eject copied into the app.
+type lockEjected struct {
+	// Module is the name orb eject takes, such as auth; the code is in
+	// internal/modules/<Module>.
+	Module string `json:"module"`
+	// Package is the library package it was copied from, such as
+	// gorbital.dev/gorbital/authhttp.
+	Package string `json:"package"`
+	// Version is the gorbital.dev/gorbital version the app required.
+	Version string `json:"version"`
+	// Date is the day of the ejection, as YYYY-MM-DD.
+	Date string `json:"date"`
+	// SHA256 hashes the package's source as orb eject read it, so orb doctor
+	// notices when the library's module has changed since.
+	SHA256 string `json:"sha256"`
+}
+
+// rendered reports whether orb new wrote the lock's app, as opposed to a
+// lock orb eject created that records only ejected modules.
+func (l lockFile) rendered() bool {
+	return l.Inputs != (lockInputs{}) || len(l.Files) > 0
+}
+
+// ejected returns the ejection of module, if the lock records one.
+func (l lockFile) ejected(module string) (lockEjected, bool) {
+	for _, e := range l.Ejected {
+		if e.Module == module {
+			return e, true
+		}
+	}
+	return lockEjected{}, false
 }
 
 // lockOrb is the orb release that rendered the tracked files.
@@ -206,7 +243,12 @@ func readLock(dir string) (lockFile, error) {
 		if err := dec.Decode(&l); err != nil {
 			return lockFile{}, fmt.Errorf("read %s: %w", lockPath, err)
 		}
-		if err := l.Inputs.validate(lockPath); err != nil {
+		if l.rendered() {
+			if err := l.Inputs.validate(lockPath); err != nil {
+				return lockFile{}, err
+			}
+		}
+		if err := validateEjected(l.Ejected); err != nil {
 			return lockFile{}, err
 		}
 	case lockAPIVersionV1:
@@ -271,4 +313,24 @@ func revisionOf(info *debug.BuildInfo) string {
 func sha256Hex(content []byte) string {
 	sum := sha256.Sum256(content)
 	return hex.EncodeToString(sum[:])
+}
+
+// validateEjected checks the ejected modules a lock records: orb doctor and
+// orb gen modules read directories from their names, so a name must be one
+// orb eject knows, recorded once.
+func validateEjected(ejected []lockEjected) error {
+	seen := map[string]bool{}
+	for _, e := range ejected {
+		m, ok := lookupEjectable(e.Module)
+		switch {
+		case !ok:
+			return fmt.Errorf("%s records an unknown ejected module %q", lockPath, e.Module)
+		case seen[e.Module]:
+			return fmt.Errorf("%s records the ejected module %q twice", lockPath, e.Module)
+		case e.Package != m.importPath():
+			return fmt.Errorf("%s records the ejected module %q from %q, want %s", lockPath, e.Module, e.Package, m.importPath())
+		}
+		seen[e.Module] = true
+	}
+	return nil
 }

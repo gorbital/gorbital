@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go/ast"
@@ -9,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,7 +19,7 @@ import (
 )
 
 // The checks orb doctor runs in apps on gorbital.Main (ADR-0083): the module
-// list, the middleware stack and the request timeout.
+// list, ejected modules, the middleware stack and the request timeout.
 
 // modules checks internal/modules/modules.gen.go against the module
 // directories, and reports directories that declare no module.
@@ -40,9 +43,10 @@ func (d *doctor) modules(app appInfo) {
 	// Directories with Go code but no func Module() aren't in the app. A
 	// Module that takes arguments, such as the authenticator, isn't listed
 	// either: main.go adds it on its own line (ADR-0083).
+	lock, _ := readLock(app.dir)
 	for _, e := range entries {
 		name := e.Name()
-		if !e.IsDir() || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "testdata" || slices.Contains(found, name) {
+		if _, ejected := lock.ejected(name); !e.IsDir() || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "testdata" || slices.Contains(found, name) || ejected {
 			continue
 		}
 		if _, kind, err := moduleDeclaration(filepath.Join(root, name)); err == nil && kind == moduleWithArgs {
@@ -252,3 +256,115 @@ func (d *doctor) requestTimeout(env []string) {
 		d.add(doctorOK, "timeout", fmt.Sprintf("%s (%s)", timeout, name), "")
 	}
 }
+
+// ejected checks the built-in modules gorbital.lock records as ejected: the
+// app has their code, and whether the library's package changed since, so
+// the app may be missing fixes (orb eject).
+func (d *doctor) ejected(ctx context.Context) {
+	lock, err := readLock(d.dir)
+	if err != nil || len(lock.Ejected) == 0 {
+		return
+	}
+	lib, libErr := doctorModule(ctx, d.dir, gorbitalImportPath)
+	for _, e := range lock.Ejected {
+		m, _ := lookupEjectable(e.Module)
+		if info, err := os.Stat(d.path(m.dir())); err != nil || !info.IsDir() {
+			d.add(doctorFail, "ejected", fmt.Sprintf("gorbital.lock records %s as ejected, but %s is missing, so the app doesn't build", m.name, m.dir()),
+				fmt.Sprintf("restore it from git history, or go back to the library's %s: remove the entry from gorbital.lock and change the imports back (docs/guides/ejecting-a-module.md)", m.pkg))
+			continue
+		}
+		since := fmt.Sprintf("%s is the app's code, ejected from %s %s on %s", m.dir(), m.importPath(), e.Version, e.Date)
+		if libErr != nil {
+			d.add(doctorWarn, "ejected", since+"; couldn't compare it with the library: "+firstLine(libErr.Error()), "check that go.mod requires gorbital.dev/gorbital and go mod download works")
+			continue
+		}
+		hash, err := hashLibraryPackage(filepath.Join(lib.Dir, m.pkg))
+		switch {
+		case err != nil:
+			d.add(doctorWarn, "ejected", fmt.Sprintf("%s; gorbital.dev/gorbital %s has no %s to compare it with", since, lib.Version, m.pkg), "")
+		case hash == e.SHA256:
+			d.add(doctorOK, "ejected", since+"; the library's copy hasn't changed since", "")
+		default:
+			detail := fmt.Sprintf("%s; the library's %s has changed since (the app requires %s)", since, m.pkg, lib.Version)
+			if entries := d.changelogEntries(ctx, m.pkg, e.Version); len(entries) > 0 {
+				detail += ". Changelog: " + strings.Join(entries, " · ")
+			}
+			d.add(doctorWarn, "ejected", detail,
+				fmt.Sprintf("compare %s with %s in gorbital.dev/gorbital %s and port the fixes you need: library releases and orb upgrade don't change ejected modules", m.dir(), m.pkg, lib.Version))
+		}
+	}
+}
+
+// doctorModule returns the version and source directory of a module the
+// app requires, as go list reports them.
+func doctorModule(ctx context.Context, dir, module string) (librarySource, error) {
+	out, errOut, err := doctorCommand(ctx, dir, nil, "go", "list", "-m", "-json", module)
+	if err != nil {
+		return librarySource{}, fmt.Errorf("go list -m %s: %w: %s", module, err, firstLine(errOut))
+	}
+	var mod struct{ Version, Dir string }
+	if err := json.Unmarshal([]byte(out), &mod); err != nil {
+		return librarySource{}, err
+	}
+	if mod.Dir == "" {
+		return librarySource{}, fmt.Errorf("%s %s isn't in the module cache; run go mod download", module, mod.Version)
+	}
+	return librarySource{Version: mod.Version, Dir: mod.Dir}, nil
+}
+
+// maxChangelogEntries is how many changelog entries orb doctor quotes for
+// an ejected module.
+const maxChangelogEntries = 3
+
+// changelogEntries returns the first line of the changelog entries naming
+// pkg in releases after version, from gorbital.dev's CHANGELOG.md at the
+// version the app requires; none when it can't be read.
+func (d *doctor) changelogEntries(ctx context.Context, pkg, version string) []string {
+	root, err := doctorModule(ctx, d.dir, "gorbital.dev")
+	if err != nil {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(root.Dir, "CHANGELOG.md"))
+	if err != nil {
+		return nil
+	}
+	return changelogMentions(string(data), pkg, version)
+}
+
+// changelogMentions returns the entries of changelog, a Keep a Changelog
+// file with "## v0.2.1 (date)" or "## Unreleased (v0.2.1)" headings, that
+// name pkg in sections for versions after version, newest first.
+func changelogMentions(changelog, pkg, version string) []string {
+	var found []string
+	newer := false
+	total := 0
+	for line := range strings.Lines(changelog) {
+		line = strings.TrimRight(line, "\r\n")
+		if heading, ok := strings.CutPrefix(line, "## "); ok {
+			v := changelogVersion.FindString(heading)
+			newer = v != "" && v != version && versionAtLeast(strings.TrimPrefix(v, "v"), strings.TrimPrefix(version, "v"))
+			continue
+		}
+		entry, ok := strings.CutPrefix(strings.TrimLeft(line, " "), "- ")
+		if !newer || !ok || !strings.Contains(entry, pkg) {
+			continue
+		}
+		total++
+		if len(found) < maxChangelogEntries {
+			if first, _, cut := strings.Cut(entry, ". "); cut {
+				entry = first
+			}
+			if r := []rune(entry); len(r) > 120 {
+				entry = string(r[:119]) + "…"
+			}
+			found = append(found, entry)
+		}
+	}
+	if total > len(found) {
+		found = append(found, fmt.Sprintf("and %d more", total-len(found)))
+	}
+	return found
+}
+
+// changelogVersion finds a version in a changelog heading.
+var changelogVersion = regexp.MustCompile(`v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?`)

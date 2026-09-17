@@ -29,6 +29,8 @@ module is a directory under internal/modules whose package declares
 
 	func Module() gorbital.Module
 
+Built-in modules copied with orb eject aren't listed: main.go adds them.
+
 The file is generated: never edit it. orb dev rewrites it when a module is
 added or removed, and go generate ./internal/modules runs this command. The
 app builds without orb, because the file is committed.
@@ -145,8 +147,11 @@ type appModule struct {
 // findModules parses each directory directly under internal/modules and
 // returns those whose package declares func Module() gorbital.Module,
 // sorted by directory name. Test files and directories starting with . or
-// _, and testdata, are skipped.
+// _, and testdata, are skipped, and so are built-in modules gorbital.lock
+// records as ejected: main.go adds them where it added the library's, in
+// the same order (orb eject).
 func findModules(app appInfo) ([]appModule, error) {
+	lock, _ := readLock(app.dir)
 	root := filepath.Join(app.dir, "internal", "modules")
 	entries, err := os.ReadDir(root)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -158,7 +163,7 @@ func findModules(app appInfo) ([]appModule, error) {
 	var modules []appModule
 	for _, e := range entries {
 		name := e.Name()
-		if !e.IsDir() || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "testdata" {
+		if _, ejected := lock.ejected(name); !e.IsDir() || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "testdata" || ejected {
 			continue
 		}
 		pkg, ok, err := declaresModule(filepath.Join(root, name))

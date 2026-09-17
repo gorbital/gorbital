@@ -121,7 +121,7 @@ Storage drivers, the values of STORAGE\_DRIVER.
 <a id="RetentionJob"></a>
 
 ```go
-const RetentionJob = builtinjobs.Retention
+const RetentionJob = "retention"
 ```
 
 RetentionJob is the name of the built-in job that calls every [Retention.Delete](#Retention.Delete) once a day. Job names are public API: /ops/jobs keeps their configuration and history under them.

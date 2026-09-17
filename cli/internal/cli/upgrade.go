@@ -110,6 +110,9 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	} else if err != nil {
 		return err
 	}
+	if !lock.rendered() && lock.APIVersion == LockAPIVersion {
+		return fmt.Errorf("%s records only modules orb eject copied: orb upgrade works in apps created with orb new", lockPath)
+	}
 	if !insideGitRepo(ctx, app.dir) {
 		return errors.New("orb upgrade works on a git branch; put the app in git first: git init && git add -A && git commit -m 'Create app'")
 	}
@@ -150,7 +153,9 @@ func runUpgrade(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
-	next, err := lockFromTree(inputs, theirs).encode()
+	nextLock := lockFromTree(inputs, theirs)
+	nextLock.Ejected = lock.Ejected // ejected modules stay the app's (orb eject)
+	next, err := nextLock.encode()
 	if err != nil {
 		return err
 	}

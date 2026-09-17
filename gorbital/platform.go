@@ -85,7 +85,7 @@ type RateLimiter struct {
 // RetentionJob is the name of the built-in job that calls every
 // [Retention.Delete] once a day. Job names are public API: /ops/jobs keeps
 // their configuration and history under them.
-const RetentionJob = builtinjobs.Retention
+const RetentionJob = "retention"
 
 // A Retention is how long one kind of a module's data is kept and what
 // deletes it, listed by GET /ops/retention. Exactly one of Delete, Job and

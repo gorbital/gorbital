@@ -64,6 +64,16 @@ func TestJSONOutputs(t *testing.T) {
 			newMainApp(t, false)
 			return runOrb(t, "routes", "--openapi", "api/openapi.json", "--app", "--json")
 		}},
+		{"eject", func(t *testing.T) (int, string, string) {
+			copyExampleApp(t, "shelfie")
+			code, out, errOut := runOrb(t, "eject", "orgs", "--dry-run", "--json")
+			// The library version Shelfie requires.
+			var res ejectResult
+			if json.Unmarshal([]byte(out), &res) == nil && res.Version != "" {
+				out = strings.ReplaceAll(out, `"`+res.Version+`"`, `"{version}"`)
+			}
+			return code, out, errOut
+		}},
 		{"doctor-main", func(t *testing.T) (int, string, string) {
 			newMainApp(t, true)
 			writeFile(t, ".env", readFile(t, ".env.example"))

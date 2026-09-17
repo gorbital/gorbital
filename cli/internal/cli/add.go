@@ -523,7 +523,7 @@ func planMail(dir string, example []byte, r recipes.MailRecipe, goMod goModInfo,
 	// can't record it; gorbital.yaml holds the provider for those apps.
 	lock, err := readLock(dir)
 	switch {
-	case err == nil && lock.APIVersion == LockAPIVersion:
+	case err == nil && lock.APIVersion == LockAPIVersion && lock.rendered():
 		lock.Inputs.Mail = r.Provider
 		for _, w := range plan.writes {
 			lock.record(w.path, w.content)

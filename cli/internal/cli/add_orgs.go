@@ -85,7 +85,9 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
-	next, err := lockFromTree(to, theirs).encode()
+	nextLock := lockFromTree(to, theirs)
+	nextLock.Ejected = lock.Ejected
+	next, err := nextLock.encode()
 	if err != nil {
 		return err
 	}

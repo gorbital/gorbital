@@ -53,6 +53,12 @@ func notesModule(platform **Platform, deleted *[]string) Module {
 	}
 }
 
+func TestRetentionJobIsTheBuiltInJob(t *testing.T) {
+	if RetentionJob != builtinjobs.Retention {
+		t.Errorf("RetentionJob = %q, the built-in job is %q", RetentionJob, builtinjobs.Retention)
+	}
+}
+
 func TestPlatformCollectsFromModules(t *testing.T) {
 	var p *Platform
 	var deleted []string
