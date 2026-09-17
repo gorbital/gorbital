@@ -75,6 +75,15 @@ func fakeCloudflared(behaviour string) {
 		logf("ERR", "Couldn't start tunnel error=\"quick tunnels are not supported with a config.yml\"")
 		os.Exit(1)
 	case "silent":
+	case "exit":
+		return
+	case "chatty":
+		// Keeps writing to the inherited stderr, so a closed pipe reaches
+		// it at once (TestOutputPipeEndsCloudflaredWhenOrbIsKilled).
+		for {
+			logf("INF", "still here")
+			time.Sleep(20 * time.Millisecond)
+		}
 	case "ignore-term":
 		signal.Ignore(syscall.SIGTERM)
 		logf("INF", "ignoring SIGTERM")
@@ -251,6 +260,11 @@ func TestNamedTunnelNeverLeaksTheToken(t *testing.T) {
 		t.Errorf("TUNNEL_TOKEN = %q", token)
 	}
 	pids := h.pids()
+	// The record of the running cloudflared holds no secret either.
+	record, _ := os.ReadFile(filepath.Join(h.dir, filepath.FromSlash(ProcessFile)))
+	if len(record) == 0 {
+		t.Errorf("%s wasn't written", ProcessFile)
+	}
 
 	info := h.m.Info(context.Background(), "darwin")
 	if info.TokenSource != TokenVar || info.TokenProblem != "" || info.Hostname != "dev-api.example.com" || info.HostnameSource != HostnameVar {
@@ -264,7 +278,8 @@ func TestNamedTunnelNeverLeaksTheToken(t *testing.T) {
 		S []Status
 		L []string
 		I Info
-	}{h.statuses, h.logs, info})
+		R string
+	}{h.statuses, h.logs, info, string(record)})
 	h.mu.Unlock()
 	for _, secret := range []string{fakeToken, fakeSecret} {
 		if strings.Contains(string(everything), secret) {

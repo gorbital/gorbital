@@ -56,6 +56,6 @@
   "written": false,
   "next": [
     "go test ./...   (database tests need orb dev or docker compose up -d --wait)",
-    "git diff api/openapi.json   (the API is re-exported; only x-gorbital-guards should appear)"
+    "git diff api/openapi.json   (re-exported: every route gains x-gorbital-guards, and the /ops instance example takes this app's name)"
   ]
 }

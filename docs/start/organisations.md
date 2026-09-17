@@ -109,8 +109,10 @@ What differs from a v0.1 app:
 `orgshttp` brings its two migrations under the versions v0.1 multi-tenant apps hold them under, `20260916000001` and `20260918000002`, so a database migrated by such an app sees them as applied and nothing runs twice. The price is that they are older than the library's own built-in migrations, whose newest is `20260918000070`, and goose refuses a migration older than the database's version. A database that has already been migrated therefore fails at the next migrate:
 
 ```
-postgres: migrate: detected 2 missing (out-of-order) migrations lower than database version: versions 20260916000001,20260918000002
+postgres: migrate: detected 2 missing (out-of-order) migrations lower than database version (20260918000070): versions 20260916000001,20260918000002
 ```
+
+The number in brackets is whatever the database's newest applied version happens to be.
 
 `orb add orgs` says so in its report, and only writes files, so nothing is broken by running it; the refusal comes later, from the app's own `migrate` command. A database created after the change is unaffected, and so are the tests, which start from a fresh database. The `migrate` command has no flag that turns goose's out-of-order check off, so the two routes below are the supported ones.
 

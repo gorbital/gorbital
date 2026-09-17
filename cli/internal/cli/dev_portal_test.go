@@ -409,7 +409,7 @@ func TestPortalModuleAndMiddlewareGenerators(t *testing.T) {
 		t.Errorf("routes = %+v, %v", list, err)
 	}
 	app := list.Filter("", false, true)
-	if app.Total != 16 || app.Filter("shelves", false, false).Total != 5 {
+	if app.Total != 20 || app.Filter("shelves", false, false).Total != 5 {
 		t.Errorf("the app's routes = %+v", app)
 	}
 }

@@ -28,7 +28,9 @@
         "authenticated",
         "permission:books.book.read"
       ],
-      "middleware": [],
+      "middleware": [
+        "RequireClientVersion"
+      ],
       "public": false,
       "deprecated": false
     },
@@ -54,7 +56,9 @@
         "authenticated",
         "permission:books.book.write"
       ],
-      "middleware": [],
+      "middleware": [
+        "RequireClientVersion"
+      ],
       "public": false,
       "deprecated": false
     }

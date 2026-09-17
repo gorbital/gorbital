@@ -301,6 +301,9 @@ func (m *Manager) start(_ context.Context, opts StartOptions) error {
 	if err := m.stop(); err != nil {
 		return err
 	}
+	// A cloudflared an orb dev that was killed left behind still holds the
+	// tunnel; stop it before putting a second one on the same hostname.
+	m.stopLeftover()
 	cmd := exec.Command(path, args...) //nolint:gosec // the developer's own cloudflared, with fixed arguments
 	cmd.Dir = m.cfg.Dir
 	cmd.Env = childEnv(m.cfg.ProcessEnv(), token)
@@ -317,6 +320,11 @@ func (m *Manager) start(_ context.Context, opts StartOptions) error {
 		return fmt.Errorf("start cloudflared: %w", err)
 	}
 	_ = writer.Close()
+	// Record the process, so an orb dev killed before it can stop
+	// cloudflared leaves the next run enough to find and stop it.
+	if err := recordProcess(m.cfg.Dir, cmd.Process.Pid, path, mode); err != nil {
+		m.cfg.Logf("orb: couldn't record cloudflared in %s (%v); a kill -9 of orb dev would leave it running", ProcessFile, err)
+	}
 
 	p := &process{cmd: cmd, done: make(chan struct{}), secrets: secretsOf(token)}
 	now := time.Now().UTC()
@@ -354,6 +362,9 @@ func (m *Manager) start(_ context.Context, opts StartOptions) error {
 		// when it exits by itself; then its output ends.
 		_ = kill(cmd)
 		<-lines
+		// Before p.done releases a waiting Stop, so no later start's
+		// record is removed instead of this one's.
+		removeProcessRecord(m.cfg.Dir, cmd.Process.Pid)
 		m.exited(p, err)
 	}()
 	go m.watchStart(p)

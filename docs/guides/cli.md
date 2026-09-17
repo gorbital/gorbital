@@ -446,8 +446,13 @@ It merges the multi-tenant app's files of the app's layout into yours the way `o
 
 | Migration | What it does |
 |---|---|
-| `<version>_orgs.sql` (v0.1 layout only) | Creates `orgs`, `org_members` and `org_invitations`, followed by the later organisation migrations. In an app on `gorbital.Main` the organisations module brings its migrations under their released versions, which a database already migrated past them refuses: reset a development database (`docker compose down -v`) ([known gap](../adr/0083-modules-stack-migrations-and-ejection.md#phase-9-implementation-notes-new-apps-on-the-v02-layout-2026-09-17)) |
+| `<version>_orgs.sql` (v0.1 layout only) | Creates `orgs`, `org_members` and `org_invitations`, followed by the later organisation migrations. In an app on `gorbital.Main` the organisations module brings these migrations itself, under their released versions — see the warning below |
 | `<version>_orgs_convert.sql` | Gives every account a personal workspace it owns (a deleted account's workspace is deleted too, purged 30 days after the account's deletion), then moves each project into its owner's workspace: `org_id` and `created_by` replace `owner_id`. The table is changed in place, so columns you added stay; this step is skipped if `projects` no longer has `owner_id` |
+
+In an app on `gorbital.Main` the report ends with a warning, because the organisations module's migrations keep the versions v0.1 apps hold them under (`20260916000001` and `20260918000002`), older than `20260918000070`, the newest built-in migration every such database has already run. goose refuses a migration older than the database's version, so an **existing** database fails at the next migrate with `detected 2 missing (out-of-order) migrations lower than database version`. A database created after the change, and the tests, are unaffected. The warning names the two ways out, and `--json` carries them as `migration_order_warning` (`versions`, `newest`, `summary`, `error`, `options`):
+
+- a development database: `docker compose down -v && docker compose up -d --wait`, then `go run ./cmd/api migrate`;
+- a database you have to keep: apply the two migrations by hand and record them in `goose_db_version` — [Adding organisations to a database that already exists](../start/organisations.md#adding-organisations-to-a-database-that-already-exists) has the SQL and why it is safe for these two files.
 
 Without conflicts it updates `go.mod`, builds, regenerates `api/openapi.json`, records `api/surface.json` and commits `Add organisations`. Then run `go test ./...`, apply the migrations (`orb dev`, or `go run ./cmd/migrate` in each environment) and merge the branch. Set `orgs.invitation_url` before inviting people.
 
@@ -537,7 +542,7 @@ The report has one line per decision, and `UPGRADE-v0.2.md` in the app repeats t
 | `manual` | A change orb can't make. It stops the move; `--allow-manual` converts the rest and keeps those files in `_upgrade-v0.1/`, which the go command ignores |
 | `follow-up` | Something left for you that doesn't stop the move, such as a test of the old composition root |
 
-Then it runs `go mod tidy`, `gofmt`, `go build ./...`, exports `api/` again and records `api/surface.json`. Nothing is committed: `git diff` shows every change (in `api/openapi.json`, only `x-gorbital-guards` should appear), `git restore . && git clean -fd` undoes it.
+Then it runs `go mod tidy`, `gofmt`, `go build ./...`, exports `api/` again and records `api/surface.json`. Nothing is committed, and `git restore . && git clean -fd` undoes it. In `api/`, `openapi.json` gains `x-gorbital-guards` on every route and its `/ops` instance example takes the app's own name, while `surface.json` and `openapi.baseline.json` are rewritten, because the built-in modules' error codes, roles and jobs belong to the library from then on and the file records only the app's own names.
 
 Your migration history is untouched, the copies of the library's migrations in `db/migrations` included: `gorbital.Migrate` reads a copy with the same version and identical content as the same migration, so a database the v0.1 app migrated has nothing to apply.
 
@@ -806,7 +811,7 @@ The port check listens on `127.0.0.1` only. On macOS, a program listening on all
 | `orb routes` | `app`, `source`, `guards_known`, `total`, `public`, `routes` (see [`orb routes`](#orb-routes)), `warnings` |
 | `orb add mail` | `provider`, `already_configured`, `files`, `env_variables`, `modules`, `dry_run` |
 | `orb add rls` | `name`, `already_on`, `migration`, `files`, `dry_run` |
-| `orb add orgs`, `orb upgrade` | `name`, `from`, `to`, `up_to_date`, `branch`, `changes` (`path`, `action`, `note`), `conflicts`, `unproven`, `committed`, `dry_run`, `user_scoped_modules` (`orb add orgs`) |
+| `orb add orgs`, `orb upgrade` | `name`, `from`, `to`, `up_to_date`, `branch`, `changes` (`path`, `action`, `note`), `conflicts`, `unproven`, `committed`, `dry_run`, `layout`, `user_scoped_modules` and `migration_order_warning` (`orb add orgs`) |
 | `orb eject` | `module`, `package`, `version`, `directory`, `files`, `migrations`, `modified`, `not_copied` (`path`, `reason`), `notes`, `tidied`, `dry_run` (see [`orb eject`](#orb-eject)) |
 | `orb doctor` | `app`, `preset`, `tenancy`, `layout`, `checks` (`name`, `status`, `detail`, `fix`), `failures`, `warnings` |
 | `orb version` | `version`, `recipe`, `library` |

@@ -8,11 +8,12 @@ Install [Go, Docker and git](../../start/prerequisites.md) first, then the CLI: 
 
 ```text
 shelfie/
-├── cmd/api/main.go                  the program: gorbital.Main
-│         mail.go, storage.go        the email provider and file storage, one function each
+├── cmd/api/                         the program: main.go on gorbital.Main, and
+│                                    mail.go and storage.go, one function each
 ├── db/migrations/                   your migrations, embedded in the binary
 ├── internal/modules/                your modules, and modules.gen.go, the list main.go reads
-├── api/                             the exported OpenAPI document, Postman collection and llms.txt
+├── api/                             the exported OpenAPI document, Postman collection, llms.txt
+│                                    and surface.json, the public names the tests freeze
 ├── compose.yaml                     PostgreSQL for development
 ├── .env.example                     the configuration for development
 ├── gorbital.yaml                    how the app was created; the orb CLI reads it
@@ -79,7 +80,7 @@ Commands:
   seed [--email <email>]         create a development administrator with 2FA (orb dev runs it)
 ```
 
-The last six come from sign-in: a module adds its own commands when `main.go` adds the module.
+The last seven, from `roles` down, come from sign-in: a module adds its own commands when `main.go` adds the module. `help` needs no configuration, so it answers before there is a database.
 
 ## 3. Migrations
 
@@ -99,7 +100,7 @@ Modules live in `internal/modules/<name>`. `main.go` gets them from `modules.All
 
 `orb gen modules` rewrites it, `orb dev` rewrites it whenever you add or remove a module, and so does `go generate ./internal/modules`. The file is committed, so the app builds without `orb`.
 
-`ping` and `projects` are the two sample modules `orb new` wrote. `ping` is a module without a table: a public endpoint whose reply is a runtime setting. `projects` is what `orb gen module` writes: a table, five routes and the four layers [chapter 1](01-books-module.md) builds by hand. Read them, then delete them — chapter 1 does, once Shelfie has a migration of its own.
+`ping` and `projects` are the two sample modules `orb new` wrote. `ping` is a module without a table: a public endpoint whose reply is a runtime setting, in the layers every module uses. `projects` is what `orb gen module` writes — a table, five routes and the four layers [chapter 1](01-books-module.md) reads one by one. Both are there to be read and then deleted; chapter 1 deletes them, once Shelfie has a migration of its own.
 
 ## 5. Configuration and the database
 
@@ -127,7 +128,7 @@ And `gorbital.yaml` records how the app was created, which is how `orb` knows wh
 orb dev
 ```
 
-The first run, in order: copies `.env.example` to `.env`; writes a random `AUTH_ENCRYPTION_KEYS` into it; starts PostgreSQL with `docker compose up -d --wait`; applies migrations with `go run ./cmd/api migrate`; creates the development administrator with `go run ./cmd/api seed`; builds and starts the app; and opens the Dev Portal on http://127.0.0.1:3100, where every email the app sends is caught ([the Dev Portal](../../guides/dev-portal.md)). It prints a new dev console token on every run, and rebuilds and restarts the app when you save a Go file.
+The first run, in order: copies `.env.example` to `.env`; writes a random `AUTH_ENCRYPTION_KEYS` into it; starts the services in `compose.yaml` with `docker compose up -d --wait`; applies migrations with `go run ./cmd/api migrate`; creates the development administrator with `go run ./cmd/api seed`; builds and starts the app; and opens the Dev Portal at http://127.0.0.1:3100 in your browser, where the app's routes, database, jobs, logs and every email it sends are in one place ([the Dev Portal](../../guides/dev-portal.md)). Its link, and the dev console's token, are new on every run. After that it rebuilds and restarts the app whenever you save a Go file, and applies a new migration before the restart.
 
 > [!WARNING]
 > `seed` prints the administrator's password, its two-factor key, an `otpauth://` URI and ten recovery codes, once. They're stored nowhere. Save them, or start again later with `docker compose down -v`. The [Quickstart](../../start/quickstart.md#6-sign-in-as-the-administrator) signs in as this account step by step.
@@ -144,7 +145,7 @@ go run ./cmd/api seed
 go run ./cmd/api
 ```
 
-The app reads the environment, not `.env`: run `set -a; . ./.env; set +a` again in every new terminal, and after editing the file. Without it the app stops with `DATABASE_URL is required`.
+The app reads the environment, not `.env`: run `set -a; . ./.env; set +a` again in every new terminal, and after editing the file. Without it the app stops with `shelfie: invalid configuration: DATABASE_URL is required`.
 
 Check it's up:
 

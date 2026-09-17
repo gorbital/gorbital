@@ -159,7 +159,7 @@ type Data struct {
 	Name           string // app name, for example "my-api"
 	Module         string // Go module path
 	LibraryVersion string
-	// Local, when set, is a path to an gorbital checkout used through
+	// Local, when set, is a path to a gorbital checkout used through
 	// replace directives (development before a release is published).
 	Local string
 }

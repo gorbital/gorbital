@@ -62,7 +62,8 @@ A real quick tunnel was checked by hand on 2026-09-17 (cloudflared 2026.3.0): `/
 
 ### 5. Lifecycle
 
-- `orb dev` owns cloudflared: it starts in its own process group (so a terminal's `Ctrl+C` reaches only `orb`), and stopping sends `SIGTERM` to the group, then `SIGKILL` after 5 seconds. The group is also killed when cloudflared exits by itself, so nothing it started lingers. On Linux cloudflared also gets `SIGTERM` if `orb dev` dies (`Pdeathsig`); on macOS a `SIGKILL` of `orb dev` itself can't be followed (known gap). Windows kills the process.
+- `orb dev` owns cloudflared: it starts in its own process group (so a terminal's `Ctrl+C` reaches only `orb`), and stopping sends `SIGTERM` to the group, then `SIGKILL` after 5 seconds. The group is also killed when cloudflared exits by itself, so nothing it started lingers. On Linux cloudflared also gets `SIGTERM` if `orb dev` dies (`Pdeathsig`); macOS has no such signal. Windows kills the process.
+- A `SIGKILL` of `orb dev` itself is covered afterwards, not at the moment it happens. While cloudflared runs, `orb dev` keeps `.orb/portal/cloudflared.json` (0600, git-ignored, never the token): the PID and process group, the start time and command line `ps` reports for the process, the binary, and the PID and start time of the `orb dev` that started it. It is written at start and removed when the process ends, so a file left behind names an unstopped cloudflared. The next `orb dev` in that app stops its process group before starting a tunnel — but only when the PID is alive, its start time and command line still match the record (a reused PID does not), and the `orb dev` that started it is gone; otherwise it changes nothing and prints what to check and what to run. Killing an unrelated process is worse than the leak, so every uncertain case is left alone. Separately, cloudflared's stdout and stderr are a pipe only `orb` holds the read end of, so the next line it writes after `orb` dies raises `SIGPIPE` in it (the Go runtime's documented behaviour for file descriptors 1 and 2, verified with a Go child in the tests, not promised by cloudflared) — a backstop that depends on cloudflared logging, not a guarantee.
 - `orb dev --tunnel quick|named` starts it after the portal; the portal starts, stops and restarts it; every way out of `orb dev` (return, `Ctrl+C`, `SIGTERM`) stops it before the portal.
 - When the app starts on another address, a quick tunnel restarts with the new target; a named tunnel can't be retargeted from here, so the status says where to point its hostname (deviation from "restart it if the app port changes": a restart would change nothing).
 - A tunnel that fails is not restarted automatically (no restart loops); the status keeps the failure and cloudflared's last 100 lines until the next start or stop.
@@ -107,7 +108,7 @@ All behind the portal's guard; the writes need `X-Orb-Portal`.
 | The dev console or dev operator reached from the internet through the tunnel | `Host` check, the new forwarding-header check, the token; tests simulate tunnelled requests with public and local `Host` |
 | The Dev Portal reached through a named tunnel pointed at its port | The portal's `Host` and token checks; the portal is never a tunnel target |
 | The token leaks through the process list, logs, the portal or the app | `TUNNEL_TOKEN` in cloudflared's environment only; redacted from output; the API reports only the variable's name; removed from the app's environment; tests with a fake cloudflared printing the token |
-| A tunnel left running after `orb dev` | Process group killed on every exit path orb handles; tests check cloudflared and a grandchild are gone after stop, close, timeout and a crash; `Pdeathsig` on Linux |
+| A tunnel left running after `orb dev` | Process group killed on every exit path orb handles; tests check cloudflared and a grandchild are gone after stop, close, timeout and a crash; `Pdeathsig` on Linux; after a `SIGKILL` of orb, `.orb/portal/cloudflared.json` lets the next `orb dev` stop the leftover once it has proved its identity, and the output pipe raises `SIGPIPE` in it when it next logs |
 | The app exposed in production by mistake | Tunnels refuse to start unless `APP_ENV` is development |
 | Sign-in callbacks and passkeys bound to a URL that changes | Quick tunnels are labelled unstable in the status, the setup and the provider list |
 | A hostname the check reports as working that isn't this app | `/livez` compared with the app's own; redirects not followed |
@@ -116,7 +117,7 @@ All behind the portal's guard; the writes need `X-Orb-Portal`.
 
 ## Known gaps
 
-- A `SIGKILL` of `orb dev` on macOS leaves cloudflared running (no parent-death signal there).
+- A `SIGKILL` of `orb dev` on macOS leaves cloudflared running until the next `orb dev` in that app stops it from `.orb/portal/cloudflared.json`, or until cloudflared's next log line hits the closed output pipe: there is no parent-death signal there, so nothing ends it at the moment orb dies. A leftover whose identity can't be proved is left alone with a message, so a stray cloudflared can still need `kill <pid>` by hand.
 - A named tunnel's target lives in the Cloudflare dashboard; orb can only verify it by comparing `/livez`.
 - The proposal doesn't offer to revert `.env` when the tunnel stops.
 - No Dev Portal screenshots for the Tunnel screen yet.

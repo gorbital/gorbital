@@ -621,7 +621,7 @@ func findApp() (appInfo, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return appInfo{}, errors.New("no go.mod found: run orb gen job inside an gorbital app")
+			return appInfo{}, errors.New("no go.mod found: run orb gen job inside a gorbital app")
 		}
 		dir = parent
 	}

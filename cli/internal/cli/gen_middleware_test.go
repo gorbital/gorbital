@@ -9,7 +9,10 @@ import (
 )
 
 // TestGenMiddleware generates each kind into a copy of Shelfie and compares
-// the files with testdata/gen-middleware; rewrite them with -update.
+// the files with testdata/gen-middleware; rewrite them with -update. It
+// generates into the profiles module, because Shelfie's books module already
+// declares both names ([chapter 3](docs/examples/shelfie/03-your-own-middleware.md)
+// writes them) and the generator refuses to overwrite.
 func TestGenMiddleware(t *testing.T) {
 	dir := newMainApp(t, false)
 	golden := filepath.Join(repoRoot(t), "cli", "internal", "cli", "testdata", "gen-middleware")
@@ -20,11 +23,11 @@ func TestGenMiddleware(t *testing.T) {
 		wire    string
 		summary string
 	}{
-		{[]string{"RequireClientVersion", "--module", "books"}, "module",
-			[]string{"internal/modules/books/delivery/require_client_version.go", "internal/modules/books/delivery/require_client_version_test.go"},
-			"gorbital.Use(RequireClientVersion)", "delivery.RequireClientVersion to Middleware in internal/modules/books/module.go"},
-		{[]string{"active-subscription", "--module", "books", "--guard"}, "guard",
-			[]string{"internal/modules/books/delivery/active_subscription.go", "internal/modules/books/delivery/active_subscription_test.go"},
+		{[]string{"RequireClientVersion", "--module", "profiles"}, "module",
+			[]string{"internal/modules/profiles/delivery/require_client_version.go", "internal/modules/profiles/delivery/require_client_version_test.go"},
+			"gorbital.Use(RequireClientVersion)", "delivery.RequireClientVersion to Middleware in internal/modules/profiles/module.go"},
+		{[]string{"active-subscription", "--module", "profiles", "--guard"}, "guard",
+			[]string{"internal/modules/profiles/delivery/active_subscription.go", "internal/modules/profiles/delivery/active_subscription_test.go"},
 			"ActiveSubscription()", `{Err: delivery.ErrActiveSubscriptionRefused, Status: http.StatusForbidden, Code: "active_subscription_refused"`},
 		{[]string{"TenantHeader", "--global"}, "global",
 			[]string{"internal/middleware/tenant_header.go", "internal/middleware/tenant_header_test.go", "internal/middleware/doc.go"},

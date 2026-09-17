@@ -45,7 +45,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	module := flags.String("module", "", "Go module path (default: the app name)")
 	preset := flags.String("preset", "minimal", "preset: minimal (HTTP API, no database) or full (PostgreSQL, authentication, jobs, email, audit, ops APIs)")
 	tenancy := flags.String("tenancy", recipes.TenancySingle, "who owns the data (Full preset): single (users) or multi (organisations with members, roles and invitations)")
-	local := flags.String("local", "", "path to an gorbital checkout, used through replace directives (default: the checkout you are in, if any)")
+	local := flags.String("local", "", "path to a gorbital checkout, used through replace directives (default: the checkout you are in, if any)")
 	noGit := flags.Bool("no-git", false, "don't initialise a git repository")
 	start := flags.Bool("start", false, "run orb dev in the new app and open the Dev Portal when it is created (the default in a terminal; --no-start turns it off)")
 	noStart := flags.Bool("no-start", false, "don't run orb dev afterwards")
@@ -421,7 +421,7 @@ func resolveLocal(local string) (string, error) {
 	}
 	goMod, err := os.ReadFile(filepath.Join(abs, "go.mod"))
 	if err != nil || !strings.HasPrefix(string(goMod), "module gorbital.dev\n") {
-		return "", usageError(fmt.Sprintf("--local %s is not an gorbital checkout (no go.mod with module gorbital.dev)", local))
+		return "", usageError(fmt.Sprintf("--local %s is not a gorbital checkout (no go.mod with module gorbital.dev)", local))
 	}
 	return filepath.ToSlash(abs), nil
 }

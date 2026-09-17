@@ -66,9 +66,41 @@ type upgradeResult struct {
 	// Layout is the app's layout, whose templates the move used: v0.1 apps
 	// keep theirs (ADR-0083).
 	Layout string `json:"layout"`
+	// MigrationOrder warns that the move brings migrations older than the
+	// ones the app's database already has, which goose refuses; nil when
+	// every migration the move adds is newer.
+	MigrationOrder *migrationOrderWarning `json:"migration_order_warning,omitempty"`
 
 	title   string // first line of the report
 	message string // commit message
+}
+
+// migrationOrderWarning says that a move adds migrations under versions
+// older than the app's newest, so an existing database refuses them
+// (ADR-0083). A database created after the move is unaffected.
+type migrationOrderWarning struct {
+	// Versions are the older migrations' versions, oldest first.
+	Versions []string `json:"versions"`
+	// Newest is the newest version the app's database already holds, the
+	// one these are older than.
+	Newest string `json:"newest"`
+	// Summary is one sentence naming the problem.
+	Summary string `json:"summary"`
+	// Error is the message the app's migrate command prints when it
+	// happens, so a script can recognise it.
+	Error string `json:"error"`
+	// Options are the ways out, in the order to consider them.
+	Options []migrationOrderOption `json:"options"`
+}
+
+// migrationOrderOption is one way to deal with the older migrations.
+type migrationOrderOption struct {
+	Label string `json:"label"`
+	// Commands are what to run, in order; empty when the option is a
+	// procedure the documentation spells out.
+	Commands []string `json:"commands,omitempty"`
+	// Doc is the page explaining it.
+	Doc string `json:"doc,omitempty"`
 }
 
 const upgradeUsage = `Usage: orb upgrade [flags]
@@ -622,6 +654,7 @@ func reportUpgrade(w io.Writer, asJSON bool, res upgradeResult) error {
 		fmt.Fprintf(w, "\n  %s\n", s.dim.Render("this app keeps the v0.1 layout (internal/app) and its templates; new apps run on gorbital.Main. "+
 			"To move it: orb upgrade --layout v0.2 (docs/guides/upgrade-notes.md)"))
 	}
+	reportMigrationOrder(w, s, res.MigrationOrder)
 
 	fmt.Fprintln(w)
 	switch {
@@ -639,4 +672,48 @@ func reportUpgrade(w io.Writer, asJSON bool, res upgradeResult) error {
 		fmt.Fprintf(w, "  on branch %s, not committed\n\n  %s go build ./...\n        go run ./cmd/api openapi --dir api\n        %s\n        git add -A && git commit -m '%s'\n", res.Branch, s.dim.Render("next:"), surfaceCommand(res.Layout), res.message)
 	}
 	return nil
+}
+
+// reportMigrationOrder prints the warning about migrations older than the
+// app's newest, which an existing database refuses.
+func reportMigrationOrder(w io.Writer, s styles, warning *migrationOrderWarning) {
+	if warning == nil {
+		return
+	}
+	fmt.Fprintf(w, "\n  %s\n", s.accent.Render("! an existing database will refuse these migrations"))
+	for _, line := range wrapText(warning.Summary, 92) {
+		fmt.Fprintf(w, "    %s\n", line)
+	}
+	fmt.Fprintf(w, "    %s\n", s.dim.Render("the next migrate fails with: "+warning.Error))
+	for _, o := range warning.Options {
+		fmt.Fprintf(w, "    • %s\n", o.Label)
+		for _, c := range o.Commands {
+			fmt.Fprintf(w, "        %s\n", c)
+		}
+		if o.Doc != "" {
+			fmt.Fprintf(w, "        %s\n", s.dim.Render(o.Doc))
+		}
+	}
+}
+
+// wrapText breaks s into lines of at most width characters, on spaces; a
+// word longer than width keeps its own line.
+func wrapText(s string, width int) []string {
+	var lines []string
+	line := ""
+	for _, word := range strings.Fields(s) {
+		switch {
+		case line == "":
+			line = word
+		case len(line)+1+len(word) <= width:
+			line += " " + word
+		default:
+			lines = append(lines, line)
+			line = word
+		}
+	}
+	if line != "" {
+		lines = append(lines, line)
+	}
+	return lines
 }

@@ -14,9 +14,9 @@ import (
 // so the refusal has a status and a stable code:
 //
 //	{Err: delivery.ErrActiveSubscriptionRefused, Status: http.StatusForbidden, Code: "active_subscription_refused", Detail: "this request isn't allowed"},
-var ErrActiveSubscriptionRefused = errors.New("books: active subscription refused the request")
+var ErrActiveSubscriptionRefused = errors.New("profiles: active subscription refused the request")
 
-// ActiveSubscription is a guard for the books routes: add it to a route or
+// ActiveSubscription is a guard for the profiles routes: add it to a route or
 // a group in routes.go, next to guard.Permission. It runs after the sign-in
 // check and before the request body is read, and x-gorbital-guards lists it
 // as "active_subscription".
