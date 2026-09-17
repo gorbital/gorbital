@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -375,12 +376,11 @@ func TestSlowJWKSAndCancelledRequest(t *testing.T) {
 	release := make(chan struct{})
 	var slow sync.Once
 	body, _ := json.Marshal(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{publicJWK(rsaKey, "rsa-1", "RS256"), publicJWK(rsaKey2, "rsa-2", "RS256")}})
-	first := true
+	var requests atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !first {
+		if requests.Add(1) > 1 {
 			slow.Do(func() { <-release })
 		}
-		first = false
 		_, _ = w.Write(body)
 	}))
 	defer srv.Close()
