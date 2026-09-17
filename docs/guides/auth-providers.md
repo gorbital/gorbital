@@ -61,6 +61,16 @@ Files the backend serves for native apps, generated from the variables (nothing 
 5. Open `https://dev-api.example.com/docs` on the phone or laptop and sign in.
 
 While the tunnel runs, the app is reachable by anyone with the address: its sign-in and public routes included. The dev console and the development operator refuse tunnelled requests; stop the tunnel when you're done. Passkeys created on the tunnel's hostname work only there; set `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGINS` back to empty to use `localhost` again.
+## In an app on gorbital.Main
+
+Providers are configured the same way: by the variables above, never in code. `authhttp.New` has no option for Google, Apple, GitHub or passkeys, so `auth-providers`, `/ops/auth/providers` and `.env` always agree; a method is off while its variables are empty ([configuring sign-in](configuring-sign-in.md#what-stays-in-environment-variables)).
+
+Two options change what a provider sign-in does:
+
+| Option | Effect on Google, Apple and GitHub |
+|---|---|
+| `authhttp.WithoutRegistration()` | A first sign-in of an address without an account gets 403 `registration_closed` (`#error=registration_closed` in the web flow), and no account is created. Existing accounts still sign in and link providers |
+| `authhttp.OnRegister(hook)` | Runs when a first sign-in creates an account, with `Method` `google`, `apple` or `github` and the name the provider gave; its refusal answers 403 with the app's code ([sign-in hooks](sign-in-hooks.md#onregister)) |
 
 ## Later stages
 

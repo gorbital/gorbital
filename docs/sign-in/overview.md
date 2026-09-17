@@ -75,3 +75,5 @@ Want the whole list at once, with which values you generate, copy or download? S
 5. [Go-live checklist](go-live.md) before real users arrive.
 
 Every app also contains `AUTH_PROVIDERS.md`, with the same steps in one file next to your code.
+
+These pages are about values in the environment. To change how sign-in behaves in code in an app on `gorbital.Main`, such as closing sign-up or asking for a display name at registration, see [Configuring sign-in](../guides/configuring-sign-in.md).

@@ -71,7 +71,20 @@ gorbital.Main(
 
 Nothing about the API changes: the endpoints, request and response bodies, error codes, audit actions, permissions, roles, `auth.*` settings, jobs, rate limiter names (`auth_login`, `auth_login_address`, `auth_mfa`, `auth_reauth`, `auth_code`, `auth_notice`, `auth_api_key`), cookies (`__Host-session`, `__Host-oauth`) and environment variables are v0.1's. `auth.ip_requests_per_minute` and the `auth_ip` limiter belong to gorbital's middleware stack. Contract tests compare the library's OpenAPI operations with v0.1.0's byte for byte.
 
-Your app doesn't own or edit this code. Options, hooks, extra registration fields and your own sign-in methods arrive in Phase 6 of the [v0.2 roadmap](../v0.2-roadmap.md); taking the code back into your app as owned code is `orb eject` (Phase 9). A v0.1 app keeps `internal/modules/auth`, `internal/app` and `cmd/api` unchanged, and needs to do nothing.
+Your app doesn't own or edit this code; taking it back into your app as owned code is `orb eject` (Phase 9 of the [v0.2 roadmap](../v0.2-roadmap.md)). A v0.1 app keeps `internal/modules/auth`, `internal/app` and `cmd/api` unchanged, and needs to do nothing.
+
+#### Changing sign-in
+
+What a v0.1 app changed by editing its auth module, an app on `gorbital.Main` changes with options of `authhttp.New`. Without options, sign-in is v0.1's.
+
+| To | Use | Guide |
+|---|---|---|
+| Raise the password minimum, add a password check, require a second factor for your roles, cap API key lifetimes, close sign-up, brand emails, add middleware to `/v1/auth/` | `MinPasswordLength`, `PasswordPolicy`, `RequireMFA`, `APIKeyMaxTTL`, `WithoutRegistration`, `Brand`, `RouteMiddleware` | [Configuring sign-in](configuring-sign-in.md) |
+| Refuse a sign-in, react to one, or create the app's rows for a new account | `BeforeLogin`, `AfterLogin`, `OnRegister` | [Sign-in hooks](sign-in-hooks.md) |
+| Ask for more than email and password at registration | `RegisterFields` | [Extra registration fields](extra-registration-fields.md) |
+| Sign in with a method of your own, such as a code sent to a phone | `Authenticator.SignIn` in a module | [Adding a sign-in method](adding-a-sign-in-method.md) |
+
+Provider credentials, passkeys and encryption keys stay in environment variables ([sign-in provider setup](auth-providers.md)).
 
 ## Your first administrator
 
@@ -356,8 +369,11 @@ func (s *Service) CreateProject(ctx context.Context, name string) (Project, erro
 | `session_not_found` | 404 | Revoking a session that isn't yours or has ended |
 | `social_link_required` | 403 | Signing in with Google, Apple or GitHub for the address of an existing account that provider doesn't manage; sign in and link it with `POST /v1/auth/identities` (GitHub: `POST /v1/auth/github/link`) |
 | `identity_in_use` | 409 | Linking a Google, Apple or GitHub account that another account has |
+| `registration_closed` | 403 | Apps on `gorbital.Main` with `authhttp.WithoutRegistration()`: a first Google, Apple or GitHub sign-in of an address without an account ([configuring sign-in](configuring-sign-in.md#closing-sign-up)) |
 | `session_required` | 403 | An API key used where a signed-in session is needed; other API key and service account codes are in the [API keys guide](api-keys.md#error-codes) |
 | `auth_unavailable` | 503 | The session store couldn't be reached, or too many passwords are being checked at once (each waits up to 5 seconds for its turn) |
+
+In an app on `gorbital.Main`, sign-in's hooks can refuse with codes of the app's (403), which are never one of these ([sign-in hooks](sign-in-hooks.md#refusal-codes)).
 
 ## Audit events
 

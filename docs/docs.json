@@ -50,6 +50,15 @@
           ]
         },
         {
+          "name": "Sign-in",
+          "pages": [
+            { "title": "Configuring sign-in", "slug": "guides/configuring-sign-in", "source": "docs/guides/configuring-sign-in.md" },
+            { "title": "Sign-in hooks", "slug": "guides/sign-in-hooks", "source": "docs/guides/sign-in-hooks.md" },
+            { "title": "Extra registration fields", "slug": "guides/extra-registration-fields", "source": "docs/guides/extra-registration-fields.md" },
+            { "title": "Adding a sign-in method", "slug": "guides/adding-a-sign-in-method", "source": "docs/guides/adding-a-sign-in-method.md" }
+          ]
+        },
+        {
           "name": "Help",
           "pages": [
             { "title": "Troubleshooting", "slug": "troubleshooting", "source": "docs/start/troubleshooting.md" }
