@@ -11,7 +11,7 @@ import (
 	"github.com/riverqueue/river/rivertype"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/operation"
+	"gorbital.dev/gorbital/operation"
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/jobs"
 	"gorbital.dev/modules/openapi"

@@ -116,6 +116,22 @@ func Customize(fn func(api huma.API, op *huma.Operation)) RouteOption {
 	return func(c *route.Config) { c.Customize = append(c.Customize, fn) }
 }
 
+// AuthenticateAfterInput checks the route's authenticated actor after Huma
+// has parsed and validated the input, just before the handler, instead of
+// before parsing. The route still requires sign-in, in the OpenAPI document
+// and on every request: only the order of refusals changes, so a request
+// without credentials and with an invalid body gets 422 validation_failed
+// (or 400) rather than 401 unauthenticated.
+//
+// It exists for code that must keep v0.1's order of responses, such as
+// sign-in's endpoints (gorbital.dev/gorbital/authhttp) and a module ejected
+// from them; new routes don't need it. Registration fails when the route is
+// public or has guards, which run before input parsing and would see a
+// request nobody authenticated.
+func AuthenticateAfterInput() RouteOption {
+	return func(c *route.Config) { c.AuthenticateAfterInput = true }
+}
+
 // errUnauthenticated is the response of the check every non-public route
 // runs; the code is the one v0.1 endpoints return.
 var errUnauthenticated = httpx.NewProblem(http.StatusUnauthorized, "unauthenticated", "authentication is required")
@@ -129,6 +145,17 @@ func requireActor(api huma.API) func(huma.Context, func(huma.Context)) {
 			return
 		}
 		_ = huma.WriteErr(api, ctx, http.StatusUnauthorized, errUnauthenticated.Detail, errUnauthenticated)
+	}
+}
+
+// actorBeforeHandler refuses a request that has no authenticated actor after
+// its input is validated, before handler runs (AuthenticateAfterInput).
+func actorBeforeHandler[I, O any](handler func(context.Context, *I) (*O, error)) func(context.Context, *I) (*O, error) {
+	return func(ctx context.Context, in *I) (*O, error) {
+		if a, ok := actor.From(ctx); !ok || a.Kind == actor.KindAnonymous {
+			return nil, errUnauthenticated
+		}
+		return handler(ctx, in)
 	}
 }
 
@@ -181,6 +208,10 @@ func register[I, O any](r *Router, method, path string, handler func(context.Con
 		op.Middlewares = append(op.Middlewares, adapt(cfg.Middlewares))
 	}
 	guards := []string{"public"}
+	if cfg.AuthenticateAfterInput && (cfg.Public || len(cfg.Guards) > 0) {
+		reg.fail(fmt.Errorf("gorbital: module %q: %s %s: AuthenticateAfterInput can't be combined with guard.Public or guards", r.module, method, full))
+		return
+	}
 	if !cfg.Public {
 		if !reg.hasBearer() {
 			reg.fail(fmt.Errorf("gorbital: module %q: %s %s requires authentication, but the API declares no bearer security scheme; create it with openapi.WithBearerAuth, or mark the route guard.Public()", r.module, method, full))
@@ -188,7 +219,9 @@ func register[I, O any](r *Router, method, path string, handler func(context.Con
 		}
 		op.Security = openapi.Bearer
 		op.Errors = append([]int{http.StatusUnauthorized}, op.Errors...)
-		if !cfg.ActorCheckedByHandler {
+		if cfg.AuthenticateAfterInput {
+			handler = actorBeforeHandler(handler)
+		} else {
 			op.Middlewares = append(op.Middlewares, requireActor(reg.api))
 		}
 		guards[0] = "authenticated"

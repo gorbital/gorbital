@@ -13,7 +13,7 @@ import (
 	"gorbital.dev/modules/openapi"
 	orgslib "gorbital.dev/modules/orgs"
 
-	"gorbital.dev/gorbital/internal/operation"
+	"gorbital.dev/gorbital/operation"
 	orgsdomain "gorbital.dev/gorbital/orgshttp/internal/domain"
 	orgsusecase "gorbital.dev/gorbital/orgshttp/internal/usecase"
 )

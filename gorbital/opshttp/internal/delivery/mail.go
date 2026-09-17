@@ -8,7 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/operation"
+	"gorbital.dev/gorbital/operation"
 	"gorbital.dev/modules/mail/suppressionpg"
 	"gorbital.dev/modules/openapi"
 

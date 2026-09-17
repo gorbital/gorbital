@@ -1,8 +1,13 @@
-// Package operation registers the built-in modules' operations, declared as
-// huma.Operation values as in v0.1 apps, on a gorbital.Router. Keeping v0.1's
-// declarations unchanged makes the move of the operations API, flags and
-// mail events into the library reviewable line by line, and their OpenAPI
-// comparable with the frozen v0.1.0 documents (ADR-0083).
+// Package operation registers operations declared as huma.Operation values,
+// as v0.1 apps declare them for huma.Register, on a gorbital.Router.
+//
+// The built-in modules (opshttp, flagshttp, mailevents, orgshttp) keep v0.1's
+// declarations, so their move into the library reads line by line and their
+// OpenAPI compares with the frozen v0.1.0 documents (ADR-0083). A module
+// ejected with orb eject keeps them too, and code moved from a v0.1 app can
+// replace huma.Register(api, op, handler) with Register(r, op, handler).
+// New code uses gorbital.Get, gorbital.Post and the other verbs with route
+// options instead.
 package operation
 
 import (
@@ -19,12 +24,20 @@ import (
 	"gorbital.dev/modules/openapi"
 )
 
-// Register registers handler for op on r. A secured op requires an
+// Register registers handler for op on r with the route options op's fields
+// translate to: OperationID, Summary, Description, Tags, Errors and Status,
+// and Responses, MaxBodyBytes and SkipValidateBody through gorbital.Customize.
+// An op with the bearer security requirement (openapi.Bearer) requires an
 // authenticated actor, as every gorbital route does unless it is public; an
-// op without security requirements is guard.Public(). It panics, which
-// gorbital.Mount reports as an error naming the module, for fields it
-// doesn't carry over. extra options apply after those op's fields set, such
-// as a gorbital.Customize that adds schemas to the API's registry.
+// op without security requirements is guard.Public(). extra options apply
+// after those, such as a guard or a gorbital.Customize that adds schemas to
+// the API's registry.
+//
+// Register panics, which gorbital.Mount reports as an error naming the
+// module, for an op with a field it doesn't carry over (such as Hidden or
+// Middlewares), another security requirement, or a method other than GET,
+// POST, PUT, PATCH and DELETE: dropping them silently would change the
+// operation.
 func Register[I, O any](r *gorbital.Router, op huma.Operation, handler func(context.Context, *I) (*O, error), extra ...gorbital.RouteOption) {
 	opts := []gorbital.RouteOption{
 		gorbital.OperationID(op.OperationID),

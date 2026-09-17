@@ -42,7 +42,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 
 ## Contents
 
-- Constants: [`MailDevMail`](#MailDevMail), [`MailMailpit`](#MailMailpit), [`MailProvider`](#MailProvider), [`StorageLocal`](#StorageLocal), [`StorageS3`](#StorageS3), [`StorageSpaces`](#StorageSpaces), [`StorageR2`](#StorageR2), [`StorageMinIO`](#StorageMinIO)
+- Constants: [`MailDevMail`](#MailDevMail), [`MailMailpit`](#MailMailpit), [`MailProvider`](#MailProvider), [`StorageLocal`](#StorageLocal), [`StorageS3`](#StorageS3), [`StorageSpaces`](#StorageSpaces), [`StorageR2`](#StorageR2), [`StorageMinIO`](#StorageMinIO), [`RetentionJob`](#RetentionJob)
 - Variables: [`ErrUsage`](#ErrUsage)
 - Functions: [`Declare`](#Declare), [`Delete`](#Delete), [`Get`](#Get), [`Grants`](#Grants), [`Main`](#Main), [`Migrate`](#Migrate), [`Mount`](#Mount), [`OrgGrants`](#OrgGrants), [`Patch`](#Patch), [`Post`](#Post), [`Put`](#Put)
 - Types:
@@ -65,7 +65,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
   - [`Platform`](#Platform): [`Platform.Authenticate`](#Platform.Authenticate), [`Platform.OnShutdown`](#Platform.OnShutdown), [`Platform.RateLimiters`](#Platform.RateLimiters), [`Platform.Retention`](#Platform.Retention), [`Platform.SetOrgAuthorizer`](#Platform.SetOrgAuthorizer), [`Platform.SignInMethods`](#Platform.SignInMethods)
   - [`RateLimiter`](#RateLimiter)
   - [`Retention`](#Retention)
-  - [`RouteOption`](#RouteOption): [`Customize`](#Customize), [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Timeout`](#Timeout), [`Use`](#Use)
+  - [`RouteOption`](#RouteOption): [`AuthenticateAfterInput`](#AuthenticateAfterInput), [`Customize`](#Customize), [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Timeout`](#Timeout), [`Use`](#Use)
   - [`Router`](#Router): [`Router.Group`](#Router.Group)
   - [`SignInMethod`](#SignInMethod)
   - [`Stack`](#Stack): [`Stack.Default`](#Stack.Default)
@@ -115,6 +115,16 @@ const (
 ```
 
 Storage drivers, the values of STORAGE\_DRIVER.
+
+*Since `v0.2.0 (unreleased)`*
+
+<a id="RetentionJob"></a>
+
+```go
+const RetentionJob = builtinjobs.Retention
+```
+
+RetentionJob is the name of the built-in job that calls every [Retention.Delete](#Retention.Delete) once a day. Job names are public API: /ops/jobs keeps their configuration and history under them.
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -2237,7 +2247,7 @@ type Retention struct {
 	Setting *settings.Setting[time.Duration]
 	// Delete removes up to limit rows older than before and returns how
 	// many it removed. The built-in retention job calls it every day, with
-	// the time Setting's value ago.
+	// the time Setting's value ago ([RetentionJob]).
 	Delete func(ctx context.Context, before time.Time, limit int) (int64, error)
 	// Job is the name of the job that deletes the data, when the module
 	// deletes it with a job of its own, such as "auth_cleanup".
@@ -2310,6 +2320,54 @@ Output:
 
 ```text
 GET /v1/books/{id} id=books-get-v1-books-by-id summary="Get a book" tags=[Books] secured=true deprecated=false
+```
+
+<a id="AuthenticateAfterInput"></a>
+
+#### func AuthenticateAfterInput
+
+```go
+func AuthenticateAfterInput() RouteOption
+```
+
+AuthenticateAfterInput checks the route's authenticated actor after Huma has parsed and validated the input, just before the handler, instead of before parsing. The route still requires sign-in, in the OpenAPI document and on every request: only the order of refusals changes, so a request without credentials and with an invalid body gets 422 validation\_failed (or 400) rather than 401 unauthenticated.
+
+It exists for code that must keep v0.1's order of responses, such as sign-in's endpoints (gorbital.dev/gorbital/authhttp) and a module ejected from them; new routes don't need it. Registration fails when the route is public or has guards, which run before input parsing and would see a request nobody authenticated.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+mux, api, mapper := newAPI()
+err := gorbital.Mount(api, mapper, gorbital.Deps{}, gorbital.Module{Name: "books", Routes: func(r *gorbital.Router, d gorbital.Deps) {
+	gorbital.Post(r, "/v1/books", addBook, gorbital.AuthenticateAfterInput())
+}})
+if err != nil {
+	panic(err)
+}
+post := func(body string) string {
+	req := httptest.NewRequest(http.MethodPost, "/v1/books", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	var p struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &p)
+	return fmt.Sprintf("%d %s", rec.Code, p.Code)
+}
+// Without credentials: invalid input is answered first, valid input is
+// refused.
+fmt.Println(post(`{"title":""}`))
+fmt.Println(post(`{"title":"Dune"}`))
+```
+
+Output:
+
+```text
+422 validation_failed
+401 unauthenticated
 ```
 
 <a id="Customize"></a>

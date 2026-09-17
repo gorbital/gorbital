@@ -9,7 +9,7 @@ import (
 	"gorbital.dev/gorbital"
 	orgslib "gorbital.dev/modules/orgs"
 
-	"gorbital.dev/gorbital/internal/operation"
+	"gorbital.dev/gorbital/operation"
 )
 
 // OrgFlagsResponse is whether each client feature flag is on in the

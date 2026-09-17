@@ -13,7 +13,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/operation"
+	"gorbital.dev/gorbital/operation"
 	"gorbital.dev/modules/observability"
 	"gorbital.dev/modules/openapi"
 

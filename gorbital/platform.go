@@ -82,6 +82,11 @@ type RateLimiter struct {
 	Description string
 }
 
+// RetentionJob is the name of the built-in job that calls every
+// [Retention.Delete] once a day. Job names are public API: /ops/jobs keeps
+// their configuration and history under them.
+const RetentionJob = builtinjobs.Retention
+
 // A Retention is how long one kind of a module's data is kept and what
 // deletes it, listed by GET /ops/retention. Exactly one of Delete, Job and
 // EnforcedBy says what deletes the data.
@@ -93,7 +98,7 @@ type Retention struct {
 	Setting *settings.Setting[time.Duration]
 	// Delete removes up to limit rows older than before and returns how
 	// many it removed. The built-in retention job calls it every day, with
-	// the time Setting's value ago.
+	// the time Setting's value ago ([RetentionJob]).
 	Delete func(ctx context.Context, before time.Time, limit int) (int64, error)
 	// Job is the name of the job that deletes the data, when the module
 	// deletes it with a job of its own, such as "auth_cleanup".

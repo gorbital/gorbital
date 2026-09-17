@@ -375,9 +375,9 @@ func TestCookies(t *testing.T) {
 	}
 }
 
-// TestSignedInRoutesRefuseAnonymous: sign-in's signed-in operations leave
-// the actor check to their use cases, after the input is validated, as in
-// v0.1 (route.Config.ActorCheckedByHandler). Every one of them, called
+// TestSignedInRoutesRefuseAnonymous: sign-in's signed-in operations check
+// the actor after the input is validated, as v0.1's use cases did
+// (gorbital.AuthenticateAfterInput). Every one of them, called
 // without credentials, with no body and with an empty object, answers 401
 // unauthenticated or, for a missing or invalid body, 400 bad_request or 422
 // validation_failed: never a success, another refusal or a server error. A

@@ -4,6 +4,8 @@ pkg gorbital.dev/gorbital, const MailMailpit = "mailpit"
 pkg gorbital.dev/gorbital, const MailMailpit ideal-string
 pkg gorbital.dev/gorbital, const MailProvider = "provider"
 pkg gorbital.dev/gorbital, const MailProvider ideal-string
+pkg gorbital.dev/gorbital, const RetentionJob = "retention"
+pkg gorbital.dev/gorbital, const RetentionJob ideal-string
 pkg gorbital.dev/gorbital, const StorageLocal = "local"
 pkg gorbital.dev/gorbital, const StorageLocal ideal-string
 pkg gorbital.dev/gorbital, const StorageMinIO = "minio"
@@ -14,6 +16,7 @@ pkg gorbital.dev/gorbital, const StorageS3 = "s3"
 pkg gorbital.dev/gorbital, const StorageS3 ideal-string
 pkg gorbital.dev/gorbital, const StorageSpaces = "spaces"
 pkg gorbital.dev/gorbital, const StorageSpaces ideal-string
+pkg gorbital.dev/gorbital, func AuthenticateAfterInput() RouteOption
 pkg gorbital.dev/gorbital, func Customize(func(huma.API, *huma.Operation)) RouteOption
 pkg gorbital.dev/gorbital, func Declare(Declarations, ...Module) error
 pkg gorbital.dev/gorbital, func Delete[I any, O any](*Router, string, func(context.Context, *I) (*O, error), ...RouteOption)
@@ -358,6 +361,7 @@ pkg gorbital.dev/gorbital/guard, type Spec struct, Name string
 pkg gorbital.dev/gorbital/guard, type Spec struct, Statuses []int
 pkg gorbital.dev/gorbital/guard, type WebhookOption func(*webhookGuard)
 pkg gorbital.dev/gorbital/mailevents, func Module() gorbital.Module
+pkg gorbital.dev/gorbital/operation, func Register[I any, O any](*gorbital.Router, huma.Operation, func(context.Context, *I) (*O, error), ...gorbital.RouteOption)
 pkg gorbital.dev/gorbital/opshttp, const ProviderResend = "resend"
 pkg gorbital.dev/gorbital/opshttp, const ProviderResend ideal-string
 pkg gorbital.dev/gorbital/opshttp, const ProviderSMTP = "smtp"

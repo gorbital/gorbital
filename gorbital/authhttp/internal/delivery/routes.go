@@ -11,15 +11,13 @@ import (
 
 	"gorbital.dev/gorbital"
 	"gorbital.dev/gorbital/guard"
-	gorbitalroute "gorbital.dev/gorbital/internal/route"
 )
 
 // route registers op on r with handler, carrying over every field v0.1's
 // huma.Register calls set: the operation ID, method, path, tags, summary,
 // description, success status and error statuses. An operation without
-// op.Security is public. One with it requires sign-in in the OpenAPI
-// document, and its use case refuses a request without an actor after the
-// input is validated, as in v0.1 (route.Config.ActorCheckedByHandler).
+// op.Security is public. One with it requires sign-in, checked after the
+// input is validated, as v0.1's use cases did (gorbital.AuthenticateAfterInput).
 //
 // Any other Operation field would be dropped silently, so route panics on
 // one; gorbital.Mount reports the panic as a registration error.
@@ -38,7 +36,7 @@ func route[I, O any](rs *routes, op huma.Operation, handler func(context.Context
 	if op.Security == nil {
 		opts = append(opts, guard.Public())
 	} else {
-		opts = append(opts, func(c *gorbitalroute.Config) { c.ActorCheckedByHandler = true })
+		opts = append(opts, gorbital.AuthenticateAfterInput())
 	}
 	switch op.Method {
 	case http.MethodGet:

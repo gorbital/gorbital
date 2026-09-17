@@ -161,6 +161,76 @@ func TestMountDeniesByDefault(t *testing.T) {
 	}
 }
 
+func TestAuthenticateAfterInput(t *testing.T) {
+	a := newTestAPI(t, withBearer())
+	called := 0
+	create := func(ctx context.Context, in *createInput) (*bookOutput, error) {
+		called++
+		return createBook(ctx, in)
+	}
+	err := gorbital.Mount(a.api, a.mapper, gorbital.Deps{}, gorbital.Module{Name: "books", Routes: func(r *gorbital.Router, _ gorbital.Deps) {
+		gorbital.Post(r, "/v1/books", create, gorbital.AuthenticateAfterInput())
+		gorbital.Post(r, "/v1/checked-first", create)
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	anonymous := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		a.mux.ServeHTTP(w, r.WithContext(actor.With(r.Context(), actor.Anonymous)))
+	})
+	tests := []struct {
+		name     string
+		handler  http.Handler
+		body     string
+		wantCode int
+		wantProb string
+	}{
+		{"anonymous with invalid input gets the validation error", a.mux, `{"title":""}`, http.StatusUnprocessableEntity, "validation_failed"},
+		{"anonymous with valid input is refused", a.mux, `{"title":"Dune"}`, http.StatusUnauthorized, "unauthenticated"},
+		{"an anonymous actor is refused", anonymous, `{"title":"Dune"}`, http.StatusUnauthorized, "unauthenticated"},
+		{"signed in reaches the handler", signedIn(a.mux), `{"title":"Dune"}`, http.StatusOK, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := called
+			rec, p := do(t, tt.handler, http.MethodPost, "/v1/books", tt.body)
+			if rec.Code != tt.wantCode || p.Code != tt.wantProb {
+				t.Fatalf("POST /v1/books = %d %q, want %d %q; body %s", rec.Code, p.Code, tt.wantCode, tt.wantProb, rec.Body)
+			}
+			if reached := called > before; reached != (tt.wantCode == http.StatusOK) {
+				t.Errorf("handler reached = %t", reached)
+			}
+		})
+	}
+
+	// The refusal is the one the check before parsing answers, and the
+	// document is the same: only the order of refusals differs.
+	after, _ := do(t, a.mux, http.MethodPost, "/v1/books", `{"title":"Dune"}`)
+	first, _ := do(t, a.mux, http.MethodPost, "/v1/checked-first", `{"title":"Dune"}`)
+	if after.Body.String() != first.Body.String() || after.Header().Get("Content-Type") != first.Header().Get("Content-Type") {
+		t.Errorf("refusal after input = %s, before parsing = %s", after.Body, first.Body)
+	}
+	late, early := operation(t, a.api, http.MethodPost, "/v1/books"), operation(t, a.api, http.MethodPost, "/v1/checked-first")
+	if !slices.Equal(late.Errors, early.Errors) || len(late.Security) != 1 || late.Extensions["x-gorbital-guards"] == nil {
+		t.Errorf("operation = %+v, want %+v but for its ID", late, early)
+	}
+}
+
+func TestAuthenticateAfterInputRefusesGuardsAndPublic(t *testing.T) {
+	for name, opts := range map[string][]gorbital.RouteOption{
+		"public": {guard.Public(), gorbital.AuthenticateAfterInput()},
+		"guard":  {gorbital.AuthenticateAfterInput(), guard.Permission("books.book.write")},
+	} {
+		a := newTestAPI(t, withBearer())
+		err := gorbital.Mount(a.api, a.mapper, gorbital.Deps{}, gorbital.Module{Name: "books", Routes: func(r *gorbital.Router, _ gorbital.Deps) {
+			gorbital.Post(r, "/v1/books", createBook, opts...)
+		}})
+		if err == nil || !strings.Contains(err.Error(), "AuthenticateAfterInput can't be combined") {
+			t.Errorf("%s: Mount() error = %v", name, err)
+		}
+	}
+}
+
 func TestMountAnonymousActorIsRefused(t *testing.T) {
 	a := newTestAPI(t, withBearer())
 	if err := gorbital.Mount(a.api, a.mapper, gorbital.Deps{}, booksModule()); err != nil {

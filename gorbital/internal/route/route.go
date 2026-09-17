@@ -26,13 +26,11 @@ type Config struct {
 	// Public removes the authenticated-actor check and the security
 	// requirement (ADR-0082).
 	Public bool
-	// ActorCheckedByHandler keeps a non-public route's security requirement
-	// but leaves the authenticated-actor check to its use case, which then
-	// answers 401 after input validation instead of before it. Only
-	// gorbital.dev/gorbital/authhttp sets it, so the sign-in endpoints keep
-	// v0.1's order of responses (ADR-0083, Phase 5 notes); no public option
-	// exposes it.
-	ActorCheckedByHandler bool
+	// AuthenticateAfterInput moves a non-public route's authenticated-actor
+	// check from before input parsing to after input validation, just before
+	// the handler, so invalid input is answered first (gorbital's
+	// AuthenticateAfterInput option).
+	AuthenticateAfterInput bool
 	// Middlewares run in order around the guards and the handler.
 	Middlewares []func(http.Handler) http.Handler
 	// Guards run in order after the middlewares, before input parsing.

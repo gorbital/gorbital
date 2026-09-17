@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -414,6 +415,34 @@ func ExampleErrors() {
 	fmt.Println(responses["401"] != nil, responses["404"] != nil)
 	// Output:
 	// true true
+}
+
+func ExampleAuthenticateAfterInput() {
+	mux, api, mapper := newAPI()
+	err := gorbital.Mount(api, mapper, gorbital.Deps{}, gorbital.Module{Name: "books", Routes: func(r *gorbital.Router, d gorbital.Deps) {
+		gorbital.Post(r, "/v1/books", addBook, gorbital.AuthenticateAfterInput())
+	}})
+	if err != nil {
+		panic(err)
+	}
+	post := func(body string) string {
+		req := httptest.NewRequest(http.MethodPost, "/v1/books", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		var p struct {
+			Code string `json:"code"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &p)
+		return fmt.Sprintf("%d %s", rec.Code, p.Code)
+	}
+	// Without credentials: invalid input is answered first, valid input is
+	// refused.
+	fmt.Println(post(`{"title":""}`))
+	fmt.Println(post(`{"title":"Dune"}`))
+	// Output:
+	// 422 validation_failed
+	// 401 unauthenticated
 }
 
 func ExampleDeprecated() {

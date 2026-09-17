@@ -14,7 +14,7 @@ import (
 	orgslib "gorbital.dev/modules/orgs"
 	"gorbital.dev/modules/settings"
 
-	"gorbital.dev/gorbital/internal/operation"
+	"gorbital.dev/gorbital/operation"
 )
 
 // OrgSettingResponse is a runtime setting as an organisation sees it.

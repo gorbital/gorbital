@@ -11,7 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/operation"
+	"gorbital.dev/gorbital/operation"
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/openapi"
 	"gorbital.dev/modules/settings"

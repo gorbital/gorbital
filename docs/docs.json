@@ -212,7 +212,8 @@
             { "title": "flagshttp", "slug": "methods/gorbital-flagshttp", "source": "docs/methods/gorbital-flagshttp.md" },
             { "title": "mailevents", "slug": "methods/gorbital-mailevents", "source": "docs/methods/gorbital-mailevents.md" },
             { "title": "orgshttp", "slug": "methods/gorbital-orgshttp", "source": "docs/methods/gorbital-orgshttp.md" },
-            { "title": "authhttp", "slug": "methods/gorbital-authhttp", "source": "docs/methods/gorbital-authhttp.md" }
+            { "title": "authhttp", "slug": "methods/gorbital-authhttp", "source": "docs/methods/gorbital-authhttp.md" },
+            { "title": "operation", "slug": "methods/gorbital-operation", "source": "docs/methods/gorbital-operation.md" }
           ]
         },
         {

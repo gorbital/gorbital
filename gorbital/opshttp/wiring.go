@@ -26,7 +26,6 @@ import (
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/ratelimit"
 
-	"gorbital.dev/gorbital/internal/builtinjobs"
 	opsdomain "gorbital.dev/gorbital/opshttp/internal/domain"
 	opsusecase "gorbital.dev/gorbital/opshttp/internal/usecase"
 )
@@ -267,7 +266,7 @@ func (r retentionReporter) RetentionReport(ctx context.Context) ([]opsusecase.Re
 	for i, p := range policies {
 		job := p.Job
 		if p.Delete != nil {
-			job = builtinjobs.Retention
+			job = gorbital.RetentionJob
 		}
 		rp := opsusecase.RetentionPolicy{Data: p.Data, Setting: p.Setting.Key(), Retention: p.Setting.Get(ctx), Job: job, EnforcedBy: p.EnforcedBy}
 		if p.Oldest != nil {

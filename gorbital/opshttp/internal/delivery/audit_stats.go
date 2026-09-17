@@ -10,7 +10,7 @@ import (
 	"gorbital.dev/actor"
 	"gorbital.dev/audit"
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/operation"
+	"gorbital.dev/gorbital/operation"
 	"gorbital.dev/modules/auditpg"
 	"gorbital.dev/modules/openapi"
 

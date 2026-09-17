@@ -8,9 +8,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/internal/operation"
 	"gorbital.dev/gorbital/mailevents/internal/domain"
 	maileventsusecase "gorbital.dev/gorbital/mailevents/internal/usecase"
+	"gorbital.dev/gorbital/operation"
 )
 
 // MaxWebhookBytes bounds a webhook body. Resend's events are a few
