@@ -237,7 +237,7 @@ Builds the `social.Provider`s, or `nil` for a provider that's off. `ep` override
 
 ### `newMailSender(cfg) (mail.Sender, error)`
 
-Returns an SMTP sender to Mailpit (`MAILPIT_SMTP_ADDR`, no auth, no TLS) when delivery is `mailpit`, and the provider's sender from `infra_mail.go` otherwise. `orb add mail` replaces `infra_mail.go` (and its `loadMailConfig` and `newProviderSender`) to switch between Resend and SMTP.
+Returns an SMTP sender to `orb dev`'s mail catcher (`DEV_MAIL_SMTP_ADDR`, no auth, no TLS) when delivery is `devmail`, to Mailpit (`MAILPIT_SMTP_ADDR`) when it is `mailpit`, and the provider's sender from `infra_mail.go` otherwise. `orb add mail` replaces `infra_mail.go` (and its `loadMailConfig` and `newProviderSender`) to switch between Resend and SMTP.
 
 ### `mailInfo(cfg, settings) opsusecase.MailInfo`
 

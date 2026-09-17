@@ -6,11 +6,11 @@ import (
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 )
 
-const userColumns = `id, email, email_normalized, COALESCE(password_hash, ''), email_verified_at, created_at, webauthn_user_handle`
+const userColumns = `id, email, email_normalized, COALESCE(password_hash, ''), email_verified_at, created_at, webauthn_user_handle, banned_at, COALESCE(banned_reason, '')`
 
 func scanUser(row pgx.CollectableRow) (authdomain.User, error) {
 	var u authdomain.User
-	err := row.Scan(&u.ID, &u.Email, &u.NormalizedEmail, &u.PasswordHash, &u.EmailVerifiedAt, &u.CreatedAt, &u.WebAuthnUserHandle)
+	err := row.Scan(&u.ID, &u.Email, &u.NormalizedEmail, &u.PasswordHash, &u.EmailVerifiedAt, &u.CreatedAt, &u.WebAuthnUserHandle, &u.BannedAt, &u.BannedReason)
 	u.CreatedAt = u.CreatedAt.UTC()
 	return u, err
 }

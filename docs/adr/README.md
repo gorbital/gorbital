@@ -19,7 +19,7 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0007](0007-observability.md) | Observability | Accepted, amended by 0019, 0028, 0053, 0063 |
 | [0008](0008-configuration.md) | Configuration | Superseded by 0020 |
 | [0009](0009-repository-strategy.md) | Repository strategy | Accepted, amended by 0019 |
-| [0010](0010-dashboard-architecture.md) | Dashboard architecture | Accepted, amended by 0026, 0028 |
+| [0010](0010-dashboard-architecture.md) | Dashboard architecture | Accepted, amended by 0026, 0028, 0066 |
 | [0011](0011-github-integration.md) | GitHub integration | Accepted |
 | [0012](0012-versioning-and-upgrades.md) | Versioning and upgrades | Superseded by 0015, 0016 |
 | [0013](0013-multi-tenancy.md) | Multi-tenancy | Superseded by 0023 |
@@ -30,15 +30,15 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0018](0018-error-contract.md) | Error contract and problem+json | Accepted |
 | [0019](0019-module-dependency-rules.md) | Module dependency rules and core budget | Accepted, amended by 0033 |
 | [0020](0020-constructors-and-configuration.md) | Constructors and configuration | Accepted, amended by 0031, 0053 |
-| [0021](0021-generator-operation-model.md) | Generator operation model | Accepted, amended by 0041, 0050 |
+| [0021](0021-generator-operation-model.md) | Generator operation model | Accepted, amended by 0041, 0050, 0066 |
 | [0022](0022-generated-application-layout.md) | Generated application layout | Accepted, amended by 0032 |
 | [0023](0023-tenancy.md) | Tenancy | Accepted, amended by 0033, 0048, 0061 |
 | [0024](0024-authentication-methods.md) | Authentication methods | Accepted, amended by 0038, 0043, 0044, 0046, 0058, 0059 |
 | [0025](0025-email-providers.md) | Email providers | Accepted, amended by 0033, 0037, 0062 |
 | [0026](0026-operations-apis.md) | Operations APIs | Accepted, amended by 0031, 0033, 0034, 0036, 0038, 0051, 0064 |
 | [0027](0027-api-contract-and-docs.md) | API contract and documentation | Accepted, amended by 0049, 0051, 0053 |
-| [0028](0028-local-development-environment.md) | Local development environment | Accepted, amended by 0042, 0065 |
-| [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted, amended by 0036, 0038, 0053, 0056, 0057, 0058, 0059, 0060, 0061, 0062, 0063, 0064, 0065 |
+| [0028](0028-local-development-environment.md) | Local development environment | Accepted, amended by 0042, 0065, 0066 |
+| [0029](0029-threat-model.md) | Threat model: framework, CLI and ecosystem | Accepted, amended by 0036, 0038, 0053, 0056, 0057, 0058, 0059, 0060, 0061, 0062, 0063, 0064, 0065, 0066 |
 | [0030](0030-context-and-correlation.md) | Context and correlation propagation | Accepted, amended by 0053 |
 | [0031](0031-runtime-settings.md) | Runtime settings | Accepted, amended by 0056 |
 | [0032](0032-repository-sql.md) | Hand-written SQL in repositories | Accepted |
@@ -74,4 +74,16 @@ Each ADR records one decision: context, options, decision, reasons, trade-offs a
 | [0062](0062-resend-webhooks-and-suppression-list.md) | Resend bounce and complaint webhooks and the email suppression list | Accepted |
 | [0063](0063-prometheus-metrics.md) | Prometheus metrics endpoint: exporter on a separate `METRICS_ADDR` listener, Go runtime and connection pool metrics, route labels through request copies | Accepted |
 | [0064](0064-live-observability-and-incidents.md) | Live observability and incidents: `modules/observability` request minutes shared through PostgreSQL, `/ops/observability` with a live stream, incidents with timelines, automatic detection and reports | Accepted |
-| [0065](0065-local-dev-console-apis.md) | Local dev console APIs: development-only `/_dev/` endpoints in `modules/devconsole` behind Host, loopback and per-run token checks, request and log buffers with streams, configuration without secrets, `orb dev` token | Accepted |
+| [0065](0065-local-dev-console-apis.md) | Local dev console APIs: development-only `/_dev/` endpoints in `modules/devconsole` behind Host, loopback and per-run token checks, request and log buffers with streams, configuration without secrets, `orb dev` token | Accepted, amended by 0066 |
+| [0066](0066-dev-portal.md) | Dev Portal: `orb dev` serves the embedded portal UI, a `/_portal/api/` for the app's state, output, restarts and generator plans, and a proxy to the app; per-run token, Host and loopback checks, a write header; generators plan before they write (`genplan`) | Accepted, amended by 0067 |
+| [0067](0067-table-editor-and-pgmeta.md) | Table Editor and `pgmeta`: `orb dev` reads the catalog and edits rows through `cli/internal/pgmeta` (identifiers from the catalog, values as text parameters, tables without a key read-only), and every schema change is a plan rendered as a goose migration that the app's `cmd/migrate` applies; ownership classes user, managed, system | Accepted, amended by 0068, 0069 |
+| [0068](0068-sql-editor.md) | SQL editor: scripts run through the simple protocol in one transaction rolled back by default, results as text cells, warnings before running, EXPLAIN in a rolled-back transaction, snippets as files under `db/queries`, history and favourites under `.orb/portal`, a script saved as a migration | Accepted |
+| [0069](0069-schema-visualiser-objects-and-migrations.md) | Schema visualiser, database objects and migrations: `postgres.MigrateDown` and `MigrationList`, `cmd/migrate --down` and `--redo` in development, plan kinds for extensions, functions, triggers, views and enums, `GET /_portal/api/db/migrations` and the portal's roll-back and redo actions | Accepted |
+| [0077](0077-generators-hub-first-run-and-project-settings.md) | The generators hub runs `orb add mail`, `storage` and `rls` through plans with a diff (`orgs` through its dry run and branch workflow); `orb new` starts `orb dev` and opens the portal in a terminal (`--no-start`); Project Settings from the manifest and `.env` with a danger zone (`reset-database`, clear logs, inbox, SQL history) | Accepted |
+| [0076](0076-git-screen.md) | The Dev Portal's Git screen runs the developer's `git` through `orb dev` (`/_portal/api/git/…`): status, diffs, staging by file and hunk, commits, branches, fetch, pull and push (never force), merge preview with `merge-tree`, conflicts opened in the editor, the log graph; no history rewriting | Accepted |
+| [0075](0075-file-storage.md) | File storage: `gorbital.dev/modules/storage` (`Store` with `local` and `s3` drivers for S3, Spaces, R2 and MinIO through the MinIO client), wired into the Full apps (`STORAGE_*`), operators' API `/ops/storage…` behind `ops.storage.read` and `ops.storage.write`, `orb add storage`, the portal's Storage screen with a production guard | Accepted |
+| [0074](0074-dev-mail-previews-and-env-editor.md) | Dev mail: an SMTP catcher inside `orb dev` (`MAIL_DELIVERY=devmail`, the development default; Mailpit removed from the compose template) with the inbox at `/_portal/api/mail…`; email previews from the real builders (`auth.EmailPreviews`, `/_dev/mail/previews`, the console's first POST); the `.env` editor at `/_portal/api/env` | Accepted |
+| [0073](0073-observability-screen.md) | The Dev Portal's Observability screen on what exists (request minutes, `/ops/system`, jobs, audit) plus `pgmeta` statistics (`pg_stat_activity`, locks, sizes, `pg_stat_statements` preloaded by the development compose, index advice), a `gopsutil` sampler for the machine and the app process, and a health table across services; no OTLP receiver in `orb` for now | Accepted |
+| [0072](0072-local-log-store.md) | The Dev Portal's log store: `orb dev` keeps the app's records as JSON Lines segments under `.orb/portal/logs` (8 MiB segments, 64 MiB in all), parsed from the app's JSON output (`APP_LOG_FORMAT`, set to json by `orb dev`, rendered as text for the terminal), `orb dev`'s messages and the PostgreSQL container; `httpx.AccessLog` adds `path`, `source` and the authenticated `user_id` through an `AccessNote`; endpoints for queries, histogram, live tail, error groups and saved filters | Accepted |
+| [0071](0071-job-kinds-and-ejection.md) | Jobs from the portal: `orb gen job --kind custom\|http\|sql\|email\|dispatch` renders one `Work` per kind; `//orb:job {json}` marker on the definition with the worker file's hash; a worker edited by hand is ejected (a custom job edited in code); `jobDeps` gains `pool`, `mailer`, `httpClient`, `runJob`; `GET /_portal/api/jobs` | Accepted |
+| [0070](0070-operators-account-apis.md) | Operators' account APIs: `/ops/auth/users…` in the auth module behind `ops.auth.read` and a new `ops.auth.write`; bans (`banned_at`, every sign-in refused, sessions and keys revoked); impersonation only with the dev console; rate limiter list and reset (`ratelimitpg.Reset`) | Accepted |

@@ -46,6 +46,17 @@ Every request must pass three checks, in this order:
 
 Responses are JSON (errors are problem+json like the rest of the API), say `Cache-Control: no-store`, and never carry CORS headers. Only GET (and HEAD) is accepted. The token is never accepted in a query string or cookie.
 
+### Acting on `/ops/` with the token
+
+In Full apps the token also opens the [operations APIs](ops-api.md) in development ([ADR-0066](../adr/0066-dev-portal.md)): a request under `/ops/` with `Authorization: Bearer <token>` that passes the same Host and loopback checks runs as the system actor `dev-console` with the platform administrator's permissions, and audit events record it that way. The Dev Portal uses this through `orb dev`'s proxy; scripts can too:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/jobs/definitions
+curl -X POST -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/jobs/definitions/heartbeat/run
+```
+
+Nothing outside `/ops/` accepts the token, a cookie never carries it, and without the console (no token, or production, which refuses it) `/ops/` needs a signed-in administrator as always.
+
 ### Why these checks
 
 A page on any website you visit can make your browser send requests to `http://127.0.0.1:8080`. Without CORS headers it can't read the answers, but with **DNS rebinding** it can: the attacker's name `evil.example` first resolves to their server, then to `127.0.0.1`, so the page is "same-origin" with your app. The browser still sends `Host: evil.example:8080`, which the console refuses. The bearer token covers what the Host check can't: other programs on your machine, and pages served from localhost itself. And because the token travels in a header, a cross-origin page can't even send a request with it: the browser asks first (CORS preflight), and the console never says yes.
@@ -53,6 +64,8 @@ A page on any website you visit can make your browser send requests to `http://1
 Other programs running as your own user can read a process's environment, and so the token. The console assumes your user account isn't compromised.
 
 ## Building a UI on them
+
+The [Dev Portal](dev-portal.md) is the UI built on these APIs: `orb dev` serves it on port 3100 and proxies `/_portal/app/_dev/…` to the app with the token added, so the browser never holds it ([ADR-0066](../adr/0066-dev-portal.md)). For a UI of your own:
 
 - **Serve it from the app's origin, or proxy.** Browsers on another origin (such as a Next.js app on `http://localhost:3000`) can't call the APIs directly: there is no CORS. Call them from your UI's server (route handlers, rewrites or a proxy), sending the token and a `Host` of `127.0.0.1:<port>` (what `fetch` to `http://127.0.0.1:8080` sends). Keep the token on the server side.
 - **Read streams with `fetch`.** `EventSource` can't send an `Authorization` header. Read `text/event-stream` from `fetch`'s body instead.
@@ -72,7 +85,10 @@ Other programs running as your own user can read a process's environment, and so
 | `GET /_dev/requests/stream` | All | Server-Sent Events: each request as it finishes |
 | `GET /_dev/logs` | All | The 1,000 most recent log records at info level and above, newest first |
 | `GET /_dev/logs/stream` | All | Server-Sent Events: each log record |
-| `GET /_dev/mail` | Full, with `MAIL_DELIVERY=mailpit` | The 50 newest messages in Mailpit (sender, recipients, subject, snippet, time, size) and Mailpit's web address to read them; 503 `unavailable` when Mailpit doesn't answer |
+| `GET /_dev/mail` | Full, with `MAIL_DELIVERY=mailpit` | The 50 newest messages in Mailpit (sender, recipients, subject, snippet, time, size) and Mailpit's web address to read them; 503 `unavailable` when Mailpit doesn't answer. With the default `devmail`, the inbox is the Dev Portal's (`/_portal/api/mail`, [ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)) |
+| `GET /_dev/mail/previews` | Full | The app's email previews: name, description, category (`internal/app/mail_previews.go`) |
+| `GET /_dev/mail/preview?name=&to=` | Full | One preview rendered with sample data for `to` (default `preview@example.com`): subject, text, HTML; 404 `preview_not_found` |
+| `POST /_dev/mail/preview/send?name=&to=` | Full | Sends the rendered preview through the app's mailer, so it lands in the development inbox; the console's one POST endpoint |
 | `GET /_dev/migrations` | Full | `{"current", "latest", "pending"}` |
 | `GET /_dev/jobs` | Full | The 50 most recent jobs, newest first, without their arguments: kind, queue, state, attempts, times, error messages, request ID |
 
@@ -148,7 +164,7 @@ A stream sends each new item (`request` or `log`), a `: keep-alive` comment ever
 | 404 `no route matches GET /_dev/…` | The console is off: run through `orb dev`, or set `DEV_CONSOLE_TOKEN` with `APP_ENV=development`. Apps created before v1.1 need the upgrade ([upgrade notes](upgrade-notes.md)) |
 | 403 `forbidden` | Use `http://127.0.0.1:<port>`, `http://localhost:<port>` or `http://[::1]:<port>`, from the same machine. Proxies must send one of those as `Host` |
 | 401 `unauthorized` | The token is missing or from an earlier `orb dev` run |
-| 503 on `/_dev/mail` | Mailpit isn't running, or `MAILPIT_WEB_PORT` doesn't match `compose.yaml` |
+| 503 on `/_dev/mail` | Mailpit isn't running, or `MAILPIT_WEB_PORT` doesn't match `compose.yaml`; with `MAIL_DELIVERY=devmail` the endpoint isn't served at all (the inbox is the portal's) |
 | Stream shows nothing through a proxy | The proxy buffers the response; `X-Accel-Buffering: no` is set for nginx |
 
 ## In your app

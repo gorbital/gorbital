@@ -78,6 +78,7 @@ Creates an app.
 orb new                                   # asks for everything
 orb new my-api                            # asks for the rest
 orb new my-api --module github.com/you/my-api --local ~/code/gorbital --yes
+orb new my-api --no-start                 # create it, but don't start orb dev
 ```
 
 | Question | Flag | Default |
@@ -103,7 +104,7 @@ Questions come one at a time. Each answered question folds into one line, and va
 ? create shop-api in ./shop-api? … yes  no
 ```
 
-Then `orb new` prints a log: one line per finished step, where things are in the new app, and the commands to run next. `--json` prints only the result.
+Then `orb new` prints a log: one line per finished step, where things are in the new app, and the commands to run next. In a terminal it then starts `orb dev` in the new app, which opens the Dev Portal, so the first run ends in the browser ([ADR-0077](../adr/0077-generators-hub-first-run-and-project-settings.md)); `--no-start` (and `--yes`, `--no-input`, `--json`) skip that, `--start` forces it. `--json` prints only the result.
 
 ```text
 creating shop-api in ./shop-api
@@ -116,7 +117,7 @@ preset full · library ../gorbital
 created shop-api
 
   api docs     http://localhost:8080/docs (localhost, not 127.0.0.1, for passkeys)
-  emails       http://127.0.0.1:8025 (Mailpit catches every email in development)
+  emails       http://127.0.0.1:3100/mail (orb dev catches every email in development)
   ...
 
   next: cd shop-api
@@ -133,14 +134,14 @@ A Full app is exactly [examples/full-single](../../examples/full-single) with yo
 ```bash
 cd my-api
 git add -A && git commit -m "Create my-api"   # orb new doesn't commit; orb gen and orb add need a clean tree
-orb dev                                      # .env, PostgreSQL and Mailpit, migrations, seed data, the API
+orb dev                                      # .env, PostgreSQL, the mail catcher, migrations, seed data, the API
 ```
 
 Without `orb dev`, export `.env` yourself: the app reads environment variables, not the file.
 
 ```bash
 cp .env.example .env           # then set AUTH_ENCRYPTION_KEYS: echo "k1:$(openssl rand -base64 32)"
-docker compose up -d --wait    # PostgreSQL and Mailpit
+docker compose up -d --wait    # PostgreSQL
 set -a; . ./.env; set +a       # in each terminal, and again after editing .env
 go run ./cmd/migrate
 go run ./cmd/seed
@@ -150,6 +151,15 @@ go run ./cmd/api
 If port 5432 is taken, set `POSTGRES_PORT` in `.env` and the same port in `DATABASE_URL`. The app's README explains how to create the first admin and how to remove the examples.
 
 Commit `gorbital.lock` with the app. It records the `orb` release that created the app, the answers the templates used (name, module, preset, tenancy, email provider) and a SHA-256 of every file `orb` wrote except `go.mod` and `go.sum`. `orb upgrade` uses it to rebuild those files as they were and merge newer templates into your edits ([ADR-0050](../adr/0050-upgrades-and-adding-features.md)). Don't edit it by hand.
+
+## `orb add storage`
+
+Chooses where a Full preset app keeps files ([storage guide](storage.md), [ADR-0075](../adr/0075-file-storage.md)): `--driver local|s3|spaces|r2|minio` with `--endpoint`, `--region`, `--bucket`, `--access-key` and `--public-url`. It rewrites the `storage` block of `.env.example`, sets the values in `.env` (put `STORAGE_SECRET_KEY` there yourself) and, for `minio`, adds the MinIO service to `compose.yaml`, which `orb dev` then starts (`MINIO_PORT`, `MINIO_CONSOLE_PORT`).
+
+```bash
+orb add storage --driver minio
+orb add storage --driver s3 --region eu-west-1 --bucket acme-files --access-key AKIA… --yes
+```
 
 ## `orb gen job`
 
@@ -161,6 +171,10 @@ orb gen job CleanupSessions                                     # asks for the r
 orb gen job CleanupSessions --schedule "0 3 * * *" --timeout 5m --max-attempts 5 --yes
 orb gen job SendDigest --every 6h --description "Emails the daily digest." --disabled --yes
 orb gen job RebuildIndex --on-demand --dry-run
+orb gen job PingHook --kind http --url https://example.com/hook --body '{"ping":true}' --every 5m --yes
+orb gen job PurgeDrafts --kind sql --sql "DELETE FROM drafts WHERE updated_at < now() - interval '30 days'" --yes
+orb gen job WeeklyDigest --kind email --to ops@example.com --subject "Weekly digest" --text "All is well." --schedule "0 9 * * 1" --yes
+orb gen job NightlyChain --kind dispatch --dispatch PurgeDrafts --yes
 ```
 
 | Question | Flag | Default |
@@ -173,6 +187,7 @@ orb gen job RebuildIndex --on-demand --dry-run
 | Timeout per attempt (30s, 1m, 5m, 15m, 1h) | `--timeout 5m` (1s to 24h) | `1m` |
 | Attempts before giving up (1, 3, 5, 10, 25) | `--max-attempts N` (1 to 100) | 5 |
 | Enable the job now? | `--disabled` | enabled |
+| What does the job do? | `--kind custom` (a `Work` method to write), `http` (`--method`, `--url`, `--body` as JSON: the answer must be 2xx), `sql` (`--sql`: one statement on the app's pool), `email` (`--to`, `--subject`, `--text`: through the app's mailer, the job ID as idempotency key), `dispatch` (`--dispatch <Name>`: starts that job). The generated `Work` is ordinary Go; the definition carries an `//orb:job` marker the Dev Portal reads back until the worker is edited by hand ([ADR-0071](../adr/0071-job-kinds-and-ejection.md)) | `custom` |
 | (flag only) Queue | `--queue NAME` | `default` |
 | (flag only) Priority | `--priority N` (1 highest to 4) | 1 |
 
@@ -444,8 +459,8 @@ Builds and runs the app in the current directory, rebuilding when files change a
 In an app with a database (Full preset), before the first start it:
 
 1. Creates `.env` from `.env.example` (mode 0600) when there is none, and fills an empty `AUTH_ENCRYPTION_KEYS` with a random development key ([ADR-0043](../adr/0043-two-factor-authentication.md)).
-2. Checks Docker, and that the services' host ports are free: `POSTGRES_PORT`, `MAILPIT_SMTP_PORT` and `MAILPIT_WEB_PORT` (ports held by the app's own running services are fine). A taken port names the `.env` line that moves it.
-3. Starts PostgreSQL and Mailpit from the app's `compose.yaml` with `docker compose up -d --wait`.
+2. Checks Docker, and that the services' host ports are free: `POSTGRES_PORT` (and `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT` when `compose.yaml` still has Mailpit; ports held by the app's own running services are fine). A taken port names the `.env` line that moves it.
+3. Starts PostgreSQL (and Mailpit when defined) from the app's `compose.yaml` with `docker compose up -d --wait`, and its own mail catcher on `DEV_MAIL_SMTP_ADDR` when `MAIL_DELIVERY` is `devmail` ([ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)).
 4. Applies migrations (`go run ./cmd/migrate`) and runs seed data (`go run ./cmd/seed`). The first run prints the administrator's password once ([ADR-0042](../adr/0042-development-seed-data.md)); later runs change nothing.
 5. Prints the API, docs and email inbox addresses, then starts the app.
 
@@ -453,12 +468,17 @@ In every app whose `.env.example` declares `DEV_CONSOLE_TOKEN` and that runs wit
 
 While it runs, a changed or new migration is applied before the restart; if it fails, the previous version keeps running. Services keep running after `orb dev` stops, so the next start is fast: `docker compose down` stops them, and `docker compose down -v` also deletes the database.
 
+It also serves the [Dev Portal](dev-portal.md) at http://127.0.0.1:3100 and opens it in your browser ([ADR-0066](../adr/0066-dev-portal.md)): the app's state and output as it happens, restart, stop and start, and the app's dev console APIs through a proxy; more screens arrive with each phase of the [Dev Portal roadmap](../dev-portal-roadmap.md). The printed link holds a token that is new on every run and never written to disk; the portal answers only this machine. Its port is checked before anything starts, like the services' ports.
+
 | Flag | Default |
 |---|---|
 | `--observability` | off. Also starts Grafana (`grafana/otel-lgtm`, the `observability` profile in `compose.yaml`) on `GRAFANA_PORT` (3000) and sets `OTEL_EXPORTER_OTLP_ENDPOINT` for the app, so its traces, metrics and logs appear there. Works in Minimal apps too. Grafana receives metrics over OTLP and doesn't scrape the app; to check the Prometheus endpoint locally, set `METRICS_ADDR=127.0.0.1:9464` in `.env` and open http://127.0.0.1:9464/metrics ([production](production.md#prometheus-metrics)) |
-| `--no-services` | start services. Skips Docker and uses `DATABASE_URL` and `MAILPIT_SMTP_ADDR` from `.env` as they are; migrations and seed data still run |
+| `--no-services` | start services. Skips Docker and uses `DATABASE_URL` (and `MAILPIT_SMTP_ADDR`) from `.env` as they are; the mail catcher, migrations and seed data still run |
 | `--no-reload` | reload on change |
 | `--interval` | 500ms between change checks |
+| `--portal-port` | `DEV_PORTAL_PORT` from `.env` or the environment, else 3100 |
+| `--no-portal` | serve the Dev Portal |
+| `--no-open` | open the Dev Portal in a browser (never in CI or when output isn't a terminal) |
 
 Without Docker, a Full app stops with a message: install and start Docker, or point `DATABASE_URL` at an existing PostgreSQL and use `--no-services`. Without the CLI, the same steps are `cp .env.example .env` (and a key in `AUTH_ENCRYPTION_KEYS`), `docker compose up -d --wait`, `set -a; . ./.env; set +a` to export `.env`, `go run ./cmd/migrate`, `go run ./cmd/seed` and `go run ./cmd/api`.
 

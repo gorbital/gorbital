@@ -1,0 +1,91 @@
+pkg gorbital.dev/modules/storage, const DefaultListLimit = 200
+pkg gorbital.dev/modules/storage, const DefaultListLimit ideal-int
+pkg gorbital.dev/modules/storage, const MaxKeyLength = 1024
+pkg gorbital.dev/modules/storage, const MaxKeyLength ideal-int
+pkg gorbital.dev/modules/storage, const MaxListLimit = 1000
+pkg gorbital.dev/modules/storage, const MaxListLimit ideal-int
+pkg gorbital.dev/modules/storage, const MaxSignedURLExpiry = 604800000000000
+pkg gorbital.dev/modules/storage, const MaxSignedURLExpiry time.Duration
+pkg gorbital.dev/modules/storage, func ClampExpiry(time.Duration) time.Duration
+pkg gorbital.dev/modules/storage, func ContentTypeFor(string) string
+pkg gorbital.dev/modules/storage, func DirectoryMarker(string) string
+pkg gorbital.dev/modules/storage, func IsDirectoryMarker(string) bool
+pkg gorbital.dev/modules/storage, func Move(context.Context, Store, string, string) (Object, error)
+pkg gorbital.dev/modules/storage, func ValidKey(string) bool
+pkg gorbital.dev/modules/storage, func ValidPrefix(string) bool
+pkg gorbital.dev/modules/storage, func ValidSignedMethod(string) bool
+pkg gorbital.dev/modules/storage, type Info struct
+pkg gorbital.dev/modules/storage, type Info struct, Bucket string
+pkg gorbital.dev/modules/storage, type Info struct, Driver string
+pkg gorbital.dev/modules/storage, type Info struct, Endpoint string
+pkg gorbital.dev/modules/storage, type Info struct, Local bool
+pkg gorbital.dev/modules/storage, type Info struct, PublicURL string
+pkg gorbital.dev/modules/storage, type Info struct, Region string
+pkg gorbital.dev/modules/storage, type ListOptions struct
+pkg gorbital.dev/modules/storage, type ListOptions struct, Cursor string
+pkg gorbital.dev/modules/storage, type ListOptions struct, Limit int
+pkg gorbital.dev/modules/storage, type ListOptions struct, Prefix string
+pkg gorbital.dev/modules/storage, type ListOptions struct, Recursive bool
+pkg gorbital.dev/modules/storage, type Object struct
+pkg gorbital.dev/modules/storage, type Object struct, ContentType string
+pkg gorbital.dev/modules/storage, type Object struct, ETag string
+pkg gorbital.dev/modules/storage, type Object struct, Key string
+pkg gorbital.dev/modules/storage, type Object struct, LastModified time.Time
+pkg gorbital.dev/modules/storage, type Object struct, Metadata map[string]string
+pkg gorbital.dev/modules/storage, type Object struct, Size int64
+pkg gorbital.dev/modules/storage, type Page struct
+pkg gorbital.dev/modules/storage, type Page struct, NextCursor string
+pkg gorbital.dev/modules/storage, type Page struct, Objects []Object
+pkg gorbital.dev/modules/storage, type Page struct, Prefixes []string
+pkg gorbital.dev/modules/storage, type PutOptions struct
+pkg gorbital.dev/modules/storage, type PutOptions struct, ContentType string
+pkg gorbital.dev/modules/storage, type PutOptions struct, Metadata map[string]string
+pkg gorbital.dev/modules/storage, type Store interface { Copy, Delete, Get, Info, List, Ping, Put, SignedURL, Stat }
+pkg gorbital.dev/modules/storage, type Store interface, Copy(context.Context, string, string) (Object, error)
+pkg gorbital.dev/modules/storage, type Store interface, Delete(context.Context, string) error
+pkg gorbital.dev/modules/storage, type Store interface, Get(context.Context, string) (io.ReadCloser, Object, error)
+pkg gorbital.dev/modules/storage, type Store interface, Info() Info
+pkg gorbital.dev/modules/storage, type Store interface, List(context.Context, ListOptions) (Page, error)
+pkg gorbital.dev/modules/storage, type Store interface, Ping(context.Context) error
+pkg gorbital.dev/modules/storage, type Store interface, Put(context.Context, string, io.Reader, int64, PutOptions) (Object, error)
+pkg gorbital.dev/modules/storage, type Store interface, SignedURL(context.Context, string, string, time.Duration) (string, error)
+pkg gorbital.dev/modules/storage, type Store interface, Stat(context.Context, string) (Object, error)
+pkg gorbital.dev/modules/storage, var ErrInvalidKey error
+pkg gorbital.dev/modules/storage, var ErrNotFound error
+pkg gorbital.dev/modules/storage, var ErrUnavailable error
+pkg gorbital.dev/modules/storage/local, func New(string, ...Option) (*Store, error)
+pkg gorbital.dev/modules/storage/local, func WithSigner([]byte, string) Option
+pkg gorbital.dev/modules/storage/local, method (*Store) Copy(context.Context, string, string) (storage.Object, error)
+pkg gorbital.dev/modules/storage/local, method (*Store) Delete(context.Context, string) error
+pkg gorbital.dev/modules/storage/local, method (*Store) Get(context.Context, string) (io.ReadCloser, storage.Object, error)
+pkg gorbital.dev/modules/storage/local, method (*Store) Handler() http.Handler
+pkg gorbital.dev/modules/storage/local, method (*Store) Info() storage.Info
+pkg gorbital.dev/modules/storage/local, method (*Store) List(context.Context, storage.ListOptions) (storage.Page, error)
+pkg gorbital.dev/modules/storage/local, method (*Store) Ping(context.Context) error
+pkg gorbital.dev/modules/storage/local, method (*Store) Put(context.Context, string, io.Reader, int64, storage.PutOptions) (storage.Object, error)
+pkg gorbital.dev/modules/storage/local, method (*Store) Root() string
+pkg gorbital.dev/modules/storage/local, method (*Store) SignedURL(context.Context, string, string, time.Duration) (string, error)
+pkg gorbital.dev/modules/storage/local, method (*Store) Stat(context.Context, string) (storage.Object, error)
+pkg gorbital.dev/modules/storage/local, type Option func(*Store)
+pkg gorbital.dev/modules/storage/local, type Store struct
+pkg gorbital.dev/modules/storage/s3, func New(Config) (*Store, error)
+pkg gorbital.dev/modules/storage/s3, method (*Store) Copy(context.Context, string, string) (storage.Object, error)
+pkg gorbital.dev/modules/storage/s3, method (*Store) Delete(context.Context, string) error
+pkg gorbital.dev/modules/storage/s3, method (*Store) Get(context.Context, string) (io.ReadCloser, storage.Object, error)
+pkg gorbital.dev/modules/storage/s3, method (*Store) Info() storage.Info
+pkg gorbital.dev/modules/storage/s3, method (*Store) List(context.Context, storage.ListOptions) (storage.Page, error)
+pkg gorbital.dev/modules/storage/s3, method (*Store) Ping(context.Context) error
+pkg gorbital.dev/modules/storage/s3, method (*Store) Put(context.Context, string, io.Reader, int64, storage.PutOptions) (storage.Object, error)
+pkg gorbital.dev/modules/storage/s3, method (*Store) SignedURL(context.Context, string, string, time.Duration) (string, error)
+pkg gorbital.dev/modules/storage/s3, method (*Store) Stat(context.Context, string) (storage.Object, error)
+pkg gorbital.dev/modules/storage/s3, type Config struct
+pkg gorbital.dev/modules/storage/s3, type Config struct, AccessKey string
+pkg gorbital.dev/modules/storage/s3, type Config struct, Bucket string
+pkg gorbital.dev/modules/storage/s3, type Config struct, Driver string
+pkg gorbital.dev/modules/storage/s3, type Config struct, Endpoint string
+pkg gorbital.dev/modules/storage/s3, type Config struct, PathStyle bool
+pkg gorbital.dev/modules/storage/s3, type Config struct, PublicURL string
+pkg gorbital.dev/modules/storage/s3, type Config struct, Region string
+pkg gorbital.dev/modules/storage/s3, type Config struct, SecretKey config.Secret
+pkg gorbital.dev/modules/storage/s3, type Config struct, UseSSL bool
+pkg gorbital.dev/modules/storage/s3, type Store struct

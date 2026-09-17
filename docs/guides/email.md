@@ -24,7 +24,7 @@ orb add mail
 
 ```text
 ┃ How should the app send email?
-┃ Switch any time by running orb add mail again. In development, email always lands in Mailpit.
+┃ Switch any time by running orb add mail again. In development, email always lands in the Dev Portal's inbox.
 ┃ > Resend: an email API, the quickest to set up (recommended)
 ┃   SMTP: Amazon SES, Postmark, Mailgun, Google Workspace or your own server
 ```
@@ -48,7 +48,7 @@ All flags are in the [CLI guide](cli.md#orb-add-mail).
 | Resend API key | `.env`: `RESEND_API_KEY` | Edit `.env`, restart |
 | Resend webhook signing secret | `.env`: `RESEND_WEBHOOK_SECRET` (optional) | Edit `.env`, restart |
 | SMTP server and login | `.env`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_TLS`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Edit `.env`, restart |
-| Mailpit or real email | `.env`: `MAIL_DELIVERY` (`mailpit` or `provider`; empty means Mailpit in development, provider in production) | Edit `.env`, restart |
+| The dev inbox, Mailpit or real email | `.env`: `MAIL_DELIVERY` (`devmail`, `mailpit` or `provider`; empty means the Dev Portal's inbox in development, provider in production) | Edit `.env`, restart |
 | Sender name | Runtime setting `mail.from_name` (default: the app name) | `PUT /ops/settings/mail.from_name`, live |
 | Sender address | Runtime setting `mail.from_email` (default: `no-reply@example.com`) | `PUT /ops/settings/mail.from_email`, live |
 | Reply-to address | Runtime setting `mail.reply_to` (default: none) | `PUT /ops/settings/mail.reply_to`, live |
@@ -171,11 +171,13 @@ curl -X DELETE http://127.0.0.1:8080/ops/mail/suppressions/12 \
 
 Listing needs `ops.mail.read` (`platform_admin`, `ops_viewer`); removing needs `ops.mail.write` (`platform_admin`). The address is suppressed again at its next hard bounce or complaint.
 
-## Development: Mailpit
+## Development: the inbox in the Dev Portal
 
-`docker compose up -d --wait` starts Mailpit next to PostgreSQL. With `MAIL_DELIVERY` empty, every email the app sends, whatever the provider, lands in the inbox at **http://127.0.0.1:8025**, and nobody real is emailed.
+With `MAIL_DELIVERY` empty (or `devmail`), every email the app sends, whatever the provider, goes to `orb dev`'s mail catcher ([ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)): an SMTP server `orb dev` runs on `DEV_MAIL_SMTP_ADDR` (default `127.0.0.1:1025`), whose inbox is the Dev Portal's **Mail** screen (http://127.0.0.1:3100/mail): the message as HTML, text or source, verification codes with a copy button, links, attachments. Messages are kept under `.orb/portal/mail` (the last 500), so they survive the app's restarts; nobody real is emailed. Without the portal (`orb dev --no-portal`) the catcher doesn't run: use Mailpit or the provider.
 
-To try the real provider while developing, set `MAIL_DELIVERY=provider` in `.env` with its credentials, and restart.
+The Mail screen also renders the app's **email previews** with sample data and sends one to the inbox: the auth module's messages (`auth.EmailPreviews`) and the plain test message, listed in `internal/app/mail_previews.go`, where you add your own. The dev console serves them at `GET /_dev/mail/previews`, `GET /_dev/mail/preview?name=` and `POST /_dev/mail/preview/send?name=&to=`.
+
+Prefer Mailpit? Run it yourself (or keep the `mailpit` service an older `compose.yaml` has), set `MAIL_DELIVERY=mailpit` and `MAILPIT_SMTP_ADDR`; `/_dev/mail` then proxies its inbox. To try the real provider while developing, set `MAIL_DELIVERY=provider` in `.env` with its credentials, and restart.
 
 ## Send email from code
 
@@ -217,9 +219,9 @@ Retried and cancelled runs keep their error messages; message contents and recip
 
 | Variable | Provider | Default | Notes |
 |---|---|---|---|
-| `MAIL_DELIVERY` | both | `mailpit` (development), `provider` (production) | `mailpit` is refused in production |
-| `MAILPIT_SMTP_ADDR` | both | `127.0.0.1:1025` | Mailpit's SMTP address |
-| `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT` | both | `1025`, `8025` | Host ports in `compose.yaml` |
+| `MAIL_DELIVERY` | both | `devmail` (development), `provider` (production) | `devmail` and `mailpit` are refused in production |
+| `DEV_MAIL_SMTP_ADDR` | both | `127.0.0.1:1025` | Where `orb dev`'s mail catcher listens ([ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)) |
+| `MAILPIT_SMTP_ADDR` | both | `127.0.0.1:1025` | A Mailpit you run, with `MAIL_DELIVERY=mailpit` |
 | `RESEND_API_KEY` | Resend | none | Required when delivery is `provider` |
 | `RESEND_WEBHOOK_SECRET` | Resend | none | The webhook's signing secret (`whsec_…`); empty turns `POST /v1/webhooks/resend` off |
 | `SMTP_HOST` | SMTP | none | Required when delivery is `provider` |

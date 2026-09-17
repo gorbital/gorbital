@@ -4,27 +4,101 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+⟦- if eq .Kind "http"⟧
+	"net/http"
+	"net/http/httptest"
+⟦- end⟧
 	"strings"
 	"testing"
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
+⟦- if eq .Kind "email"⟧
+
+	"gorbital.dev/mail"
+⟦- end⟧
 
 	"⟦.Module⟧/internal/jobs/⟦.Package⟧"
 )
 
 func TestWorker(t *testing.T) {
 	var logs bytes.Buffer
-	w := ⟦.Package⟧.NewWorker(slog.New(slog.NewJSONHandler(&logs, nil)))
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
+⟦- if eq .Kind "custom"⟧
+	w := ⟦.Package⟧.NewWorker(logger)
+⟦- end⟧
+⟦- if eq .Kind "http"⟧
+	// The URL is fixed in the package, so the request goes to a local
+	// server through a transport that rewrites its host.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != ⟦.Package⟧.Method {
+			t.Errorf("method = %s, want %s", r.Method, ⟦.Package⟧.Method)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	w := ⟦.Package⟧.NewWorker(logger, &http.Client{Transport: rewriteTo(srv.URL)})
+⟦- end⟧
+⟦- if eq .Kind "sql"⟧
+	// Running the statement needs the database, which the app's e2e tests
+	// have; here the worker's shape is checked.
+	w := ⟦.Package⟧.NewWorker(logger, nil)
+⟦- end⟧
+⟦- if eq .Kind "email"⟧
+	var sent []mail.Message
+	w := ⟦.Package⟧.NewWorker(logger, mail.SenderFunc(func(_ context.Context, m mail.Message) error {
+		sent = append(sent, m)
+		return nil
+	}))
+⟦- end⟧
+⟦- if eq .Kind "dispatch"⟧
+	var started []string
+	w := ⟦.Package⟧.NewWorker(logger, func(_ context.Context, name string) error {
+		started = append(started, name)
+		return nil
+	})
+⟦- end⟧
 
 	job := &river.Job[⟦.Package⟧.Args]{JobRow: &rivertype.JobRow{ID: 7, Attempt: 1}}
+⟦- if eq .Kind "sql"⟧
+	_, _ = w, job
+	if strings.TrimSpace(⟦.Package⟧.Statement) == "" {
+		t.Error("Statement is empty")
+	}
+⟦- else⟧
 	if err := w.Work(context.Background(), job); err != nil {
 		t.Fatalf("Work() error = %v", err)
 	}
 	if !strings.Contains(logs.String(), `"job_id":7`) {
 		t.Errorf("logs = %s, want a line with the job ID", logs.String())
 	}
+⟦- end⟧
+⟦- if eq .Kind "email"⟧
+	if len(sent) != 1 || sent[0].To[0].Address != ⟦.Package⟧.To || sent[0].Subject != ⟦.Package⟧.Subject || sent[0].IdempotencyKey == "" {
+		t.Errorf("sent = %+v", sent)
+	}
+⟦- end⟧
+⟦- if eq .Kind "dispatch"⟧
+	if len(started) != 1 || started[0] != ⟦.Package⟧.Target {
+		t.Errorf("started = %v, want %s", started, ⟦.Package⟧.Target)
+	}
+⟦- end⟧
 	if (⟦.Package⟧.Args{}).Kind() != ⟦.Package⟧.Name {
 		t.Error("Args.Kind() doesn't return Name")
 	}
 }
+⟦- if eq .Kind "http"⟧
+
+// rewriteTo sends every request to base, keeping the path.
+type rewriteTo string
+
+func (r rewriteTo) RoundTrip(req *http.Request) (*http.Response, error) {
+	clone := req.Clone(req.Context())
+	target, err := clone.URL.Parse(string(r) + req.URL.Path)
+	if err != nil {
+		return nil, err
+	}
+	clone.URL, clone.Host = target, target.Host
+	return http.DefaultTransport.RoundTrip(clone)
+}
+⟦- end⟧

@@ -69,6 +69,7 @@ pkg gorbital.dev/modules/auth, func ClearSessionCookie(string) *http.Cookie
 pkg gorbital.dev/modules/auth, func ClientInfoFrom(*http.Request) ClientInfo
 pkg gorbital.dev/modules/auth, func ClientInfoFromContext(context.Context) ClientInfo
 pkg gorbital.dev/modules/auth, func CodeMatches(string, string, []byte) bool
+pkg gorbital.dev/modules/auth, func EmailPreviews(string) []EmailPreview
 pkg gorbital.dev/modules/auth, func HashAPIKey(string) []byte
 pkg gorbital.dev/modules/auth, func HashCode(string, string) []byte
 pkg gorbital.dev/modules/auth, func HashRecoveryCode(string, string) []byte
@@ -143,6 +144,11 @@ pkg gorbital.dev/modules/auth, type Catalog struct
 pkg gorbital.dev/modules/auth, type ClientInfo struct
 pkg gorbital.dev/modules/auth, type ClientInfo struct, IP string
 pkg gorbital.dev/modules/auth, type ClientInfo struct, UserAgent string
+pkg gorbital.dev/modules/auth, type EmailPreview struct
+pkg gorbital.dev/modules/auth, type EmailPreview struct, Build func(context.Context, string) (mail.Message, error)
+pkg gorbital.dev/modules/auth, type EmailPreview struct, Category string
+pkg gorbital.dev/modules/auth, type EmailPreview struct, Description string
+pkg gorbital.dev/modules/auth, type EmailPreview struct, Name string
 pkg gorbital.dev/modules/auth, type Emails interface { SendAccountExists, SendPasskeyAdded, SendPasskeyRemoved, SendPasswordChanged, SendPasswordResetCode, SendRecoveryCodeUsed, SendSignInMethodAdded, SendSignInMethodRemoved, SendTwoFactorDisabled, SendTwoFactorEnabled, SendVerificationCode }
 pkg gorbital.dev/modules/auth, type Emails interface, SendAccountExists(context.Context, string) error
 pkg gorbital.dev/modules/auth, type Emails interface, SendPasskeyAdded(context.Context, string, string) error

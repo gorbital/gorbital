@@ -1,6 +1,6 @@
 # ADR-0028: Local development environment
 
-**Status:** Accepted (2026-09-14) · **Amends:** ADR-0007, ADR-0010 · **Amended by:** ADR-0042 (seed password printed once, never stored), ADR-0065 (dev console APIs)
+**Status:** Accepted (2026-09-14) · **Amends:** ADR-0007, ADR-0010 · **Amended by:** ADR-0042 (seed password printed once, never stored), ADR-0065 (dev console APIs), ADR-0066 (the Dev Portal served by `orb dev`)
 
 ## Context
 

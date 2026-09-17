@@ -34,6 +34,7 @@ pkg gorbital.dev/modules/devconsole, func WithStreams(int, time.Duration) Option
 pkg gorbital.dev/modules/devconsole, method (*Console) Close()
 pkg gorbital.dev/modules/devconsole, method (*Console) Middleware() func(http.Handler) http.Handler
 pkg gorbital.dev/modules/devconsole, method (*Console) Mount(http.Handler, *slog.Logger) http.Handler
+pkg gorbital.dev/modules/devconsole, method (*Console) Operator(string, actor.Actor, *slog.Logger) func(http.Handler) http.Handler
 pkg gorbital.dev/modules/devconsole, method (*Console) RecordRequest(Request)
 pkg gorbital.dev/modules/devconsole, method (*EnvKeys) List() []EnvKey
 pkg gorbital.dev/modules/devconsole, method (*EnvKeys) Read(string, string)
@@ -119,6 +120,26 @@ pkg gorbital.dev/modules/devconsole, type Mail struct
 pkg gorbital.dev/modules/devconsole, type Mail struct, Messages []Message
 pkg gorbital.dev/modules/devconsole, type Mail struct, Total int
 pkg gorbital.dev/modules/devconsole, type Mail struct, WebURL string
+pkg gorbital.dev/modules/devconsole, type MailPreview struct
+pkg gorbital.dev/modules/devconsole, type MailPreview struct, Category string
+pkg gorbital.dev/modules/devconsole, type MailPreview struct, Description string
+pkg gorbital.dev/modules/devconsole, type MailPreview struct, Name string
+pkg gorbital.dev/modules/devconsole, type MailPreviewList struct
+pkg gorbital.dev/modules/devconsole, type MailPreviewList struct, Previews []MailPreview
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct, HTML string
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct, Subject string
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct, Text string
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct, To string
+pkg gorbital.dev/modules/devconsole, type MailPreviewMessage struct, embedded MailPreview
+pkg gorbital.dev/modules/devconsole, type MailPreviewSent struct
+pkg gorbital.dev/modules/devconsole, type MailPreviewSent struct, Name string
+pkg gorbital.dev/modules/devconsole, type MailPreviewSent struct, Sent bool
+pkg gorbital.dev/modules/devconsole, type MailPreviewSent struct, To string
+pkg gorbital.dev/modules/devconsole, type MailPreviewer struct
+pkg gorbital.dev/modules/devconsole, type MailPreviewer struct, Build func(context.Context, string, string) (mail.Message, error)
+pkg gorbital.dev/modules/devconsole, type MailPreviewer struct, Previews []MailPreview
+pkg gorbital.dev/modules/devconsole, type MailPreviewer struct, Send func(context.Context, mail.Message) error
 pkg gorbital.dev/modules/devconsole, type Message struct
 pkg gorbital.dev/modules/devconsole, type Message struct, Attachments int
 pkg gorbital.dev/modules/devconsole, type Message struct, Created time.Time
@@ -181,6 +202,7 @@ pkg gorbital.dev/modules/devconsole, type Sources struct, App func(context.Conte
 pkg gorbital.dev/modules/devconsole, type Sources struct, Config func(context.Context) ([]EnvKey, error)
 pkg gorbital.dev/modules/devconsole, type Sources struct, Jobs func(context.Context) ([]JobRun, error)
 pkg gorbital.dev/modules/devconsole, type Sources struct, Mail func(context.Context) (Mail, error)
+pkg gorbital.dev/modules/devconsole, type Sources struct, MailPreviews *MailPreviewer
 pkg gorbital.dev/modules/devconsole, type Sources struct, Migrations func(context.Context) (Migrations, error)
 pkg gorbital.dev/modules/devconsole, type Sources struct, Routes func(context.Context) ([]Route, error)
 pkg gorbital.dev/modules/devconsole, type StreamDropped struct
@@ -190,3 +212,4 @@ pkg gorbital.dev/modules/devconsole, type StreamEnd struct, Reason string
 pkg gorbital.dev/modules/devconsole, var ErrInvalidToken error
 pkg gorbital.dev/modules/devconsole, var ErrStreamsClosed error
 pkg gorbital.dev/modules/devconsole, var ErrUnavailable error
+pkg gorbital.dev/modules/devconsole, var ErrUnknownPreview error

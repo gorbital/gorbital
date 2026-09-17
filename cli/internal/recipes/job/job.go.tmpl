@@ -5,9 +5,27 @@ package ⟦.Package⟧
 
 import (
 	"context"
+⟦- if or (eq .Kind "http") (eq .Kind "email")⟧
+	"fmt"
+⟦- end⟧
+⟦- if eq .Kind "http"⟧
+	"io"
+	"net/http"
+⟦- end⟧
 	"log/slog"
+⟦- if eq .Kind "http"⟧
+	"strings"
+⟦- end⟧
+⟦- if eq .Kind "sql"⟧
+
+	"github.com/jackc/pgx/v5/pgxpool"
+⟦- end⟧
 
 	"github.com/riverqueue/river"
+⟦- if eq .Kind "email"⟧
+
+	"gorbital.dev/mail"
+⟦- end⟧
 )
 
 // Name identifies the job. It is public API: renaming it orphans its
@@ -20,6 +38,7 @@ type Args struct{}
 
 // Kind returns [Name].
 func (Args) Kind() string { return Name }
+⟦- if eq .Kind "custom"⟧
 
 // Worker runs ⟦.Name⟧ jobs.
 type Worker struct {
@@ -39,3 +58,142 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
 	w.logger.InfoContext(ctx, "job ran", "job", Name, "job_id", job.ID, "attempt", job.Attempt)
 	return nil
 }
+⟦- end⟧
+⟦- if eq .Kind "http"⟧
+
+// The request each run sends. Change it here, or move it into Args to vary
+// it per job.
+const (
+	Method = ⟦printf "%q" .HTTPMethod⟧
+	URL    = ⟦printf "%q" .HTTPURL⟧
+	Body   = ⟦printf "%q" .HTTPBody⟧
+)
+
+// Worker runs ⟦.Name⟧ jobs: an HTTP request whose answer must be 2xx.
+type Worker struct {
+	river.WorkerDefaults[Args]
+	logger *slog.Logger
+	client *http.Client
+}
+
+// NewWorker returns a Worker sending with client.
+func NewWorker(logger *slog.Logger, client *http.Client) *Worker {
+	return &Worker{logger: logger, client: client}
+}
+
+// Work sends the request. A failed request or a non-2xx answer is an
+// error, so the job is retried.
+func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
+	req, err := http.NewRequestWithContext(ctx, Method, URL, strings.NewReader(Body))
+	if err != nil {
+		return err
+	}
+	if Body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	res, err := w.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 1<<20))
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		return fmt.Errorf("%s %s answered %d", Method, URL, res.StatusCode)
+	}
+	w.logger.InfoContext(ctx, "job ran", "job", Name, "job_id", job.ID, "attempt", job.Attempt, "status", res.StatusCode)
+	return nil
+}
+⟦- end⟧
+⟦- if eq .Kind "sql"⟧
+
+// Statement is what each run executes.
+const Statement = ⟦printf "%q" .SQL⟧
+
+// Worker runs ⟦.Name⟧ jobs: one SQL statement on the app's database.
+type Worker struct {
+	river.WorkerDefaults[Args]
+	logger *slog.Logger
+	pool   *pgxpool.Pool
+}
+
+// NewWorker returns a Worker on pool.
+func NewWorker(logger *slog.Logger, pool *pgxpool.Pool) *Worker {
+	return &Worker{logger: logger, pool: pool}
+}
+
+// Work runs the statement. An error retries the job.
+func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
+	tag, err := w.pool.Exec(ctx, Statement)
+	if err != nil {
+		return err
+	}
+	w.logger.InfoContext(ctx, "job ran", "job", Name, "job_id", job.ID, "attempt", job.Attempt, "rows", tag.RowsAffected())
+	return nil
+}
+⟦- end⟧
+⟦- if eq .Kind "email"⟧
+
+// The message each run sends. The sender comes from the mail.* runtime
+// settings.
+const (
+	To      = ⟦printf "%q" .EmailTo⟧
+	Subject = ⟦printf "%q" .EmailSubject⟧
+	Text    = ⟦printf "%q" .EmailText⟧
+)
+
+// Worker runs ⟦.Name⟧ jobs: it sends an email.
+type Worker struct {
+	river.WorkerDefaults[Args]
+	logger *slog.Logger
+	mailer mail.Sender
+}
+
+// NewWorker returns a Worker sending through mailer.
+func NewWorker(logger *slog.Logger, mailer mail.Sender) *Worker {
+	return &Worker{logger: logger, mailer: mailer}
+}
+
+// Work sends the message. The job ID is the idempotency key, so a retry
+// never sends twice.
+func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
+	err := w.mailer.Send(ctx, mail.Message{
+		To:             []mail.Address{{Address: To}},
+		Subject:        Subject,
+		Text:           Text,
+		IdempotencyKey: fmt.Sprintf("%s-%d", Name, job.ID),
+		Tags:           map[string]string{"job": Name},
+	})
+	if err != nil {
+		return err
+	}
+	w.logger.InfoContext(ctx, "job ran", "job", Name, "job_id", job.ID, "attempt", job.Attempt)
+	return nil
+}
+⟦- end⟧
+⟦- if eq .Kind "dispatch"⟧
+
+// Target is the job each run starts.
+const Target = ⟦printf "%q" .DispatchTarget⟧
+
+// Worker runs ⟦.Name⟧ jobs: it starts another job by name, as
+// POST /ops/jobs/definitions/{name}/run does.
+type Worker struct {
+	river.WorkerDefaults[Args]
+	logger *slog.Logger
+	run    func(ctx context.Context, name string) error
+}
+
+// NewWorker returns a Worker starting jobs with run.
+func NewWorker(logger *slog.Logger, run func(ctx context.Context, name string) error) *Worker {
+	return &Worker{logger: logger, run: run}
+}
+
+// Work starts the target job. An error retries this one.
+func (w *Worker) Work(ctx context.Context, job *river.Job[Args]) error {
+	if err := w.run(ctx, Target); err != nil {
+		return err
+	}
+	w.logger.InfoContext(ctx, "job ran", "job", Name, "job_id", job.ID, "attempt", job.Attempt, "started", Target)
+	return nil
+}
+⟦- end⟧

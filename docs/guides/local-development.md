@@ -21,6 +21,18 @@ orb version
 
 If `orb` isn't found, add `$(go env GOPATH)/bin` to your `PATH`. Reinstall after pulling changes. See the [CLI guide](cli.md).
 
+## The Dev Portal UI
+
+`orb dev` serves the [Dev Portal](dev-portal.md), whose UI is built in [gorbital-dashboards](https://github.com/gorbital/gorbital-dashboards) and embedded in `orb` at build time. A plain checkout builds an `orb` that serves a placeholder page instead; the API and proxy still work, and every Go test passes without Node. To embed the UI:
+
+```bash
+git clone https://github.com/gorbital/gorbital-dashboards.git ../gorbital-dashboards   # next to this checkout
+scripts/sync-portal.sh               # needs Node 22 and pnpm 10; copies the export into cli/internal/portal/ui/dist (ignored by git)
+cd cli && go install ./cmd/orb
+```
+
+The release workflow runs the same script at a pinned gorbital-dashboards ref, so released binaries carry the UI.
+
 ## Repository layout
 
 Each directory with a `go.mod` is its own Go module: the core library at the root, `modules/*`, `cli`, and each `examples/*` app. Run Go commands inside the module you are working on; `replace` directives point modules at the local checkout.
@@ -40,7 +52,7 @@ Set `GORBITAL_POSTGRES_PORT` to use another host port.
 
 ## Mailpit
 
-The same `compose.yaml` runs [Mailpit](https://mailpit.axllent.org), a local email inbox, for the SMTP module and example tests: SMTP on **127.0.0.1:51025**, web inbox on **http://127.0.0.1:58025** (`GORBITAL_MAILPIT_SMTP_PORT` and `GORBITAL_MAILPIT_WEB_PORT` to change). Apps have their own Mailpit in their `compose.yaml`, on 1025 and 8025 ([email guide](email.md)).
+The same `compose.yaml` runs [Mailpit](https://mailpit.axllent.org), a local email inbox, for the SMTP module and example tests: SMTP on **127.0.0.1:51025**, web inbox on **http://127.0.0.1:58025** (`GORBITAL_MAILPIT_SMTP_PORT` and `GORBITAL_MAILPIT_WEB_PORT` to change). Apps send their own email to `orb dev`'s mail catcher on 127.0.0.1:1025, read in the Dev Portal ([email guide](email.md), [ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)).
 
 ## Running tests
 
@@ -90,7 +102,7 @@ go run ./cmd/api openapi --dir api
 
 ```bash
 cd examples/full-single
-orb dev      # .env, its own PostgreSQL on 127.0.0.1:5432 and Mailpit on http://127.0.0.1:8025, migrations, seed data
+orb dev      # .env, its own PostgreSQL on 127.0.0.1:5432, the mail catcher on 127.0.0.1:1025, migrations, seed data
 ```
 
 The first run prints the seeded administrator's password (`admin@example.com`) once. Every run also prints a new token for the development-only `/_dev/` APIs (recent requests and logs, routes, configuration without secrets, captured email): see [dev console APIs](dev-console.md). Without the CLI:

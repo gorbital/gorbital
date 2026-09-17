@@ -3,6 +3,10 @@ module example.com/acme-api
 go 1.26.0
 
 require (
+	github.com/danielgtaylor/huma/v2 v2.39.1
+	github.com/jackc/pgx/v5 v5.11.0
+	github.com/riverqueue/river v0.47.0
+	github.com/riverqueue/river/rivertype v0.47.0
 	gorbital.dev v0.0.0
 	gorbital.dev/modules/auditpg v0.0.0
 	gorbital.dev/modules/auth v0.0.0
@@ -18,15 +22,13 @@ require (
 	gorbital.dev/modules/postgres v0.0.0
 	gorbital.dev/modules/ratelimitpg v0.0.0
 	gorbital.dev/modules/settings v0.0.0
+	gorbital.dev/modules/storage v0.0.0
 	gorbital.dev/modules/telemetry v0.0.0
-	github.com/danielgtaylor/huma/v2 v2.39.1
-	github.com/jackc/pgx/v5 v5.11.0
-	github.com/riverqueue/river v0.47.0
-	github.com/riverqueue/river/rivertype v0.47.0
 )
 
 require (
 	github.com/coreos/go-oidc/v3 v3.21.0 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
@@ -34,15 +36,24 @@ require (
 	github.com/go-webauthn/x v0.3.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/go-tpm v0.9.8 // indirect
+	github.com/klauspost/compress v1.19.2 // indirect
+	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
+	github.com/klauspost/crc32 v1.3.0 // indirect
+	github.com/minio/crc64nvme v1.1.1 // indirect
+	github.com/minio/md5-simd v1.1.2 // indirect
+	github.com/minio/minio-go/v7 v7.3.0 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
+	github.com/rs/xid v1.6.0 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	github.com/zeebo/xxh3 v1.1.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
+	gopkg.in/ini.v1 v1.67.3 // indirect
 	rsc.io/qr v0.2.0 // indirect
 )
 
 require (
-	gorbital.dev/modules/releases v0.0.0
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -95,6 +106,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260831171406-18b4a7587f8a // indirect
 	google.golang.org/grpc v1.83.2 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
+	gorbital.dev/modules/releases v0.0.0
 )
 
 replace (
@@ -113,6 +125,7 @@ replace (
 	gorbital.dev/modules/postgres => ../../modules/postgres
 	gorbital.dev/modules/ratelimitpg => ../../modules/ratelimitpg
 	gorbital.dev/modules/settings => ../../modules/settings
+	gorbital.dev/modules/storage => ../../modules/storage
 	gorbital.dev/modules/telemetry => ../../modules/telemetry
 )
 

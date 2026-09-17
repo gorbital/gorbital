@@ -32,6 +32,7 @@ import (
 	"gorbital.dev/modules/postgres"
 	"gorbital.dev/modules/releases"
 	"gorbital.dev/modules/settings"
+	"gorbital.dev/modules/storage"
 	"gorbital.dev/modules/telemetry"
 
 	"example.com/acme-api/internal/jobs/authcleanup"
@@ -60,6 +61,9 @@ type App struct {
 	flags       *flags.Store
 	jobs        *jobs.Client
 	jobsManager *jobs.Manager
+	mailer      mail.Sender   // sends email; set once jobs exist (jobs.go)
+	storage     storage.Store // file storage (storage.go)
+	storageURLs http.Handler  // serves local signed URLs; nil for other drivers
 	auth        *authmodule.Module
 	releases    *releases.Tracker
 	collector   *observability.Collector
@@ -99,9 +103,12 @@ func newBase(ctx context.Context, cfg Config) (*App, error) {
 		return nil, err
 	}
 
-	format := telemetry.LogFormatText
-	if cfg.Production() {
-		format = telemetry.LogFormatJSON
+	format := telemetry.LogFormat(cfg.LogFormat)
+	if format == "" {
+		format = telemetry.LogFormatText
+		if cfg.Production() {
+			format = telemetry.LogFormatJSON
+		}
 	}
 	tel, err := telemetry.Setup(ctx, ServiceName, buildinfo.Read().Version,
 		telemetry.WithOTLPExport(cfg.OTLPEndpoint != ""),
@@ -196,6 +203,11 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
+	// File storage (storage.go, ADR-0075).
+	if a.storage, a.storageURLs, err = newStorage(a.cfg); err != nil {
+		return err
+	}
+
 	// Request minutes and incidents (observability.go, ADR-0064).
 	observabilityStore, err := newObservabilityStore(pool)
 	if err != nil {
@@ -204,8 +216,13 @@ func (a *App) build(ctx context.Context) error {
 
 	defs := jobs.NewDefinitions()
 	defineJobs(defs, jobDeps{
-		logger:             a.logger,
-		recorder:           recorder,
+		logger:     a.logger,
+		recorder:   recorder,
+		pool:       pool,
+		httpClient: &http.Client{Timeout: 30 * time.Second},
+		// a.mailer and a.jobsManager are built below, before any job runs.
+		mailer:             mail.SenderFunc(func(ctx context.Context, m mail.Message) error { return a.mailer.Send(ctx, m) }),
+		runJob:             func(ctx context.Context, name string) error { _, err := a.jobsManager.RunNow(ctx, name); return err },
 		rateLimitCleanup:   limits.store.DeleteExpired,
 		idempotencyCleanup: idempotencyStore.DeleteExpired,
 		// Request minutes and automatic incidents (ADR-0064).
@@ -230,13 +247,13 @@ func (a *App) build(ctx context.Context) error {
 	a.jobs, err = jobs.New(pool, workers,
 		jobs.WithQueues(map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: a.cfg.JobWorkers}}),
 		jobs.WithDefinitions(defs),
-		jobs.WithLogger(a.logger),
+		jobs.WithLogger(a.logger.With("source", "jobs")), // the Dev Portal's log sources (ADR-0072)
 		jobs.WithTracerProvider(a.tel.TracerProvider()),
 	)
 	if err != nil {
 		return err
 	}
-	a.jobsManager, err = jobs.NewManager(ctx, pool, a.jobs, recorder, jobs.WithManagerLogger(a.logger))
+	a.jobsManager, err = jobs.NewManager(ctx, pool, a.jobs, recorder, jobs.WithManagerLogger(a.logger.With("source", "jobs")))
 	if err != nil {
 		return err
 	}
@@ -244,12 +261,14 @@ func (a *App) build(ctx context.Context) error {
 	// Modules send email through mailer: it fills the sender from the mail.*
 	// runtime settings and queues the message for the mail worker.
 	mailer := mail.WithDefaults(jobs.AsyncSender(a.jobs), appSettings.mailDefaults())
+	a.mailer = mailer
 	warnDefaultSender(ctx, a.logger, a.cfg, appSettings)
 
 	// Authentication: users, sessions and the platform roles that grant ops
 	// permissions (permissions.go).
 	google, apple, gitHub := a.cfg.Social.providers(a.cfg.ProviderEndpoints)
 	a.auth, err = authmodule.New(pool, authusecase.Config{
+		Impersonation:           a.cfg.devConsoleOn(), // operators act as a user only in development (ADR-0070)
 		LoginLimiter:            limits.login,
 		LoginAddressLimiter:     limits.loginAddress,
 		MFALimiter:              limits.mfa,
@@ -270,7 +289,7 @@ func (a *App) build(ctx context.Context) error {
 		Keyring:                 a.cfg.keyring(),
 		Issuer:                  ServiceName,
 		Passkeys:                a.cfg.WebAuthn.passkeys(),
-		Logger:                  a.logger,
+		Logger:                  a.logger.With("source", "auth"),
 		SessionIdleTTL:          appSettings.authSessionIdleTTL,
 		SessionAbsoluteTTL:      appSettings.authSessionAbsoluteTTL,
 		VerificationCodeTTL:     appSettings.authVerificationCodeTTL,
@@ -330,8 +349,12 @@ func (a *App) build(ctx context.Context) error {
 			SignInMethods: a.cfg.signInMethods,
 			// Test emails each operator may send (rate_limits.go).
 			TestEmailLimiter: limits.testEmail,
+			// The limiters and their resets for /ops/auth/rate-limits (ADR-0070).
+			RateLimits: limits,
 			// Suppressed addresses for /ops/mail/suppressions (ADR-0062).
 			Suppressions: suppressions,
+			// File storage for /ops/storage (ADR-0075).
+			Storage: a.storage,
 			// Live observability and incidents (ADR-0064).
 			Observability:  observabilityStore,
 			Incidents:      observabilityStore,
@@ -353,7 +376,7 @@ func (a *App) build(ctx context.Context) error {
 			}},
 		},
 		// The provider's bounce and complaint webhook (infra_mail.go).
-		mailEvents: maileventsusecase.Deps{Reader: a.cfg.Mail.webhookReader(), Suppressions: suppressions, Recorder: recorder, Logger: a.logger},
+		mailEvents: maileventsusecase.Deps{Reader: a.cfg.Mail.webhookReader(), Suppressions: suppressions, Recorder: recorder, Logger: a.logger.With("source", "mail")},
 		pingTime:   appFlags.pingTime,
 		flags:      a.flags,
 		collector:  a.collector,

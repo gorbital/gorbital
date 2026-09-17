@@ -57,6 +57,24 @@ In practice latencies spread evenly enough within a bucket that errors are a few
 
 Latency is measured from the collector's middleware to the end of the response; panic recovery, trusted proxies, request IDs and tracing, which run before it, aren't included.
 
+## The local log store
+
+In development, `orb dev` keeps the app's log records for the Dev Portal's Logs screen ([ADR-0072](../adr/0072-local-log-store.md)): every line the app writes (JSON, since `orb dev` sets `APP_LOG_FORMAT=json` unless `.env` chose; the terminal still shows text), `orb dev`'s own messages, and the PostgreSQL container's log when `orb dev` started the services. Records are JSON Lines under `.orb/portal/logs` (gitignored, mode 0600): segments of 8 MiB, 64 MiB in all, the oldest segment dropped first, so the store is bounded and survives the app's restarts. Each record has a `source` (`http` for the access log, `auth`, `jobs` and `mail` from the loggers the app hands those parts, `postgres`, `orb`, or `app`), and request records carry `method`, `path`, `route`, `status`, `duration_ms`, `request_id` and the signed-in `user_id`, so the screen filters by any of them. The Project Settings screen shows the store's size and clears it; `rm -r .orb/portal/logs` does the same.
+
+The store is development only: production logs go wherever `APP_LOG_FORMAT=json` output is shipped.
+
+## The Observability screen
+
+The Dev Portal's Observability screen ([Dev Portal guide](dev-portal.md), [ADR-0073](../adr/0073-observability-screen.md)) shows the overview above for the running app, and what only the developer's machine can see:
+
+- **Health**: the app's readiness, PostgreSQL (connections against `max_connections`, sessions waiting on locks), Mailpit, and every other Compose service's state.
+- **Database**: `GET /_portal/api/db/stats` reads `pg_stat_database`, `pg_stat_activity`, `pg_locks` and the relation sizes: cache and index hit ratios, transactions and deadlocks, the largest tables with their scans and dead rows, lock waits with the blocking sessions, and statements running for over a second. The pool's counters come from `/ops/system`.
+- **Queries**: `GET /_portal/api/db/statements` reads `pg_stat_statements`, sorted by total time, mean time, calls, rows or max time, with each statement's share of the total and its buffer hit ratio; Explain runs the SQL editor's `EXPLAIN` on the normalised text; Reset forgets the counters. The development `compose.yaml` preloads the extension (`command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]`); `orb dev` creates it on first use. Without the preload the view says what to add.
+- **Advice**: `GET /_portal/api/db/advice` lists foreign keys without an index, indexes never scanned since the statistics reset, tables read mostly by sequential scans, and tables waiting for a vacuum, each with its numbers and the SQL to run in the SQL editor. They are suggestions: check them against real traffic before a migration.
+- **System**: `GET /_portal/api/system` is `orb dev`'s sample (every 2 seconds, `gopsutil`) of the host's CPU, load, memory and the app directory's volume, and of the app process and `orb` themselves (CPU, resident memory, threads, open files); the Go runtime (goroutines, heap, GC) comes from `/ops/system`.
+
+Traces stay in Grafana: `orb dev --observability` ([local development](local-development.md)).
+
 ## Streaming it
 
 `GET /ops/observability/stream` sends the overview as [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html) every 5 seconds:

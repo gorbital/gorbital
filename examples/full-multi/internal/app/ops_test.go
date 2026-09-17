@@ -118,7 +118,7 @@ func TestOpsRoutesRequirePermissions(t *testing.T) {
 		t.Errorf("PUT /ops/settings as ops_viewer = %d %s, want 403", r.code, r.body)
 	}
 	admin, _ := signIn(t, a, "admin@example.com", "platform_admin")
-	if r := do(t, h, "POST", "/ops/mail/test", `{"to":"ops@example.com"}`, admin...); r.code != http.StatusAccepted || r.json["delivery"] != "mailpit" {
+	if r := do(t, h, "POST", "/ops/mail/test", `{"to":"ops@example.com"}`, admin...); r.code != http.StatusAccepted || r.json["delivery"] != "devmail" {
 		t.Errorf("POST /ops/mail/test as platform_admin = %d %s, want 202", r.code, r.body)
 	}
 	// Test emails are limited per operator (security review OPS-8).

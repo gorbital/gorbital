@@ -99,3 +99,24 @@ func (s *Store) DeleteExpired(ctx context.Context, limit int) (int64, error) {
 	tag, err := s.pool.Exec(ctx, deleteExpiredSQL, clock, limit)
 	return tag.RowsAffected(), err
 }
+
+// resetSQL forgets one key's bucket, so its next request is allowed as a
+// new key's.
+const resetSQL = `DELETE FROM ratelimit_buckets WHERE key = $1`
+
+// Reset forgets the budget of key under the limiter named name, for
+// operators unblocking a client (ADR-0070). It reports whether a bucket
+// existed. Local and fallback limiters in memory keep their own state,
+// which empties within the window.
+func (s *Store) Reset(ctx context.Context, name, key string) (bool, error) {
+	if name == "" || key == "" {
+		return false, ratelimit.ErrEmptyKey
+	}
+	ctx, cancel := context.WithTimeout(ctx, DecisionTimeout)
+	defer cancel()
+	tag, err := s.pool.Exec(ctx, resetSQL, hashKey(name, key))
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}

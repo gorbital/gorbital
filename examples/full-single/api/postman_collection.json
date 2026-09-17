@@ -267,6 +267,773 @@
               ]
             }
           }
+        },
+        {
+          "name": "List the rate limiters",
+          "request": {
+            "method": "GET",
+            "description": "Each limiter's name and what its keys are. Budgets can't be listed (keys are stored hashed); reset one with `POST /ops/auth/rate-limits/reset`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/rate-limits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "rate-limits"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Forget a key's budget under a limiter",
+          "request": {
+            "method": "POST",
+            "description": "The next request from that key is treated as its first. Audited as ops.rate_limit.reset, naming the limiter only.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/rate-limits/reset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "rate-limits",
+                "reset"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"string\",\n  \"name\": \"auth_login\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List accounts",
+          "request": {
+            "method": "GET",
+            "description": "Newest first; `q` matches part of the address or an ID. Deleted accounts aren't listed; banned ones are.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "string",
+                  "description": "Part of the email address, or an ID",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create an account",
+          "request": {
+            "method": "POST",
+            "description": "As `orb dev`'s seed data does: the address can be marked verified.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ada@example.com\",\n  \"password\": \"string\",\n  \"email_verified\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get an account",
+          "request": {
+            "method": "GET",
+            "description": "With its sessions, passkeys, linked providers, second factors and usable codes (without the codes: they arrive by email).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete an account",
+          "request": {
+            "method": "DELETE",
+            "description": "What the owner's own deletion does, without their password: sessions and keys are revoked, providers unlinked, and the data removed after the retention period.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ban an account",
+          "request": {
+            "method": "POST",
+            "description": "The account can't sign in; its sessions and API keys are revoked at once.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/ban",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "ban"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Unlink a Google, Apple or GitHub account",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/identities/:identityId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "identities",
+                ":identityId"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                },
+                {
+                  "key": "identityId",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Start a session as an account (development only)",
+          "request": {
+            "method": "POST",
+            "description": "Available only while the app runs with the dev console (`orb dev`); production answers 403 `impersonation_off`. The session is audited as `auth.user.impersonated`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/impersonate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "impersonate"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mfa_verified\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Turn on an authenticator app for an account",
+          "request": {
+            "method": "POST",
+            "description": "Returns the secret and recovery codes once, as seed data does for the administrator.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/mfa/enroll",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "mfa",
+                "enroll"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reset an account's second factors",
+          "request": {
+            "method": "POST",
+            "description": "Removes the authenticator app, passkeys and recovery codes and ends every session, for a person locked out.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/mfa/reset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "mfa",
+                "reset"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove a passkey from an account",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/passkeys/:passkeyId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "passkeys",
+                ":passkeyId"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                },
+                {
+                  "key": "passkeyId",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Grant a platform role",
+          "request": {
+            "method": "POST",
+            "description": "The address must be verified.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "roles"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"platform_admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Revoke a platform role",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/roles/:role",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "roles",
+                ":role"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                },
+                {
+                  "key": "role",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "End every session of an account",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "sessions"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "End one session of an account",
+          "request": {
+            "method": "DELETE",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/sessions/:sessionId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "sessions",
+                ":sessionId"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                },
+                {
+                  "key": "sessionId",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Lift a ban",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/unban",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "unban"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark an address verified",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/auth/users/:id/verify-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "auth",
+                "users",
+                ":id",
+                "verify-email"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "string"
+                }
+              ]
+            }
+          }
         }
       ]
     },
@@ -2452,6 +3219,378 @@
                   "value": "key_nbswy3dpeb3w64tmmq"
                 }
               ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops: storage",
+      "item": [
+        {
+          "name": "Describe file storage",
+          "request": {
+            "method": "GET",
+            "description": "The driver, bucket and endpoint, and whether the service answers. `local` is the development driver on this machine.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a directory",
+          "request": {
+            "method": "POST",
+            "description": "Object stores have no directories: this stores a hidden `.keep` marker so the prefix appears in listings. Audited as `storage.directory.created`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/directories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "directories"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"prefix\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Describe an object",
+          "request": {
+            "method": "GET",
+            "description": "Size, content type, ETag, modification time and metadata of the object named by `key`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string",
+                  "description": "The object's key"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Upload an object",
+          "request": {
+            "method": "PUT",
+            "description": "Stores the request body under `key`, replacing any object there. The `Content-Type` header is the object's; the key's extension decides otherwise. Audited as `storage.object.uploaded`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "string"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete an object",
+          "request": {
+            "method": "DELETE",
+            "description": "Removes the object named by `key`; a missing key is fine. Audited as `storage.object.deleted`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string",
+                  "description": "The object's key"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Download an object",
+          "request": {
+            "method": "GET",
+            "description": "The object's bytes with its content type, as an attachment.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object/content",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object",
+                "content"
+              ],
+              "query": [
+                {
+                  "key": "key",
+                  "value": "string",
+                  "description": "The object's key"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Move an object",
+          "request": {
+            "method": "POST",
+            "description": "Copies `from` to `to` and deletes `from`. Audited as `storage.object.moved`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/object/move",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "object",
+                "move"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"from\": \"string\",\n  \"to\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List objects",
+          "request": {
+            "method": "GET",
+            "description": "One page of objects under a prefix, with the directories folded at the next slash unless `recursive`. Continue with `cursor`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/objects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "objects"
+              ],
+              "query": [
+                {
+                  "key": "prefix",
+                  "value": "string",
+                  "description": "List keys under this prefix (a directory ends with a slash)",
+                  "disabled": true
+                },
+                {
+                  "key": "recursive",
+                  "value": "false",
+                  "description": "Every key under the prefix instead of one level",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "1",
+                  "description": "Page size, default 200",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create a signed URL",
+          "request": {
+            "method": "POST",
+            "description": "A URL that downloads (GET) or uploads (PUT) the object until it expires, without other credentials. Audited as `storage.signed_url.created`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ops/storage/signed-url",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ops",
+                "storage",
+                "signed-url"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"string\",\n  \"expiry_seconds\": 1,\n  \"method\": \"GET\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         }

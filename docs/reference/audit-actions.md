@@ -17,8 +17,10 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | `auth.api_key.expired` | The `auth_cleanup` job found API keys past their expiry. Records the count. |  |
 | `auth.api_key.revoked` | An API key was revoked: by its owner, by an operator or organisation admin, or because its user reset their password, deleted their account or its service account was disabled. | `count`, `reason` |
 | `auth.email.verified` | A user verified their email address with the emailed code. |  |
+| `auth.email.verified_by_operator` | An operator marked the address verified (ADR-0070). |  |
 | `auth.identity.apple_notification` | Apple sent a server-to-server notification about a linked Apple account, such as consent revoked or the account deleted. | `before_link`, `known`, `replayed`, `sessions_ended`, `type` |
 | `auth.identity.linked` | A Google, Apple or GitHub account was linked: at sign-up through the provider, or by a signed-in user (`flow`: `id_token`, or `web` for a link through the provider's page). | `flow`, `identity_id`, `new_account`, `provider`, `signed_in` |
+| `auth.identity.removed_by_operator` | An operator unlinked a Google, Apple or GitHub account (ADR-0070). | `identity_id`, `provider` |
 | `auth.identity.revocation_abandoned` | The `auth_revoke_tokens` job gave up revoking a provider's tokens after its attempts. | `attempts`, `provider`, `revocation_id` |
 | `auth.identity.unlinked` | A user unlinked a Google, Apple or GitHub account. | `identity_id`, `provider` |
 | `auth.keys.rotated` | `rotate-auth-keys` re-encrypted two-factor secrets with the first `AUTH_ENCRYPTION_KEYS` key. | `key_id`, `secrets` |
@@ -35,6 +37,7 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | `auth.passkey.clone_warning` | A passkey's signature counter didn't increase, which suggests a cloned authenticator; the ceremony was refused. | `passkey_id` |
 | `auth.passkey.registered` | A user added a passkey. | `backed_up`, `passkey_id` |
 | `auth.passkey.removed` | A user removed a passkey. | `passkey_id` |
+| `auth.passkey.removed_by_operator` | An operator removed a passkey from the account (ADR-0070). | `passkey_id` |
 | `auth.passkey.renamed` | A user renamed a passkey. | `passkey_id` |
 | `auth.password.changed` | A signed-in user changed their password. |  |
 | `auth.password.reset` | A user set a new password with a reset code; their sessions end. |  |
@@ -47,9 +50,14 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | `auth.service_account.disabled` | A service account was disabled; its keys are revoked permanently. | `revoked_keys` |
 | `auth.service_account.updated` | A service account's name, description or roles changed. | `changed`, `roles` |
 | `auth.session.revoked` | One session ended: logout, or the user revoked it from their session list. | `reason`, `user_id` |
+| `auth.session.revoked_by_operator` | An operator ended one session (metadata `session_id`) or every session (`sessions`) of the account (ADR-0070). | `session_id`, `sessions` |
 | `auth.sessions.revoked` | A user signed out everywhere (logout-all). | `count`, `reason` |
+| `auth.user.banned` | An operator banned the account; metadata holds the reason. Its sessions and API keys were revoked (ADR-0070). | `reason` |
 | `auth.user.created` | An operator or seed data created an account (`CreateUser`), not through sign-up. | `email_verified` |
+| `auth.user.deleted_by_operator` | An operator deleted the account: what the owner's own deletion does, without their password (ADR-0070). |  |
+| `auth.user.impersonated` | An operator started a session as the user, in development only; metadata holds `session_id` and `mfa_verified` (ADR-0070). | `mfa_verified`, `session_id` |
 | `auth.user.registered` | Someone signed up, with a password or through Google, Apple or GitHub. | `provider` |
+| `auth.user.unbanned` | An operator lifted the ban (ADR-0070). |  |
 
 ## flags
 
@@ -84,6 +92,7 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | `ops.incident.opened` | An operator opened an incident (`POST /ops/incidents`), or the `incidents_detect` job opened an automatic one because the server error rate crossed `incidents.error_rate_threshold`. Metadata holds the source, status and severity, never the title. |  |
 | `ops.incident.resolved` | An operator resolved an incident (`POST /ops/incidents/{id}/resolve`). |  |
 | `ops.incident.updated` | An operator added a timeline update to an incident (`POST /ops/incidents/{id}/updates`), or `incidents_detect` noted that an automatic incident's error rate recovered or rose again. Metadata holds the status, severity and update kind, never the message. |  |
+| `ops.rate_limit.reset` | An operator forgot a key's rate-limit budget; the resource is the limiter's name, never the key (ADR-0070). | `reset` |
 
 ## Organisations
 
@@ -124,3 +133,13 @@ Every event has `occurred_at`, `actor_kind` (`user`, `service`, `system` for job
 | Action | Recorded when | Metadata |
 |---|---|---|
 | `settings.value.changed` | An operator changed or reset a runtime setting through `/ops/settings/{key}`; `reason` is required for security-relevant settings. | `org_id`, `reason`, `reset`, `version` |
+
+## storage
+
+| Action | Recorded when | Metadata |
+|---|---|---|
+| `storage.directory.created` | An operator created a directory marker (ADR-0075). |  |
+| `storage.object.deleted` | An operator deleted an object through /ops/storage (ADR-0075). |  |
+| `storage.object.moved` | An operator moved an object; the resource is the new key, `from` the old one (ADR-0075). | `from` |
+| `storage.object.uploaded` | An operator uploaded an object through /ops/storage; the resource is the key (ADR-0075). | `content_type`, `size` |
+| `storage.signed_url.created` | An operator created a signed download or upload link; the metadata says which and until when (ADR-0075). | `expires_at`, `method` |

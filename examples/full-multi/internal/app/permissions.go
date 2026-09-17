@@ -38,11 +38,14 @@ func declarePermissions() *authlib.Catalog {
 	c.Permission(opsdomain.PermMailRead, "See how the app sends email")
 	c.Permission(opsdomain.PermMailTest, "Send a test email")
 	c.Permission(opsdomain.PermMailWrite, "Remove addresses from the email suppression list")
+	c.Permission(opsdomain.PermStorageRead, "Browse file storage")
+	c.Permission(opsdomain.PermStorageWrite, "Upload, move and delete files and create signed URLs")
 	c.Permission(opsdomain.PermAuthRead, "See which sign-in methods are configured")
 	c.Permission(opsdomain.PermSystemRead, "See an instance's health checks, database pool, migrations and runtime")
 	c.Permission(opsdomain.PermObservabilityRead, "See request rates, errors and latency across instances, and stream them")
 	c.Permission(opsdomain.PermIncidentsRead, "Read incidents, their timelines and reports")
 	c.Permission(opsdomain.PermIncidentsWrite, "Open, update and resolve incidents")
+	c.Permission(authusecase.PermOpsAuthWrite, "Manage accounts: create, ban, delete, end sessions, remove passkeys and links, reset second factors, impersonate in development")
 	c.Permission(authusecase.PermServiceAccountsRead, "See service accounts and their API keys")
 	c.Permission(authusecase.PermServiceAccountsWrite, "Create, change and delete service accounts and their API keys")
 
@@ -61,9 +64,9 @@ func declarePermissions() *authlib.Catalog {
 	c.Role(authusecase.RoleUser, "Held by every signed-in user without a grant; by API keys only within their scopes", user...)
 
 	c.Role(rolePlatformAdmin, "Operates the platform: every /ops permission",
-		append(opsdomain.AllPermissions(), authusecase.PermServiceAccountsRead, authusecase.PermServiceAccountsWrite)...)
+		append(opsdomain.AllPermissions(), authusecase.PermOpsAuthWrite, authusecase.PermServiceAccountsRead, authusecase.PermServiceAccountsWrite)...)
 	c.Role(roleOpsViewer, "Reads operational data without changing anything",
-		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead, opsdomain.PermAuthRead,
+		opsdomain.PermSettingsRead, opsdomain.PermJobsRead, opsdomain.PermAuditRead, opsdomain.PermReleasesRead, opsdomain.PermMailRead, opsdomain.PermAuthRead, opsdomain.PermStorageRead,
 		opsdomain.PermSystemRead, opsdomain.PermFlagsRead, opsdomain.PermObservabilityRead, opsdomain.PermIncidentsRead, authusecase.PermServiceAccountsRead)
 
 	// Ops roles grant their permissions only to sessions signed in with a

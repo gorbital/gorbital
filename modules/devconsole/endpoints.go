@@ -89,6 +89,7 @@ func (c *Console) endpoints() map[string]endpoint {
 		section(Prefix+"migrations", s.Migrations, func(v Migrations) any { return v }),
 		section(Prefix+"jobs", s.Jobs, func(v []JobRun) any { return JobRunList{Runs: nonNil(v)} }),
 	}
+	list = append(list, c.previewEndpoints()...)
 	index := Index{Endpoints: []string{Prefix}}
 	out := map[string]endpoint{}
 	for _, e := range list {

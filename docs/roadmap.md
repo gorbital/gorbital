@@ -17,6 +17,7 @@ gorbital ships through pre-release milestones. Each one is usable on its own and
 | [v1.1](#v11-operations-and-integrations) | Operations and integrations | ✅ Done (not tagged) | Per-organisation settings, feature flags, API keys and service accounts, GitHub sign-in, idempotency keys, row-level security option (`orb add rls`), Resend bounce and complaint webhooks, Prometheus `/metrics`, live observability and incidents, local dev console APIs |
 | [v1.2](#v12-client-templates) | Client templates | Proposed | |
 | [v1.3](#v13-public-website) | Public website | 🔨 Built early, published | gorbital.dev, docs.gorbital.dev |
+| [v1.4](#v14-dev-portal) | Dev Portal | 🔨 In progress (phase 0 done 2026-09-16) | `orb dev` serves the portal; 13 phases in the [Dev Portal roadmap](dev-portal-roadmap.md) |
 
 Each milestone below has the same parts: **status** with what was built, then a table of what it **delivers**, what's **not included**, when it's **done**, and measured **results**.
 
@@ -198,6 +199,16 @@ Still to do: versioned docs, and compiling the site's code snippets.
 | **Delivers** | `gorbital.dev` landing page; `docs.gorbital.dev` framework documentation (guides, modules, CLI, decision records, changelog) with search, a version per minor release, copy as Markdown and `llms.txt`; a public API reference at `docs.gorbital.dev/api-reference` rendered from `examples/full-multi/api/openapi.json`; all three in the gorbital look ([theme](brand/theme.md)) with Mintlify's page structure; generated apps' `/docs` restyled with the same system in the app's own name and accent. Built by the gorbital-web Next.js repository from `docs/` and deployed on Vercel |
 | **Not included** | Hosting docs for developers' own apps, a blog, community module index pages (Later), translations |
 | **Done when** | CI builds the site and fails on broken links, WCAG 2.2 AA failures in both themes and code snippets that no longer compile or match the golden apps; the public API reference and a new app's `/docs` render the same `openapi.json` with the same theme; the landing page and a docs page reach Largest Contentful Paint within 2.5 s on a mid-range phone over 4G |
+
+## v1.4: Dev Portal
+
+**Status: in progress** ([ADR-0066](adr/0066-dev-portal.md), accepted 2026-09-16). The portal replaces the commands, flags and hand-edited files of everyday development with one local UI that `orb dev` serves. It is built in 14 phases (0 to 13), each on its own branch in gorbital and gorbital-dashboards, listed with their items and status in the [Dev Portal roadmap](dev-portal-roadmap.md). Phase 0 (2026-09-16): `orb dev` serves the embedded portal, its API and a proxy to the app's `/_dev/` behind a per-run token; `orb dev` is a supervisor with the app's state and output; generators plan before they write; the UI gets a live data layer, a mock mode, interactive primitives and an Overview page.
+
+| | |
+|---|---|
+| **Delivers** | The portal UI embedded in `orb`; the app's state, output, routes, requests, logs, email and jobs live; generators with a diff preview; a table editor, SQL editor, schema visualiser and migrations; authentication, storage, git, logs and observability screens; `orb new` opening the portal |
+| **Not included** | A hosted portal, production administration (that is the Observability and Deployment portals), Supabase-specific features (row-level security policy editor, Realtime, edge functions) |
+| **Done when** | Every item in the Dev Portal roadmap's status table is done; a new Full app's portal shows every screen on live data; the release workflow embeds the UI; threat model row 11 covers the portal |
 
 ## Later
 

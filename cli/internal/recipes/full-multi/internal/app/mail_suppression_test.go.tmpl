@@ -40,6 +40,7 @@ func TestSuppressedAddressesGetNoEmail(t *testing.T) {
 	env := map[string]string{}
 	if addr := os.Getenv(envMailpitSMTP); addr != "" {
 		env["MAILPIT_SMTP_ADDR"] = addr
+		env["MAIL_DELIVERY"] = "mailpit"
 	}
 	a, url := newAppWithURL(t, env)
 	startWorkers(t, a)

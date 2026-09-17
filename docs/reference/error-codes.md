@@ -8,6 +8,7 @@ These are the codes of a Full app as generated, including the example `projects`
 
 | Code | HTTP status | Meaning | Where |
 |---|---|---|---|
+| `account_banned` | 403 | An operator banned the account; it can't sign in until the ban is lifted (ADR-0070). | Every sign-in: password, second factor, passkey, Google, Apple, GitHub, and impersonation. |
 | `already_invited` | 409 | This address already has an open invitation; resend it instead. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `already_member` | 409 | This person is already a member. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `api_key_limit_reached` | 409 | At most 20 usable API keys each; revoke one first. | `/v1/auth` |
@@ -19,6 +20,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `conflict` | 409 | The request conflicts with the current state, when no more specific code applies. | Any endpoint |
 | `cross_origin_request_denied` | 403 | A cookie-authenticated, state-changing request came from an origin that isn't allowed (cross-site request forgery protection). | Any endpoint |
 | `email_not_verified` | 403 | The account's email address must be verified first: to sign in, or to create organisations and send invitations. | `/v1/auth`; `/v1/orgs`, `/v1/invitations` |
+| `email_taken` | 409 | An account already has this email address. | `/v1/auth` |
 | `error` | any other 4xx | Any other 4xx status without its own code. | Any endpoint |
 | `flag_not_found` | 404 | No feature flag has this key. | `/ops` |
 | `flag_reason_required` | 422 | A reason is required to change a feature flag. | `/ops` |
@@ -28,10 +30,12 @@ These are the codes of a Full app as generated, including the example `projects`
 | `idempotency_key_reused` | 422 | This idempotency key was used for a different request; use a new key for a new request. | Any endpoint |
 | `identity_in_use` | 409 | This Google, Apple or GitHub account is linked to another account. | `/v1/auth` |
 | `identity_not_found` | 404 | No linked account of yours has this ID. | `/v1/auth` |
+| `impersonation_off` | 403 | Impersonation exists only while the app runs with the dev console (`orb dev`), never in production (ADR-0070). | `POST /ops/auth/users/{id}/impersonate` outside development. |
 | `incident_not_found` | 404 | No incident has this ID. | `/ops` |
 | `incident_resolved` | 409 | The incident is resolved and can't change. | `/ops` |
 | `incident_updates_limited` | 409 | The incident has the most updates allowed. | `/ops` |
 | `internal_error` | 500, any other 5xx | An unexpected error. The detail never includes the cause; it is logged once with the request ID. | Any endpoint |
+| `invalid_address` | 400 | The recipient isn't an email address. | Any endpoint |
 | `invalid_api_key_expiry` | 422 | expires_at must be at least an hour away and within auth.api_key_max_ttl. | `/v1/auth` |
 | `invalid_api_key_name` | 422 | An API key name must be 1 to 100 characters on one line. | `/v1/auth` |
 | `invalid_api_key_scopes` | 422 | Scopes must be at most 50 permissions the key's owner holds without two-factor authentication. | `/v1/auth` |
@@ -59,6 +63,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `invalid_social_token` | 401 | The sign-in with Google, Apple or GitHub couldn't be verified; start again. | `/v1/auth` |
 | `invalid_sort` | 400 | Sort by one allowed field, with - for descending order. | List endpoints |
 | `invalid_state` | 401 | The sign-in expired or was started in another browser; start again. | `/v1/auth` |
+| `invalid_storage_key` | 422 | Keys are 1 to 1024 characters of path segments without ".", ".." or a leading slash. | `/ops` |
 | `invalid_webhook_payload` | 400 | The webhook body is not an event. | `mailevents` module |
 | `invalid_webhook_signature` | 401 | The webhook signature is missing, invalid or too old. | `mailevents` module |
 | `invitation_for_another_email` | 403 | The invitation was sent to another address; sign in with the invited, verified address. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
@@ -92,11 +97,13 @@ These are the codes of a Full app as generated, including the example `projects`
 | `passkey_not_found` | 404 | No passkey of yours has this ID. | `/v1/auth` |
 | `passkeys_unavailable` | 503 | Passkeys aren't configured on this server (WEBAUTHN_RP_ID). | `/v1/auth` |
 | `personal_workspace` | 409 | A personal workspace can't be left, deleted or shared; create an organisation instead. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
+| `preview_not_found` | 404 | No email preview has this name; `GET /_dev/mail/previews` lists them (ADR-0074). | Any endpoint |
 | `project_name_taken` | 409 | The organisation already has a project with this name. | `/v1/orgs/{orgId}/projects` (`/v1/projects` in single-tenant apps) |
 | `project_not_found` | 404 | The organisation has no project with this ID. | `/v1/orgs/{orgId}/projects` (`/v1/projects` in single-tenant apps) |
 | `project_version_conflict` | 409 | The project changed since you read it; get it again and retry. | `/v1/orgs/{orgId}/projects` (`/v1/projects` in single-tenant apps) |
 | `queue_not_active` | 422 | No worker runs this queue. | `/ops` |
 | `rate_limited` | 429 | Too many requests from this client or for this operation; wait for `Retry-After`. | Any endpoint |
+| `rate_limiter_not_found` | 404 | The app has no rate limiter with this name, or the key was empty (ADR-0070). | `POST /ops/auth/rate-limits/reset`. |
 | `request_too_large` | 413 | The request body is larger than `APP_MAX_BODY_BYTES`. | Any endpoint |
 | `role_not_allowed` | 403 | You can't give, change or remove a role above your own, and only owners manage owners. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `service_account_disabled` | 409 | The service account is disabled; enable it first. | `/v1/auth` |
@@ -111,13 +118,17 @@ These are the codes of a Full app as generated, including the example `projects`
 | `social_link_required` | 403 | An account with this email address exists; sign in to it and link this provider from the account. | `/v1/auth` |
 | `social_unavailable` | 503 | This sign-in provider isn't configured on this server (see AUTH_PROVIDERS.md). | `/v1/auth` |
 | `sole_owner` | 409 | You are the only owner of organisations with other members; make another member an owner, or delete them, first. *Multi-tenant apps only.* | `DELETE /v1/auth/me` |
+| `storage_object_not_found` | 404 | No object has this key. | `/ops` |
+| `storage_off` | 404 | The app has no file storage configured: set STORAGE_DRIVER (ADR-0075). | `/ops` |
+| `storage_unavailable` | 503 | The storage service didn't answer: check the endpoint, bucket and keys. | `/ops` |
 | `too_many_attempts` | 429 | Too many sign-in, code, second-factor or re-authentication attempts within the window; the detail says when to try again. | Any endpoint |
 | `too_many_invitations` | 429 | Too many invitations were sent from this organisation, or by you, in the last hour; try again later. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `too_many_orgs` | 409 | You own as many organisations as allowed; delete one, or hand one over, first. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `unauthenticated` | 401 | The endpoint needs a signed-in session (cookie or bearer token). | `/v1/auth`; `/v1/flags`; `/ops`; `/v1/orgs`, `/v1/invitations` |
 | `unauthorized` | 401 | Authentication failed, when no more specific code applies. | Any endpoint |
 | `unavailable` | 503 | The service or a dependency is temporarily unavailable. | Any endpoint |
-| `unknown_role` | 422 | The role isn't one of the organisation roles. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
+| `unknown_role` | 422 | No such role in the permission catalog. The role isn't one of the organisation roles. | `/v1/auth`; `/v1/orgs`, `/v1/invitations` |
+| `user_not_found` | 404 | No account has this ID; deleted accounts are gone to operators too. | `/ops/auth/users/{id}` and its actions. |
 | `validation_failed` | 422 | The request doesn't match the operation's schema, or a resource's fields aren't valid. `errors` lists each field. | Any endpoint |
 | `weak_password` | 422 | The password doesn't meet the password policy; the detail says why. | `/v1/auth` |
 | `webhook_not_found` | 404 | This webhook isn't configured. | `mailevents` module |

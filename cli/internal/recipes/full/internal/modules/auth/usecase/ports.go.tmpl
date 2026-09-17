@@ -27,6 +27,12 @@ type UserStore interface {
 	RemovePassword(ctx context.Context, userID string, now time.Time) error
 	MarkEmailVerified(ctx context.Context, userID string, now time.Time) error
 	MarkUserDeleted(ctx context.Context, userID string, now time.Time) error
+	// SelectUsers lists accounts newest first for operators (ADR-0070):
+	// matching query when set, after afterTime and afterID when afterTime
+	// is set, at most limit.
+	SelectUsers(ctx context.Context, query string, afterTime *time.Time, afterID string, limit int) ([]authdomain.User, error)
+	// SetUserBan bans an account (bannedAt set) or lifts the ban (nil).
+	SetUserBan(ctx context.Context, userID string, bannedAt *time.Time, reason string, now time.Time) error
 	// MarkUnverifiedUsersDeleted soft-deletes up to limit accounts created
 	// before createdBefore whose address was never verified, without a
 	// Google, Apple or GitHub identity or a code sent since, and returns their IDs.
@@ -67,6 +73,9 @@ type CodeStore interface {
 	// FailCode counts a wrong guess and ends the code at its last attempt.
 	FailCode(ctx context.Context, id string, now time.Time) error
 	DeleteOldCodes(ctx context.Context, before time.Time) (int64, error)
+	// SelectUserCodes returns a user's usable codes, newest first, for
+	// operators; codes are stored hashed, so only their existence shows.
+	SelectUserCodes(ctx context.Context, userID string, now time.Time) ([]authdomain.Code, error)
 }
 
 // RoleStore reads and writes platform role assignments.

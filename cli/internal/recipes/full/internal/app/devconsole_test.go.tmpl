@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"gorbital.dev/config"
+	authlib "gorbital.dev/modules/auth"
 
 	"⟦.Module⟧/internal/app"
 )
@@ -170,7 +171,7 @@ func TestDevConsoleMail(t *testing.T) {
 	}
 	_, closedPort, _ := net.SplitHostPort(ln.Addr().String())
 	ln.Close()
-	_, base := devServer(t, map[string]string{"MAILPIT_WEB_PORT": closedPort})
+	_, base := devServer(t, map[string]string{"MAIL_DELIVERY": "mailpit", "MAILPIT_WEB_PORT": closedPort})
 	if code, _, body := devGet(t, base, "/_dev/mail"); code != http.StatusServiceUnavailable || !strings.Contains(body, `"code":"unavailable"`) {
 		t.Errorf("/_dev/mail without Mailpit = %d %s, want 503", code, body)
 	}
@@ -183,7 +184,7 @@ func TestDevConsoleMail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, base = devServer(t, map[string]string{"MAILPIT_SMTP_ADDR": smtp, "MAILPIT_WEB_PORT": u.Port()})
+	_, base = devServer(t, map[string]string{"MAIL_DELIVERY": "mailpit", "MAILPIT_SMTP_ADDR": smtp, "MAILPIT_WEB_PORT": u.Port()})
 	code, _, body := devGet(t, base, "/_dev/mail")
 	if code != http.StatusOK || !strings.Contains(body, `"web_url":"http://`) || !strings.Contains(body, `"messages":[`) {
 		t.Errorf("/_dev/mail = %d %s", code, body)
@@ -311,5 +312,53 @@ func TestDevConsoleOnlyInDevelopment(t *testing.T) {
 	}
 	if err := load(map[string]string{"APP_ENV": "development", "MAILPIT_WEB_PORT": "web"}); err == nil || !strings.Contains(err.Error(), "MAILPIT_WEB_PORT") {
 		t.Errorf("bad MAILPIT_WEB_PORT: error = %v", err)
+	}
+}
+
+func TestDevOperator(t *testing.T) {
+	_, base := devServer(t, nil)
+	port := base[strings.LastIndex(base, ":")+1:]
+
+	// The console token operates /ops/ in development, as a system actor.
+	code, _, body := devGet(t, base, "/ops/settings")
+	if code != http.StatusOK || !strings.Contains(body, `"settings":[`) {
+		t.Fatalf("GET /ops/settings with the console token = %d %s, want 200", code, body)
+	}
+	req, _ := http.NewRequest(http.MethodPut, base+"/ops/settings/example.ping_message", strings.NewReader(`{"value":"from the portal","version":0,"reason":"dev portal test"}`))
+	req.Header.Set("Authorization", "Bearer "+devToken)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("PUT /ops/settings as the operator = %d, want 200", res.StatusCode)
+	}
+	if code, _, body := devGet(t, base, "/ops/audit?actor_kind=system"); code != http.StatusOK || !strings.Contains(body, `"actor_id":"dev-console"`) {
+		t.Errorf("the change wasn't audited as system/dev-console: %d %s", code, body)
+	}
+
+	// Never outside /ops/, never with the wrong Host, never in a cookie.
+	if code, _, body := devGet(t, base, "/v1/auth/me"); code != http.StatusUnauthorized {
+		t.Errorf("GET /v1/auth/me with the console token = %d %s, want 401", code, body)
+	}
+	for _, host := range []string{"evil.example:" + port, "localhost:1"} {
+		if code, _, _ := devGet(t, base, "/ops/settings", "Host", host); code != http.StatusUnauthorized {
+			t.Errorf("Host %s: GET /ops/settings = %d, want 401 (the operator needs a localhost Host)", host, code)
+		}
+	}
+	if code, _, _ := devGet(t, base, "/ops/settings", "Authorization", "", "Cookie", authlib.DefaultCookieName+"="+devToken); code != http.StatusUnauthorized {
+		t.Errorf("token in the session cookie = %d, want 401", code)
+	}
+	if code, _, _ := devGet(t, base, "/ops/settings", "Authorization", "Bearer "+devToken[1:]); code != http.StatusUnauthorized {
+		t.Errorf("a wrong token = %d, want 401", code)
+	}
+
+	// Without the console there is no operator: the token is just an unknown one.
+	srv := httptest.NewServer(newApp(t, nil).Handler())
+	defer srv.Close()
+	if code, _, _ := devGet(t, srv.URL, "/ops/settings"); code != http.StatusUnauthorized {
+		t.Errorf("GET /ops/settings with the token but no console = %d, want 401", code)
 	}
 }

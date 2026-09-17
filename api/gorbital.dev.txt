@@ -145,6 +145,7 @@ pkg gorbital.dev/httpx, const DefaultWriteTimeout time.Duration
 pkg gorbital.dev/httpx, const ProblemContentType = "application/problem+json"
 pkg gorbital.dev/httpx, const ProblemContentType ideal-string
 pkg gorbital.dev/httpx, func AccessLog(*slog.Logger) Middleware
+pkg gorbital.dev/httpx, func AccessNoteFrom(context.Context) *AccessNote
 pkg gorbital.dev/httpx, func BodyLimit(int64) Middleware
 pkg gorbital.dev/httpx, func CORS(CORSOptions) (Middleware, error)
 pkg gorbital.dev/httpx, func Chain(http.Handler, ...Middleware) http.Handler
@@ -163,6 +164,7 @@ pkg gorbital.dev/httpx, func WithErrorLogger(*slog.Logger) ServerOption
 pkg gorbital.dev/httpx, func WithShutdownTimeout(time.Duration) ServerOption
 pkg gorbital.dev/httpx, func WithTimeouts(time.Duration, time.Duration, time.Duration, time.Duration) ServerOption
 pkg gorbital.dev/httpx, func WriteProblem(http.ResponseWriter, *http.Request, *Problem)
+pkg gorbital.dev/httpx, method (*AccessNote) Add(...slog.Attr)
 pkg gorbital.dev/httpx, method (*Mapper) Add(...Mapping) error
 pkg gorbital.dev/httpx, method (*Mapper) Match(error) (*Problem, bool)
 pkg gorbital.dev/httpx, method (*Mapper) Problem(context.Context, error) *Problem
@@ -172,6 +174,7 @@ pkg gorbital.dev/httpx, method (*Problem) Error() string
 pkg gorbital.dev/httpx, method (*Problem) GetStatus() int
 pkg gorbital.dev/httpx, method (*Server) Addr(context.Context) (string, error)
 pkg gorbital.dev/httpx, method (*Server) Run(context.Context) error
+pkg gorbital.dev/httpx, type AccessNote struct
 pkg gorbital.dev/httpx, type CORSOptions struct
 pkg gorbital.dev/httpx, type CORSOptions struct, AllowCredentials bool
 pkg gorbital.dev/httpx, type CORSOptions struct, AllowedHeaders []string

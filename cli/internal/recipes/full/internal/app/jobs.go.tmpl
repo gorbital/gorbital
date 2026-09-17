@@ -3,9 +3,13 @@ package app
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"gorbital.dev/audit"
+	"gorbital.dev/mail"
 	"gorbital.dev/modules/jobs"
 
 	"⟦.Module⟧/internal/jobs/authcleanup"
@@ -20,8 +24,14 @@ import (
 // jobDeps are what job workers may use. Add stores and clients here when a
 // job needs them.
 type jobDeps struct {
-	logger           *slog.Logger
-	recorder         audit.Recorder
+	logger   *slog.Logger
+	recorder audit.Recorder
+	// pool, mailer, httpClient and runJob serve the jobs orb gen job writes
+	// (kinds sql, email, http and dispatch; ADR-0071).
+	pool             *pgxpool.Pool
+	mailer           mail.Sender
+	httpClient       *http.Client
+	runJob           func(ctx context.Context, name string) error
 	authCleanup      authcleanup.Cleanup
 	authRevokeTokens authrevoke.Revoke
 	rateLimitCleanup ratelimitcleanup.DeleteExpired

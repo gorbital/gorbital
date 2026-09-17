@@ -181,6 +181,9 @@ func (s *Service) rehash(ctx context.Context, tx Store, userID, password string,
 // startSession creates a session for u in tx, verified with a second factor
 // when mfaVerified, and loads the user's roles.
 func (s *Service) startSession(ctx context.Context, tx Store, u authdomain.User, mfaVerified bool, client authlib.ClientInfo) (LoginResult, error) {
+	if u.Banned() {
+		return LoginResult{}, authdomain.ErrAccountBanned
+	}
 	now := s.now()
 	absolute := now.Add(authlib.SessionAbsoluteLimits.Clamp(s.sessionAbsolute.Get(ctx)))
 	idle := minTime(now.Add(authlib.SessionIdleLimits.Clamp(s.sessionIdle.Get(ctx))), absolute)

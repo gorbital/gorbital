@@ -201,6 +201,8 @@ func Middleware(a Authenticator, opts ...MiddlewareOption) func(http.Handler) ht
 				o.logger.ErrorContext(r.Context(), "authenticate request", "err", err)
 				httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusServiceUnavailable, "auth_unavailable", "authentication is temporarily unavailable"))
 			default:
+				// The request's log record names the user (httpx.AccessLog).
+				httpx.AccessNoteFrom(r.Context()).Add(slog.String("user_id", p.UserID))
 				next.ServeHTTP(w, r.WithContext(WithPrincipal(r.Context(), p)))
 			}
 		})

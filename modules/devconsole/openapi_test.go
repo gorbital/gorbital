@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	gmail "gorbital.dev/mail"
 	"gorbital.dev/modules/devconsole"
 )
 
@@ -45,6 +46,13 @@ func fullSources() devconsole.Sources {
 				ID: "m", From: devconsole.Address{Name: "A", Address: "a@x.test"}, To: []devconsole.Address{{Address: "b@x.test"}},
 				Subject: "s", Snippet: "n", Created: now, Size: 1, Attachments: 1, Read: true,
 			}}}, nil
+		},
+		MailPreviews: &devconsole.MailPreviewer{
+			Previews: []devconsole.MailPreview{{Name: "test", Description: "A plain message", Category: "test"}},
+			Build: func(_ context.Context, name, to string) (gmail.Message, error) {
+				return gmail.Message{To: []gmail.Address{{Email: to}}, Subject: "Test " + name, Text: "hello", HTML: "<p>hello</p>"}, nil
+			},
+			Send: func(context.Context, gmail.Message) error { return nil },
 		},
 		Migrations: func(context.Context) (devconsole.Migrations, error) {
 			return devconsole.Migrations{Current: 2, Latest: 3, Pending: 1}, nil
@@ -159,7 +167,17 @@ func TestOpenAPIDescribesEveryEndpoint(t *testing.T) {
 		if strings.HasSuffix(path, "/stream") || strings.HasSuffix(path, "openapi.json") {
 			continue
 		}
-		res := get(t, base, path, "", true)
+		var res result
+		method := "get"
+		switch path {
+		case "/_dev/mail/preview": // needs a name
+			res = get(t, base, path+"?name=test", "", true)
+		case "/_dev/mail/preview/send": // the console's POST endpoint
+			method = "post"
+			res = post(t, base, path+"?name=test&to=ada@example.com", "")
+		default:
+			res = get(t, base, path, "", true)
+		}
 		if res.code != http.StatusOK {
 			t.Errorf("%s = %d %s", path, res.code, res.body)
 			continue
@@ -169,7 +187,7 @@ func TestOpenAPIDescribesEveryEndpoint(t *testing.T) {
 			t.Errorf("%s: %v", path, err)
 			continue
 		}
-		op := doc.Paths[path]["get"]
+		op := doc.Paths[path][method]
 		schema := op["responses"].(map[string]any)["200"].(map[string]any)["content"].(map[string]any)["application/json"].(map[string]any)["schema"].(map[string]any)
 		checker.check(path, schema, v)
 	}
