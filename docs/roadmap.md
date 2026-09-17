@@ -6,7 +6,7 @@ gorbital's work is planned in milestones, each named after its theme. Each one i
 
 ## Releases
 
-`v0.1.0` is the first public release of the library (`gorbital.dev` and the modules under `gorbital.dev/modules/`) and of `orb` (`gorbital.dev/cli`), which are versioned together. It contains every milestone below marked done or built, and the Dev Portal phases built so far. Milestones are themes of work, not releases: during development they carried internal numbers (v0.1 to v1.4), which older decision records still use.
+`v0.1.0`, published on 2026-09-17, is the first public release of the library (`gorbital.dev` and the modules under `gorbital.dev/modules/`) and of `orb` (`gorbital.dev/cli`), which are versioned together. Install `orb` with `go install gorbital.dev/cli/cmd/orb@latest`, or add the library with `go get gorbital.dev@latest`. It contains every milestone below marked done or built, and the Dev Portal phases built so far. Milestones are themes of work, not releases: during development they carried internal numbers (v0.1 to v1.4), which older decision records still use.
 
 Further v0.x releases follow as work lands. In Go terms v0 carries no compatibility promise, but the compatibility checks (API listings, `api/surface.json`, the `/ops` OpenAPI baseline, `--json` golden files) already run to catch accidental breaks, and breaking changes are listed in the [changelog](../CHANGELOG.md) and the [upgrade notes](guides/upgrade-notes.md). `v1.0.0`, with the API freeze and the scaffold compatibility promise in force, comes only after the external security review signs off ([ADR-0015](adr/0015-public-api-and-stability-tiers.md), [stability](guides/stability.md)).
 
@@ -137,7 +137,7 @@ Plan, in order:
 | | |
 |---|---|
 | **Delivers** | Internal security review with findings fixed, API freeze and stability tiers in force, documentation content ready for the public site ([ADR-0049](adr/0049-public-docs-and-website.md)), domain hardening complete (including rate limits shared across instances with trusted-proxy client IPs, done in [ADR-0052](adr/0052-shared-rate-limits.md)), governance and contribution guide |
-| **Not included** | The external review itself (maintainer action), publishing the library at `gorbital.dev` and tags (maintainer action, threat model rows 1 and 8), `orb upgrade --major` |
+| **Not included** | The external review itself (maintainer action), `orb upgrade --major` |
 | **Done when** | Every internal review finding is fixed or accepted in the report; API listings, surface inventories and the `/ops` OpenAPI baseline are recorded and their checks fail on a removal; every `--json` output has `schemaVersion` and a golden test; the compatibility check runs; external security review signed off (open) |
 | **Results** | Met: all 43 internal review findings fixed with regression tests or accepted in the [report](security/2026-09-internal-review.md); `internal/tools/apicheck` listings, `TestPublicSurface` and `TestOpsAPICompatible` in both Full apps; `TestJSONOutputs` golden files; `TestScaffoldCompatibility` (skips until a v1 tag exists). Open: external review sign-off; the maintainer actions above, including the domain hardening this milestone delivers |
 

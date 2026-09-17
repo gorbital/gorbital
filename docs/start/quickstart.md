@@ -19,23 +19,20 @@ Keep two terminal windows open and a browser:
 In **Terminal 2**:
 
 ```bash
-git clone https://github.com/gorbital/gorbital.git
-cd gorbital/cli
-go install ./cmd/orb
-cd ../..
+go install gorbital.dev/cli/cmd/orb@latest
 orb version
 ```
 
-`go install` builds `orb` and puts it in Go's `bin` folder. gorbital isn't published yet, so it comes from this checkout, and your app will use the library from it too.
+`go install` downloads and builds `orb` and puts it in Go's `bin` folder. Your app will use the library at the same version, `gorbital.dev` `v0.1.0`, from the Go module proxy.
 
 If you see `command not found: orb`, Go's `bin` folder isn't on your `PATH`: add `export PATH="$(go env GOPATH)/bin:$PATH"` to `~/.zshrc` or `~/.bashrc`, and open a new terminal.
 
 ## 2. Create your app
 
-Still in **Terminal 2**, in the folder that contains `gorbital`:
+Still in **Terminal 2**, in the folder where you keep your projects:
 
 ```bash
-orb new acme-api --preset full --tenancy single --local ./gorbital
+orb new acme-api --preset full --tenancy single
 ```
 
 | Part | Means |
@@ -43,7 +40,6 @@ orb new acme-api --preset full --tenancy single --local ./gorbital
 | `acme-api` | Your app's name: its folder, database and Docker project |
 | `--preset full` | Database, sign-in, jobs, email, admin API. `minimal` is a small API without a database |
 | `--tenancy single` | Data belongs to individual users. `multi` makes it belong to organisations, with members and invitations ([Organisations](organisations.md)) |
-| `--local ./gorbital` | Where the gorbital checkout is |
 
 Leave the flags out to be asked each question with arrow keys instead. `orb new` writes the files, runs `go mod tidy` to download dependencies, and creates an empty git repository.
 

@@ -3,7 +3,7 @@
 gorbital builds the backend of your app: the API your website or mobile app talks to. One command creates a complete Go project with sign-in, a database, email and background jobs already working. The code lands in your own repository, and every file is yours to read and change.
 
 > [!NOTE]
-> gorbital is pre-release. The library isn't published at `gorbital.dev` yet, so apps are created from a copy of the repository on your computer. Everything these docs describe is built and tested.
+> `v0.1.0` is the first public release. Install `orb` with `go install gorbital.dev/cli/cmd/orb@latest` ([Quickstart](quickstart.md)). v0 carries no compatibility promise; `v1.0.0` follows the external security review ([stability](../guides/stability.md)).
 
 ## Two kinds of docs
 
