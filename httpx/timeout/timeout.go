@@ -284,21 +284,29 @@ func (tw *timeoutWriter) EnableFullDuplex() error {
 	return http.NewResponseController(tw.w).EnableFullDuplex()
 }
 
-// Unwrap returns the underlying writer, for interfaces this writer doesn't
-// forward. After a timeout it returns a writer that discards everything:
-// the underlying one carries the 503.
+// Unwrap returns a writer that forwards to this one, so
+// [http.ResponseController] reaches flushing, hijacking and the deadlines.
+// It never hands out the underlying writer: a handler that kept that one
+// and wrote through it after the deadline would race the 503 on the
+// response's header map, and after a timeout its writes must be discarded.
+// Interfaces this writer doesn't forward, such as [http.Pusher], aren't
+// reachable through it.
 func (tw *timeoutWriter) Unwrap() http.ResponseWriter {
-	tw.mu.Lock()
-	defer tw.mu.Unlock()
-	if !tw.started && tw.refuseLocked() {
-		return discardWriter{}
-	}
-	return tw.w
+	return guardedWriter{tw: tw}
 }
 
-// discardWriter is what a timed-out handler's unwrapped writer is.
-type discardWriter struct{}
+// guardedWriter is the unwrapped view of a [timeoutWriter]: every call goes
+// back through the lock, so a writer kept across the deadline still stops
+// at it.
+type guardedWriter struct{ tw *timeoutWriter }
 
-func (discardWriter) Header() http.Header         { return http.Header{} }
-func (discardWriter) Write(b []byte) (int, error) { return len(b), nil }
-func (discardWriter) WriteHeader(int)             {}
+func (w guardedWriter) Header() http.Header                { return w.tw.Header() }
+func (w guardedWriter) Write(b []byte) (int, error)        { return w.tw.Write(b) }
+func (w guardedWriter) WriteHeader(code int)               { w.tw.WriteHeader(code) }
+func (w guardedWriter) FlushError() error                  { return w.tw.FlushError() }
+func (w guardedWriter) Flush()                             { w.tw.Flush() }
+func (w guardedWriter) SetReadDeadline(t time.Time) error  { return w.tw.SetReadDeadline(t) }
+func (w guardedWriter) SetWriteDeadline(t time.Time) error { return w.tw.SetWriteDeadline(t) }
+func (w guardedWriter) EnableFullDuplex() error            { return w.tw.EnableFullDuplex() }
+
+func (w guardedWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) { return w.tw.Hijack() }
