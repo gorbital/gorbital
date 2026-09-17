@@ -12,7 +12,8 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | Understand what gorbital is | [Introduction](start/introduction.md), [How gorbital works](start/concepts.md) |
 | Install what you need | [What you need](start/prerequisites.md) |
 | Create and run an app | [Quickstart](start/quickstart.md) |
-| Add your own data | [Add your first resource](start/first-resource.md) |
+| Add your own data | [Add your first module](start/first-resource.md), [Modules and routes](guides/modules-and-routes.md) |
+| Follow a whole app, chapter by chapter | [Examples](examples/index.md) |
 | Set up Google, Apple, GitHub, passkeys or email | [Set up sign-in](sign-in/overview.md), [Every key and credential](sign-in/all-keys.md) |
 | Fix a problem | [Troubleshooting](start/troubleshooting.md) |
 | Launch | [Go-live checklist](sign-in/go-live.md), [Running in production](guides/production.md) |
@@ -26,7 +27,7 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [What you need](start/prerequisites.md) | Go, Docker, git and the rest: what each is, why, install on macOS and Linux, how to check |
 | [Quickstart](start/quickstart.md) | Install `orb`, create an app, `orb dev` with its real output, sign up, sign in as administrator, ports, running without the CLI |
 | [How gorbital works](start/concepts.md) | The three parts, what an app contains, where settings live, glossary |
-| [Add your first resource](start/first-resource.md) | `orb gen resource`, every generated file, the table, testing |
+| [Add your first module](start/first-resource.md) | `orb gen module`, every generated file, the table, testing |
 | [Organisations](start/organisations.md) | Multi-tenant apps |
 | [Upgrading apps](start/upgrading.md) | `orb upgrade`: newer templates and library into an existing app |
 | [Set up sign-in](sign-in/overview.md) | Overview of sign-in methods and where values go |
@@ -42,7 +43,15 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Architecture](architecture.md) | Products, principles, library layout, the generated app, features, milestones |
 | [Key decisions](guides/key-decisions.md) | The main design choices with alternatives, trade-offs and consequences |
 | [Life of a request](guides/request-lifecycle.md) | Server, middleware in order, authentication, routing, use cases, repositories, errors |
-| [Inside a generated app](guides/app-internals.md) | Every function of `internal/app` and the commands: purpose, inputs, side effects, errors |
+| [Your main.go](guides/main-go.md) | Every option of `gorbital.Main`: what each adds to the app |
+| [Modules and routes](guides/modules-and-routes.md) | `gorbital.Module`, the four layers, the route table, error mappings |
+| [Guards and middleware](guides/guards-and-middleware.md) | Deny by default, the built-in guards, guards and middleware of your own |
+| [The middleware stack](guides/middleware-stack.md) | Every step in order, and `gorbital.WithStack` |
+| [Security layers](guides/security-layers.md) | Request timeout, IP filter, signed webhooks, external identity providers |
+| [Generating code](guides/generating-code.md) | `orb gen module`, `orb gen middleware`, `orb routes` |
+| [Ejecting a module](guides/ejecting-a-module.md) | `orb eject`: taking a built-in module into the app's own code |
+| [Testing with gorbitaltest](guides/testing-with-gorbitaltest.md) | Signed-in requests, problem assertions, captured mail and jobs |
+| [Inside a generated app](guides/app-internals.md) | Every function of a v0.1 app's `internal/app` and its commands: purpose, inputs, side effects, errors |
 | [Services and libraries](guides/services-and-libraries.md) | Every dependency and service: what, why, where, without it |
 | [Environment variables](guides/environment-variables.md) | Every variable: reader, default, validation, secret or not |
 | [Secrets and keys](guides/secrets-and-keys.md) | Every secret, token and code: creation, storage, rotation, compromise |
@@ -55,8 +64,13 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Live observability and incidents](guides/observability.md) | `modules/observability`: request counts per route, `/ops/observability` and its stream, incidents, automatic detection, reports |
 | [Authentication](guides/authentication.md) | Flows, sessions, 2FA, passkeys, Google, Apple and GitHub, roles, error codes |
 | [Sign-in provider setup](guides/auth-providers.md) | How the app reports what's missing |
+| [Configuring sign-in](guides/configuring-sign-in.md) | `authhttp.New`'s options: password rules, registration, second factors, branding |
+| [Sign-in hooks](guides/sign-in-hooks.md) | `BeforeLogin`, `AfterLogin`, `OnRegister` |
+| [Extra registration fields](guides/extra-registration-fields.md) | `RegisterFields`: collecting your own fields when an account is created |
+| [Adding a sign-in method](guides/adding-a-sign-in-method.md) | A method of your own through `Authenticator.SignIn` |
 | [API keys and service accounts](guides/api-keys.md) | `gbk_` keys, scopes, personal keys, platform and organisation service accounts, what keys can't do |
-| [Email](guides/email.md) | Resend or SMTP, Mailpit, sending from code, bounces, complaints and the suppression list |
+| [Email](guides/email.md) | Resend or SMTP, the Dev Portal's inbox, sending from code, bounces, complaints and the suppression list |
+| [File storage](guides/storage.md) | `modules/storage`: local files, S3-compatible object storage, signed URLs |
 | [Error handling](guides/error-handling.md) | Problem details, the mapper, codes, logging |
 | [Ops API reference](guides/ops-api.md) | `/ops/*` endpoints, permissions, error codes, audit actions |
 | [CLI](guides/cli.md) | Every `orb` command and flag |
@@ -67,7 +81,9 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Local development](guides/local-development.md) | Working on the gorbital repository |
 | [Dev console APIs](guides/dev-console.md) | `modules/devconsole`: development-only `/_dev/` APIs for local tools, the token `orb dev` prints, endpoints, streams, security checks |
 | [Security overview](security/README.md) | How security is reviewed and reported; the [internal review of September 2026](security/2026-09-internal-review.md) |
+| [Benchmarks](benchmarks.md) | What is measured, the budgets CI enforces, and the results |
 | [Roadmap](roadmap.md) | Milestones and status |
+| [v0.2 roadmap](v0.2-roadmap.md) | The phases of v0.2, their decisions and their status |
 | [Changelog](../CHANGELOG.md) | Notable changes in each release |
 | [Architecture decision records](adr/README.md) | Every decision with context, options and trade-offs |
 

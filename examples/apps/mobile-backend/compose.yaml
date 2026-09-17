@@ -1,0 +1,30 @@
+# Local services for development and tests.
+#
+#   orb dev                       # or, without the gorbital CLI:
+#   docker compose up -d --wait
+#   go run ./cmd/api migrate && go run ./cmd/api
+#
+# PostgreSQL on 127.0.0.1:5432. `docker compose down -v` resets the data.
+# The identity provider isn't here: it is your provider's tenant, or its
+# local emulator.
+name: mobile-backend
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: mobile_backend
+      POSTGRES_PASSWORD: mobile_backend
+      POSTGRES_DB: mobile_backend
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mobile_backend -d mobile_backend"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  postgres-data:

@@ -297,7 +297,8 @@ serve (default)             load the configuration from the environment, build t
 migrate [--status [--json]] apply pending migrations (Migrate), or report them and change nothing
 migrate-down                roll back the most recent migration; development only
 openapi [--dir <dir>]       print the OpenAPI document, built without a database, or write it
-                            with a Postman collection and llms.txt into dir
+                            with a Postman collection and llms.txt into dir, which
+                            is created when it doesn't exist
 version [--json]            print the build's version, commit and Go version
 ```
 

@@ -58,7 +58,7 @@ func TestJSONOutputs(t *testing.T) {
 		}},
 		{"gen-middleware", func(t *testing.T) (int, string, string) {
 			newMainApp(t, false)
-			return runOrb(t, "gen", "middleware", "ActiveSubscription", "--module", "books", "--guard", "--dry-run", "--json")
+			return runOrb(t, "gen", "middleware", "ActiveSubscription", "--module", "profiles", "--guard", "--dry-run", "--json")
 		}},
 		{"routes", func(t *testing.T) (int, string, string) {
 			newMainApp(t, false)

@@ -4,7 +4,7 @@
 
 Every error response is `application/problem+json` with a stable `code` clients can branch on; the `detail` text may change. Codes are public API: they are added, never renamed or removed ([Stability](../guides/stability.md)). How errors become responses, and how to add one: [Error handling](../guides/error-handling.md).
 
-These are the codes of a Full app as generated, including the example `projects` resource and the generic codes any status without its own code gets. Resources you add with `orb gen resource` add `<resource>_not_found`, `<resource>_version_conflict` and, for unique fields, `<resource>_<field>_taken`.
+These are the codes of a Full app as generated, including the example `projects` resource and the generic codes any status without its own code gets, together with the codes of the library modules a Full app doesn't have, marked with the module to add. Resources you add with `orb gen resource` add `<resource>_not_found`, `<resource>_version_conflict` and, for unique fields, `<resource>_<field>_taken`.
 
 | Code | HTTP status | Meaning | Where |
 |---|---|---|---|
@@ -67,6 +67,7 @@ These are the codes of a Full app as generated, including the example `projects`
 | `invalid_sort` | 400 | Sort by one allowed field, with - for descending order. | List endpoints |
 | `invalid_state` | 401 | The sign-in expired or was started in another browser; start again. | `/v1/auth` |
 | `invalid_storage_key` | 422 | Keys are 1 to 1024 characters of path segments without ".", ".." or a leading slash. | `/ops` |
+| `invalid_token` | 401 | The access token is invalid or expired; get a new one. *Only in apps that add [`modules/jwt`](../methods/modules-jwt.md).* | Every route of an app whose authenticator is `modules/jwt` |
 | `invalid_webhook_payload` | 400 | The webhook body is not an event. | `mailevents` module |
 | `invalid_webhook_signature` | 401 | The webhook signature is missing, invalid or too old. | `POST /v1/webhooks/resend`, and routes with `guard.Webhook` |
 | `invitation_for_another_email` | 403 | The invitation was sent to another address; sign in with the invited, verified address. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |

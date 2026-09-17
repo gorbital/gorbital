@@ -52,7 +52,7 @@ jobs:
       fail-fast: false
       matrix:
         go: ["1.26.x", "1.27.x"]
-        module: [".", modules/auditpg, modules/auth, modules/devconsole, modules/flags, modules/idempotency, modules/jobs, modules/jwt, modules/mail/resend, modules/mail/smtp, modules/mail/suppressionpg, modules/observability, modules/openapi, modules/orgs, modules/postgres, modules/ratelimitpg, modules/releases, modules/settings, modules/storage, modules/telemetry, gorbital, cli, examples/full-multi, examples/full-single, examples/minimal, examples/v0.1/full-multi, examples/v0.1/full-single, internal/tools/apicheck, internal/tools/refdocs]
+        module: [".", modules/auditpg, modules/auth, modules/devconsole, modules/flags, modules/idempotency, modules/jobs, modules/jwt, modules/mail/resend, modules/mail/smtp, modules/mail/suppressionpg, modules/observability, modules/openapi, modules/orgs, modules/postgres, modules/ratelimitpg, modules/releases, modules/settings, modules/storage, modules/telemetry, gorbital, cli, examples/full-multi, examples/full-single, examples/minimal, examples/v0.1/full-multi, examples/v0.1/full-single, internal/tools/apicheck, internal/tools/docscheck, internal/tools/refdocs]
     defaults:
       run:
         working-directory: ${{ matrix.module }}
@@ -79,7 +79,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [".", modules/auditpg, modules/auth, modules/devconsole, modules/flags, modules/idempotency, modules/jobs, modules/jwt, modules/mail/resend, modules/mail/smtp, modules/mail/suppressionpg, modules/observability, modules/openapi, modules/orgs, modules/postgres, modules/ratelimitpg, modules/releases, modules/settings, modules/storage, modules/telemetry, gorbital, cli, examples/full-multi, examples/full-single, examples/minimal, examples/v0.1/full-multi, examples/v0.1/full-single, internal/tools/apicheck, internal/tools/refdocs]
+        module: [".", modules/auditpg, modules/auth, modules/devconsole, modules/flags, modules/idempotency, modules/jobs, modules/jwt, modules/mail/resend, modules/mail/smtp, modules/mail/suppressionpg, modules/observability, modules/openapi, modules/orgs, modules/postgres, modules/ratelimitpg, modules/releases, modules/settings, modules/storage, modules/telemetry, gorbital, cli, examples/full-multi, examples/full-single, examples/minimal, examples/v0.1/full-multi, examples/v0.1/full-single, internal/tools/apicheck, internal/tools/docscheck, internal/tools/refdocs]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -145,6 +145,8 @@ jobs:
         run: go run -C internal/tools/refdocs .
       - name: docs/methods matches the library's doc comments and Example functions; exported API is documented
         run: go run -C internal/tools/refdocs . -methods
+      - name: docs links, includes and docs/docs.json resolve
+        run: go run -C internal/tools/docscheck .
       - name: api/openapi.json matches examples/minimal code
         working-directory: examples/minimal
         run: |
@@ -179,7 +181,7 @@ jobs:
       - name: govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
-          for m in . modules/auditpg modules/auth modules/devconsole modules/flags modules/idempotency modules/jobs modules/jwt modules/mail/resend modules/mail/smtp modules/mail/suppressionpg modules/observability modules/openapi modules/orgs modules/postgres modules/ratelimitpg modules/releases modules/settings modules/storage modules/telemetry gorbital cli examples/full-multi examples/full-single examples/minimal examples/v0.1/full-multi examples/v0.1/full-single internal/tools/apicheck internal/tools/refdocs; do
+          for m in . modules/auditpg modules/auth modules/devconsole modules/flags modules/idempotency modules/jobs modules/jwt modules/mail/resend modules/mail/smtp modules/mail/suppressionpg modules/observability modules/openapi modules/orgs modules/postgres modules/ratelimitpg modules/releases modules/settings modules/storage modules/telemetry gorbital cli examples/full-multi examples/full-single examples/minimal examples/v0.1/full-multi examples/v0.1/full-single internal/tools/apicheck internal/tools/docscheck internal/tools/refdocs; do
             echo "== $m"
             (cd "$m" && govulncheck ./...)
           done

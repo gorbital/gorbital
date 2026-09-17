@@ -93,7 +93,8 @@ It writes the files, rewrites `internal/modules/modules.gen.go`, runs `go mod ti
 ```text
   next:
         go test ./...   (database tests need orb dev or docker compose up -d --wait)
-        git diff api/openapi.json   (the API is re-exported; only x-gorbital-guards should appear)
+        git diff api/openapi.json   (re-exported: every route gains x-gorbital-guards, and the /ops instance example takes this app's name)
+        git diff api/surface.json api/openapi.baseline.json   (rewritten: the built-in modules' names are the library's now, so only this app's are recorded)
         orb doctor
         git add -A && git commit -m 'Move to the v0.2 layout'
 
@@ -167,7 +168,8 @@ func stack(s gorbital.Stack) []func(http.Handler) http.Handler {
 
 ```bash
 go test ./...                    # every package, the copied sign-in module's tests included
-git diff api/openapi.json        # only x-gorbital-guards
+git diff api/openapi.json        # x-gorbital-guards on every route, and the /ops instance example
+git diff api/surface.json        # only this app's names: the built-in modules' are the library's now
 orb doctor
 ```
 

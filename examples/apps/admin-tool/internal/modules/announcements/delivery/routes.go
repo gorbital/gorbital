@@ -21,7 +21,8 @@ type handlers struct {
 // docs:start routes
 
 // Register adds the announcements routes to r: publishing needs staff's
-// permission, reading is public.
+// permission, withdrawing needs a session that signed in recently, and
+// reading is public.
 func Register(r *gorbital.Router, svc *usecase.Service) {
 	h := handlers{svc: svc}
 	announcements := r.Group("/v1/announcements", gorbital.Tags("Announcements"))
@@ -32,6 +33,10 @@ func Register(r *gorbital.Router, svc *usecase.Service) {
 		guard.RateLimit(20, time.Hour, guard.Named("announcements_publish")))
 	gorbital.Get(announcements, "", h.listAnnouncements,
 		gorbital.Summary("List active announcements"), guard.Public())
+	gorbital.Post(announcements, "/{id}/withdraw", h.withdrawAnnouncement,
+		gorbital.Summary("Withdraw an announcement"), gorbital.Status(http.StatusNoContent),
+		guard.Permission(usecase.PermWrite),
+		guard.RecentReauth()) // the row is deleted: a stolen session shouldn't reach it
 }
 
 // docs:end routes

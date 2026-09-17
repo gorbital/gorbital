@@ -284,19 +284,25 @@
           "pages": [
             { "title": "0. Start a project", "slug": "examples/shelfie/start-a-project", "source": "docs/examples/shelfie/00-start-a-project.md" },
             { "title": "1. A books module", "slug": "examples/shelfie/books-module", "source": "docs/examples/shelfie/01-books-module.md" },
+            { "title": "2. Protecting routes", "slug": "examples/shelfie/protecting-routes", "source": "docs/examples/shelfie/02-protecting-routes.md" },
+            { "title": "3. Your own middleware and guards", "slug": "examples/shelfie/your-own-middleware", "source": "docs/examples/shelfie/03-your-own-middleware.md" },
             { "title": "4. Tests", "slug": "examples/shelfie/tests", "source": "docs/examples/shelfie/04-tests.md" },
             { "title": "5. Operations", "slug": "examples/shelfie/operations", "source": "docs/examples/shelfie/05-operations.md" },
             { "title": "6. Accounts", "slug": "examples/shelfie/accounts", "source": "docs/examples/shelfie/06-accounts.md" },
             { "title": "7. Phone-code sign-in", "slug": "examples/shelfie/phone-code-sign-in", "source": "docs/examples/shelfie/07-phone-code-sign-in.md" },
             { "title": "8. Book clubs", "slug": "examples/shelfie/book-clubs", "source": "docs/examples/shelfie/08-book-clubs.md" },
-            { "title": "9. Generators", "slug": "examples/shelfie/generators", "source": "docs/examples/shelfie/09-generators.md" }
+            { "title": "9. Generators", "slug": "examples/shelfie/generators", "source": "docs/examples/shelfie/09-generators.md" },
+            { "title": "10. Hardening and partners", "slug": "examples/shelfie/hardening", "source": "docs/examples/shelfie/10-hardening.md" },
+            { "title": "11. Deploy", "slug": "examples/shelfie/deploy", "source": "docs/examples/shelfie/11-deploy.md" }
           ]
         },
         {
           "name": "Recipes",
           "pages": [
-            { "title": "Internal admin tool, part 1", "slug": "examples/recipes/internal-admin-tool", "source": "docs/examples/recipes/internal-admin-tool.md" },
+            { "title": "Internal admin tool", "slug": "examples/recipes/internal-admin-tool", "source": "docs/examples/recipes/internal-admin-tool.md" },
             { "title": "Multi-tenant invoicing", "slug": "examples/recipes/multi-tenant-invoicing", "source": "docs/examples/recipes/multi-tenant-invoicing.md" },
+            { "title": "Receiving payment webhooks", "slug": "examples/recipes/receiving-payment-webhooks", "source": "docs/examples/recipes/receiving-payment-webhooks.md" },
+            { "title": "Mobile backend with an external identity provider", "slug": "examples/recipes/mobile-backend-with-an-idp", "source": "docs/examples/recipes/mobile-backend-with-an-idp.md" },
             { "title": "Upgrading a v0.1 app", "slug": "examples/recipes/upgrading-a-v0.1-app", "source": "docs/examples/recipes/upgrading-a-v0.1-app.md" }
           ]
         }

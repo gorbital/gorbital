@@ -20,6 +20,7 @@ gorbital.Main(
 | `opshttp.Module(opts...)` | `/ops/*` below, but accounts and service accounts, which come with sign-in (`authhttp`) | the `ops.*` permissions but sign-in's (`ops.auth.*`, `ops.service_accounts.*`), the roles `platform_admin` and `ops_viewer`, the `ops_test_email` rate limiter |
 | `flagshttp.Module()` | `GET /v1/flags` ([feature flags](feature-flags.md)) | `flags.flag.read`, held by the `user` role |
 | `mailevents.Module()` | `POST /v1/webhooks/resend` ([email](email.md)): on when `RESEND_WEBHOOK_SECRET` is set; a malformed secret stops the app at start | the `mail.suppression.added` audit action |
+| `orgshttp.Module(auth)` | `/v1/orgs/…` and `/v1/invitations` ([organisations](../start/organisations.md#in-an-app-on-gorbitalmain)), including `/v1/orgs/{orgId}/settings`, where owners and admins set their organisation's own value of an `org_overridable` setting | the `orgs.*` permissions and organisation roles, the `orgs.*` settings, the `deleted_organisations` retention in `/ops/retention`, and the `orgs_invitations` limiter in `/ops/auth/rate-limits` |
 
 The option of `opshttp.Module` is `opshttp.MailProvider(opshttp.ProviderSMTP)`, when `GET /ops/mail` should report SMTP instead of Resend.
 
@@ -104,7 +105,7 @@ Missing permission: 403 `forbidden`.
 | `GET /ops/settings/{key}/history?before=&limit=` | Changes, newest first | 200 `{changes: [...]}` |
 | `GET /ops/settings/{key}/overrides?after=&limit=` | Organisations' own values of a setting with `org_overridable`, by organisation ID ([ADR-0056](../adr/0056-per-organisation-settings.md)); always empty in single-tenant apps | 200 `{overrides: [{org_id, value, invalid_stored_value, version, updated_at, updated_by}]}` |
 
-Settings in the Full apps (`internal/app/settings.go`; the list is recorded in `api/surface.json`). Keys are public API. A change to a setting marked **Required** without `reason` answers 422 `setting_reason_required`.
+Settings in the Full apps: each module declares its own (a v0.1 app's in `internal/app/settings.go`), and the list is recorded in `api/surface.json`. Keys are public API. A change to a setting marked **Required** without `reason` answers 422 `setting_reason_required`.
 
 | Key | Default | Bounds | Reason | What it controls |
 |---|---|---|---|---|
@@ -168,7 +169,7 @@ curl -X PUT http://127.0.0.1:8080/ops/settings/example.ping_message \
 
 ## Feature flags
 
-Flags are declared in code (`internal/app/flags.go`; keys recorded in `api/surface.json`) and changed here without a redeploy ([ADR-0057](../adr/0057-feature-flags.md), [guide](feature-flags.md)). A change replaces the flag's whole state and always needs a `reason`.
+Flags are declared in code — in the module's `Flags`, or `internal/app/flags.go` in a v0.1 app; keys recorded in `api/surface.json` and changed here without a redeploy ([ADR-0057](../adr/0057-feature-flags.md), [guide](feature-flags.md)). A change replaces the flag's whole state and always needs a `reason`.
 
 | Endpoint | Purpose | Response |
 |---|---|---|
@@ -420,7 +421,7 @@ Builds without version control information or a link-time version show `"version
 | `runtime` | `go_version`, `gomaxprocs`, `goroutines`, `heap_in_use_bytes`, `last_gc_pause_ms`, `gcs` |
 | `jobs` | `workers` this instance runs and its `queues` |
 
-A failing database still returns 200, with `database.status` and the `postgres` check set to `error`. `migrations.pending` above 0 means this build's migrations haven't been applied: run `go run ./cmd/migrate`.
+A failing database still returns 200, with `database.status` and the `postgres` check set to `error`. `migrations.pending` above 0 means this build's migrations haven't been applied: run `go run ./cmd/api migrate` (`go run ./cmd/migrate` in a v0.1 app).
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8080/ops/system

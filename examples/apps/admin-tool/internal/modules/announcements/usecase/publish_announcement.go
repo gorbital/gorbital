@@ -27,7 +27,7 @@ func (s *Service) PublishAnnouncement(ctx context.Context, f domain.Fields) (dom
 	if err != nil {
 		return domain.Announcement{}, storeError("publish", err)
 	}
-	s.audit(ctx, ActionPublished, published.ID)
+	s.audit(ctx, ActionPublished, published.ID, nil)
 	return published, nil
 }
 

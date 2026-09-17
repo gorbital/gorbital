@@ -21,7 +21,9 @@ import (
 //
 // Any other Operation field would be dropped silently, so route panics on
 // one; gorbital.Mount reports the panic as a registration error.
-func route[I, O any](rs *routes, op huma.Operation, handler func(context.Context, *I) (*O, error)) {
+// extra are options route doesn't derive from op, such as the Customize
+// option passwordRoute uses to reach the API's schema registry.
+func route[I, O any](rs *routes, op huma.Operation, handler func(context.Context, *I) (*O, error), extra ...gorbital.RouteOption) {
 	r := rs.router(op.Path)
 	if err := unsupported(op); err != nil {
 		panic(fmt.Sprintf("authhttp: %s %s: %v", op.Method, op.Path, err))
@@ -30,6 +32,7 @@ func route[I, O any](rs *routes, op huma.Operation, handler func(context.Context
 		gorbital.OperationID(op.OperationID), gorbital.Tags(op.Tags...), gorbital.Summary(op.Summary),
 		gorbital.Description(op.Description), gorbital.Errors(op.Errors...),
 	}
+	opts = append(opts, extra...)
 	if op.DefaultStatus != 0 {
 		opts = append(opts, gorbital.Status(op.DefaultStatus))
 	}
@@ -58,6 +61,9 @@ func route[I, O any](rs *routes, op huma.Operation, handler func(context.Context
 // for /v1/auth/ (with authhttp's RouteMiddleware), base for the rest.
 type routes struct {
 	base, signIn *gorbital.Router
+	// minPassword is the shortest password the app accepts when it is more
+	// than v0.1's minimum, which the struct tags document; 0 otherwise.
+	minPassword int
 }
 
 // routesOn registers every operation on r.

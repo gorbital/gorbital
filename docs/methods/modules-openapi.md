@@ -62,7 +62,7 @@ InstallErrors makes every Huma error an [httpx.Problem](httpx.md#Problem):
   - validation and other client errors keep their status, get the default code (for example "validation\_failed") and list field errors without echoing submitted values;
   - server errors become a generic 500 and are logged once by mapper.
 
-Huma stores these hooks in package-level variables, so call InstallErrors once, from the composition root, before registering operations. It is the only package-level state an gorbital app changes (ADR-0027).
+Huma stores these hooks in package-level variables, so call InstallErrors once, from the composition root, before registering operations. It is the only package-level state a gorbital app changes (ADR-0027).
 
 *Since `v0.1.0`*
 

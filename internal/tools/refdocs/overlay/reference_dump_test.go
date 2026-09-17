@@ -87,6 +87,9 @@ type refCode struct {
 	Detail   string `json:"detail,omitempty"`
 	Generic  bool   `json:"generic,omitempty"`
 	Location string `json:"location"`
+	// Module names the library module an app must add to get this code,
+	// for the codes of refExtraModules; empty for everything the app has.
+	Module string `json:"module,omitempty"`
 }
 
 type refAction struct {
@@ -153,6 +156,17 @@ func TestReferenceDump(t *testing.T) {
 	}
 }
 
+// refListFormat prints, per package, the fields scanPackages reads.
+const refListFormat = `{{if .Module}}{{.Module.Path}}|{{.Module.Dir}}|{{.ImportPath}}|{{.Dir}}|{{join .GoFiles ","}}{{end}}`
+
+// refExtraModules are library modules no golden app links, so the app's
+// dependency graph below never reaches them and their error codes would be
+// missing from the reference. Each is scanned on its own, from the checkout
+// next to the app, and its codes are marked in the page as belonging to a
+// module an app adds. Add a module here when it returns problem codes of its
+// own and no golden app uses it.
+var refExtraModules = []string{"gorbital.dev/modules/jwt"}
+
 // scanReference finds error codes and audit actions the way
 // TestPublicSurface does, keeping each one's status, detail, metadata keys
 // and where it is written.
@@ -160,7 +174,24 @@ func scanReference(t *testing.T, d *refDump) {
 	t.Helper()
 	statuses := httpStatuses(t)
 	module := goOutput(t, "list", "-m")
-	for _, line := range strings.Split(goOutput(t, "list", "-deps", "-f", `{{if .Module}}{{.Module.Path}}|{{.Module.Dir}}|{{.ImportPath}}|{{.Dir}}|{{join .GoFiles ","}}{{end}}`, "./..."), "\n") {
+	scanPackages(t, goOutput(t, "list", "-deps", "-f", refListFormat, "./..."), module, "", statuses, d)
+	for _, extra := range refExtraModules {
+		// The checkout's copy, not the published one: examples/<app> is two
+		// directories below the root, and every gorbital.dev module lives
+		// under it at its import path's tail.
+		dir := filepath.Join("..", "..", filepath.FromSlash(strings.TrimPrefix(extra, "gorbital.dev/")))
+		scanPackages(t, goOutput(t, "list", "-C", dir, "-f", refListFormat, "./..."), module, extra, statuses, d)
+	}
+}
+
+// scanPackages parses every package of a go list run that belongs to the app
+// or to the library, and records what it declares. With extra set, the
+// packages come from a module the app doesn't link, and every code is marked
+// with it.
+func scanPackages(t *testing.T, list, module, extra string, statuses map[string]int, d *refDump) {
+	t.Helper()
+	before := len(d.Codes)
+	for _, line := range strings.Split(list, "\n") {
 		parts := strings.SplitN(line, "|", 5)
 		if len(parts) != 5 || parts[4] == "" {
 			continue
@@ -215,6 +246,11 @@ func scanReference(t *testing.T, d *refDump) {
 				location = filepath.ToSlash(rel)
 			}
 			scanFile(f, location, statuses, actionParams, actionConsts, d)
+		}
+	}
+	if extra != "" {
+		for i := before; i < len(d.Codes); i++ {
+			d.Codes[i].Module = extra
 		}
 	}
 }

@@ -37,12 +37,12 @@ docker build --build-arg VERSION=$(git describe --tags --always) -t acme-api:$(g
 
 | Stage | Base | Contents |
 |---|---|---|
-| build | `golang:1.26` | `CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X gorbital.dev/buildinfo.version=${VERSION}"` of `./cmd/api` and `./cmd/migrate` |
-| runtime | `gcr.io/distroless/static-debian12:nonroot` | `/api` (entrypoint), `/migrate`; `APP_ENV=production`, `APP_ADDR=0.0.0.0:8080`, port 8080, user `nonroot` |
+| build | `golang:1.26` | `CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X gorbital.dev/buildinfo.version=${VERSION}"` of `./cmd/api`. A v0.1 app builds `./cmd/migrate` beside it |
+| runtime | `gcr.io/distroless/static-debian12:nonroot` | `/api` (entrypoint); `APP_ENV=production`, `APP_ADDR=0.0.0.0:8080`, port 8080, user `nonroot`. A v0.1 image carries `/migrate` too |
 
 `VERSION` appears in `GET /version`, logs, traces and `/ops/releases`. The image has no shell; debug with logs, traces and the ops API.
 
-`cmd/seed` isn't in the image: seed data is for development and refuses to run in production.
+Seed data isn't in the image: a v0.1 app's `cmd/seed` isn't built into it, and the `seed` command an app on `gorbital.Main` gets from sign-in refuses to run when `APP_ENV` is production.
 
 ## Configure
 
@@ -68,10 +68,10 @@ After the first deploy, set runtime settings through the ops API: at least `mail
 Migrations never run at app start ([ADR-0017](../adr/0017-application-lifecycle.md)). Run them as a release step, with the same environment, before new instances start:
 
 ```bash
-docker run --rm --env-file prod.env --entrypoint /migrate acme-api:<tag>
+docker run --rm --env-file prod.env acme-api:<tag> migrate
 ```
 
-- `/migrate` applies the app's goose migrations, then River's, and exits.
+- The `migrate` command of `/api` applies the app's goose migrations — the library's, the modules' and yours in one history — then River's, and exits. A v0.1 image has a separate binary instead: `docker run --rm --env-file prod.env --entrypoint /migrate acme-api:<tag>`.
 - It takes a PostgreSQL advisory lock, so two concurrent runs apply each migration once.
 - Migrations are forward-only. There are no down migrations: fix a bad migration with a new one.
 - **Expand, then contract.** Old instances keep running during a rolling deploy, so a release's migration must work with the previous release's code: add a nullable column, deploy code that writes it, backfill, then make it `NOT NULL` in a later release. Never rename or drop a column that running code still reads.
@@ -171,7 +171,7 @@ Account and organisation deletion is soft first: data is purged by jobs after `a
 
 - Set `MAIL_DELIVERY=devmail` or `mailpit`, or copy a development `.env`. (The app refuses the first two.)
 - Reuse the development `AUTH_ENCRYPTION_KEYS`, or lose the production one.
-- Run `cmd/seed`, or create administrators any way other than `grant-role` on a verified account.
+- Run seed data — a v0.1 app's `cmd/seed`, or the `seed` command, which refuses to run when `APP_ENV` is production — or create administrators any way other than `grant-role` on a verified account.
 - Run migrations from app instances at start, or edit a migration that has already run anywhere.
 - Deploy a migration that breaks the previous release's code during a rolling deploy.
 - Expose the app's port directly without TLS, or serve it on both http and https.

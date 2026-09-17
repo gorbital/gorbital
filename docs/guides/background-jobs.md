@@ -14,7 +14,7 @@
 
 Changing a job's **code** always needs a deploy. Its **configuration** never does.
 
-## Adding a job
+## Adding a job in a v0.1 app
 
 Generate a job with the CLI, interactively or with flags ([CLI guide](cli.md#orb-gen-job)):
 
@@ -70,9 +70,57 @@ and adds `defineCleanupSessionsJob(defs, deps)` below `//orb:anchor jobs` in `in
 
 `Define` panics at startup when the name isn't lowercase snake_case, `Args.Kind()` doesn't equal the name, the worker or `NewArgs` is missing, or the defaults are out of bounds. Zero `Timeout`, `MaxAttempts`, `Queue` and `Priority` become 1 minute, 25, `default` and 1.
 
+## Adding a job in an app on gorbital.Main
+
+`orb gen job` writes into a v0.1 app's `internal/app`, which an app on [`gorbital.Main`](main-go.md) doesn't have, so it refuses:
+
+```text
+this app is on gorbital.Main, and orb gen job writes jobs into a v0.1 app's internal/app;
+define the job in a module's Jobs in its module.go instead
+```
+
+A job belongs to the module whose data it touches. The worker is the same file as above, in the module's own package; the definition goes in the module's `Jobs`, which `gorbital.New` calls once ([modules and routes](modules-and-routes.md#a-module)):
+
+```go
+// Module returns the projects module.
+func Module() gorbital.Module {
+	var store *repository.Store
+	return gorbital.Module{
+		Name: "projects",
+		Jobs: func(defs *jobs.Definitions, d gorbital.Deps) {
+			store = repository.NewStore(d.DB)
+			jobs.Define(defs, jobs.Definition[purgearchived.Args]{
+				Name:        purgearchived.Name,
+				Description: "Deletes projects archived longer than the retention period ago.",
+				Worker: purgearchived.NewWorker(func(ctx context.Context) (int, error) {
+					return store.PurgeArchived(ctx)
+				}, d.Logger),
+				NewArgs:     func() purgearchived.Args { return purgearchived.Args{} },
+				Enabled:     true,
+				Schedule:    "0 3 * * *",
+				Timeout:     5 * time.Minute,
+				MaxAttempts: 5,
+			})
+		},
+		Routes: func(r *gorbital.Router, d gorbital.Deps) { /* … */ },
+	}
+}
+```
+
+This is how the library's own modules define theirs: `authhttp` defines `auth_cleanup` and `auth_revoke_tokens` this way, and `orgshttp` defines `orgs_purge`.
+
+Two rules follow from **when** `Jobs` runs. `New` calls it before the job client exists, because it builds the client from the definitions:
+
+- **The `Deps` it receives has no `Jobs` client**, and `Mailer` queues through the client `New` builds next. So a worker keeps what it needs from `d` — the pool, the logger, a service it builds — and uses it when a job runs, never inside `Jobs` itself. Above, `store` is built in `Jobs` and used in the closure the worker calls later.
+- **A worker that enqueues other jobs** takes the client from its context with `river.ClientFromContext`.
+
+Everything else is the same: the name is public API, operators override the configuration at `/ops/jobs/definitions/{name}`, and a module that says how long its data is kept declares it in `Retention` beside `Jobs`, which `/ops/retention` reports.
+
+Migrations need nothing: the module's own tables come from its `Migrations` or the app's `db/migrations`, and `go run ./cmd/api migrate` applies River's tables with them ([below](#migrations-and-storage)).
+
 ## Jobs from the portal
 
-The Dev Portal's Jobs screen ([Dev Portal guide](dev-portal.md)) makes a job three ways: a form, the `orb gen job` command to copy, or the custom kind with the file to open. The form asks what the job does and `orb gen job --kind` renders it as ordinary Go ([ADR-0071](../adr/0071-job-kinds-and-ejection.md)):
+The Dev Portal's Jobs screen ([Dev Portal guide](dev-portal.md)) makes a job three ways in a v0.1 app: a form, the `orb gen job` command to copy, or the custom kind with the file to open. Its `job` generator is `orb gen job`, so in an app on `gorbital.Main` it refuses with the same message, and the job goes in the module's `Jobs` as above. The form asks what the job does and `orb gen job --kind` renders it as ordinary Go ([ADR-0071](../adr/0071-job-kinds-and-ejection.md)):
 
 | Kind | `Work` | Needs from `jobDeps` |
 |---|---|---|
@@ -188,7 +236,7 @@ Rules: writes need an authenticated actor; `Update` and `Reset` need the current
 
 | Tables | Created by |
 |---|---|
-| River's (`river_job`, `river_queue`, `river_leader`, `river_migration`, …) | `jobs.Migrate(ctx, pool)` in `cmd/migrate`, after goose; `jobs.MigrationsPending` reports gaps |
+| River's (`river_job`, `river_queue`, `river_leader`, `river_migration`, …) | `jobs.Migrate(ctx, pool)` after goose: in a v0.1 app from `cmd/migrate`, in an app on `gorbital.Main` from `gorbital.Migrate`, which `go run ./cmd/api migrate` runs. `jobs.MigrationsPending` reports gaps |
 | `jobs_definitions`, `jobs_definition_history` | goose migration from `jobs.Migrations`, copied into `db/migrations` |
 
 ## Testing

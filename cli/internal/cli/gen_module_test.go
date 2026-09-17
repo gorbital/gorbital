@@ -62,6 +62,19 @@ func newMainApp(t *testing.T, buildable bool) string {
 	return dir
 }
 
+// nextMigrationAfterNewest is the version orb gives a migration generated in
+// dir: the one after the app's newest, since Shelfie's are dated later than
+// the clock this test runs on. It is computed rather than written down,
+// because every chapter that adds a migration moves it.
+func nextMigrationAfterNewest(t *testing.T, dir string) string {
+	t.Helper()
+	v, err := nextMigrationVersion(dir, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
 // shelvesArgs is the command that generated Shelfie's shelves module.
 var shelvesArgs = []string{"gen", "module", "Shelf", "name:string:unique", "description:text", "visibility:enum(private,shared)", "--plural", "Shelves"}
 
@@ -83,6 +96,7 @@ func TestGenModule(t *testing.T) {
 		t.Fatal("--dry-run wrote the module")
 	}
 
+	wantVersion := nextMigrationAfterNewest(t, dir)
 	code, out, errOut = runOrb(t, append(shelvesArgs, "--allow-dirty")...)
 	if code != 0 || !strings.Contains(out, "✓ Created module shelves") || !strings.Contains(out, "modify internal/modules/modules.gen.go") {
 		t.Fatalf("orb gen module = %d %s %s", code, out, errOut)
@@ -100,8 +114,8 @@ func TestGenModule(t *testing.T) {
 		}
 		golden := f
 		if strings.HasSuffix(f, "_shelves.sql") {
-			if f != "db/migrations/20260920000005_shelves.sql" {
-				t.Errorf("migration = %s, want the one after the app's newest", f)
+			if f != "db/migrations/"+wantVersion+"_shelves.sql" {
+				t.Errorf("migration = %s, want the one after the app's newest (%s)", f, wantVersion)
 			}
 			golden = "db/migrations/20260920000002_shelves.sql"
 		}
@@ -141,7 +155,11 @@ func TestGenModuleOrg(t *testing.T) {
 		if f == modulesGenPath {
 			continue
 		}
-		if got, want := readFile(t, filepath.Join(dir, filepath.FromSlash(f))), readFile(t, filepath.Join(shelfie, filepath.FromSlash(f))); got != want {
+		golden := f
+		if strings.HasSuffix(f, "_club_books.sql") {
+			golden = "db/migrations/20260920000005_club_books.sql" // Shelfie's, generated when its history was shorter
+		}
+		if got, want := readFile(t, filepath.Join(dir, filepath.FromSlash(f))), readFile(t, filepath.Join(shelfie, filepath.FromSlash(golden))); got != want {
 			t.Errorf("%s differs from Shelfie's", f)
 		}
 	}
@@ -163,6 +181,7 @@ func TestGenModuleOrgWiring(t *testing.T) {
 	withoutOrgs := strings.Join(kept, "")
 	writeFile(t, mainGo, withoutOrgs)
 
+	projectsVersion := nextMigrationAfterNewest(t, dir)
 	code, out, errOut := runOrb(t, "gen", "module", "Project", "name:string", "--org", "--allow-dirty")
 	if code != 0 || !strings.Contains(out, "1. Add the organisations module") || !strings.Contains(out, "gorbital.WithModules(orgshttp.Module(auth))") ||
 		!strings.Contains(out, "passed to gorbital.WithAuth") {
@@ -171,7 +190,7 @@ func TestGenModuleOrgWiring(t *testing.T) {
 	if readFile(t, mainGo) != withoutOrgs {
 		t.Error("orb gen module --org changed main.go")
 	}
-	migration := readFile(t, filepath.Join(dir, "db", "migrations", "20260920000005_projects.sql"))
+	migration := readFile(t, filepath.Join(dir, "db", "migrations", projectsVersion+"_projects.sql"))
 	if !strings.Contains(migration, "org_id     text        NOT NULL,") || !strings.Contains(migration, "REFERENCES orgs (id) ON DELETE CASCADE") ||
 		strings.Contains(migration, "ROW LEVEL SECURITY") {
 		t.Errorf("migration without row-level security:\n%s", migration)

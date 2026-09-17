@@ -230,7 +230,7 @@ func (m *layoutMove) planAppModule(name string) {
 		m.handled[wiring] = true
 		m.item(itemTemplate, prefix, "the example module, unchanged: written from the v0.2 templates, which declare its settings and flags in the module itself",
 			append([]string{
-				"the template's module is orb gen module's output: its request schemas are named after their operations and refuse unknown properties, which the v0.1 generated module accepted; restore it with git and convert it by hand if your clients send extra properties",
+				"the template's module is orb gen module's output, so its request schemas may be renamed after their operations and may refuse unknown properties where the v0.1 module accepted them; often neither changes. Read git diff api/openapi.json, and restore the module with git and convert it by hand only if a schema your clients depend on did change",
 				"orb upgrade couldn't convert the module where it was:",
 			}, c.Problems...), nil)
 		return
@@ -623,7 +623,8 @@ func (m *layoutMove) finish() (*layoutPlan, error) {
 
 	m.res.Next = []string{
 		"go test ./...   (database tests need orb dev or docker compose up -d --wait)",
-		"git diff api/openapi.json   (the API is re-exported; only x-gorbital-guards should appear)",
+		"git diff api/openapi.json   (re-exported: every route gains x-gorbital-guards, and the /ops instance example takes this app's name)",
+		"git diff api/surface.json api/openapi.baseline.json   (rewritten: the built-in modules' names are the library's now, so only this app's are recorded)",
 		"orb doctor",
 		"git add -A && git commit -m 'Move to the v0.2 layout'",
 	}

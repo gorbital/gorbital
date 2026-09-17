@@ -6,7 +6,7 @@ How errors are created, passed, mapped to HTTP responses and logged, from the do
 
 1. **Errors are values with meaning in the layer that creates them.** A domain returns `ErrProjectNotFound`, never `404`. A repository returns `ErrProjectNameTaken`, never a pgx error.
 2. **Driver and library errors are wrapped with `%v`, not `%w`,** so callers can't depend on pgx or provider types: `fmt.Errorf("insert project: %v", err)`.
-3. **Only the app maps errors to HTTP**, through one `httpx.Mapper` built in `internal/app/routes.go`. Modules register their own mappings in `internal/app/module_<name>.go`.
+3. **Only the composition maps errors to HTTP**, through one `httpx.Mapper` for the whole app. In an app on [`gorbital.Main`](main-go.md) the library builds it and each module declares its own mappings in `Errors` in its `module.go`; in a v0.1 app it is built in `internal/app/routes.go` and modules register their mappings in `internal/app/module_<name>.go`.
 4. **Errors are logged once, at the edge.** Lower layers return errors without logging them. The mapper logs only what it can't map (500s); expected errors (404, 409, 422) aren't logged as errors, and the access log line already records the status.
 5. **Clients get stable codes, never internal messages.** `code` is public API ([ADR-0015](../adr/0015-public-api-and-stability-tiers.md)); `title` and `detail` may change.
 
@@ -59,7 +59,26 @@ httpx.WriteProblem  → Content-Type: application/problem+json, Cache-Control: n
 
 ## Mappings
 
-A mapping connects a sentinel error to a status and code:
+A mapping connects a sentinel error to a status and code. In an app on `gorbital.Main`, a module lists them in its `Errors`, beside its routes and permissions:
+
+```go
+// internal/modules/projects/module.go
+func Module() gorbital.Module {
+	return gorbital.Module{
+		Name: "projects",
+		Errors: []httpx.Mapping{
+			{Err: domain.ErrProjectNotFound, Status: http.StatusNotFound, Code: "project_not_found", Detail: "no project of yours has this ID"},
+			{Err: domain.ErrProjectNameTaken, Status: http.StatusConflict, Code: "project_name_taken", Detail: "you already have a project with this name"},
+			{Err: domain.ErrProjectVersionConflict, Status: http.StatusConflict, Code: "project_version_conflict", Detail: "the project changed since you read it; get it again and retry"},
+		},
+		Routes: func(r *gorbital.Router, d gorbital.Deps) { /* … */ },
+	}
+}
+```
+
+`gorbital.New` creates the mapper, installs it in Huma with `openapi.InstallErrors`, adds the pagination mappings every list route shares, and then adds each module's `Errors` in module order as it mounts it. A mapping the mapper refuses fails `New`, naming the module.
+
+A v0.1 app calls `mapper.Add` itself, with the same values:
 
 ```go
 // internal/app/module_projects.go
@@ -111,10 +130,10 @@ Every code with its status, meaning and where it's returned, generated from the 
 |---|---|---|
 | Middleware | `cross_origin_request_denied` (403), `request_too_large` (413), `auth_unavailable` (503), `rate_limited` (429), `internal_error` (500 from a panic), `not_found` (404, no route) | [Life of a request](request-lifecycle.md) |
 | Idempotency keys | `invalid_idempotency_key` (400), `idempotency_in_progress` (409), `idempotency_key_reused` (422), `unavailable` (503) | [Idempotency](idempotency.md) |
-| Pagination (`gorbital.dev/page`) | `invalid_cursor`, `invalid_sort`, `invalid_limit` (400) | `routes.go` |
+| Pagination (`gorbital.dev/page`) | `invalid_cursor`, `invalid_sort`, `invalid_limit` (400) | Added by `gorbital.New`; `routes.go` in a v0.1 app |
 | Authentication | `unauthenticated`, `forbidden`, `mfa_required`, `mfa_unavailable`, `passkeys_unavailable`, and each flow's codes | [Authentication](authentication.md#error-codes) |
 | Ops APIs | `setting_not_found`, `setting_version_conflict`, `job_definition_disabled`, `invalid_recipient`, … | [Ops API](ops-api.md#error-codes) |
-| Resources | `<resource>_not_found`, `<resource>_<field>_taken`, `<resource>_version_conflict` | `internal/app/module_<name>.go` |
+| Resources | `<resource>_not_found`, `<resource>_<field>_taken`, `<resource>_version_conflict` | The module's `Errors` in `internal/modules/<name>/module.go`; `internal/app/module_<name>.go` in a v0.1 app |
 
 ## Adding an error
 
@@ -125,14 +144,14 @@ Every code with its status, meaning and where it's returned, generated from the 
    ```
 
 2. Return it from the domain or use case.
-3. Map it in `internal/app/module_invoices.go`:
+3. Map it in the module's `Errors` in `internal/modules/invoices/module.go` (`internal/app/module_invoices.go` in a v0.1 app):
 
    ```go
-   httpx.Mapping{Err: invoicesdomain.ErrInvoicePaid, Status: http.StatusConflict, Code: "invoice_paid"},
+   {Err: domain.ErrInvoicePaid, Status: http.StatusConflict, Code: "invoice_paid"},
    ```
 
-4. Document the response on the Huma operation (`Errors: []int{http.StatusConflict}`) so it appears in `/docs`, then export `api/openapi.json`.
-5. Test the status and code in `internal/app/<names>_test.go`.
+4. Document the response on the operation (`gorbital.Errors(http.StatusConflict)`, or Huma's `Errors: []int{http.StatusConflict}` in a v0.1 app) so it appears in `/docs`, then export `api/openapi.json`.
+5. Test the status and code in the module's own tests (`internal/app/<names>_test.go` in a v0.1 app).
 
 For errors that carry data, such as a retry delay, define a type implementing `error` and match it with `errors.As` in the use case, or return an `*httpx.Problem` built with `httpx.NewProblem` from delivery code.
 

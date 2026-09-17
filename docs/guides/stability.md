@@ -151,7 +151,7 @@ Full apps carry `api/openapi.baseline.json`, the recorded OpenAPI document of go
 
 Additions pass. **Never edit the baseline to make the test pass.** Maintainers copy the released `api/openapi.json` over it at each release, after the check passes, so later additions are protected too.
 
-The comparison is `openapi.CheckCompatible(baseline, current, prefix)` in `gorbital.dev/modules/openapi`. To hold your own API to the same rule, record a baseline when you release (`cp api/openapi.json api/openapi.baseline.json`) and add `"/v1/"` to the prefixes in `internal/app/api_compat_test.go`.
+The comparison is `openapi.CheckCompatible(baseline, current, prefix)` in `gorbital.dev/modules/openapi`. To hold your own API to the same rule, record a baseline when you release (`cp api/openapi.json api/openapi.baseline.json`) and add `"/v1/"` to the prefixes in the test that holds the check: `cmd/api/main_test.go` in an app on `gorbital.Main`, `internal/app/api_compat_test.go` in a v0.1 app.
 
 ## `orb --json`
 
@@ -203,7 +203,7 @@ It needs the network (or a module cache holding `orb` v0.1.0) and the test datab
 | Exported Go API | `go run -C internal/tools/apicheck .` (`-write` to record additions), then `go run -C internal/tools/refdocs . -methods -write` |
 | Doc comments or `Example` functions | `go run -C internal/tools/refdocs . -methods -write` |
 | A golden Full app's error codes, audit actions, permissions, settings or jobs | `go test ./internal/modules -run TestPublicSurface -update` in both Full apps (when the app's own names change), `go run -C internal/tools/refdocs . -write` (with a description in its `descriptions.json` for a new audit action), then `cd cli && go generate ./internal/recipes/` |
-| `/ops` endpoints | `go test ./internal/app -run TestOpsAPICompatible` in both Full apps |
+| `/ops` endpoints | `go test ./cmd/api -run TestOpsAPICompatible` in both Full apps (`./internal/app` in the v0.1 apps under `examples/v0.1/`) |
 | `orb` JSON output | `cd cli && go test ./internal/cli -run TestJSONOutputs` (`-update` for additions) |
 | The library in a way old scaffolds might notice | The scaffold compatibility check above, with `ORB_COMPAT_FROM=v0.1.0 ORB_COMPAT_PUBLISHED=1` |
 | A golden app's built-in endpoints or surface names | `go test -C internal/tools/contracts ./...` (the v0.1.0 fixtures never change: [internal/contracts/v0.1.0](../../internal/contracts/v0.1.0/README.md)) |

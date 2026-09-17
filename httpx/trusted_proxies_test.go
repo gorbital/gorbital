@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"slices"
 	"testing"
 
 	"gorbital.dev/httpx"
+	"gorbital.dev/httpx/ipfilter"
 )
 
 func TestParseTrustedProxies(t *testing.T) {
@@ -18,13 +20,60 @@ func TestParseTrustedProxies(t *testing.T) {
 	if got, err := httpx.ParseTrustedProxies(""); err != nil || len(got) != 0 {
 		t.Errorf("ParseTrustedProxies(empty) = %v, %v", got, err)
 	}
-	for _, all := range []string{"0.0.0.0/0", "::/0", "10.0.0.0/8,0.0.0.0/0"} {
+	for _, all := range []string{"0.0.0.0/0", "::/0", "10.0.0.0/8,0.0.0.0/0", "::ffff:0.0.0.0/96", "::ffff:0:0/96"} {
 		if _, err := httpx.ParseTrustedProxies(all); !errors.Is(err, httpx.ErrTrustAll) {
 			t.Errorf("ParseTrustedProxies(%q) error = %v, want ErrTrustAll", all, err)
 		}
 	}
 	if _, err := httpx.ParseTrustedProxies("load-balancer"); err == nil {
 		t.Error("ParseTrustedProxies(host name) error = nil")
+	}
+
+	// IPv4-mapped entries become IPv4, as the compared addresses are
+	// (ipfilter.ParsePrefixes does the same).
+	for _, tt := range []struct{ list, want string }{
+		{"::ffff:10.0.0.5", "10.0.0.5/32"},
+		{"::ffff:10.0.0.5/128", "10.0.0.5/32"},
+		{"::ffff:10.0.0.0/104", "10.0.0.0/8"},
+	} {
+		got, err := httpx.ParseTrustedProxies(tt.list)
+		if err != nil || len(got) != 1 || got[0].String() != tt.want {
+			t.Errorf("ParseTrustedProxies(%q) = %v, %v, want [%s]", tt.list, got, err, tt.want)
+		}
+	}
+	// A mapped range shorter than /96 mixes families and could never match.
+	for _, mixed := range []string{"::ffff:0:0/80", "::ffff:10.0.0.0/64"} {
+		if _, err := httpx.ParseTrustedProxies(mixed); err == nil || errors.Is(err, httpx.ErrTrustAll) {
+			t.Errorf("ParseTrustedProxies(%q) error = %v, want a mixed-family error", mixed, err)
+		}
+	}
+	// A zoned address could never match a peer address either.
+	for _, zoned := range []string{"fe80::1%en0", "fe80::1%en0/64"} {
+		if _, err := httpx.ParseTrustedProxies(zoned); err == nil {
+			t.Errorf("ParseTrustedProxies(%q) error = nil", zoned)
+		}
+	}
+}
+
+// TestParseTrustedProxiesMatchesIPFilter keeps ParseTrustedProxies and
+// ipfilter.ParsePrefixes canonicalising the same way; both compare
+// unmapped, unzoned client addresses. The lists below are the ones the two
+// packages both accept or both refuse.
+func TestParseTrustedProxiesMatchesIPFilter(t *testing.T) {
+	for _, list := range []string{
+		"10.0.0.5/8", "192.0.2.10", "2001:db8::1/32", "::ffff:10.0.0.5", "::ffff:10.0.0.0/104",
+		"::ffff:0:0/80", "fe80::1%en0", "fe80::/10", "load-balancer", "192.0.2.1/33", "",
+		" 10.0.0.0/8, ::ffff:192.0.2.10 ,2001:db8::/32,",
+	} {
+		proxies, proxyErr := httpx.ParseTrustedProxies(list)
+		allowed, allowErr := ipfilter.ParsePrefixes(list)
+		if (proxyErr != nil) != (allowErr != nil) {
+			t.Errorf("ParseTrustedProxies(%q) error = %v; ParsePrefixes error = %v", list, proxyErr, allowErr)
+			continue
+		}
+		if !slices.Equal(proxies, allowed) {
+			t.Errorf("ParseTrustedProxies(%q) = %v; ParsePrefixes = %v", list, proxies, allowed)
+		}
 	}
 }
 
@@ -33,26 +82,43 @@ func TestTrustedProxies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The same proxies written as IPv4-mapped IPv6, which an operator may
+	// copy from a log line. They must trust exactly the same peers.
+	mapped, err := httpx.ParseTrustedProxies("::ffff:10.0.0.0/104,2001:db8::/32")
+	if err != nil {
+		t.Fatal(err)
+	}
 	tests := []struct {
 		name, peer string
 		forwarded  []string
 		want       string
+		trusted    []netip.Prefix // nil: trusted
 	}{
-		{"direct client", "203.0.113.7:4242", nil, "203.0.113.7:4242"},
-		{"untrusted peer can't spoof", "203.0.113.7:4242", []string{"198.51.100.1"}, "203.0.113.7:4242"},
-		{"one trusted proxy", "10.0.0.5:80", []string{"198.51.100.1"}, "198.51.100.1:0"},
-		{"client-supplied hops left of the proxy are ignored", "10.0.0.5:80", []string{"1.2.3.4, 198.51.100.1"}, "198.51.100.1:0"},
-		{"several trusted proxies", "10.0.0.5:80", []string{"198.51.100.1, 10.1.1.1", "10.2.2.2"}, "198.51.100.1:0"},
-		{"IPv6 client through an IPv6 proxy", "[2001:db8::1]:443", []string{"2001:db8:ffff::9, 2001:db9::7"}, "[2001:db9::7]:0"},
-		{"IPv4-mapped peer", "[::ffff:10.0.0.5]:80", []string{"198.51.100.1"}, "198.51.100.1:0"},
-		{"only trusted hops", "10.0.0.5:80", []string{"10.3.3.3"}, "10.0.0.5:80"},
-		{"no header from a trusted proxy", "10.0.0.5:80", nil, "10.0.0.5:80"},
-		{"malformed hop", "10.0.0.5:80", []string{"not-an-ip"}, "10.0.0.5:80"},
+		{"direct client", "203.0.113.7:4242", nil, "203.0.113.7:4242", nil},
+		{"untrusted peer can't spoof", "203.0.113.7:4242", []string{"198.51.100.1"}, "203.0.113.7:4242", nil},
+		{"one trusted proxy", "10.0.0.5:80", []string{"198.51.100.1"}, "198.51.100.1:0", nil},
+		{"client-supplied hops left of the proxy are ignored", "10.0.0.5:80", []string{"1.2.3.4, 198.51.100.1"}, "198.51.100.1:0", nil},
+		{"several trusted proxies", "10.0.0.5:80", []string{"198.51.100.1, 10.1.1.1", "10.2.2.2"}, "198.51.100.1:0", nil},
+		{"IPv6 client through an IPv6 proxy", "[2001:db8::1]:443", []string{"2001:db8:ffff::9, 2001:db9::7"}, "[2001:db9::7]:0", nil},
+		{"IPv4-mapped peer", "[::ffff:10.0.0.5]:80", []string{"198.51.100.1"}, "198.51.100.1:0", nil},
+		{"only trusted hops", "10.0.0.5:80", []string{"10.3.3.3"}, "10.0.0.5:80", nil},
+		{"no header from a trusted proxy", "10.0.0.5:80", nil, "10.0.0.5:80", nil},
+		{"malformed hop", "10.0.0.5:80", []string{"not-an-ip"}, "10.0.0.5:80", nil},
+		// An IPv4-mapped *entry* now matches, mapped peer or not: before
+		// canonicalisation it stayed a /128 mapped range and matched nothing.
+		{"IPv4-mapped entry, IPv4 peer", "10.0.0.5:80", []string{"198.51.100.1"}, "198.51.100.1:0", mapped},
+		{"IPv4-mapped entry, mapped peer", "[::ffff:10.0.0.5]:80", []string{"198.51.100.1"}, "198.51.100.1:0", mapped},
+		{"IPv4-mapped entry, untrusted peer", "203.0.113.7:4242", []string{"198.51.100.1"}, "203.0.113.7:4242", mapped},
+		{"IPv4-mapped entry, mapped hop", "10.0.0.5:80", []string{"::ffff:198.51.100.1"}, "198.51.100.1:0", mapped},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ranges := tt.trusted
+			if ranges == nil {
+				ranges = trusted
+			}
 			var got string
-			h := httpx.TrustedProxies(trusted)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { got = r.RemoteAddr }))
+			h := httpx.TrustedProxies(ranges)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { got = r.RemoteAddr }))
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			req.RemoteAddr = tt.peer
 			for _, f := range tt.forwarded {
@@ -76,63 +142,6 @@ func TestTrustedProxies(t *testing.T) {
 	}
 	_ = next
 }
-
-// TestParseTrustedProxiesMappedEntries: an IPv4-mapped IPv6 entry names an
-// IPv4 range, and is read as one, because the addresses it is compared with
-// are unmapped. Before this, "::ffff:10.0.0.5" and "::ffff:10.0.0.0/104"
-// were kept 4-in-6 and matched nothing at all -- not even a mapped peer --
-// so an operator's list silently trusted nobody; and a mapped range shorter
-// than /96 was re-based by netip onto a range they never wrote, so
-// "::ffff:10.0.0.0/8" masked to "::/8" and trusted ::1 (internal security
-// review, 2026-09, HTTP-1).
-func TestParseTrustedProxiesMappedEntries(t *testing.T) {
-	for entry, want := range map[string]string{
-		"::ffff:10.0.0.5":      "10.0.0.5/32",
-		"::ffff:10.0.0.0/104":  "10.0.0.0/8",
-		"::ffff:192.0.2.0/120": "192.0.2.0/24",
-	} {
-		got, err := httpx.ParseTrustedProxies(entry)
-		if err != nil || len(got) != 1 || got[0].String() != want {
-			t.Errorf("ParseTrustedProxies(%q) = %v, %v; want [%s]", entry, got, err, want)
-		}
-	}
-	// A mapped range shorter than /96 mixes families: refused, never re-based.
-	for _, entry := range []string{"::ffff:10.0.0.0/8", "::ffff:0.0.0.0/64"} {
-		if _, err := httpx.ParseTrustedProxies(entry); err == nil {
-			t.Errorf("ParseTrustedProxies(%q) error = nil", entry)
-		}
-	}
-	// "every IPv4 address", written the mapped way, is still ErrTrustAll.
-	if _, err := httpx.ParseTrustedProxies("::ffff:0.0.0.0/96"); !errors.Is(err, httpx.ErrTrustAll) {
-		t.Errorf("ParseTrustedProxies(mapped 0.0.0.0/0) error = %v, want ErrTrustAll", err)
-	}
-	// A zoned address is not a proxy range.
-	if _, err := httpx.ParseTrustedProxies("fe80::1%eth0"); err == nil {
-		t.Error("ParseTrustedProxies(zoned address) error = nil")
-	}
-
-	// End to end: a mapped entry trusts the proxy it names, whether the peer
-	// arrives as IPv4 or IPv4-mapped.
-	trusted, err := httpx.ParseTrustedProxies("::ffff:10.0.0.0/104")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, peer := range []string{"10.0.0.5:80", "[::ffff:10.0.0.5]:80"} {
-		var got string
-		h := httpx.TrustedProxies(trusted)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { got = r.RemoteAddr }))
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.RemoteAddr = peer
-		req.Header.Set("X-Forwarded-For", "198.51.100.1")
-		h.ServeHTTP(httptest.NewRecorder(), req)
-		if got != "198.51.100.1:0" {
-			t.Errorf("peer %s: RemoteAddr = %q, want the forwarded client", peer, got)
-		}
-	}
-}
-
-// TestTrustedProxiesDropsRangesItCantUse: prefixes passed straight to the
-// middleware are canonicalised like parsed ones, and one that can't be is
-// dropped rather than trusting a range nobody wrote.
 func TestTrustedProxiesDropsRangesItCantUse(t *testing.T) {
 	mapped := netip.MustParsePrefix("::ffff:10.0.0.0/104")
 	mixed := netip.MustParsePrefix("::ffff:10.0.0.0/8") // masks to ::/8

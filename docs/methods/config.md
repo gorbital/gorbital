@@ -6,7 +6,7 @@
 import "gorbital.dev/config"
 ```
 
-Package config provides configuration helpers for the composition root of an gorbital app: a [Secret](#Secret) type that never leaks into logs or output, and environment lookup with \*\_FILE support for mounted secrets.
+Package config provides configuration helpers for the composition root of a gorbital app: a [Secret](#Secret) type that never leaks into logs or output, and environment lookup with \*\_FILE support for mounted secrets.
 
 Library modules never read the environment; only the application's internal/app package uses this package (ADR-0020).
 

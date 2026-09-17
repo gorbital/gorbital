@@ -20,10 +20,14 @@ type handlers struct {
 // docs:start routes
 
 // Register adds the books routes to r. Every route requires a signed-in
-// reader (deny by default) and the permission its guard names.
-func Register(r *gorbital.Router, svc *usecase.Service) {
+// reader (deny by default) and the permission its guard names; the module's
+// own middleware and guard are in this package (chapter 3).
+func Register(r *gorbital.Router, svc *usecase.Service, subs *usecase.Subscriptions) {
 	h := handlers{svc: svc}
-	books := r.Group("/v1/books", gorbital.Tags("Books"))
+	// docs:start books-group
+	books := r.Group("/v1/books", gorbital.Tags("Books"),
+		gorbital.Use(RequireClientVersion), gorbital.Errors(http.StatusUpgradeRequired))
+	// docs:end books-group
 
 	gorbital.Post(books, "", h.createBook,
 		gorbital.Summary("Add a book to your shelf"), gorbital.Status(http.StatusCreated),
@@ -36,6 +40,22 @@ func Register(r *gorbital.Router, svc *usecase.Service) {
 		gorbital.Summary("Change a book"), guard.Permission(usecase.PermWrite))
 	gorbital.Delete(books, "/{id}", h.deleteBook,
 		gorbital.Summary("Remove a book"), gorbital.Status(http.StatusNoContent), guard.Permission(usecase.PermWrite))
+
+	// docs:start empty-shelf-route
+	// Nothing keeps a copy of a shelf, so a stolen session shouldn't reach
+	// this: guard.RecentReauth asks the reader to sign in again first.
+	gorbital.Delete(books, "", h.emptyShelf,
+		gorbital.Summary("Empty your shelf"),
+		gorbital.Description("Removes every book. Needs a session that signed in, or verified a second factor, in the last 10 minutes."),
+		guard.Permission(usecase.PermWrite), guard.RecentReauth())
+	// docs:end empty-shelf-route
+	// docs:start export-route
+	// Exporting a shelf is what Shelfie Plus is for: the module's own guard.
+	gorbital.Get(books, "/export", h.exportBooks,
+		gorbital.Summary("Export your shelf"),
+		gorbital.Description("Every book on the shelf in one document, for readers on Shelfie Plus."),
+		guard.Permission(usecase.PermRead), ActiveSubscription(subs))
+	// docs:end export-route
 }
 
 // docs:end routes

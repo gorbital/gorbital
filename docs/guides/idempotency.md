@@ -63,7 +63,7 @@ Stored responses can contain personal data (whatever the endpoint returned), so 
 
 ## In your own endpoints
 
-Every POST and PATCH operation gets the header automatically and documents it in `api/openapi.json`. Nothing to add for resources generated with `orb gen resource`.
+Every POST and PATCH operation gets the header automatically and documents it in `api/openapi.json`. Nothing to add for modules generated with `orb gen module`, or with `orb gen resource` in a v0.1 app.
 
 If a response shows a secret only once, such as a new API key, don't let it be stored:
 
@@ -76,12 +76,12 @@ func (h *handler) createKey(ctx context.Context, in *createKeyInput) (*keyOutput
 
 Browsers calling the API from `APP_CORS_ORIGINS` may send `Idempotency-Key` and read `Idempotent-Replayed`.
 
-The wiring is in `internal/app/idempotency.go`: the store, the middleware (last in the chain, after authentication) and the OpenAPI header. To exclude more paths, extend its skip function and `idempotencySkipped`.
+In an app on [`gorbital.Main`](main-go.md) the library wires it: the store, the OpenAPI header, and the middleware as `Stack.Idempotency`, the last step of the built-in chain, after authentication ([the middleware stack](middleware-stack.md)). To exclude more paths, replace that step with `gorbital.WithStack`. In a v0.1 app the same wiring is in `internal/app/idempotency.go`, and you extend its skip function and `idempotencySkipped`.
 
 ## Existing apps
 
-`orb upgrade` adds the module, the migration `20260918000040_idempotency_keys.sql`, `internal/app/idempotency.go`, the setting, the job and the middleware. Run `go run ./cmd/migrate` before deploying. Clients that don't send the header see no change.
+`orb upgrade` adds the module, the migration `20260918000040_idempotency_keys.sql`, `internal/app/idempotency.go`, the setting, the job and the middleware to a v0.1 app. Run `go run ./cmd/migrate` (`go run ./cmd/api migrate` in an app on `gorbital.Main`) before deploying. Clients that don't send the header see no change.
 
 ## Testing
 
-Tests in `internal/app/idempotency_test.go` retry a project creation, reuse a key with another body, race ten retries and check that another user's key is independent. The library's tests in `modules/idempotency` cover concurrency, replay, released responses, stale locks, retention and the body cap against Docker PostgreSQL.
+A v0.1 app's tests in `internal/app/idempotency_test.go` retry a project creation, reuse a key with another body, race ten retries and check that another user's key is independent; an app on `gorbital.Main` gets the same coverage from the library's own tests. The library's tests in `modules/idempotency` cover concurrency, replay, released responses, stale locks, retention and the body cap against Docker PostgreSQL.

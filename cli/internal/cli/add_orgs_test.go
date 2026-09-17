@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -149,6 +150,71 @@ func TestAddOrgs(t *testing.T) {
 	if code, out, errOut := runOrb(t, "add", "orgs"); code != 0 || !strings.Contains(out, "already has organisations") {
 		t.Errorf("second orb add orgs = %d, %q %q", code, out, errOut)
 	}
+}
+
+// TestAddOrgsWarnsAboutTheOrganisationsMigrations checks the warning an app
+// on gorbital.Main gets: the organisations module's migrations keep v0.1's
+// versions, older than the built-in ones its database already ran, so an
+// existing database refuses them (ADR-0083). A v0.1 app copies them under
+// new versions instead and needs no warning.
+func TestAddOrgsWarnsAboutTheOrganisationsMigrations(t *testing.T) {
+	const banner = "an existing database will refuse these migrations"
+	t.Run("an app on gorbital.Main", func(t *testing.T) {
+		newGitApp(t, "--preset", "full")
+		res, _ := addOrgs(t, 0, "--json", "--dry-run")
+		if res.Layout != recipes.LayoutV02 {
+			t.Fatalf("layout = %q, want %s", res.Layout, recipes.LayoutV02)
+		}
+		w := res.MigrationOrder
+		if w == nil {
+			t.Fatal("--json has no migration_order_warning")
+		}
+		if !slices.Equal(w.Versions, []string{"20260916000001", "20260918000002"}) {
+			t.Errorf("versions = %v, want the organisations module's", w.Versions)
+		}
+		if w.Newest != strconv.FormatInt(latestBuiltinMigration, 10) {
+			t.Errorf("newest = %q, want %d", w.Newest, latestBuiltinMigration)
+		}
+		if !strings.Contains(w.Error, "out-of-order") || !strings.Contains(w.Summary, "goose refuses") {
+			t.Errorf("warning = %+v", w)
+		}
+		var commands, docs []string
+		for _, o := range w.Options {
+			commands = append(commands, o.Commands...)
+			if o.Doc != "" {
+				docs = append(docs, o.Doc)
+			}
+		}
+		if !slices.Contains(commands, "docker compose down -v && docker compose up -d --wait") ||
+			!slices.Contains(commands, "go run ./cmd/api migrate") || len(docs) == 0 {
+			t.Errorf("options = %+v", w.Options)
+		}
+
+		// The report says it too, with the versions and a command.
+		code, out, errOut := runOrb(t, "add", "orgs", "--skip-tidy", "--dry-run")
+		if code != 0 {
+			t.Fatalf("orb add orgs --dry-run = %d: %s", code, errOut)
+		}
+		for _, want := range []string{banner, "20260916000001", "20260918000002", "docker compose down -v", "goose_db_version", "docs/start/organisations.md"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("the report lacks %q:\n%s", want, out)
+			}
+		}
+	})
+	t.Run("a v0.1 app", func(t *testing.T) {
+		newV01GitApp(t, recipes.TenancySingle)
+		res, _ := addOrgs(t, 0, "--json", "--dry-run")
+		if res.MigrationOrder != nil {
+			t.Errorf("a v0.1 app got %+v; it copies the migrations under new versions", res.MigrationOrder)
+		}
+		code, out, errOut := runOrb(t, "add", "orgs", "--skip-tidy", "--dry-run")
+		if code != 0 {
+			t.Fatalf("orb add orgs --dry-run = %d: %s", code, errOut)
+		}
+		if strings.Contains(out, banner) {
+			t.Errorf("a v0.1 app was warned:\n%s", out)
+		}
+	})
 }
 
 func TestAddOrgsRefuses(t *testing.T) {

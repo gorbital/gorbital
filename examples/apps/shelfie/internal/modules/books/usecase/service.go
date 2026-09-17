@@ -33,6 +33,8 @@ const (
 	ActionCreated = "books.book.created"
 	ActionUpdated = "books.book.updated"
 	ActionDeleted = "books.book.deleted"
+	// ActionShelfEmptied records one reader removing their whole shelf.
+	ActionShelfEmptied = "books.shelf.emptied"
 )
 
 // docs:start service
@@ -84,10 +86,16 @@ func readerID(ctx context.Context) (string, error) {
 	return a.ID, nil
 }
 
-// audit records an event after the change it describes; a failed audit
-// write is logged, not returned. The recorder adds the actor and request.
+// audit records an event about one book.
 func (s *Service) audit(ctx context.Context, action, id string) {
-	e := audit.Event{Action: action, ResourceType: "book", ResourceID: id, Outcome: audit.OutcomeSuccess}
+	s.auditResource(ctx, action, "book", id)
+}
+
+// auditResource records an event after the change it describes; a failed
+// audit write is logged, not returned. The recorder adds the actor and
+// request.
+func (s *Service) auditResource(ctx context.Context, action, resourceType, id string) {
+	e := audit.Event{Action: action, ResourceType: resourceType, ResourceID: id, Outcome: audit.OutcomeSuccess}
 	if err := s.recorder.Record(context.WithoutCancel(ctx), e); err != nil {
 		s.logger.ErrorContext(ctx, "record books audit event", "action", action, "err", err)
 	}

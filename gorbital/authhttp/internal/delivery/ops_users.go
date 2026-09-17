@@ -155,11 +155,11 @@ func registerOpsUsers(r *routes, h *handler) {
 		Summary: "List accounts", Description: "Newest first; `q` matches part of the address or an ID. Deleted accounts aren't listed; banned ones are.",
 		Errors: []int{http.StatusBadRequest},
 	}), h.opsListUsers)
-	route(r, ops(huma.Operation{
+	passwordRoute(r, ops(huma.Operation{
 		OperationID: "ops-create-user", Method: http.MethodPost, Path: "/ops/auth/users",
 		Summary: "Create an account", Description: "As `orb dev`'s seed data does: the address can be marked verified.",
 		DefaultStatus: http.StatusCreated, Errors: []int{http.StatusConflict, http.StatusUnprocessableEntity},
-	}), h.opsCreateUser)
+	}), h.opsCreateUser, passwordField{"password", passwordDocFormat})
 	route(r, ops(huma.Operation{
 		OperationID: "ops-get-user", Method: http.MethodGet, Path: "/ops/auth/users/{id}",
 		Summary: "Get an account", Description: "With its sessions, passkeys, linked providers, second factors and usable codes (without the codes: they arrive by email).",

@@ -4,7 +4,7 @@
 
 ## Context
 
-Phase 7 of the [Dev Portal roadmap](../dev-portal-roadmap.md) is the Logs screen: every source (HTTP, auth, jobs, mail, storage, PostgreSQL, the app, `orb dev` itself), filters by time, level, user, method, path, status class, duration, request or trace ID and text, a histogram, a live tail, "all logs for this request", saved filters, and errors grouped by fingerprint. Today the app keeps its last 500 records in memory for the dev console (`/_dev/logs`, [ADR-0065](0065-dev-console.md)), which restarts empty and can't answer "what happened before the crash"; `orb dev` keeps the last 2,000 output lines in memory for the portal's console. Request records carry the route but not the path or the user, and no record says which part of the app wrote it.
+Phase 7 of the [Dev Portal roadmap](../dev-portal-roadmap.md) is the Logs screen: every source (HTTP, auth, jobs, mail, storage, PostgreSQL, the app, `orb dev` itself), filters by time, level, user, method, path, status class, duration, request or trace ID and text, a histogram, a live tail, "all logs for this request", saved filters, and errors grouped by fingerprint. Today the app keeps its last 500 records in memory for the dev console (`/_dev/logs`, [ADR-0065](0065-local-dev-console-apis.md)), which restarts empty and can't answer "what happened before the crash"; `orb dev` keeps the last 2,000 output lines in memory for the portal's console. Request records carry the route but not the path or the user, and no record says which part of the app wrote it.
 
 ## Options
 

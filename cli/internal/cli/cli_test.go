@@ -60,7 +60,7 @@ func TestNewValidation(t *testing.T) {
 		{"unknown preset", []string{"new", "api", "--preset", "huge"}, 2, "unknown preset"},
 		{"unknown tenancy", []string{"new", "api", "--preset", "full", "--tenancy", "many"}, 2, "unknown tenancy"},
 		{"multi-tenant minimal", []string{"new", "api", "--tenancy", "multi"}, 2, "needs the Full preset"},
-		{"bad local", []string{"new", "api", "--local", "."}, 2, "not an gorbital checkout"},
+		{"bad local", []string{"new", "api", "--local", "."}, 2, "not a gorbital checkout"},
 		{"existing directory", []string{"new", "taken", "--skip-tidy", "--no-git"}, 1, "already exists"},
 	}
 	for _, tt := range tests {

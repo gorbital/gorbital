@@ -64,8 +64,8 @@ Four tiles: the current version (its name and when), pending files, applied file
 
 | Action | What it does | Confirmation |
 |---|---|---|
-| Apply pending | `POST /_portal/api/app/migrate`: `go run ./cmd/migrate` through the supervisor, without a restart | No |
-| Roll back last | `migrate-down`: `cmd/migrate --down` rolls back the most recent migration, one step | No |
+| Apply pending | `POST /_portal/api/app/migrate`: the app's migrate command through the supervisor (`go run ./cmd/api migrate`, or `go run ./cmd/migrate` in a v0.1 app), without a restart | No |
+| Roll back last | `migrate-down`: `cmd/api migrate-down` (`cmd/migrate --down` in a v0.1 app) rolls back the most recent migration, one step | No |
 | Redo last | `migrate-redo`: rolls it back and applies it again, which is how you check that its Down works | No |
 | New migration | The `migration` generator: an empty file named after your input, previewed, then written under `db/migrations` | The preview |
 

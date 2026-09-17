@@ -166,6 +166,9 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
+	if !v01 {
+		res.MigrationOrder = orgsMigrationOrderWarning()
+	}
 	if *dryRun {
 		res.Branch = ""
 		return reportUpgrade(stdout, *asJSON, res)
@@ -175,6 +178,46 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 
 func isMigrationPath(p string) bool {
 	return path.Dir(p) == "db/migrations" && path.Ext(p) == ".sql"
+}
+
+// migrationVersionOf returns the version a migration file's name starts
+// with, such as 20260916000001 for db/migrations/20260916000001_orgs.sql.
+func migrationVersionOf(p string) string {
+	version, _, _ := strings.Cut(path.Base(p), "_")
+	return version
+}
+
+// orgsMigrationOrderWarning describes what an app on gorbital.Main has to
+// do about the organisations module's migrations, which keep the versions
+// v0.1 apps hold them under (ADR-0083) and are therefore older than the
+// built-in migrations every v0.2 database already ran. goose refuses them,
+// so an existing database fails at the next migrate; a new one is fine.
+// orb add orgs itself only writes files, so this is a warning, not a
+// refusal.
+func orgsMigrationOrderWarning() *migrationOrderWarning {
+	versions := []string{migrationVersionOf(recipes.OrgsMigrationPath)}
+	for _, p := range recipes.OrgsLaterMigrationPaths {
+		versions = append(versions, migrationVersionOf(p))
+	}
+	newest := strconv.FormatInt(latestBuiltinMigration, 10)
+	return &migrationOrderWarning{
+		Versions: versions,
+		Newest:   newest,
+		Summary: fmt.Sprintf("the organisation tables come from the library module under versions %s, older than %s, which every database of an app on gorbital.Main already has. "+
+			"goose refuses a migration older than the database's version, so a database that has been migrated before refuses these two. A database created after this change is fine, and so are the tests.",
+			strings.Join(versions, " and "), newest),
+		Error: fmt.Sprintf("postgres: migrate: detected %d missing (out-of-order) migrations lower than database version (<the database's newest>): versions %s", len(versions), strings.Join(versions, ",")),
+		Options: []migrationOrderOption{
+			{
+				Label:    "a development database: recreate it, then migrate from scratch",
+				Commands: []string{"docker compose down -v && docker compose up -d --wait", "go run ./cmd/api migrate"},
+			},
+			{
+				Label: "a database you have to keep: apply the two migrations by hand, then record them as applied in goose_db_version, so the next migrate sees nothing missing",
+				Doc:   "how, and why it is safe for these two: docs/start/organisations.md#adding-organisations-to-a-database-that-already-exists",
+			},
+		},
+	}
 }
 
 // userScopedModules lists the modules under internal/modules that neither

@@ -67,6 +67,10 @@ func newOptions(opts []Option) options {
 // (auth.MaxPasswordLength). Lengths count characters, not bytes. A shorter
 // password gets 422 weak_password, "the password must be at least n
 // characters". Existing passwords keep working.
+//
+// The OpenAPI document states n too, wherever a password field documents
+// the minimum: registration, the password reset, the password change and
+// the operators' account creation.
 func MinPasswordLength(n int) Option {
 	return optionFunc(func(o *options) {
 		if n < authlib.MinPasswordLength || n > authlib.MaxPasswordLength {

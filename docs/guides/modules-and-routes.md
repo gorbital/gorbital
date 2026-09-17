@@ -2,7 +2,7 @@
 
 A **module** is one feature of your app, declared in one value: its routes, the errors it returns, the permissions it checks, and its runtime settings and feature flags. The package is `gorbital.dev/gorbital` ([Methods](../methods/gorbital.md)); the decisions are [ADR-0082](../adr/0082-routes-guards-and-middleware.md) and [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md).
 
-> **Status: v0.2, in progress.** Modules, routes and [`gorbital.Main`](main-go.md), which builds the whole app from a list of modules, are in the library. A v0.1 app can also add modules to its existing `internal/app` with `Declare` and `Mount`, as shown [below](#using-modules-in-a-v01-app).
+> **Status: v0.2.** Modules, routes and [`gorbital.Main`](main-go.md), which builds the whole app from a list of modules, are in the library. A v0.1 app can also add modules to its existing `internal/app` with `Declare` and `Mount`, as shown [below](#using-modules-in-a-v01-app).
 
 ## Where a module lives
 
@@ -77,7 +77,7 @@ func Module() gorbital.Module {
 | `Migrations` | Migrations served from the module (built-in modules) | Merged by `gorbital.Migrate` with the library's and `db/migrations`, by version. Your own modules keep theirs in `db/migrations`, so tables can reference each other |
 | `RateLimiters` | Names and descriptions of the limiters the module creates itself on `Deps.RateLimits` (`guard.RateLimit`'s are listed without it) | Listed by `GET /ops/auth/rate-limits`, where operators reset a key; a name declared twice stops `New` |
 | `Retention` | How long each kind of the module's data is kept (`gorbital.Retention`): its runtime setting, and a `Delete` function the built-in `retention` job calls daily, or the module's own job that deletes it | Once, by `gorbital.New`, with the `Deps` `Jobs` receives; listed by `GET /ops/retention` |
-| `Platform` | For gorbital's built-in modules (`opshttp`, `mailevents`): receives `*gorbital.Platform`, what `New` built for the whole app, and checks the module's configuration | Once, by `gorbital.New`, after every store and before any `Routes`; an error stops the start as a configuration error. Your modules use `Deps` |
+| `Platform` | For gorbital's built-in modules (`opshttp`, `orgshttp`, `mailevents`): receives `*gorbital.Platform`, what `New` built for the whole app, and checks the module's configuration | Once, by `gorbital.New`, after every store and before any `Routes`; an error stops the start as a configuration error. Your modules use `Deps` |
 
 Keep what `Settings` and `Flags` return in variables of the `Module` function, as `pageSize` above, and pass them to your handlers. There's no lookup by name.
 

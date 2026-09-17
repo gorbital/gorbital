@@ -5,7 +5,7 @@ Install these once, before the [Quickstart](quickstart.md). Each entry says what
 | Tool | Needed for | Version |
 |---|---|---|
 | [Go](#go) | Building and running your app and `orb` | 1.26 or later, latest patch |
-| [Docker](#docker) | PostgreSQL and Mailpit on your computer | Docker Engine with Compose v2 |
+| [Docker](#docker) | PostgreSQL on your computer | Docker Engine with Compose v2 |
 | [git](#git) | `orb` commands that change your app | Any recent version |
 | [An authenticator app](#an-authenticator-app) | Signing in as the administrator | Any |
 | [curl and jq](#curl-and-jq) | Trying the API from a terminal | Optional |
@@ -49,7 +49,7 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 
 **What it is:** software that runs other programs in isolated containers, from ready-made images, without installing them on your computer.
 
-**Why you need it:** a Full app needs PostgreSQL (its database) and Mailpit (a local inbox for its emails). `orb dev` runs both in Docker from your app's `compose.yaml`. gorbital never installs PostgreSQL on your computer, so every developer and every test uses the same version.
+**Why you need it:** a Full app needs PostgreSQL, its database. `orb dev` runs it in Docker from your app's `compose.yaml`. gorbital never installs PostgreSQL on your computer, so every developer and every test uses the same version. Email needs nothing extra: `orb dev` catches it in its own process and shows it in the Dev Portal.
 
 **Version:** a current Docker Desktop, or Docker Engine with the **Compose v2** plugin (the `docker compose` command, with a space).
 
@@ -113,8 +113,8 @@ git --version
 |---|---|
 | 8080 | Your API |
 | 5432 | PostgreSQL |
-| 1025 | Mailpit, receiving email |
-| 8025 | Mailpit's inbox in your browser |
+| 1025 | `orb dev`'s mail catcher, receiving the app's email |
+| 3100 | The Dev Portal, where you read that email and the rest |
 | 3000 and 4318 | Grafana, only with `orb dev --observability` |
 
 To see what's using a port on macOS or Linux:

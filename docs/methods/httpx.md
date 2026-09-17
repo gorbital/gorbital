@@ -141,7 +141,7 @@ DefaultCode returns the generic code for a status without a mapping, such as "no
 func ParseTrustedProxies(list string) ([]netip.Prefix, error)
 ```
 
-ParseTrustedProxies reads a comma-separated list of CIDR ranges or single addresses, such as "10.0.0.0/8, 192.0.2.10". An empty list trusts nothing. It refuses ranges covering every IPv4 or IPv6 address ([ErrTrustAll](#ErrTrustAll)).
+ParseTrustedProxies reads a comma-separated list of CIDR ranges or single addresses, such as "10.0.0.0/8, 192.0.2.10". An empty list trusts nothing. Ranges are masked ("10.0.0.5/8" is 10.0.0.0/8), and IPv4 addresses written in IPv6 form ("::ffff:10.0.0.5") become IPv4, as peer addresses are compared; an address with a zone ("fe80::1%en0") is refused, as it could never match one. It refuses ranges covering every IPv4 or IPv6 address ([ErrTrustAll](#ErrTrustAll)), including "::ffff:0.0.0.0/96", which is every IPv4 address written in IPv6 form.
 
 An IPv4-mapped IPv6 entry, such as "::ffff:10.0.0.5" or "::ffff:10.0.0.0/104", is read as the IPv4 range it names, because the addresses it is compared with are unmapped. One shorter than /96 mixes the two families and is refused: netip would re-base it on a range the operator never wrote ("::ffff:10.0.0.0/8" masks to "::/8", which covers ::1).
 

@@ -743,6 +743,8 @@ func MinPasswordLength(n int) Option
 
 MinPasswordLength raises the shortest password accepted when an account registers, resets or changes its password, or an operator creates one, from 12 characters (auth.MinPasswordLength) up to at most 128 (auth.MaxPasswordLength). Lengths count characters, not bytes. A shorter password gets 422 weak\_password, "the password must be at least n characters". Existing passwords keep working.
 
+The OpenAPI document states n too, wherever a password field documents the minimum: registration, the password reset, the password change and the operators' account creation.
+
 *Since `v0.2.0 (unreleased)`*
 
 **Example**

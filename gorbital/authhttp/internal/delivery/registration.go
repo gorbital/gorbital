@@ -39,24 +39,24 @@ type registerInput struct {
 
 // DefaultRegistration registers v0.1's POST /v1/auth/register.
 func DefaultRegistration(r *routes, h *handler) {
-	route(r, registerOperation(), func(ctx context.Context, in *registerInput) (*acceptedOutput, error) {
+	passwordRoute(r, registerOperation(), func(ctx context.Context, in *registerInput) (*acceptedOutput, error) {
 		if err := h.svc.Register(ctx, in.Body.Email, in.Body.Password); err != nil {
 			return nil, authError(err)
 		}
 		return accepted(), nil
-	})
+	}, passwordField{"password", passwordDocFormat})
 }
 
 // RegistrationWithFields registers POST /v1/auth/register with the app's
 // extra fields T beside email and password (authhttp's RegisterFields).
 func RegistrationWithFields[T any]() Registration {
 	return func(r *routes, h *handler) {
-		route(r, registerOperation(), func(ctx context.Context, in *registerWithFieldsInput[T]) (*acceptedOutput, error) {
+		passwordRoute(r, registerOperation(), func(ctx context.Context, in *registerWithFieldsInput[T]) (*acceptedOutput, error) {
 			if err := h.svc.RegisterWithFields(ctx, in.Body.Email, in.Body.Password, in.Body.Fields); err != nil {
 				return nil, authError(err)
 			}
 			return accepted(), nil
-		})
+		}, passwordField{"password", passwordDocFormat})
 	}
 }
 

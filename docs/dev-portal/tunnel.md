@@ -121,10 +121,29 @@ The provider guide's [Testing on a real domain](../guides/auth-providers.md#test
 - **Only the app is tunnelled.** The quick tunnel's target is `APP_ADDR`; the portal (port 3100) never is. A named tunnel pointed at the portal by mistake is refused by its `Host` and token checks.
 - **The dev console and the development operator refuse tunnelled requests** even with the token: cloudflared sends the public hostname as `Host`, and adds `CF-Connecting-IP`, `CF-Ray`, `CDN-Loop` and `X-Forwarded-For`, which the console refuses in any case (so an **HTTP Host Header** of `localhost` set in the dashboard doesn't open it). A local reverse proxy of your own in front of `/_dev/` that adds forwarding headers is refused too.
 - **Development only.** With `APP_ENV` other than development, the tunnel doesn't start.
-- **No orphans.** cloudflared runs in its own process group; `orb dev` stops the group when you stop the tunnel, when cloudflared exits, and when `orb dev` ends (return, `Ctrl+C`, `SIGTERM`). On Linux it also dies if `orb dev` is killed; on macOS, `kill -9` of `orb dev` itself leaves it running.
+- **No orphans.** cloudflared runs in its own process group; `orb dev` stops the group when you stop the tunnel, when cloudflared exits, and when `orb dev` ends (return, `Ctrl+C`, `SIGTERM`). On Linux it also dies with `orb dev` itself (`Pdeathsig`), which macOS has no equivalent of. After a `kill -9` of `orb dev` on macOS, cloudflared is stopped by the mechanisms under [If `orb dev` is killed](#if-orb-dev-is-killed), not instantly.
 - **The token** is never logged, printed, returned or copied: see [A named tunnel](#a-named-tunnel).
 
 Decided in [ADR-0086](../adr/0086-dev-portal-tunnel.md), with the threat model.
+
+### If `orb dev` is killed
+
+`kill -9`, a crash or a power cut gives `orb dev` no chance to stop cloudflared, and macOS has no parent-death signal to fall back on. Two things then apply:
+
+1. **The next `orb dev` in this app stops it.** While cloudflared runs, `orb dev` keeps `.orb/portal/cloudflared.json`: its PID and process group, the start time and command line the operating system reports for it, the cloudflared binary, and the PID and start time of the `orb dev` that started it. It never holds the token. The file is written when cloudflared starts and removed when it ends, so a file left behind names a process nobody stopped. Before starting a tunnel, `orb dev` reads it and stops that process group — `SIGTERM`, then `SIGKILL` after 5 seconds — but only when all three hold: the PID is still alive, it is still that cloudflared (the start time and command line still match what the system reports), and the `orb dev` that started it is gone. It says what it stopped.
+
+   When any of that can't be confirmed — the PID belongs to another program now, or the system can't describe it — `orb dev` changes nothing and prints what to check (`ps -p <pid> -o command=`) and what to run (`kill <pid>`). Killing the wrong process would be worse than the leak.
+
+2. **cloudflared's output pipe.** Its stdout and stderr are a pipe only `orb dev` holds the read end of. Once `orb dev` is gone, the next line cloudflared writes gets `EPIPE`, and the Go runtime turns that into `SIGPIPE` on file descriptor 1 or 2, which ends the process. This is a backstop, not a guarantee: it rests on the Go runtime's documented behaviour rather than on anything cloudflared promises, and a connected tunnel can go a long time without writing a line.
+
+**What is left.** Between the `kill -9` and whichever of those two comes first, the tunnel is still up and still forwarding to the app's port, whether or not the app is still there. To end it yourself:
+
+```bash
+ps -ax -o pid,command | grep '[c]loudflared'
+kill <pid>            # kill -9 <pid> if it doesn't stop
+```
+
+An `orb dev` in another app never touches it: the record is in this app's own `.orb/portal`, which git ignores.
 
 ## Then test sign-in
 

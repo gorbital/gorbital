@@ -19,6 +19,9 @@ type Store interface {
 	SelectActive(ctx context.Context, now time.Time, limit int) ([]domain.Announcement, error)
 	// CountActive returns how many announcements are active at now.
 	CountActive(ctx context.Context, now time.Time) (int, error)
+	// DeleteAnnouncement removes the announcement with this ID, and reports
+	// whether there was one.
+	DeleteAnnouncement(ctx context.Context, id string) (bool, error)
 	// DeleteExpired removes up to limit announcements that ended before
 	// before, and returns how many it removed.
 	DeleteExpired(ctx context.Context, before time.Time, limit int) (int64, error)

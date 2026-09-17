@@ -107,6 +107,23 @@ func TestLayoutMovePlansAnUntouchedApp(t *testing.T) {
 			t.Errorf("%s has no %q:\n%s", upgradeReportPath, want, report)
 		}
 	}
+
+	// The next steps name every file the move rewrites. api/openapi.json
+	// gains more than x-gorbital-guards (the /ops instance example takes the
+	// app's name), and api/surface.json and api/openapi.baseline.json are
+	// rewritten, which is a large deletion nobody should meet unannounced.
+	next := strings.Join(res.Next, "\n")
+	for _, want := range []string{"git diff api/openapi.json", "x-gorbital-guards", "instance example", "api/surface.json", "api/openapi.baseline.json"} {
+		if !strings.Contains(next, want) {
+			t.Errorf("the next steps don't mention %q:\n%s", want, next)
+		}
+	}
+	if strings.Contains(next, "only x-gorbital-guards") {
+		t.Errorf("the next steps still claim only x-gorbital-guards changes:\n%s", next)
+	}
+	if !strings.Contains(report, "api/surface.json") {
+		t.Errorf("%s doesn't mention api/surface.json:\n%s", upgradeReportPath, report)
+	}
 }
 
 // TestLayoutMoveDryRunWritesNothing checks that the plan changes no file.

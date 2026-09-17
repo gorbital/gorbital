@@ -698,7 +698,7 @@ The golden app's organisation HTTP tests (organisations end to end, API keys and
 
 - `orb add rls` needs a v0.1 multi-tenant app's `gorbital.lock`; apps on `gorbital.Main` add the policy migration by hand (the invoicing recipe shows it) until `orb new` writes the new layout (Phase 9).
 - The dev console doesn't preview the invitation email; `Main` has no seed command.
-- The organisations module's migrations keep v0.1's versions (`20260916000001`, `20260918000002`): a database of an app on `gorbital.Main` already migrated past them can't add `orgshttp` without recreating it, since goose refuses out-of-order migrations. Allowing them would change `postgres.Migrate` for every app; documented instead (organisations guide, Shelfie chapter 8).
+- The organisations module's migrations keep v0.1's versions (`20260916000001`, `20260918000002`): a database of an app on `gorbital.Main` already migrated past them can't add `orgshttp` without recreating it or applying the two files by hand, since goose refuses out-of-order migrations. Allowing them would change `postgres.Migrate` for every app; documented instead, and `orb add orgs` now warns with both routes (organisations guide, Shelfie chapter 8).
 - The Dev Portal's built UI (`cli/internal/portal/ui/dist`) still shows the module form's organisation option as disabled; the API accepts `org: true`. Needs a gorbital-dashboards build.
 - `orgshttp` requires `authhttp`: an app with another authenticator (such as `modules/jwt`) has no built-in organisations.
 
@@ -754,7 +754,7 @@ The Dev Portal's module form offers `--org` (gorbital-dashboards `framework/phas
 
 ### Known gaps
 
-- `orb add orgs` in a v0.2 single-tenant app works on a new database only: the organisations module's migrations keep v0.1's versions (Phase 7), older than those a database already ran, and goose refuses them. Development databases are reset; a production database can't take organisations this way until the library allows older built-in migrations.
+- `orb add orgs` in a v0.2 single-tenant app can't migrate an existing database: the organisations module's migrations keep v0.1's versions (Phase 7), older than those a database already ran, and goose refuses them. `orb add orgs` warns (`migration_order_warning` in `--json`) and names both routes: recreate a development database, or apply the two files and record them in `goose_db_version` by hand ([organisations guide](../start/organisations.md#adding-organisations-to-a-database-that-already-exists)). An opt-in `--allow-out-of-order` on the app's `migrate` command (`goose.WithAllowOutofOrder`) stays open; it would change `postgres.Migrate`'s API.
 - v0.1's `api maintenance on|off` command has no counterpart on `Main`; maintenance mode is changed through `/ops/settings`.
 - `orb gen job` doesn't generate module jobs. The Dev Portal's job screen reads the app's jobs from `internal/app/job_*.go` in a v0.1 app and, since Phase 9's part C, from the `jobs.Define` calls of `internal/modules` in an app on `gorbital.Main`, with the name each call names; the runtime list has always come from `/ops/jobs`, so the module jobs of a Main app were never missing from the screen, only their source. Editing a generated job as a form stays a v0.1-layout feature.
 - An app's `TestPublicSurface` no longer notices a library name disappearing; the library's checks do.

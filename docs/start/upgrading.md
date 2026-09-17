@@ -111,7 +111,7 @@ A change to generated sign-in code keeps working: the module becomes the app's o
 
 ### What doesn't change
 
-Your database, your migration history (the copies of the library's migrations stay, and `gorbital.Migrate` reads an identical copy as the same migration, so there is nothing to apply), your endpoints and their schemas. The API document only gains `x-gorbital-guards`, which says what a route requires; check it with `git diff api/openapi.json`. Routes that needed a token now answer 401 before the request body is validated, where v0.1 validated first.
+Your database, your migration history (the copies of the library's migrations stay, and `gorbital.Migrate` reads an identical copy as the same migration, so there is nothing to apply), your endpoints and their schemas. The API document gains `x-gorbital-guards`, which says what a route requires; its only other change is the `/ops` instance example, which takes the app's own name. Check both with `git diff api/openapi.json`. `api/surface.json` and `api/openapi.baseline.json` are rewritten at the same time: the built-in modules' names belong to the library now, so the file records only the app's own ([upgrade notes](../guides/upgrade-notes.md#moving-a-v01-app-to-the-v02-layout)). Routes that needed a token now answer 401 before the request body is validated, where v0.1 validated first.
 
 ### Going back
 

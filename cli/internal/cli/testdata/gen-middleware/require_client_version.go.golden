@@ -6,7 +6,7 @@ import (
 	"gorbital.dev/httpx"
 )
 
-// RequireClientVersion is middleware for the books module: add it to a group
+// RequireClientVersion is middleware for the profiles module: add it to a group
 // or a route in routes.go with gorbital.Use, or to every route of the
 // module with Middleware in module.go. It runs before the sign-in check and
 // the guards, so for anonymous callers too.

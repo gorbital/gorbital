@@ -243,7 +243,7 @@ func (d *doctor) project(ctx context.Context) {
 			dir = filepath.Join(d.dir, dir)
 		}
 		if _, err := resolveLocal(dir); err != nil {
-			d.add(doctorFail, "library", fmt.Sprintf("go.mod replaces gorbital.dev with %s, which isn't an gorbital checkout", local), "point the replace directives in go.mod at your gorbital checkout")
+			d.add(doctorFail, "library", fmt.Sprintf("go.mod replaces gorbital.dev with %s, which isn't a gorbital checkout", local), "point the replace directives in go.mod at your gorbital checkout")
 		} else {
 			d.add(doctorOK, "library", "from the checkout at "+local, "")
 		}

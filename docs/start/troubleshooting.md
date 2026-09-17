@@ -7,7 +7,7 @@ Find what you see in the left column. Each entry says what it means, how to conf
 Most problems show up in one of these:
 
 ```bash
-docker compose ps                     # are postgres and mailpit running and healthy?
+docker compose ps                     # is postgres running and healthy?
 curl http://127.0.0.1:8080/readyz     # is the API up, and can it reach the database?
 go run ./cmd/api auth-providers       # which sign-in methods are on (with the environment loaded)
 ```
@@ -42,7 +42,7 @@ Every error the API returns carries a `request_id`, such as `req_339a889c4f6816e
 
 ### `Docker isn't installed`, or `Docker isn't running, or compose.yaml is invalid (docker compose ps failed)`
 
-**Means:** a Full app runs PostgreSQL and Mailpit in Docker, and `orb dev` couldn't reach Docker.
+**Means:** a Full app runs PostgreSQL in Docker, and `orb dev` couldn't reach Docker.
 
 **Check:** `docker version` shows both **Client** and **Server**. If Server is missing, Docker isn't running.
 
@@ -65,7 +65,7 @@ DATABASE_URL=postgres://acme-api:acme-api@127.0.0.1:5433/acme-api?sslmode=disabl
 
 **Check:** `lsof -nP -iTCP:5432 -sTCP:LISTEN`, or `docker ps --format '{{.Names}} {{.Ports}}' | grep 5432`.
 
-**Fix:** the same two lines as above. Use the same approach for `1025` (`MAILPIT_SMTP_PORT` and `MAILPIT_SMTP_ADDR`) and `8025` (`MAILPIT_WEB_PORT`).
+**Fix:** the same two lines as above. Use the same approach for `1025`, where `orb dev`'s mail catcher listens: change `DEV_MAIL_SMTP_ADDR` in `.env`.
 
 ### `listen tcp 127.0.0.1:8080: bind: address already in use`
 
@@ -85,7 +85,7 @@ DATABASE_URL=postgres://acme-api:acme-api@127.0.0.1:5433/acme-api?sslmode=disabl
 
 ### `seed: AUTH_ENCRYPTION_KEYS is required`
 
-**Means:** seed data creates an administrator with two-factor authentication, whose secret must be encrypted, and no key is set. `orb dev` fills the key in `.env`; this happens when running `go run ./cmd/seed` yourself.
+**Means:** seed data creates an administrator with two-factor authentication, whose secret must be encrypted, and no key is set. `orb dev` fills the key in `.env`; this happens when running the seed command yourself (`go run ./cmd/api seed`, or `go run ./cmd/seed` in a v0.1 app).
 
 **Fix:** generate one into `.env` and load it:
 
@@ -100,7 +100,7 @@ set -a; . ./.env; set +a
 
 **Fix:** any of these:
 
-- Password: `POST /v1/auth/password/forgot` with `{"email": "admin@example.com"}`, read the code in Mailpit, then `POST /v1/auth/password/reset`.
+- Password: `POST /v1/auth/password/forgot` with `{"email": "admin@example.com"}`, read the code in the Dev Portal's Mail screen (http://127.0.0.1:3100/mail), then `POST /v1/auth/password/reset`.
 - Authenticator app: sign in with a recovery code as `"recovery_code"`, or run `go run ./cmd/api reset-mfa admin@example.com` with the environment loaded.
 - Start fresh: `docker compose down -v`, then `orb dev`. This deletes every row in your local database.
 
@@ -108,14 +108,16 @@ set -a; . ./.env; set +a
 
 ### `DATABASE_URL is required` (or `migrate: DATABASE_URL is required`)
 
-**Means:** you ran `go run ./cmd/api`, `./cmd/migrate` or `./cmd/seed` directly. The app reads environment variables, not the `.env` file: `orb dev` loads `.env` for you, and plain `go run` doesn't.
+**Means:** you ran the app or one of its commands directly. The app reads environment variables, not the `.env` file: `orb dev` loads `.env` for you, and plain `go run` doesn't.
 
 **Fix:** load `.env` into the terminal first, and again after each change to it or in each new terminal:
 
 ```bash
 set -a; . ./.env; set +a
-go run ./cmd/migrate
+go run ./cmd/api migrate
 ```
+
+The commands are `cmd/api`'s: `migrate`, `migrate-down`, `seed`, `openapi`, `roles`, `grant-role`, `revoke-role`, `reset-mfa`, `rotate-auth-keys` and `auth-providers`; `go run ./cmd/api help` lists them all. An app created with `orb` v0.1 has separate programs instead: `go run ./cmd/migrate` and `go run ./cmd/seed`.
 
 ### `postgres: connect: … dial tcp 127.0.0.1:5432: connect: connection refused`
 
@@ -137,7 +139,7 @@ go run ./cmd/migrate
 
 **Means:** the database has no tables yet. The app never creates or updates tables when it starts, so a new or reset database must be migrated first. The table named may differ.
 
-**Fix:** `go run ./cmd/migrate` with the environment loaded (`orb dev` does it for you), then start the app. In production, run migrations before each new version starts.
+**Fix:** `go run ./cmd/api migrate` (`go run ./cmd/migrate` in a v0.1 app) with the environment loaded — `orb dev` does it for you — then start the app. In production, run migrations before each new version starts.
 
 ## Configuration errors at start
 
@@ -147,7 +149,7 @@ The app checks every setting before it starts and lists **all** problems at once
 |---|---|
 | `AUTH_ENCRYPTION_KEYS is required in production` | Generate a key: [Encryption key](../sign-in/encryption-key.md) |
 | `AUTH_ENCRYPTION_KEYS: auth: invalid encryption keys: key "k1" must be 32 bytes in base64` | The part after `k1:` isn't a 32-byte key; generate it with `openssl rand -base64 32` and copy the whole line |
-| `RESEND_API_KEY is required to send email with Resend` | Set the key ([Email sending](../sign-in/email.md)); in development, leave `MAIL_DELIVERY` empty to use Mailpit |
+| `RESEND_API_KEY is required to send email with Resend` | Set the key ([Email sending](../sign-in/email.md)); in development, leave `MAIL_DELIVERY` empty to use the mail catcher |
 | `SMTP_HOST is required` or `SMTP_PASSWORD is required when SMTP_USERNAME is set` | Fill in your SMTP values |
 | `MAIL_DELIVERY=mailpit is for development; production sends email through the provider` | Remove `MAIL_DELIVERY` in production |
 | `GOOGLE_CLIENT_SECRET is required with GOOGLE_CLIENT_ID` | Add the secret, or empty the client ID ([Google](../sign-in/google.md)) |
@@ -192,13 +194,15 @@ Check `code` in your code: it never changes. `detail` is for people, and can.
 
 ## Email
 
-### Nothing arrives in Mailpit
+### Nothing arrives in the Dev Portal's Mail screen
 
-**Check:** `docker compose ps` shows `mailpit` healthy; `curl http://127.0.0.1:8080/ops/mail` (as administrator) shows `"delivery": "mailpit"`; `MAILPIT_SMTP_ADDR` uses the same port as `MAILPIT_SMTP_PORT`.
+**Means:** in development, every email goes to the mail catcher `orb dev` runs, and the inbox is the Dev Portal's **Mail** screen at http://127.0.0.1:3100/mail. There is no Mailpit container: `orb dev --no-portal` runs no catcher at all.
+
+**Check:** `orb dev`'s banner has an `✓ Emails` line naming the screen and the address the catcher listens on; `curl http://127.0.0.1:8080/ops/mail` (as administrator) shows `"delivery": "devmail"`; `DEV_MAIL_SMTP_ADDR` in `.env` is that address.
 
 **Look at the delivery:** emails are sent by a background job. `GET /ops/jobs/runs?kind=gorbital.mail.send` shows each attempt and its error.
 
-**Fix:** start Mailpit (`docker compose up -d --wait`), or correct the port. More email problems: [Email sending](../sign-in/email.md#if-something-goes-wrong).
+**Fix:** run `orb dev` without `--no-portal`, and leave `MAIL_DELIVERY` empty (or set it to `devmail`). More email problems: [Email sending](../sign-in/email.md#if-something-goes-wrong).
 
 ## Passkeys, Google and Apple
 

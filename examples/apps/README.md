@@ -11,6 +11,8 @@ Unlike the golden apps next to this directory (`examples/minimal`, `examples/ful
 | [`shelfie`](shelfie/README.md) | The reading-tracker API of the Shelfie chapters: `gorbital.Main`, a module in four layers with one file per operation, `gorbitaltest` |
 | [`admin-tool`](admin-tool/README.md) | The *Internal admin tool* recipe: the built-in `/ops` and flags modules, a module's runtime setting, client flag, retention and named rate limiter |
 | [`invoicing`](invoicing/README.md) | The *Multi-tenant invoicing* recipe: `orgshttp`, a module generated with `orb gen module --org`, and the row-level security migration, tested as a database role without bypass |
+| [`mobile-backend`](mobile-backend/README.md) | The *Mobile backend with an external identity provider* recipe: `modules/jwt` as the app's authenticator, claims as actors and permissions, per-user scoping, tested against a local JWKS |
+| [`payments`](payments/README.md) | The *Receiving payment webhooks* recipe: `guard.Webhook` with a `webhook.NewStandard` verifier, idempotency by the provider's event ID, and a job enqueued with `jobs.Client.InsertTx` in the write's transaction |
 
 ## Layout
 
@@ -19,8 +21,10 @@ One directory per app, each its own Go module:
 ```text
 examples/apps/
 └── shelfie/
-    ├── go.mod        module example.com/shelfie
-    ├── main.go
+    ├── go.mod             module example.com/shelfie
+    ├── cmd/api/main.go    gorbital.Main with the app's modules and migrations
+    ├── db/migrations/
+    ├── internal/modules/
     └── ...
 ```
 
@@ -52,7 +56,7 @@ func (h *Handlers) CreateBook(ctx context.Context, in *CreateBookInput) (*BookOu
 // docs:end create-book
 ```
 
-The page includes the region by app, file and name; the lines between the markers are shown, without the markers. The docs build fails when a marker is missing, so renaming or deleting a region breaks the build instead of the page.
+The page includes the region by app, file and name; the lines between the markers are shown, without the markers. `go run -C internal/tools/docscheck .` and the docs site's build both fail when a file or a marker a page names is missing, so renaming or deleting a region breaks a build instead of the page.
 
 ## Checks
 
@@ -66,3 +70,7 @@ go test -race ./...  # against Docker PostgreSQL and Mailpit, like the library
 ```
 
 Run the same locally with the test database from [CONTRIBUTING.md](../../CONTRIBUTING.md#set-up) (`GORBITAL_TEST_DATABASE_URL` and the Mailpit variables). The job passes when there are no apps yet.
+
+It doesn't regenerate an app's `api/`, as the golden apps' job does: after changing a route, run `go run ./cmd/api openapi --dir api` in the app, which its own `TestOpenAPIIsCurrent` checks.
+
+It does not regenerate an app's `api/`, as the golden apps' job does: after changing a route, run `go run ./cmd/api openapi --dir api` in the app, which its own `TestOpenAPIIsCurrent` checks.

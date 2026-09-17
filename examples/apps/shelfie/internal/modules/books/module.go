@@ -36,11 +36,17 @@ func Module() gorbital.Module {
 			{Err: domain.ErrInvalidStatus, Status: http.StatusUnprocessableEntity, Code: "invalid_status", Detail: "status is want_to_read, reading or read"},
 			{Err: domain.ErrISBNTaken, Status: http.StatusConflict, Code: "isbn_taken", Detail: "a book with this ISBN is already on your shelf"},
 			{Err: domain.ErrShelfFull, Status: http.StatusConflict, Code: "shelf_full", Detail: "your shelf holds as many books as allowed; remove one first"},
+			// docs:start subscription-error
+			// The module's own guard (chapter 3), mapped like any other error.
+			{Err: delivery.ErrActiveSubscriptionRefused, Status: http.StatusForbidden, Code: "active_subscription_refused", Detail: "this needs an active Shelfie Plus subscription"},
+			// docs:end subscription-error
 		},
+		// docs:start permissions
 		Permissions: []gorbital.Permission{
 			{Name: usecase.PermRead, Description: "See the books on your shelf", Roles: []string{"user"}},
 			{Name: usecase.PermWrite, Description: "Add, change and remove the books on your shelf", Roles: []string{"user"}},
 		},
+		// docs:end permissions
 		// docs:start settings-and-flags
 		Settings: func(r *settings.Registry) {
 			shelfLimit = settings.Int(r, "books.shelf_limit", 1000,
@@ -61,8 +67,9 @@ func Module() gorbital.Module {
 		Routes: func(r *gorbital.Router, d gorbital.Deps) {
 			// d is zero while the OpenAPI document is exported: the
 			// service is built, but no use case runs.
-			svc := usecase.NewService(repository.NewStore(d.DB), d.Audit, d.Logger, shelfLimit)
-			delivery.Register(r, svc)
+			store := repository.NewStore(d.DB)
+			svc := usecase.NewService(store, d.Audit, d.Logger, shelfLimit)
+			delivery.Register(r, svc, usecase.NewSubscriptions(store))
 		},
 	}
 }

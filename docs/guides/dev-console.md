@@ -1,6 +1,6 @@
 # Dev console APIs
 
-While you run an app with `orb dev`, it serves development-only JSON APIs under `/_dev/`: what the app wired, its routes, the environment variables it read (secrets only as set or unset), recent requests and log records with live streams, email captured by Mailpit, migration state and recent job runs. They are for local tools, such as a console UI, scripts or an editor extension. Decision: [ADR-0065](../adr/0065-local-dev-console-apis.md). Library: `gorbital.dev/modules/devconsole`.
+While you run an app with `orb dev`, it serves development-only JSON APIs under `/_dev/`: what the app wired, its routes, the environment variables it read (secrets only as set or unset), recent requests and log records with live streams, email previews, migration state and recent job runs. They are for local tools, such as a console UI, scripts or an editor extension. Decision: [ADR-0065](../adr/0065-local-dev-console-apis.md). Library: `gorbital.dev/modules/devconsole`.
 
 The APIs never exist in production, and nothing about them appears in the app's OpenAPI document. They have their own small OpenAPI document at `/_dev/openapi.json`.
 
@@ -11,7 +11,7 @@ The APIs never exist in production, and nothing about them appears in the app's 
 ```text
   ✓ API        http://127.0.0.1:8080
   ✓ API docs   http://127.0.0.1:8080/docs
-  ✓ Emails     http://127.0.0.1:8025
+  ✓ Emails     http://127.0.0.1:3100/mail (caught at 127.0.0.1:1025)
   ✓ Dev APIs   http://127.0.0.1:8080/_dev/ (docs/guides/dev-console.md)
     Token      q3Jt0tBq0Xvqf7i5Tq1hYw2m9x8Zr4Kc6Lp2Nd5Vb3E (Authorization: Bearer; new on every orb dev run)
 ```
@@ -87,7 +87,7 @@ The [Dev Portal](dev-portal.md) is the UI built on these APIs: `orb dev` serves 
 | `GET /_dev/logs` | All | The 1,000 most recent log records at info level and above, newest first |
 | `GET /_dev/logs/stream` | All | Server-Sent Events: each log record |
 | `GET /_dev/mail` | Full, with `MAIL_DELIVERY=mailpit` | The 50 newest messages in Mailpit (sender, recipients, subject, snippet, time, size) and Mailpit's web address to read them; 503 `unavailable` when Mailpit doesn't answer. With the default `devmail`, the inbox is the Dev Portal's (`/_portal/api/mail`, [ADR-0074](../adr/0074-dev-mail-previews-and-env-editor.md)) |
-| `GET /_dev/mail/previews` | Full | The app's email previews: name, description, category (`internal/app/mail_previews.go`) |
+| `GET /_dev/mail/previews` | Full | The app's email previews: name, description, category. A v0.1 app lists them in `internal/app/mail_previews.go`; in an app on `gorbital.Main` they come from the modules, which add them during `Setup` through `gorbital.AuthSetup.MailPreviews` — sign-in's own messages come from `authhttp` that way — plus the plain test message the library adds |
 | `GET /_dev/mail/preview?name=&to=` | Full | One preview rendered with sample data for `to` (default `preview@example.com`): subject, text, HTML; 404 `preview_not_found` |
 | `POST /_dev/mail/preview/send?name=&to=` | Full | Sends the rendered preview through the app's mailer, so it lands in the development inbox; the console's one POST endpoint |
 | `GET /_dev/migrations` | Full | `{"current", "latest", "pending"}` |
@@ -172,4 +172,6 @@ A stream sends each new item (`request` or `log`), a `: keep-alive` comment ever
 
 ## In your app
 
-The wiring is in `internal/app/devconsole.go`, and the checks and buffers are in `gorbital.dev/modules/devconsole`. To list more plain handlers in `/_dev/routes` when you add them in `routes.go`, add their paths to `handlerRoutes`; `TestDevConsoleRoutes` checks that each listed route is served.
+In a v0.1 app the wiring is in `internal/app/devconsole.go`, and the checks and buffers are in `gorbital.dev/modules/devconsole`. To list more plain handlers in `/_dev/routes` when you add them in `routes.go`, add their paths to `handlerRoutes`; `TestDevConsoleRoutes` checks that each listed route is served.
+
+An app on `gorbital.Main` has none of this in its own code: the library wires the console in `gorbital/devconsole.go`, from the same `modules/devconsole`, and lists the handlers modules registered through `gorbital.AuthSetup.Handle`.

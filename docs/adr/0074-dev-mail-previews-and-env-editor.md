@@ -6,7 +6,7 @@
 
 Phase 9 of the [Dev Portal roadmap](../dev-portal-roadmap.md): an inbox inside the portal (replacing Mailpit in the development `compose.yaml`), email templates rendered with sample data and sent to the inbox, an editor for `.env` that knows the app's configuration, and flags and settings from `/ops` (already served; the screen is the portal's).
 
-Today a Full app in development sends email to Mailpit, a container from `compose.yaml` ([ADR-0025](0025-email-providers.md)); the dev console proxies its API at `/_dev/mail` ([ADR-0065](0065-dev-console.md)). Mailpit is good, but it is a second UI, a second port pair, a container to wait for, and the codes and links a developer needs sit behind another tab.
+Today a Full app in development sends email to Mailpit, a container from `compose.yaml` ([ADR-0025](0025-email-providers.md)); the dev console proxies its API at `/_dev/mail` ([ADR-0065](0065-local-dev-console-apis.md)). Mailpit is good, but it is a second UI, a second port pair, a container to wait for, and the codes and links a developer needs sit behind another tab.
 
 ## Options
 

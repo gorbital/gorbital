@@ -54,7 +54,8 @@ var builtinCommands = []string{"serve", "migrate", "migrate-down", "openapi", "v
 //	migrate [--status [--json]] apply pending migrations (Migrate), or report them and change nothing
 //	migrate-down                roll back the most recent migration; development only
 //	openapi [--dir <dir>]       print the OpenAPI document, built without a database, or write it
-//	                            with a Postman collection and llms.txt into dir
+//	                            with a Postman collection and llms.txt into dir, which
+//	                            is created when it doesn't exist
 //	version [--json]            print the build's version, commit and Go version
 //
 // Main never returns: it exits with status 0 on success, 1 on a runtime
