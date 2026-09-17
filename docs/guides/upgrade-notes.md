@@ -12,6 +12,7 @@ v0.2.0 is being built on the [v0.2 roadmap](../v0.2-roadmap.md). It is additive 
 |---|---|
 | `gorbital.Main`, `gorbital.New`, `gorbitaltest` and `httpx.Maintenance` are added (Phase 3) | Nothing: a v0.1 app keeps its `internal/app`, `cmd/api` and `cmd/migrate`. To try the new layout, start from [Shelfie](../examples/shelfie/00-start-a-project.md); moving an existing app waits for `orb upgrade --layout v0.2` (Phase 9) |
 | `orb dev` rewrites `internal/modules/modules.gen.go` before builds when the file exists | Nothing in a v0.1 app, which has no such file |
+| Security layers: `httpx.Timeout`, `httpx.IPFilter`, `gorbital.dev/webhook`, `guard.Webhook`, `gorbital.dev/modules/jwt` ([Security layers](security-layers.md)) | Nothing: they are opt-in. A v0.1 app can add `httpx.Timeout`, and an `IPFilter` in front of `/ops`, in `internal/app/routes.go`; `resend.VerifyWebhook` behaves as before |
 
 ## Before v0.1.0 (development builds)
 

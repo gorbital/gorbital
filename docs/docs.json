@@ -28,6 +28,7 @@
             { "title": "Your main.go", "slug": "guides/main-go", "source": "docs/guides/main-go.md" },
             { "title": "The middleware stack", "slug": "guides/middleware-stack", "source": "docs/guides/middleware-stack.md" },
             { "title": "Testing with gorbitaltest", "slug": "guides/testing-with-gorbitaltest", "source": "docs/guides/testing-with-gorbitaltest.md" },
+            { "title": "Security layers", "slug": "guides/security-layers", "source": "docs/guides/security-layers.md" },
             { "title": "Organisations", "slug": "guides/organisations", "source": "docs/start/organisations.md" },
             { "title": "Upgrading apps", "slug": "guides/upgrading", "source": "docs/start/upgrading.md" }
           ]
@@ -210,7 +211,8 @@
             { "title": "mail", "slug": "methods/mail", "source": "docs/methods/mail.md" },
             { "title": "page", "slug": "methods/page", "source": "docs/methods/page.md" },
             { "title": "ratelimit", "slug": "methods/ratelimit", "source": "docs/methods/ratelimit.md" },
-            { "title": "requestid", "slug": "methods/requestid", "source": "docs/methods/requestid.md" }
+            { "title": "requestid", "slug": "methods/requestid", "source": "docs/methods/requestid.md" },
+            { "title": "webhook", "slug": "methods/webhook", "source": "docs/methods/webhook.md" }
           ]
         },
         {
@@ -226,6 +228,7 @@
             { "title": "modules/flags", "slug": "methods/modules-flags", "source": "docs/methods/modules-flags.md" },
             { "title": "modules/idempotency", "slug": "methods/modules-idempotency", "source": "docs/methods/modules-idempotency.md" },
             { "title": "modules/jobs", "slug": "methods/modules-jobs", "source": "docs/methods/modules-jobs.md" },
+            { "title": "modules/jwt", "slug": "methods/modules-jwt", "source": "docs/methods/modules-jwt.md" },
             { "title": "modules/mail/resend", "slug": "methods/modules-mail-resend", "source": "docs/methods/modules-mail-resend.md" },
             { "title": "modules/mail/smtp", "slug": "methods/modules-mail-smtp", "source": "docs/methods/modules-mail-smtp.md" },
             { "title": "modules/mail/suppressionpg", "slug": "methods/modules-mail-suppressionpg", "source": "docs/methods/modules-mail-suppressionpg.md" },

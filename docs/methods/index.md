@@ -26,6 +26,7 @@ The root module, `gorbital.dev`: small packages every app uses, with no dependen
 | [`gorbital.dev/page`](page.md) | Package page provides cursor pagination and sorting for list endpoints: bounded limits, opaque cursors and allowlisted sort fields. |
 | [`gorbital.dev/ratelimit`](ratelimit.md) | Package ratelimit provides token-bucket rate limiting keyed by a string (an IP address, account or API key): the Taker interface, an in-memory Limiter, and HTTP middleware. |
 | [`gorbital.dev/requestid`](requestid.md) | Package requestid generates, validates and carries request IDs in a context.Context, so HTTP middleware, logging, audit and jobs share one correlation value (ADR-0030). |
+| [`gorbital.dev/webhook`](webhook.md) | Package webhook verifies signed webhook requests: an HMAC-SHA256 signature over the raw body, and optionally a delivery ID and a timestamp checked against a replay window (ADR-0085). |
 
 ## Modules
 
@@ -43,6 +44,7 @@ One Go module per directory under `modules/`, each added to an app on its own.
 | [`gorbital.dev/modules/flags`](modules-flags.md) | Package flags provides feature flags: on/off switches declared in Go, targeted at organisations and users, rolled out to a stable percentage of them, stored in PostgreSQL only when changed, and applied on every instance without a restart (ADR-0057). |
 | [`gorbital.dev/modules/idempotency`](modules-idempotency.md) | Package idempotency makes retried POST and PATCH requests safe (ADR-0060). |
 | [`gorbital.dev/modules/jobs`](modules-jobs.md) | Package jobs runs background jobs on PostgreSQL with River (ADR-0033). |
+| [`gorbital.dev/modules/jwt`](modules-jwt.md) | Package jwt authenticates requests carrying JSON Web Tokens from an external identity provider, such as Auth0, Clerk, Supabase, Firebase or Amazon Cognito (ADR-0085). |
 | [`gorbital.dev/modules/mail/resend`](modules-mail-resend.md) | Package resend sends email with Resend (https://resend.com) through its HTTP API (ADR-0025, ADR-0037). |
 | [`gorbital.dev/modules/mail/smtp`](modules-mail-smtp.md) | Package smtp sends email through any SMTP server: Amazon SES, Postmark, Mailgun, Google Workspace, your own server, or Mailpit in development (ADR-0025, ADR-0037). |
 | [`gorbital.dev/modules/mail/suppressionpg`](modules-mail-suppressionpg.md) | Package suppressionpg stores the email suppression list in PostgreSQL (ADR-0062): addresses that bounced permanently or marked an email as spam, which must not receive email again. |

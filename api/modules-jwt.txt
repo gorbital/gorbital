@@ -1,0 +1,40 @@
+pkg gorbital.dev/modules/jwt, const DefaultClockSkew = 30000000000
+pkg gorbital.dev/modules/jwt, const DefaultClockSkew time.Duration
+pkg gorbital.dev/modules/jwt, const DefaultPermissionsClaim = "permissions"
+pkg gorbital.dev/modules/jwt, const DefaultPermissionsClaim ideal-string
+pkg gorbital.dev/modules/jwt, const MaxClockSkew = 300000000000
+pkg gorbital.dev/modules/jwt, const MaxClockSkew time.Duration
+pkg gorbital.dev/modules/jwt, const MaxTokenBytes = 16384
+pkg gorbital.dev/modules/jwt, const MaxTokenBytes ideal-int
+pkg gorbital.dev/modules/jwt, func New(context.Context, Config, ...Option) (*Authenticator, error)
+pkg gorbital.dev/modules/jwt, func WithClock(func() time.Time) Option
+pkg gorbital.dev/modules/jwt, func WithHMACSecret([]byte) Option
+pkg gorbital.dev/modules/jwt, func WithHTTPClient(*http.Client) Option
+pkg gorbital.dev/modules/jwt, method (*Authenticator) Middleware(*slog.Logger) func(http.Handler) http.Handler
+pkg gorbital.dev/modules/jwt, method (*Authenticator) Verify(context.Context, string) (Claims, error)
+pkg gorbital.dev/modules/jwt, method (Claims) Decode(string, any) error
+pkg gorbital.dev/modules/jwt, method (Claims) String(string) string
+pkg gorbital.dev/modules/jwt, method (Claims) Strings(string) []string
+pkg gorbital.dev/modules/jwt, type Authenticator struct
+pkg gorbital.dev/modules/jwt, type Claims struct
+pkg gorbital.dev/modules/jwt, type Claims struct, Audience []string
+pkg gorbital.dev/modules/jwt, type Claims struct, ExpiresAt time.Time
+pkg gorbital.dev/modules/jwt, type Claims struct, ID string
+pkg gorbital.dev/modules/jwt, type Claims struct, IssuedAt time.Time
+pkg gorbital.dev/modules/jwt, type Claims struct, Issuer string
+pkg gorbital.dev/modules/jwt, type Claims struct, NotBefore time.Time
+pkg gorbital.dev/modules/jwt, type Claims struct, Subject string
+pkg gorbital.dev/modules/jwt, type Config struct
+pkg gorbital.dev/modules/jwt, type Config struct, ActorFrom func(Claims) (actor.Actor, error)
+pkg gorbital.dev/modules/jwt, type Config struct, Algorithms []string
+pkg gorbital.dev/modules/jwt, type Config struct, AudienceClaim string
+pkg gorbital.dev/modules/jwt, type Config struct, Audiences []string
+pkg gorbital.dev/modules/jwt, type Config struct, ClockSkew time.Duration
+pkg gorbital.dev/modules/jwt, type Config struct, Issuer string
+pkg gorbital.dev/modules/jwt, type Config struct, JWKSURL string
+pkg gorbital.dev/modules/jwt, type Config struct, PermissionsClaim string
+pkg gorbital.dev/modules/jwt, type Option func(*options)
+pkg gorbital.dev/modules/jwt, var DefaultAlgorithms []string
+pkg gorbital.dev/modules/jwt, var ErrInvalidToken error
+pkg gorbital.dev/modules/jwt, var ErrKeysUnavailable error
+pkg gorbital.dev/modules/jwt, var ErrNoClaim error

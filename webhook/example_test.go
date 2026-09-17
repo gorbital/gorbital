@@ -171,3 +171,35 @@ type verifierFunc func(ctx context.Context, header http.Header, body []byte) err
 func (f verifierFunc) Verify(ctx context.Context, header http.Header, body []byte) error {
 	return f(ctx, header, body)
 }
+
+func ExampleHMAC() {
+	// One *HMAC serves every request; build it once at start.
+	v, err := webhook.NewStandard(webhook.StandardConfig{Secrets: []string{exampleSecret}})
+	if err != nil {
+		panic(err)
+	}
+	body := `{"type":"invoice.paid"}`
+	for _, id := range []string{"msg_1", "msg_2"} {
+		fmt.Println(id, v.Verify(context.Background(), signed(id, time.Now(), body), []byte(body)))
+	}
+	// Output:
+	// msg_1 <nil>
+	// msg_2 <nil>
+}
+
+func ExampleEncoding() {
+	// Shopify: base64 (the default) over the body, no prefix.
+	shopify, err := webhook.NewHMAC(webhook.HMACConfig{
+		Secrets:         [][]byte{[]byte("shpss_0123456789abcdef0123456789")}, // gitleaks:allow (example)
+		SignatureHeader: "X-Shopify-Hmac-Sha256",
+		Encoding:        webhook.Base64,
+	})
+	if err != nil {
+		panic(err)
+	}
+	mac := hmac.New(sha256.New, []byte("shpss_0123456789abcdef0123456789"))
+	mac.Write([]byte(`{"id":1}`))
+	header := http.Header{"X-Shopify-Hmac-Sha256": {base64.StdEncoding.EncodeToString(mac.Sum(nil))}}
+	fmt.Println(shopify.Verify(context.Background(), header, []byte(`{"id":1}`)))
+	// Output: <nil>
+}

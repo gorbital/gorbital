@@ -38,6 +38,7 @@ Middleware runs **before** the sign-in check, so a module can bring its own auth
 | `guard.Permission("books.book.write")` | Callers holding the permission; API keys only within their scopes | 403 `forbidden`; 403 `mfa_required` when the caller's role grants it only to a session signed in with a second factor |
 | `guard.RecentReauth()` | A session that signed in or verified a second factor in the last 10 minutes | 403 `reauthentication_required`; 403 `session_required` for API keys |
 | `guard.RateLimit(n, window, …)` | n requests per window per caller, with bursts up to n | 429 `rate_limited` with `Retry-After` |
+| `guard.Webhook(verifier, …)` | Requests signed by a webhook sender, checked on the raw body | 401 `invalid_webhook_signature`; 413 `request_too_large` above the body limit |
 | `guard.New(guard.Spec{…})` | Whatever your check says | The error your check returns |
 
 Each guard adds its responses to the route's OpenAPI operation, and lists itself in `x-gorbital-guards` (`["authenticated", "permission:books.book.write", "rate_limit:30/1m0s"]`), which the docs and the Dev Portal show.
@@ -73,6 +74,27 @@ r.Group("/v1/shelves", guard.RateLimit(60, time.Minute, guard.Named("shelf_write
 - **Shared across instances** when `gorbital.Deps.RateLimits` is set (`ratelimitpg`, [ADR-0052](../adr/0052-shared-rate-limits.md)); otherwise each instance counts on its own. When the database can't answer, `ratelimitpg` decides in memory, and a limiter that can't decide at all allows the request: rate limits slow abuse, they don't lock out users.
 - **Behind a load balancer**, set `APP_TRUSTED_PROXIES`, or every client shares the balancer's address for `ByIP` and anonymous `ByUser` keys.
 - A limiter without `Named` is named after the route's operation ID.
+
+### Webhooks
+
+`guard.Webhook` verifies a provider's signature on the raw body before Huma parses it, then hands the handler the same bytes. Senders have no session, so combine it with `guard.Public()`:
+
+```go
+payments, err := webhook.NewStandard(webhook.StandardConfig{Secrets: []string{secret}})
+// …
+gorbital.Post(r, "/v1/webhooks/payments", h.paymentEvent,
+	guard.Public(),
+	guard.Webhook(payments, guard.WebhookBodyLimit(256<<10)))
+```
+
+| Option or verifier | What it does |
+|---|---|
+| `guard.WebhookBodyLimit(n)` | Largest body read, in bytes (default 1 MiB); larger requests get 413 before verification |
+| `webhook.NewStandard` | Standard Webhooks and Svix (`HeaderPrefix: "svix-"`, for Resend and Clerk): ID, timestamp within 5 minutes, several secrets for rotation |
+| `webhook.NewHMAC` | Other HMAC-SHA256 senders (GitHub, Shopify, Slack) |
+| Your own `webhook.Verifier` | Any other scheme; return an error wrapping `webhook.ErrInvalidSignature` to refuse |
+
+A verified delivery can still arrive twice (retries, replays within the window): make the handler idempotent. Details, sender settings and a custom verifier: [Security layers](security-layers.md#signed-webhooks).
 
 ### Re-authentication
 
@@ -212,6 +234,8 @@ func partnerToken(verify func(token string) (string, bool)) func(http.Handler) h
 ```
 
 A request without a valid token has no actor, so the route answers 401 as usual.
+
+For tokens from an external identity provider (Auth0, Clerk, Supabase, Firebase, Cognito), use `gorbital.dev/modules/jwt` rather than writing this yourself: it handles key rotation, algorithms, audiences and clock skew ([Security layers](security-layers.md#external-identity-providers-jwt)).
 
 ## Testing
 

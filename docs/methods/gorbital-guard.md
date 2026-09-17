@@ -21,11 +21,25 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0082).
 
 ## Contents
 
-- Functions: [`New`](#New), [`Permission`](#Permission), [`Public`](#Public), [`RateLimit`](#RateLimit), [`RecentReauth`](#RecentReauth)
+- Constants: [`DefaultWebhookBodyLimit`](#DefaultWebhookBodyLimit)
+- Functions: [`New`](#New), [`Permission`](#Permission), [`Public`](#Public), [`RateLimit`](#RateLimit), [`RecentReauth`](#RecentReauth), [`Webhook`](#Webhook)
 - Types:
   - [`RateLimitOption`](#RateLimitOption): [`ByAPIKey`](#ByAPIKey), [`ByIP`](#ByIP), [`ByUser`](#ByUser), [`Named`](#Named)
   - [`Request`](#Request): [`Request.Header`](#Request.Header), [`Request.Operation`](#Request.Operation), [`Request.PathParam`](#Request.PathParam), [`Request.Query`](#Request.Query)
   - [`Spec`](#Spec)
+  - [`WebhookOption`](#WebhookOption): [`WebhookBodyLimit`](#WebhookBodyLimit)
+
+## Constants
+
+<a id="DefaultWebhookBodyLimit"></a>
+
+```go
+const DefaultWebhookBodyLimit = 1 << 20
+```
+
+DefaultWebhookBodyLimit is the largest webhook body [Webhook](#Webhook) reads unless [WebhookBodyLimit](#WebhookBodyLimit) sets another: 1 MiB, Huma's default body limit.
+
+*Since `v0.2.0 (unreleased)`*
 
 ## Functions
 
@@ -214,6 +228,50 @@ Output:
 ```text
 200
 403 reauthentication_required
+```
+
+<a id="Webhook"></a>
+
+### func Webhook
+
+```go
+func Webhook(v webhook.Verifier, opts ...WebhookOption) gorbital.RouteOption
+```
+
+Webhook refuses requests whose signature v doesn't accept, with 401 invalid\_webhook\_signature, before the route's input is parsed. It reads the raw body once, up to the body limit (413 request\_too\_large beyond it), passes it with the headers to v, and gives the same bytes to the handler. A verifier error that doesn't wrap webhook.ErrInvalidSignature, such as a key server that is down, is a 500, mapped like any guard error.
+
+Senders have no session: combine it with [Public](#Public).
+
+```go
+payments, err := webhook.NewStandard(webhook.StandardConfig{Secrets: []string{cfg.PaymentsWebhookSecret.Reveal()}})
+gorbital.Post(r, "/v1/webhooks/payments", h.paymentEvent, guard.Public(), guard.Webhook(payments))
+```
+
+A verified request can still arrive twice: senders retry, and a captured request can be replayed within the verifier's tolerance. Make the handler idempotent, for example by storing the delivery ID with the change it makes.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+payments, err := webhook.NewStandard(webhook.StandardConfig{Secrets: []string{webhookSecret}})
+if err != nil {
+	panic(err)
+}
+s := exampleServer(func(r *gorbital.Router) {
+	gorbital.Post(r, "/v1/webhooks/payments", paymentReceived, guard.Public(), guard.Webhook(payments))
+})
+body := `{"type":"payment.succeeded"}`
+fmt.Println(s.deliver("/v1/webhooks/payments", signWebhook(webhookKey, "msg_1", time.Now(), body), body))
+fmt.Println(s.deliver("/v1/webhooks/payments", signWebhook(webhookKey, "msg_1", time.Now(), body), `{"type":"payment.refunded"}`))
+```
+
+Output:
+
+```text
+handled payment.succeeded
+204
+401 invalid_webhook_signature
 ```
 
 ## Types
@@ -585,4 +643,75 @@ Output:
 ```text
 200
 404 shelf_not_found
+```
+
+<a id="WebhookOption"></a>
+
+### type WebhookOption
+
+```go
+type WebhookOption func(*webhookGuard)
+```
+
+A WebhookOption configures [Webhook](#Webhook).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// Options follow the verifier.
+github, err := webhook.NewHMAC(webhook.HMACConfig{
+	Secrets:         [][]byte{[]byte("It's a Secret to Everybody")}, // gitleaks:allow (GitHub's published test vector)
+	SignatureHeader: "X-Hub-Signature-256",
+	SignaturePrefix: "sha256=",
+	Encoding:        webhook.Hex,
+})
+if err != nil {
+	panic(err)
+}
+s := exampleServer(func(r *gorbital.Router) {
+	gorbital.Post(r, "/v1/webhooks/github", paymentReceived, guard.Public(), guard.Webhook(github, guard.WebhookBodyLimit(25<<20)))
+})
+header := http.Header{"X-Hub-Signature-256": {"sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17"}}
+// The signature is for "Hello, World!", not this body.
+fmt.Println(s.deliver("/v1/webhooks/github", header, `{"type":"push"}`))
+```
+
+Output:
+
+```text
+401 invalid_webhook_signature
+```
+
+<a id="WebhookBodyLimit"></a>
+
+#### func WebhookBodyLimit
+
+```go
+func WebhookBodyLimit(n int64) WebhookOption
+```
+
+WebhookBodyLimit sets the largest body [Webhook](#Webhook) reads, in bytes. Larger requests are refused with 413 request\_too\_large before they are verified. Default: [DefaultWebhookBodyLimit](#DefaultWebhookBodyLimit).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+payments, err := webhook.NewStandard(webhook.StandardConfig{Secrets: []string{webhookSecret}})
+if err != nil {
+	panic(err)
+}
+s := exampleServer(func(r *gorbital.Router) {
+	gorbital.Post(r, "/v1/webhooks/payments", paymentReceived, guard.Public(), guard.Webhook(payments, guard.WebhookBodyLimit(16)))
+})
+body := `{"type":"payment.succeeded"}`
+fmt.Println(s.deliver("/v1/webhooks/payments", signWebhook(webhookKey, "msg_1", time.Now(), body), body))
+```
+
+Output:
+
+```text
+413 request_too_large
 ```
