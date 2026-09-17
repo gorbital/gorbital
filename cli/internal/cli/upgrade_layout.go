@@ -73,11 +73,10 @@ type layoutItem struct {
 	Hooks   []string `json:"hooks,omitempty"`
 }
 
-// layoutChange is one file the conversion writes, deletes or keeps.
+// layoutChange is one file the conversion writes or deletes.
 type layoutChange struct {
 	Path   string `json:"path"`
 	Action string `json:"action"`
-	Note   string `json:"note,omitempty"`
 
 	content []byte
 	before  []byte

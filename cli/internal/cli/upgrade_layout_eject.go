@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 )
 
 // builtinKeep is a built-in module a v0.1 app changed, kept as the app's
@@ -64,7 +63,7 @@ var authHooks = []struct {
 // the copy: each change is found in the library's file by its surrounding
 // lines and applied there. Changes it can't place are reported with their
 // diff, and the module isn't converted.
-func keepBuiltinModule(app appInfo, m ejectableModule, lib librarySource, owned []ejectableModule, base, ours map[string][]byte, now time.Time) (builtinKeep, error) {
+func keepBuiltinModule(app appInfo, m ejectableModule, lib librarySource, owned []ejectableModule, base, ours map[string][]byte) (builtinKeep, error) {
 	keep := builtinKeep{Module: m.name, Package: m.importPath(), Version: lib.Version, Files: map[string][]byte{}, Migrations: map[string][]byte{}}
 	rewrite := ejectImportRewriter(app.module, owned)
 	res := ejectResult{Files: []string{}, Migrations: []string{}, Modified: []string{}, NotCopied: []ejectSkipped{}, Notes: []string{}}
@@ -131,7 +130,6 @@ func keepBuiltinModule(app appInfo, m ejectableModule, lib librarySource, owned 
 	}
 	slices.Sort(keep.Hooks)
 	keep.Hooks = slices.Compact(keep.Hooks)
-	_ = now
 	return keep, nil
 }
 

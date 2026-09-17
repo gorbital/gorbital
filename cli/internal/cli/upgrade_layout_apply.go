@@ -112,8 +112,10 @@ func applyLayoutMove(ctx context.Context, plan *layoutPlan, skipTidy, skipBuild 
 // own test, as orb upgrade does after merging (ADR-0054). It reports whether
 // the app has that test at all.
 func recordSurface(ctx context.Context, dir string) (bool, error) {
-	if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash("internal/modules/surface_test.go"))); err != nil {
-		return false, nil
+	if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash("internal/modules/surface_test.go"))); errors.Is(err, fs.ErrNotExist) {
+		return false, nil // an app without that test, such as one written by hand
+	} else if err != nil {
+		return false, err
 	}
 	var out bytes.Buffer
 	cmd := exec.CommandContext(ctx, "go", "test", "./internal/modules", "-run", "^TestPublicSurface$", "-count=1", "-update")

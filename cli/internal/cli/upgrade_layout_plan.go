@@ -58,7 +58,7 @@ func (m *layoutMove) planBuiltinModules(ctx context.Context) error {
 	}
 	for _, e := range owned {
 		prefix := e.dir() + "/"
-		keep, err := keepBuiltinModule(m.app, e, lib, owned, m.base, m.ours, m.now)
+		keep, err := keepBuiltinModule(m.app, e, lib, owned, m.base, m.ours)
 		if err != nil {
 			return fmt.Errorf("keep the %s module as the app's code: %w", e.name, err)
 		}
