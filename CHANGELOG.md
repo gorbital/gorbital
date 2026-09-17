@@ -4,7 +4,7 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
-## v0.2.0 (2026-09-17)
+## v0.2.0 (2026-09-18)
 
 v0.2 turns gorbital into a framework apps import: routes, guards, the middleware stack, the application itself, sign-in, the operations API and organisations move from generated code into the library ([roadmap](docs/v0.2-roadmap.md), [ADR-0081](docs/adr/0081-a-framework-you-import.md)). It is additive: apps created with `v0.1.0` keep building and passing their tests against it with `go get` and no code changes, moving to the new layout is an opt-in `orb upgrade --layout v0.2`, and any built-in module can be copied back into the app with `orb eject`. What to do for each change is in the [upgrade notes](docs/guides/upgrade-notes.md#upgrading-to-v020).
 
