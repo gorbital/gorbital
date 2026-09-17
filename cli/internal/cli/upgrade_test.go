@@ -143,7 +143,7 @@ func actions(res upgradeResult) map[string]merge.Action {
 
 func TestUpgradeMergesTemplateChanges(t *testing.T) {
 	old := olderRelease(t)
-	appFromRelease(t, old, "v0.4.9")
+	appFromRelease(t, old, "v0.0.9")
 	ref := useRelease(t, old)
 
 	// The developer's edits: a changed title in a file the release changes,
@@ -167,8 +167,8 @@ func TestUpgradeMergesTemplateChanges(t *testing.T) {
 	}
 
 	res := upgrade(t, 0, "--skip-build")
-	if *ref != "v0.4.9" {
-		t.Errorf("rebuilt the base from %q, want the lock's v0.4.9", *ref)
+	if *ref != "v0.0.9" {
+		t.Errorf("rebuilt the base from %q, want the lock's v0.0.9", *ref)
 	}
 	want := map[string]merge.Action{"README.md": merge.Merged, oldNotes: merge.Delete, newMigration: merge.Create}
 	for p, a := range want {
@@ -204,7 +204,7 @@ func TestUpgradeMergesTemplateChanges(t *testing.T) {
 
 func TestUpgradeConflictKeepsBothSides(t *testing.T) {
 	old := olderRelease(t)
-	appFromRelease(t, old, "v0.4.9")
+	appFromRelease(t, old, "v0.0.9")
 	useRelease(t, old)
 	readme := readFile(t, "README.md")
 	writeFile(t, "README.md", strings.Replace(readme, "Old release footer.", "Our own footer.", 1))
@@ -233,14 +233,15 @@ func TestUpgradeUpToDate(t *testing.T) {
 		t.Errorf("upgrade without a recorded release = %d, %q", code, errOut)
 	}
 
-	res := upgrade(t, 0, "--from", "v0.5.0")
+	res := upgrade(t, 0, "--from", "v0.1.0")
 	if !res.UpToDate || res.Branch != "" || git(t, "branch", "--show-current") != "main" {
 		t.Errorf("result = %+v, want up to date without a branch", res)
 	}
 }
 
-// TestUpgradeFromV1Lock: an app created before v0.5 names its release with
-// --from, which must reproduce every recorded hash.
+// TestUpgradeFromV1Lock: an app created by an early development build names
+// the commit that created it with --from, which must reproduce every
+// recorded hash.
 func TestUpgradeFromV1Lock(t *testing.T) {
 	appFromRelease(t, recipes.Embedded(), "unused")
 	l, _ := readLock(".")
@@ -251,19 +252,19 @@ func TestUpgradeFromV1Lock(t *testing.T) {
 	v1, _ := json.Marshal(map[string]any{"apiVersion": lockAPIVersionV1, "generator": "orb v0.1.0-dev",
 		"recipes": []any{map[string]any{"name": "base-full", "version": "v0.1.0", "operations": ops}}})
 	writeFile(t, lockPath, string(v1))
-	commitAll(t, "Lock from v0.4")
+	commitAll(t, "Lock from an early development build")
 
-	if code, _, errOut := runOrb(t, "upgrade"); code != 2 || !strings.Contains(errOut, "--from v0.4.0") {
+	if code, _, errOut := runOrb(t, "upgrade"); code != 2 || !strings.Contains(errOut, "--from <commit>") {
 		t.Errorf("upgrade of a v1 lock without --from = %d, %q", code, errOut)
 	}
 
 	useRelease(t, olderRelease(t))
-	if code, _, errOut := runOrb(t, "upgrade", "--from", "v0.3.0", "--skip-tidy"); code != 1 || !strings.Contains(errOut, "don't match gorbital.lock") {
+	if code, _, errOut := runOrb(t, "upgrade", "--from", "v0.0.8", "--skip-tidy"); code != 1 || !strings.Contains(errOut, "don't match gorbital.lock") {
 		t.Errorf("upgrade --from the wrong release = %d, %q", code, errOut)
 	}
 
 	useRelease(t, recipes.Embedded())
-	res := upgrade(t, 0, "--from", "v0.4.0", "--skip-build")
+	res := upgrade(t, 0, "--from", "v0.0.9", "--skip-build")
 	if len(res.Changes) != 0 || res.UpToDate || res.Branch == "" {
 		t.Errorf("result = %+v, want only the lock rewritten on a branch", res)
 	}

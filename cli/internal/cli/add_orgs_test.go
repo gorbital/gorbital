@@ -124,7 +124,7 @@ func TestAddOrgsRefuses(t *testing.T) {
 	t.Run("older release", func(t *testing.T) {
 		newGitApp(t, "--preset", "full")
 		l, _ := readLock(".")
-		l.Orb = lockOrb{Version: "v0.4.9"}
+		l.Orb = lockOrb{Version: "v0.0.9"}
 		b, _ := l.encode()
 		writeFile(t, lockPath, string(b))
 		commitAll(t, "Older lock")

@@ -7,15 +7,42 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"regexp"
 	"runtime"
+	"runtime/debug"
 	"strings"
 
 	"gorbital.dev/cli/internal/recipes"
 )
 
 // Version is the orb version. Release builds set it with
-// -ldflags "-X gorbital.dev/cli/internal/cli.Version=v0.1.0".
-var Version = "v0.1.0-dev"
+// -ldflags "-X gorbital.dev/cli/internal/cli.Version=v0.1.0"; go install
+// gorbital.dev/cli/cmd/orb@v0.1.0 gets it from the module version.
+var Version = moduleVersion("v0.1.0-dev", debug.ReadBuildInfo)
+
+// cliModulePath is the module orb is built from.
+const cliModulePath = "gorbital.dev/cli"
+
+// releaseVersion matches a tagged module version: vX.Y.Z with an optional
+// pre-release, but not a pseudo-version or a build of a modified tree.
+var releaseVersion = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$`)
+
+var pseudoVersion = regexp.MustCompile(`[0-9]{14}-[0-9a-f]{12}$`)
+
+// moduleVersion returns the version of the gorbital.dev/cli module orb was
+// installed at, when the build info has one, and fallback otherwise: for
+// builds from a checkout, which report (devel) or a pseudo-version.
+func moduleVersion(fallback string, read func() (*debug.BuildInfo, bool)) string {
+	info, ok := read()
+	if !ok || info.Main.Path != cliModulePath {
+		return fallback
+	}
+	v := info.Main.Version
+	if !releaseVersion.MatchString(v) || pseudoVersion.MatchString(v) {
+		return fallback
+	}
+	return v
+}
 
 const usage = `orb creates and runs gorbital applications.
 

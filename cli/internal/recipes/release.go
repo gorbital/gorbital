@@ -7,7 +7,7 @@ import (
 
 // A Release is the templates of one orb release, laid out like this
 // package's directory: minimal/, full/, full-multi/ and mail/. Every release
-// since v0.2.0 uses the same layout and template format (ADR-0050).
+// uses the same layout and template format (ADR-0050).
 type Release struct {
 	fsys fs.FS
 }

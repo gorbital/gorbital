@@ -73,7 +73,7 @@ type Input struct {
 	// exist.
 	Ours func(path string) (content []byte, ok bool, err error)
 	// Label names the new release in conflict markers, such as
-	// "gorbital v0.5.0".
+	// "gorbital v0.1.0".
 	Label string
 }
 

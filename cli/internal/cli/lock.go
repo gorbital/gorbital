@@ -20,7 +20,7 @@ import (
 // LockAPIVersion versions the gorbital.lock format (ADR-0015, ADR-0050).
 const LockAPIVersion = "gorbital.dev/v2"
 
-// lockAPIVersionV1 is the format orb wrote before v0.5: one createFile
+// lockAPIVersionV1 is the format early development builds of orb wrote: one createFile
 // operation per file, without the release or inputs that rendered them.
 const lockAPIVersionV1 = "gorbital.dev/v1"
 

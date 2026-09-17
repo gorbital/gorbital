@@ -52,7 +52,7 @@ var repositoryModules = []string{"gorbital.dev", "apistock.dev"}
 // repository, and ref must be a commit of the gorbital repository.
 func releaseFromCheckout(ctx context.Context, checkout, ref string) (recipes.Release, func(), error) {
 	if !refPattern.MatchString(ref) || strings.Contains(ref, "..") {
-		return recipes.Release{}, nil, fmt.Errorf("invalid release %q: use a tag such as v0.4.0 or a commit", ref)
+		return recipes.Release{}, nil, fmt.Errorf("invalid release %q: use a tag such as v0.1.0 or a commit", ref)
 	}
 	if err := checkoutRepository(ctx, checkout); err != nil {
 		return recipes.Release{}, nil, err

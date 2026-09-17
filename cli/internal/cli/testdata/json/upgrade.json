@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "name": "shop-api",
-  "from": "v0.5.0",
+  "from": "v0.0.9",
   "to": "{version}",
   "up_to_date": false,
   "changes": [

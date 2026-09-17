@@ -102,8 +102,8 @@ func TestReadLockRejects(t *testing.T) {
 	}
 }
 
-// TestReadManifestRejectsInvalidInputs: gorbital.yaml, which apps from
-// before v0.5 upgrade from, is checked like gorbital.lock (CLI-4).
+// TestReadManifestRejectsInvalidInputs: gorbital.yaml, which apps from early
+// development builds upgrade from, is checked like gorbital.lock (CLI-4).
 func TestReadManifestRejectsInvalidInputs(t *testing.T) {
 	valid := "apiVersion: gorbital.dev/v1\nname: shop-api\nmodule: example.com/shop-api\npreset: full\n"
 	dir := t.TempDir()

@@ -21,14 +21,25 @@ func repoRoot(t *testing.T) string {
 	return filepath.Join(filepath.Dir(file), "..", "..", "..")
 }
 
-// TestReleaseFromCheckout reads v0.4.0's templates with git archive. v0.4.0
-// is the release this branch started from, so it renders the same app.
+// Development commits TestReleaseFromCheckout reads. Their private
+// development tags were removed before the first public release, v0.1.0, so
+// the test names the commits.
+const (
+	// multiTenantCommit is the commit this branch started from, so it
+	// renders the same app.
+	multiTenantCommit = "0004f6c615e696f9e516ed8d6d9214c78469d192"
+	// singleTenantCommit predates the multi-tenant templates.
+	singleTenantCommit = "c830679be843a4e5069ac68620eb93e86ec5e34a"
+)
+
+// TestReleaseFromCheckout reads a development commit's templates with git
+// archive.
 func TestReleaseFromCheckout(t *testing.T) {
 	root := repoRoot(t)
-	if _, err := gitOutput(context.Background(), root, "rev-parse", "--verify", "--quiet", "v0.4.0^{commit}"); err != nil {
-		t.Skip("tag v0.4.0 isn't in this checkout (git fetch --tags)")
+	if _, err := gitOutput(context.Background(), root, "rev-parse", "--verify", "--quiet", multiTenantCommit+"^{commit}"); err != nil {
+		t.Skipf("commit %s isn't in this checkout (a shallow clone? git fetch --unshallow)", multiTenantCommit)
 	}
-	release, cleanup, err := releaseFromCheckout(context.Background(), root, "v0.4.0")
+	release, cleanup, err := releaseFromCheckout(context.Background(), root, multiTenantCommit)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,30 +51,30 @@ func TestReleaseFromCheckout(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(got) < 150 {
-		t.Errorf("v0.4.0 tree has %d files", len(got))
+		t.Errorf("%s tree has %d files", multiTenantCommit, len(got))
 	}
 	if _, err := release.Tree("full", recipes.TenancySingle, recipes.MailResend, d); err != nil {
 		t.Error(err)
 	}
 
-	// v0.2.0 has no multi-tenant templates.
-	if _, err := gitOutput(context.Background(), root, "rev-parse", "--verify", "--quiet", "v0.2.0^{commit}"); err == nil {
-		old, cleanupOld, err := releaseFromCheckout(context.Background(), root, "v0.2.0")
+	// The earlier commit has no multi-tenant templates.
+	if _, err := gitOutput(context.Background(), root, "rev-parse", "--verify", "--quiet", singleTenantCommit+"^{commit}"); err == nil {
+		old, cleanupOld, err := releaseFromCheckout(context.Background(), root, singleTenantCommit)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer cleanupOld()
 		if _, err := old.Tree("full", recipes.TenancyMulti, "", d); err == nil {
-			t.Error("v0.2.0 rendered a multi-tenant app")
+			t.Errorf("%s rendered a multi-tenant app", singleTenantCommit)
 		}
 		if single, err := old.Tree("full", recipes.TenancySingle, recipes.MailResend, d); err != nil || len(single) < 100 {
-			t.Errorf("v0.2.0 single-tenant tree: %d files, %v", len(single), err)
+			t.Errorf("%s single-tenant tree: %d files, %v", singleTenantCommit, len(single), err)
 		}
 	}
 }
 
 func TestReleaseFromCheckoutRejectsRefs(t *testing.T) {
-	for _, ref := range []string{"--output=/tmp/x", "v0.4.0..HEAD", "HEAD@{1}", "", "v0.4.0 main", "nonexistent-tag"} {
+	for _, ref := range []string{"--output=/tmp/x", "v0.1.0..HEAD", "HEAD@{1}", "", "v0.1.0 main", "nonexistent-tag"} {
 		if _, _, err := releaseFromCheckout(context.Background(), repoRoot(t), ref); err == nil {
 			t.Errorf("releaseFromCheckout(%q) error = nil", ref)
 		}
