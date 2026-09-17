@@ -1,0 +1,47 @@
+// Package ⟦.Package⟧ is the ⟦.PluralHuman⟧ module: ⟦.PluralHuman⟧ that belong to the
+// signed-in user, in four layers (domain, usecase, repository, delivery)
+// with one file per operation in each. orb gen module wrote it; the code is
+// yours to change.
+package ⟦.Package⟧
+
+import (
+	"net/http"
+
+	"gorbital.dev/gorbital"
+	"gorbital.dev/httpx"
+
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/delivery"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/repository"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+// Module returns the ⟦.PluralHuman⟧ module. main.go adds it with every other
+// module through modules.All. Error codes and permission names are public
+// API: add new ones, never change existing ones.
+func Module() gorbital.Module {
+	return gorbital.Module{
+		Name: ⟦quote .Package⟧,
+		Errors: []httpx.Mapping{
+			{Err: domain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+			{Err: domain.ErrInvalid⟦.Ident⟧, Status: http.StatusUnprocessableEntity, Code: "validation_failed", Detail: "the ⟦.Human⟧ is not valid"},
+			{Err: domain.Err⟦.Ident⟧NotFound, Status: http.StatusNotFound, Code: "⟦.Snake⟧_not_found", Detail: "no ⟦.Human⟧ of yours has this ID"},
+⟦- range .Uniques⟧
+			{Err: domain.Err⟦$.Ident⟧⟦.Ident⟧Taken, Status: http.StatusConflict, Code: "⟦$.Snake⟧_⟦.Name⟧_taken", Detail: "you already have ⟦$.A⟧ ⟦$.Human⟧ with this ⟦.Human⟧"},
+⟦- end⟧
+			{Err: domain.Err⟦.Ident⟧VersionConflict, Status: http.StatusConflict, Code: "⟦.Snake⟧_version_conflict", Detail: "the ⟦.Human⟧ changed since you read it; get it again and retry"},
+		},
+		// Every user holds these through the user role; an API key only when
+		// its scopes include them.
+		Permissions: []gorbital.Permission{
+			{Name: usecase.PermRead, Description: "See your ⟦.PluralHuman⟧", Roles: []string{"user"}},
+			{Name: usecase.PermWrite, Description: "Create, change and delete your ⟦.PluralHuman⟧", Roles: []string{"user"}},
+		},
+		Routes: func(r *gorbital.Router, d gorbital.Deps) {
+			// d is zero while the OpenAPI document is exported: the service
+			// is built, but no use case runs.
+			svc := usecase.NewService(repository.NewStore(d.DB), d.Audit, d.Logger)
+			delivery.Register(r, svc)
+		},
+	}
+}

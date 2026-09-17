@@ -1,0 +1,34 @@
+package middleware
+
+import (
+	"net/http"
+
+	"gorbital.dev/httpx"
+)
+
+// TenantHeader is middleware for every route: add it in cmd/api/main.go with
+// gorbital.WithMiddleware. It runs after the built-in stack, so after
+// authentication, and before the routes' guards.
+func TenantHeader(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if problem := checkTenantHeader(r); problem != nil {
+			// A refused request stops here: next never runs.
+			httpx.WriteProblem(w, r, problem)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// checkTenantHeader is the middleware's rule.
+// It returns why r is refused, as a problem with its status and code, or
+// nil to let it through; until you write it, every request passes. Pass
+// r.Context() to anything that waits, and never log secrets.
+func checkTenantHeader(r *http.Request) *httpx.Problem {
+	// For example, refuse clients that don't say which version they are:
+	//
+	//	if r.Header.Get("X-App-Version") == "" {
+	//		return httpx.NewProblem(http.StatusBadRequest, "app_version_required", "send the X-App-Version header")
+	//	}
+	return nil
+}

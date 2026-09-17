@@ -1,0 +1,29 @@
+-- ⟦.PluralTitle⟧: each ⟦.Human⟧ belongs to one user. orb gen module wrote this
+-- migration; change it freely until it is released, then add a new one.
+
+-- +goose Up
+CREATE TABLE ⟦.Table⟧ (
+    ⟦.Pad "id"⟧ text        PRIMARY KEY,
+    -- The signed-in user who owns the ⟦.Human⟧; only they can read or change it.
+    ⟦.Pad "owner_id"⟧ text        NOT NULL,
+⟦- range .Fields⟧
+    ⟦$.Pad .Name⟧ text        ⟦.Constraint⟧,
+⟦- end⟧
+    -- Increases with every update; an update must send the version it read.
+    ⟦.Pad "version"⟧ bigint      NOT NULL DEFAULT 1,
+    ⟦.Pad "created_at"⟧ timestamptz NOT NULL,
+    ⟦.Pad "updated_at"⟧ timestamptz NOT NULL
+);
+⟦range .Uniques⟧
+-- ⟦.HumanTitle⟧ is unique per owner, ignoring case.
+CREATE UNIQUE INDEX ⟦$.Table⟧_owner_⟦.Name⟧ ON ⟦$.Table⟧ (owner_id, lower(⟦.Name⟧));
+⟦end⟧
+-- One index per sort of GET ⟦.RoutePath⟧.
+CREATE INDEX ⟦.Table⟧_owner_created ON ⟦.Table⟧ (owner_id, created_at, id);
+CREATE INDEX ⟦.Table⟧_owner_updated ON ⟦.Table⟧ (owner_id, updated_at, id);
+⟦- range .Strings⟧
+CREATE INDEX ⟦$.Table⟧_owner_⟦.Name⟧_sort ON ⟦$.Table⟧ (owner_id, (lower(⟦.Name⟧) COLLATE "C"), id);
+⟦- end⟧
+
+-- +goose Down
+DROP TABLE ⟦.Table⟧;

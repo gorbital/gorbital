@@ -1,0 +1,48 @@
+// Package delivery is the ⟦.PluralHuman⟧ module's HTTP adapter: the route table in
+// this file, and one file per operation with its input, output and handler.
+package delivery
+
+import (
+	"net/http"
+
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/guard"
+
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+// handlers holds what every operation's handler uses.
+type handlers struct {
+	svc *usecase.Service
+}
+
+// Register adds the ⟦.PluralHuman⟧ routes to r. Every route requires a signed-in
+// user (deny by default) and the permission its guard names; the use cases
+// reach only that user's ⟦.PluralHuman⟧.
+func Register(r *gorbital.Router, svc *usecase.Service) {
+	h := handlers{svc: svc}
+	⟦.PluralVar⟧ := r.Group(⟦quote .RoutePath⟧, gorbital.Tags(⟦quote .PluralTitle⟧))
+
+	gorbital.Post(⟦.PluralVar⟧, "", h.create⟦.Ident⟧, gorbital.OperationID("⟦.Package⟧-create"),
+		gorbital.Summary("Create ⟦.A⟧ ⟦.Human⟧"), gorbital.Status(http.StatusCreated),
+		gorbital.Errors(⟦if .HasUniques⟧http.StatusConflict, ⟦end⟧http.StatusUnprocessableEntity),
+		guard.Permission(usecase.PermWrite))
+	gorbital.Get(⟦.PluralVar⟧, "", h.list⟦.Plural⟧, gorbital.OperationID("⟦.Package⟧-list"),
+		gorbital.Summary("List your ⟦.PluralHuman⟧"),
+		gorbital.Description("Newest first unless `sort` says otherwise; sort by one of ⟦.SortListCode⟧. Paginate with `cursor`."),
+		gorbital.Errors(http.StatusBadRequest, http.StatusUnprocessableEntity),
+		guard.Permission(usecase.PermRead))
+	gorbital.Get(⟦.PluralVar⟧, "/{id}", h.get⟦.Ident⟧, gorbital.OperationID("⟦.Package⟧-get"),
+		gorbital.Summary("Get ⟦.A⟧ ⟦.Human⟧"),
+		gorbital.Errors(http.StatusNotFound),
+		guard.Permission(usecase.PermRead))
+	gorbital.Patch(⟦.PluralVar⟧, "/{id}", h.update⟦.Ident⟧, gorbital.OperationID("⟦.Package⟧-update"),
+		gorbital.Summary("Update ⟦.A⟧ ⟦.Human⟧"),
+		gorbital.Description("Send the fields to change and the `version` you read."),
+		gorbital.Errors(http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity),
+		guard.Permission(usecase.PermWrite))
+	gorbital.Delete(⟦.PluralVar⟧, "/{id}", h.delete⟦.Ident⟧, gorbital.OperationID("⟦.Package⟧-delete"),
+		gorbital.Summary("Delete ⟦.A⟧ ⟦.Human⟧"), gorbital.Status(http.StatusNoContent),
+		gorbital.Errors(http.StatusNotFound),
+		guard.Permission(usecase.PermWrite))
+}

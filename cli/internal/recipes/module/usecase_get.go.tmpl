@@ -1,0 +1,20 @@
+package usecase
+
+import (
+	"context"
+
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+)
+
+// Get⟦.Ident⟧ returns one of the signed-in user's ⟦.PluralHuman⟧.
+func (s *Service) Get⟦.Ident⟧(ctx context.Context, id string) (domain.⟦.Ident⟧, error) {
+	owner, err := ownerID(ctx)
+	if err != nil {
+		return domain.⟦.Ident⟧{}, err
+	}
+	⟦.Var⟧, err := s.store.Select⟦.Ident⟧(ctx, owner, id, false)
+	if err != nil {
+		return domain.⟦.Ident⟧{}, storeError("get", err)
+	}
+	return ⟦.Var⟧, nil
+}

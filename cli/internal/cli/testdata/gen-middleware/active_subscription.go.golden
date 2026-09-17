@@ -1,0 +1,43 @@
+package delivery
+
+import (
+	"context"
+	"errors"
+	"net/http"
+
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/guard"
+)
+
+// ErrActiveSubscriptionRefused is the error
+// ActiveSubscription refuses a request with. Map it in module.go's Errors,
+// so the refusal has a status and a stable code:
+//
+//	{Err: delivery.ErrActiveSubscriptionRefused, Status: http.StatusForbidden, Code: "active_subscription_refused", Detail: "this request isn't allowed"},
+var ErrActiveSubscriptionRefused = errors.New("books: active subscription refused the request")
+
+// ActiveSubscription is a guard for the books routes: add it to a route or
+// a group in routes.go, next to guard.Permission. It runs after the sign-in
+// check and before the request body is read, and x-gorbital-guards lists it
+// as "active_subscription".
+func ActiveSubscription() gorbital.RouteOption {
+	return guard.New(guard.Spec{
+		Name:     "active_subscription",
+		Statuses: []int{http.StatusForbidden},
+		Check:    checkActiveSubscription,
+	})
+}
+
+// checkActiveSubscription is the guard's rule.
+// It returns nil to let a request through, or the error above to refuse
+// it; until you write it, every request passes.
+// req has the path parameters, query and headers, not the body; ctx has the
+// caller (actor.From). Any other error is a 500, logged once.
+func checkActiveSubscription(ctx context.Context, req guard.Request) error {
+	// For example, only callers that say which version they are:
+	//
+	//	if req.Header("X-App-Version") == "" {
+	//		return ErrActiveSubscriptionRefused
+	//	}
+	return nil
+}

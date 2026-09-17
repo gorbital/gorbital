@@ -123,6 +123,13 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	if err != nil {
 		return err
 	}
+	if appLayout(app.dir) == layoutMain {
+		// In an app on gorbital.Main, orb gen resource is orb gen module
+		// (ADR-0083): the same fields and flags, the new layout.
+		fmt.Fprintln(stderr, "orb: this app is on gorbital.Main, so orb gen resource runs orb gen module")
+		in := moduleInput{name: name, specs: specs, plural: *plural, idPrefix: *idPrefix, org: *scope == recipes.ScopeOrg}
+		return genModule(ctx, app, in, genModuleRun{dryRun: *dryRun, asJSON: *asJSON, allowDirty: *allowDirty, prompts: p}, stdin, stdout, stderr)
+	}
 	if _, err := checkResourceApp(app, *scope); err != nil {
 		return err
 	}

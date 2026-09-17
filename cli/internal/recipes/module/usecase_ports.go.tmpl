@@ -1,0 +1,54 @@
+package usecase
+
+import (
+	"context"
+	"time"
+
+	"gorbital.dev/page"
+
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+)
+
+// ListQuery selects one page of an owner's ⟦.PluralHuman⟧.
+type ListQuery struct {
+	OwnerID string
+⟦- range .Enums⟧
+	// ⟦.Ident⟧ keeps ⟦$.PluralHuman⟧ with this ⟦.Human⟧; empty keeps all.
+	⟦.Ident⟧ domain.⟦.Ident⟧
+⟦- end⟧
+	// Sort is one of the sortable fields: ⟦.SortList⟧.
+	Sort page.SortField
+	// After, when set, starts the page after this position.
+	After *Position
+	Limit int
+}
+
+// Position is where a page ended: the last ⟦.Human⟧'s sort value and ID.
+type Position struct {
+	Time time.Time // when sorting by created_at or updated_at
+	Text string    // when sorting by a text field
+	ID   string
+}
+
+// Store reads and writes ⟦.PluralHuman⟧; repository.Store implements it with SQL.
+// Every method is limited to one owner's ⟦.PluralHuman⟧.
+type Store interface {
+	// Insert⟦.Ident⟧ stores a new ⟦.Human⟧⟦if .HasUniques⟧, or returns ⟦.TakenErrors⟧⟦end⟧.
+	Insert⟦.Ident⟧(ctx context.Context, ⟦.Var⟧ domain.⟦.Ident⟧) (domain.⟦.Ident⟧, error)
+	// Select⟦.Ident⟧ returns one of ownerID's ⟦.PluralHuman⟧, or Err⟦.Ident⟧NotFound.
+	// lock locks the row until the transaction ends.
+	Select⟦.Ident⟧(ctx context.Context, ownerID, id string, lock bool) (domain.⟦.Ident⟧, error)
+	// Select⟦.Plural⟧ returns up to q.Limit ⟦.PluralHuman⟧ in q.Sort order, with the
+	// ID breaking ties.
+	Select⟦.Plural⟧(ctx context.Context, q ListQuery) ([]domain.⟦.Ident⟧, error)
+	// Update⟦.Ident⟧ saves ⟦.Var⟧ when the stored version is still ⟦.Var⟧.Version and
+	// increments the version. It returns Err⟦.Ident⟧VersionConflict when the
+	// version changed or the ⟦.Human⟧ is gone⟦if .HasUniques⟧, and ⟦.TakenErrors⟧⟦end⟧.
+	Update⟦.Ident⟧(ctx context.Context, ⟦.Var⟧ domain.⟦.Ident⟧) (domain.⟦.Ident⟧, error)
+	// Delete⟦.Ident⟧ removes one of ownerID's ⟦.PluralHuman⟧, or returns
+	// Err⟦.Ident⟧NotFound.
+	Delete⟦.Ident⟧(ctx context.Context, ownerID, id string) error
+	// InTx runs fn in one transaction: it commits when fn returns nil and
+	// rolls back otherwise.
+	InTx(ctx context.Context, fn func(tx Store) error) error
+}

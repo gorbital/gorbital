@@ -1,0 +1,43 @@
+package delivery
+
+import (
+	"context"
+
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+type update⟦.Ident⟧Input struct {
+	ID   string `path:"id" maxLength:"64" example:"⟦.IDPrefix⟧_mfrggzdfmztwq2lkmfrggzdfmy"`
+	Body struct {
+		Version int64 `json:"version" minimum:"1" doc:"The version you read. If the ⟦.Human⟧ changed since, the update fails with ⟦.Snake⟧_version_conflict."`
+⟦- range .Fields⟧
+⟦- if .IsEnum⟧
+		⟦.Ident⟧ *string `json:"⟦.Name⟧,omitempty" enum:"⟦.EnumTag⟧"`
+⟦- else if eq .MinLength 1⟧
+		⟦.Ident⟧ *string `json:"⟦.Name⟧,omitempty" minLength:"1" maxLength:"⟦.MaxLength⟧"`
+⟦- else⟧
+		⟦.Ident⟧ *string `json:"⟦.Name⟧,omitempty" maxLength:"⟦.MaxLength⟧"`
+⟦- end⟧
+⟦- end⟧
+	}
+}
+
+func (h handlers) update⟦.Ident⟧(ctx context.Context, in *update⟦.Ident⟧Input) (*⟦.Var⟧Output, error) {
+	changes := domain.Changes{
+⟦- range .TextFields⟧
+		⟦.Ident⟧: in.Body.⟦.Ident⟧,
+⟦- end⟧
+	}
+⟦- range .Enums⟧
+	if in.Body.⟦.Ident⟧ != nil {
+		value := domain.⟦.Ident⟧(*in.Body.⟦.Ident⟧)
+		changes.⟦.Ident⟧ = &value
+	}
+⟦- end⟧
+	⟦.Var⟧, err := h.svc.Update⟦.Ident⟧(ctx, in.ID, usecase.Update⟦.Ident⟧Input{Version: in.Body.Version, Changes: changes})
+	if err != nil {
+		return nil, fieldErrors(err, "body")
+	}
+	return &⟦.Var⟧Output{Body: toResponse(⟦.Var⟧)}, nil
+}

@@ -1,0 +1,7 @@
+package delivery
+
+import "context"
+
+func (h handlers) delete⟦.Ident⟧(ctx context.Context, in *⟦.Var⟧IDInput) (*struct{}, error) {
+	return nil, h.svc.Delete⟦.Ident⟧(ctx, in.ID)
+}

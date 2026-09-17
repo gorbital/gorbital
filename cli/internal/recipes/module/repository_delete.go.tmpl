@@ -1,0 +1,22 @@
+package repository
+
+import (
+	"context"
+
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+)
+
+const delete⟦.Ident⟧SQL = `DELETE FROM ⟦.Table⟧ WHERE id = $1 AND owner_id = $2`
+
+// Delete⟦.Ident⟧ removes one of ownerID's ⟦.PluralHuman⟧, or returns
+// Err⟦.Ident⟧NotFound.
+func (s *Store) Delete⟦.Ident⟧(ctx context.Context, ownerID, id string) error {
+	tag, err := s.db.Exec(ctx, delete⟦.Ident⟧SQL, id, ownerID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.Err⟦.Ident⟧NotFound
+	}
+	return nil
+}

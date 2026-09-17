@@ -1,0 +1,11 @@
+package delivery
+
+import "context"
+
+func (h handlers) get⟦.Ident⟧(ctx context.Context, in *⟦.Var⟧IDInput) (*⟦.Var⟧Output, error) {
+	⟦.Var⟧, err := h.svc.Get⟦.Ident⟧(ctx, in.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &⟦.Var⟧Output{Body: toResponse(⟦.Var⟧)}, nil
+}
