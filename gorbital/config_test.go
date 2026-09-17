@@ -4,12 +4,14 @@ import (
 	"errors"
 	"maps"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"gorbital.dev/config"
 	"gorbital.dev/gorbital"
+	"gorbital.dev/httpx"
 	"gorbital.dev/modules/auth"
 )
 
@@ -119,13 +121,14 @@ func TestLoadConfigReportsAllErrors(t *testing.T) {
 		"STORAGE_DRIVER":       "floppy",
 		"MAILPIT_WEB_PORT":     "web",
 		"METRICS_ADDR":         "9464",
+		"OPS_ALLOWED_IPS":      "office",
 	})
 	if err == nil {
 		t.Fatal("LoadConfig(invalid values) error = nil")
 	}
 	for _, key := range []string{"APP_ENV", "APP_ADDR", "APP_LOG_LEVEL", "APP_LOG_FORMAT", "APP_DOCS_ENABLED", "APP_TRUSTED_PROXIES", "APP_MAX_BODY_BYTES", "APP_REQUEST_TIMEOUT",
 		"APP_DB_MAX_CONNS", "APP_JOB_WORKERS", "MAIL_DELIVERY", "DEV_MAIL_SMTP_ADDR", "MAILPIT_SMTP_ADDR", "AUTH_ENCRYPTION_KEYS", "STORAGE_DRIVER",
-		"MAILPIT_WEB_PORT", "METRICS_ADDR"} {
+		"MAILPIT_WEB_PORT", "METRICS_ADDR", "OPS_ALLOWED_IPS"} {
 		if !strings.Contains(err.Error(), key) {
 			t.Errorf("LoadConfig() error does not mention %s:\n%v", key, err)
 		}
@@ -265,6 +268,7 @@ func FuzzLoadConfig(f *testing.F) {
 		{"APP_ADDR", "127.0.0.1:8080"}, {"APP_MAX_BODY_BYTES", "1048576"}, {"APP_REQUEST_TIMEOUT", "45s"}, {"APP_CORS_ORIGINS", "https://a.example, http://b"},
 		{"APP_TRUSTED_PROXIES", "10.0.0.0/8"}, {"METRICS_ADDR", "127.0.0.1:9464"}, {"AUTH_DEFAULT_RETURN_TO", "http://localhost:8080/x"},
 		{"APP_DB_MAX_CONNS", "1000"}, {"STORAGE_DRIVER", "spaces"}, {"AUTH_ENCRYPTION_KEYS", "k1:AAAA"}, {"APP_LOG_LEVEL", "debug+2"},
+		{"OPS_ALLOWED_IPS", "10.0.0.0/8, ::ffff:192.0.2.1, 2001:db8::/32"},
 	} {
 		f.Add("development", seed[0], seed[1])
 		f.Add("production", seed[0], seed[1])
@@ -287,6 +291,16 @@ func FuzzLoadConfig(f *testing.F) {
 		}
 		if cfg.MaxBodyBytes <= 0 || cfg.DBMaxConns < 1 || cfg.DBMaxConns > 1000 || cfg.JobWorkers < 1 || cfg.JobWorkers > 10_000 {
 			t.Fatalf("loaded out-of-range numbers: %+v", cfg)
+		}
+		// OPS_ALLOWED_IPS loads only ranges IPFilter accepts, masked, with
+		// IPv4 as IPv4.
+		if _, err := httpx.IPFilter(cfg.OpsAllowedIPs, nil); err != nil {
+			t.Fatalf("loaded OPS_ALLOWED_IPS IPFilter refuses: %v", err)
+		}
+		for _, p := range cfg.OpsAllowedIPs {
+			if p != p.Masked() || p.Addr().Is4In6() {
+				t.Fatalf("loaded OPS_ALLOWED_IPS range %s, want masked IPv4", p)
+			}
 		}
 		if cfg.Production() {
 			for _, o := range cfg.CORSOrigins {
@@ -323,6 +337,34 @@ func TestLoadConfigRequestTimeout(t *testing.T) {
 		}
 		if err != nil || cfg.RequestTimeout != tt.want {
 			t.Errorf("APP_REQUEST_TIMEOUT=%q: RequestTimeout = %s, %v; want %s", tt.value, cfg.RequestTimeout, err, tt.want)
+		}
+	}
+}
+
+func TestLoadConfigOpsAllowedIPs(t *testing.T) {
+	for _, tt := range []struct {
+		value   string
+		want    []string
+		wantErr string
+	}{
+		{"", nil, ""},
+		{"10.0.0.0/8, 192.0.2.10, 2001:db8::/32", []string{"10.0.0.0/8", "192.0.2.10/32", "2001:db8::/32"}, ""},
+		{"10.1.2.3/8, ::ffff:192.0.2.10", []string{"10.0.0.0/8", "192.0.2.10/32"}, ""},
+		{"office", nil, "OPS_ALLOWED_IPS"},
+		{"10.0.0.0/33", nil, "OPS_ALLOWED_IPS"},
+		{"::ffff:10.0.0.0/64", nil, "OPS_ALLOWED_IPS"},
+	} {
+		cfg, err := load(map[string]string{"OPS_ALLOWED_IPS": tt.value})
+		checkErr(t, "OPS_ALLOWED_IPS="+tt.value, err, tt.wantErr)
+		if tt.wantErr != "" {
+			continue
+		}
+		var got []string
+		for _, p := range cfg.OpsAllowedIPs {
+			got = append(got, p.String())
+		}
+		if !slices.Equal(got, tt.want) {
+			t.Errorf("OPS_ALLOWED_IPS=%q: OpsAllowedIPs = %v, want %v", tt.value, got, tt.want)
 		}
 	}
 }

@@ -84,8 +84,9 @@ var errRateLimited = httpx.NewProblem(http.StatusTooManyRequests, "rate_limited"
 func (e *rateLimited) Error() string { return errRateLimited.Error() }
 func (e *rateLimited) Unwrap() error { return errRateLimited }
 
-// limiter returns the shared limiter name for limit, creating it once.
-func (g *registry) limiter(name string, limit ratelimit.Limit) (ratelimit.Taker, error) {
+// limiter returns the shared limiter name for limit, creating it once, and
+// records the route that uses it.
+func (g *registry) limiter(name string, limit ratelimit.Limit, keys, route string) (ratelimit.Taker, error) {
 	if !limit.Valid() {
 		return nil, fmt.Errorf("rate limit %q is invalid: %+v", name, limit)
 	}
@@ -93,6 +94,8 @@ func (g *registry) limiter(name string, limit ratelimit.Limit) (ratelimit.Taker,
 		if l.limit != limit {
 			return nil, fmt.Errorf("rate limiter %q is used with two limits: %+v and %+v", name, l.limit, limit)
 		}
+		l.routes = append(l.routes, route)
+		g.limiters[name] = l
 		return l.taker, nil
 	}
 	var taker ratelimit.Taker
@@ -107,13 +110,15 @@ func (g *registry) limiter(name string, limit ratelimit.Limit) (ratelimit.Taker,
 		// its own, as ratelimitpg does when the database can't answer.
 		taker = ratelimit.New(limit.PerSecond, limit.Burst)
 	}
-	g.limiters[name] = sharedLimiter{limit: limit, taker: taker}
+	g.limiters[name] = sharedLimiter{limit: limit, taker: taker, keys: keys, routes: []string{route}}
 	return taker, nil
 }
 
 type sharedLimiter struct {
-	limit ratelimit.Limit
-	taker ratelimit.Taker
+	limit  ratelimit.Limit
+	taker  ratelimit.Taker
+	keys   string   // what a key is
+	routes []string // method and path of each route using it
 }
 
 // guardMiddleware returns the operation middleware that runs guard.
@@ -124,7 +129,7 @@ func (g *registry) guardMiddleware(module string, op *huma.Operation, guard rout
 		if name == "" {
 			name = op.OperationID
 		}
-		taker, err := g.limiter(name, guard.Limit.Limit)
+		taker, err := g.limiter(name, guard.Limit.Limit, guard.Limit.Keys, op.Method+" "+op.Path)
 		if err != nil {
 			return nil, err
 		}

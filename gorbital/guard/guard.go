@@ -107,19 +107,21 @@ type RateLimitOption func(*rateLimit)
 type rateLimit struct {
 	name string
 	key  func(ctx context.Context, hctx huma.Context) string
+	keys string // what a key is, for /ops/auth/rate-limits
 }
 
 // ByUser counts requests per authenticated user or service account, and per
 // client address for requests without one (on a public route). It is the
 // default.
 func ByUser() RateLimitOption {
-	return func(l *rateLimit) { l.key = byUser }
+	return func(l *rateLimit) { l.key, l.keys = byUser, keysByUser }
 }
 
 // ByAPIKey counts requests per API key, so each of a user's keys has its
 // own budget; requests with a session are counted per user.
 func ByAPIKey() RateLimitOption {
 	return func(l *rateLimit) {
+		l.keys = "API key ID, or actor kind and ID for requests without a key, or client address"
 		l.key = func(ctx context.Context, hctx huma.Context) string {
 			if p, ok := auth.PrincipalFrom(ctx); ok && p.APIKeyID != "" {
 				return "key:" + p.APIKeyID
@@ -132,7 +134,7 @@ func ByAPIKey() RateLimitOption {
 // ByIP counts requests per client address: the address after
 // httpx.TrustedProxies, with IPv6 clients grouped by /64 (ratelimit.ClientKey).
 func ByIP() RateLimitOption {
-	return func(l *rateLimit) { l.key = byIP }
+	return func(l *rateLimit) { l.key, l.keys = byIP, "client address" }
 }
 
 // Named sets the limiter's name. Routes whose limits share a name share
@@ -152,14 +154,14 @@ func Named(name string) RateLimitOption {
 // without it, each instance counts on its own. A limiter that can't decide
 // allows the request.
 func RateLimit(n int, window time.Duration, opts ...RateLimitOption) gorbital.RouteOption {
-	l := rateLimit{key: byUser}
+	l := rateLimit{key: byUser, keys: keysByUser}
 	for _, o := range opts {
 		o(&l)
 	}
 	g := route.Guard{
 		Name:     fmt.Sprintf("rate_limit:%d/%s", n, window),
 		Statuses: []int{http.StatusTooManyRequests},
-		Limit:    &route.Limit{Name: l.name, Limit: ratelimit.Per(n, window), Key: l.key},
+		Limit:    &route.Limit{Name: l.name, Limit: ratelimit.Per(n, window), Key: l.key, Keys: l.keys},
 	}
 	switch {
 	case n < 1 || window <= 0:
@@ -169,6 +171,9 @@ func RateLimit(n int, window time.Duration, opts ...RateLimitOption) gorbital.Ro
 	}
 	return addGuard(g)
 }
+
+// keysByUser describes the keys of [ByUser].
+const keysByUser = "actor kind and ID, or client address for requests without an actor"
 
 func byUser(ctx context.Context, hctx huma.Context) string {
 	if a, ok := actor.From(ctx); ok && a.Kind != actor.KindAnonymous {

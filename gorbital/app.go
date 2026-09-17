@@ -80,6 +80,14 @@ type App struct {
 	collector   *observability.Collector
 	storageURLs http.Handler // local storage's signed URLs; nil for other drivers
 
+	// What built-in modules read through the Platform (platform.go).
+	platform     *Platform
+	rateLimiters []RateLimiter // built-in and declared by modules
+	retention    []Retention
+	reg          *registry                       // what Mount registered, such as guard limiters
+	authStep     func(http.Handler) http.Handler // the authenticator and the dev operator
+	onShutdown   []func()
+
 	api     huma.API
 	handler http.Handler
 }
@@ -210,6 +218,9 @@ func (a *App) build(ctx context.Context) error {
 	reg := settings.NewRegistry()
 	flagReg := flags.NewRegistry()
 	a.catalog = auth.NewCatalog()
+	if a.rateLimiters, err = collectRateLimiters(a.modules); err != nil {
+		return err
+	}
 	if err := catchPanic("gorbital", "settings", func() { a.settings = declareSettings(reg, o.name) }); err != nil {
 		return err
 	}
@@ -286,6 +297,26 @@ func (a *App) build(ctx context.Context) error {
 		Logger:     a.logger,
 	}
 
+	// How long data is kept: what New builds, then the modules' (ADR-0051).
+	a.retention, err = collectRetention([]Retention{
+		{Data: "audit_events", Setting: a.settings.auditRetention, Delete: recorder.DeleteBefore, Oldest: recorder.Oldest},
+		{Data: "settings_history", Setting: a.settings.historyRetention, Delete: settingsStore.DeleteHistoryBefore, Oldest: settingsStore.OldestHistory},
+		{Data: "flags_history", Setting: a.settings.historyRetention, Delete: flagsStore.DeleteHistoryBefore, Oldest: flagsStore.OldestHistory},
+		{
+			Data: "job_definition_history", Setting: a.settings.historyRetention,
+			Delete: func(ctx context.Context, before time.Time, limit int) (int64, error) {
+				return a.jobsManager.DeleteHistoryBefore(ctx, before, limit)
+			},
+			Oldest: func(ctx context.Context) (time.Time, bool, error) { return a.jobsManager.OldestHistory(ctx) },
+		},
+		{Data: "observability_minutes", Setting: a.settings.observabilityRetention, Job: builtinjobs.ObservabilityCleanup, Oldest: observabilityStore.Oldest},
+		{Data: "idempotency_keys", Setting: a.settings.idempotencyRetention, Job: builtinjobs.IdempotencyCleanup, Oldest: idempotencyStore.Oldest},
+		{Data: "release_instances", Setting: a.settings.releasesInstanceRetention, EnforcedBy: "each instance, when it starts"},
+	}, a.modules, a.deps)
+	if err != nil {
+		return err
+	}
+
 	defs := jobs.NewDefinitions()
 	builtinjobs.Define(defs, builtinjobs.Deps{
 		Logger:                 a.logger,
@@ -302,14 +333,7 @@ func (a *App) build(ctx context.Context) error {
 				Actor:       actor.System(builtinjobs.IncidentsDetect),
 			})
 		},
-		RetentionTargets: []builtinjobs.Target{
-			{Name: "audit_events", Retention: a.settings.auditRetention.Get, Delete: recorder.DeleteBefore},
-			{Name: "settings_history", Retention: a.settings.historyRetention.Get, Delete: settingsStore.DeleteHistoryBefore},
-			{Name: "flags_history", Retention: a.settings.historyRetention.Get, Delete: flagsStore.DeleteHistoryBefore},
-			{Name: "job_definition_history", Retention: a.settings.historyRetention.Get, Delete: func(ctx context.Context, before time.Time, limit int) (int64, error) {
-				return a.jobsManager.DeleteHistoryBefore(ctx, before, limit)
-			}},
-		},
+		RetentionTargets: retentionTargets(a.retention),
 	})
 	if err := defineModuleJobs(defs, a.modules, a.deps); err != nil {
 		return err
@@ -325,6 +349,9 @@ func (a *App) build(ctx context.Context) error {
 	}
 	a.jobsManager, err = jobs.NewManager(ctx, pool, client, recorder, jobs.WithManagerLogger(a.logger.With("source", "jobs")))
 	if err != nil {
+		return err
+	}
+	if err := checkRetentionJobs(ctx, a.jobsManager, a.retention); err != nil {
 		return err
 	}
 	mailer = mail.WithDefaults(jobs.AsyncSender(client), a.settings.mailDefaults())
@@ -349,12 +376,18 @@ func (a *App) build(ctx context.Context) error {
 	if err := a.buildDevConsole(); err != nil {
 		return err
 	}
+	if err := a.buildPlatform(); err != nil {
+		return err
+	}
 
-	api, mux, err := buildAPI(cfg, o, a.modules, a.deps)
+	api, mux, mounted, err := buildAPI(cfg, o, a.modules, a.deps)
 	if err != nil {
 		return err
 	}
-	a.api = api
+	if err := checkGuardLimiters(a.rateLimiters, mounted); err != nil {
+		return err
+	}
+	a.api, a.reg = api, mounted
 	a.warnUnreachable()
 	mux.Handle("GET /livez", a.health.Liveness())
 	mux.Handle("GET /readyz", a.health.Readiness())
@@ -389,10 +422,15 @@ func (a *App) stack(ipLimiter ratelimit.Taker, idempotencyStore *idempotency.Sto
 	if cfg.Production() {
 		hsts = 365 * 24 * time.Hour
 	}
-	authStep := func(next http.Handler) http.Handler { return next }
+	authenticate := func(next http.Handler) http.Handler { return next }
 	if a.o.auth != nil {
-		authStep = a.o.auth.Middleware(a.logger)
+		authenticate = a.o.auth.Middleware(a.logger)
 	}
+	// In development, the dev console's token acts as the platform
+	// administrator on /ops/ for the Dev Portal (ADR-0066); without the
+	// console it adds nothing.
+	operator := a.console.Operator(opsPrefix, devOperator(a.catalog), a.logger)
+	a.authStep = func(next http.Handler) http.Handler { return authenticate(operator(next)) }
 	return Stack{
 		Recover:        httpx.Recover(a.logger),
 		TrustedProxies: httpx.TrustedProxies(cfg.TrustedProxies),
@@ -411,7 +449,7 @@ func (a *App) stack(ipLimiter ratelimit.Taker, idempotencyStore *idempotency.Sto
 			RetryAfter: a.settings.maintenanceRetryAfter,
 			Open:       maintenanceOpen,
 		}),
-		Auth:      authStep,
+		Auth:      a.authStep,
 		RateLimit: ratelimit.Middleware(ipLimiter, signInLimitKey(ratelimit.ByRemoteIP), nil),
 		Idempotency: idempotency.Middleware(idempotencyStore, idempotency.WithSkip(func(r *http.Request) bool {
 			return strings.HasPrefix(r.URL.Path, signInPrefix)
@@ -543,6 +581,29 @@ func (a *App) openStorage() (storage.Store, error) {
 	return store, nil
 }
 
+// buildPlatform gives the modules that ask for it what New built for the
+// whole app (Module.Platform).
+func (a *App) buildPlatform() error {
+	a.platform = &Platform{
+		Config: a.cfg, Name: a.o.name, StartedAt: a.started, InstanceID: a.releases.InstanceID(),
+		Health: a.health, Jobs: a.jobsManager, MailSender: a.settings.mailDefaults(), Migrations: a.migrations,
+		app: a,
+	}
+	for _, m := range a.modules {
+		if m.Platform == nil {
+			continue
+		}
+		var err error
+		if panicErr := catchPanic(m.Name, "platform", func() { err = m.Platform(a.platform) }); panicErr != nil {
+			return panicErr
+		}
+		if err != nil {
+			return fmt.Errorf("%w: module %q: %w", errInvalidConfig, m.Name, err)
+		}
+	}
+	return nil
+}
+
 // declareRoles declares every role the modules' permissions name, with the
 // permissions the modules grant it.
 func declareRoles(catalog *auth.Catalog, modules []Module) error {
@@ -658,6 +719,9 @@ func (a *App) runOptions() []lifecycle.Option {
 		lifecycle.WithLogger(a.logger),
 		lifecycle.OnShutdown(a.health.SetShuttingDown),
 		lifecycle.OnShutdown(a.console.Close), // the dev console's streams would hold the server open
+	}
+	for _, fn := range a.onShutdown { // such as the operations API's streams
+		opts = append(opts, lifecycle.OnShutdown(fn))
 	}
 	if !a.cfg.Production() {
 		opts = append(opts, lifecycle.WithDrainDelay(0)) // no load balancer to drain locally

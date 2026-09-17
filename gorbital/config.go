@@ -75,6 +75,11 @@ type Config struct {
 	// TrustedCallers are the gateways whose X-Request-ID and trace context
 	// the app accepts (APP_TRUSTED_CALLERS).
 	TrustedCallers []netip.Prefix
+	// OpsAllowedIPs are the client addresses allowed to call the operations
+	// API under /ops/ (OPS_ALLOWED_IPS, comma-separated ranges or
+	// addresses; ADR-0085). Empty allows every address. The address is the
+	// client's after APP_TRUSTED_PROXIES.
+	OpsAllowedIPs []netip.Prefix
 	// MaxBodyBytes limits request bodies (APP_MAX_BODY_BYTES, default 1 MiB).
 	MaxBodyBytes int64
 	// RequestTimeout is how long a handler may take before the Timeout
@@ -336,6 +341,13 @@ func LoadConfig(src config.Source) (Config, error) {
 		errs = append(errs, fmt.Errorf("APP_TRUSTED_CALLERS: %w", err))
 	} else {
 		cfg.TrustedCallers = callers
+	}
+	if allowed, err := httpx.ParsePrefixes(get("OPS_ALLOWED_IPS")); err != nil {
+		errs = append(errs, fmt.Errorf("OPS_ALLOWED_IPS: %w", err))
+	} else if _, err := httpx.IPFilter(allowed, nil); err != nil {
+		errs = append(errs, fmt.Errorf("OPS_ALLOWED_IPS: %w", err))
+	} else {
+		cfg.OpsAllowedIPs = allowed
 	}
 
 	if v := get("APP_MAX_BODY_BYTES"); v != "" {

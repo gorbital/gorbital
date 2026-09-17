@@ -24,17 +24,24 @@ import (
 // type). Routes registered before the error stay registered, so an app
 // treats any error as fatal.
 func Mount(api huma.API, mapper *httpx.Mapper, deps Deps, modules ...Module) error {
+	_, err := mount(api, mapper, deps, modules)
+	return err
+}
+
+// mount is Mount, returning what was registered, such as the rate limiters
+// guards use.
+func mount(api huma.API, mapper *httpx.Mapper, deps Deps, modules []Module) (*registry, error) {
 	if err := validateModules(modules); err != nil {
-		return err
+		return nil, err
 	}
 	reg := newRegistry(api, mapper, deps.RateLimits)
 	for _, m := range modules {
 		if len(m.Errors) > 0 {
 			if mapper == nil {
-				return fmt.Errorf("gorbital: module %q maps errors, but the mapper is nil", m.Name)
+				return nil, fmt.Errorf("gorbital: module %q maps errors, but the mapper is nil", m.Name)
 			}
 			if err := mapper.Add(m.Errors...); err != nil {
-				return fmt.Errorf("gorbital: module %q: %w", m.Name, err)
+				return nil, fmt.Errorf("gorbital: module %q: %w", m.Name, err)
 			}
 		}
 		if m.Routes == nil {
@@ -50,8 +57,8 @@ func Mount(api huma.API, mapper *httpx.Mapper, deps Deps, modules ...Module) err
 			reg.fail(err)
 		}
 		if reg.err != nil {
-			return reg.err
+			return nil, reg.err
 		}
 	}
-	return nil
+	return reg, nil
 }

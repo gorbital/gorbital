@@ -30,6 +30,9 @@ type Config struct {
 	Middlewares []func(http.Handler) http.Handler
 	// Guards run in order after the middlewares, before input parsing.
 	Guards []Guard
+	// Customize change the Huma operation before it is registered, in
+	// order.
+	Customize []func(api huma.API, op *huma.Operation)
 }
 
 // Option sets part of a route's configuration.
@@ -58,4 +61,6 @@ type Limit struct {
 	Limit ratelimit.Limit
 	// Key returns the key a request is counted under.
 	Key func(ctx context.Context, hctx huma.Context) string
+	// Keys says what a key is, such as "actor", for /ops/auth/rate-limits.
+	Keys string
 }

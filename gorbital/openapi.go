@@ -32,14 +32,14 @@ type versionOutput struct {
 // buildAPI creates the API with every module's routes on a new mux: the
 // OpenAPI document, /version, the docs when enabled, and problem+json for
 // unknown routes. Health checks and the middleware are the caller's.
-func buildAPI(cfg Config, o options, modules []Module, deps Deps) (huma.API, *http.ServeMux, error) {
+func buildAPI(cfg Config, o options, modules []Module, deps Deps) (huma.API, *http.ServeMux, *registry, error) {
 	logger := deps.Logger
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
 	mapper, err := httpx.NewMapper(logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	openapi.InstallErrors(mapper)
 	// Pagination errors, shared by every list endpoint that uses gorbital.dev/page.
@@ -48,7 +48,7 @@ func buildAPI(cfg Config, o options, modules []Module, deps Deps) (huma.API, *ht
 		httpx.Mapping{Err: page.ErrInvalidSort, Status: http.StatusBadRequest, Code: "invalid_sort", Detail: "sort by one allowed field, with - for descending order"},
 		httpx.Mapping{Err: page.ErrInvalidLimit, Status: http.StatusBadRequest, Code: "invalid_limit", Detail: "limit must be between 1 and 100"},
 	); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	mux := http.NewServeMux()
@@ -67,8 +67,9 @@ func buildAPI(cfg Config, o options, modules []Module, deps Deps) (huma.API, *ht
 		return &versionOutput{Body: buildinfo.Read()}, nil
 	})
 
-	if err := Mount(api, mapper, deps, modules...); err != nil {
-		return nil, nil, err
+	reg, err := mount(api, mapper, deps, modules)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	documentIdempotencyKey(api)
 
@@ -78,7 +79,7 @@ func buildAPI(cfg Config, o options, modules []Module, deps Deps) (huma.API, *ht
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusNotFound, "not_found", "no route matches "+r.Method+" "+r.URL.Path))
 	})
-	return api, mux, nil
+	return api, mux, reg, nil
 }
 
 // documentIdempotencyKey adds the optional Idempotency-Key header to every
@@ -118,7 +119,7 @@ func writeOpenAPI(w io.Writer, o options) error {
 	if err := validateModules(modules); err != nil {
 		return err
 	}
-	api, _, err := buildAPI(cfg, o, modules, Deps{})
+	api, _, _, err := buildAPI(cfg, o, modules, Deps{})
 	if err != nil {
 		return err
 	}

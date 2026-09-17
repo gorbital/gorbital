@@ -73,6 +73,25 @@ type Module struct {
 	// app's db/migrations ([WithMigrations]) so tables of different modules
 	// can reference each other; built-in modules declare theirs here.
 	Migrations []Migration
+
+	// RateLimiters describe the named limiters the module creates on
+	// Deps.RateLimits, for /ops/auth/rate-limits. A name declared twice
+	// fails New naming both modules.
+	RateLimiters []RateLimiter
+
+	// Retention says how long the module's data is kept and what deletes
+	// it, for /ops/retention; the built-in retention job deletes what has
+	// a Delete function. [New] calls it once, before defining the jobs,
+	// with the Deps Jobs receives.
+	Retention func(d Deps) []Retention
+
+	// Platform receives what New built for the whole app, after every
+	// store and before any module's Routes. It is for gorbital's built-in
+	// modules (see [Platform]). An error from it, such as an invalid
+	// secret in the configuration, fails New as a configuration error. It
+	// isn't called when the OpenAPI document is exported without a
+	// database.
+	Platform func(p *Platform) error
 }
 
 // A Permission is a permission a module checks, such as "books.book.write".

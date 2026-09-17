@@ -102,6 +102,20 @@ func Errors(statuses ...int) RouteOption {
 // Deprecated marks the route deprecated in the OpenAPI document.
 func Deprecated() RouteOption { return func(c *route.Config) { c.Deprecated = true } }
 
+// Customize changes the Huma operation before it is registered, for what
+// the other options don't set, such as a response's media types for a
+// streaming route, Huma's body limit, or schemas added to the API's
+// registry. fn receives the API and the operation as the other options,
+// guards and deny by default have built it, and runs once, at
+// registration. Customize options run in the order given.
+//
+// fn can't change the method, path, operation ID, security requirements or
+// operation middleware: registration fails when it does, so a route can't
+// leave deny by default or its guards behind.
+func Customize(fn func(api huma.API, op *huma.Operation)) RouteOption {
+	return func(c *route.Config) { c.Customize = append(c.Customize, fn) }
+}
+
 // errUnauthenticated is the response of the check every non-public route
 // runs; the code is the one v0.1 endpoints return.
 var errUnauthenticated = httpx.NewProblem(http.StatusUnauthorized, "unauthenticated", "authentication is required")
@@ -194,6 +208,10 @@ func register[I, O any](r *Router, method, path string, handler func(context.Con
 	slices.Sort(op.Errors)
 	op.Errors = slices.Compact(op.Errors)
 	op.Extensions = map[string]any{"x-gorbital-guards": guards}
+	if err := customize(reg.api, &op, cfg.Customize); err != nil {
+		reg.fail(fmt.Errorf("gorbital: module %q: %s %s: %w", r.module, method, full, err))
+		return
+	}
 
 	if err := reg.claim(r.module, op); err != nil {
 		reg.fail(err)
@@ -203,6 +221,25 @@ func register[I, O any](r *Router, method, path string, handler func(context.Con
 	if err := catchPanic(r.module, what, func() { huma.Register(reg.api, op, handler) }); err != nil {
 		reg.fail(err)
 	}
+}
+
+// customize runs fns on op, refusing changes to what identifies and protects
+// the route.
+func customize(api huma.API, op *huma.Operation, fns []func(huma.API, *huma.Operation)) error {
+	if len(fns) == 0 {
+		return nil
+	}
+	method, path, id, security, middlewares := op.Method, op.Path, op.OperationID, fmt.Sprint(op.Security), len(op.Middlewares)
+	for _, fn := range fns {
+		if fn == nil {
+			return errors.New("the function passed to Customize is nil")
+		}
+		fn(api, op)
+	}
+	if op.Method != method || op.Path != path || op.OperationID != id || fmt.Sprint(op.Security) != security || len(op.Middlewares) != middlewares {
+		return errors.New("a Customize option can't change the method, path, operation ID, security or middleware of a route")
+	}
+	return nil
 }
 
 // registry holds what [Mount] has registered so far, across modules.
