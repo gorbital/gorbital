@@ -285,14 +285,36 @@ func (m *layoutMove) planAppModule(name string) {
 }
 
 // orgScoped reports whether the app gives a module's permissions to the
-// organisation roles, as orb gen resource --scope org does.
+// organisation roles, as orb gen resource --scope org does. It reads the
+// whole list under the anchor: a module the list names but that this misses
+// has its permissions regraded to the platform "user" role, which every
+// signed-in account holds, instead of the organisation's roles.
 func (m *layoutMove) orgScoped(name string) bool {
 	src, ok := m.ours["internal/app/permissions.go"]
 	if !ok {
 		return false
 	}
-	after, found := strings.CutPrefix(sectionAfter(string(src), recipes.OrgPermissionsAnchor), "")
-	return found && strings.Contains(firstLines(after, 20), name+"Permissions,")
+	after := sectionAfter(string(src), recipes.OrgPermissionsAnchor)
+	if after == "" {
+		return false
+	}
+	return slices.Contains(listEntries(after), name+"Permissions,")
+}
+
+// listEntries returns the trimmed entries of the composite literal that
+// follows, up to the line closing it.
+func listEntries(s string) []string {
+	var out []string
+	for line := range strings.SplitSeq(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "}" || line == "})" {
+			break
+		}
+		if line != "" {
+			out = append(out, line)
+		}
+	}
+	return out
 }
 
 // sectionAfter returns the text after the first line containing anchor.
@@ -302,14 +324,6 @@ func sectionAfter(src, anchor string) string {
 		return ""
 	}
 	return src[i+len(anchor):]
-}
-
-func firstLines(s string, n int) string {
-	lines := strings.SplitN(s, "\n", n+1)
-	if len(lines) > n {
-		lines = lines[:n]
-	}
-	return strings.Join(lines, "\n")
 }
 
 // planCompositionRoot decides what happens to internal/app, internal/jobs,
