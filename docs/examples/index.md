@@ -3,7 +3,7 @@
 Real applications built with gorbital, explained step by step. Each chapter adds one feature to a working app, and the code on every page is included from that app's source, which CI builds and tests, so the text can't drift from code that compiles.
 
 > [!NOTE]
-> The examples arrive with the v0.2 phases that ship the features they use ([v0.2 roadmap](../v0.2-roadmap.md#the-examples-tab)). Chapters 0, 1, 4, 5, 6, 7, 8 and 9 of Shelfie, part 1 of the *Internal admin tool* recipe, the *Multi-tenant invoicing* recipe and *Upgrading a v0.1 app* are written; the tables below say which phase brings the others.
+> The examples arrive with the v0.2 phases that ship the features they use ([v0.2 roadmap](../v0.2-roadmap.md#the-examples-tab)). Chapters 0 to 11 of Shelfie, part 1 of the *Internal admin tool* recipe, the *Multi-tenant invoicing* recipe and *Upgrading a v0.1 app* are written; the tables below say which phase brings the others.
 
 ## Shelfie
 
@@ -13,8 +13,8 @@ Shelfie is a reading-tracker API for a web and a mobile app: people keep a shelf
 |---|---|---|
 | [0. Start a project](shelfie/00-start-a-project.md) | `main.go` with `gorbital.Main`, migrations, the module list, `.env`, `orb dev` | Phase 3 |
 | [1. A books module](shelfie/01-books-module.md) | A migration, `Module`, the four layers with one file per operation, the route table, error mappings | Phases 1 and 3 |
-| 2. Protecting routes | Deny by default, `guard.Permission`, `guard.RateLimit`, `guard.RecentReauth`, `guard.Public` | Phase 2 |
-| 3. Your own middleware and guards | `requireClientVersion`, context values, `httpx.Capture`, a subscription guard with `guard.New` | Phase 2 |
+| [2. Protecting routes](shelfie/02-protecting-routes.md) | Deny by default, `guard.Permission`, `guard.RateLimit`, `guard.RecentReauth`, `guard.Public` | Phase 2 |
+| [3. Your own middleware and guards](shelfie/03-your-own-middleware.md) | `RequireClientVersion`, context values, `httpx.Capture`, a subscription guard with `guard.New` | Phase 2 |
 | [4. Tests](shelfie/04-tests.md) | `gorbitaltest`: signed-in requests, problem assertions, queued mail and jobs | Phase 3 |
 | [5. Operations](shelfie/05-operations.md) | `opshttp` and `flagshttp` in `main.go`, a runtime setting and a flag declared by a module, `OPS_ALLOWED_IPS` | Phase 4 |
 | [6. Accounts](shelfie/06-accounts.md) | `authhttp` options, `RegisterFields` into a profiles module, `OnRegister` creating a default shelf, `BeforeLogin` refusing suspended readers | Phase 6 |
@@ -23,8 +23,6 @@ Shelfie is a reading-tracker API for a web and a mobile app: people keep a shelf
 | [9. Generators](shelfie/09-generators.md) | `orb gen module`, `orb gen middleware`, `orb routes`, `orb doctor` | Phase 8 |
 | [10. Hardening and partners](shelfie/10-hardening.md) | `guard.Webhook` on a partner's deliveries, idempotent recording, `gorbital.Timeout`, the `/ops` IP allow list, per-route rate limits | Phase 10 |
 | [11. Deploy](shelfie/11-deploy.md) | The image, the production environment, migrations as a release step, the pipeline, health checks and the first hour | Phase 12 |
-
-Chapters are numbered in reading order, not in the order they're written: chapters 2 and 3 follow once sign-in can be shown end to end.
 
 ## Recipes
 

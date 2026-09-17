@@ -283,6 +283,8 @@
           "pages": [
             { "title": "0. Start a project", "slug": "examples/shelfie/start-a-project", "source": "docs/examples/shelfie/00-start-a-project.md" },
             { "title": "1. A books module", "slug": "examples/shelfie/books-module", "source": "docs/examples/shelfie/01-books-module.md" },
+            { "title": "2. Protecting routes", "slug": "examples/shelfie/protecting-routes", "source": "docs/examples/shelfie/02-protecting-routes.md" },
+            { "title": "3. Your own middleware and guards", "slug": "examples/shelfie/your-own-middleware", "source": "docs/examples/shelfie/03-your-own-middleware.md" },
             { "title": "4. Tests", "slug": "examples/shelfie/tests", "source": "docs/examples/shelfie/04-tests.md" },
             { "title": "5. Operations", "slug": "examples/shelfie/operations", "source": "docs/examples/shelfie/05-operations.md" },
             { "title": "6. Accounts", "slug": "examples/shelfie/accounts", "source": "docs/examples/shelfie/06-accounts.md" },

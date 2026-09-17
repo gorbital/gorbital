@@ -57,7 +57,7 @@ One SQL statement per file, through `postgres.DBTX`, so the same store works on 
 
 <!-- include examples/apps/shelfie/internal/modules/books/delivery/routes.go#routes -->
 
-Every route requires a signed-in reader, because none is `guard.Public()`; `guard.Permission` then requires the permission, and `guard.RateLimit` limits how fast a reader adds books ([Guards and middleware](../../guides/guards-and-middleware.md) covers every guard).
+Every route requires a signed-in reader, because none is `guard.Public()`; `guard.Permission` then requires the permission, and `guard.RateLimit` limits how fast a reader adds books. [Chapter 2](02-protecting-routes.md) goes through each guard and what a refused client is told; the last two routes, the module's own `RequireClientVersion` middleware and its `ActiveSubscription()` guard are [chapter 3](03-your-own-middleware.md)'s.
 
 Each operation's file holds its input and output types and its handler. The struct tags are the API's validation and its OpenAPI document:
 
@@ -83,7 +83,7 @@ orb gen modules
 ✓ Wrote internal/modules/modules.gen.go: 1 module: books
 ```
 
-With `orb dev` running, this happens on save. Restart, and `/docs` lists the five book routes, each with its bearer requirement, its 401 and 403 responses, and the guards in `x-gorbital-guards`. Write the OpenAPI document for clients:
+With `orb dev` running, this happens on save. Restart, and `/docs` lists the book routes, each with its bearer requirement, its 401 and 403 responses, and the guards in `x-gorbital-guards`. Write the OpenAPI document for clients:
 
 ```bash
 go run ./cmd/api openapi --dir api
@@ -101,8 +101,8 @@ curl -i -X POST http://127.0.0.1:8080/v1/books -H 'Content-Type: application/jso
 {"title":"Unauthorized","status":401,"code":"unauthenticated","detail":"authentication is required","request_id":"req_…"}
 ```
 
-Deny by default works before there is anyone to sign in. The tests in [chapter 4](04-tests.md) call the routes as a signed-in reader.
+Deny by default works before there is anyone to sign in.
 
 ## Next
 
-[4. Tests](04-tests.md): the books module tested through the whole app.
+[2. Protecting routes](02-protecting-routes.md): what every guard in that route table does, and what a client is told when one refuses.

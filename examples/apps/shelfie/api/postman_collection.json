@@ -5265,6 +5265,61 @@
           }
         },
         {
+          "name": "Empty your shelf",
+          "request": {
+            "method": "DELETE",
+            "description": "Removes every book. Needs a session that signed in, or verified a second factor, in the last 10 minutes.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/books",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "books"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Export your shelf",
+          "request": {
+            "method": "GET",
+            "description": "Every book on the shelf in one document, for readers on Shelfie Plus.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/books/export",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "books",
+                "export"
+              ]
+            }
+          }
+        },
+        {
           "name": "Get a book",
           "request": {
             "method": "GET",
