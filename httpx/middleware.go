@@ -58,7 +58,7 @@ func RequestIDFrom(trusted []netip.Prefix) Middleware {
 func Recover(logger *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			rw := wrap(w)
+			rw := Capture(w)
 			defer func() {
 				v := recover()
 				if v == nil {
@@ -72,7 +72,7 @@ func Recover(logger *slog.Logger) Middleware {
 					"stack", string(debug.Stack()),
 					"request_id", requestid.From(r.Context()),
 				)
-				if !rw.wroteHeader {
+				if !rw.WroteHeader() {
 					WriteProblem(rw, r, NewProblem(http.StatusInternalServerError, "internal_error", "an internal error occurred"))
 				}
 			}()
@@ -224,7 +224,7 @@ func AccessLog(logger *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			rw := wrap(w)
+			rw := Capture(w)
 			note := &AccessNote{}
 			// The router sets the pattern on the request it receives.
 			inner := r.WithContext(context.WithValue(r.Context(), accessNoteKey{}, note))
@@ -239,9 +239,9 @@ func AccessLog(logger *slog.Logger) Middleware {
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.Path),
 				slog.String("route", route),
-				slog.Int("status", rw.status()),
+				slog.Int("status", rw.Status()),
 				slog.Int64("duration_ms", time.Since(start).Milliseconds()),
-				slog.Int64("bytes", rw.bytes),
+				slog.Int64("bytes", rw.Bytes()),
 				slog.String("request_id", requestid.From(r.Context())),
 			}
 			attrs = append(attrs, note.attrs()...)
@@ -294,22 +294,32 @@ func (n *AccessNote) attrs() []slog.Attr {
 	return append([]slog.Attr(nil), n.added...)
 }
 
-type responseWriter struct {
+// Captured is a response writer that records what the handler wrote, for
+// middleware that reads the response after the handler returns: its status,
+// whether headers were sent, and the body size. Create one with [Capture].
+type Captured struct {
 	http.ResponseWriter
 	code        int
 	bytes       int64
 	wroteHeader bool
 }
 
-func wrap(w http.ResponseWriter) *responseWriter {
-	if rw, ok := w.(*responseWriter); ok {
-		return rw
+// Capture returns w wrapped to record the response, or w itself when it is
+// already a *Captured, so several middlewares share one record. Pass the
+// result to the next handler:
+//
+//	cw := httpx.Capture(w)
+//	next.ServeHTTP(cw, r)
+//	if cw.Status() >= 500 { … }
+func Capture(w http.ResponseWriter) *Captured {
+	if cw, ok := w.(*Captured); ok {
+		return cw
 	}
-	return &responseWriter{ResponseWriter: w}
+	return &Captured{ResponseWriter: w}
 }
 
 // WriteHeader records the first status code and forwards it.
-func (w *responseWriter) WriteHeader(code int) {
+func (w *Captured) WriteHeader(code int) {
 	if !w.wroteHeader {
 		w.code, w.wroteHeader = code, true
 	}
@@ -317,7 +327,7 @@ func (w *responseWriter) WriteHeader(code int) {
 }
 
 // Write records an implicit 200 status and the number of bytes written.
-func (w *responseWriter) Write(b []byte) (int, error) {
+func (w *Captured) Write(b []byte) (int, error) {
 	if !w.wroteHeader {
 		w.code, w.wroteHeader = http.StatusOK, true
 	}
@@ -327,11 +337,20 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 }
 
 // Unwrap supports http.ResponseController (flushing, deadlines).
-func (w *responseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+func (w *Captured) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
-func (w *responseWriter) status() int {
+// Status returns the status the handler sent: 200 when it wrote a body
+// without calling WriteHeader, or wrote nothing at all.
+func (w *Captured) Status() int {
 	if w.code == 0 {
 		return http.StatusOK
 	}
 	return w.code
 }
+
+// WroteHeader reports whether the handler has sent the status and headers,
+// after which a middleware can no longer change them.
+func (w *Captured) WroteHeader() bool { return w.wroteHeader }
+
+// Bytes returns the number of body bytes written.
+func (w *Captured) Bytes() int64 { return w.bytes }

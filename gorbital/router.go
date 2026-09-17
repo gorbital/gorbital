@@ -11,11 +11,13 @@ import (
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
+	"go.opentelemetry.io/otel/metric"
 
 	"gorbital.dev/actor"
 	"gorbital.dev/gorbital/internal/route"
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/openapi"
+	"gorbital.dev/modules/ratelimitpg"
 )
 
 // A RouteOption configures a route, or every route of a group. Options of a
@@ -159,17 +161,39 @@ func register[I, O any](r *Router, method, path string, handler func(context.Con
 	if op.Summary == "" {
 		op.Summary = huma.GenerateSummary(method, full, out)
 	}
+	// Operation middleware order (ADR-0082): middleware, the sign-in check,
+	// then guards in the order declared; all before input parsing.
+	if len(cfg.Middlewares) > 0 {
+		op.Middlewares = append(op.Middlewares, adapt(cfg.Middlewares))
+	}
+	guards := []string{"public"}
 	if !cfg.Public {
 		if !reg.hasBearer() {
 			reg.fail(fmt.Errorf("gorbital: module %q: %s %s requires authentication, but the API declares no bearer security scheme; create it with openapi.WithBearerAuth, or mark the route guard.Public()", r.module, method, full))
 			return
 		}
 		op.Security = openapi.Bearer
-		if !slices.Contains(op.Errors, http.StatusUnauthorized) {
-			op.Errors = append([]int{http.StatusUnauthorized}, op.Errors...)
-		}
+		op.Errors = append([]int{http.StatusUnauthorized}, op.Errors...)
 		op.Middlewares = append(op.Middlewares, requireActor(reg.api))
+		guards[0] = "authenticated"
 	}
+	for _, g := range cfg.Guards {
+		if g.Err != nil {
+			reg.fail(fmt.Errorf("gorbital: module %q: %s %s: %w", r.module, method, full, g.Err))
+			return
+		}
+		mw, err := reg.guardMiddleware(r.module, &op, g)
+		if err != nil {
+			reg.fail(fmt.Errorf("gorbital: module %q: %s %s: %w", r.module, method, full, err))
+			return
+		}
+		op.Middlewares = append(op.Middlewares, mw)
+		op.Errors = append(op.Errors, g.Statuses...)
+		guards = append(guards, g.Name)
+	}
+	slices.Sort(op.Errors)
+	op.Errors = slices.Compact(op.Errors)
+	op.Extensions = map[string]any{"x-gorbital-guards": guards}
 
 	if err := reg.claim(r.module, op); err != nil {
 		reg.fail(err)
@@ -183,14 +207,22 @@ func register[I, O any](r *Router, method, path string, handler func(context.Con
 
 // registry holds what [Mount] has registered so far, across modules.
 type registry struct {
-	api   huma.API
-	err   error
-	ops   map[string]string // operation ID → module
-	paths map[string]string // method and path with parameters blanked → module
+	api        huma.API
+	mapper     *httpx.Mapper
+	rateLimits *ratelimitpg.Store
+	err        error
+	ops        map[string]string // operation ID → module
+	paths      map[string]string // method and path with parameters blanked → module
+	limiters   map[string]sharedLimiter
+	refusals   metric.Int64Counter
 }
 
-func newRegistry(api huma.API) *registry {
-	return &registry{api: api, ops: map[string]string{}, paths: map[string]string{}}
+func newRegistry(api huma.API, mapper *httpx.Mapper, rateLimits *ratelimitpg.Store) *registry {
+	return &registry{
+		api: api, mapper: mapper, rateLimits: rateLimits,
+		ops: map[string]string{}, paths: map[string]string{}, limiters: map[string]sharedLimiter{},
+		refusals: newRefusals(),
+	}
 }
 
 // fail keeps the first registration error; later registrations are skipped.

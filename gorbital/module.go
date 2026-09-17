@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"regexp"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -13,6 +14,7 @@ import (
 	"gorbital.dev/mail"
 	"gorbital.dev/modules/flags"
 	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/ratelimitpg"
 	"gorbital.dev/modules/settings"
 	"gorbital.dev/modules/storage"
 )
@@ -52,6 +54,10 @@ type Module struct {
 	// Flags declares the module's feature flags. [Declare] calls it once,
 	// before the flags store is built.
 	Flags func(r *flags.Registry)
+
+	// Middleware runs on every route of the module, before group and route
+	// middleware (see [Use]).
+	Middleware []func(http.Handler) http.Handler
 }
 
 // A Permission is a permission a module checks, such as "books.book.write".
@@ -77,6 +83,9 @@ type Deps struct {
 	Settings *settings.Store
 	Flags    *flags.Store
 	Storage  storage.Store
+	// RateLimits shares guard.RateLimit budgets across instances; without
+	// it, each instance counts on its own.
+	RateLimits *ratelimitpg.Store
 	// Logger is tagged with the module's name by [Mount].
 	Logger *slog.Logger
 }

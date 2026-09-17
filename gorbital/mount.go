@@ -27,7 +27,7 @@ func Mount(api huma.API, mapper *httpx.Mapper, deps Deps, modules ...Module) err
 	if err := validateModules(modules); err != nil {
 		return err
 	}
-	reg := newRegistry(api)
+	reg := newRegistry(api, mapper, deps.RateLimits)
 	for _, m := range modules {
 		if len(m.Errors) > 0 {
 			if mapper == nil {
@@ -43,6 +43,9 @@ func Mount(api huma.API, mapper *httpx.Mapper, deps Deps, modules ...Module) err
 		d := deps
 		d.Logger = moduleLogger(deps.Logger, m.Name)
 		r := &Router{reg: reg, module: m.Name}
+		if len(m.Middleware) > 0 {
+			r.opts = []RouteOption{Use(m.Middleware...)}
+		}
 		if err := catchPanic(m.Name, "routes", func() { m.Routes(r, d) }); err != nil {
 			reg.fail(err)
 		}

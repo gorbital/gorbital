@@ -227,7 +227,8 @@ func TestMountDocumentsSecurity(t *testing.T) {
 
 // TestMountMatchesHandWrittenOperation pins the contract: a route registered
 // through gorbital documents exactly what the equivalent hand-written Huma
-// registration with the v0.1 signedIn wrapper documents.
+// registration with the v0.1 signedIn wrapper documents, plus the list of
+// guards the route runs.
 func TestMountMatchesHandWrittenOperation(t *testing.T) {
 	viaGorbital := newTestAPI(t, withBearer())
 	err := gorbital.Mount(viaGorbital.api, viaGorbital.mapper, gorbital.Deps{}, gorbital.Module{
@@ -247,6 +248,7 @@ func TestMountMatchesHandWrittenOperation(t *testing.T) {
 		OperationID: "books-create", Method: http.MethodPost, Path: "/v1/books",
 		Summary: "Create a book", Tags: []string{"Books"}, DefaultStatus: http.StatusCreated,
 		Security: openapi.Bearer, Errors: []int{http.StatusUnauthorized, http.StatusConflict},
+		Extensions: map[string]any{"x-gorbital-guards": []string{"authenticated"}},
 	}, createBook)
 
 	got, err := json.Marshal(operation(t, viaGorbital.api, http.MethodPost, "/v1/books"))
