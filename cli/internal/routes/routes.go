@@ -86,6 +86,10 @@ type List struct {
 	// Warnings explain what couldn't be found, such as routes without a
 	// source position.
 	Warnings []string `json:"warnings"`
+
+	// unplaced is the warning about routes without a source position, which
+	// Filter drops when it keeps only the app's routes.
+	unplaced string
 }
 
 // Sources of the OpenAPI document.
@@ -122,7 +126,8 @@ func Build(app, dir string, doc []byte, source string) (List, error) {
 	}
 	list.Total = len(list.Routes)
 	if missing > 0 {
-		list.Warnings = append(list.Warnings, fmt.Sprintf("%d of %d routes have no source position: registered by a library module, or through code that builds the path at run time", missing, list.Total))
+		list.unplaced = fmt.Sprintf("%d of %d routes have no source position: registered by a library module (such as authhttp or opshttp), or through code that builds the path at run time", missing, list.Total)
+		list.Warnings = append(list.Warnings, list.unplaced)
 	}
 	if !guardsKnown && list.Total > 0 {
 		list.Warnings = append(list.Warnings, "the OpenAPI document has no x-gorbital-guards (an app on the v0.1 layout): guards and middleware aren't listed, and public means no security requirement")
@@ -130,13 +135,14 @@ func Build(app, dir string, doc []byte, source string) (List, error) {
 	return list, nil
 }
 
-// Filter keeps the routes of module (when not empty), and only public ones
-// with publicOnly, and recounts.
-func (l List) Filter(module string, publicOnly bool) List {
+// Filter keeps the routes of module (when not empty), only public ones with
+// publicOnly, and only the routes found in the app's source with appOnly,
+// leaving out those of library modules; it recounts.
+func (l List) Filter(module string, publicOnly, appOnly bool) List {
 	kept := make([]Route, 0, len(l.Routes))
 	l.Public = 0
 	for _, r := range l.Routes {
-		if (module != "" && r.Module != module) || (publicOnly && !r.Public) {
+		if (module != "" && r.Module != module) || (publicOnly && !r.Public) || (appOnly && r.Source == nil) {
 			continue
 		}
 		kept = append(kept, r)
@@ -145,6 +151,10 @@ func (l List) Filter(module string, publicOnly bool) List {
 		}
 	}
 	l.Routes, l.Total = kept, len(kept)
+	if appOnly && l.unplaced != "" {
+		l.Warnings = slices.DeleteFunc(slices.Clone(l.Warnings), func(w string) bool { return w == l.unplaced })
+		l.unplaced = ""
+	}
 	return l
 }
 

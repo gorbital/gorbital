@@ -23,7 +23,9 @@ The routes come from the app's OpenAPI document, built with
 go run ./cmd/api openapi (or read with --openapi), joined with the app's Go
 source. Guards come from x-gorbital-guards, so an app on the v0.1 layout
 lists none; middleware is what gorbital.Use and Module.Middleware name in the
-source. It changes nothing.
+source. Routes that library modules register, such as authhttp's /v1/auth
+and opshttp's /ops, have no source position; --app leaves them out. It
+changes nothing.
 `
 
 // routesExport builds the app's OpenAPI document. Tests replace it.
@@ -36,6 +38,7 @@ func runRoutes(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	file := flags.String("openapi", "", "read this OpenAPI document, such as api/openapi.json, instead of building the app")
 	module := flags.String("module", "", "only the routes of this module")
 	public := flags.Bool("public", false, "only public routes (no sign-in required)")
+	appOnly := flags.Bool("app", false, "only the routes found in the app's source, leaving out those of library modules such as authhttp and opshttp")
 	flags.Bool("no-input", false, "never prompt (orb routes never does)")
 	flags.Usage = func() {
 		fmt.Fprint(stderr, routesUsage+"\nFlags:\n")
@@ -55,7 +58,7 @@ func runRoutes(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	if err != nil {
 		return err
 	}
-	list = list.Filter(*module, *public)
+	list = list.Filter(*module, *public, *appOnly)
 	if *asJSON {
 		return writeJSON(stdout, list)
 	}
@@ -89,9 +92,10 @@ func appRoutes(ctx context.Context, dir, file string) (routes.List, error) {
 
 // writeRoutes prints routes as a table, then the counts and warnings.
 func writeRoutes(w io.Writer, l routes.List) {
-	withMiddleware := false
+	withMiddleware, unplaced := false, false
 	for _, r := range l.Routes {
 		withMiddleware = withMiddleware || len(r.Middleware) > 0
+		unplaced = unplaced || r.Source == nil
 	}
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	header := "METHOD\tPATH\tOPERATION\tMODULE\tGUARDS\t"
@@ -122,6 +126,9 @@ func writeRoutes(w io.Writer, l routes.List) {
 	fmt.Fprintf(w, "\n%d %s, %d public\n", l.Total, noun, l.Public)
 	for _, warning := range l.Warnings {
 		fmt.Fprintf(w, "note: %s\n", warning)
+	}
+	if unplaced {
+		fmt.Fprintln(w, "note: orb routes --app lists only the routes in the app's source")
 	}
 }
 

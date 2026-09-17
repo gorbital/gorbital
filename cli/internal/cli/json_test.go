@@ -62,7 +62,7 @@ func TestJSONOutputs(t *testing.T) {
 		}},
 		{"routes", func(t *testing.T) (int, string, string) {
 			newMainApp(t, false)
-			return runOrb(t, "routes", "--openapi", "api/openapi.json", "--json")
+			return runOrb(t, "routes", "--openapi", "api/openapi.json", "--app", "--json")
 		}},
 		{"doctor-main", func(t *testing.T) (int, string, string) {
 			newMainApp(t, true)

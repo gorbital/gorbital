@@ -174,7 +174,7 @@ Until you write the rule every request passes, so wiring the generated code in c
 ## Checking the result
 
 - `go test ./...` runs the generated tests and the architecture test.
-- `orb routes` lists the new routes with their guards and file:line; `orb routes --public` shows what needs no sign-in.
+- `orb routes` lists the new routes with their guards and file:line, next to the library modules' routes (`--app` lists only yours); `orb routes --public` shows what needs no sign-in.
 - `orb doctor` reports a module directory missing from `modules.gen.go`, a custom stack without `Recover` or `Auth`, and pending migrations.
 
 ## Not generated

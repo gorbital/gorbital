@@ -75,12 +75,16 @@ func TestBuildMainApp(t *testing.T) {
 		t.Errorf("warnings = %q", l.Warnings)
 	}
 
-	public := l.Filter("", true)
+	public := l.Filter("", true, false)
 	if public.Total != 2 || public.Public != 2 {
 		t.Errorf("Filter(public) = %+v", public)
 	}
-	if catalog := l.Filter("books_catalog", false); catalog.Total != 5 {
+	if catalog := l.Filter("books_catalog", false, false); catalog.Total != 5 {
 		t.Errorf("Filter(books_catalog) = %d routes", catalog.Total)
+	}
+	// Only the app's routes: the library's /version and its warning go.
+	if app := l.Filter("", false, true); app.Total != 5 || app.Public != 1 || len(app.Warnings) != 0 || len(l.Warnings) != 1 {
+		t.Errorf("Filter(app) = %+v, warnings before %q", app, l.Warnings)
 	}
 
 	// The JSON form: every array present, missing positions null.

@@ -59,7 +59,5 @@
       "deprecated": false
     }
   ],
-  "warnings": [
-    "6 of 11 routes have no source position: registered by a library module, or through code that builds the path at run time"
-  ]
+  "warnings": []
 }

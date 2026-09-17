@@ -74,7 +74,7 @@ The code is Shelfie's now: rename a detail, add a rule to `domain/shelf.go`, or 
 ## Every route, from the terminal
 
 ```bash
-orb routes
+orb routes --app
 ```
 
 ```text
@@ -89,12 +89,11 @@ POST    /v1/shelves       shelves-create               shelves  authenticated, p
 GET     /v1/shelves/{id}  shelves-get                  shelves  authenticated, permission:shelves.shelf.read                    h.getShelf     internal/modules/shelves/delivery/routes.go:35
 PATCH   /v1/shelves/{id}  shelves-update               shelves  authenticated, permission:shelves.shelf.write                   h.updateShelf  internal/modules/shelves/delivery/routes.go:39
 DELETE  /v1/shelves/{id}  shelves-delete               shelves  authenticated, permission:shelves.shelf.write                   h.deleteShelf  internal/modules/shelves/delivery/routes.go:44
-GET     /version          get-version                  -        public                                                          -              -
 
-11 routes, 1 public
+10 routes, 0 public
 ```
 
-Only `/version`, the library's build information, is public: deny by default holds for everything Shelfie wrote. `orb routes --public` lists just those, `--module shelves` one module, and `--json` is for scripts and CI (for example, failing a build when a new public route appears). The Dev Portal's Routes screen shows the same guards and sources, and opens a source in your editor.
+`--app` keeps the routes in Shelfie's source. Without it, `orb routes` lists the library modules' routes too, with no source: sign-in's `/v1/auth/…`, `/ops/…`, `/v1/flags` and `/version`, 137 in all. None of Shelfie's own routes is public: deny by default holds for everything Shelfie wrote. `orb routes --public` lists what needs no sign-in (the sign-in routes and `/version`), `--module shelves` one module, and `--json` is for scripts and CI (for example, failing a build when a new public route appears). The Dev Portal's Routes screen shows the same guards and sources, and opens a source in your editor.
 
 ## Middleware and guards
 

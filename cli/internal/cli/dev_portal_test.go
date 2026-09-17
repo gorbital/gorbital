@@ -14,6 +14,7 @@ import (
 
 	"gorbital.dev/cli/internal/genplan"
 	"gorbital.dev/cli/internal/portal"
+	"gorbital.dev/cli/internal/routes"
 )
 
 // preparePortalApp runs prepare in a stand-in Minimal app with the portal
@@ -395,8 +396,18 @@ func TestPortalModuleAndMiddlewareGenerators(t *testing.T) {
 
 	// Routes: the app isn't running, so they come from the export.
 	fakeRoutesExport(t, nil)
+	// Every route of the document, the library modules' too; the app's own
+	// are the books and the new shelves routes, with their source.
+	doc, _, err := routes.FromOpenAPI([]byte(readFile(t, filepath.Join(dir, "api", "openapi.json"))))
+	if err != nil {
+		t.Fatal(err)
+	}
 	list, err := d.routes(ctx)
-	if err != nil || list.Source != "export" || list.Total != 11 {
+	if err != nil || list.Source != "export" || list.Total != len(doc) {
 		t.Errorf("routes = %+v, %v", list, err)
+	}
+	app := list.Filter("", false, true)
+	if app.Total != 10 || app.Filter("shelves", false, false).Total != 5 {
+		t.Errorf("the app's routes = %+v", app)
 	}
 }

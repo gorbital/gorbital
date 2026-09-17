@@ -20,7 +20,7 @@ func TestDoctorOnAMainApp(t *testing.T) {
 	for name, want := range map[string]string{
 		"modules":  "internal/modules/modules.gen.go lists 1 module: books",
 		"stack":    "the default middleware stack",
-		"timeout":  "30s, the default",
+		"timeout":  "30s (APP_REQUEST_TIMEOUT)", // .env.example sets it
 		"database": "at migration 20260920000001, none pending",
 	} {
 		if c := check(res, name); c.Status != doctorOK || !strings.Contains(c.Detail, want) {
@@ -34,6 +34,12 @@ func TestDoctorOnAMainApp(t *testing.T) {
 	}
 	if !slices.ContainsFunc(*calls, func(c string) bool { return strings.HasPrefix(c, "go run ./cmd/api migrate --status --json") }) {
 		t.Errorf("the migration status wasn't read through ./cmd/api migrate: %q", *calls)
+	}
+
+	// Unset, the timeout is the default.
+	writeFile(t, ".env", strings.ReplaceAll(readFile(t, ".env.example"), "APP_REQUEST_TIMEOUT=", "# APP_REQUEST_TIMEOUT="))
+	if c := check(doctorRun(t, 0), "timeout"); c.Status != doctorOK || c.Detail != "30s, the default (APP_REQUEST_TIMEOUT)" {
+		t.Errorf("unset timeout = %+v", c)
 	}
 
 	// Pending migrations of the merged history name the app's command.

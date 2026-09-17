@@ -501,24 +501,28 @@ Safety checks: the app must be in git with no uncommitted changes, and the branc
 
 ## `orb routes`
 
-Lists every route of the app: method, path, operation ID, module, guards, middleware, handler and where the route is registered. It changes nothing.
+Lists every route of the app: method, path, operation ID, module, guards, middleware, handler and where the route is registered. That includes the routes of library modules, such as `authhttp`'s `/v1/auth/…` and `opshttp`'s `/ops/…`, which have no source; `--app` lists only the routes in the app's source. It changes nothing.
 
 ```bash
 orb routes                                   # builds the app's OpenAPI document with go run ./cmd/api openapi
 orb routes --openapi api/openapi.json        # reads a document instead: no build
+orb routes --app                             # only the app's own routes, not the library modules'
 orb routes --module books --json
 orb routes --public                          # only routes that need no sign-in
 ```
 
 ```text
-METHOD  PATH              OPERATION                    MODULE   GUARDS                                                          HANDLER        SOURCE
-GET     /v1/books         books-get-v1-books           books    authenticated, permission:books.book.read                       h.listBooks    internal/modules/books/delivery/routes.go:31
-POST    /v1/books         books-post-v1-books          books    authenticated, permission:books.book.write, rate_limit:30/1m0s  h.createBook   internal/modules/books/delivery/routes.go:28
+METHOD  PATH                     OPERATION                    MODULE   GUARDS                                                          HANDLER        SOURCE
+GET     /ops/audit               ops-list-audit-events        -        authenticated                                                   -              -
 …
-GET     /version          get-version                  -        public                                                          -              -
+GET     /v1/books                books-get-v1-books           books    authenticated, permission:books.book.read                       h.listBooks    internal/modules/books/delivery/routes.go:31
+POST    /v1/books                books-post-v1-books          books    authenticated, permission:books.book.write, rate_limit:30/1m0s  h.createBook   internal/modules/books/delivery/routes.go:28
+…
+GET     /version                 get-version                  -        public                                                          -              -
 
-11 routes, 1 public
-note: 1 of 11 routes have no source position: registered by a library module, or through code that builds the path at run time
+137 routes, 19 public
+note: 127 of 137 routes have no source position: registered by a library module (such as authhttp or opshttp), or through code that builds the path at run time
+note: orb routes --app lists only the routes in the app's source
 ```
 
 | Column | Comes from |
@@ -528,11 +532,11 @@ note: 1 of 11 routes have no source position: registered by a library module, or
 | MIDDLEWARE | Shown when a route has any: `Module.Middleware`, then each group's `gorbital.Use` (outer first), then the route's, as written in the source |
 | MODULE, HANDLER, SOURCE | The app's Go source, read with `go/parser`: the directory under `internal/modules` (or its `gorbital.Module` `Name`), the handler expression, and the `gorbital.Get`/`Post`/… call's file and line |
 
-Routes are matched to the source by method and path, resolving `r.Group(prefix)` variables and inline groups in the same function, or by a literal `gorbital.OperationID`. A route whose path is built at run time, or that a library module registers, has no source and a note says how many. In an app on the v0.1 layout, the `huma.Register` calls with a `huma.Operation` literal are found the same way; the document has no `x-gorbital-guards`, so GUARDS shows `?` (or `public` for routes without a security requirement) and no middleware is listed.
+Routes are matched to the source by method and path, resolving `r.Group(prefix)` variables and inline groups in the same function, or by a literal `gorbital.OperationID`. A route whose path is built at run time, or that a library module registers, has no source and a note says how many; `--app` leaves those routes out, and that note with them. In an app on the v0.1 layout, the `huma.Register` calls with a `huma.Operation` literal are found the same way; the document has no `x-gorbital-guards`, so GUARDS shows `?` (or `public` for routes without a security requirement) and no middleware is listed.
 
-Flags: `--json`, `--openapi <file>`, `--module <name>`, `--public`, `--no-input`. Exit code 1 when the document can't be built or read (the message says how to check the build).
+Flags: `--json`, `--openapi <file>`, `--app`, `--module <name>`, `--public`, `--no-input`. Exit code 1 when the document can't be built or read (the message says how to check the build).
 
-The `--json` output is public API:
+The `--json` output is public API (here `orb routes --app --json`):
 
 ```json
 {
@@ -540,8 +544,8 @@ The `--json` output is public API:
   "app": "shelfie",
   "source": "export",
   "guards_known": true,
-  "total": 11,
-  "public": 1,
+  "total": 10,
+  "public": 0,
   "routes": [
     {
       "method": "POST",
@@ -567,7 +571,7 @@ The `--json` output is public API:
 |---|---|---|
 | `source` | string | `export` (built with `go run ./cmd/api openapi`), `file` (`--openapi`), or `app` (the Dev Portal read the running app's `/openapi.json`) |
 | `guards_known` | bool | `false` when the document has no `x-gorbital-guards` (a v0.1 app) |
-| `total`, `public` | number | Counts of the listed routes, after `--module` and `--public` |
+| `total`, `public` | number | Counts of the listed routes, after `--app`, `--module` and `--public` |
 | `routes[].source`, `handler_source` | object or `null` | `file` (slash-separated, relative to the app) and `line`; `null` when not found |
 | `routes[].guards`, `middleware`, `tags` | array of strings | Always present, possibly empty |
 | `warnings` | array of strings | What couldn't be found, for people; don't parse them |
