@@ -120,6 +120,13 @@ func buildModuleValue(name string, app appInfo, wiring *goSource, module map[str
 				case x.Obj != nil && x.Obj == params["svc"]:
 					field, known := servicesFields[node.Sel.Name]
 					if !known {
+						if node.Sel.Name == "orgs" {
+							// v0.1's organisation modules authorise through the
+							// organisations module's catalog and memberships;
+							// the library's orgshttp doesn't expose them.
+							problem(node, "the module authorises through the organisations module's catalog and memberships, which the library's orgshttp doesn't expose; guard its routes with guard.OrgMember instead (docs/guides/guards-and-middleware.md) and convert it again")
+							return true
+						}
 						problem(node, "the module is built from svc.%s, which gorbital.Deps has no field for; build it in the Module's Routes by hand", node.Sel.Name)
 						return true
 					}

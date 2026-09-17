@@ -461,6 +461,13 @@ func (m *layoutMove) planMigrations() {
 			kept++
 		}
 	}
+	// The row-level security policy a multi-tenant app carries is a template
+	// orb add rls copies into db/migrations; the v0.2 templates have none,
+	// and deleting it would take the app's copy away.
+	if _, ok := m.ours[recipes.RowLevelSecurityPath]; ok {
+		m.handled[recipes.RowLevelSecurityPath] = true
+		m.item(itemTemplate, recipes.RowLevelSecurityPath, "kept as it is: orb add rls copies it into db/migrations when you turn row-level security on", nil, nil)
+	}
 	if kept > 0 {
 		m.item(itemLibrary, "db/migrations", fmt.Sprintf("%d copies of the library's migrations kept as they are; the library declares the same versions, and gorbital.Migrate reads an identical copy as the same migration, so the database sees nothing new", kept),
 			[]string{"a new app has only its own migrations there; you can delete the copies once nothing else reads them (the module tests that migrate with db/migrations do)"}, nil)
