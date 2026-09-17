@@ -29,12 +29,25 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 
 ## Contents
 
+- Constants: [`SignUpPassword`](#SignUpPassword)
 - Functions: [`APIKey`](#APIKey), [`User`](#User)
 - Types:
-  - [`App`](#App): [`New`](#New), [`NewWithEnv`](#NewWithEnv), [`App.App`](#App.App), [`App.As`](#App.As), [`App.Client`](#App.Client), [`App.Config`](#App.Config), [`App.Jobs`](#App.Jobs), [`App.Mail`](#App.Mail)
+  - [`App`](#App): [`New`](#New), [`NewWithEnv`](#NewWithEnv), [`App.App`](#App.App), [`App.As`](#App.As), [`App.Client`](#App.Client), [`App.Config`](#App.Config), [`App.Jobs`](#App.Jobs), [`App.Mail`](#App.Mail), [`App.SignUp`](#App.SignUp)
   - [`Client`](#Client): [`Client.Delete`](#Client.Delete), [`Client.Do`](#Client.Do), [`Client.Get`](#Client.Get), [`Client.Patch`](#Client.Patch), [`Client.Post`](#Client.Post), [`Client.Put`](#Client.Put), [`Client.WithHeader`](#Client.WithHeader)
   - [`Job`](#Job)
   - [`Response`](#Response): [`Response.AssertProblem`](#Response.AssertProblem), [`Response.AssertStatus`](#Response.AssertStatus), [`Response.JSON`](#Response.JSON)
+
+## Constants
+
+<a id="SignUpPassword"></a>
+
+```go
+const SignUpPassword = "correct horse battery staple"
+```
+
+SignUpPassword is the password of the accounts [App.SignUp](#App.SignUp) creates.
+
+*Since `v0.2.0 (unreleased)`*
 
 ## Functions
 
@@ -297,6 +310,44 @@ test(func(t *testing.T) {
 	sent := app.Mail(t)
 	if len(sent) != 1 || sent[0].Subject != "Added Dune" || sent[0].To[0].Email != "reader@example.com" {
 		t.Errorf("mail = %+v", sent)
+	}
+})
+```
+
+<a id="App.SignUp"></a>
+
+#### func (*App) SignUp
+
+```go
+func (a *App) SignUp(t testing.TB, email string) (*Client, string)
+```
+
+SignUp creates an account for email through sign-in's own endpoints, in an app with gorbital.dev/gorbital/authhttp passed to gorbital.WithAuth: it registers with [SignUpPassword](#SignUpPassword), verifies the address with the code from the queued email, and signs in with a bearer token. It returns a client whose requests carry the token, and the account's user ID.
+
+The account is real: hooks run (such as the personal workspace of gorbital.dev/gorbital/orgshttp), and its requests go through the authenticator, API key scopes and second factors included, so tests of organisations and other features that store the user's ID use it rather than [User](#User).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+test(func(t *testing.T) {
+	// Real accounts, for features that store who the user is, such as
+	// organisations: sign-in and orgshttp are the app's.
+	auth := authhttp.New()
+	app := gorbitaltest.NewWithEnv(t, map[string]string{"AUTH_ENCRYPTION_KEYS": authlib.NewKeyringKey("test")},
+		gorbital.WithAuth(auth), gorbital.WithModules(orgshttp.Module(auth)))
+	ada, adaID := app.SignUp(t, "ada@example.com")
+	res := ada.Get("/v1/orgs")
+	res.AssertStatus(t, http.StatusOK)
+	var orgs struct {
+		Items []struct {
+			Personal bool `json:"personal"`
+		} `json:"items"`
+	}
+	res.JSON(t, &orgs)
+	if adaID == "" || len(orgs.Items) != 1 || !orgs.Items[0].Personal {
+		t.Errorf("ada %q has organisations %+v, want her personal workspace", adaID, orgs.Items)
 	}
 })
 ```

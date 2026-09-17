@@ -26,11 +26,12 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 - Variables: [`ErrUserNotFound`](#ErrUserNotFound)
 - Functions: [`Refuse`](#Refuse)
 - Types:
-  - [`Authenticator`](#Authenticator): [`New`](#New), [`Authenticator.CheckConfig`](#Authenticator.CheckConfig), [`Authenticator.Commands`](#Authenticator.Commands), [`Authenticator.Middleware`](#Authenticator.Middleware), [`Authenticator.Module`](#Authenticator.Module), [`Authenticator.Setup`](#Authenticator.Setup), [`Authenticator.SignIn`](#Authenticator.SignIn), [`Authenticator.SignInMethods`](#Authenticator.SignInMethods), [`Authenticator.User`](#Authenticator.User)
+  - [`Authenticator`](#Authenticator): [`New`](#New), [`Authenticator.CheckConfig`](#Authenticator.CheckConfig), [`Authenticator.Commands`](#Authenticator.Commands), [`Authenticator.Middleware`](#Authenticator.Middleware), [`Authenticator.Module`](#Authenticator.Module), [`Authenticator.OrgServiceAccountRoutes`](#Authenticator.OrgServiceAccountRoutes), [`Authenticator.Setup`](#Authenticator.Setup), [`Authenticator.SignIn`](#Authenticator.SignIn), [`Authenticator.SignInMethods`](#Authenticator.SignInMethods), [`Authenticator.UseOrganisations`](#Authenticator.UseOrganisations), [`Authenticator.User`](#Authenticator.User)
   - [`LoginAttempt`](#LoginAttempt)
   - [`LoginEvent`](#LoginEvent)
   - [`NewAccount`](#NewAccount)
   - [`Option`](#Option): [`APIKeyMaxTTL`](#APIKeyMaxTTL), [`AfterLogin`](#AfterLogin), [`BeforeLogin`](#BeforeLogin), [`Brand`](#Brand), [`MinPasswordLength`](#MinPasswordLength), [`OnRegister`](#OnRegister), [`PasswordPolicy`](#PasswordPolicy), [`RegisterFields`](#RegisterFields), [`RequireMFA`](#RequireMFA), [`RouteMiddleware`](#RouteMiddleware), [`WithoutRegistration`](#WithoutRegistration)
+  - [`Organisations`](#Organisations)
   - [`Refusal`](#Refusal): [`Refusal.Error`](#Refusal.Error)
   - [`SignInRequest`](#SignInRequest)
   - [`SignedIn`](#SignedIn)
@@ -291,6 +292,46 @@ ops.service_accounts.write [platform_admin]
 20260915000001 20260918000070
 ```
 
+<a id="Authenticator.OrgServiceAccountRoutes"></a>
+
+#### func (*Authenticator) OrgServiceAccountRoutes
+
+```go
+func (a *Authenticator) OrgServiceAccountRoutes(r *gorbital.Router)
+```
+
+OrgServiceAccountRoutes registers the operations on organisations' service accounts and their API keys under /v1/orgs/{orgId}/service-accounts on r, with v0.1's operation IDs, schemas and error codes (ADR-0058). The organisations module registers them; they work once [Authenticator.UseOrganisations](#Authenticator.UseOrganisations) is called, and before [Authenticator.Setup](#Authenticator.Setup) they register for the OpenAPI document only.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// The organisations module registers organisations' service accounts
+// with its own routes.
+auth := authhttp.New()
+orgs := gorbital.Module{
+	Name:   "orgs",
+	Routes: func(r *gorbital.Router, _ gorbital.Deps) { auth.OrgServiceAccountRoutes(r) },
+}
+api, mux := exampleAPI()
+if err := gorbital.Mount(api, nil, gorbital.Deps{}, orgs); err != nil {
+	panic(err)
+}
+for _, path := range []string{"/v1/orgs/{orgId}/service-accounts", "/v1/orgs/{orgId}/service-accounts/{id}/keys"} {
+	item := api.OpenAPI().Paths[path]
+	fmt.Println(item.Get.OperationID, item.Post.OperationID)
+}
+_ = http.Handler(mux)
+```
+
+Output:
+
+```text
+orgs-list-service-accounts orgs-create-service-account
+orgs-list-service-account-keys orgs-create-service-account-key
+```
+
 <a id="Authenticator.Setup"></a>
 
 #### func (*Authenticator) Setup
@@ -394,6 +435,35 @@ Output:
 email_password true  []
 passkeys false  [WEBAUTHN_RP_ID WEBAUTHN_ORIGINS]
 github true callback https://api.example.com/v1/auth/github/callback []
+```
+
+<a id="Authenticator.UseOrganisations"></a>
+
+#### func (*Authenticator) UseOrganisations
+
+```go
+func (a *Authenticator) UseOrganisations(o Organisations) error
+```
+
+UseOrganisations connects sign-in to the app's organisations: new accounts and deleted ones reach o, and the operations of [Authenticator.OrgServiceAccountRoutes](#Authenticator.OrgServiceAccountRoutes) manage the service accounts of organisations o authorizes. Until it is called, accounts are created and deleted without organisations, and organisations have no service accounts (404 service\_account\_not\_found). A later call replaces o.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+auth := authhttp.New()
+if err := auth.UseOrganisations(nil); err != nil {
+	fmt.Println(err)
+}
+fmt.Println(auth.UseOrganisations(orgDirectory{}))
+```
+
+Output:
+
+```text
+authhttp: UseOrganisations: the organisations are nil
+<nil>
 ```
 
 <a id="Authenticator.User"></a>
@@ -831,6 +901,60 @@ WithoutRegistration closes sign-up, for apps whose accounts come from operators 
 // POST /v1/auth/register answers 404 and a first Google sign-in 403
 // registration_closed.
 _ = authhttp.New(authhttp.WithoutRegistration())
+```
+
+<a id="Organisations"></a>
+<a id="Organisations.AccountCreated"></a>
+<a id="Organisations.CheckAccountDeletion"></a>
+<a id="Organisations.AccountDeleted"></a>
+<a id="Organisations.AuthorizeServiceAccounts"></a>
+<a id="Organisations.CanAssignServiceAccountRole"></a>
+<a id="Organisations.Catalog"></a>
+
+### type Organisations
+
+```go
+type Organisations interface {
+	// AccountCreated runs after an account is created: registration, a
+	// first Google, Apple or GitHub sign-in, or an operator's CreateUser.
+	// Its error is logged, not returned: the account exists either way.
+	AccountCreated(ctx context.Context, userID string) error
+	// CheckAccountDeletion runs before the signed-in user's account is
+	// deleted. An error stops the deletion and is returned as it is.
+	CheckAccountDeletion(ctx context.Context, userID string) error
+	// AccountDeleted runs after an account is deleted. Its error is logged.
+	AccountDeleted(ctx context.Context, userID string) error
+	// AuthorizeServiceAccounts checks that the signed-in user is a member of
+	// orgID whose role may manage its service accounts, and returns a
+	// context acting in the organisation and the user's role there.
+	AuthorizeServiceAccounts(ctx context.Context, orgID string) (context.Context, string, error)
+	// CanAssignServiceAccountRole reports whether a member with callerRole
+	// may give a service account role, or manage one that has it. The owner
+	// role is never allowed.
+	CanAssignServiceAccountRole(callerRole, role string) bool
+	// Catalog returns the organisation catalog.
+	Catalog() *authlib.Catalog
+}
+```
+
+Organisations is what sign-in needs from an app's organisations (ADR-0048, ADR-0058): taking part in creating and deleting accounts, and deciding who manages an organisation's service accounts, which sign-in stores and authenticates. gorbital.dev/gorbital/orgshttp implements it and connects it with [Authenticator.UseOrganisations](#Authenticator.UseOrganisations); apps don't call either.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// orgshttp connects its organisations to sign-in from its module's
+// Platform function; an app only passes the authenticator on.
+auth := authhttp.New()
+var orgs authhttp.Organisations = orgDirectory{}
+fmt.Println(auth.UseOrganisations(orgs))
+```
+
+Output:
+
+```text
+<nil>
 ```
 
 <a id="Refusal"></a>

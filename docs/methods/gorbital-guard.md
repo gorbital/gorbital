@@ -22,7 +22,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0082).
 ## Contents
 
 - Constants: [`DefaultWebhookBodyLimit`](#DefaultWebhookBodyLimit)
-- Functions: [`New`](#New), [`Permission`](#Permission), [`Public`](#Public), [`RateLimit`](#RateLimit), [`RecentReauth`](#RecentReauth), [`Webhook`](#Webhook)
+- Functions: [`New`](#New), [`OrgMember`](#OrgMember), [`Permission`](#Permission), [`Public`](#Public), [`RateLimit`](#RateLimit), [`RecentReauth`](#RecentReauth), [`Webhook`](#Webhook)
 - Types:
   - [`RateLimitOption`](#RateLimitOption): [`ByAPIKey`](#ByAPIKey), [`ByIP`](#ByIP), [`ByUser`](#ByUser), [`Named`](#Named)
   - [`Request`](#Request): [`Request.Header`](#Request.Header), [`Request.Operation`](#Request.Operation), [`Request.PathParam`](#Request.PathParam), [`Request.Query`](#Request.Query)
@@ -102,6 +102,54 @@ Output:
 ```text
 200
 402 subscription_required
+```
+
+<a id="OrgMember"></a>
+
+### func OrgMember
+
+```go
+func OrgMember(permission string) gorbital.RouteOption
+```
+
+OrgMember refuses callers who aren't members of the organisation in the route's {orgId} path parameter with a role granting permission, for routes under /v1/orgs/{orgId}/ (ADR-0023, ADR-0048). It asks the app's organisations module (gorbital.dev/gorbital/orgshttp), as orgs.RequireMember does, on every request:
+
+  - 404 org\_not\_found when the organisation doesn't exist, is deleted, has a malformed ID, or the caller isn't a member: the three look the same, so organisation IDs can't be probed;
+  - 403 mfa\_required when the member's role grants permission only to a session signed in with a second factor, never to API keys;
+  - 403 forbidden when the role doesn't grant it.
+
+Members are users with a session, their API keys (within the keys' scopes), and the organisation's own service accounts through their keys; a service account never reaches another organisation. Platform roles grant nothing in an organisation.
+
+On success, the actor acts in the organisation: its OrgID is set and its permissions are those of the member's role, so audit events carry the organisation, guards after it such as [Permission](#Permission) check organisation permissions, and the request's database connections carry the organisation for row-level security (postgres.WithOrg, ADR-0061). Declare the permission with gorbital.Permission.OrgRoles.
+
+Registration fails when the path has no {orgId} or the route is public, and gorbital.New fails when the app has no organisations module.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+s := exampleServer(func(r *gorbital.Router) {
+	invoices := r.Group("/v1/orgs/{orgId}/invoices", gorbital.Tags("Invoices"))
+	gorbital.Get(invoices, "", catalogBook, guard.OrgMember("invoices.invoice.read"))
+})
+op := s.api.OpenAPI().Paths["/v1/orgs/{orgId}/invoices"].Get
+fmt.Println(op.Extensions["x-gorbital-guards"], op.Errors)
+fmt.Println(s.as("/v1/orgs/org_1/invoices", nil))
+
+// The path must name the organisation.
+_, err := tryMount(routes(func(r *gorbital.Router) {
+	gorbital.Get(r, "/v1/invoices/{id}", catalogBook, guard.OrgMember("invoices.invoice.read"))
+}))
+fmt.Println(err)
+```
+
+Output:
+
+```text
+[authenticated org_member:invoices.invoice.read] [401 403 404 422 500]
+401 unauthenticated
+gorbital: module "books": GET /v1/invoices/{id}: guard.OrgMember needs the organisation ID in the path as {orgId}, such as /v1/orgs/{orgId}/invoices
 ```
 
 <a id="Permission"></a>

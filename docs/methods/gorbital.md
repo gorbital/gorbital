@@ -44,7 +44,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 
 - Constants: [`MailDevMail`](#MailDevMail), [`MailMailpit`](#MailMailpit), [`MailProvider`](#MailProvider), [`StorageLocal`](#StorageLocal), [`StorageS3`](#StorageS3), [`StorageSpaces`](#StorageSpaces), [`StorageR2`](#StorageR2), [`StorageMinIO`](#StorageMinIO)
 - Variables: [`ErrUsage`](#ErrUsage)
-- Functions: [`Declare`](#Declare), [`Delete`](#Delete), [`Get`](#Get), [`Grants`](#Grants), [`Main`](#Main), [`Migrate`](#Migrate), [`Mount`](#Mount), [`Patch`](#Patch), [`Post`](#Post), [`Put`](#Put)
+- Functions: [`Declare`](#Declare), [`Delete`](#Delete), [`Get`](#Get), [`Grants`](#Grants), [`Main`](#Main), [`Migrate`](#Migrate), [`Mount`](#Mount), [`OrgGrants`](#OrgGrants), [`Patch`](#Patch), [`Post`](#Post), [`Put`](#Put)
 - Types:
   - [`App`](#App): [`New`](#New), [`App.Close`](#App.Close), [`App.Deps`](#App.Deps), [`App.Handler`](#App.Handler), [`App.Run`](#App.Run)
   - [`AuthConfig`](#AuthConfig)
@@ -59,9 +59,10 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
   - [`Migration`](#Migration)
   - [`Module`](#Module)
   - [`Option`](#Option): [`WithAuth`](#WithAuth), [`WithLogger`](#WithLogger), [`WithMailer`](#WithMailer), [`WithMailerFunc`](#WithMailerFunc), [`WithMiddleware`](#WithMiddleware), [`WithMiddlewareFunc`](#WithMiddlewareFunc), [`WithMigrations`](#WithMigrations), [`WithModules`](#WithModules), [`WithName`](#WithName), [`WithStack`](#WithStack), [`WithStorage`](#WithStorage), [`WithStorageFunc`](#WithStorageFunc)
+  - [`OrgAuthorizer`](#OrgAuthorizer)
   - [`Permission`](#Permission)
   - [`PermissionDeclarer`](#PermissionDeclarer)
-  - [`Platform`](#Platform): [`Platform.Authenticate`](#Platform.Authenticate), [`Platform.OnShutdown`](#Platform.OnShutdown), [`Platform.RateLimiters`](#Platform.RateLimiters), [`Platform.Retention`](#Platform.Retention), [`Platform.SignInMethods`](#Platform.SignInMethods)
+  - [`Platform`](#Platform): [`Platform.Authenticate`](#Platform.Authenticate), [`Platform.OnShutdown`](#Platform.OnShutdown), [`Platform.RateLimiters`](#Platform.RateLimiters), [`Platform.Retention`](#Platform.Retention), [`Platform.SetOrgAuthorizer`](#Platform.SetOrgAuthorizer), [`Platform.SignInMethods`](#Platform.SignInMethods)
   - [`RateLimiter`](#RateLimiter)
   - [`Retention`](#Retention)
   - [`RouteOption`](#RouteOption): [`Customize`](#Customize), [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Timeout`](#Timeout), [`Use`](#Use)
@@ -141,7 +142,9 @@ func Declare(d Declarations, modules ...Module) error
 
 Declare adds the modules' permissions, runtime settings and feature flags to d's registries, in module order. Call it once, before building the settings and flags stores and before freezing the permission catalog; then grant each role its permissions with [Grants](#Grants).
 
-It returns an error naming the module for an invalid or duplicate module name, a permission declared by two modules, a missing registry, or an invalid declaration (which the registries report by panicking).
+Permissions with OrgRoles go to d.OrgPermissions, the others to d.Permissions; grant organisation roles theirs with [OrgGrants](#OrgGrants).
+
+It returns an error naming the module for an invalid or duplicate module name, a permission declared by two modules, a permission with both Roles and OrgRoles, a missing registry, or an invalid declaration (which the registries report by panicking).
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -233,7 +236,7 @@ GET /v1/books/{id} id=books-get-v1-books-by-id summary="Get a book" tags=[] secu
 func Grants(role string, modules ...Module) []string
 ```
 
-Grants returns the permissions the modules give to role, sorted and without duplicates, for declaring the role in the permission catalog.
+Grants returns the permissions the modules give to the platform role role, sorted and without duplicates, for declaring the role in the permission catalog.
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -390,6 +393,41 @@ Output:
 
 ```text
 gorbital: GET /v1/books/{id} is registered by modules "books" and "library"
+```
+
+<a id="OrgGrants"></a>
+
+### func OrgGrants
+
+```go
+func OrgGrants(role string, modules ...Module) []string
+```
+
+OrgGrants returns the permissions the modules give to the organisation role role ([Permission.OrgRoles](#Permission.OrgRoles)), sorted and without duplicates, for declaring the role in the organisation catalog.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+invoices := gorbital.Module{
+	Name: "invoices",
+	Permissions: []gorbital.Permission{
+		{Name: "invoices.invoice.read", Description: "See invoices", OrgRoles: []string{orgs.RoleOwner, orgs.RoleAdmin, orgs.RoleMember}},
+		{Name: "invoices.invoice.void", Description: "Void invoices", OrgRoles: []string{orgs.RoleOwner}},
+	},
+}
+fmt.Println(gorbital.OrgGrants(orgs.RoleOwner, invoices))
+fmt.Println(gorbital.OrgGrants(orgs.RoleMember, invoices))
+fmt.Println(gorbital.Grants(orgs.RoleOwner, invoices)) // platform roles hold none of them
+```
+
+Output:
+
+```text
+[invoices.invoice.read invoices.invoice.void]
+[invoices.invoice.read]
+[]
 ```
 
 <a id="Patch"></a>
@@ -1117,6 +1155,7 @@ false
 
 <a id="Declarations"></a>
 <a id="Declarations.Permissions"></a>
+<a id="Declarations.OrgPermissions"></a>
 <a id="Declarations.Settings"></a>
 <a id="Declarations.Flags"></a>
 
@@ -1124,8 +1163,12 @@ false
 
 ```go
 type Declarations struct {
-	// Permissions receives every module's permissions; nil skips them.
+	// Permissions receives every module's platform permissions; nil skips
+	// them.
 	Permissions PermissionDeclarer
+	// OrgPermissions receives every module's organisation permissions, those
+	// with [Permission.OrgRoles]; nil skips them.
+	OrgPermissions PermissionDeclarer
 	// Settings and Flags are required when a module declares settings or
 	// flags.
 	Settings *settings.Registry
@@ -1753,10 +1796,54 @@ gorbital.Main(gorbital.WithStorageFunc(func(cfg gorbital.Config) (storage.Store,
 }))
 ```
 
+<a id="OrgAuthorizer"></a>
+<a id="OrgAuthorizer.AuthorizeOrg"></a>
+
+### type OrgAuthorizer
+
+```go
+type OrgAuthorizer interface {
+	AuthorizeOrg(ctx context.Context, orgID, permission string) (context.Context, error)
+}
+```
+
+An OrgAuthorizer decides whether the actor of a request may act in an organisation, for guard.OrgMember. gorbital.dev/gorbital/orgshttp is one; it gives it to the app with [Platform.SetOrgAuthorizer](#Platform.SetOrgAuthorizer).
+
+AuthorizeOrg checks that the actor in ctx is a member of orgID (a user, or a service account of that organisation authenticated by its API key) whose role grants permission, and returns a context whose actor acts in the organisation: actor.Actor.OrgID set, and Permissions those of the role, limited by an API key's scopes. It returns
+
+  - orgs.ErrOrgNotFound when orgID isn't an organisation the actor is a member of, deleted and nonexistent ones included, so organisation IDs can't be probed;
+  - actor.ErrUnauthenticated without a member actor;
+  - actor.ErrStepUpRequired when the role grants permission only to sessions verified with a second factor;
+  - actor.ErrForbidden when the role doesn't grant it;
+
+and any other error for a failure, which the guard answers with 500. orgs.RequireMember has exactly these semantics.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+var authorizer gorbital.OrgAuthorizer = memberships{"org_1/usr_ada": orgs.RoleOwner}
+ada := actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_ada"})
+ctx, err := authorizer.AuthorizeOrg(ada, "org_1", "invoices.invoice.read")
+a, _ := actor.From(ctx)
+fmt.Println(a.OrgID, err)
+_, err = authorizer.AuthorizeOrg(ada, "org_2", "invoices.invoice.read")
+fmt.Println(err)
+```
+
+Output:
+
+```text
+org_1 <nil>
+orgs: organisation not found
+```
+
 <a id="Permission"></a>
 <a id="Permission.Name"></a>
 <a id="Permission.Description"></a>
 <a id="Permission.Roles"></a>
+<a id="Permission.OrgRoles"></a>
 
 ### type Permission
 
@@ -1764,9 +1851,16 @@ gorbital.Main(gorbital.WithStorageFunc(func(cfg gorbital.Config) (storage.Store,
 type Permission struct {
 	Name        string
 	Description string
-	// Roles are the roles that hold the permission, such as "user". A role
-	// the app doesn't declare grants nothing.
+	// Roles are the platform roles that hold the permission, such as
+	// "user". A role the app doesn't declare grants nothing.
 	Roles []string
+	// OrgRoles are the organisation roles that hold the permission, such
+	// as "owner", "admin" and "member" (ADR-0023, ADR-0048): a member holds
+	// it only while acting in an organisation, through guard.OrgMember. A
+	// permission with OrgRoles is an organisation permission: it is
+	// declared in the organisation catalog ([Platform.OrgPermissions]), not
+	// the platform's, and can't have Roles too.
+	OrgRoles []string
 }
 ```
 
@@ -1836,6 +1930,8 @@ Output:
 <a id="Platform.Jobs"></a>
 <a id="Platform.MailSender"></a>
 <a id="Platform.Migrations"></a>
+<a id="Platform.Authenticator"></a>
+<a id="Platform.OrgPermissions"></a>
 
 ### type Platform
 
@@ -1859,6 +1955,14 @@ type Platform struct {
 	// Migrations are every migration Migrate applies: the library's, the
 	// modules' and the app's, merged.
 	Migrations fs.FS
+	// Authenticator is the app's authenticator ([WithAuth]), or nil.
+	Authenticator Authenticator
+	// OrgPermissions is the organisation catalog: every module's
+	// organisation permissions ([Permission.OrgRoles]) and a role for each
+	// organisation role they name, with the permissions the modules grant
+	// it. It isn't frozen, so the organisations module can require a second
+	// factor for roles before freezing it.
+	OrgPermissions *auth.Catalog
 	// contains filtered or unexported fields
 }
 ```
@@ -1991,6 +2095,38 @@ report := func(ctx context.Context, p *gorbital.Platform) {
 	}
 }
 _ = report
+```
+
+<a id="Platform.SetOrgAuthorizer"></a>
+
+#### func (*Platform) SetOrgAuthorizer
+
+```go
+func (p *Platform) SetOrgAuthorizer(a OrgAuthorizer) error
+```
+
+SetOrgAuthorizer makes a the app's [OrgAuthorizer](#OrgAuthorizer), which every route with guard.OrgMember asks. It is for the organisations module (gorbital.dev/gorbital/orgshttp), which calls it from Module.Platform. It returns an error when a is nil or the app already has one: an app has one source of truth for memberships.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// An organisations module makes itself the authorizer guard.OrgMember
+// asks, once the app is built. gorbital.dev/gorbital/orgshttp does.
+orgsModule := gorbital.Module{
+	Name: "orgs",
+	Platform: func(p *gorbital.Platform) error {
+		return p.SetOrgAuthorizer(memberships{})
+	},
+}
+fmt.Println(orgsModule.Name)
+```
+
+Output:
+
+```text
+orgs
 ```
 
 <a id="Platform.SignInMethods"></a>
