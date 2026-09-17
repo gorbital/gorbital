@@ -113,7 +113,7 @@ func TestStandard(t *testing.T) {
 			if tt.want == nil && err != nil || tt.want != nil && !errors.Is(err, tt.want) {
 				t.Errorf("Verify() error = %v, want %v", err, tt.want)
 			}
-			if tt.want == webhook.ErrInvalidSignature && errors.Is(err, webhook.ErrTimestamp) {
+			if tt.want != nil && !errors.Is(tt.want, webhook.ErrTimestamp) && errors.Is(err, webhook.ErrTimestamp) {
 				t.Errorf("Verify() error = %v, want a signature error, not a timestamp one", err)
 			}
 		})
