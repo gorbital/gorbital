@@ -80,7 +80,7 @@ func Get[I, O any](r *Router, path string, h func(context.Context, *I) (*O, erro
 | `guard.Permission(name)` | 403 `forbidden`; 403 `mfa_required` for a step-up permission | `actor.Actor.Can`, `auth.Catalog` |
 | `guard.RecentReauth()` | 403 `reauthentication_required` (**new code**: the session must have signed in or verified a second factor within `auth.RecentVerification`) | `auth.Principal.RecentlySignedIn`, `RecentlyVerified` |
 | `guard.RateLimit(n, window, opts...)` | 429 `rate_limited` with `Retry-After` | `ratelimitpg` (in-memory fallback), keyed `ByUser` (default), `ByAPIKey` or `ByIP`; limiter names appear in `/ops/auth/rate-limits` |
-| `guard.OrgMember(permission)` (Phase 7) | 403/404 as `orgs.RequireMember` | `orgs` |
+| `guard.OrgMember(permission)` (Phase 7) | 403/404 as `orgs.RequireMember` | `orgs`, through the app's organisation authorizer (`gorbital.OrgAuthorizer`, set by `orgshttp`; [ADR-0083 Phase 7 notes](0083-modules-stack-migrations-and-ejection.md#guardorgmember)) |
 | `guard.New(guard.Spec{Name, Statuses, Check})` | the error `Check` returns, mapped by the module's `Errors` (or an `*httpx.Problem`) | — |
 
 - Guards run as operation middleware in the order declared (group guards first), before input parsing. A refusal is written with `huma.WriteErr`, so it is problem+json with the request ID like every other error.

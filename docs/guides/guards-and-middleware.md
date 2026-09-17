@@ -39,6 +39,7 @@ Middleware runs **before** the sign-in check, so a module can bring its own auth
 | `guard.RecentReauth()` | A session that signed in or verified a second factor in the last 10 minutes | 403 `reauthentication_required`; 403 `session_required` for API keys |
 | `guard.RateLimit(n, window, …)` | n requests per window per caller, with bursts up to n | 429 `rate_limited` with `Retry-After` |
 | `guard.Webhook(verifier, …)` | Requests signed by a webhook sender, checked on the raw body | 401 `invalid_webhook_signature`; 413 `request_too_large` above the body limit |
+| `guard.OrgMember("invoices.invoice.read")` | On a route under `/v1/orgs/{orgId}/`, members of that organisation whose role grants the permission, their API keys within scopes, and the organisation's service accounts; needs [`orgshttp`](../start/organisations.md#in-an-app-on-gorbitalmain) | 404 `org_not_found` for any organisation the caller isn't in; 403 `forbidden`; 403 `mfa_required`. On success the actor acts in the organisation, for audit events and [row-level security](row-level-security.md#in-an-app-on-gorbitalmain) |
 | `guard.New(guard.Spec{…})` | Whatever your check says | The error your check returns |
 
 Each guard adds its responses to the route's OpenAPI operation, and lists itself in `x-gorbital-guards` (`["authenticated", "permission:books.book.write", "rate_limit:30/1m0s"]`), which the docs and the Dev Portal show.

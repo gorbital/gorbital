@@ -59,6 +59,16 @@ for _, c := range auth.Commands() {
 
 `gorbital/internal/integration` signs an operator in this way, with an authenticator app and a second factor, and checks `/ops` end to end.
 
+Features that store who the user is need real accounts: an organisation's members are rows of `auth_users`. With `authhttp` as the authenticator, `app.SignUp(t, email)` registers the address with `gorbitaltest.SignUpPassword`, verifies it with the emailed code, signs in with a bearer token and returns a client and the user ID. Hooks run, so with [`orgshttp`](../start/organisations.md#in-an-app-on-gorbitalmain) the account has its personal workspace:
+
+```go
+auth := authhttp.New()
+app := gorbitaltest.NewWithEnv(t, map[string]string{"AUTH_ENCRYPTION_KEYS": keys},
+	gorbital.WithAuth(auth), gorbital.WithModules(orgshttp.Module(auth), invoices.Module()))
+ada, adaID := app.SignUp(t, "ada@example.com")
+bob, _ := app.SignUp(t, "bob@example.com")
+```
+
 ## Assertions
 
 | Method | Fails the test unless |
