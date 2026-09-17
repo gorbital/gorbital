@@ -20,7 +20,7 @@ import (
 //
 // Huma stores these hooks in package-level variables, so call InstallErrors
 // once, from the composition root, before registering operations. It is the
-// only package-level state an gorbital app changes (ADR-0027).
+// only package-level state a gorbital app changes (ADR-0027).
 func InstallErrors(mapper *httpx.Mapper) {
 	huma.NewErrorWithContext = func(hctx huma.Context, status int, msg string, errs ...error) huma.StatusError {
 		ctx := context.Background()

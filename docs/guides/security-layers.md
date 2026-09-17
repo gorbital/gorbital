@@ -11,7 +11,7 @@ Four layers you add when your app needs them: a **request timeout**, an **IP fil
 
 Each layer with an error code of its own is a package of its own, so apps that don't use it don't carry the code in their recorded surface ([stability](stability.md#adding-error-codes)).
 
-> **Status in v0.2 previews.** The layers are in the library. Apps on `gorbital.Main` get the request timeout in their default stack, and `/ops` behind `OPS_ALLOWED_IPS` with the built-in operations module. The recipes *Mobile backend with an external identity provider* and *Receiving payment webhooks* come with later phases of the [roadmap](../v0.2-roadmap.md#phase-10-security-layers); until then, add the other layers to your chain yourself as shown below.
+Apps on `gorbital.Main` get the request timeout in their default stack, and `/ops` behind `OPS_ALLOWED_IPS` with the built-in operations module; the other two go on the routes that need them. Whole apps using them: Shelfie's [chapter 10](../examples/shelfie/10-hardening.md), and the recipes [Receiving payment webhooks](../examples/recipes/receiving-payment-webhooks.md) and [Mobile backend with an external identity provider](../examples/recipes/mobile-backend-with-an-idp.md).
 
 ## Request timeout
 
@@ -85,7 +85,7 @@ mux.Handle("/ops/", opsOnly(opsHandler))
 | Deny and allow | A request in a deny range is refused; with an allow list, a request in no allow range is refused. Deny wins |
 | Empty lists | Empty allow allows everything not denied; both empty changes nothing |
 | Refusal | `403 ip_not_allowed`; the response doesn't echo the address |
-| IPv6 | IPv4-mapped addresses (`::ffff:10.0.0.1`) compare as IPv4; zones (`%en0`) are ignored |
+| IPv6 | IPv4-mapped addresses (`::ffff:10.0.0.1`) compare as IPv4; zones (`%en0`) are ignored. The same holds for `APP_TRUSTED_PROXIES` (`httpx.ParseTrustedProxies`): a mapped entry becomes its IPv4 range, a mapped range shorter than `/96` is refused, and a zoned address is refused |
 | Refused at start | Invalid ranges; a deny range covering every address (`0.0.0.0/0`, `::/0`: list the allowed ranges instead); an allow range inside a deny range, which could never match |
 
 A request whose `RemoteAddr` isn't an address (a Unix socket) is refused.

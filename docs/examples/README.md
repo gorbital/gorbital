@@ -30,7 +30,9 @@ On the page, put an HTML comment on its own line where the code goes. It holds t
 <!-- include examples/apps/shelfie/internal/modules/books/delivery/create_book.go#create-book -->
 ```
 
-`#` and `--` comments mark regions too (`.env.example`, SQL), and without `#name` the whole file is included. The docs site resolves includes when it syncs the docs (`pnpm sync-docs` in gorbital-web) and fails the build when the file or the marker is missing, so a renamed function breaks the docs build rather than leaving stale code on a page. The marker lines themselves aren't shown.
+`#` and `--` comments mark regions too (`.env.example`, SQL, YAML), and without `#name` the whole file is included. The marker lines themselves aren't shown.
+
+Two checks keep a page and its code together. In this repository, `go run -C internal/tools/docscheck .` (CI's "docs links, includes and docs/docs.json resolve" step) fails when a page includes a file or a region that doesn't exist. The docs site resolves the includes again when it syncs the docs (`pnpm sync-docs` in gorbital-web) and fails its build for the same reason, so a renamed function breaks a build rather than leaving stale code on a page.
 
 Rules:
 
