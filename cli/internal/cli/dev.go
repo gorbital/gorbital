@@ -554,8 +554,12 @@ func (d *devRunner) build(ctx context.Context) error {
 func (d *devRunner) setState(state portal.State, problem string) {
 	d.mu.Lock()
 	d.state, d.problem = state, problem
+	server := d.server
 	d.mu.Unlock()
 	d.hub.SetState(d.Status())
+	if server != nil {
+		server.CloseIdleConnections() // the app's port may have changed hands
+	}
 }
 
 // setStateAfterFailure records a failed rebuild: the previous version keeps

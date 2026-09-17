@@ -212,19 +212,25 @@ func planAddOrgs(ctx context.Context, app appInfo) (genplan.Plan, error) {
 		return genplan.Plan{}, fmt.Errorf("%w%s", err, strings.TrimSpace(errOut.String()))
 	}
 	var res struct {
-		Files   []string `json:"files"`
-		Branch  string   `json:"branch"`
-		Already bool     `json:"already_multi_tenant"`
+		Branch   string `json:"branch"`
+		UpToDate bool   `json:"up_to_date"`
+		Changes  []struct {
+			Path string `json:"path"`
+		} `json:"changes"`
+		Conflicts []string `json:"conflicts"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &res)
 	plan := genplan.Plan{Generator: "add-orgs", Name: "orgs"}
-	if res.Already {
+	if res.UpToDate {
 		plan.Summary = "The app already has organisations; nothing to change."
 		return plan, nil
 	}
-	plan.Summary = fmt.Sprintf("Turns the app multi-tenant on branch %s: organisations with members, roles and invitations; %d files change. orb add orgs builds the app, regenerates api/, records api/surface.json and commits on that branch; review it there.", cmpOr(res.Branch, addOrgsBranch), len(res.Files))
-	for _, f := range res.Files {
-		plan.Changes = append(plan.Changes, genplan.Change{Path: f, Kind: genplan.Modify})
+	plan.Summary = fmt.Sprintf("Turns the app multi-tenant on branch %s: organisations with members, roles and invitations; %d files change. orb add orgs builds the app, regenerates api/, records api/surface.json and commits on that branch; review it there.", cmpOr(res.Branch, addOrgsBranch), len(res.Changes))
+	if len(res.Conflicts) > 0 {
+		plan.Summary += fmt.Sprintf(" %d files need a merge by hand: %s.", len(res.Conflicts), strings.Join(res.Conflicts, ", "))
+	}
+	for _, c := range res.Changes {
+		plan.Changes = append(plan.Changes, genplan.Change{Path: c.Path, Kind: genplan.Modify})
 	}
 	plan.Next = []string{"Review the branch " + cmpOr(res.Branch, addOrgsBranch) + " and merge it", "docs/guides/organisations.md"}
 	return plan, nil

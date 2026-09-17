@@ -182,7 +182,11 @@ type Server struct {
 	mux       *http.ServeMux
 	startedAt time.Time
 
-	streams        atomic.Int32
+	streams atomic.Int32
+	// transport is the proxy's; CloseIdleConnections drops its pooled
+	// connections when the app restarts, so a connection to a process
+	// that took the port meanwhile isn't reused.
+	transport      *http.Transport
 	lastRefusalLog atomic.Int64
 	closed         chan struct{}
 	closeOnce      atomic.Bool
@@ -439,4 +443,13 @@ main{max-width:560px;padding:32px;border:1px solid #2B2F23;border-radius:14px;ba
 h1{font-size:18px;margin:0 0 12px}code,pre{font-family:ui-monospace,monospace;color:#C6F24A}
 pre{background:#090A08;padding:12px 14px;border-radius:8px;overflow:auto}p{color:#A8AB9F;margin:8px 0}a{color:#C6F24A}
 </style></head><body><main>` + body + `</main></body></html>`
+}
+
+// CloseIdleConnections drops the proxy's pooled connections to the app;
+// orb dev calls it when the app's state changes, so nothing reaches a
+// process that took the app's port meanwhile.
+func (s *Server) CloseIdleConnections() {
+	if s.transport != nil {
+		s.transport.CloseIdleConnections()
+	}
 }

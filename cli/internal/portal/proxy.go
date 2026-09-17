@@ -14,7 +14,9 @@ import (
 // when they carry no Authorization of their own; the portal's own cookie
 // and header never reach the app.
 func (s *Server) newProxy() http.Handler {
+	s.transport = http.DefaultTransport.(*http.Transport).Clone()
 	proxy := &httputil.ReverseProxy{
+		Transport: s.transport,
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			target := s.appURL()
 			pr.Out.URL.Scheme = target.Scheme
