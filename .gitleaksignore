@@ -31,3 +31,26 @@ b562d7ee8ee89d73d11d81196e469d5c140ffb67:cli/internal/recipes/v0.2/full-multi/AU
 b562d7ee8ee89d73d11d81196e469d5c140ffb67:cli/internal/recipes/v0.2/full/AUTH_PROVIDERS.md.tmpl:generic-api-key:372
 5a6561500dcb43f1475448bcad3941dc80d8f4ef:examples/full-multi/AUTH_PROVIDERS.md:generic-api-key:372
 5a6561500dcb43f1475448bcad3941dc80d8f4ef:examples/full-single/AUTH_PROVIDERS.md:generic-api-key:372
+# Reviewed 2026-09-18 (Phase 12): test fixtures and Dev Portal placeholders, each
+# decoded and read in its source before being listed here.
+# The sign-in tests' fake provider credentials, and a JWT whose parts decode to
+# {"alg":"RS256"}, {"sub":"1234567890"} and "signature-value-here" — the input to
+# the test that asserts redact() removes tokens from provider errors.
+dbc887d4bb80763b2b7914503b93096517cb1bed:gorbital/authhttp/internal/signintest/signintest_test.go:jwt:150
+dbc887d4bb80763b2b7914503b93096517cb1bed:gorbital/authhttp/internal/signintest/signintest_test.go:generic-api-key:35
+dbc887d4bb80763b2b7914503b93096517cb1bed:gorbital/authhttp/internal/signintest/signintest_test.go:generic-api-key:151
+dbc887d4bb80763b2b7914503b93096517cb1bed:gorbital/authhttp/internal/signintest/signintest_test.go:generic-api-key:224
+dbc887d4bb80763b2b7914503b93096517cb1bed:gorbital/authhttp/internal/signintest/signintest_test.go:generic-api-key:244
+# Base64 of "portal-tunnel-secret-value" and "secret-secret-secret-secret".
+3b2f538c38b5c3d72d2e502201d7bdcf82006538:cli/internal/portal/tunnel_test.go:generic-api-key:22
+7dd26770bf5cbb4f8c9c86c4db909b4755efc619:cli/internal/tunnel/tunnel_unix_test.go:generic-api-key:37
+# One dev console token fixture, shared by four tests of the dev operator and
+# the console's own routes. It authenticates nothing outside those tests.
+69c0ee65805a5aee5d70e4d72a77987598979b4a:gorbital/authsetup_internal_test.go:generic-api-key:97
+69c0ee65805a5aee5d70e4d72a77987598979b4a:gorbital/authhttp/ops_users_test.go:generic-api-key:20
+47854b215a1f3ba1bf37de306d799c6223c67cc1:gorbital/opshttp/devoperator_test.go:generic-api-key:22
+ec3a4d5366fde4ad9a61a6740380b38eac525824:gorbital/platform_internal_test.go:generic-api-key:211
+# Mock data in the Dev Portal UI bundle: an example .env line and invitation links.
+84726c4a04cac65a335958132c0c5dfa5d07b221:cli/internal/portal/ui/dist/_next/static/chunks/1xq8-49p6u1y7.js:generic-api-key:377
+3a204e8e2361b479ec177025b487f16f1f127ef2:cli/internal/portal/ui/dist/_next/static/chunks/3e-2ngh2z20ob.js:generic-api-key:269
+3a204e8e2361b479ec177025b487f16f1f127ef2:cli/internal/portal/ui/dist/_next/static/chunks/3e-2ngh2z20ob.js:generic-api-key:377
