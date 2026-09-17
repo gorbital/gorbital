@@ -119,7 +119,6 @@ func buildApp(t *testing.T, cfg gorbital.Config, configure ...func(*gorbital.Con
 	t.Helper()
 	ctx := context.Background()
 	auth := New()
-	auth.stdout = io.Discard
 	for _, c := range configure {
 		c(&cfg, auth)
 	}
@@ -252,7 +251,15 @@ func projectsModule() gorbital.Module {
 			{Name: flagsRead, Description: "Read the feature flags shown to clients", Roles: []string{"user"}},
 		},
 		Routes: func(r *gorbital.Router, _ gorbital.Deps) {
-			projects := r.Group("/v1/projects", gorbital.Tags("Projects"))
+			// Like the golden app's projects use case (ownerID), only users
+			// own projects: other actors get 401 before the permission check.
+			usersOnly := guard.New(guard.Spec{Name: "user_only", Statuses: []int{http.StatusUnauthorized}, Check: func(ctx context.Context, _ guard.Request) error {
+				if a, ok := actor.From(ctx); !ok || a.Kind != actor.KindUser || a.ID == "" {
+					return httpx.NewProblem(http.StatusUnauthorized, "unauthenticated", "authentication is required")
+				}
+				return nil
+			}})
+			projects := r.Group("/v1/projects", gorbital.Tags("Projects"), usersOnly)
 			gorbital.Get(projects, "", func(ctx context.Context, _ *struct{}) (*listOutput, error) {
 				mu.Lock()
 				defer mu.Unlock()
