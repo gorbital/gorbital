@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gorbital.dev/cli/internal/recipes"
 )
 
 func runOrb(t *testing.T, args ...string) (int, string, string) {
@@ -88,18 +90,18 @@ func TestNewCreatesApp(t *testing.T) {
 			"go.mod":        "module example.com/shop-api\n",
 			"gorbital.yaml": "preset: minimal",
 		}},
-		{"full", "multi", "base-full-multi", 150, map[string]string{
+		{"full", "multi", "base-full-multi", 40, map[string]string{
 			"gorbital.yaml":                             "tenancy: multi",
-			"internal/app/app.go":                       `const ServiceName = "shop-api"`,
-			"internal/modules/orgs/module.go":           "package orgs",
-			"db/migrations/20260916000002_projects.sql": "org_id      text        NOT NULL REFERENCES orgs (id)",
+			"cmd/api/main.go":                           `gorbital.WithModules(orgshttp.Module(auth)),`,
+			"internal/modules/modules.gen.go":           `"example.com/shop-api/internal/modules/projects"`,
+			"db/migrations/20260916000002_projects.sql": "org_id      text        NOT NULL,",
 		}},
-		{"full", "single", "base-full", 100, map[string]string{
+		{"full", "single", "base-full", 40, map[string]string{
 			"go.mod":                              "module example.com/shop-api\n",
-			"gorbital.yaml":                       "preset: full",
+			"gorbital.yaml":                       "layout: v0.2",
 			"compose.yaml":                        "POSTGRES_DB: shop-api",
 			".env.example":                        "DATABASE_URL=postgres://shop-api:shop-api@127.0.0.1:5432/shop-api",
-			"internal/app/app.go":                 `const ServiceName = "shop-api"`,
+			"cmd/api/main.go":                     `gorbital.WithName("shop-api")`,
 			"internal/modules/projects/module.go": "package projects",
 			"db/migrations/migrations.go":         "package migrations",
 		}},
@@ -122,7 +124,7 @@ func TestNewCreatesApp(t *testing.T) {
 
 			wantInputs := lockInputs{Name: "shop-api", Module: "example.com/shop-api", Preset: tt.preset, Tenancy: tt.tenancy}
 			if tt.preset == "full" {
-				wantInputs.Mail = "resend"
+				wantInputs.Mail, wantInputs.Layout = "resend", recipes.LayoutV02
 			}
 			lock, err := readLock("shop-api")
 			// Every rendered file is tracked except go.mod.
@@ -161,7 +163,7 @@ func TestNewFullPrintsNextSteps(t *testing.T) {
 	}
 	for _, want := range []string{
 		"creating shop-api in ./shop-api\n", "preset full · tenancy single · library", "✓ wrote ", "\ncreated shop-api\n",
-		"docker compose up -d --wait", "go run ./cmd/migrate", "go run ./cmd/seed", "http://127.0.0.1:8025", "admin@example.com",
+		"docker compose up -d --wait", "go run ./cmd/api migrate", "go run ./cmd/api seed", "http://127.0.0.1:3100/mail", "admin@example.com", "gorbital.Main", "orb gen module",
 		"AUTH_PROVIDERS.md", "POSTGRES_PORT", "orb add mail", "next: cd shop-api\n        orb dev\n",
 	} {
 		if !strings.Contains(out, want) {

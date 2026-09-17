@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gorbital.dev/cli/internal/recipes/generate"
 )
@@ -15,10 +16,16 @@ var goldenApps = []struct{ src, dst string }{
 	{"../../../examples/minimal", "minimal"},
 	{"../../../examples/v0.1/full-single", "full"},
 	{"../../../examples/v0.1/full-multi", "full-multi"},
+	{"../../../examples/full-single", "v0.2/full"},
+	{"../../../examples/full-multi", "v0.2/full-multi"},
 }
 
 func main() {
 	for _, app := range goldenApps {
+		if err := os.MkdirAll(filepath.Dir(app.dst), 0o755); err != nil {
+			fmt.Fprintln(os.Stderr, "gen:", err)
+			os.Exit(1)
+		}
 		// Only files git tracks or would track become templates: anything
 		// git-ignored next to a golden app (.env, keys, coverage output) stays
 		// on this machine. Outside a git work tree, such as a source archive,

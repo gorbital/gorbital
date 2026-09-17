@@ -10,6 +10,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"gorbital.dev/cli/internal/recipes"
 )
 
 // fakeDoctorCommands answers the programs orb doctor runs without Docker, a
@@ -74,7 +76,7 @@ func check(res doctorResult, name string) doctorCheck {
 }
 
 func TestDoctorOnANewApp(t *testing.T) {
-	newGitApp(t, "--preset", "full")
+	newV01GitApp(t, recipes.TenancySingle)
 	writeFile(t, ".env", readFile(t, ".env.example"))
 	calls := fakeDoctorCommands(t, `{"current":9,"latest":9,"pending":0}`)
 
@@ -109,7 +111,7 @@ func TestDoctorOnANewApp(t *testing.T) {
 }
 
 func TestDoctorFindsProblems(t *testing.T) {
-	newGitApp(t, "--preset", "full")
+	newV01GitApp(t, recipes.TenancySingle)
 	fakeDoctorCommands(t, `{"current":9,"latest":11,"pending":2}`)
 	// Three tracked files edited: .gitignore, modules.go and llms.txt.
 	writeFile(t, ".gitignore", "")

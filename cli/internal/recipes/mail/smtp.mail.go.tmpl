@@ -1,0 +1,70 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"net"
+	"strconv"
+
+	"gorbital.dev/config"
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/opshttp"
+	"gorbital.dev/mail"
+	"gorbital.dev/modules/mail/smtp"
+)
+
+// mailProvider is the email provider, chosen with `orb add mail`. To switch
+// provider, run `orb add mail` again: it replaces this file and the provider
+// block in .env.example (ADR-0037).
+const mailProvider = opshttp.ProviderSMTP
+
+// mailer returns the sender that delivers email through the SMTP server in
+// SMTP_HOST, SMTP_PORT (default 587), SMTP_TLS (starttls, tls or none;
+// default tls for port 465, otherwise starttls), SMTP_USERNAME and
+// SMTP_PASSWORD (or SMTP_PASSWORD_FILE), when MAIL_DELIVERY is provider,
+// the only mode production allows. In development, email goes to orb dev's
+// mail catcher without it. SMTP servers report bounces by email, so
+// POST /v1/webhooks/resend answers 404. The sender name, address and
+// reply-to are runtime settings (mail.*), changed in /ops/settings without a
+// restart.
+func mailer(gorbital.Config) (mail.Sender, error) {
+	get := func(key string) string {
+		v, _ := config.OS.Get(key)
+		return v
+	}
+	host, port := get("SMTP_HOST"), 587
+	if host == "" {
+		return nil, errors.New("SMTP_HOST is required to send email over SMTP: add your provider's SMTP server to .env " +
+			"(in development, leave MAIL_DELIVERY empty to use orb dev's mail catcher instead)")
+	}
+	if v := get("SMTP_PORT"); v != "" {
+		p, err := strconv.Atoi(v)
+		if err != nil || p < 1 || p > 65535 {
+			return nil, fmt.Errorf("SMTP_PORT must be a port number such as 587, got %q", v)
+		}
+		port = p
+	}
+	tls := smtp.TLSStartTLS
+	if port == 465 {
+		tls = smtp.TLSImplicit
+	}
+	if v := get("SMTP_TLS"); v != "" {
+		mode, err := smtp.ParseTLSMode(v)
+		if err != nil {
+			return nil, fmt.Errorf("SMTP_TLS must be starttls, tls or none, got %q", v)
+		}
+		tls = mode
+	}
+	opts := []smtp.Option{smtp.WithTLS(tls)}
+	if username := get("SMTP_USERNAME"); username != "" {
+		password, err := config.OS.Secret("SMTP_PASSWORD")
+		if err != nil {
+			return nil, err
+		}
+		if password.IsZero() {
+			return nil, errors.New("SMTP_PASSWORD is required when SMTP_USERNAME is set")
+		}
+		opts = append(opts, smtp.WithAuth(username, password))
+	}
+	return smtp.New(net.JoinHostPort(host, strconv.Itoa(port)), opts...)
+}

@@ -422,6 +422,12 @@ func (d *devRunner) migrateWith(ctx context.Context, env []string, args ...strin
 	return nil
 }
 
+// migrateCommand is the command that applies the migrations of the app in
+// dir, for next steps.
+func migrateCommand(dir string) string {
+	return "go " + strings.Join(migrateCommands(dir, nil)[0], " ")
+}
+
 // migrateCommands returns the go commands that run the app's migrations
 // with cmd/migrate's flags: cmd/migrate itself in v0.1 apps, and the
 // migrate and migrate-down commands of gorbital.Main in apps without it.
@@ -459,14 +465,28 @@ func (d *devRunner) generateModules() {
 }
 
 // seed runs the app's seed data command, which does nothing when its data
-// is already there (ADR-0042). Apps without cmd/seed skip it.
+// is already there (ADR-0042): cmd/seed in v0.1 apps, and in apps on
+// gorbital.Main with sign-in the seed command authhttp adds to cmd/api
+// (or its ejected copy). Other apps skip it.
 func (d *devRunner) seed(ctx context.Context, env []string) error {
-	if _, err := os.Stat(filepath.Join("cmd", "seed")); errors.Is(err, fs.ErrNotExist) {
+	args := seedCommand(".")
+	if args == nil {
 		return nil
 	}
-	fmt.Fprintln(d.out, "orb: seed data (go run ./cmd/seed)")
-	if err := d.run(ctx, env, "go", "run", "./cmd/seed"); err != nil {
+	fmt.Fprintf(d.out, "orb: seed data (go %s)\n", strings.Join(args, " "))
+	if err := d.run(ctx, env, "go", args...); err != nil {
 		return fmt.Errorf("seed data failed: %w", err)
+	}
+	return nil
+}
+
+// seedCommand returns the go arguments that seed the app in dir, or nil.
+func seedCommand(dir string) []string {
+	if _, err := os.Stat(filepath.Join(dir, "cmd", "seed")); err == nil {
+		return []string{"run", "./cmd/seed"}
+	}
+	if isGorbitalApp(dir) && (mainMentions(dir, "gorbital.dev/gorbital/authhttp") || mainMentions(dir, "/internal/modules/auth\"")) {
+		return []string{"run", "./cmd/api", "seed"}
 	}
 	return nil
 }

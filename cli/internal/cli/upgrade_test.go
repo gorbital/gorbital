@@ -91,7 +91,7 @@ func appFromRelease(t *testing.T, release recipes.Release, version string) {
 	isolateGit(t)
 	dir := filepath.Join(t.TempDir(), "shop-api")
 	in := lockInputs{Name: "shop-api", Module: "example.com/shop-api", Preset: "full", Tenancy: recipes.TenancySingle, Mail: recipes.MailResend}
-	tree, err := release.Tree(in.Preset, in.Tenancy, in.Mail, recipes.Data{Name: in.Name, Module: in.Module, LibraryVersion: recipes.LibraryVersion})
+	tree, err := release.Tree(in.Preset, in.Tenancy, in.layout(), in.Mail, recipes.Data{Name: in.Name, Module: in.Module, LibraryVersion: recipes.LibraryVersion})
 	if err != nil {
 		t.Fatal(err)
 	}

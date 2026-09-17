@@ -49,7 +49,7 @@ func planAddMail(ctx context.Context, app appInfo, input json.RawMessage) (genpl
 	if err := normalizeMail(&in); err != nil {
 		return genplan.Plan{}, mailPlan{}, err
 	}
-	if _, err := os.Stat(filepath.Join(app.dir, "internal", "app", "mail.go")); err != nil {
+	if _, err := mailLayout(app.dir); err != nil {
 		return genplan.Plan{}, mailPlan{}, usageError("orb add mail works in apps created with the Full preset")
 	}
 	example, err := os.ReadFile(filepath.Join(app.dir, envExamplePath))
@@ -183,7 +183,7 @@ func planAddRLS(ctx context.Context, app appInfo) (genplan.Plan, addRLSPlan, err
 	}
 	plan.Next = []string{
 		"Make sure DATABASE_URL connects as a role without superuser or BYPASSRLS (docs/guides/row-level-security.md)",
-		"go run ./cmd/migrate, then orb doctor and go test ./...",
+		migrateCommand(app.dir) + ", then orb doctor and go test ./...",
 		"git add -A && git commit -m 'Add row-level security'",
 	}
 	return plan, rp, nil

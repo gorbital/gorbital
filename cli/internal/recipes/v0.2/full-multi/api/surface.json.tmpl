@@ -1,0 +1,35 @@
+{
+  "error_codes": [
+    "message_required",
+    "project_name_taken",
+    "project_not_found",
+    "project_version_conflict",
+    "unauthenticated",
+    "validation_failed"
+  ],
+  "audit_actions": [
+    "projects.project.created",
+    "projects.project.deleted",
+    "projects.project.updated"
+  ],
+  "permissions": {
+    "org": [
+      "projects.project.read",
+      "projects.project.write"
+    ]
+  },
+  "roles": {
+    "org": [
+      "admin",
+      "member",
+      "owner"
+    ]
+  },
+  "settings": [
+    "example.ping_message"
+  ],
+  "jobs": [],
+  "flags": [
+    "example.ping_time"
+  ]
+}

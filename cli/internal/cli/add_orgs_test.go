@@ -26,6 +26,30 @@ func newGitApp(t *testing.T, args ...string) {
 	commitAll(t, "Create app")
 }
 
+// newV01GitApp writes a Full app of tenancy in the v0.1 layout, as orb v0.1
+// created them and this orb still upgrades them, with its lock, commits it
+// and makes it the working directory.
+func newV01GitApp(t *testing.T, tenancy string) {
+	t.Helper()
+	isolateGit(t)
+	dir := filepath.Join(t.TempDir(), "shop-api")
+	in := lockInputs{Name: "shop-api", Module: "shop-api", Preset: "full", Tenancy: tenancy, Mail: recipes.MailResend}
+	tree, err := inputsTree(recipes.Embedded(), in, in.Mail, recipes.Data{Name: in.Name, Module: in.Module, LibraryVersion: recipes.LibraryVersion})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for p, content := range tree {
+		writeFile(t, filepath.Join(dir, filepath.FromSlash(p)), string(content))
+	}
+	b, err := lockFromTree(in, tree).encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, lockPath), string(b))
+	t.Chdir(dir)
+	commitAll(t, "Create app")
+}
+
 func addOrgs(t *testing.T, wantCode int, args ...string) (upgradeResult, string) {
 	t.Helper()
 	code, out, errOut := runOrb(t, append([]string{"add", "orgs", "--skip-tidy"}, args...)...)
@@ -42,7 +66,7 @@ func addOrgs(t *testing.T, wantCode int, args ...string) (upgradeResult, string)
 }
 
 func TestAddOrgs(t *testing.T) {
-	newGitApp(t, "--preset", "full")
+	newV01GitApp(t, recipes.TenancySingle)
 	writeFile(t, "internal/modules/customers/module.go", "package customers\n")
 	commitAll(t, "Add customers")
 
@@ -60,7 +84,7 @@ func TestAddOrgs(t *testing.T) {
 	}
 
 	// The app is now the multi-tenant tree, apart from its migrations.
-	tree, err := recipes.Embedded().Tree("full", recipes.TenancyMulti, recipes.MailResend, recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: recipes.LibraryVersion})
+	tree, err := recipes.Embedded().Tree("full", recipes.TenancyMulti, recipes.LayoutV01, recipes.MailResend, recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: recipes.LibraryVersion})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +146,7 @@ func TestAddOrgsRefuses(t *testing.T) {
 		}
 	})
 	t.Run("older release", func(t *testing.T) {
-		newGitApp(t, "--preset", "full")
+		newV01GitApp(t, recipes.TenancySingle)
 		l, _ := readLock(".")
 		l.Orb = lockOrb{Version: "v0.0.9"}
 		b, _ := l.encode()
@@ -133,7 +157,7 @@ func TestAddOrgsRefuses(t *testing.T) {
 		}
 	})
 	t.Run("dirty tree", func(t *testing.T) {
-		newGitApp(t, "--preset", "full")
+		newV01GitApp(t, recipes.TenancySingle)
 		writeFile(t, "scratch.txt", "x")
 		if _, errOut := addOrgs(t, 1); !strings.Contains(errOut, "uncommitted changes") {
 			t.Errorf("stderr = %q", errOut)

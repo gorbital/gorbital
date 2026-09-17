@@ -23,7 +23,11 @@ func TestTreeMatchesRender(t *testing.T) {
 			if golden.preset == "full" {
 				mail = recipes.MailResend
 			}
-			tree, err := recipes.Embedded().Tree(golden.preset, golden.tenancy, mail, shopData)
+			p, _ := recipes.LookupPreset(golden.preset, golden.tenancy)
+			if golden.layout != p.Layout() {
+				t.Skipf("orb new writes the %s layout", p.Layout())
+			}
+			tree, err := recipes.Embedded().Tree(golden.preset, golden.tenancy, golden.layout, mail, shopData)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -45,21 +49,43 @@ func TestTreeMatchesRender(t *testing.T) {
 // reads an older release, render the same tree as the embedded ones. This
 // package's directory has a release's layout.
 func TestTreeFromDirectory(t *testing.T) {
-	want, err := recipes.Embedded().Tree("full", recipes.TenancyMulti, recipes.MailSMTP, shopData)
+	for _, layout := range []string{recipes.LayoutV01, recipes.LayoutV02} {
+		want, err := recipes.Embedded().Tree("full", recipes.TenancyMulti, layout, recipes.MailSMTP, shopData)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := recipes.ReleaseFS(os.DirFS(".")).Tree("full", recipes.TenancyMulti, layout, recipes.MailSMTP, shopData)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !maps.EqualFunc(got, want, bytes.Equal) {
+			t.Errorf("%s tree rendered from the directory differs from the embedded tree", layout)
+		}
+	}
+}
+
+func TestMainTreeWithSMTP(t *testing.T) {
+	tree, err := recipes.Embedded().Tree("full", recipes.TenancyMulti, recipes.LayoutV02, recipes.MailSMTP, shopData)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := recipes.ReleaseFS(os.DirFS(".")).Tree("full", recipes.TenancyMulti, recipes.MailSMTP, shopData)
-	if err != nil {
-		t.Fatal(err)
+	smtp, _ := recipes.RenderMail(recipes.MailSMTP, shopData.Module)
+	if !bytes.Equal(tree[recipes.MainMailPath], smtp.MainMail) || !strings.Contains(string(smtp.MainMail), "opshttp.ProviderSMTP") {
+		t.Errorf("%s is not the SMTP recipe:\n%s", recipes.MainMailPath, tree[recipes.MainMailPath])
 	}
-	if !maps.EqualFunc(got, want, bytes.Equal) {
-		t.Error("tree rendered from the directory differs from the embedded tree")
+	if _, ok := tree[recipes.InfraMailPath]; ok {
+		t.Errorf("the v0.2 tree has %s", recipes.InfraMailPath)
+	}
+	if example := string(tree[".env.example"]); !strings.Contains(example, "\nSMTP_HOST=\n") || strings.Contains(example, "RESEND_API_KEY") {
+		t.Errorf(".env.example doesn't hold the SMTP block alone:\n%s", example)
+	}
+	if manifest := string(tree["gorbital.yaml"]); !strings.HasSuffix(manifest, "\nmail: smtp\n") {
+		t.Errorf("gorbital.yaml = %s", manifest)
 	}
 }
 
 func TestTreeWithSMTP(t *testing.T) {
-	tree, err := recipes.Embedded().Tree("full", recipes.TenancySingle, recipes.MailSMTP, shopData)
+	tree, err := recipes.Embedded().Tree("full", recipes.TenancySingle, recipes.LayoutV01, recipes.MailSMTP, shopData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,17 +106,20 @@ func TestTreeWithSMTP(t *testing.T) {
 
 func TestTreeErrors(t *testing.T) {
 	for _, tt := range []struct {
-		name                   string
-		release                recipes.Release
-		preset, tenancy, email string
+		name                           string
+		release                        recipes.Release
+		preset, tenancy, layout, email string
 	}{
-		{"unknown preset", recipes.Embedded(), "custom", recipes.TenancySingle, ""},
-		{"email on minimal", recipes.Embedded(), "minimal", recipes.TenancySingle, recipes.MailSMTP},
-		{"unknown provider", recipes.Embedded(), "full", recipes.TenancySingle, "sendgrid"},
+		{"unknown preset", recipes.Embedded(), "custom", recipes.TenancySingle, recipes.LayoutV01, ""},
+		{"email on minimal", recipes.Embedded(), "minimal", recipes.TenancySingle, recipes.LayoutV01, recipes.MailSMTP},
+		{"unknown provider", recipes.Embedded(), "full", recipes.TenancySingle, recipes.LayoutV01, "sendgrid"},
+		{"unknown provider in v0.2", recipes.Embedded(), "full", recipes.TenancySingle, recipes.LayoutV02, "sendgrid"},
 		// Early development builds had no multi-tenant templates.
-		{"tree missing from release", recipes.ReleaseFS(fstest.MapFS{"full/README.md.tmpl": {Data: []byte("# ⟦.Name⟧\n")}}), "full", recipes.TenancyMulti, ""},
+		{"tree missing from release", recipes.ReleaseFS(fstest.MapFS{"full/README.md.tmpl": {Data: []byte("# ⟦.Name⟧\n")}}), "full", recipes.TenancyMulti, recipes.LayoutV01, ""},
+		// Releases before v0.2 have no v0.2 layout.
+		{"layout missing from release", recipes.ReleaseFS(fstest.MapFS{"full/README.md.tmpl": {Data: []byte("# ⟦.Name⟧\n")}}), "full", recipes.TenancySingle, recipes.LayoutV02, ""},
 	} {
-		if _, err := tt.release.Tree(tt.preset, tt.tenancy, tt.email, shopData); err == nil {
+		if _, err := tt.release.Tree(tt.preset, tt.tenancy, tt.layout, tt.email, shopData); err == nil {
 			t.Errorf("%s: Tree(%s, %s, %q) error = nil", tt.name, tt.preset, tt.tenancy, tt.email)
 		}
 	}

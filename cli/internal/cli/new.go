@@ -217,7 +217,9 @@ func nextSteps(s styles, dir string, preset recipes.Preset) string {
 	if preset.Name == "full" {
 		rows = [][2]string{
 			{"api docs", "http://localhost:8080/docs (localhost, not 127.0.0.1, for passkeys)"},
-			{"emails", "http://127.0.0.1:8025 (Mailpit catches every email in development)"},
+			{"main.go", "cmd/api/main.go runs the app on gorbital.Main; your code goes in internal/modules"},
+			{"modules", "orb gen module <Name> <field:type>... adds a table and its API"},
+			{"emails", "http://127.0.0.1:3100/mail (the Dev Portal catches every email in development)"},
 			{"admin", "admin@example.com; orb dev prints its password, 2FA key and recovery codes once"},
 			{"sign-in", "AUTH_PROVIDERS.md lists what to set for passkeys, Google and Apple"},
 		}
@@ -231,7 +233,7 @@ func nextSteps(s styles, dir string, preset recipes.Preset) string {
 			{"email", "Resend outside development; orb add mail switches to SMTP"},
 			{"port 5432", "taken? set POSTGRES_PORT in .env and the same port in DATABASE_URL"},
 			{"without orb", "cp .env.example .env, docker compose up -d --wait,"},
-			{"", "go run ./cmd/migrate, go run ./cmd/seed, go run ./cmd/api"},
+			{"", "go run ./cmd/api migrate, go run ./cmd/api seed, go run ./cmd/api"},
 		}...)
 	}
 	var b strings.Builder

@@ -46,14 +46,14 @@ func TestReleaseFromCheckout(t *testing.T) {
 	defer cleanup()
 
 	d := recipes.Data{Name: "shop-api", Module: "example.com/shop-api"}
-	got, err := release.Tree("full", recipes.TenancyMulti, recipes.MailSMTP, d)
+	got, err := release.Tree("full", recipes.TenancyMulti, recipes.LayoutV01, recipes.MailSMTP, d)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) < 150 {
 		t.Errorf("%s tree has %d files", multiTenantCommit, len(got))
 	}
-	if _, err := release.Tree("full", recipes.TenancySingle, recipes.MailResend, d); err != nil {
+	if _, err := release.Tree("full", recipes.TenancySingle, recipes.LayoutV01, recipes.MailResend, d); err != nil {
 		t.Error(err)
 	}
 
@@ -64,10 +64,10 @@ func TestReleaseFromCheckout(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer cleanupOld()
-		if _, err := old.Tree("full", recipes.TenancyMulti, "", d); err == nil {
+		if _, err := old.Tree("full", recipes.TenancyMulti, recipes.LayoutV01, "", d); err == nil {
 			t.Errorf("%s rendered a multi-tenant app", singleTenantCommit)
 		}
-		if single, err := old.Tree("full", recipes.TenancySingle, recipes.MailResend, d); err != nil || len(single) < 100 {
+		if single, err := old.Tree("full", recipes.TenancySingle, recipes.LayoutV01, recipes.MailResend, d); err != nil || len(single) < 100 {
 			t.Errorf("%s single-tenant tree: %d files, %v", singleTenantCommit, len(single), err)
 		}
 	}

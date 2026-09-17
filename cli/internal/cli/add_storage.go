@@ -85,8 +85,10 @@ func runAddStorage(ctx context.Context, args []string, stdin io.Reader, stdout, 
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(filepath.Join(app.dir, "internal", "app", "storage.go")); err != nil {
-		return fmt.Errorf("%s has no internal/app/storage.go: orb add storage works in apps created with the Full preset (orb upgrade adds it)", app.dir)
+	_, v01 := os.Stat(filepath.Join(app.dir, "internal", "app", "storage.go"))
+	_, v02 := os.Stat(filepath.Join(app.dir, "cmd", "api", "storage.go"))
+	if v01 != nil && v02 != nil {
+		return fmt.Errorf("%s has neither internal/app/storage.go nor cmd/api/storage.go: orb add storage works in apps created with the Full preset (orb upgrade adds it)", app.dir)
 	}
 	example, err := os.ReadFile(filepath.Join(app.dir, envExamplePath))
 	if err != nil {

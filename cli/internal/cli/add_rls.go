@@ -22,7 +22,8 @@ forces it on every table with a NOT NULL org_id column (organisation
 memberships and invitations aside), with a policy that limits each database
 connection to the organisation of its request. The app already sets that
 organisation on every connection, so no code changes. Tables you add later
-get the policy from orb gen resource --scope org.
+get the policy from orb gen module --org (orb gen resource --scope org in an
+app on the v0.1 layout).
 
 The app's database role must not be a superuser or have BYPASSRLS, or
 PostgreSQL applies no policy to it; the app warns at startup and orb doctor
@@ -155,7 +156,7 @@ Next:
      has no BYPASSRLS; PostgreSQL applies no policy to those. The local
      Docker database's user is a superuser, so policies don't apply there
      (docs/guides/row-level-security.md shows how to create an app role).
-  2. go run ./cmd/migrate
+  2. %s
   3. orb doctor   (reports a role that bypasses the policies)
   4. go test ./...   (the tests connect as a role without bypass)
   5. git add -A && git commit -m 'Add row-level security'
@@ -163,6 +164,6 @@ Next:
 Organisation resources you generate from now on get the policy in their
 migration. Code that must work across organisations, such as a maintenance
 job, uses postgres.WithoutRowLevelSecurity with a reason; migrations already do.
-`)
+`, migrateCommand(app.dir))
 	return nil
 }

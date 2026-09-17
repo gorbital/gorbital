@@ -90,17 +90,25 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 		return err
 	}
 	theirsGoMod := theirs["go.mod"]
-	orgsSQL, ok := theirs[recipes.OrgsMigrationPath]
-	if !ok {
-		return fmt.Errorf("recipes: the multi-tenant tree has no %s", recipes.OrgsMigrationPath)
-	}
+	// In the v0.1 layout the organisations migrations are the app's own
+	// files, copied under new versions. In the v0.2 layout they come from
+	// the library's organisations module under their released versions
+	// (ADR-0083), and only the conversion is the app's.
+	v01 := from.layout() == recipes.LayoutV01
+	var orgsSQL []byte
 	var laterSQL [][]byte
-	for _, p := range recipes.OrgsLaterMigrationPaths {
-		sql, ok := theirs[p]
-		if !ok {
-			return fmt.Errorf("recipes: the multi-tenant tree has no %s", p)
+	if v01 {
+		var ok bool
+		if orgsSQL, ok = theirs[recipes.OrgsMigrationPath]; !ok {
+			return fmt.Errorf("recipes: the multi-tenant tree has no %s", recipes.OrgsMigrationPath)
 		}
-		laterSQL = append(laterSQL, sql)
+		for _, p := range recipes.OrgsLaterMigrationPaths {
+			sql, ok := theirs[p]
+			if !ok {
+				return fmt.Errorf("recipes: the multi-tenant tree has no %s", p)
+			}
+			laterSQL = append(laterSQL, sql)
+		}
 	}
 	for _, p := range slices.Concat(untrackedPaths, derivedPaths) {
 		delete(base, p)
@@ -132,19 +140,23 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
-	changes = append(changes,
-		merge.Change{Path: "db/migrations/" + first + "_orgs.sql", Action: merge.Create, Content: orgsSQL},
-		merge.Change{Path: "db/migrations/" + strconv.FormatInt(n+1, 10) + "_orgs_convert.sql", Action: merge.Create, Content: recipes.OrgsConversion()},
-	)
-	for i, p := range recipes.OrgsLaterMigrationPaths {
-		_, name, _ := strings.Cut(path.Base(p), "_")
-		changes = append(changes, merge.Change{Path: "db/migrations/" + strconv.FormatInt(n+2+int64(i), 10) + "_" + name, Action: merge.Create, Content: laterSQL[i]})
+	if v01 {
+		changes = append(changes,
+			merge.Change{Path: "db/migrations/" + first + "_orgs.sql", Action: merge.Create, Content: orgsSQL},
+			merge.Change{Path: "db/migrations/" + strconv.FormatInt(n+1, 10) + "_orgs_convert.sql", Action: merge.Create, Content: recipes.OrgsConversion()},
+		)
+		for i, p := range recipes.OrgsLaterMigrationPaths {
+			_, name, _ := strings.Cut(path.Base(p), "_")
+			changes = append(changes, merge.Change{Path: "db/migrations/" + strconv.FormatInt(n+2+int64(i), 10) + "_" + name, Action: merge.Create, Content: laterSQL[i]})
+		}
+	} else {
+		changes = append(changes, merge.Change{Path: "db/migrations/" + first + "_orgs_convert.sql", Action: merge.Create, Content: recipes.OrgsConversion()})
 	}
 	slices.SortFunc(changes, func(a, b merge.Change) int { return strings.Compare(a.Path, b.Path) })
 
 	name := filepath.Base(app.dir)
 	res := upgradeResult{
-		Name: name, From: Version, To: Version, DryRun: *dryRun, Unproven: len(unproven),
+		Name: name, From: Version, To: Version, DryRun: *dryRun, Unproven: len(unproven), Layout: from.layout(),
 		Branch: addOrgsBranch, title: "add organisations to " + name, message: "Add organisations",
 	}
 	res.setChanges(changes)

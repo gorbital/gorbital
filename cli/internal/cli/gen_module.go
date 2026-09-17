@@ -321,6 +321,11 @@ func planModule(app appInfo, in moduleInput, now time.Time) (genplan.Plan, recip
 	}
 	if data.Org {
 		plan.Next[3] = "go run ./cmd/api, sign in, find your personal workspace's ID with GET /v1/orgs, then POST " + data.RoutePath()
+	}
+	if _, err := root.Stat(filepath.FromSlash(surfaceTestPath)); err == nil {
+		plan.Next = slices.Insert(plan.Next, 2, surfaceCommand(recipes.LayoutV02)+" (records the new error codes, audit actions and permissions in api/surface.json)")
+	}
+	if data.Org {
 		if !mainUsesOrgs(app.dir) {
 			plan.Next = append([]string{orgsNextStep}, plan.Next...)
 		}
@@ -360,6 +365,9 @@ func moduleListChange(app appInfo, added appModule) (genplan.Change, error) {
 	}
 	return genplan.Change{Path: modulesGenPath, Kind: genplan.Modify, Before: before, Content: content}, nil
 }
+
+// surfaceTestPath records an app's public names in the v0.2 layout.
+const surfaceTestPath = "internal/modules/surface_test.go"
 
 // checkMigrationsPackage checks that db/migrations is a Go package, as the
 // generated tests import it for gorbital.WithMigrations.

@@ -75,11 +75,11 @@ func TestJSONOutputs(t *testing.T) {
 			return runOrb(t, "add", "mail", "--provider", "smtp", "--smtp-host", "smtp.example.com", "--skip-tidy", "--json")
 		}},
 		{"add-orgs", func(t *testing.T) (int, string, string) {
-			newGitApp(t, "--preset", "full")
+			newV01GitApp(t, recipes.TenancySingle)
 			return runOrb(t, "add", "orgs", "--dry-run", "--skip-tidy", "--json")
 		}},
 		{"add-rls", func(t *testing.T) (int, string, string) {
-			newGitApp(t, "--preset", "full", "--tenancy", "multi")
+			newV01GitApp(t, recipes.TenancyMulti)
 			return runOrb(t, "add", "rls", "--dry-run", "--json")
 		}},
 		{"upgrade", func(t *testing.T) (int, string, string) {
@@ -88,7 +88,7 @@ func TestJSONOutputs(t *testing.T) {
 			return runOrb(t, "upgrade", "--dry-run", "--skip-tidy", "--json")
 		}},
 		{"doctor", func(t *testing.T) (int, string, string) {
-			newGitApp(t, "--preset", "full")
+			newV01GitApp(t, recipes.TenancySingle)
 			writeFile(t, ".env", readFile(t, ".env.example"))
 			fakeDoctorCommands(t, `{"current":9,"latest":9,"pending":0}`)
 			return runOrb(t, "doctor", "--fast", "--json")

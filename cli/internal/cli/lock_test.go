@@ -21,7 +21,7 @@ func TestLockRoundTrip(t *testing.T) {
 		{Path: ".env.example", SHA256: "a"},
 	}
 	want := newLock(preset, d, files)
-	if want.Inputs != (lockInputs{Name: "shop-api", Module: "example.com/shop-api", Preset: "full", Tenancy: "multi", Mail: "resend"}) {
+	if want.Inputs != (lockInputs{Name: "shop-api", Module: "example.com/shop-api", Preset: "full", Tenancy: "multi", Mail: "resend", Layout: recipes.LayoutV02}) {
 		t.Errorf("inputs = %+v", want.Inputs)
 	}
 	if paths := lockPaths(want); !slices.Equal(paths, []string{".env.example", "internal/app/app.go"}) {

@@ -15,10 +15,12 @@ import (
 
 // goldenApps are the hand-written apps each preset is generated from, by
 // template directory.
-var goldenApps = []struct{ templates, preset, tenancy, dir string }{
-	{"minimal", "minimal", "single", "../../../examples/minimal"},
-	{"full", "full", "single", "../../../examples/v0.1/full-single"},
-	{"full-multi", "full", "multi", "../../../examples/v0.1/full-multi"},
+var goldenApps = []struct{ templates, preset, tenancy, layout, dir string }{
+	{"minimal", "minimal", "single", recipes.LayoutV01, "../../../examples/minimal"},
+	{"full", "full", "single", recipes.LayoutV01, "../../../examples/v0.1/full-single"},
+	{"full-multi", "full", "multi", recipes.LayoutV01, "../../../examples/v0.1/full-multi"},
+	{"v0.2/full", "full", "single", recipes.LayoutV02, "../../../examples/full-single"},
+	{"v0.2/full-multi", "full", "multi", recipes.LayoutV02, "../../../examples/full-multi"},
 }
 
 // goldenFiles returns the files of the golden app at dir that git tracks or
@@ -35,6 +37,7 @@ func goldenFiles(t *testing.T, dir string) map[string]bool {
 	return files
 }
 
+// renderInto writes the preset as orb new does.
 func renderInto(t *testing.T, preset, tenancy string, d recipes.Data) (string, []recipes.File) {
 	t.Helper()
 	p, ok := recipes.LookupPreset(preset, tenancy)
@@ -54,12 +57,35 @@ func renderInto(t *testing.T, preset, tenancy string, d recipes.Data) (string, [
 	return dir, files
 }
 
+// renderLayout writes the preset's tree in layout, as orb upgrade rebuilds
+// it, and returns the directory and the files' paths.
+func renderLayout(t *testing.T, preset, tenancy, layout string, d recipes.Data) (string, []string) {
+	t.Helper()
+	tree, err := recipes.Embedded().Tree(preset, tenancy, layout, "", d)
+	if err != nil {
+		t.Fatalf("Tree(%s, %s, %s) error = %v", preset, tenancy, layout, err)
+	}
+	dir := t.TempDir()
+	var paths []string
+	for p, content := range tree {
+		target := filepath.Join(dir, filepath.FromSlash(p))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, content, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, p)
+	}
+	return dir, paths
+}
+
 // TestGoldenApps: rendering each preset with the placeholder name reproduces
 // its hand-written golden app exactly, file for file.
 func TestGoldenApps(t *testing.T) {
 	for _, golden := range goldenApps {
 		t.Run(golden.templates, func(t *testing.T) {
-			dir, files := renderInto(t, golden.preset, golden.tenancy, recipes.Data{
+			dir, files := renderLayout(t, golden.preset, golden.tenancy, golden.layout, recipes.Data{
 				Name:           generate.PlaceholderName,
 				Module:         generate.PlaceholderModule,
 				LibraryVersion: recipes.LibraryVersion,
@@ -67,7 +93,7 @@ func TestGoldenApps(t *testing.T) {
 			tracked := goldenFiles(t, golden.dir)
 			rendered := map[string]bool{}
 			for _, f := range files {
-				rendered[f.Path] = true
+				rendered[f] = true
 			}
 			err := filepath.WalkDir(golden.dir, func(p string, d fs.DirEntry, err error) error {
 				if err != nil {
@@ -112,8 +138,12 @@ func TestGoldenApps(t *testing.T) {
 func TestGoModMatchesGolden(t *testing.T) {
 	for _, golden := range goldenApps {
 		t.Run(golden.templates, func(t *testing.T) {
-			dir, _ := renderInto(t, golden.preset, golden.tenancy, recipes.Data{
-				Name: generate.PlaceholderName, Module: generate.PlaceholderModule, LibraryVersion: recipes.LibraryVersion, Local: "../..",
+			local := "../.."
+			if golden.layout == recipes.LayoutV01 && golden.preset == "full" {
+				local = "../../.." // examples/v0.1/<app>
+			}
+			dir, _ := renderLayout(t, golden.preset, golden.tenancy, golden.layout, recipes.Data{
+				Name: generate.PlaceholderName, Module: generate.PlaceholderModule, LibraryVersion: recipes.LibraryVersion, Local: local,
 			})
 			gotRequires, gotReplaces := parseGoMod(t, filepath.Join(dir, "go.mod"))
 			wantRequires, wantReplaces := parseGoMod(t, filepath.Join(golden.dir, "go.mod"))
@@ -179,9 +209,10 @@ func TestRenderGoMod(t *testing.T) {
 	dir, _ = renderInto(t, "full", "single", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/src/gorbital"})
 	goMod, _ = os.ReadFile(filepath.Join(dir, "go.mod"))
 	for _, want := range []string{
-		"gorbital.dev/modules/releases v0.1.0",
+		"gorbital.dev/gorbital v0.1.0",
 		"github.com/riverqueue/river ",
 		"gorbital.dev => /src/gorbital\n",
+		"gorbital.dev/gorbital => /src/gorbital/gorbital\n",
 		"gorbital.dev/modules/auth => /src/gorbital/modules/auth\n",
 	} {
 		if !strings.Contains(string(goMod), want) {
@@ -193,6 +224,39 @@ func TestRenderGoMod(t *testing.T) {
 	goMod, _ = os.ReadFile(filepath.Join(dir, "go.mod"))
 	if !strings.Contains(string(goMod), `gorbital.dev/modules/openapi => "/Users/me/My Code/gorbital/modules/openapi"`) {
 		t.Errorf("go.mod with a Local path containing a space doesn't quote it:\n%s", goMod)
+	}
+}
+
+func TestLayouts(t *testing.T) {
+	// orb new writes the v0.2 layout for the Full preset: main.go on
+	// gorbital.Main, no internal/app.
+	dir, _ := renderInto(t, "full", "multi", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0"})
+	main, _ := os.ReadFile(filepath.Join(dir, "cmd", "api", "main.go"))
+	if !strings.Contains(string(main), "gorbital.Main(") || !strings.Contains(string(main), "orgshttp.Module(auth)") {
+		t.Errorf("new Full app's main.go isn't on gorbital.Main:\n%s", main)
+	}
+	for _, gone := range []string{"internal/app", "cmd/migrate", "cmd/seed"} {
+		if _, err := os.Stat(filepath.Join(dir, gone)); err == nil {
+			t.Errorf("new Full app has %s", gone)
+		}
+	}
+	for _, tt := range []struct{ preset, tenancy, want string }{
+		{"minimal", "single", recipes.LayoutV01}, {"full", "single", recipes.LayoutV02}, {"full", "multi", recipes.LayoutV02},
+	} {
+		if p, _ := recipes.LookupPreset(tt.preset, tt.tenancy); p.Layout() != tt.want {
+			t.Errorf("%s %s Layout() = %s, want %s", tt.preset, tt.tenancy, p.Layout(), tt.want)
+		}
+	}
+	// v0.1 apps keep their layout's templates.
+	v01, err := recipes.Embedded().Tree("full", "single", recipes.LayoutV01, "", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0"})
+	if err != nil || v01["internal/app/app.go"] == nil {
+		t.Errorf("v0.1 tree has no internal/app/app.go (%v)", err)
+	}
+	if _, err := recipes.Embedded().Tree("minimal", "single", recipes.LayoutV02, "", recipes.Data{Name: "shop-api", Module: "shop-api"}); err == nil {
+		t.Error("Tree(minimal, v0.2) error = nil; Minimal has no v0.2 layout")
+	}
+	if _, err := recipes.Embedded().Tree("full", "single", "v9", "", recipes.Data{Name: "shop-api", Module: "shop-api"}); err == nil {
+		t.Error("Tree with an unknown layout error = nil")
 	}
 }
 
@@ -225,6 +289,9 @@ func TestTemplatesUpToDate(t *testing.T) {
 	for _, golden := range goldenApps {
 		t.Run(golden.templates, func(t *testing.T) {
 			fresh := filepath.Join(t.TempDir(), golden.templates)
+			if err := os.MkdirAll(filepath.Dir(fresh), 0o755); err != nil {
+				t.Fatal(err)
+			}
 			var opts []generate.Option
 			if tracked := goldenFiles(t, golden.dir); tracked != nil {
 				opts = append(opts, generate.OnlyFiles(tracked))

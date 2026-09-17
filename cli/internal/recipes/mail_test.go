@@ -36,6 +36,23 @@ func TestMailMatchesGoldenApp(t *testing.T) {
 			t.Errorf("resend .env.example block differs from examples/%s (%v):\n--- recipe\n%s\n--- golden\n%s", app, err, r.EnvBlock, block)
 		}
 	}
+	for _, app := range []string{"full-single", "full-multi"} {
+		golden := filepath.Join("..", "..", "..", "examples", app)
+		want, err := os.ReadFile(filepath.Join(golden, MainMailPath))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(r.MainMail) != string(want) {
+			t.Errorf("resend %s differs from examples/%s:\n--- recipe\n%s\n--- golden\n%s", MainMailPath, app, r.MainMail, want)
+		}
+		example, err := os.ReadFile(filepath.Join(golden, ".env.example"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if block, err := Block(example, MailBlock); err != nil || string(block) != string(r.EnvBlock) {
+			t.Errorf("resend .env.example block differs from examples/%s (%v)", app, err)
+		}
+	}
 	if !slices.Equal(r.EnvKeys, []string{"RESEND_API_KEY", "RESEND_WEBHOOK_SECRET"}) || len(r.Modules) != 2 {
 		t.Errorf("EnvKeys, Modules = %v, %v", r.EnvKeys, r.Modules)
 	}

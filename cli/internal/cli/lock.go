@@ -54,6 +54,27 @@ type lockInputs struct {
 	Mail    string `json:"mail,omitempty"`
 	// RLS records orb add rls: gorbital.yaml says rls: true (ADR-0061).
 	RLS bool `json:"rls,omitempty"`
+	// Layout is the layout whose templates wrote the app: empty for the
+	// v0.1 layout (every lock before v0.2, and Minimal apps), or
+	// recipes.LayoutV02 for apps on gorbital.Main (ADR-0083).
+	Layout string `json:"layout,omitempty"`
+}
+
+// layout returns the app's layout, recipes.LayoutV01 or recipes.LayoutV02.
+func (in lockInputs) layout() string {
+	if in.Layout == "" {
+		return recipes.LayoutV01
+	}
+	return in.Layout
+}
+
+// layoutValue is how a lock records layout: v0.1 as no layout, so locks
+// of v0.1 apps stay readable by orb v0.1.
+func layoutValue(layout string) string {
+	if layout == recipes.LayoutV01 {
+		return ""
+	}
+	return layout
 }
 
 // validate checks inputs read from source (gorbital.lock or gorbital.yaml)
@@ -73,6 +94,15 @@ func (in lockInputs) validate(source string) error {
 	}
 	if in.RLS && (in.Preset != "full" || in.Tenancy != recipes.TenancyMulti) {
 		return fmt.Errorf("%s records row-level security for an app without organisations", source)
+	}
+	switch in.Layout {
+	case "":
+	case recipes.LayoutV02:
+		if p, _ := recipes.LookupPreset(in.Preset, in.Tenancy); p.Layout() != recipes.LayoutV02 {
+			return fmt.Errorf("%s records the %s layout for the %s preset, which has none", source, in.Layout, in.Preset)
+		}
+	default:
+		return fmt.Errorf("%s has an unknown layout %q", source, in.Layout)
 	}
 	switch in.Mail {
 	case "", recipes.MailResend, recipes.MailSMTP:
@@ -96,7 +126,7 @@ func newLock(preset recipes.Preset, d recipes.Data, files []recipes.File) lockFi
 	l := lockFile{
 		APIVersion: LockAPIVersion,
 		Orb:        lockOrb{Version: Version, Revision: buildRevision()},
-		Inputs:     lockInputs{Name: d.Name, Module: d.Module, Preset: preset.Name, Tenancy: preset.Tenancy},
+		Inputs:     lockInputs{Name: d.Name, Module: d.Module, Preset: preset.Name, Tenancy: preset.Tenancy, Layout: layoutValue(preset.Layout())},
 	}
 	if preset.Name == "full" {
 		l.Inputs.Mail = recipes.MailResend // the golden apps send with Resend
