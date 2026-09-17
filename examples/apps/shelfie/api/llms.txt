@@ -242,6 +242,11 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Get your profile](/docs/profiles/profiles-get-v1-profile.md): `GET /v1/profile`
 - [Create or change your profile](/docs/profiles/profiles-put-v1-profile.md): `PUT /v1/profile`
 
+## Partners
+
+- [List the books you bought through a partner](/docs/partners/partners-get-v1-purchases.md): `GET /v1/purchases`
+- [A partner reports a purchase](/docs/partners/partners-post-v1-webhooks-partners-purchases.md): `POST /v1/webhooks/partners/purchases`
+
 ## Shelves
 
 - [List your shelves](/docs/shelves/shelves-list.md): `GET /v1/shelves`

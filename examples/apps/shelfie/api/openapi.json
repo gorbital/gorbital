@@ -553,7 +553,7 @@
             "type": "string"
           },
           "new_password": {
-            "description": "At least 12 characters",
+            "description": "At least 14 characters",
             "maxLength": 512,
             "type": "string"
           }
@@ -2924,7 +2924,7 @@
             "type": "boolean"
           },
           "password": {
-            "description": "At least 12 characters",
+            "description": "At least 14 characters",
             "maxLength": 512,
             "type": "string"
           }
@@ -3923,6 +3923,112 @@
         ],
         "type": "object"
       },
+      "PurchaseInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "event_id": {
+            "description": "The partner's own ID for this delivery; a repeat changes nothing",
+            "examples": [
+              "evt_8xk2"
+            ],
+            "maxLength": 100,
+            "type": "string"
+          },
+          "isbn": {
+            "description": "ISBN-13, with or without hyphens",
+            "examples": [
+              "9780140449136"
+            ],
+            "type": "string"
+          },
+          "purchased_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "title": {
+            "examples": [
+              "The Odyssey"
+            ],
+            "maxLength": 300,
+            "type": "string"
+          },
+          "user_id": {
+            "description": "The reader's Shelfie account ID",
+            "examples": [
+              "usr_2n4k"
+            ],
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "user_id",
+          "isbn",
+          "title",
+          "purchased_at"
+        ],
+        "type": "object"
+      },
+      "PurchaseListOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseResponse"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "PurchaseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "examples": [
+              "prc_k3n4..."
+            ],
+            "type": "string"
+          },
+          "isbn": {
+            "examples": [
+              "9780140449136"
+            ],
+            "type": "string"
+          },
+          "partner": {
+            "examples": [
+              "pagebound"
+            ],
+            "type": "string"
+          },
+          "purchased_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "title": {
+            "examples": [
+              "The Odyssey"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "partner",
+          "isbn",
+          "title",
+          "purchased_at"
+        ],
+        "type": "object"
+      },
       "QueueControlInputBody": {
         "additionalProperties": true,
         "properties": {
@@ -4171,7 +4277,7 @@
             "type": "string"
           },
           "password": {
-            "description": "At least 12 characters",
+            "description": "At least 14 characters",
             "maxLength": 512,
             "type": "string"
           }
@@ -4560,7 +4666,7 @@
             "type": "string"
           },
           "password": {
-            "description": "The new password, at least 12 characters",
+            "description": "The new password, at least 14 characters",
             "maxLength": 512,
             "type": "string"
           }
@@ -23122,6 +23228,66 @@
         ]
       }
     },
+    "/v1/purchases": {
+      "get": {
+        "operationId": "partners-get-v1-purchases",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseListOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List the books you bought through a partner",
+        "tags": [
+          "Partners"
+        ],
+        "x-gorbital-guards": [
+          "authenticated",
+          "permission:partners.purchase.read"
+        ]
+      }
+    },
     "/v1/shelves": {
       "get": {
         "description": "Newest first unless `sort` says otherwise; sort by one of `created_at`, `updated_at` or `name`. Paginate with `cursor`.",
@@ -23660,6 +23826,117 @@
         "x-gorbital-guards": [
           "authenticated",
           "permission:shelves.shelf.write"
+        ]
+      }
+    },
+    "/v1/webhooks/partners/purchases": {
+      "post": {
+        "description": "Signed with the partner's secret (Standard Webhooks). Replays and retries of a delivery already recorded answer 200 with the same purchase.",
+        "operationId": "partners-post-v1-webhooks-partners-purchases",
+        "parameters": [
+          {
+            "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with `Idempotent-Replayed: true`. The same key with another request fails with 422 `idempotency_key_reused`, and while the first request runs with 409 `idempotency_in_progress`. Only for signed-in callers; keys and responses are kept for 24 hours by default.",
+            "example": "7f1e9c4a-4f5b-4c1e-9a55-2d1d7c2b8e61",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        },
+        "summary": "A partner reports a purchase",
+        "tags": [
+          "Partners"
+        ],
+        "x-gorbital-guards": [
+          "public",
+          "webhook",
+          "rate_limit:600/1m0s"
         ]
       }
     },

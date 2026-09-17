@@ -7194,6 +7194,79 @@
       ]
     },
     {
+      "name": "Partners",
+      "item": [
+        {
+          "name": "List the books you bought through a partner",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/purchases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "purchases"
+              ]
+            }
+          }
+        },
+        {
+          "name": "A partner reports a purchase",
+          "request": {
+            "method": "POST",
+            "description": "Signed with the partner's secret (Standard Webhooks). Replays and retries of a delivery already recorded answer 200 with the same purchase.",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/partners/purchases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "partners",
+                "purchases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": \"evt_8xk2\",\n  \"isbn\": \"9780140449136\",\n  \"purchased_at\": \"2026-09-15T12:00:00Z\",\n  \"title\": \"The Odyssey\",\n  \"user_id\": \"usr_2n4k\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Shelves",
       "item": [
         {
