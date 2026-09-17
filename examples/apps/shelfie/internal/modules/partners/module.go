@@ -20,16 +20,26 @@ import (
 
 // docs:start module
 
-// Module returns the partners module. secrets are the partner's webhook
-// signing secrets, which main.go reads from the environment: the module
-// takes what it needs instead of reading the environment itself.
-func Module(partner string, secrets []string) gorbital.Module {
-	v, err := newVerifier(secrets)
+// Module returns the partners module. secrets reads the partner's webhook
+// signing secrets when the app starts; main.go supplies it, so the module
+// never reads the environment itself. A problem reading them, or a secret
+// the library won't take, stops the app before it listens, with the other
+// configuration errors.
+func Module(partner string, secrets func() ([]string, error)) gorbital.Module {
+	// Until Platform runs, and while the OpenAPI document is exported
+	// without any configuration, nothing is trusted.
+	v := webhook.Verifier(refuseEverything{})
 	return gorbital.Module{
 		Name: "partners",
-		// A secret the library won't take stops the app before it listens,
-		// with the other configuration errors.
-		Platform: func(*gorbital.Platform) error { return err },
+		Platform: func(*gorbital.Platform) error {
+			list, err := secrets()
+			if err != nil {
+				return err
+			}
+			verifier, err := newVerifier(list)
+			v = verifier
+			return err
+		},
 		Errors: []httpx.Mapping{
 			{Err: domain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
 			{Err: domain.ErrInvalidEventID, Status: http.StatusUnprocessableEntity, Code: "invalid_event_id", Detail: "an event ID is 1 to 100 characters of letters, digits, '.', ':', '-' or '_'"},

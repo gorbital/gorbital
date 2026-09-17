@@ -30,12 +30,17 @@ const testSecret = "whsec_" + "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcY" // gitleaks:all
 
 const partner = "pagebound"
 
+// secrets stands in for main.go's reader of PARTNER_WEBHOOK_SECRET.
+func secrets(list ...string) func() ([]string, error) {
+	return func() ([]string, error) { return list, nil }
+}
+
 // newApp builds the app with the partners module, configured for the
 // partner, as main.go wires it.
 func newApp(t *testing.T) *gorbitaltest.App {
 	t.Helper()
 	return gorbitaltest.New(t,
-		gorbital.WithModules(partners.Module(partner, []string{testSecret})),
+		gorbital.WithModules(partners.Module(partner, secrets(testSecret))),
 		gorbital.WithMigrations(migrations.FS),
 	)
 }
@@ -218,7 +223,7 @@ func TestPurchasesAreTheReadersOwn(t *testing.T) {
 // trusting it, and still serves the route.
 func TestWithoutASecretEveryDeliveryIsRefused(t *testing.T) {
 	app := gorbitaltest.New(t,
-		gorbital.WithModules(partners.Module(partner, nil)),
+		gorbital.WithModules(partners.Module(partner, secrets())),
 		gorbital.WithMigrations(migrations.FS),
 	)
 	now := time.Now()

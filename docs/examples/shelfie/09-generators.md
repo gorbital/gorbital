@@ -59,6 +59,9 @@ The table, with a constraint per rule and an index per sort:
 
 <!-- include examples/apps/shelfie/db/migrations/20260920000002_shelves.sql -->
 
+> [!NOTE]
+> A generated migration's version is the time you run the command, and always after the app's newest one, so an existing database has nothing to apply out of order. The file in `examples/apps/shelfie` carries an earlier version than the chapters before this one, because the app was built in a different order from the one you read it in; yours will be the newest.
+
 Migrate and test:
 
 ```bash
@@ -106,6 +109,8 @@ DELETE  /v1/shelves/{id}                  shelves-delete                        
 21 routes, 2 public
 ```
 
+That is Shelfie as this chapter leaves it; [chapter 10](10-hardening.md) adds the partner routes, so the finished app in `examples/apps/shelfie` prints two more.
+
 `--app` keeps the routes in Shelfie's source. Without it, `orb routes` lists the library modules' routes too, with no source: sign-in's `/v1/auth/…`, `/ops/…`, `/v1/flags`, the organisations module's `/v1/orgs/…` and `/v1/invitations/…`, and `/version`, 177 in all. Shelfie's only public routes are phone sign-in's two ([chapter 7](07-phone-code-sign-in.md)), which say `guard.Public()`: deny by default holds for everything else Shelfie wrote. `orb routes --public` lists what needs no sign-in (the sign-in routes, phone sign-in's and `/version`), `--module shelves` one module, and `--json` is for scripts and CI (for example, failing a build when a new public route appears). The Dev Portal's Routes screen shows the same guards and sources, and opens a source in your editor.
 
 ## Middleware and guards
@@ -140,4 +145,4 @@ orb doctor --fast
 
 ## Next
 
-[10. Hardening and partners](../../guides/security-layers.md): timeouts, IP allow lists and verified webhooks (chapter in progress).
+[10. Hardening and partners](10-hardening.md): a partner's signed webhooks, timeouts, the `/ops` IP allow list and per-route rate limits.

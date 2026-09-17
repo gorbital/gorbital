@@ -28,12 +28,12 @@ func main() {
 	gorbital.Main(
 		gorbital.WithName("shelfie"),
 		gorbital.WithAuth(auth),
-		gorbital.WithModules(opshttp.Module(), flagshttp.Module()),           // /ops/ and /v1/flags, built in
-		gorbital.WithModules(modules.All()...),                               // internal/modules/modules.gen.go
-		gorbital.WithModules(phonelogin.Module(auth, smsSender())),           // takes the authenticator, so it's added here
-		gorbital.WithModules(partners.Module(partnerName, partnerSecrets())), // the bookshop's signed purchase webhooks; partners.go
-		gorbital.WithModules(orgshttp.Module(auth)),                          // book clubs: organisations, members and invitations
-		gorbital.WithMigrations(migrations.FS),                               // db/migrations
+		gorbital.WithModules(opshttp.Module(), flagshttp.Module()),         // /ops/ and /v1/flags, built in
+		gorbital.WithModules(modules.All()...),                             // internal/modules/modules.gen.go
+		gorbital.WithModules(phonelogin.Module(auth, smsSender())),         // takes the authenticator, so it's added here
+		gorbital.WithModules(partners.Module(partnerName, partnerSecrets)), // the bookshop's signed purchase webhooks; partners.go
+		gorbital.WithModules(orgshttp.Module(auth)),                        // book clubs: organisations, members and invitations
+		gorbital.WithMigrations(migrations.FS),                             // db/migrations
 	)
 }
 
