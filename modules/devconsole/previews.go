@@ -117,8 +117,10 @@ func (c *Console) previewEndpoints() []endpoint {
 				to = previewSampleTo
 			}
 			if _, err := mail.ParseAddress(to); err != nil {
+				// The address came from the request: answer 400 here and
+				// return nil, which tells serve the response is written.
 				httpx.WriteProblem(w, r, httpx.NewProblem(http.StatusBadRequest, "invalid_address", "to must be an email address"))
-				return nil
+				return nil //nolint:nilerr // the bad address is answered as a problem, not raised
 			}
 			m, err := p.Build(r.Context(), name, to)
 			if err != nil {
