@@ -25,6 +25,7 @@ import (
 	"gorbital.dev/cli/internal/genplan"
 	"gorbital.dev/cli/internal/pgmeta"
 	"gorbital.dev/cli/internal/portal"
+	"gorbital.dev/cli/internal/tunnel"
 )
 
 const devUsage = `Usage: orb dev [flags]
@@ -41,6 +42,16 @@ It also serves the Dev Portal at http://127.0.0.1:3100 (DEV_PORTAL_PORT or
 output, its routes, jobs, logs and email, and the generators, in one place
 (docs/guides/dev-portal.md). Its link carries a token that is new on every
 run; the portal answers only this machine.
+
+--tunnel quick or --tunnel named also exposes the app, and only the app, on
+a public HTTPS address with your own cloudflared (docs/dev-portal/tunnel.md):
+quick gets a random trycloudflare.com URL that changes on every run (for
+webhooks and phones); named uses the tunnel you created in the Cloudflare
+dashboard, its token from CLOUDFLARE_TUNNEL_TOKEN in .env and its hostname
+from --tunnel-hostname or ORB_TUNNEL_HOSTNAME (for Google, Apple and GitHub
+sign-in and passkeys). The Dev Portal's Tunnel screen starts and stops it
+too. Exit status 2 for a wrong --tunnel value, 1 when the tunnel can't start
+(cloudflared missing, APP_ENV not development, a missing token or hostname).
 `
 
 // watchIgnored are directories never watched for changes.
@@ -59,6 +70,8 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 	portalPort := flags.String("portal-port", "", "port the Dev Portal listens on (default DEV_PORTAL_PORT in .env, or "+defaultPortalPort+")")
 	noPortal := flags.Bool("no-portal", false, "don't serve the Dev Portal")
 	noOpen := flags.Bool("no-open", false, "don't open the Dev Portal in a browser")
+	tunnelMode := flags.String("tunnel", "", "expose the app on a public HTTPS address with cloudflared: quick or named")
+	tunnelHostname := flags.String("tunnel-hostname", "", "a named tunnel's public hostname (default ORB_TUNNEL_HOSTNAME, or the one saved from the Dev Portal)")
 	flags.Usage = func() {
 		fmt.Fprint(stderr, devUsage+"\nFlags:\n")
 		flags.PrintDefaults()
@@ -68,6 +81,14 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 	}
 	if flags.NArg() > 0 {
 		return usageError("orb dev takes no arguments")
+	}
+	if *tunnelMode != "" {
+		if _, err := tunnel.ParseMode(*tunnelMode); err != nil {
+			return usageError("--tunnel: " + err.Error())
+		}
+	}
+	if *tunnelHostname != "" && *tunnelMode != string(tunnel.ModeNamed) {
+		return usageError("--tunnel-hostname is for --tunnel named")
 	}
 	manifest, err := os.ReadFile("gorbital.yaml")
 	if err != nil {
@@ -82,6 +103,7 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 	d.portal = !*noPortal
 	d.portalPortFlag = *portalPort
 	d.openBrowser = !*noOpen
+	d.tunnelMode = tunnel.Mode(*tunnelMode)
 	if err := d.prepare(ctx); err != nil {
 		return err
 	}
@@ -90,6 +112,13 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 		return err
 	}
 	defer stopPortal()
+	// The tunnel stops before the portal, on every way out of orb dev.
+	defer d.tunnel.Close()
+	if d.tunnelMode != "" {
+		if err := d.tunnel.Start(ctx, tunnel.StartOptions{Mode: d.tunnelMode, Hostname: *tunnelHostname}); err != nil {
+			return fmt.Errorf("the tunnel can't start: %w", err)
+		}
+	}
 	return d.loop(ctx, !*noReload, *interval)
 }
 
@@ -133,8 +162,11 @@ type devRunner struct {
 	mailStore          *devmail.Store        // the mail catcher's inbox, when it runs (ADR-0074)
 	mailServer         *devmail.Server
 	mailAddr           string
-	server             *portal.Server
-	open               func(url string) error // opens a URL in the browser; tests replace it
+	// tunnel runs cloudflared (ADR-0086); tunnelMode is --tunnel's.
+	tunnel     *tunnel.Manager
+	tunnelMode tunnel.Mode
+	server     *portal.Server
+	open       func(url string) error // opens a URL in the browser; tests replace it
 	// db is the portal's connection to the app's database, opened on the
 	// first request that needs it (ADR-0067).
 	dbMu sync.Mutex
@@ -181,7 +213,7 @@ const (
 func newDevRunner(out io.Writer) *devRunner {
 	hub := portal.NewHub()
 	dir, _ := os.Getwd()
-	return &devRunner{
+	d := &devRunner{
 		out:      io.MultiWriter(out, hub.Writer("orb")),
 		rawOut:   out,
 		bin:      filepath.Join(".orb", "api"),
@@ -205,6 +237,17 @@ func newDevRunner(out io.Writer) *devRunner {
 		},
 		lookPath: exec.LookPath,
 	}
+	d.tunnel = tunnel.New(tunnel.Config{
+		Dir: dir,
+		Env: func() []string {
+			env, _ := devEnv(".env")
+			return withAppEnv(env)
+		},
+		Target:   func() (string, error) { return d.Status().URL, nil },
+		OnChange: hub.SetTunnel,
+		Logf:     func(format string, args ...any) { fmt.Fprintf(d.out, format+"\n", args...) },
+	})
+	return d
 }
 
 // composeService is a service in the app's compose.yaml and the .env
@@ -459,6 +502,9 @@ func (d *devRunner) banner(env []string) {
 			fmt.Fprintln(d.out, "    Open the link above; it holds this run's token")
 		}
 	}
+	if d.tunnelMode != "" {
+		fmt.Fprintf(d.out, "  ✓ Tunnel     a %s tunnel to the app starts next; its URL follows (docs/dev-portal/tunnel.md)\n", d.tunnelMode)
+	}
 	if d.observability {
 		fmt.Fprintf(d.out, "  ✓ Grafana    http://127.0.0.1:%s (traces, metrics and logs)\n", envValue(env, "GRAFANA_PORT", "3000"))
 	} else if _, err := os.Stat("compose.yaml"); err == nil {
@@ -684,6 +730,8 @@ func (d *devRunner) start() error {
 	d.pid, d.startedAt, d.addr = cmd.Process.Pid, time.Now(), appAddr(env)
 	d.mu.Unlock()
 	d.setState(portal.StateRunning, "")
+	// A quick tunnel follows the app to a new port.
+	d.tunnel.TargetChanged(context.Background())
 	return nil
 }
 
@@ -696,6 +744,10 @@ func (d *devRunner) appEnv(env []string) []string {
 	if envValue(env, "APP_LOG_FORMAT", "") == "" {
 		env = append(env, "APP_LOG_FORMAT=json")
 	}
+	// The tunnel's token is cloudflared's, not the app's (ADR-0086).
+	env = slices.DeleteFunc(env, func(kv string) bool {
+		return strings.HasPrefix(kv, tunnel.TokenVar+"=") || strings.HasPrefix(kv, tunnel.TokenFileVar+"=")
+	})
 	return append(env, d.extraEnv...)
 }
 

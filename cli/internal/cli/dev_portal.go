@@ -26,6 +26,7 @@ import (
 	"gorbital.dev/cli/internal/portal"
 	"gorbital.dev/cli/internal/portal/ui"
 	"gorbital.dev/cli/internal/routes"
+	"gorbital.dev/cli/internal/tunnel"
 )
 
 // The Dev Portal (ADR-0066): orb dev serves the portal's UI and API on a
@@ -229,6 +230,7 @@ func (d *devRunner) portalConfig() portal.Config {
 		Git:             portal.NewGit(d.dir),
 		ProjectSettings: portal.ProjectConfig{Settings: d.projectSettings, ResetDatabase: d.resetDatabase},
 		Routes:          d.routes,
+		Tunnel:          portal.TunnelConfig{Manager: d.tunnel, Setup: d.tunnelSetup},
 		OpenInEditor:    func(path string, line int) error { return openInEditor(d.dir, path, line) },
 		Health:          d.health,
 		Database:        d.databaseConfig(),
@@ -818,6 +820,36 @@ func fetchOpenAPI(ctx context.Context, url string) ([]byte, error) {
 		return nil, fmt.Errorf("GET %s: %s", url, res.Status)
 	}
 	return io.ReadAll(io.LimitReader(res.Body, 32<<20))
+}
+
+// tunnelSetup proposes the .env changes and lists the provider addresses
+// for a running tunnel (ADR-0086), from the app's routes when it serves its
+// OpenAPI document.
+func (d *devRunner) tunnelSetup(ctx context.Context, status tunnel.Status) (tunnel.Setup, error) {
+	env, err := devEnv(".env")
+	if err != nil {
+		return tunnel.Setup{}, err
+	}
+	env = withAppEnv(env)
+	in := tunnel.SetupInput{Status: status, Env: env}
+	if _, port, err := net.SplitHostPort(appAddr(env)); err == nil {
+		in.AppPort = port
+	}
+	if app := d.Status(); app.State == portal.StateRunning {
+		if doc, err := fetchOpenAPI(ctx, app.URL+"/openapi.json"); err == nil {
+			if list, err := routes.Build(d.project().Name, d.dir, doc, routes.SourceApp); err == nil {
+				in.RoutesKnown = true
+				for _, r := range list.Routes {
+					in.Routes = append(in.Routes, tunnel.Route{Method: r.Method, Path: r.Path})
+				}
+			}
+		}
+	}
+	setup, ok := tunnel.BuildSetup(in)
+	if !ok {
+		return tunnel.Setup{}, &tunnel.Error{Code: tunnel.CodeNotConnected, Detail: "the tunnel has no public URL yet"}
+	}
+	return setup, nil
 }
 
 // shouldOpenBrowser reports whether orb dev may open a browser: only when
