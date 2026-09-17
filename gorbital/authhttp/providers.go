@@ -90,13 +90,11 @@ func writeSignInMethods(w io.Writer, cfg gorbital.Config) {
 	_ = tw.Flush()
 }
 
-// reportSignInMethods prints the sign-in methods in development and logs
-// which are configured in production, as a v0.1 app does when it starts.
-func (a *Authenticator) reportSignInMethods(ctx context.Context, cfg gorbital.Config, logger *slog.Logger) {
-	if !cfg.Production() {
-		writeSignInMethods(a.stdout, cfg)
-		return
-	}
+// reportSignInMethods logs which sign-in methods are configured when the
+// app is built. A v0.1 app printed the table of writeSignInMethods in
+// development when it started; the auth-providers command prints it, and
+// the log lines stay out of test output.
+func reportSignInMethods(ctx context.Context, cfg gorbital.Config, logger *slog.Logger) {
 	for _, m := range signInMethods(cfg) {
 		logger.InfoContext(ctx, "sign-in method", "method", m.Key, "configured", m.Enabled)
 	}

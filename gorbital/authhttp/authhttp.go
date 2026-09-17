@@ -27,10 +27,8 @@ package authhttp
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 
@@ -61,8 +59,6 @@ type Authenticator struct {
 
 	// endpoints point Google, Apple and GitHub at a fake provider in tests.
 	endpoints providerEndpoints
-	// stdout receives the sign-in methods New reports in development.
-	stdout io.Writer
 }
 
 // New returns sign-in for an app, configured from the environment variables
@@ -70,7 +66,7 @@ type Authenticator struct {
 // APPLE_*, GITHUB_*, APP_PUBLIC_URL, AUTH_DEFAULT_RETURN_TO): each sign-in
 // method is on when its variables are set. Use one Authenticator per app.
 func New() *Authenticator {
-	return &Authenticator{settings: &authSettings{}, stdout: os.Stdout}
+	return &Authenticator{settings: &authSettings{}}
 }
 
 // Middleware authenticates each request with its session cookie
@@ -182,7 +178,7 @@ func (a *Authenticator) Setup(ctx context.Context, s gorbital.AuthSetup) error {
 
 	a.mountWellKnown(s)
 	s.MailPreviews(authlib.BrandedEmailPreviews(brand(s.Name, s.Config))...)
-	a.reportSignInMethods(ctx, s.Config, d.Logger)
+	reportSignInMethods(ctx, s.Config, d.Logger)
 	return nil
 }
 
