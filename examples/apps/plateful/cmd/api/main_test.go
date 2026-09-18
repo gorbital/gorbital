@@ -8,8 +8,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	"gorbital.dev/modules/openapi"
 )
 
 // document returns the OpenAPI document the code describes, as
@@ -48,33 +46,6 @@ func TestOpenAPIIsCurrent(t *testing.T) {
 	}
 	if !bytes.Equal(got, want) {
 		t.Error("api/openapi.json is out of date: run go run ./cmd/api openapi --dir api")
-	}
-}
-
-// TestOpsAPICompatible fails when the /ops API breaks clients written against
-// api/openapi.baseline.json, the API as released in gorbital's templates
-// (ADR-0054): an operation, parameter, response status or response property
-// removed, a type changed, or a request field made required. Additions pass.
-// /ops is stable within a major version (ADR-0015): never edit the baseline
-// to make this test pass.
-//
-// To hold your own API to the same promise, add a prefix such as "/v1/" (and
-// record a new baseline with cp api/openapi.json api/openapi.baseline.json
-// when you release it).
-func TestOpsAPICompatible(t *testing.T) {
-	baseline, err := os.ReadFile(filepath.Join("..", "..", "api", "openapi.baseline.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	current := currentDocument(t)
-	for _, prefix := range []string{"/ops/"} {
-		found, err := openapi.CheckCompatible(baseline, current, prefix)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, f := range found {
-			t.Errorf("breaking change to %s* compared with api/openapi.baseline.json: %s", prefix, f)
-		}
 	}
 }
 

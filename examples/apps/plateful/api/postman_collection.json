@@ -4916,7 +4916,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"ada@example.com\",\n  \"password\": \"string\"\n}",
+              "raw": "{\n  \"display_name\": \"string\",\n  \"email\": \"ada@example.com\",\n  \"password\": \"string\",\n  \"address\": \"string\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5177,15 +5177,21 @@
       ]
     },
     {
-      "name": "Example",
+      "name": "Couriers",
       "item": [
         {
-          "name": "Echo a message",
+          "name": "Register as a courier",
           "request": {
             "method": "POST",
-            "description": "Returns the trimmed message. Blank messages are rejected with the `message_required` error code.",
+            "description": "One profile per account: registering twice fails with `courier_already_registered`. A new courier starts off duty.",
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
             },
             "header": [
               {
@@ -5199,18 +5205,18 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/v1/echo",
+              "raw": "{{baseUrl}}/v1/couriers",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "v1",
-                "echo"
+                "couriers"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"message\": \"hello\"\n}",
+              "raw": "{\n  \"display_name\": \"string\",\n  \"vehicle\": \"bicycle\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5220,22 +5226,431 @@
           }
         },
         {
-          "name": "Check the API is reachable",
+          "name": "Get your courier profile",
           "request": {
             "method": "GET",
             "auth": {
-              "type": "noauth"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
             },
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/v1/ping",
+              "raw": "{{baseUrl}}/v1/couriers/me",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "v1",
-                "ping"
+                "couriers",
+                "me"
               ]
+            }
+          }
+        },
+        {
+          "name": "Change your courier profile",
+          "request": {
+            "method": "PATCH",
+            "description": "Send the fields to change and the `version` you read. You can't go off duty while you are carrying an order: that is `courier_on_delivery`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/couriers/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "couriers",
+                "me"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 1,\n  \"available\": false,\n  \"display_name\": \"string\",\n  \"vehicle\": \"bicycle\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ordering",
+      "item": [
+        {
+          "name": "List the orders assigned to you as a courier",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/deliveries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "deliveries"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0",
+                  "description": "Maximum number of items to return (default 20, max 100)",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "Opaque cursor from a previous response's next_cursor",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "-created_at",
+                  "description": "Comma-separated sort fields; prefix a field with - for descending order",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "placed",
+                  "description": "Only orders with this status",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Only orders placed at or after this time (RFC 3339)",
+                  "disabled": true
+                },
+                {
+                  "key": "before",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Only orders placed before this time (RFC 3339)",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List the orders you placed",
+          "request": {
+            "method": "GET",
+            "description": "Newest first unless `sort` says otherwise; sort by `placed_at` or `total_minor`. Paginate with `cursor`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0",
+                  "description": "Maximum number of items to return (default 20, max 100)",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "Opaque cursor from a previous response's next_cursor",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "-created_at",
+                  "description": "Comma-separated sort fields; prefix a field with - for descending order",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "placed",
+                  "description": "Only orders with this status",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Only orders placed at or after this time (RFC 3339)",
+                  "disabled": true
+                },
+                {
+                  "key": "before",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Only orders placed before this time (RFC 3339)",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get an order you placed or are carrying",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orders",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel an order you placed",
+          "request": {
+            "method": "POST",
+            "description": "Until the kitchen has it ready.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders/:id/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orders",
+                ":id",
+                "cancel"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Collect an order you are carrying",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders/:id/collect",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orders",
+                ":id",
+                "collect"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Deliver an order you are carrying",
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders/:id/deliver",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orders",
+                ":id",
+                "deliver"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Place an order",
+          "request": {
+            "method": "POST",
+            "description": "Prices the basket from the restaurant's menu and records the order. Send an `Idempotency-Key` header to make a retry safe.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/restaurants/:restaurantId/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "restaurants",
+                ":restaurantId",
+                "orders"
+              ],
+              "variable": [
+                {
+                  "key": "restaurantId",
+                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"item_id\": \"string\",\n      \"quantity\": 1\n    }\n  ],\n  \"address\": \"string\",\n  \"note\": \"string\",\n  \"scheduled_for\": \"2026-09-15T12:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         }
@@ -6550,13 +6965,53 @@
       ]
     },
     {
-      "name": "Projects",
+      "name": "Payments",
       "item": [
         {
-          "name": "List the organisation's projects",
+          "name": "Pay for your order",
+          "request": {
+            "method": "POST",
+            "description": "Creates a pending payment with the provider and returns its reference; the provider confirms it later by webhook, and the restaurant may not accept the order until it does.\n\nThe call is idempotent twice over. An order that already has a pending payment gets that payment back rather than a second one. And, like every POST in this API, sending an `Idempotency-Key` header makes a retry with the same key return the first response, with `Idempotent-Replayed: true`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders/:orderId/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orders",
+                ":orderId",
+                "pay"
+              ],
+              "variable": [
+                {
+                  "key": "orderId",
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get your order's payment",
           "request": {
             "method": "GET",
-            "description": "Newest first unless `sort` says otherwise; sort by one of `created_at`, `updated_at` or `name`. Paginate with `cursor`.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -6568,7 +7023,249 @@
             },
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/v1/orgs/:orgId/projects",
+              "raw": "{{baseUrl}}/v1/orders/:orderId/payment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orders",
+                ":orderId",
+                "payment"
+              ],
+              "variable": [
+                {
+                  "key": "orderId",
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Receive a payment event",
+          "request": {
+            "method": "POST",
+            "description": "The payment provider's webhook, signed with the Standard Webhooks scheme. An event is applied once however often it is delivered, and an event type this app doesn't act on is accepted and ignored so the provider stops retrying it.",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "webhooks",
+                "payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_01J8Z\",\n  \"type\": \"payment.authorised\",\n  \"data\": {\n    \"payment_id\": \"pay_mfrggzdfmztwq2lkmfrggzdfmy\",\n    \"reason\": \"string\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "Review a delivered order",
+          "request": {
+            "method": "POST",
+            "description": "Rate the order 1 to 5 and say why. One review per order, and only once the order has been delivered to you.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orders/:orderId/review",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orders",
+                ":orderId",
+                "review"
+              ],
+              "variable": [
+                {
+                  "key": "orderId",
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 1,\n  \"comment\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Read a restaurant's reviews",
+          "request": {
+            "method": "GET",
+            "description": "Newest first, with the restaurant's review count and average rating. Paginate with `cursor`. No sign-in: a diner choosing where to eat has no account yet.",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/restaurants/:restaurantId/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "restaurants",
+                ":restaurantId",
+                "reviews"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0",
+                  "description": "Maximum number of items to return (default 20, max 100)",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "Opaque cursor from a previous response's next_cursor",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "-created_at",
+                  "description": "Comma-separated sort fields; prefix a field with - for descending order",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "restaurantId",
+                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change your review",
+          "request": {
+            "method": "PATCH",
+            "description": "Within 24 hours of writing it; after that the review is history. Send the `version` you read.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/reviews/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "reviews",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "rev_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 1,\n  \"version\": 1,\n  \"comment\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "List the couriers who are free",
+          "request": {
+            "method": "GET",
+            "description": "Couriers belong to no restaurant: this proves you are a restaurant's staff, not that these couriers are yours.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/available-couriers",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -6576,7 +7273,49 @@
                 "v1",
                 "orgs",
                 ":orgId",
-                "projects"
+                "available-couriers"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List your restaurant's orders",
+          "request": {
+            "method": "GET",
+            "description": "Newest first unless `sort` says otherwise; sort by `placed_at` or `total_minor`; narrow by `status`, `courier_id` and a date range. Paginate with `cursor`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "orders"
               ],
               "query": [
                 {
@@ -6599,8 +7338,26 @@
                 },
                 {
                   "key": "status",
-                  "value": "active",
-                  "description": "Only projects with this status",
+                  "value": "placed",
+                  "description": "Only orders with this status",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Only orders placed at or after this time (RFC 3339)",
+                  "disabled": true
+                },
+                {
+                  "key": "before",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "Only orders placed before this time (RFC 3339)",
+                  "disabled": true
+                },
+                {
+                  "key": "courier_id",
+                  "value": "string",
+                  "description": "Only orders carried by this courier",
                   "disabled": true
                 }
               ],
@@ -6614,7 +7371,143 @@
           }
         },
         {
-          "name": "Create a project",
+          "name": "Count a day's orders",
+          "request": {
+            "method": "GET",
+            "description": "Orders by status, the revenue of the delivered ones, the average time in the kitchen, and the busiest hour.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/orders/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "orders",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "The start of the period (RFC 3339); the last 24 hours by default",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "2026-09-15T12:00:00Z",
+                  "description": "The end of the period, exclusive (RFC 3339)",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get one of your restaurant's orders",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/orders/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "orders",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Accept an order",
+          "request": {
+            "method": "POST",
+            "description": "Only once its payment is authorised.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/orders/:id/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "orders",
+                ":id",
+                "accept"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Give an order to a courier",
           "request": {
             "method": "POST",
             "auth": {
@@ -6638,7 +7531,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/v1/orgs/:orgId/projects",
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/orders/:id/courier",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -6646,18 +7539,24 @@
                 "v1",
                 "orgs",
                 ":orgId",
-                "projects"
+                "orders",
+                ":id",
+                "courier"
               ],
               "variable": [
                 {
                   "key": "orgId",
                   "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
                 }
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"string\",\n  \"description\": \"string\",\n  \"status\": \"active\"\n}",
+              "raw": "{\n  \"courier_id\": \"cur_mfrggzdfmztwq2lkmfrggzdfmy\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6667,9 +7566,9 @@
           }
         },
         {
-          "name": "Get a project",
+          "name": "Start preparing an order",
           "request": {
-            "method": "GET",
+            "method": "POST",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -6679,9 +7578,15 @@
                 }
               ]
             },
-            "header": [],
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
             "url": {
-              "raw": "{{baseUrl}}/v1/orgs/:orgId/projects/:id",
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/orders/:id/preparing",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -6689,8 +7594,9 @@
                 "v1",
                 "orgs",
                 ":orgId",
-                "projects",
-                ":id"
+                "orders",
+                ":id",
+                "preparing"
               ],
               "variable": [
                 {
@@ -6699,17 +7605,63 @@
                 },
                 {
                   "key": "id",
-                  "value": "prj_mfrggzdfmztwq2lkmfrggzdfmy"
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
                 }
               ]
             }
           }
         },
         {
-          "name": "Update a project",
+          "name": "Mark an order ready",
           "request": {
-            "method": "PATCH",
-            "description": "Send the fields to change and the `version` you read.",
+            "method": "POST",
+            "description": "A courier is assigned automatically when the `orders.courier_auto_assign` flag is on for your restaurant.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/orders/:id/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "orders",
+                ":id",
+                "ready"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reject an order",
+          "request": {
+            "method": "POST",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -6731,7 +7683,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/v1/orgs/:orgId/projects/:id",
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/orders/:id/reject",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -6739,8 +7691,9 @@
                 "v1",
                 "orgs",
                 ":orgId",
-                "projects",
-                ":id"
+                "orders",
+                ":id",
+                "reject"
               ],
               "variable": [
                 {
@@ -6749,13 +7702,13 @@
                 },
                 {
                   "key": "id",
-                  "value": "prj_mfrggzdfmztwq2lkmfrggzdfmy"
+                  "value": "ord_mfrggzdfmztwq2lkmfrggzdfmy"
                 }
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"version\": 1,\n  \"description\": \"string\",\n  \"name\": \"string\",\n  \"status\": \"active\"\n}",
+              "raw": "{\n  \"reason\": \"string\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6763,11 +7716,17 @@
               }
             }
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "Dispatch",
+      "item": [
         {
-          "name": "Delete a project",
+          "name": "List the couriers available right now",
           "request": {
-            "method": "DELETE",
+            "method": "GET",
+            "description": "The couriers on duty and carrying nothing, for a restaurant choosing who to send an order out with. They are the platform's couriers, not the organisation's: a courier delivers for many restaurants.",
             "auth": {
               "type": "bearer",
               "bearer": [
@@ -6779,7 +7738,7 @@
             },
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/v1/orgs/:orgId/projects/:id",
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/couriers",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -6787,7 +7746,109 @@
                 "v1",
                 "orgs",
                 ":orgId",
-                "projects",
+                "couriers"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "How many couriers to return at most",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Images",
+      "item": [
+        {
+          "name": "Ask for somewhere to upload an image",
+          "request": {
+            "method": "POST",
+            "description": "Creates a pending image and returns `upload_url`, a signed URL that accepts one `PUT` of the file until `upload_expires_at`. Send the bytes there with the same `Content-Type`, then call the confirm route. The URL accepts `PUT` only: there is no upload form and no multipart endpoint.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/images",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "images"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content_type\": \"image/jpeg\",\n  \"purpose\": \"restaurant_cover\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get an image and a link to it",
+          "request": {
+            "method": "GET",
+            "description": "Returns a signed download URL that expires in five minutes, so a link that leaks stops working almost at once. Read the image again for a fresh one.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/images/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "images",
                 ":id"
               ],
               "variable": [
@@ -6797,7 +7858,976 @@
                 },
                 {
                   "key": "id",
-                  "value": "prj_mfrggzdfmztwq2lkmfrggzdfmy"
+                  "value": "img_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete an image",
+          "request": {
+            "method": "DELETE",
+            "description": "Removes the file from the bucket and the image from the organisation.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/images/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "images",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "img_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Confirm an image was uploaded",
+          "request": {
+            "method": "POST",
+            "description": "Looks the object up in the bucket and records its real size and media type. Answers 409 `image_not_uploaded` when nothing is there, and 422 when the file is larger than `images.max_bytes` or isn't an accepted image type.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/images/:id/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "images",
+                ":id",
+                "confirm"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "img_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Menu",
+      "item": [
+        {
+          "name": "List your whole menu",
+          "request": {
+            "method": "GET",
+            "description": "Every dish, available or not. By name unless `sort` says otherwise; sort by `name`, `price_minor` or `created_at`. Filter with `section` and `available`, paginate with `cursor`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/menu/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "menu",
+                "items"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0",
+                  "description": "Maximum number of items to return (default 20, max 100)",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "Opaque cursor from a previous response's next_cursor",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "-created_at",
+                  "description": "Comma-separated sort fields; prefix a field with - for descending order",
+                  "disabled": true
+                },
+                {
+                  "key": "section",
+                  "value": "string",
+                  "description": "Only dishes printed under this heading",
+                  "disabled": true
+                },
+                {
+                  "key": "available",
+                  "value": "true",
+                  "description": "Only the dishes that are, or aren't, available",
+                  "disabled": true
+                }
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add a dish to your menu",
+          "request": {
+            "method": "POST",
+            "description": "`price_minor` is the price in minor units: 950 is £9.50. Leave `stock` out for a dish you never run out of.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/menu/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "menu",
+                "items"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"price_minor\": 950,\n  \"section\": \"Starters\",\n  \"available\": false,\n  \"currency\": \"GBP\",\n  \"description\": \"string\",\n  \"dietary\": [\n    \"string\"\n  ],\n  \"photo_image_id\": \"string\",\n  \"position\": 0,\n  \"stock\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Get one dish",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/menu/items/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "menu",
+                "items",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "mnu_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change a dish",
+          "request": {
+            "method": "PATCH",
+            "description": "Send the fields to change and the `version` you read. Set `available` to false when the kitchen runs out; the dish stays on your menu and leaves the customers' one.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/menu/items/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "menu",
+                "items",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "mnu_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"version\": 1,\n  \"available\": false,\n  \"currency\": \"string\",\n  \"description\": \"string\",\n  \"dietary\": [\n    \"string\"\n  ],\n  \"name\": \"string\",\n  \"photo_image_id\": \"string\",\n  \"position\": 0,\n  \"price_minor\": 0,\n  \"section\": \"string\",\n  \"stock\": 0,\n  \"unlimited\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Delete a dish",
+          "request": {
+            "method": "DELETE",
+            "description": "For a dish that should never have existed. To stop selling one tonight, set `available` to false instead.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/menu/items/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "menu",
+                "items",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "mnu_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List the restaurant's notification endpoints",
+          "request": {
+            "method": "GET",
+            "description": "Each endpoint comes back with the host it posts to and how the last delivery went. The URL itself is never returned.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/notification-endpoints",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "notification-endpoints"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register a notification endpoint",
+          "request": {
+            "method": "POST",
+            "description": "Tells Plateful where to post this restaurant's alerts. `url` is a Slack-style incoming webhook; it is stored, never returned and never logged. It must be an `https` URL that doesn't point inside a private network.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/notification-endpoints",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "notification-endpoints"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"Kitchen\",\n  \"url\": \"https://hooks.example.com/services/T000/B000/XXXX\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Remove a notification endpoint",
+          "request": {
+            "method": "DELETE",
+            "description": "Stops alerts at once, including deliveries already queued. This is how a leaked webhook URL is revoked.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/notification-endpoints/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "notification-endpoints",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                },
+                {
+                  "key": "id",
+                  "value": "nte_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restaurant",
+      "item": [
+        {
+          "name": "Get your restaurant's profile",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/restaurant",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "restaurant"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create or update your restaurant's profile",
+          "request": {
+            "method": "PUT",
+            "description": "Send `version: 0` to create the profile the organisation doesn't have yet, and the version you read to change it. `status` is one of `onboarding`, `open` or `paused`; only platform staff suspend a restaurant.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/:orgId/restaurant",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                ":orgId",
+                "restaurant"
+              ],
+              "variable": [
+                {
+                  "key": "orgId",
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"string\",\n  \"closes_minute\": 0,\n  \"delivery_radius_m\": 1,\n  \"name\": \"string\",\n  \"opens_minute\": 0,\n  \"version\": 0,\n  \"cover_image_id\": \"string\",\n  \"cuisine\": \"Neapolitan\",\n  \"status\": \"onboarding\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform",
+      "item": [
+        {
+          "name": "Refund a payment",
+          "request": {
+            "method": "POST",
+            "description": "Gives the customer their money back and records why. Platform staff only, and only for a payment that took any: a payment already refunded is refused.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/platform/payments/:id/refund",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "platform",
+                "payments",
+                ":id",
+                "refund"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "pay_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List every restaurant on the platform",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/platform/restaurants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "platform",
+                "restaurants"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0",
+                  "description": "Maximum number of items to return (default 20, max 100)",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "Opaque cursor from a previous response's next_cursor",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "-created_at",
+                  "description": "Comma-separated sort fields; prefix a field with - for descending order",
+                  "disabled": true
+                },
+                {
+                  "key": "cuisine",
+                  "value": "string",
+                  "description": "Only restaurants of this cuisine",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Suspend a restaurant",
+          "request": {
+            "method": "POST",
+            "description": "Stops the restaurant taking orders at once and records why. Platform staff only.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/platform/restaurants/:id/suspend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "platform",
+                "restaurants",
+                ":id",
+                "suspend"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Lift a restaurant's suspension",
+          "request": {
+            "method": "POST",
+            "description": "The restaurant comes back paused; its own staff decide when it opens again.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/platform/restaurants/:id/unsuspend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "platform",
+                "restaurants",
+                ":id",
+                "unsuspend"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Hide an abusive review",
+          "request": {
+            "method": "POST",
+            "description": "Takes the review out of the public list and out of the restaurant's rating, and records why. Platform staff only: a restaurant cannot hide its own reviews.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "string",
+                "description": "A unique value, such as a UUID, that makes retrying this request safe: a retry with the same key and request gets the first response again, with Idempotent-Replayed: true. The same key with another request fails with 422 idempotency_key_reused, and while the first request runs with 409 idempotency_in_progress. Only for signed-in callers; keys and responses are kept for 24 hours by default."
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/platform/reviews/:id/hide",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "platform",
+                "reviews",
+                ":id",
+                "hide"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "rev_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Restaurants",
+      "item": [
+        {
+          "name": "Browse the open restaurants",
+          "request": {
+            "method": "GET",
+            "description": "By name unless `sort` says otherwise; sort by `name` or `created_at`. Paginate with `cursor`.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/restaurants",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "restaurants"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "0",
+                  "description": "Maximum number of items to return (default 20, max 100)",
+                  "disabled": true
+                },
+                {
+                  "key": "cursor",
+                  "value": "string",
+                  "description": "Opaque cursor from a previous response's next_cursor",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "-created_at",
+                  "description": "Comma-separated sort fields; prefix a field with - for descending order",
+                  "disabled": true
+                },
+                {
+                  "key": "cuisine",
+                  "value": "string",
+                  "description": "Only restaurants of this cuisine",
+                  "disabled": true
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get an open restaurant",
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/restaurants/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "restaurants",
+                ":id"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Read an open restaurant's menu",
+          "request": {
+            "method": "GET",
+            "description": "The published menu: sections in order, each with the dishes available right now. A restaurant that isn't open answers 404.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/restaurants/:restaurantId/menu",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "restaurants",
+                ":restaurantId",
+                "menu"
+              ],
+              "variable": [
+                {
+                  "key": "restaurantId",
+                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
                 }
               ]
             }

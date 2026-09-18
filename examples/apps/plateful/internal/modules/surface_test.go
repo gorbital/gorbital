@@ -24,6 +24,7 @@ import (
 	"gorbital.dev/modules/settings"
 
 	"example.com/plateful/internal/modules"
+	"example.com/plateful/internal/modules/notifications"
 )
 
 var updateSurface = flag.Bool("update", false, "record the app's public names in api/surface.json")
@@ -113,8 +114,12 @@ func TestPublicSurface(t *testing.T) {
 	}
 }
 
-// surfaceModules are the app's modules whose names are public API.
-func surfaceModules() []gorbital.Module { return modules.All() }
+// surfaceModules are the app's modules whose names are public API: the ones
+// modules.All lists, and the notifications module, which takes an option and
+// so is added by main.go itself.
+func surfaceModules() []gorbital.Module {
+	return append(modules.All(), notifications.Module())
+}
 
 func compareNames(t *testing.T, kind string, want, got []string) {
 	t.Helper()

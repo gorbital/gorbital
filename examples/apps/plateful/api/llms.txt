@@ -178,10 +178,21 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Get a nonce for a native sign-in](/docs/auth/auth-social-nonce.md): `POST /v1/auth/{provider}/nonce`
 - [Sign in with Google, Apple or GitHub in a browser](/docs/auth/auth-start-social.md): `GET /v1/auth/{provider}/start`
 
-## Example
+## Couriers
 
-- [Echo a message](/docs/example/echo.md): `POST /v1/echo`
-- [Check the API is reachable](/docs/example/ping.md): `GET /v1/ping`
+- [Register as a courier](/docs/couriers/couriers-register.md): `POST /v1/couriers`
+- [Get your courier profile](/docs/couriers/couriers-get-me.md): `GET /v1/couriers/me`
+- [Change your courier profile](/docs/couriers/couriers-update-me.md): `PATCH /v1/couriers/me`
+
+## Ordering
+
+- [List the orders assigned to you as a courier](/docs/ordering/orders-list-deliveries.md): `GET /v1/deliveries`
+- [List the orders you placed](/docs/ordering/orders-list-mine.md): `GET /v1/orders`
+- [Get an order you placed or are carrying](/docs/ordering/orders-get-mine.md): `GET /v1/orders/{id}`
+- [Cancel an order you placed](/docs/ordering/orders-cancel.md): `POST /v1/orders/{id}/cancel`
+- [Collect an order you are carrying](/docs/ordering/orders-collect.md): `POST /v1/orders/{id}/collect`
+- [Deliver an order you are carrying](/docs/ordering/orders-deliver.md): `POST /v1/orders/{id}/deliver`
+- [Place an order](/docs/ordering/orders-place.md): `POST /v1/restaurants/{restaurantId}/orders`
 
 ## Feature flags
 
@@ -219,13 +230,73 @@ Every endpoint below links to its reference page as Markdown. The OpenAPI docume
 - [Go back to the platform value](/docs/organisations/orgs-settings-reset.md): `DELETE /v1/orgs/{orgId}/settings/{key}`
 - [List changes to an organisation setting](/docs/organisations/orgs-settings-history.md): `GET /v1/orgs/{orgId}/settings/{key}/history`
 
-## Projects
+## Payments
 
-- [List the organisation's projects](/docs/projects/projects-list.md): `GET /v1/orgs/{orgId}/projects`
-- [Create a project](/docs/projects/projects-create.md): `POST /v1/orgs/{orgId}/projects`
-- [Get a project](/docs/projects/projects-get.md): `GET /v1/orgs/{orgId}/projects/{id}`
-- [Update a project](/docs/projects/projects-update.md): `PATCH /v1/orgs/{orgId}/projects/{id}`
-- [Delete a project](/docs/projects/projects-delete.md): `DELETE /v1/orgs/{orgId}/projects/{id}`
+- [Pay for your order](/docs/payments/payments-pay.md): `POST /v1/orders/{orderId}/pay`
+- [Get your order's payment](/docs/payments/payments-get.md): `GET /v1/orders/{orderId}/payment`
+- [Receive a payment event](/docs/payments/payments-event.md): `POST /v1/webhooks/payments`
+
+## Reviews
+
+- [Review a delivered order](/docs/reviews/reviews-write.md): `POST /v1/orders/{orderId}/review`
+- [Read a restaurant's reviews](/docs/reviews/reviews-list.md): `GET /v1/restaurants/{restaurantId}/reviews`
+- [Change your review](/docs/reviews/reviews-update.md): `PATCH /v1/reviews/{id}`
+
+## Orders
+
+- [List the couriers who are free](/docs/orders/orders-available-couriers.md): `GET /v1/orgs/{orgId}/available-couriers`
+- [List your restaurant's orders](/docs/orders/orders-list.md): `GET /v1/orgs/{orgId}/orders`
+- [Count a day's orders](/docs/orders/orders-summary.md): `GET /v1/orgs/{orgId}/orders/summary`
+- [Get one of your restaurant's orders](/docs/orders/orders-get.md): `GET /v1/orgs/{orgId}/orders/{id}`
+- [Accept an order](/docs/orders/orders-accept.md): `POST /v1/orgs/{orgId}/orders/{id}/accept`
+- [Give an order to a courier](/docs/orders/orders-assign-courier.md): `POST /v1/orgs/{orgId}/orders/{id}/courier`
+- [Start preparing an order](/docs/orders/orders-preparing.md): `POST /v1/orgs/{orgId}/orders/{id}/preparing`
+- [Mark an order ready](/docs/orders/orders-ready.md): `POST /v1/orgs/{orgId}/orders/{id}/ready`
+- [Reject an order](/docs/orders/orders-reject.md): `POST /v1/orgs/{orgId}/orders/{id}/reject`
+
+## Dispatch
+
+- [List the couriers available right now](/docs/dispatch/couriers-available.md): `GET /v1/orgs/{orgId}/couriers`
+
+## Images
+
+- [Ask for somewhere to upload an image](/docs/images/images-request-upload.md): `POST /v1/orgs/{orgId}/images`
+- [Get an image and a link to it](/docs/images/images-get.md): `GET /v1/orgs/{orgId}/images/{id}`
+- [Delete an image](/docs/images/images-delete.md): `DELETE /v1/orgs/{orgId}/images/{id}`
+- [Confirm an image was uploaded](/docs/images/images-confirm-upload.md): `POST /v1/orgs/{orgId}/images/{id}/confirm`
+
+## Menu
+
+- [List your whole menu](/docs/menu/menus-list-items.md): `GET /v1/orgs/{orgId}/menu/items`
+- [Add a dish to your menu](/docs/menu/menus-create-item.md): `POST /v1/orgs/{orgId}/menu/items`
+- [Get one dish](/docs/menu/menus-get-item.md): `GET /v1/orgs/{orgId}/menu/items/{id}`
+- [Change a dish](/docs/menu/menus-update-item.md): `PATCH /v1/orgs/{orgId}/menu/items/{id}`
+- [Delete a dish](/docs/menu/menus-delete-item.md): `DELETE /v1/orgs/{orgId}/menu/items/{id}`
+
+## Notifications
+
+- [List the restaurant's notification endpoints](/docs/notifications/notifications-endpoints-list.md): `GET /v1/orgs/{orgId}/notification-endpoints`
+- [Register a notification endpoint](/docs/notifications/notifications-endpoints-register.md): `POST /v1/orgs/{orgId}/notification-endpoints`
+- [Remove a notification endpoint](/docs/notifications/notifications-endpoints-remove.md): `DELETE /v1/orgs/{orgId}/notification-endpoints/{id}`
+
+## Restaurant
+
+- [Get your restaurant's profile](/docs/restaurant/restaurants-get.md): `GET /v1/orgs/{orgId}/restaurant`
+- [Create or update your restaurant's profile](/docs/restaurant/restaurants-save.md): `PUT /v1/orgs/{orgId}/restaurant`
+
+## Platform
+
+- [Refund a payment](/docs/platform/payments-refund.md): `POST /v1/platform/payments/{id}/refund`
+- [List every restaurant on the platform](/docs/platform/restaurants-oversee.md): `GET /v1/platform/restaurants`
+- [Suspend a restaurant](/docs/platform/restaurants-suspend.md): `POST /v1/platform/restaurants/{id}/suspend`
+- [Lift a restaurant's suspension](/docs/platform/restaurants-unsuspend.md): `POST /v1/platform/restaurants/{id}/unsuspend`
+- [Hide an abusive review](/docs/platform/reviews-hide.md): `POST /v1/platform/reviews/{id}/hide`
+
+## Restaurants
+
+- [Browse the open restaurants](/docs/restaurants/restaurants-browse.md): `GET /v1/restaurants`
+- [Get an open restaurant](/docs/restaurants/restaurants-view.md): `GET /v1/restaurants/{id}`
+- [Read an open restaurant's menu](/docs/restaurants/menus-view-menu.md): `GET /v1/restaurants/{restaurantId}/menu`
 
 ## Webhooks
 

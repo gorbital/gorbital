@@ -1,21 +1,109 @@
 {
   "error_codes": [
-    "message_required",
-    "project_name_taken",
-    "project_not_found",
-    "project_version_conflict",
+    "courier_already_registered",
+    "courier_not_found",
+    "courier_on_delivery",
+    "courier_unavailable",
+    "courier_version_conflict",
+    "dish_out_of_stock",
+    "dish_unavailable",
+    "endpoint_label_taken",
+    "endpoint_not_found",
+    "image_not_found",
+    "image_not_uploaded",
+    "image_too_large",
+    "invalid_endpoint_url",
+    "invalid_order_transition",
+    "menu_item_name_taken",
+    "menu_item_not_found",
+    "menu_item_version_conflict",
+    "not_a_courier",
+    "order_not_delivered",
+    "order_not_found",
+    "order_not_payable",
+    "ordering_paused",
+    "payment_already_final",
+    "payment_not_authorised",
+    "payment_not_found",
+    "payment_not_refundable",
+    "restaurant_busy",
+    "restaurant_name_taken",
+    "restaurant_not_accepting",
+    "restaurant_not_found",
+    "restaurant_not_suspended",
+    "restaurant_suspended",
+    "restaurant_version_conflict",
+    "review_exists",
+    "review_not_found",
+    "review_version_conflict",
+    "review_window_closed",
+    "scheduling_unavailable",
+    "storage_unavailable",
+    "suspension_is_platform_only",
     "unauthenticated",
+    "unsupported_image_type",
     "validation_failed"
   ],
   "audit_actions": [
-    "projects.project.created",
-    "projects.project.deleted",
-    "projects.project.updated"
+    "couriers.courier.registered",
+    "couriers.courier.updated",
+    "images.image.confirmed",
+    "images.image.created",
+    "images.image.deleted",
+    "menus.item.created",
+    "menus.item.deleted",
+    "menus.item.updated",
+    "notifications.delivery.failed",
+    "notifications.delivery.sent",
+    "notifications.endpoint.registered",
+    "notifications.endpoint.removed",
+    "orders.order.accepted",
+    "orders.order.advanced",
+    "orders.order.cancelled",
+    "orders.order.courier_assigned",
+    "orders.order.delivered",
+    "orders.order.placed",
+    "orders.order.rejected",
+    "payments.payment.authorised",
+    "payments.payment.captured",
+    "payments.payment.created",
+    "payments.payment.failed",
+    "payments.payment.refunded",
+    "restaurants.restaurant.created",
+    "restaurants.restaurant.suspended",
+    "restaurants.restaurant.unsuspended",
+    "restaurants.restaurant.updated",
+    "reviews.review.created",
+    "reviews.review.hidden",
+    "reviews.review.updated"
   ],
   "permissions": {
     "org": [
-      "projects.project.read",
-      "projects.project.write"
+      "couriers.courier.dispatch",
+      "images.image.read",
+      "images.image.write",
+      "menus.item.read",
+      "menus.item.write",
+      "notifications.endpoint.read",
+      "notifications.endpoint.write",
+      "orders.order.manage",
+      "orders.order.read",
+      "restaurants.restaurant.read",
+      "restaurants.restaurant.write"
+    ],
+    "platform": [
+      "couriers.courier.manage",
+      "menus.menu.browse",
+      "orders.order.deliver",
+      "orders.order.place",
+      "orders.order.view",
+      "payments.payment.pay",
+      "payments.payment.refund",
+      "restaurants.restaurant.browse",
+      "restaurants.restaurant.oversee",
+      "restaurants.restaurant.suspend",
+      "reviews.review.moderate",
+      "reviews.review.write"
     ]
   },
   "roles": {
@@ -23,13 +111,27 @@
       "admin",
       "member",
       "owner"
+    ],
+    "platform": [
+      "ops_viewer",
+      "platform_admin",
+      "user"
     ]
   },
   "settings": [
-    "example.ping_message"
+    "images.max_bytes",
+    "orders.late_after",
+    "orders.max_open_per_restaurant",
+    "orders.ordering_paused",
+    "restaurants.max_delivery_radius_m"
   ],
-  "jobs": [],
+  "jobs": [
+    "notification_delivery",
+    "notification_fanout",
+    "orders_late_sweep"
+  ],
   "flags": [
-    "example.ping_time"
+    "orders.courier_auto_assign",
+    "orders.scheduled_ordering"
   ]
 }

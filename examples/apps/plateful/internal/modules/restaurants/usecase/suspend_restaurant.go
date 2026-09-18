@@ -40,7 +40,7 @@ func (s *Service) setSuspension(ctx context.Context, id, reason string, suspend 
 		if err != nil {
 			return err
 		}
-		next := current
+		var next domain.Restaurant
 		if suspend {
 			next, err = current.Suspend(reason, s.clock())
 		} else {
