@@ -30,14 +30,14 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/jackc/pgx/v5 v5.11.0
 	golang.org/x/net v0.58.0
-	gorbital.dev v0.2.0
-	gorbital.dev/modules/flags v0.2.0
-	gorbital.dev/modules/jobs v0.2.0
-	gorbital.dev/modules/openapi v0.2.0
-	gorbital.dev/modules/orgs v0.2.0
-	gorbital.dev/modules/postgres v0.2.0
-	gorbital.dev/modules/settings v0.2.0
-	gorbital.dev/modules/storage v0.2.0
+	gorbital.dev v0.2.1
+	gorbital.dev/modules/flags v0.2.1
+	gorbital.dev/modules/jobs v0.2.1
+	gorbital.dev/modules/openapi v0.2.1
+	gorbital.dev/modules/orgs v0.2.1
+	gorbital.dev/modules/postgres v0.2.1
+	gorbital.dev/modules/settings v0.2.1
+	gorbital.dev/modules/storage v0.2.1
 )
 
 require (
@@ -109,15 +109,15 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
-	gorbital.dev/modules/auditpg v0.2.0
-	gorbital.dev/modules/auth v0.2.0
-	gorbital.dev/modules/devconsole v0.2.0
-	gorbital.dev/modules/idempotency v0.2.0
-	gorbital.dev/modules/mail/resend v0.2.0
-	gorbital.dev/modules/mail/smtp v0.2.0
-	gorbital.dev/modules/mail/suppressionpg v0.2.0
-	gorbital.dev/modules/observability v0.2.0
-	gorbital.dev/modules/ratelimitpg v0.2.0
-	gorbital.dev/modules/releases v0.2.0
-	gorbital.dev/modules/telemetry v0.2.0
+	gorbital.dev/modules/auditpg v0.2.1
+	gorbital.dev/modules/auth v0.2.1
+	gorbital.dev/modules/devconsole v0.2.1
+	gorbital.dev/modules/idempotency v0.2.1
+	gorbital.dev/modules/mail/resend v0.2.1
+	gorbital.dev/modules/mail/smtp v0.2.1
+	gorbital.dev/modules/mail/suppressionpg v0.2.1
+	gorbital.dev/modules/observability v0.2.1
+	gorbital.dev/modules/ratelimitpg v0.2.1
+	gorbital.dev/modules/releases v0.2.1
+	gorbital.dev/modules/telemetry v0.2.1
 )

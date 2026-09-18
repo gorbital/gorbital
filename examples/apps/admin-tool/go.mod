@@ -11,17 +11,17 @@ require (
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
 	golang.org/x/net v0.58.0
-	gorbital.dev v0.2.0
-	gorbital.dev/gorbital v0.2.0
-	gorbital.dev/modules/auditpg v0.2.0
-	gorbital.dev/modules/auth v0.2.0
-	gorbital.dev/modules/flags v0.2.0
-	gorbital.dev/modules/jobs v0.2.0
-	gorbital.dev/modules/openapi v0.2.0
-	gorbital.dev/modules/postgres v0.2.0
-	gorbital.dev/modules/ratelimitpg v0.2.0
-	gorbital.dev/modules/settings v0.2.0
-	gorbital.dev/modules/storage v0.2.0
+	gorbital.dev v0.2.1
+	gorbital.dev/gorbital v0.2.1
+	gorbital.dev/modules/auditpg v0.2.1
+	gorbital.dev/modules/auth v0.2.1
+	gorbital.dev/modules/flags v0.2.1
+	gorbital.dev/modules/jobs v0.2.1
+	gorbital.dev/modules/openapi v0.2.1
+	gorbital.dev/modules/postgres v0.2.1
+	gorbital.dev/modules/ratelimitpg v0.2.1
+	gorbital.dev/modules/settings v0.2.1
+	gorbital.dev/modules/storage v0.2.1
 )
 
 require (
@@ -85,14 +85,14 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260831171406-18b4a7587f8a // indirect
 	google.golang.org/grpc v1.83.2 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
-	gorbital.dev/modules/devconsole v0.2.0 // indirect
-	gorbital.dev/modules/idempotency v0.2.0 // indirect
-	gorbital.dev/modules/mail/smtp v0.2.0 // indirect
-	gorbital.dev/modules/mail/suppressionpg v0.2.0 // indirect
-	gorbital.dev/modules/observability v0.2.0 // indirect
-	gorbital.dev/modules/orgs v0.2.0 // indirect
-	gorbital.dev/modules/releases v0.2.0 // indirect
-	gorbital.dev/modules/telemetry v0.2.0 // indirect
+	gorbital.dev/modules/devconsole v0.2.1 // indirect
+	gorbital.dev/modules/idempotency v0.2.1 // indirect
+	gorbital.dev/modules/mail/smtp v0.2.1 // indirect
+	gorbital.dev/modules/mail/suppressionpg v0.2.1 // indirect
+	gorbital.dev/modules/observability v0.2.1 // indirect
+	gorbital.dev/modules/orgs v0.2.1 // indirect
+	gorbital.dev/modules/releases v0.2.1 // indirect
+	gorbital.dev/modules/telemetry v0.2.1 // indirect
 	rsc.io/qr v0.2.0 // indirect
 )
 

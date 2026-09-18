@@ -4,6 +4,48 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
+## v0.2.1 (2026-09-18)
+
+A new app now carries its own sign-in and organisations. Existing apps are unchanged.
+
+### Sign-in and organisations in your repository
+
+#### Changed
+
+- `orb new --preset full` puts the whole sign-in module in the app, at `internal/modules/auth`, and with `--tenancy multi` the whole organisations module too, at `internal/modules/orgs` — every file, every test and every migration, in `db/migrations`. You can read exactly what registration, login, email verification, password reset, sessions, two-factor authentication and the organisation process do, and change them. It is what `orb eject` already did, now done for you when the app is created ([Ejecting a module](docs/guides/ejecting-a-module.md)).
+- The HTTP API, the database and the behaviour are the same as an app that imports the modules from the library.
+- What moves is the flows — handlers, use cases, repositories and migrations. The primitives they call stay in the library: Argon2id password hashing, session tokens, TOTP, passkey and OAuth/OIDC verification (`gorbital.dev/modules/auth`) and organisation authorisation (`gorbital.dev/modules/orgs`), so fixes to those still reach you with `go get`. A fix to a flow you own does not: `orb doctor` reports each module the app owns and warns when the library's version of it has changed, quoting the changelog.
+- `orb new --no-eject` keeps sign-in and organisations in the library, as in v0.2.0.
+- The example apps that use sign-in — Plateful, Shelfie, invoicing and the internal admin tool — carry their own sign-in and organisations the same way.
+
+### Documentation
+
+#### Added
+
+- **Build an app**, a new documentation tab: 23 chapters that build [Plateful](docs/build/00-what-were-building.md), a multi-tenant restaurant delivery platform, from `orb new` to deployment — what the framework gives you and what you write, customising and extending it, and where it stops helping. Its code is included from `examples/apps/plateful`, which CI builds and tests.
+- `examples/apps/plateful`: one platform, many restaurants, each an organisation, with platform staff, restaurant staff, and customers and couriers who belong to no organisation. Eight modules: restaurants, menus, orders, couriers, payments, reviews, images and notifications. A restaurant is its organisation: its fields are columns on the organisation table, not a second table.
+- A documentation tab can carry a highlight dot (`"highlight": true` on the tab in `docs/docs.json`).
+
+#### Fixed
+
+- The site header announced v0.1.0.
+- The upgrade notes pinned `@v0.2.0`; install commands use `@latest`.
+- Two commands in the CLI guide named `go run ./cmd/migrate`, which a v0.2 app does not have.
+
+### The CLI
+
+#### Fixed
+
+- `orb dev` refuses to start the Dev Portal when `APP_ENV` is `production`, as its documentation had said; `--no-portal` runs the app without it. The loopback, token and request-header checks are unchanged.
+- After `orb gen migration`, `orb gen resource` and `orb add mail`, the Dev Portal and the printed next steps name the migrate command the app's layout uses — `go run ./cmd/api migrate` in a v0.2 app — instead of always `go run ./cmd/migrate`.
+
+### Quality
+
+#### Fixed
+
+- `TestIncidentDetectionThroughJob` read the incident's audit event without waiting for the job to record it, and failed on a loaded runner. It waits now, in the library and in the v0.1 templates. Because a v0.1 template changed, `orb upgrade --layout v0.2` asks an app created by orb v0.1.0 to run `orb upgrade` first — the order the upgrade notes already give.
+- CI gives the test jobs a 40-minute timeout (the CLI package alone runs for about ten, against Go's ten-minute default), and the end-to-end job fetches the release tags `orb upgrade` reads.
+
 ## v0.2.0 (2026-09-18)
 
 v0.2 turns gorbital into a framework apps import: routes, guards, the middleware stack, the application itself, sign-in, the operations API and organisations move from generated code into the library ([roadmap](docs/v0.2-roadmap.md), [ADR-0081](docs/adr/0081-a-framework-you-import.md)). It is additive: apps created with `v0.1.0` keep building and passing their tests against it with `go get` and no code changes, moving to the new layout is an opt-in `orb upgrade --layout v0.2`, and any built-in module can be copied back into the app with `orb eject`. What to do for each change is in the [upgrade notes](docs/guides/upgrade-notes.md#upgrading-to-v020).
