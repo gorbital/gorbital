@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/gorbitaltest"
-	"gorbital.dev/gorbital/orgshttp"
 	"gorbital.dev/modules/postgres"
 
 	"example.com/acme-api/db/migrations"
+	authhttp "example.com/acme-api/internal/modules/auth"
+	orgshttp "example.com/acme-api/internal/modules/orgs"
 	"example.com/acme-api/internal/modules/projects"
 	"example.com/acme-api/internal/modules/projects/usecase"
 )

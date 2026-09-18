@@ -1,6 +1,6 @@
 # Architecture
 
-This app runs on `gorbital.Main` (gorbital's v0.2 layout, ADR-0083). The library builds and runs the server: configuration, the middleware stack, sign-in, organisations, `/ops`, jobs, email, audit, migrations and the commands. The app's own code is `main.go`, its modules and its migrations. The module rules below are checked by `internal/modules/architecture_test.go`, so `go test ./...` fails when they are broken.
+This app runs on `gorbital.Main` (gorbital's v0.2 layout, ADR-0083). The library builds and runs the server: configuration, the middleware stack, `/ops`, jobs, email, audit, migrations and the commands. The app's own code is `main.go`, its modules and its migrations; sign-in, organisations are among its modules, copied from the library when the app was created. The module rules below are checked by `internal/modules/architecture_test.go`, so `go test ./...` fails when they are broken.
 
 ## Layout
 
@@ -23,6 +23,8 @@ internal/modules/
     <name>_test.go       HTTP tests through the real stack (gorbitaltest)
 internal/modules/projects/ example module owned by organisations, as orb gen module --org writes it
 internal/modules/ping/   example module: a public endpoint, a runtime setting and a feature flag
+internal/modules/auth/   sign-in, copied from gorbital.dev/gorbital/authhttp by orb new: package authhttp, its layers and tests
+internal/modules/orgs/   organisations, copied from gorbital.dev/gorbital/orgshttp by orb new: package orgshttp
 api/openapi.json         exported API contract (committed; review changes in pull requests)
 api/surface.json         the app's error codes, audit actions, permissions, settings, jobs and flags: public names that may only grow
 api/openapi.baseline.json the released /ops contract that TestOpsAPICompatible checks against
@@ -34,16 +36,16 @@ What `main.go` adds, and where it lives:
 
 | Line | What | Where |
 |---|---|---|
-| `gorbital.WithAuth(authhttp.New())` | Sign-up, sign-in, sessions, two-factor authentication, passkeys, Google, Apple and GitHub, API keys, service accounts, platform roles; the commands `roles`, `grant-role`, `revoke-role`, `reset-mfa`, `rotate-auth-keys`, `auth-providers` and `seed` | `gorbital.dev/gorbital/authhttp`; options and hooks such as `MinPasswordLength`, `BeforeLogin` or `OnRegister` go in `authhttp.New(...)` |
+| `gorbital.WithAuth(authhttp.New())` | Sign-up, sign-in, sessions, two-factor authentication, passkeys, Google, Apple and GitHub, API keys, service accounts, platform roles; the commands `roles`, `grant-role`, `revoke-role`, `reset-mfa`, `rotate-auth-keys`, `auth-providers` and `seed` | `internal/modules/auth`, the app's copy of `gorbital.dev/gorbital/authhttp`; options and hooks such as `MinPasswordLength`, `BeforeLogin` or `OnRegister` go in `authhttp.New(...)` |
 | `opshttp.Module(...)` | `/ops/`: runtime settings, feature flags, jobs, the audit log, email, users, releases, observability and incidents, retention, storage | `gorbital.dev/gorbital/opshttp` |
 | `flagshttp.Module()` | `GET /v1/flags`: the client feature flags of the signed-in caller | `gorbital.dev/gorbital/flagshttp` |
 | `mailevents.Module()` | `POST /v1/webhooks/resend`: bounces and complaints, feeding the suppression list | `gorbital.dev/gorbital/mailevents` |
-| `orgshttp.Module(auth)` | Organisations, members with one role each, invitations, personal workspaces, organisation settings, flags and service accounts; the `orgs_purge` job | `gorbital.dev/gorbital/orgshttp`; it takes the authenticator, whose accounts are the members |
+| `orgshttp.Module(auth)` | Organisations, members with one role each, invitations, personal workspaces, organisation settings, flags and service accounts; the `orgs_purge` job | `internal/modules/orgs`, the app's copy of `gorbital.dev/gorbital/orgshttp`; it takes the authenticator, whose accounts are the members |
 | `modules.All()` | The app's modules | `internal/modules` |
 | `WithMigrations(migrations.FS)` | The app's migrations, run in one history with the library's | `db/migrations` |
 | `WithMailerFunc(mailer)`, `WithStorageFunc(fileStorage)` | The email provider and file storage | `cmd/api/mail.go`, `cmd/api/storage.go` |
 
-To change a built-in module beyond its options and hooks, `orb eject <module>` copies it into `internal/modules` as your code.
+Sign-in and organisations are already your code: `orb new` copied them from the library version `go.mod` requires, with the migrations into `db/migrations` under the library's versions, and `gorbital.lock` records where from. Library releases no longer change them; `orb doctor` says when the library's copy has changed since, quoting the changelog. To change another built-in module beyond its options and hooks, `orb eject <module>` copies it the same way.
 
 ## Request flow
 
@@ -67,7 +69,7 @@ A value is never in more than one layer, and secrets are never runtime settings.
 
 ## Organisations
 
-Organisations (`orgs`), their members with one role each (`org_members`) and invitations (`org_invitations`) are the built-in organisations module's, with its migrations. An app module's routes under `/v1/orgs/{orgId}/` take `guard.OrgMember(permission)`: it reads the caller's membership on every request (so removing someone takes effect on their next request), answers 404 `org_not_found` to non-members, and hands the handler a context whose actor acts in that organisation with the permissions of their role. Audit events recorded in that context carry the organisation, and so does every database connection taken with it: `gorbital.dev/modules/postgres` sets `gorbital.org_id` on the connection, which the optional row-level security policies read. `orb add rls` turns those policies on, as a migration from `db/row_level_security.sql`, for every table with `org_id NOT NULL` except `org_members` and `org_invitations`; the app warns at startup when the database role bypasses them. Code that works across organisations uses `postgres.WithoutRowLevelSecurity(ctx, reason)`; migrations already do (ADR-0061).
+Organisations (`orgs`), their members with one role each (`org_members`) and invitations (`org_invitations`) are the organisations module's in `internal/modules/orgs`, with its migrations. An app module's routes under `/v1/orgs/{orgId}/` take `guard.OrgMember(permission)`: it reads the caller's membership on every request (so removing someone takes effect on their next request), answers 404 `org_not_found` to non-members, and hands the handler a context whose actor acts in that organisation with the permissions of their role. Audit events recorded in that context carry the organisation, and so does every database connection taken with it: `gorbital.dev/modules/postgres` sets `gorbital.org_id` on the connection, which the optional row-level security policies read. `orb add rls` turns those policies on, as a migration from `db/row_level_security.sql`, for every table with `org_id NOT NULL` except `org_members` and `org_invitations`; the app warns at startup when the database role bypasses them. Code that works across organisations uses `postgres.WithoutRowLevelSecurity(ctx, reason)`; migrations already do (ADR-0061).
 
 Platform roles grant `/ops` permissions; organisation roles (`owner`, `admin`, `member`) grant permissions inside one organisation, declared by modules with `OrgRoles`. Deleted organisations are soft deleted, restorable until `orgs.deleted_org_retention` ends, then removed by the `orgs_purge` job; foreign keys with `ON DELETE CASCADE` remove every org-scoped row.
 
@@ -95,7 +97,7 @@ Modules send email through `Deps.Mailer`: it fills the sender from the `mail.*` 
 1. `domain/` imports only the standard library. Domain types have no struct tags.
 2. `usecase/` imports its own `domain/` and never `delivery/` or `repository/`; it declares the ports repositories implement in `ports.go`.
 3. `repository/` and `delivery/` import their module's `domain/` and `usecase/`; `delivery/` never imports `repository/`. `module.go` wires the layers.
-4. Modules never import other modules. What one needs from another goes through an interface wired in `main.go`.
+4. Modules never import other modules' layers. What one needs from another goes through an interface wired in `main.go`, or the other module's root package, as `orgs` imports `auth`'s `authhttp` for the authenticator.
 5. Only `gorbital.LoadConfig` reads environment variables; modules get what they need through `gorbital.Deps`, their settings and their flags.
 6. Handlers return domain errors unchanged; the module's `Errors` map them to an HTTP status and a stable error code.
 7. Request body types tolerate unknown fields (`additionalProperties:"true"`), so older servers accept newer clients.

@@ -12,13 +12,13 @@ package main
 
 import (
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/flagshttp"
 	"gorbital.dev/gorbital/mailevents"
 	"gorbital.dev/gorbital/opshttp"
 
 	"example.com/acme-api/db/migrations"
 	"example.com/acme-api/internal/modules"
+	authhttp "example.com/acme-api/internal/modules/auth"
 )
 
 func main() {

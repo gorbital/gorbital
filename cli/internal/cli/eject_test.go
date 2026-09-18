@@ -18,13 +18,6 @@ func copyExampleApp(t *testing.T, name string) string {
 	return copyAppAt(t, filepath.Join("examples", "apps", name), name)
 }
 
-// copyGoldenApp copies a golden app of examples/, such as full-single, the
-// app orb new writes.
-func copyGoldenApp(t *testing.T, name string) string {
-	t.Helper()
-	return copyAppAt(t, filepath.Join("examples", name), name)
-}
-
 // copyAppAt copies the app at rel in the repository into a temporary
 // directory, with its replace directives pointing at the checkout, and
 // commits it.

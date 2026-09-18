@@ -32,16 +32,22 @@ func TestEjectedModulesPass(t *testing.T) {
 		checkLintAndTests(t, dir)
 	})
 
-	t.Run("a new single-tenant app: flags, mailevents, ops, auth", func(t *testing.T) {
-		dir := copyGoldenApp(t, "full-single")
-		for _, module := range []string{"flags", "mailevents", "ops", "auth"} {
+	t.Run("a new single-tenant app, which holds its sign-in: flags, mailevents, ops", func(t *testing.T) {
+		dir := newEjectApp(t, "single")
+		for _, module := range []string{"flags", "mailevents", "ops"} {
 			ejectAndCheck(t, dir, module)
 		}
 		checkLintAndTests(t, dir)
 	})
 
-	t.Run("a new multi-tenant app: orgs, auth", func(t *testing.T) {
-		dir := copyGoldenApp(t, "full-multi")
+	t.Run("a new single-tenant app with --no-eject: auth", func(t *testing.T) {
+		dir := newEjectApp(t, "single", "--no-eject")
+		ejectAndCheck(t, dir, "auth")
+		checkLintAndTests(t, dir)
+	})
+
+	t.Run("a new multi-tenant app with --no-eject: orgs, auth", func(t *testing.T) {
+		dir := newEjectApp(t, "multi", "--no-eject")
 		for _, module := range []string{"orgs", "auth"} {
 			ejectAndCheck(t, dir, module)
 		}
@@ -149,4 +155,25 @@ func runInApp(t *testing.T, dir, name string, args ...string) string {
 		t.Fatalf("%s %s: %v\n%s", name, strings.Join(args, " "), err, out)
 	}
 	return string(out)
+}
+
+// newEjectApp creates a Full app of tenancy with orb new against this
+// checkout, commits it and makes it the working directory.
+func newEjectApp(t *testing.T, tenancy string, args ...string) string {
+	t.Helper()
+	isolateGit(t)
+	repo, err := filepath.Abs(repoRoot(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent := t.TempDir()
+	t.Chdir(parent)
+	name := "eject-" + tenancy
+	if code, out, errOut := runOrb(t, append([]string{"new", name, "--preset", "full", "--tenancy", tenancy, "--local", repo, "--no-git"}, args...)...); code != 0 {
+		t.Fatalf("orb new = %d\n%s%s", code, out, errOut)
+	}
+	dir := filepath.Join(parent, name)
+	t.Chdir(dir)
+	commitAll(t, "Create app")
+	return dir
 }
