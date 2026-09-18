@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/gorbitaltest"
-	"gorbital.dev/gorbital/orgshttp"
 
 	"example.com/plateful/db/migrations"
+	authhttp "example.com/plateful/internal/modules/auth"
 	"example.com/plateful/internal/modules/couriers"
+	orgshttp "example.com/plateful/internal/modules/orgs"
 )
 
 // These tests drive the couriers routes through the app's real middleware

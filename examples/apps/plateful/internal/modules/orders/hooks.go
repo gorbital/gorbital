@@ -8,8 +8,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 
-	"gorbital.dev/gorbital/authhttp"
-
+	authhttp "example.com/plateful/internal/modules/auth"
 	"example.com/plateful/internal/modules/orders/domain"
 	"example.com/plateful/internal/modules/orders/repository"
 )

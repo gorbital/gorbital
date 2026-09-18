@@ -3,8 +3,7 @@ package main
 import (
 	"os"
 
-	"gorbital.dev/gorbital/authhttp"
-
+	authhttp "example.com/plateful/internal/modules/auth"
 	"example.com/plateful/internal/modules/notifications"
 	"example.com/plateful/internal/modules/orders"
 )
