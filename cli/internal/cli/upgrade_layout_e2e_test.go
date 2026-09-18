@@ -440,6 +440,24 @@ func (a *v01App) commit(t *testing.T, message string) {
 	commitAll(t, message)
 }
 
+// upgrade brings the app onto this release's v0.1 templates and commits the
+// result, which orb upgrade --layout v0.2 requires. It is a no-op for an app
+// already on them, and the branch orb upgrade leaves behind is merged back so
+// the layout move sees a clean tree on the app's own branch.
+func (a *v01App) upgrade(t *testing.T) {
+	t.Helper()
+	t.Chdir(a.dir)
+	branch := git(t, "rev-parse", "--abbrev-ref", "HEAD")
+	code, out, errOut := runOrb(t, "upgrade", "--json")
+	if code != 0 {
+		t.Fatalf("orb upgrade = %d; stdout %s stderr %s", code, out, errOut)
+	}
+	if on := git(t, "rev-parse", "--abbrev-ref", "HEAD"); on != branch {
+		git(t, "checkout", "--quiet", branch)
+		git(t, "merge", "--quiet", "--no-edit", on)
+	}
+}
+
 // saveDocument keeps the app's OpenAPI document, to compare with after the
 // move.
 func (a *v01App) saveDocument(t *testing.T) {
@@ -454,6 +472,11 @@ func (a *v01App) convert(t *testing.T) layoutResult {
 	t.Helper()
 	a.database = a.migratedDatabase(t, os.Getenv("GORBITAL_TEST_DATABASE_URL"))
 	t.Chdir(a.dir)
+	// The documented order: orb upgrade brings the app onto this release's
+	// v0.1 templates and commits, and only then does the layout move run
+	// (docs/guides/upgrade-notes.md). The move refuses an app that doesn't
+	// match them, so a release that changed a v0.1 template needs this step.
+	a.upgrade(t)
 	code, out, errOut := runOrb(t, "upgrade", "--layout", "v0.2", "--yes", "--json")
 	if code != 0 {
 		t.Fatalf("orb upgrade --layout v0.2 = %d; stdout %s stderr %s", code, out, errOut)
