@@ -70,7 +70,7 @@ Three questions decide whether something belongs in the library or in your app.
 
 Plateful uses the first three for its own code. Sign-in and organisations are already the fourth: `orb new` generated them into `internal/modules/auth` and `internal/modules/orgs`, so you can read and change every line.
 
-Owning code has one cost: a library fix no longer reaches it through `go get`. `orb doctor` reports each module your app owns and warns when the library's version of it has changed, quoting the changelog, so you hear about a fix and apply it yourself. The other built-in modules — flags, email events and `/ops` — stay in the library, and `orb eject` copies any of them into your repository the same way if an option or hook can't express what you need.
+Owning code has one cost, and it is smaller than it sounds. What moved into your repository is the flows — handlers, use cases, repositories and migrations. The primitives they call stay in the library: password hashing, session tokens, TOTP, passkey and OAuth verification, and the organisation authorisation rules, so fixes to those still reach you with `go get`. A fix to a flow you own does not. `orb doctor` reports each module your app owns and warns when the library's version of it has changed, quoting the changelog, so you hear about a fix and apply it yourself. The other built-in modules — flags, email events and `/ops` — stay in the library, and `orb eject` copies any of them into your repository the same way if an option or hook can't express what you need.
 
 ## ❌ Don't do this
 
