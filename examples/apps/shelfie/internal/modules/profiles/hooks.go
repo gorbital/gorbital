@@ -7,8 +7,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 
-	"gorbital.dev/gorbital/authhttp"
-
+	authhttp "example.com/shelfie/internal/modules/auth"
 	"example.com/shelfie/internal/modules/profiles/domain"
 	"example.com/shelfie/internal/modules/profiles/repository"
 	"example.com/shelfie/internal/modules/profiles/usecase"

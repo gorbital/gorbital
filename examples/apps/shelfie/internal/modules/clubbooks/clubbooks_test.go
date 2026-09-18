@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/gorbitaltest"
-	"gorbital.dev/gorbital/orgshttp"
 	"gorbital.dev/modules/postgres"
 
 	"example.com/shelfie/db/migrations"
+	authhttp "example.com/shelfie/internal/modules/auth"
 	"example.com/shelfie/internal/modules/clubbooks"
 	"example.com/shelfie/internal/modules/clubbooks/usecase"
+	orgshttp "example.com/shelfie/internal/modules/orgs"
 )
 
 // These tests drive the club books routes through the app's real middleware

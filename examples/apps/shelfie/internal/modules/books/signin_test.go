@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/gorbitaltest"
 
 	"example.com/shelfie/db/migrations"
+	authhttp "example.com/shelfie/internal/modules/auth"
 	"example.com/shelfie/internal/modules/books"
 )
 

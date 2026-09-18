@@ -10,8 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"gorbital.dev/gorbital/authhttp"
-
+	authhttp "example.com/shelfie/internal/modules/auth"
 	"example.com/shelfie/internal/modules/phonelogin"
 	"example.com/shelfie/internal/modules/profiles"
 	shelves "example.com/shelfie/internal/modules/shelves/domain"

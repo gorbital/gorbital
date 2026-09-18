@@ -9,9 +9,9 @@ import (
 	"net/http"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/httpx"
 
+	authhttp "example.com/shelfie/internal/modules/auth"
 	"example.com/shelfie/internal/modules/phonelogin/delivery"
 	"example.com/shelfie/internal/modules/phonelogin/domain"
 	"example.com/shelfie/internal/modules/phonelogin/repository"

@@ -7,15 +7,38 @@ those pages is included from this directory.
 ```text
 cmd/api/main.go                 gorbital.Main with the app's modules, organisations and migrations
 cmd/api/signin.go               sign-in's options and hooks, and the SMS sender
-db/migrations/                  the app's own migrations
+db/migrations/                  the app's migrations, sign-in's and organisations' included
 internal/modules/modules.gen.go the module list (orb gen modules; don't edit)
 internal/modules/books/         a module: module.go, domain/, usecase/, repository/, delivery/
 internal/modules/profiles/      readers' profiles, filled at registration (chapter 6)
 internal/modules/phonelogin/    phone-code sign-in through authhttp's SignIn (chapter 7)
 internal/modules/shelves/       readers' shelves, as orb gen module wrote them (chapter 9)
 internal/modules/clubbooks/     book clubs' reading lists, as orb gen module --org wrote them (chapter 8)
+internal/modules/auth/          sign-in: registration, verification, login, password reset, sessions, MFA, passkeys, API keys
+internal/modules/orgs/          organisations: book clubs, members, roles and invitations
 api/                            the OpenAPI document, a Postman collection and llms.txt
 ```
+
+Sign-in (`internal/modules/auth`) and organisations
+(`internal/modules/orgs`) are the app's own code, not the library's: `orb
+eject` copied them from gorbital so that every step can be read here. Each
+is laid out like the app's other modules: the root package with its options
+and hooks, then `domain/`, `usecase/` (`register.go`, `verify_email.go`,
+`login.go`, `password.go`; `orgs.go`, `members.go`, `invitations.go`),
+`repository/` with one SQL statement per file, and `delivery/` with the
+routes and jobs, with the tests that came with them. Their migrations are in
+`db/migrations` under the versions the library gives them
+(`20260915000001_auth.sql`, `20260916000001_orgs.sql`, …), so a database
+migrated before the copy applies nothing new, and `gorbital.lock` records
+the copy. The packages keep their names, `authhttp` and `orgshttp`, so no
+call changed; the API, the tables and the behaviour are the library's.
+Library releases no longer change this code, and `orb doctor` warns when the
+library's copy does ([Ejecting a
+module](../../../docs/guides/ejecting-a-module.md)).
+
+Chapter 6's registration fields and hooks and chapter 7's phone sign-in
+are `signin.go`, `profiles` and `phonelogin`, unchanged: they use the
+copy's options and `Authenticator.SignIn` as they used the library's.
 
 ## Run it
 

@@ -11,20 +11,20 @@ package main
 
 import (
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/flagshttp"
 	"gorbital.dev/gorbital/opshttp"
-	"gorbital.dev/gorbital/orgshttp"
 
 	"example.com/shelfie/db/migrations"
 	"example.com/shelfie/internal/modules"
+	authhttp "example.com/shelfie/internal/modules/auth"
+	orgshttp "example.com/shelfie/internal/modules/orgs"
 	"example.com/shelfie/internal/modules/partners"
 	"example.com/shelfie/internal/modules/phonelogin"
 )
 
 // docs:start main
 func main() {
-	auth := authhttp.New(signInOptions()...) // sign-in: accounts, sessions, MFA, passkeys, API keys; signin.go
+	auth := authhttp.New(signInOptions()...) // sign-in, the app's own code in internal/modules/auth; options in signin.go
 	gorbital.Main(
 		gorbital.WithName("shelfie"),
 		gorbital.WithAuth(auth),
@@ -32,7 +32,7 @@ func main() {
 		gorbital.WithModules(modules.All()...),                             // internal/modules/modules.gen.go
 		gorbital.WithModules(phonelogin.Module(auth, smsSender())),         // takes the authenticator, so it's added here
 		gorbital.WithModules(partners.Module(partnerName, partnerSecrets)), // the bookshop's signed purchase webhooks; partners.go
-		gorbital.WithModules(orgshttp.Module(auth)),                        // book clubs: organisations, members and invitations
+		gorbital.WithModules(orgshttp.Module(auth)),                        // book clubs: organisations, members and invitations; internal/modules/orgs
 		gorbital.WithMigrations(migrations.FS),                             // db/migrations
 	)
 }
