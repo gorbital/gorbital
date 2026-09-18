@@ -94,7 +94,9 @@ orb new my-api --no-start                 # create it, but don't start orb dev
 | Tenancy (Full only): records belong to users, or to organisations | `--tenancy single\|multi` | `single` |
 | Initialise git | `--no-git` | yes |
 
-Other flags: `--local <path>` (use a gorbital checkout instead of the published library; default: the checkout you run `orb` inside, if any), `--skip-tidy` (don't run `go mod tidy`), `--json`, `--yes`, `--no-input`, `--plain`.
+Other flags: `--no-eject` (see below), `--local <path>` (use a gorbital checkout instead of the published library; default: the checkout you run `orb` inside, if any), `--skip-tidy` (don't run `go mod tidy`), `--json`, `--yes`, `--no-input`, `--plain`.
+
+With `--preset full`, `orb new` puts sign-in in the app: it runs [`orb eject`](#orb-eject) for you, `orgs` first when `--tenancy multi`, then `auth`. The app gets `internal/modules/auth` (and `internal/modules/orgs`), every migration in `db/migrations`, `cmd/api/main.go` importing those packages, and `gorbital.lock` recording both under `ejected`. The API, database and behaviour are identical to importing them from the library. `--no-eject` keeps them in the library instead, updated with `go get`. Either way the primitives they call — password hashing, session tokens, TOTP, passkey and OAuth verification — stay in the library. Since v0.2.1.
 
 Questions come one at a time. Each answered question folds into one line, and values you passed by flag are listed the same way, so every answer is on screen before the last question: create the app, yes or no.
 

@@ -2,6 +2,9 @@
 
 How an app on `gorbital.Main` takes a built-in module into its own code with `orb eject`, when no option or hook covers a change: what the command writes, what the app gives up, and how to go back. The decision is [ADR-0083 §7](../adr/0083-modules-stack-migrations-and-ejection.md#7-ejection), with the [Phase 9 notes](../adr/0083-modules-stack-migrations-and-ejection.md#phase-9-implementation-notes-orb-eject-2026-09-17); the command's flags and JSON output are in the [CLI reference](cli.md#orb-eject).
 
+> [!NOTE]
+> **Since v0.2.1, `orb new --preset full` ejects `auth` for you**, and `orgs` too with `--tenancy multi` — a new app already owns both. This page is for the other built-in modules (`flags`, `mailevents`, `ops`), for apps created before v0.2.1, and for apps created with `--no-eject`. What moves is the module's flows; the primitives they call — password hashing, session tokens, TOTP, passkey and OAuth verification in `gorbital.dev/modules/auth`, organisation authorisation in `gorbital.dev/modules/orgs` — stay in the library and are still fixed by `go get`.
+
 | Module | Library package | What it is |
 |---|---|---|
 | `auth` | [`gorbital.dev/gorbital/authhttp`](../methods/gorbital-authhttp.md) | Sign-in: accounts, sessions, second factors, passkeys, API keys, `/ops/auth/users` |

@@ -245,7 +245,7 @@ func options() []gorbital.Option {
 }
 ```
 
-Sign-in, `/ops` and the rest come from the library; your code goes in `internal/modules`. In **Terminal 2**, add your own kind of data:
+Sign-in is already in your repository, in `internal/modules/auth` (and organisations in `internal/modules/orgs` with `--tenancy multi`), with its migrations in `db/migrations` — read it to see exactly how registration, login and password reset work. `/ops` and the rest come from the library. Your own code goes in `internal/modules`. In **Terminal 2**, add your own kind of data:
 
 ```bash
 orb gen module Invoice number:string:unique 'status:enum(draft,sent,paid)'

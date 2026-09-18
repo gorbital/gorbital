@@ -27,7 +27,7 @@
 
 ---
 
-gorbital is a Go library and a CLI, `orb`, that write a production API into your repository: PostgreSQL, sign-in with 2FA and passkeys, API keys, organisations, background jobs, email, feature flags, audit logs, observability and ops endpoints. The code it writes is plain Go that you read, change and own. The parts that must stay correct, such as password hashing, sessions and OAuth, live in the library, so security fixes reach you with `go get`.
+gorbital is a Go library and a CLI, `orb`, that write a production API into your repository: PostgreSQL, sign-in with 2FA and passkeys, API keys, organisations, background jobs, email, feature flags, audit logs, observability and ops endpoints. The code it writes is plain Go that you read, change and own. Sign-in and organisations are written into your repository too, so you can read how every flow works; the primitives they call, such as password hashing, session tokens and OAuth verification, stay in the library, so fixes to those reach you with `go get`.
 
 Your app keeps building if you uninstall `orb`.
 
@@ -76,7 +76,7 @@ The [Quickstart](docs/start/quickstart.md) walks through it with the real output
 - **Plain Go.** Standard `net/http` and `log/slog`, constructors instead of a DI container, no reflection wiring. You give up the conveniences of a heavier framework.
 - **PostgreSQL only.** Jobs, sessions, rate limits, settings and audit logs live there too. There's no Redis, Kafka or SaaS to run. No MySQL, no SQLite: if that rules you out, it rules you out.
 - **You own the code.** A layered structure with one folder per domain module. `orb upgrade` merges template changes on a branch and never overwrites your edits silently. You also maintain what's generated.
-- **Security in the library.** Argon2id passwords, sessions, OAuth, TOTP and passkeys are versioned packages, not copied code. When you upgrade the library, you take on its changes.
+- **Flows in your repository, primitives in the library.** The sign-in and organisation flows are generated into `internal/modules/auth` and `internal/modules/orgs`, where you can read and change them. Argon2id passwords, session tokens, OAuth, TOTP and passkeys are versioned library packages that code calls, so upgrading the library brings their fixes; `orb doctor` tells you when a flow you own changed upstream.
 - **Operations from day one.** Health and readiness checks, OpenTelemetry, Prometheus metrics, runtime settings, feature flags, maintenance mode, incidents and an ops API guarded by roles and 2FA.
 
 ## Presets
