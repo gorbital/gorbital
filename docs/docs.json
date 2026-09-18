@@ -1,7 +1,7 @@
 {
   "name": "gorbital",
-  "version": "v0.1.0",
-  "announcement": "v0.1.0 is out · v1.0.0 follows the external security review",
+  "version": "v0.2.0",
+  "announcement": "v0.2.0 is out · a framework you import",
   "github": "https://github.com/gorbital/gorbital",
   "www": "https://gorbital.dev",
   "url": "https://docs.gorbital.dev",
@@ -63,6 +63,60 @@
           "name": "Help",
           "pages": [
             { "title": "Troubleshooting", "slug": "troubleshooting", "source": "docs/start/troubleshooting.md" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Build an app",
+      "highlight": true,
+      "groups": [
+        {
+          "name": "Start",
+          "pages": [
+            { "title": "0. What we're building", "slug": "build/what-were-building", "source": "docs/build/00-what-were-building.md" },
+            { "title": "1. Create the app", "slug": "build/create-the-app", "source": "docs/build/01-create-the-app.md" },
+            { "title": "2. The framework and your app", "slug": "build/framework-and-your-app", "source": "docs/build/02-framework-and-your-app.md" },
+            { "title": "3. Configuration and the first run", "slug": "build/configuration-and-first-run", "source": "docs/build/03-configuration-and-first-run.md" }
+          ]
+        },
+        {
+          "name": "Your first module",
+          "pages": [
+            { "title": "4. Sign-in you didn't write", "slug": "build/sign-in", "source": "docs/build/04-sign-in-you-didnt-write.md" },
+            { "title": "5. The restaurants module", "slug": "build/restaurants-module", "source": "docs/build/05-the-restaurants-module.md" },
+            { "title": "6. Migrations and the database", "slug": "build/migrations-and-the-database", "source": "docs/build/06-migrations-and-the-database.md" },
+            { "title": "7. The menu, money and photos", "slug": "build/menu-money-and-photos", "source": "docs/build/07-the-menu-money-and-photos.md" }
+          ]
+        },
+        {
+          "name": "Business logic",
+          "pages": [
+            { "title": "8. Orders: rules in the domain", "slug": "build/orders-rules-in-the-domain", "source": "docs/build/08-orders-rules-in-the-domain.md" },
+            { "title": "9. One transaction", "slug": "build/one-transaction", "source": "docs/build/09-one-transaction.md" },
+            { "title": "10. Who may see this row", "slug": "build/who-may-see-this-row", "source": "docs/build/10-who-may-see-this-row.md" },
+            { "title": "11. Validation and errors", "slug": "build/validation-and-errors", "source": "docs/build/11-validation-and-errors.md" },
+            { "title": "12. Your own function", "slug": "build/your-own-function", "source": "docs/build/12-your-own-function.md" }
+          ]
+        },
+        {
+          "name": "The whole product",
+          "pages": [
+            { "title": "13. Background jobs", "slug": "build/background-jobs", "source": "docs/build/13-background-jobs.md" },
+            { "title": "14. Settings and feature flags", "slug": "build/settings-and-feature-flags", "source": "docs/build/14-settings-and-feature-flags.md" },
+            { "title": "15. Payments: a rule across modules", "slug": "build/payments", "source": "docs/build/15-payments-a-rule-across-modules.md" },
+            { "title": "16. Reviews and the public route", "slug": "build/reviews", "source": "docs/build/16-reviews-and-the-public-route.md" },
+            { "title": "17. Extending the framework", "slug": "build/extending-the-framework", "source": "docs/build/17-extending-the-framework.md" }
+          ]
+        },
+        {
+          "name": "Run it",
+          "pages": [
+            { "title": "18. Audit logs and observability", "slug": "build/audit-and-observability", "source": "docs/build/18-audit-logs-and-observability.md" },
+            { "title": "19. Testing", "slug": "build/testing", "source": "docs/build/19-testing.md" },
+            { "title": "20. Production and deployment", "slug": "build/production-and-deployment", "source": "docs/build/20-production-and-deployment.md" },
+            { "title": "21. Troubleshooting", "slug": "build/troubleshooting", "source": "docs/build/21-troubleshooting.md" },
+            { "title": "22. Where to go from here", "slug": "build/where-to-go-from-here", "source": "docs/build/22-where-to-go-from-here.md" }
           ]
         }
       ]
