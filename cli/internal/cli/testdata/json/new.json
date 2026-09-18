@@ -5,5 +5,29 @@
   "dir": "shop-api",
   "preset": "full",
   "tenancy": "multi",
-  "files": 0
+  "files": 0,
+  "ejected": [
+    {
+      "module": "orgs",
+      "package": "gorbital.dev/gorbital/orgshttp",
+      "version": "{version}",
+      "directory": "internal/modules/orgs",
+      "files": 0,
+      "migrations": [
+        "db/migrations/{timestamp}_orgs.sql",
+        "db/migrations/{timestamp}_settings_org_purge.sql"
+      ]
+    },
+    {
+      "module": "auth",
+      "package": "gorbital.dev/gorbital/authhttp",
+      "version": "{version}",
+      "directory": "internal/modules/auth",
+      "files": 0,
+      "migrations": [
+        "db/migrations/{timestamp}_auth.sql",
+        "db/migrations/{timestamp}_auth_mfa.sql"
+      ]
+    }
+  ]
 }

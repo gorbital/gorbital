@@ -98,12 +98,47 @@ func TestV02UpgradeUpToDate(t *testing.T) {
 	}
 }
 
+// TestV02AddOrgsWithOwnSignIn: in an app that holds its sign-in, as orb new
+// writes them since v0.2.1, orb add orgs copies the organisations module
+// too, as orb eject orgs does, since the library's orgshttp takes the
+// library's sign-in: main.go and the tests import the app's copies, and
+// gorbital.lock records both.
+func TestV02AddOrgsWithOwnSignIn(t *testing.T) {
+	newGitApp(t, "--preset", "full")
+	res, _ := addOrgs(t, 0, "--json", "--skip-build")
+	if len(res.Conflicts) != 0 || len(res.UserScoped) != 0 {
+		t.Fatalf("result = %+v", res)
+	}
+	main := readFile(t, "cmd/api/main.go")
+	for _, want := range []string{`orgshttp "shop-api/internal/modules/orgs"`, `authhttp "shop-api/internal/modules/auth"`, "gorbital.WithModules(orgshttp.Module(auth)),"} {
+		if !strings.Contains(main, want) {
+			t.Errorf("main.go lacks %s:\n%s", want, main)
+		}
+	}
+	if strings.Contains(main, `"gorbital.dev/gorbital/orgshttp"`) || strings.Contains(readFile(t, "internal/modules/projects/projects_test.go"), `"gorbital.dev/gorbital/orgshttp"`) {
+		t.Error("a merged file still imports the library's orgshttp")
+	}
+	if _, err := os.Stat("internal/modules/orgs/orgshttp.go"); err != nil {
+		t.Errorf("the organisations module wasn't copied: %v", err)
+	}
+	if !strings.Contains(readFile(t, "internal/modules/orgs/orgshttp.go"), `"shop-api/internal/modules/auth"`) {
+		t.Error("the copied organisations module doesn't import the app's sign-in")
+	}
+	lock, err := readLock(".")
+	if _, ok := lock.ejected("orgs"); err != nil || !ok {
+		t.Errorf("gorbital.lock = %+v (%v), want orgs ejected", lock.Ejected, err)
+	}
+	if _, ok := lock.ejected("auth"); !ok {
+		t.Error("gorbital.lock lost the ejected sign-in")
+	}
+}
+
 // TestV02AddOrgs: orb add orgs moves a v0.2 app from the single-tenant tree
 // to the multi-tenant one: main.go adds orgshttp.Module(auth), the example
 // module belongs to organisations, and only the data conversion is a new
 // migration, since the organisations tables are the library's.
 func TestV02AddOrgs(t *testing.T) {
-	newGitApp(t, "--preset", "full")
+	newGitApp(t, "--preset", "full", "--no-eject")
 	writeFile(t, "internal/modules/customers/module.go", "package customers\n")
 	commitAll(t, "Add customers")
 

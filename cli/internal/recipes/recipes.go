@@ -7,6 +7,12 @@
 // and full-multi/, the v0.1 layout that v0.1 apps keep, from
 // examples/v0.1/full-single and examples/v0.1/full-multi (ADR-0041,
 // ADR-0048). Never edit them by hand.
+//
+// The golden Full apps show what orb new writes, sign-in and organisations
+// included (v0.2.1); the v0.2 templates hold neither, and orb new copies
+// them in from the library version the app requires (Preset.Ejects). go
+// generate takes them out of the golden apps and puts them back from the
+// checkout (./gen).
 package recipes
 
 //go:generate go run ./gen
@@ -94,6 +100,38 @@ func (p Preset) Layout() string {
 		return LayoutV02
 	}
 	return LayoutV01
+}
+
+// An EjectedModule is a built-in module of gorbital.dev/gorbital that orb
+// new copies into an app as the app's own code, as orb eject does.
+type EjectedModule struct {
+	// Name is the module's directory under internal/modules, and what orb
+	// eject takes, such as auth.
+	Name string
+	// Package is the library package it is copied from, such as
+	// gorbital.dev/gorbital/authhttp.
+	Package string
+}
+
+// Dir returns the module's directory in the app, slash-separated.
+func (m EjectedModule) Dir() string { return "internal/modules/" + m.Name }
+
+// Ejects returns the built-in modules orb new copies into an app of the
+// preset, in the order it copies them: since v0.2.1 a Full app holds its
+// sign-in, and a multi-tenant one its organisations, in internal/modules
+// (orb new --no-eject keeps them in the library). Organisations come first:
+// the library's orgshttp takes the library's sign-in, so sign-in can only
+// be copied once organisations are. Templates hold neither: the golden apps
+// show them copied, and go generate takes them out again (generate.Uneject).
+func (p Preset) Ejects() []EjectedModule {
+	if p.Layout() != LayoutV02 {
+		return nil
+	}
+	auth := EjectedModule{Name: "auth", Package: "gorbital.dev/gorbital/authhttp"}
+	if p.Tenancy == TenancyMulti {
+		return []EjectedModule{{Name: "orgs", Package: "gorbital.dev/gorbital/orgshttp"}, auth}
+	}
+	return []EjectedModule{auth}
 }
 
 // treeDir returns the directory of the preset's templates in layout.

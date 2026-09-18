@@ -80,8 +80,55 @@ func renderLayout(t *testing.T, preset, tenancy, layout string, d recipes.Data) 
 	return dir, paths
 }
 
+// unejected copies the golden app at dir, as git tracks it, and takes out
+// the built-in modules orb new copies into apps of the preset
+// (generate.Uneject), returning the copy: what the templates hold. It
+// returns dir itself for presets orb new copies nothing into.
+func unejected(t *testing.T, dir, preset, tenancy, layout string) string {
+	t.Helper()
+	p, _ := recipes.LookupPreset(preset, tenancy)
+	if layout != p.Layout() || len(p.Ejects()) == 0 {
+		return dir
+	}
+	tracked := goldenFiles(t, dir)
+	out := t.TempDir()
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		rel, _ := filepath.Rel(dir, path)
+		rel = filepath.ToSlash(rel)
+		if generate.Skipped(rel) && rel != "go.mod" || (tracked != nil && !tracked[rel] && rel != "go.mod") {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(out, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, 0o644)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var modules []generate.Ejected
+	for _, e := range p.Ejects() {
+		modules = append(modules, generate.Ejected{Dir: e.Dir(), Package: e.Package})
+	}
+	if err := generate.Uneject(out, generate.PlaceholderModule, modules); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
 // TestGoldenApps: rendering each preset with the placeholder name reproduces
-// its hand-written golden app exactly, file for file.
+// its hand-written golden app exactly, file for file. The golden Full apps
+// hold sign-in and organisations as orb new copies them; the templates are
+// the golden apps without them, and api/surface.json of the app's own code
+// (TestNewAppIsTheGoldenApp checks the copies).
 func TestGoldenApps(t *testing.T) {
 	for _, golden := range goldenApps {
 		t.Run(golden.templates, func(t *testing.T) {
@@ -90,7 +137,14 @@ func TestGoldenApps(t *testing.T) {
 				Module:         generate.PlaceholderModule,
 				LibraryVersion: recipes.LibraryVersion,
 			})
-			tracked := goldenFiles(t, golden.dir)
+			goldenDir := unejected(t, golden.dir, golden.preset, golden.tenancy, golden.layout)
+			tracked := goldenFiles(t, goldenDir)
+			copied := goldenDir != golden.dir
+			if copied {
+				tracked = nil // the copy holds only tracked files
+			}
+			golden := golden
+			golden.dir = goldenDir
 			rendered := map[string]bool{}
 			for _, f := range files {
 				rendered[f] = true
@@ -109,6 +163,10 @@ func TestGoldenApps(t *testing.T) {
 				}
 				if generate.Skipped(rel) || (tracked != nil && !tracked[rel]) {
 					return nil
+				}
+				if rel == "api/surface.json" && copied {
+					delete(rendered, rel)
+					return nil // recorded by go generate, not by Uneject
 				}
 				want, _ := os.ReadFile(p)
 				got, readErr := os.ReadFile(filepath.Join(dir, rel))
@@ -147,6 +205,16 @@ func TestGoModMatchesGolden(t *testing.T) {
 			})
 			gotRequires, gotReplaces := parseGoMod(t, filepath.Join(dir, "go.mod"))
 			wantRequires, wantReplaces := parseGoMod(t, filepath.Join(golden.dir, "go.mod"))
+			// The golden app requires directly what its copies of sign-in
+			// and organisations import, which go mod tidy marks after orb
+			// new copies them: compare modules and versions.
+			if p, _ := recipes.LookupPreset(golden.preset, golden.tenancy); golden.layout == p.Layout() && len(p.Ejects()) > 0 {
+				for _, m := range []map[string]string{gotRequires, wantRequires} {
+					for k, v := range m {
+						m[k] = strings.TrimSuffix(v, " // indirect")
+					}
+				}
+			}
 			if !maps.Equal(gotRequires, wantRequires) {
 				t.Errorf("rendered requirements = %v, want %v", gotRequires, wantRequires)
 			}
@@ -296,25 +364,35 @@ func TestTemplatesUpToDate(t *testing.T) {
 			if golden.layout == recipes.LayoutV02 {
 				opts = append(opts, generate.KeepLibraryLiterals())
 			}
-			if tracked := goldenFiles(t, golden.dir); tracked != nil {
+			// go generate records api/surface.json and tidies go.mod of the
+			// golden app without its copied modules, which needs the go
+			// command; CI's diff after go generate checks those two.
+			src := unejected(t, golden.dir, golden.preset, golden.tenancy, golden.layout)
+			skip := map[string]bool{}
+			if src != golden.dir {
+				skip = map[string]bool{"api/surface.json.tmpl": true, "go.mod.tmpl": true}
+			} else if tracked := goldenFiles(t, golden.dir); tracked != nil {
 				opts = append(opts, generate.OnlyFiles(tracked))
 			}
-			if err := generate.Run(golden.dir, fresh, opts...); err != nil {
+			if err := generate.Run(src, fresh, opts...); err != nil {
 				t.Fatalf("generate.Run() error = %v", err)
 			}
-			compareTrees(t, fresh, golden.templates)
-			compareTrees(t, golden.templates, fresh)
+			compareTrees(t, fresh, golden.templates, skip)
+			compareTrees(t, golden.templates, fresh, skip)
 		})
 	}
 }
 
-func compareTrees(t *testing.T, a, b string) {
+func compareTrees(t *testing.T, a, b string, skip map[string]bool) {
 	t.Helper()
 	_ = filepath.WalkDir(a, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
 		rel, _ := filepath.Rel(a, p)
+		if skip[filepath.ToSlash(rel)] {
+			return nil
+		}
 		want, _ := os.ReadFile(p)
 		got, err := os.ReadFile(filepath.Join(b, rel))
 		if err != nil || !bytes.Equal(got, want) {

@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"go/ast"
-	"go/format"
 	"go/parser"
 	"go/token"
 	"io"
@@ -27,6 +26,8 @@ import (
 	"github.com/charmbracelet/huh"
 
 	"gorbital.dev/cli/internal/genplan"
+	"gorbital.dev/cli/internal/imports"
+	"gorbital.dev/cli/internal/recipes"
 )
 
 const ejectUsage = `Usage: orb eject <module> [flags]
@@ -499,49 +500,52 @@ func ejectImportRewriter(appModule string, modules []ejectableModule) func(strin
 	}
 }
 
-// rewriteGoImports changes src's imports that rewrite maps, keeping
-// everything else byte for byte, then formats it. An import whose package
-// name differs from its new path's last element gets the name, so the file
-// keeps compiling and reads the same.
-func rewriteGoImports(filename string, src []byte, rewrite func(string) (string, string, bool)) ([]byte, bool, error) {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, filename, src, parser.ImportsOnly|parser.ParseComments)
-	if err != nil {
-		return nil, false, fmt.Errorf("parse %s: %w", filename, err)
+// ejectedRewriter maps the library packages of the modules the app's
+// gorbital.lock records as ejected to the app's copies, as orb eject maps
+// them; nil when it records none.
+func ejectedRewriter(app appInfo) func(string) (string, string, bool) {
+	lock, err := readLock(app.dir)
+	if err != nil || len(lock.Ejected) == 0 {
+		return nil
 	}
-	type edit struct {
-		start, end int
-		text       string
+	var owned []ejectableModule
+	for _, e := range lock.Ejected {
+		if m, ok := lookupEjectable(e.Module); ok {
+			owned = append(owned, m)
+		}
 	}
-	var edits []edit
-	for _, spec := range file.Imports {
-		imp, err := strconv.Unquote(spec.Path.Value)
+	return ejectImportRewriter(app.module, owned)
+}
+
+// importEjected changes generated Go files that import the library package
+// of a module the app has ejected, such as an organisation module's tests
+// importing orgshttp, to import the app's copy: the app builds with its own
+// sign-in and organisations, so their tests should too.
+func importEjected(app appInfo, files []recipes.JobFile) ([]recipes.JobFile, error) {
+	rewrite := ejectedRewriter(app)
+	if rewrite == nil {
+		return files, nil
+	}
+	out := slices.Clone(files)
+	for i, f := range out {
+		if !strings.HasSuffix(f.Path, ".go") {
+			continue
+		}
+		content, changed, err := rewriteGoImports(f.Path, f.Content, rewrite)
 		if err != nil {
-			continue
+			return nil, err
 		}
-		to, name, ok := rewrite(imp)
-		if !ok {
-			continue
+		if changed {
+			out[i].Content = content
 		}
-		text := strconv.Quote(to)
-		if spec.Name == nil && name != "" && name != path.Base(to) {
-			text = name + " " + text
-		}
-		edits = append(edits, edit{fset.Position(spec.Path.Pos()).Offset, fset.Position(spec.Path.End()).Offset, text})
 	}
-	if len(edits) == 0 {
-		return src, false, nil
-	}
-	out := slices.Clone(src)
-	for i := len(edits) - 1; i >= 0; i-- {
-		e := edits[i]
-		out = slices.Concat(out[:e.start], []byte(e.text), out[e.end:])
-	}
-	formatted, err := format.Source(out)
-	if err != nil {
-		return nil, false, fmt.Errorf("format %s: %w", filename, err)
-	}
-	return formatted, true, nil
+	return out, nil
+}
+
+// rewriteGoImports changes src's imports that rewrite maps, keeping
+// everything else byte for byte, then formats it (imports.Rewrite).
+func rewriteGoImports(filename string, src []byte, rewrite func(string) (string, string, bool)) ([]byte, bool, error) {
+	return imports.Rewrite(filename, src, rewrite)
 }
 
 // noEjectReason returns the reason of a //orb:noeject directive before

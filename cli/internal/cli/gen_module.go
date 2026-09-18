@@ -283,6 +283,9 @@ func planModule(app appInfo, in moduleInput, now time.Time) (genplan.Plan, recip
 	if err != nil {
 		return genplan.Plan{}, none, err
 	}
+	if files, err = importEjected(app, files); err != nil {
+		return genplan.Plan{}, none, err
+	}
 
 	root, err := os.OpenRoot(app.dir)
 	if err != nil {

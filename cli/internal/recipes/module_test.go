@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gorbital.dev/cli/internal/imports"
 )
 
 const goldenShelfie = "../../../examples/apps/shelfie"
@@ -97,6 +99,7 @@ func checkGoldenModule(t *testing.T, golden, module string, d ModuleData) {
 		t.Fatal(err)
 	}
 	for _, f := range append(files, arch) {
+		f.Content = importCopies(t, golden, module, f)
 		target := filepath.Join(golden, filepath.FromSlash(f.Path))
 		if *updateGolden {
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
@@ -182,4 +185,29 @@ func TestParseModuleFields(t *testing.T) {
 	if _, err := ParseFields([]string{"name:string", "nickname:string?"}); err == nil || !strings.Contains(err.Error(), "orb gen module") {
 		t.Errorf("ParseFields(optional) error = %v, want a pointer to orb gen module", err)
 	}
+}
+
+// importCopies points a generated Go file's imports of sign-in and
+// organisations at the golden app's copies, when it holds them, as orb gen
+// module does in an app whose gorbital.lock records them ejected.
+func importCopies(t *testing.T, golden, module string, f JobFile) []byte {
+	t.Helper()
+	if !strings.HasSuffix(f.Path, ".go") {
+		return f.Content
+	}
+	out, _, err := imports.Rewrite(f.Path, f.Content, func(imp string) (string, string, bool) {
+		for _, e := range []EjectedModule{{Name: "auth", Package: "gorbital.dev/gorbital/authhttp"}, {Name: "orgs", Package: "gorbital.dev/gorbital/orgshttp"}} {
+			if imp != e.Package {
+				continue
+			}
+			if _, err := os.Stat(filepath.Join(golden, filepath.FromSlash(e.Dir()))); err == nil {
+				return module + "/" + e.Dir(), filepath.Base(e.Package), true
+			}
+		}
+		return "", "", false
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }

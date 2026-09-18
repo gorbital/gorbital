@@ -144,12 +144,15 @@ jobs:
         with:
           go-version: "1.26.x"
           cache-dependency-path: "**/go.sum"
-      - name: recipe templates match the golden apps
+      # go generate also copies sign-in and organisations into the golden
+      # Full apps from this checkout, as orb new does (v0.2.1), so a change to
+      # authhttp or orgshttp that the golden apps don't show fails here.
+      - name: recipe templates match the golden apps, and the golden apps hold the library's sign-in and organisations
         working-directory: cli
         run: |
           go generate ./internal/recipes/
-          git diff --exit-code -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2
-          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2)"
+          git diff --exit-code -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2 ../examples/full-single ../examples/full-multi
+          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2 ../examples/full-single ../examples/full-multi)"
       - name: exported Go API matches the listings in api/ (ADR-0054)
         run: go run -C internal/tools/apicheck .
       - name: docs/reference matches the golden apps' error codes, audit actions, permissions, settings and jobs

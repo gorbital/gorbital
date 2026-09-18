@@ -91,7 +91,7 @@ func TestAddMailSMTPWithFlags(t *testing.T) {
 func TestAddMailRecordsTheProviderInTheLock(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if code, _, errOut := runOrb(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git", "--json"); code != 0 {
+	if code, _, errOut := runOrb(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git", "--json", "--no-eject"); code != 0 {
 		t.Fatalf("orb new = %d, stderr %q", code, errOut)
 	}
 	t.Chdir(filepath.Join(dir, "shop-api"))

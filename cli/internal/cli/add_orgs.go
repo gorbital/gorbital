@@ -87,10 +87,6 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	}
 	nextLock := lockFromTree(to, theirs)
 	nextLock.Ejected = lock.Ejected
-	next, err := nextLock.encode()
-	if err != nil {
-		return err
-	}
 	theirsGoMod := theirs["go.mod"]
 	// In the v0.1 layout the organisations migrations are the app's own
 	// files, copied under new versions. In the v0.2 layout they come from
@@ -154,6 +150,15 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	} else {
 		changes = append(changes, merge.Change{Path: "db/migrations/" + first + "_orgs_convert.sql", Action: merge.Create, Content: recipes.OrgsConversion()})
 	}
+	if !v01 {
+		if changes, nextLock, err = ejectOrgsWithAuth(ctx, app, lock, changes, nextLock); err != nil {
+			return err
+		}
+	}
+	next, err := nextLock.encode()
+	if err != nil {
+		return err
+	}
 	slices.SortFunc(changes, func(a, b merge.Change) int { return strings.Compare(a.Path, b.Path) })
 
 	name := filepath.Base(app.dir)
@@ -166,6 +171,8 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	if err != nil {
 		return err
 	}
+	// Sign-in and organisations the app holds aren't user-owned records.
+	res.UserScoped = slices.DeleteFunc(res.UserScoped, func(m string) bool { _, ejected := nextLock.ejected(m); return ejected })
 	if !v01 {
 		res.MigrationOrder = orgsMigrationOrderWarning()
 	}

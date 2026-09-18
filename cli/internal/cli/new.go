@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 
@@ -36,7 +37,12 @@ type newResult struct {
 	Dir     string `json:"dir"`
 	Preset  string `json:"preset"`
 	Tenancy string `json:"tenancy"`
-	Files   int    `json:"files"`
+	// Files counts the files the preset's templates wrote.
+	Files int `json:"files"`
+	// Ejected are the built-in modules copied into internal/modules, in the
+	// order they were copied: sign-in, and organisations with --tenancy
+	// multi, unless --no-eject.
+	Ejected []newEjected `json:"ejected"`
 }
 
 func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
@@ -46,6 +52,7 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	preset := flags.String("preset", "minimal", "preset: minimal (HTTP API, no database) or full (PostgreSQL, authentication, jobs, email, audit, ops APIs)")
 	tenancy := flags.String("tenancy", recipes.TenancySingle, "who owns the data (Full preset): single (users) or multi (organisations with members, roles and invitations)")
 	local := flags.String("local", "", "path to a gorbital checkout, used through replace directives (default: the checkout you are in, if any)")
+	noEject := flags.Bool("no-eject", false, "Full preset: keep sign-in and organisations in the library (gorbital.dev/gorbital/authhttp and orgshttp), updated with go get, instead of copying their code into internal/modules. Copied code no longer receives library fixes automatically; orb doctor tells you when the library's version changed")
 	noGit := flags.Bool("no-git", false, "don't initialise a git repository")
 	start := flags.Bool("start", false, "run orb dev in the new app and open the Dev Portal when it is created (the default in a terminal; --no-start turns it off)")
 	noStart := flags.Bool("no-start", false, "don't run orb dev afterwards")
@@ -153,6 +160,24 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	}
 	step(fmt.Sprintf("wrote %d files", len(files)))
 
+	// Sign-in and organisations are the app's code from the start (v0.2.1):
+	// the modules are copied from the library version go.mod requires, as
+	// orb eject copies them.
+	ejected := []newEjected{}
+	if modules := chosen.Ejects(); len(modules) > 0 && !*noEject {
+		lib, err := newAppLibrary(ctx, name, localPath)
+		if err == nil {
+			ejected, err = ejectIntoNewApp(name, modules, lib, time.Now())
+		}
+		if err != nil {
+			return errors.Join(fmt.Errorf("copy sign-in into the app: %w\n"+
+				"  check your network and GOPROXY, or keep sign-in in the library with --no-eject", err), os.RemoveAll(name))
+		}
+		for _, e := range ejected {
+			step(fmt.Sprintf("copied %s into %s: %d files and %d migrations, from %s %s", ejectedAbout(e.Module), e.Directory, e.Files, len(e.Migrations), e.Package, e.Version))
+		}
+	}
+
 	if !*skipTidy {
 		var out bytes.Buffer
 		if err := runIn(ctx, name, &out, "go", "mod", "tidy"); err != nil {
@@ -160,6 +185,16 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 				"  check your network and GOPROXY, or create the app from a checkout with --local <path to gorbital checkout>", name, err, out.String())
 		}
 		step("ran go mod tidy")
+		// The copied modules' error codes and audit actions are the app's
+		// names now, recorded as orb eject records them (ADR-0054).
+		if len(ejected) > 0 {
+			if _, err := recordSurface(ctx, name); err != nil {
+				return fmt.Errorf("created %s, but %w", name, err)
+			}
+			step("recorded " + surfacePath + ": the copied modules' error codes and audit actions are the app's")
+		}
+	} else if len(ejected) > 0 {
+		fmt.Fprintln(log, s.dim.Render("  --skip-tidy: once the module is tidy, record the copied modules' names with "+surfaceCommand(recipes.LayoutV02)))
 	}
 	if !*noGit {
 		if _, err := exec.LookPath("git"); err == nil {
@@ -172,11 +207,11 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 		}
 	}
 
-	res := newResult{Name: name, Module: *module, Dir: name, Preset: chosen.Name, Tenancy: chosen.Tenancy, Files: len(files)}
+	res := newResult{Name: name, Module: *module, Dir: name, Preset: chosen.Name, Tenancy: chosen.Tenancy, Files: len(files), Ejected: ejected}
 	if *asJSON {
 		return writeJSON(stdout, res)
 	}
-	fmt.Fprintf(stdout, "\n%s\n\n%s", s.strong.Render("created "+name), nextSteps(s, name, chosen))
+	fmt.Fprintf(stdout, "\n%s\n\n%s", s.strong.Render("created "+name), nextSteps(s, name, chosen, len(ejected) > 0))
 	// The first run ends in the browser: in a terminal, orb dev starts and
 	// opens the Dev Portal unless --no-start (ADR-0077).
 	if *start || (!*noStart && ask) {
@@ -208,8 +243,9 @@ func lookupPreset(name, tenancy string) (recipes.Preset, error) {
 }
 
 // nextSteps lists where things are in a new app of the preset in dir, and
-// ends with the commands to run next.
-func nextSteps(s styles, dir string, preset recipes.Preset) string {
+// ends with the commands to run next. ejected reports that sign-in (and
+// organisations) are in internal/modules.
+func nextSteps(s styles, dir string, preset recipes.Preset, ejected bool) string {
 	rows := [][2]string{
 		{"api docs", "http://127.0.0.1:8080/docs"},
 		{"traces", "orb dev --observability (needs Docker)"},
@@ -221,13 +257,24 @@ func nextSteps(s styles, dir string, preset recipes.Preset) string {
 			{"modules", "orb gen module <Name> <field:type>... adds a table and its API"},
 			{"emails", "http://127.0.0.1:3100/mail (the Dev Portal catches every email in development)"},
 			{"admin", "admin@example.com; orb dev prints its password, 2FA key and recovery codes once"},
-			{"sign-in", "AUTH_PROVIDERS.md lists what to set for passkeys, Google and Apple"},
 		}
+		if ejected {
+			rows = append(rows, [2]string{"sign-in", "internal/modules/auth is your code: login, registration, email verification, password reset"})
+		} else {
+			rows = append(rows, [2]string{"sign-in", "gorbital.dev/gorbital/authhttp, updated with go get; orb eject auth copies it into internal/modules"})
+		}
+		rows = append(rows, [2]string{"providers", "AUTH_PROVIDERS.md lists what to set for passkeys, Google and Apple"})
 		if preset.Tenancy == recipes.TenancyMulti {
+			if ejected {
+				rows = append(rows, [2]string{"orgs", "internal/modules/orgs is your code: organisations, members, roles, invitations"})
+			}
 			rows = append(rows,
-				[2]string{"orgs", "every account gets a personal workspace; data lives under /v1/orgs/{orgId}"},
+				[2]string{"workspaces", "every account gets a personal workspace; data lives under /v1/orgs/{orgId}"},
 				[2]string{"invitations", "set orgs.invitation_url to your frontend's page before inviting people"},
 			)
+		}
+		if ejected {
+			rows = append(rows, [2]string{"fixes", "library releases don't change your copy; orb doctor says when the library's version changed, quoting its changelog"})
 		}
 		rows = append(rows, [][2]string{
 			{"email", "Resend outside development; orb add mail switches to SMTP"},

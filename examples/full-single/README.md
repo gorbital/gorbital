@@ -1,6 +1,6 @@
 # acme-api
 
-A Go API created with [gorbital](https://gorbital.dev) (Full preset, single-tenant). It runs on `gorbital.Main`: sign-in, `/ops`, jobs, email and the middleware come from the library, and the app's own code is `cmd/api/main.go`, its modules in `internal/modules` and its migrations in `db/migrations`.
+A Go API created with [gorbital](https://gorbital.dev) (Full preset, single-tenant). It runs on `gorbital.Main`: `/ops`, jobs, email and the middleware come from the library. The app's own code is `cmd/api/main.go`, its modules in `internal/modules`, sign-in among them (`internal/modules/auth`, see [Sign-in is your code](#sign-in-is-your-code)), and its migrations in `db/migrations`.
 
 ## Run
 
@@ -69,6 +69,22 @@ curl http://127.0.0.1:8080/ops/settings -H "Authorization: Bearer $TOKEN"
 ```
 
 Browsers sign in without `"transport"` and get an HttpOnly session cookie instead. See the gorbital authentication guide for sign-in flows, roles, limits, and the options and hooks of `authhttp.New`.
+
+## Sign-in is your code
+
+`internal/modules/auth` is sign-in: accounts, sessions, two-factor authentication, passkeys, Google, Apple and GitHub, API keys and platform roles. `orb new` copied it from gorbital's `authhttp` package into this app (since gorbital v0.2.1), with its tests, so you can read exactly what each step does and change it like any other module:
+
+| What | Where |
+|---|---|
+| Registration | `internal/modules/auth/usecase/register.go`; the form in `delivery/registration.go` |
+| Login, two-factor, sessions | `usecase/login.go`, `usecase/login_mfa.go`, `usecase/sessions.go` |
+| Email verification | `usecase/verify_email.go` and the codes in `usecase/codes.go` |
+| Password change and reset | `usecase/password.go` |
+| Passkeys, Google, Apple and GitHub | `usecase/passkeys.go`, `usecase/social.go` |
+| Routes and their guards | `delivery/routes.go` |
+| Tables | `repository/migrations/`, the same SQL as the `*_auth*.sql` files in `db/migrations` |
+
+`cmd/api/main.go` builds it with `authhttp.New(...)`, imported from `internal/modules/auth`: the options and hooks work as the library's do. `gorbital.lock` records the library version it was copied from. From then on library releases don't change it: run `orb doctor`, which says when the library's `authhttp` has changed since and quotes the changelog entries, then port the fixes you want. To keep sign-in in the library instead, create the app with `orb new --no-eject`.
 
 ## Configuration
 
