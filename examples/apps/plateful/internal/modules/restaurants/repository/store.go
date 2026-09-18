@@ -15,6 +15,8 @@ import (
 	"example.com/plateful/internal/modules/restaurants/usecase"
 )
 
+// docs:start restaurant-store
+
 // Store implements usecase.Store. It runs on the pool, or on a transaction
 // inside InTx.
 type Store struct {
@@ -40,6 +42,8 @@ func (s *Store) InTx(ctx context.Context, fn func(tx usecase.Store) error) error
 	})
 }
 
+// docs:end restaurant-store
+
 // restaurantColumns are the columns scanRestaurant reads, in its order.
 const restaurantColumns = `id, org_id, created_by, name, address, cuisine, opens_minute, closes_minute, ` +
 	`delivery_radius_m, status, suspended_reason, cover_image_id, version, created_at, updated_at`
@@ -52,6 +56,8 @@ func scanRestaurant(row pgx.CollectableRow) (domain.Restaurant, error) {
 	r.CreatedAt, r.UpdatedAt = r.CreatedAt.UTC(), r.UpdatedAt.UTC()
 	return r, err
 }
+
+// docs:start restaurant-constraint-error
 
 // constraintError turns the constraint violations the use cases handle into
 // domain errors.
@@ -68,3 +74,5 @@ func constraintError(err error) error {
 	}
 	return err
 }
+
+// docs:end restaurant-constraint-error

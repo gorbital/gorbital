@@ -109,6 +109,8 @@ func list(t *testing.T, client *gorbitaltest.Client, orgID string) ([]apiEndpoin
 	return page.Items, string(res.Body)
 }
 
+// docs:start notification-receiver
+
 // receiver is an httptest server standing in for a restaurant's chat: it
 // records what was posted to it and answers with whatever status the test
 // set.
@@ -134,6 +136,8 @@ func newReceiver(t *testing.T) *receiver {
 	t.Cleanup(r.Close)
 	return r
 }
+
+// docs:end notification-receiver
 
 func (r *receiver) answer(status int) {
 	r.mu.Lock()
@@ -319,6 +323,8 @@ func TestDeliverySucceeds(t *testing.T) {
 	}
 }
 
+// docs:start test-delivery-retries
+
 // TestDeliveryRetriesAndCancels: the two failure answers. A 500 is an
 // ordinary error, which is how the job system is told to retry; a 404 is
 // river.JobCancel, which is how it is told to stop. Neither is a loop in the
@@ -384,6 +390,8 @@ func TestDeliveryRetriesAndCancels(t *testing.T) {
 	}
 }
 
+// docs:end test-delivery-retries
+
 // TestFanoutEnqueuesOneDeliveryPerEndpoint: the public notify API puts one
 // fanout job in the queue, and the fanout worker turns it into one delivery
 // job per endpoint — which is what lets a broken channel be retried on its
@@ -442,6 +450,8 @@ func TestFanoutEnqueuesOneDeliveryPerEndpoint(t *testing.T) {
 	}
 }
 
+// docs:start test-sender-refuses-to-dial
+
 // TestStrictSenderRefusesToDial: the guard that actually holds.
 //
 // The URL here never goes through domain.ParseURL — RestoreURL is how a
@@ -481,3 +491,5 @@ func TestStrictSenderRefusesToDial(t *testing.T) {
 		t.Fatalf("permissive Send = (%d, %v), want (200, nil)", status, err)
 	}
 }
+
+// docs:end test-sender-refuses-to-dial

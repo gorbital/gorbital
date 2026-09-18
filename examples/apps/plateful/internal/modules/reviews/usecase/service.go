@@ -98,6 +98,8 @@ func callerID(ctx context.Context) (string, error) {
 	return a.ID, nil
 }
 
+// docs:start review-audit
+
 // audit records an event after the change it describes; a failed audit write
 // is logged, not returned.
 //
@@ -114,6 +116,8 @@ func (s *Service) audit(ctx context.Context, action, id, orgID string, metadata 
 		s.logger.ErrorContext(ctx, "record reviews audit event", "action", action, "err", err)
 	}
 }
+
+// docs:end review-audit
 
 // storeError returns the module's own errors as they are and hides the rest,
 // such as driver errors, which aren't API.

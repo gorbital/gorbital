@@ -285,7 +285,7 @@ Other flags: `--dry-run`, `--json`, `--allow-dirty`, `--yes`, `--no-input`, `--p
 
 It creates `db/migrations/<version>_add_customer_phone.sql` with a short comment and an empty `-- +goose Up` section. The version is the current UTC time, such as `20260916083000`, or one more than the newest migration's when that is later, so the new migration always runs last. There is no Down section: migrations only go forward ([ADR-0005](../adr/0005-database-strategy.md)).
 
-Then write the SQL under `-- +goose Up`, run `go run ./cmd/migrate` and `go test ./...` (tests migrate a fresh database with every file).
+Then write the SQL under `-- +goose Up`, run `go run ./cmd/api migrate` (`go run ./cmd/migrate` in a v0.1 app) and `go test ./...` (tests migrate a fresh database with every file).
 
 - **Write the SQL before migrating.** Goose records an empty migration as applied, so SQL added to it afterwards never runs.
 - **Edit it only until it is released.** Locally, `docker compose down -v` resets a database that already ran it; once released, add a new migration instead.
@@ -454,7 +454,7 @@ In an app on `gorbital.Main` the report ends with a warning, because the organis
 - a development database: `docker compose down -v && docker compose up -d --wait`, then `go run ./cmd/api migrate`;
 - a database you have to keep: apply the two migrations by hand and record them in `goose_db_version` — [Adding organisations to a database that already exists](../start/organisations.md#adding-organisations-to-a-database-that-already-exists) has the SQL and why it is safe for these two files.
 
-Without conflicts it updates `go.mod`, builds, regenerates `api/openapi.json`, records `api/surface.json` and commits `Add organisations`. Then run `go test ./...`, apply the migrations (`orb dev`, or `go run ./cmd/migrate` in each environment) and merge the branch. Set `orgs.invitation_url` before inviting people.
+Without conflicts it updates `go.mod`, builds, regenerates `api/openapi.json`, records `api/surface.json` and commits `Add organisations`. Then run `go test ./...`, apply the migrations (`orb dev`, or `go run ./cmd/api migrate` in each environment — `go run ./cmd/migrate` in a v0.1 app) and merge the branch. Set `orgs.invitation_url` before inviting people.
 
 Modules you generated stay owned by users and keep working; the command lists them. To move one to organisations, generate it again (`orb gen module --org`, or `orb gen resource --scope org` in a v0.1 app) and move its data.
 

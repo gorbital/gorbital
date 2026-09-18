@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
 
+# docs:start dockerfile
+
 FROM golang:1.26 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -18,3 +20,5 @@ EXPOSE 8080
 USER nonroot:nonroot
 # Run migrations before each release: docker run <image> migrate
 ENTRYPOINT ["/api"]
+
+# docs:end dockerfile

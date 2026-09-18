@@ -6,6 +6,8 @@ import (
 	"example.com/plateful/internal/modules/orders/domain"
 )
 
+// docs:start get-org-order
+
 // GetOrgOrder returns one of the restaurant's orders to its staff. The
 // organisation is part of the query, so there is nothing to check
 // afterwards: a row of another restaurant simply isn't in the result.
@@ -19,6 +21,8 @@ func (s *Service) GetOrgOrder(ctx context.Context, orgID, id string) (domain.Ord
 	}
 	return s.withLines(ctx, order)
 }
+
+// docs:end get-org-order
 
 // docs:start get-order
 

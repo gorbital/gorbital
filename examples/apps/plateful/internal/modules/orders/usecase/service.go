@@ -152,6 +152,8 @@ func callerID(ctx context.Context) (string, error) {
 
 // docs:end caller-id
 
+// docs:start order-audit
+
 // audit records an event after the change it describes; a failed audit
 // write is logged, not returned.
 func (s *Service) audit(ctx context.Context, action, id string, metadata map[string]any) {
@@ -160,6 +162,8 @@ func (s *Service) audit(ctx context.Context, action, id string, metadata map[str
 		s.logger.ErrorContext(ctx, "record orders audit event", "action", action, "err", err)
 	}
 }
+
+// docs:end order-audit
 
 // storeError returns the module's own errors as they are and hides the
 // rest, such as driver errors, which aren't API.
