@@ -1,4 +1,4 @@
-# 4. The sign-in you didn't write
+# 4. Sign-in, in your repository
 
 Plateful's `cmd/api/main.go` contains one line about authentication:
 
@@ -6,7 +6,9 @@ Plateful's `cmd/api/main.go` contains one line about authentication:
 auth := authhttp.New(signInOptions()...)
 ```
 
-Behind it are sixty-six HTTP operations, twelve database tables, email verification, sessions, two-factor authentication, passkeys, Google, Apple and GitHub, API keys and an operator's account-management API. This chapter says exactly what you get, what you can change without touching any of it, and what it costs to take ownership of the code when you can't.
+Behind it are sixty-six HTTP operations, twelve database tables, email verification, sessions, two-factor authentication, passkeys, Google, Apple and GitHub, API keys and an operator's account-management API — and **all of it is in your repository**. `orb new` put the whole sign-in module in `internal/modules/auth`, and with `--tenancy multi` the whole organisations module in `internal/modules/orgs`, with every migration in `db/migrations`. `authhttp` in that line is your own package, imported under the name the library uses, so its options and hooks are exactly the ones below.
+
+You did not have to write it, and you can read every line of it. This chapter says what it gives you, what you can change through options and hooks without editing it, and what changes when you edit it directly.
 
 ## 1. What one line gives you
 
@@ -14,7 +16,7 @@ Behind it are sixty-six HTTP operations, twelve database tables, email verificat
 
 **Why.** Authentication is the part of an application that is least interesting to build and most expensive to get wrong. Password hashing, timing-safe lookups, verification-code expiry, session rotation, rate limits on the routes that matter, and answers that don't reveal whether an address has an account — none of it is your product.
 
-**What the framework already gives us.** All of it.
+**What the framework already gives us.** All of it — generated into `internal/modules/auth`, where you can read how registration, login, verification and password reset work.
 
 **What we build ourselves.** In this chapter: two extra fields on the registration form.
 

@@ -68,9 +68,9 @@ Three questions decide whether something belongs in the library or in your app.
 | Add a rule or a route of your own | A module, a `guard.New`, your own middleware | Ordinary app code |
 | Own a built-in module outright | `orb eject auth` (or `flags`, `mailevents`, `ops`, `orgs`) | You own it forever, including its security fixes |
 
-Plateful uses the first three. It never ejects anything, and most apps never will.
+Plateful uses the first three for its own code. Sign-in and organisations are already the fourth: `orb new` generated them into `internal/modules/auth` and `internal/modules/orgs`, so you can read and change every line.
 
-The fourth exists so you are never trapped. `orb eject auth` copies sign-in into `internal/modules/auth` as code you own, with its tests and migrations, at the version you build with — the API, the database and the behaviour do not change. What changes is that library releases stop fixing it. That is a real cost and worth paying only when an option or hook genuinely cannot express what you need. If you find yourself reaching for it, [chapter 4](04-sign-in-you-didnt-write.md) lists the hooks first.
+Owning code has one cost: a library fix no longer reaches it through `go get`. `orb doctor` reports each module your app owns and warns when the library's version of it has changed, quoting the changelog, so you hear about a fix and apply it yourself. The other built-in modules — flags, email events and `/ops` — stay in the library, and `orb eject` copies any of them into your repository the same way if an option or hook can't express what you need.
 
 ## ❌ Don't do this
 
