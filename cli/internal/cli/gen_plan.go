@@ -97,7 +97,7 @@ func planMigration(app appInfo, name string, now time.Time) (genplan.Plan, error
 		Changes:   []genplan.Change{{Path: file, Kind: genplan.Create, Content: migrationContent(words)}},
 		Next: []string{
 			"Write the SQL under -- +goose Up",
-			"go run ./cmd/migrate",
+			migrateCommand(app.dir),
 			"go test ./...",
 		},
 		Result: genMigrationResult{Name: strings.Join(words, "_"), Version: version, File: file},
@@ -234,7 +234,7 @@ func planResource(app appInfo, in resourceInput, now time.Time) (genplan.Plan, r
 	)
 	plan.Summary = resourceSummary(data, plan.Paths())
 	plan.Next = []string{
-		"go run ./cmd/migrate",
+		migrateCommand(app.dir),
 		"go run ./cmd/api openapi --dir api",
 		"go test ./internal/app -run TestPublicSurface -update (records the new error codes, audit actions and permissions)",
 		"go test ./...",

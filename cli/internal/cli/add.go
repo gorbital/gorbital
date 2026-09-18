@@ -189,7 +189,7 @@ func runAddMail(ctx context.Context, args []string, stdin io.Reader, stdout, std
 		if *asJSON {
 			return writeJSON(stdout, result)
 		}
-		fmt.Fprintf(stdout, "✓ %s already sends email with %s. Nothing to change.\n\n%s", appName, recipe.Label, mailNextSteps(in, plan))
+		fmt.Fprintf(stdout, "✓ %s already sends email with %s. Nothing to change.\n\n%s", appName, recipe.Label, mailNextSteps(app.dir, in, plan))
 		return nil
 	}
 
@@ -217,7 +217,7 @@ func runAddMail(ctx context.Context, args []string, stdin io.Reader, stdout, std
 		fmt.Fprintf(stdout, "Would set up email with %s (dry run)\n\n%s\n", recipe.Label, summary)
 		return nil
 	}
-	fmt.Fprintf(stdout, "✓ %s now sends email with %s\n\n%s\n\n%s", appName, recipe.Label, summary, mailNextSteps(in, plan))
+	fmt.Fprintf(stdout, "✓ %s now sends email with %s\n\n%s\n\n%s", appName, recipe.Label, summary, mailNextSteps(app.dir, in, plan))
 	return nil
 }
 
@@ -780,7 +780,7 @@ func mailSummary(in mailInput, r recipes.MailRecipe, plan mailPlan) string {
 }
 
 // mailNextSteps tells the user exactly what is left to do.
-func mailNextSteps(in mailInput, plan mailPlan) string {
+func mailNextSteps(dir string, in mailInput, plan mailPlan) string {
 	saved := map[string]bool{}
 	for _, key := range plan.envVars {
 		saved[key] = true
@@ -809,7 +809,7 @@ func mailNextSteps(in mailInput, plan mailPlan) string {
 		steps = append(steps, "Make sure your SMTP provider allows the address you send from")
 	}
 	steps = append(steps,
-		"Start the app: docker compose up -d --wait, go run ./cmd/migrate, go run ./cmd/api",
+		"Start the app: docker compose up -d --wait, "+migrateCommand(dir)+", go run ./cmd/api",
 		"Set the sender in the admin API; it applies at once, without a restart:\n"+
 			`       PUT /ops/settings/mail.from_email  {"value": "hello@yourdomain.com", "version": 0, "reason": "our domain"}`+"\n"+
 			`       PUT /ops/settings/mail.from_name   {"value": "Your App", "version": 0, "reason": "our name"}`+"\n"+

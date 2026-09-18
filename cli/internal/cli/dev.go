@@ -41,7 +41,8 @@ It also serves the Dev Portal at http://127.0.0.1:3100 (DEV_PORTAL_PORT or
 --portal-port to move it) and opens it in your browser: the app's state and
 output, its routes, jobs, logs and email, and the generators, in one place
 (docs/guides/dev-portal.md). Its link carries a token that is new on every
-run; the portal answers only this machine.
+run; the portal answers only this machine, and orb dev refuses to start it
+when APP_ENV is production (--no-portal runs the app without it).
 
 --tunnel quick or --tunnel named also exposes the app, and only the app, on
 a public HTTPS address with your own cloudflared (docs/dev-portal/tunnel.md):

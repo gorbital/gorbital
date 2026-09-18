@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -111,6 +112,51 @@ func TestDevPortalPortInUse(t *testing.T) {
 	d.portalPortFlag = "nope"
 	if err := d.prepare(context.Background()); err == nil || !strings.Contains(err.Error(), "port number") {
 		t.Errorf("prepare() with a bad port = %v", err)
+	}
+}
+
+// TestDevPortalRefusesProduction checks the gate the Dev Portal's docs
+// promise: orb dev stops before anything starts when the app's APP_ENV is
+// production, and --no-portal runs the app without the portal.
+func TestDevPortalRefusesProduction(t *testing.T) {
+	ports := newDevPorts(t)
+	newDevApp(t, "preset: minimal\n", ports.env())
+	writeFile(t, ".env", ports.env()+"APP_ENV=production\n")
+	var out bytes.Buffer
+	d := newDevRunner(&out)
+	(&fakeCommands{noTool: true}).install(d)
+	d.portal, d.portalPortFlag = true, freePort(t)
+	err := d.prepare(context.Background())
+	var ue usageError
+	if !errors.As(err, &ue) {
+		t.Fatalf("prepare() in production = %v, want a usageError", err)
+	}
+	for _, want := range []string{"APP_ENV is production", "development only", "--no-portal"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal doesn't mention %q:\n%s", want, err)
+		}
+	}
+	if d.portalPort != "" || d.portalToken != "" {
+		t.Errorf("the portal was prepared anyway: port %q token %q", d.portalPort, d.portalToken)
+	}
+	if strings.Contains(out.String(), "Dev Portal") {
+		t.Errorf("a refused portal was announced:\n%s", out.String())
+	}
+
+	// --no-portal runs the app in production as before.
+	d = newDevRunner(&bytes.Buffer{})
+	(&fakeCommands{noTool: true}).install(d)
+	if err := d.prepare(context.Background()); err != nil {
+		t.Errorf("prepare() with --no-portal in production = %v", err)
+	}
+
+	// Development is untouched.
+	writeFile(t, ".env", ports.env()+"APP_ENV=development\n")
+	d = newDevRunner(&bytes.Buffer{})
+	(&fakeCommands{noTool: true}).install(d)
+	d.portal, d.portalPortFlag = true, freePort(t)
+	if err := d.prepare(context.Background()); err != nil {
+		t.Errorf("prepare() in development = %v", err)
 	}
 }
 

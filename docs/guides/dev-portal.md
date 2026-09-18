@@ -29,6 +29,7 @@ The link holds this run's portal token. Opening it once sets a cookie in your br
 | `--tunnel quick`, `--tunnel named` (`--tunnel-hostname`) | Also start a [tunnel](../dev-portal/tunnel.md) to the app with your cloudflared |
 
 A taken port stops `orb dev` before anything starts, naming the port and the ways to move it.
+The portal is for development: `APP_ENV=production` in `.env` or the environment stops `orb dev` too, because the portal reads the database and changes the project. Pass `--no-portal` to run the app anyway.
 
 ### Landing on a page
 
@@ -183,6 +184,7 @@ The development server proxies `/_portal/` to `orb dev` on port 3100 (`ORB_PORTA
 | Symptom | Cause |
 |---|---|
 | `port 3100 for the Dev Portal is already in use` | Another program listens there: add `DEV_PORTAL_PORT=3110` to `.env`, pass `--portal-port`, or `--no-portal` |
+| `the Dev Portal is for development only, and APP_ENV is production` | The app's `.env` or your environment sets `APP_ENV=production`: use a development `.env`, or pass `--no-portal` |
 | The page says the link is from another `orb dev` run | Use the link the running `orb dev` printed; every run has a new token |
 | 401 `unauthorized` from the API | No cookie and no bearer token; open the link, or send `Authorization: Bearer <token>` |
 | 403 `forbidden` | The request came through another host name, from another machine, or is a write without `X-Orb-Portal`. Use `http://127.0.0.1:3100` or `http://localhost:3100` from this machine |
