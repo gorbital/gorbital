@@ -24,6 +24,11 @@ var multiTenantChanges = []string{
 	"db/migrations/20260915000002_projects.sql",
 	"db/migrations/20260916000002_projects.sql",
 	"internal/modules/projects/",
+	// Organisations, the app's own code as orb new copies it (v0.2.1), and
+	// its migrations.
+	"internal/modules/orgs/",
+	"db/migrations/20260916000001_orgs.sql",
+	"db/migrations/20260918000002_settings_org_purge.sql",
 	// Row-level security (ADR-0061): the policies orb add rls turns into a
 	// migration.
 	"db/row_level_security.sql",
