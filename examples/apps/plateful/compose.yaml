@@ -1,0 +1,46 @@
+# Local services for development and tests (ADR-0028).
+#
+#   orb dev                       # or, without the gorbital CLI:
+#   docker compose up -d --wait
+#   go run ./cmd/api migrate && go run ./cmd/api seed && go run ./cmd/api
+#
+# PostgreSQL on 127.0.0.1:5432; Mailpit's inbox on http://127.0.0.1:8025;
+# Grafana, only with `orb dev --observability`, on http://127.0.0.1:3000.
+# Ports bind to 127.0.0.1 only. `docker compose down -v` resets the data.
+name: plateful
+
+services:
+  postgres:
+    image: postgres:18
+    # pg_stat_statements feeds the Dev Portal's query performance view
+    # (ADR-0073); the extension itself is created on first use.
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
+    environment:
+      POSTGRES_USER: plateful
+      POSTGRES_PASSWORD: plateful
+      POSTGRES_DB: plateful
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # PostgreSQL 18+ images keep versioned data under /var/lib/postgresql.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U plateful -d plateful"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Every email sent in development lands here: open http://127.0.0.1:8025.
+
+  # Traces, metrics and logs, only with the observability profile:
+  # `orb dev --observability`, or `docker compose --profile observability up -d`
+  # with OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 for the app.
+  grafana:
+    image: grafana/otel-lgtm:0.33.0
+    profiles: [observability]
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+      - "127.0.0.1:${OTLP_HTTP_PORT:-4318}:4318"
+
+volumes:
+  postgres-data:
