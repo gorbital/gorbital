@@ -79,6 +79,8 @@ func (v Status) CanMoveTo(next Status) bool {
 
 // docs:end order-status
 
+// docs:start order-line
+
 // A Line is one dish on an order.
 type Line struct {
 	// ItemID names the menu item it came from, for the restaurant's
@@ -98,6 +100,8 @@ type Line struct {
 
 // Total returns what the line costs, in minor units.
 func (l Line) Total() int64 { return l.PriceMinor * int64(l.Quantity) }
+
+// docs:end order-line
 
 // An Order is one customer's order from one restaurant.
 type Order struct {

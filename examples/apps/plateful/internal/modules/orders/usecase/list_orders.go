@@ -47,6 +47,8 @@ type cursor struct {
 	ID    string    `json:"i"`
 }
 
+// docs:start three-lists
+
 // ListOrgOrders returns a page of one restaurant's orders, newest first
 // unless the request says otherwise.
 func (s *Service) ListOrgOrders(ctx context.Context, orgID string, in ListOrdersInput) (page.Result[domain.Order], error) {
@@ -79,6 +81,8 @@ func (s *Service) ListMyDeliveries(ctx context.Context, in ListOrdersInput) (pag
 	}
 	return s.list(ctx, ListQuery{CourierID: courier}, in)
 }
+
+// docs:end three-lists
 
 // docs:start list-orders
 

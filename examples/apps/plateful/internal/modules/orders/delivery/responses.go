@@ -95,6 +95,8 @@ func optional(t time.Time) *time.Time {
 	return &t
 }
 
+// docs:start field-errors
+
 // fieldErrors lists invalid fields, found in location ("body" or "query");
 // module.go maps the other errors.
 func fieldErrors(err error, location string) error {
@@ -108,3 +110,5 @@ func fieldErrors(err error, location string) error {
 	}
 	return p
 }
+
+// docs:end field-errors

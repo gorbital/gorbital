@@ -69,6 +69,8 @@ var (
 	ErrSchedulingUnavailable = errors.New("orders: scheduled ordering is not available")
 )
 
+// docs:start validation-error
+
 // FieldError is one invalid field.
 type FieldError struct {
 	Field   string
@@ -90,3 +92,5 @@ func (e *ValidationError) Error() string {
 
 // Unwrap returns ErrInvalidOrder.
 func (e *ValidationError) Unwrap() error { return ErrInvalidOrder }
+
+// docs:end validation-error

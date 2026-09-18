@@ -136,6 +136,8 @@ func send(t *testing.T, app *gorbitaltest.App, method, signed, contentType strin
 // many there are and what the uploader calls them.
 var pixel = bytes.Repeat([]byte{0x89, 'P', 'N', 'G'}, 64)
 
+// docs:start test-upload-flow
+
 func TestUploadConfirmAndDownloadAnImage(t *testing.T) {
 	app := newApp(t)
 	ada, adaID, adaOrg := signUp(t, app, "ada@example.com", "Ada's Diner")
@@ -213,6 +215,8 @@ func TestUploadConfirmAndDownloadAnImage(t *testing.T) {
 	}
 }
 
+// docs:end test-upload-flow
+
 // TestImagesAreProtected checks deny by default and organisation isolation:
 // an organisation someone isn't a member of doesn't exist for them, so they
 // can't ask it for an upload URL either.
@@ -266,6 +270,8 @@ func TestUploadRequestsAreValidated(t *testing.T) {
 	ada.Get(collection(adaOrg)+"/img_doesnotexistatallxxxxxxxx").AssertProblem(t, http.StatusNotFound, "image_not_found")
 }
 
+// docs:start test-oversized-upload
+
 // TestAnOversizedUploadIsRefusedAtConfirmation is the honest cost of signed
 // PUT URLs: the signature carries no maximum length, so a file past
 // images.max_bytes uploads perfectly happily and is only refused afterwards,
@@ -297,6 +303,8 @@ func TestAnOversizedUploadIsRefusedAtConfirmation(t *testing.T) {
 		t.Errorf("confirmed after replacing the file = %+v, want ready and %d bytes", confirmed, len(pixel))
 	}
 }
+
+// docs:end test-oversized-upload
 
 // TestAnUploadedTypeIsCheckedAgain shows what the store's content type is
 // worth: it is whatever the uploader put in its PUT, kept as metadata.

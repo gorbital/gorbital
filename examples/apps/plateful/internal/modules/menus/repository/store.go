@@ -62,6 +62,8 @@ func scanItem(row pgx.CollectableRow) (domain.Item, error) {
 	return item, err
 }
 
+// docs:start name-taken-constraint
+
 // constraintError turns the constraint violations the use cases handle into
 // domain errors.
 func constraintError(err error) error {
@@ -70,3 +72,5 @@ func constraintError(err error) error {
 	}
 	return err
 }
+
+// docs:end name-taken-constraint

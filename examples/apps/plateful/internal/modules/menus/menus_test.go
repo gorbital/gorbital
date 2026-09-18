@@ -217,6 +217,8 @@ func TestCreateAndListMenuItems(t *testing.T) {
 // TestPriceStaysExactInMinorUnits is the money rule, end to end: a price is
 // an integer count of minor units from the request body to the column and
 // back, and never a float on the way.
+// docs:start test-money-is-exact
+
 func TestPriceStaysExactInMinorUnits(t *testing.T) {
 	app := newApp(t)
 	ada, _, adaOrg := signUp(t, app, "ada@example.com")
@@ -258,6 +260,8 @@ func TestPriceStaysExactInMinorUnits(t *testing.T) {
 	ada.Post(collection(adaOrg), map[string]any{"section": "Sides", "name": "Dip", "price_minor": -1}).
 		AssertStatus(t, http.StatusUnprocessableEntity)
 }
+
+// docs:end test-money-is-exact
 
 // TestUnavailableDishesAreHiddenFromCustomers checks the switch a kitchen
 // flicks when it runs out: the dish keeps its place on the staff's menu and
