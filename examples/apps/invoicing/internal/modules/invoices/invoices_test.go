@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/gorbitaltest"
-	"gorbital.dev/gorbital/orgshttp"
 	"gorbital.dev/modules/postgres"
 
 	"example.com/invoicing/db/migrations"
+	authhttp "example.com/invoicing/internal/modules/auth"
 	"example.com/invoicing/internal/modules/invoices"
 	"example.com/invoicing/internal/modules/invoices/usecase"
+	orgshttp "example.com/invoicing/internal/modules/orgs"
 )
 
 // These tests drive the invoices routes through the app's real middleware

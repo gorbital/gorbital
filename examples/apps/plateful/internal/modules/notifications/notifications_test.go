@@ -15,15 +15,15 @@ import (
 	"github.com/riverqueue/river/rivertype"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/gorbitaltest"
-	"gorbital.dev/gorbital/orgshttp"
 
 	"example.com/plateful/db/migrations"
+	authhttp "example.com/plateful/internal/modules/auth"
 	"example.com/plateful/internal/modules/notifications"
 	"example.com/plateful/internal/modules/notifications/domain"
 	"example.com/plateful/internal/modules/notifications/repository"
 	"example.com/plateful/internal/modules/notifications/usecase"
+	orgshttp "example.com/plateful/internal/modules/orgs"
 )
 
 // These tests drive the notifications routes through the app's real

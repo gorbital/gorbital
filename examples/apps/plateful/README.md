@@ -53,6 +53,32 @@ GORBITAL_TEST_DATABASE_URL='postgres://gorbital:gorbital@127.0.0.1:5432/plateful
 | [`reviews`](internal/modules/reviews) | A rating for a delivered order | A third ownership shape, and the app's only **public** route |
 | [`images`](internal/modules/images) | Menu photos and restaurant covers | `modules/storage`, and what a signed URL can and cannot do |
 | [`notifications`](internal/modules/notifications) | Outbound webhooks to a restaurant's chat | **Extending the framework with something it does not have** |
+| [`auth`](internal/modules/auth) | Sign-in: registration, email verification, login, password reset, sessions, second factors, passkeys, API keys, `/ops/auth/users` | What every sign-in route does, down to the SQL |
+| [`orgs`](internal/modules/orgs) | Organisations: the restaurants' workspaces, members, roles, invitations | How an organisation is created, joined, left and purged |
+
+### Sign-in and organisations are the app's code
+
+`auth` and `orgs` are the library's `authhttp` and `orgshttp`, copied into
+the app by `orb eject orgs` and `orb eject auth` so that you can read exactly
+what registration, verification, login, password reset and the organisation
+process do. Each is laid out like the other modules: the root package
+(`authhttp.go`, `options.go`, `hooks.go`; `orgshttp.go`), then `domain/`,
+`usecase/` (`register.go`, `verify_email.go`, `login.go`, `password.go`, …;
+`orgs.go`, `members.go`, `invitations.go`), `repository/` with one SQL
+statement per file, and `delivery/` with the routes and the cleanup jobs.
+Their tests came with them.
+
+Their migrations are in [`db/migrations`](db/migrations) beside the app's
+own, under the versions the library gives them (`20260915000001_auth.sql`,
+`20260916000001_orgs.sql`, …), so a database migrated before the copy sees
+nothing new. [`gorbital.lock`](gorbital.lock) records the copy, and
+`orb doctor` warns when the library's version of either changes. The API,
+the tables and the behaviour are the library's; `main.go` builds both
+exactly as it did, with the same options and hooks. The package names stay
+`authhttp` and `orgshttp`, which is why the code and this README still
+use those names.
+[Ejecting a module](../../../docs/guides/ejecting-a-module.md) explains
+what that gives up: library releases no longer change this code.
 
 ### Why `notifications` is a module and not a package inside `orders`
 

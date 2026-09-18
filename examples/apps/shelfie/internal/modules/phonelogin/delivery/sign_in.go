@@ -3,8 +3,7 @@ package delivery
 import (
 	"context"
 
-	"gorbital.dev/gorbital/authhttp"
-
+	authhttp "example.com/shelfie/internal/modules/auth"
 	"example.com/shelfie/internal/modules/phonelogin/domain"
 )
 

@@ -14,14 +14,14 @@ import (
 
 	"gorbital.dev/config"
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/gorbitaltest"
 	"gorbital.dev/gorbital/opshttp"
-	"gorbital.dev/gorbital/orgshttp"
 	"gorbital.dev/modules/postgres"
 
 	"example.com/invoicing/db/migrations"
 	"example.com/invoicing/internal/modules"
+	authhttp "example.com/invoicing/internal/modules/auth"
+	orgshttp "example.com/invoicing/internal/modules/orgs"
 )
 
 // newApp builds the app with main.go's options, on a new database for the

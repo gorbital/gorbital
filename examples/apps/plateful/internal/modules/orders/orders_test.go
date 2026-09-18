@@ -10,20 +10,20 @@ import (
 	"github.com/riverqueue/river/rivertype"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/flagshttp"
 	"gorbital.dev/gorbital/gorbitaltest"
 	"gorbital.dev/gorbital/opshttp"
-	"gorbital.dev/gorbital/orgshttp"
 	"gorbital.dev/modules/settings"
 
 	"example.com/plateful/db/migrations"
+	authhttp "example.com/plateful/internal/modules/auth"
 	"example.com/plateful/internal/modules/couriers"
 	"example.com/plateful/internal/modules/menus"
 	"example.com/plateful/internal/modules/notifications"
 	"example.com/plateful/internal/modules/orders"
 	"example.com/plateful/internal/modules/orders/repository"
 	"example.com/plateful/internal/modules/orders/usecase"
+	orgshttp "example.com/plateful/internal/modules/orgs"
 	"example.com/plateful/internal/modules/restaurants"
 )
 

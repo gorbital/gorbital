@@ -10,23 +10,23 @@ package main
 
 import (
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/opshttp"
-	"gorbital.dev/gorbital/orgshttp"
 
 	"example.com/invoicing/db/migrations"
 	"example.com/invoicing/internal/modules"
+	authhttp "example.com/invoicing/internal/modules/auth"
+	orgshttp "example.com/invoicing/internal/modules/orgs"
 )
 
 // docs:start main
 func main() {
-	auth := authhttp.New() // sign-in: accounts, sessions, MFA, passkeys, API keys
+	auth := authhttp.New() // sign-in, the app's own code: internal/modules/auth
 	gorbital.Main(
 		gorbital.WithName("invoicing"),
 		gorbital.WithAuth(auth),
-		gorbital.WithModules(opshttp.Module(), orgshttp.Module(auth)), // /ops/, and companies: organisations, members, invitations
+		gorbital.WithModules(opshttp.Module(), orgshttp.Module(auth)), // /ops/, and companies: internal/modules/orgs
 		gorbital.WithModules(modules.All()...),                        // internal/modules/modules.gen.go: invoices
-		gorbital.WithMigrations(migrations.FS),                        // db/migrations: row-level security, then invoices
+		gorbital.WithMigrations(migrations.FS),                        // db/migrations: sign-in's and organisations' tables, row-level security, invoices
 	)
 }
 

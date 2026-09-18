@@ -13,15 +13,15 @@ package main
 
 import (
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/flagshttp"
 	"gorbital.dev/gorbital/mailevents"
 	"gorbital.dev/gorbital/opshttp"
-	"gorbital.dev/gorbital/orgshttp"
 
 	"example.com/plateful/db/migrations"
 	"example.com/plateful/internal/modules"
+	authhttp "example.com/plateful/internal/modules/auth"
 	"example.com/plateful/internal/modules/notifications"
+	orgshttp "example.com/plateful/internal/modules/orgs"
 )
 
 func main() {
@@ -32,7 +32,8 @@ func main() {
 
 // options are the app: what main.go runs and the tests build.
 func options() []gorbital.Option {
-	// Sign-in, with Plateful's own registration form: signin.go.
+	// Sign-in is the app's own code in internal/modules/auth, copied from
+	// the library by orb eject; Plateful's registration form is signin.go.
 	auth := authhttp.New(signInOptions()...)
 	return []gorbital.Option{
 		gorbital.WithName("plateful"),
@@ -42,8 +43,9 @@ func options() []gorbital.Option {
 			flagshttp.Module(),  // GET /v1/flags: the client feature flags the customer app reads
 			mailevents.Module(), // POST /v1/webhooks/resend: bounces and complaints
 		),
-		// Restaurants are organisations: members, roles and invitations are
-		// how a restaurateur adds their manager and their kitchen staff.
+		// Restaurants are organisations (internal/modules/orgs, the app's own
+		// code): members, roles and invitations are how a restaurateur adds
+		// their manager and their kitchen staff.
 		gorbital.WithModules(orgshttp.Module(auth)),
 		// internal/modules/modules.gen.go: couriers, images, menus, orders,
 		// payments, restaurants, reviews.
@@ -53,7 +55,7 @@ func options() []gorbital.Option {
 		// one thing that must not be operator-editable: whether the outbound
 		// sender may reach an address on this machine (notifications.go).
 		gorbital.WithModules(notifications.Module(webhookTargets())),
-		gorbital.WithMigrations(migrations.FS), // db/migrations: the app's own tables
+		gorbital.WithMigrations(migrations.FS), // db/migrations: every table, sign-in's and organisations' included
 		gorbital.WithMailerFunc(mailer),        // mail.go: the email provider, set by orb add mail
 		gorbital.WithStorageFunc(fileStorage),  // storage.go: S3-compatible storage for menu photos
 	}

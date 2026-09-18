@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/gorbitaltest"
-	"gorbital.dev/gorbital/orgshttp"
 
 	"example.com/plateful/db/migrations"
+	authhttp "example.com/plateful/internal/modules/auth"
+	orgshttp "example.com/plateful/internal/modules/orgs"
 	"example.com/plateful/internal/modules/restaurants"
 	"example.com/plateful/internal/modules/restaurants/usecase"
 )

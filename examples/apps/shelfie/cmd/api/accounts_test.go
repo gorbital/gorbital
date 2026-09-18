@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/gorbitaltest"
-	"gorbital.dev/gorbital/orgshttp"
 
 	"example.com/shelfie/db/migrations"
 	"example.com/shelfie/internal/modules"
+	authhttp "example.com/shelfie/internal/modules/auth"
+	orgshttp "example.com/shelfie/internal/modules/orgs"
 )
 
 // These tests are in package main to build sign-in with signInOptions, as

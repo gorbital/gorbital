@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/guard"
 
+	authhttp "example.com/shelfie/internal/modules/auth"
 	"example.com/shelfie/internal/modules/phonelogin/usecase"
 )
 
