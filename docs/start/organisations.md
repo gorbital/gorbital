@@ -2,6 +2,24 @@
 
 In a multi-tenant app, data belongs to organisations. People join them as members with one role each, invite others by email, and reach an organisation's rows only while they are members. Decision: [ADR-0048](../adr/0048-organisations-v0-4.md).
 
+## What the organisations module gives you
+
+In a multi-tenant app each organisation is one tenant — a company, a team, a restaurant. Since v0.2.1 the whole module is in your repository at `internal/modules/orgs`, with its migrations in `db/migrations`, so you can read and change every part of it:
+
+| | |
+|---|---|
+| **Organisations** | Create, rename, delete (soft, restorable, then purged by a job) and leave. Every account gets a personal workspace |
+| **Members and roles** | `owner`, `admin` and `member`, separate from platform roles, so owning one organisation grants nothing in another |
+| **Invitations** | Invite by email, resend, cancel, accept; the link lands on the page set in `orgs.invitation_url` |
+| **Isolation** | `guard.OrgMember` admits members only; anyone else gets **404, not 403**, so organisation IDs can't be probed. Once admitted, the caller acts with their role in that organisation |
+| **Per-organisation configuration** | Settings an organisation may override within your bounds, feature flags targeted per organisation, and organisation service accounts |
+| **Records** | Every change is an audit event (`orgs.*`) |
+| **Row-level security** | Optional: `orb add rls` makes PostgreSQL refuse cross-tenant rows even when a query forgets its filter |
+
+**Your tenant's own fields go on the organisation table.** An organisation *is* your tenant, so a restaurant's address or a company's billing plan belong on it, added with a new migration (`ALTER TABLE orgs ADD COLUMN …`) — not in a second one-to-one table, and never by editing a migration that has already run. The [Build an app](../build/05-the-restaurants-module.md) tutorial does this for a restaurant.
+
+The authorisation rules themselves stay in the library (`gorbital.dev/modules/orgs`), so fixes to them reach you with `go get`.
+
 > [!NOTE]
 > Tenancy is chosen when you create the app. To turn an existing single-tenant app multi-tenant, run `orb add orgs`: it merges the multi-tenant files into yours on a branch and adds migrations that give every account a personal workspace and move projects into it. See [Upgrading apps](upgrading.md).
 

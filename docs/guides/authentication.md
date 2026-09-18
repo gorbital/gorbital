@@ -2,6 +2,9 @@
 
 How a Full preset app signs people up and in, keeps them signed in, and decides what they may do. Implemented in `examples/full-single` (`internal/modules/auth`) on the building blocks of `modules/auth`, and for apps on [`gorbital.Main`](main-go.md) in the library as `gorbital.dev/gorbital/authhttp` ([Methods](../methods/gorbital-authhttp.md)), with the same behaviour. Decisions: [ADR-0024](../adr/0024-authentication-methods.md), [ADR-0038](../adr/0038-authentication-v0-2.md), [ADR-0043](../adr/0043-two-factor-authentication.md) (two-factor authentication).
 
+> [!NOTE]
+> **The sign-in code is in your app.** Since v0.2.1, `orb new --preset full` writes the whole module into `internal/modules/auth` — handlers, use cases, repositories and tests — with its migrations in `db/migrations`, so everything this page describes is code you can open. The primitives it calls stay in the library (`gorbital.dev/modules/auth`: Argon2id hashing, session tokens, TOTP, passkeys, OAuth/OIDC), so fixes to those reach you with `go get`; `orb doctor` warns when the library's version of the module you own has changed. Apps created with `--no-eject` import it from `gorbital.dev/gorbital/authhttp` instead.
+
 ## The flow
 
 ```text
