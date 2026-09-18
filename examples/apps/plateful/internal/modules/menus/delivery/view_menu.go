@@ -7,7 +7,7 @@ import (
 )
 
 type viewMenuInput struct {
-	RestaurantID string `path:"restaurantId" maxLength:"64" example:"rst_mfrggzdfmztwq2lkmfrggzdfmy"`
+	RestaurantID string `path:"restaurantId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy" doc:"The restaurant's ID, which is its organisation's"`
 }
 
 // MenuSection is one heading of a published menu with its dishes.

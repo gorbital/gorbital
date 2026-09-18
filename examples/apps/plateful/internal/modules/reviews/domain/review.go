@@ -33,9 +33,9 @@ const (
 // organisation. The organisation's own staff may neither change it nor hide
 // it. Hiding is platform staff's alone (usecase.PermModerate).
 type Review struct {
-	ID           string
-	OrgID        string
-	RestaurantID string
+	ID string
+	// OrgID is the restaurant reviewed: a restaurant is an organisation.
+	OrgID string
 	// OrderID is the delivered order being reviewed, unique across the
 	// table: one order, one review.
 	OrderID string
@@ -59,9 +59,9 @@ type Review struct {
 
 // NewReview returns a review of the order by customerID, or a
 // *ValidationError.
-func NewReview(id, orgID, restaurantID, orderID, customerID string, rating int, comment string, now time.Time) (Review, error) {
+func NewReview(id, orgID, orderID, customerID string, rating int, comment string, now time.Time) (Review, error) {
 	r := Review{
-		ID: id, OrgID: orgID, RestaurantID: restaurantID, OrderID: orderID,
+		ID: id, OrgID: orgID, OrderID: orderID,
 		CustomerID: customerID, Rating: rating, Comment: strings.TrimSpace(comment),
 		Version: 1, CreatedAt: now, UpdatedAt: now,
 	}
@@ -128,11 +128,11 @@ func (r Review) validate() error {
 // A Rating is what a restaurant's visible reviews add up to: how many there
 // are and what they sum to. The average is derived, never stored.
 type Rating struct {
-	RestaurantID string
-	OrgID        string
-	Count        int
-	Sum          int64
-	UpdatedAt    time.Time
+	// OrgID is the restaurant: a restaurant is an organisation.
+	OrgID     string
+	Count     int
+	Sum       int64
+	UpdatedAt time.Time
 }
 
 // Average returns the mean rating, or 0 for a restaurant nobody has reviewed

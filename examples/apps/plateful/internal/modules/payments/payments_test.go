@@ -93,30 +93,29 @@ func signUp(t *testing.T, app *gorbitaltest.App, email string) (*gorbitaltest.Cl
 }
 
 const (
-	insertRestaurantSQL = `
-		INSERT INTO restaurants (id, org_id, created_by, name, address, cuisine, delivery_radius_m,
-		                         status, version, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, 'Example address', 'Neapolitan', 3000, 'open', 1, now(), now())
-		ON CONFLICT (id) DO NOTHING`
+	// A restaurant is its organisation's row with the profile filled in.
+	openRestaurantSQL = `
+		UPDATE orgs SET name = $2, address = 'Example address', cuisine = 'Neapolitan',
+		                status = 'open', profile_created_at = now()
+		WHERE id = $1 AND profile_created_at IS NULL`
 	insertOrderSQL = `
-		INSERT INTO orders (id, org_id, restaurant_id, customer_id, status, address, total_minor,
+		INSERT INTO orders (id, org_id, customer_id, status, address, total_minor,
 		                    currency, placed_at, version, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, 'Example address', $6, 'GBP', now(), 1, now(), now())`
+		VALUES ($1, $2, $3, $4, 'Example address', $5, 'GBP', now(), 1, now(), now())`
 )
 
 // seedOrder writes the restaurant and the order a payment needs, and
 // returns the order's ID. The orders module writes both in the real flow;
 // this module only ever reads them, with SQL, because a module never
 // imports another module's layers.
-func seedOrder(t *testing.T, app *gorbitaltest.App, orgID, ownerID, customerID, status string, totalMinor int64) string {
+func seedOrder(t *testing.T, app *gorbitaltest.App, orgID, customerID, status string, totalMinor int64) string {
 	t.Helper()
 	ctx, db := context.Background(), app.App().Deps().DB
-	restaurantID := "rst_" + strings.ReplaceAll(orgID, "org_", "")
-	orderID := fmt.Sprintf("ord_%s_%d", restaurantID, totalMinor)
-	if _, err := db.Exec(ctx, insertRestaurantSQL, restaurantID, orgID, ownerID, "Restaurant "+orgID); err != nil {
-		t.Fatalf("insert restaurant: %v", err)
+	orderID := fmt.Sprintf("ord_%s_%d", strings.TrimPrefix(orgID, "org_"), totalMinor)
+	if _, err := db.Exec(ctx, openRestaurantSQL, orgID, "Restaurant "+orgID); err != nil {
+		t.Fatalf("open restaurant: %v", err)
 	}
-	if _, err := db.Exec(ctx, insertOrderSQL, orderID, orgID, restaurantID, customerID, status, totalMinor); err != nil {
+	if _, err := db.Exec(ctx, insertOrderSQL, orderID, orgID, customerID, status, totalMinor); err != nil {
 		t.Fatalf("insert order: %v", err)
 	}
 	return orderID
@@ -198,9 +197,9 @@ func auditTrail(t *testing.T, app *gorbitaltest.App, paymentID string) []string 
 // rather than charging them twice, with or without an Idempotency-Key.
 func TestCustomerPaysForTheirOwnOrder(t *testing.T) {
 	app := newApp(t)
-	_, restaurateurID, orgID := signUp(t, app, "chef@example.com")
+	_, _, orgID := signUp(t, app, "chef@example.com")
 	customer, customerID, _ := signUp(t, app, "ada@example.com")
-	orderID := seedOrder(t, app, orgID, restaurateurID, customerID, "placed", 2350)
+	orderID := seedOrder(t, app, orgID, customerID, "placed", 2350)
 
 	res := customer.Post("/v1/orders/"+orderID+"/pay", nil)
 	res.AssertStatus(t, http.StatusCreated)
@@ -252,9 +251,9 @@ func TestCustomerPaysForTheirOwnOrder(t *testing.T) {
 // module declares nothing for this; it only documents the header.
 func TestIdempotencyKeyReplaysTheFirstResponse(t *testing.T) {
 	app := newApp(t)
-	_, restaurateurID, orgID := signUp(t, app, "chef@example.com")
+	_, _, orgID := signUp(t, app, "chef@example.com")
 	customer, customerID, _ := signUp(t, app, "ada@example.com")
-	orderID := seedOrder(t, app, orgID, restaurateurID, customerID, "placed", 1799)
+	orderID := seedOrder(t, app, orgID, customerID, "placed", 1799)
 
 	retrying := customer.WithHeader("Idempotency-Key", "key_ada_pays_once")
 	first := retrying.Post("/v1/orders/"+orderID+"/pay", nil)
@@ -282,10 +281,10 @@ func TestIdempotencyKeyReplaysTheFirstResponse(t *testing.T) {
 // the same as one that doesn't exist, so order IDs can't be probed.
 func TestSomebodyElsesOrderIsNotFound(t *testing.T) {
 	app := newApp(t)
-	_, restaurateurID, orgID := signUp(t, app, "chef@example.com")
+	_, _, orgID := signUp(t, app, "chef@example.com")
 	ada, adaID, _ := signUp(t, app, "ada@example.com")
 	bob, _, _ := signUp(t, app, "bob@example.com")
-	orderID := seedOrder(t, app, orgID, restaurateurID, adaID, "placed", 2350)
+	orderID := seedOrder(t, app, orgID, adaID, "placed", 2350)
 
 	bob.Post("/v1/orders/"+orderID+"/pay", nil).AssertProblem(t, http.StatusNotFound, "order_not_found")
 	bob.Post("/v1/orders/ord_missing/pay", nil).AssertProblem(t, http.StatusNotFound, "order_not_found")
@@ -306,9 +305,9 @@ func TestSomebodyElsesOrderIsNotFound(t *testing.T) {
 // same event ID changes nothing at all.
 func TestAuthorisedEventMovesThePayment(t *testing.T) {
 	app := newApp(t)
-	_, restaurateurID, orgID := signUp(t, app, "chef@example.com")
+	_, _, orgID := signUp(t, app, "chef@example.com")
 	customer, customerID, _ := signUp(t, app, "ada@example.com")
-	orderID := seedOrder(t, app, orgID, restaurateurID, customerID, "placed", 2350)
+	orderID := seedOrder(t, app, orgID, customerID, "placed", 2350)
 
 	var paid apiPayment
 	customer.Post("/v1/orders/"+orderID+"/pay", nil).JSON(t, &paid)
@@ -363,9 +362,9 @@ func TestAuthorisedEventMovesThePayment(t *testing.T) {
 // runs — so none of them moves a payment or records an event.
 func TestUnauthenticDeliveriesChangeNothing(t *testing.T) {
 	app := newApp(t)
-	_, restaurateurID, orgID := signUp(t, app, "chef@example.com")
+	_, _, orgID := signUp(t, app, "chef@example.com")
 	customer, customerID, _ := signUp(t, app, "ada@example.com")
-	orderID := seedOrder(t, app, orgID, restaurateurID, customerID, "placed", 2350)
+	orderID := seedOrder(t, app, orgID, customerID, "placed", 2350)
 
 	var paid apiPayment
 	customer.Post("/v1/orders/"+orderID+"/pay", nil).JSON(t, &paid)
@@ -407,9 +406,9 @@ func TestUnauthenticDeliveriesChangeNothing(t *testing.T) {
 // nothing.
 func TestUnknownEventTypeIsAcceptedAndIgnored(t *testing.T) {
 	app := newApp(t)
-	_, restaurateurID, orgID := signUp(t, app, "chef@example.com")
+	_, _, orgID := signUp(t, app, "chef@example.com")
 	customer, customerID, _ := signUp(t, app, "ada@example.com")
-	orderID := seedOrder(t, app, orgID, restaurateurID, customerID, "placed", 2350)
+	orderID := seedOrder(t, app, orgID, customerID, "placed", 2350)
 
 	var paid apiPayment
 	customer.Post("/v1/orders/"+orderID+"/pay", nil).JSON(t, &paid)
@@ -438,9 +437,9 @@ func TestUnknownEventTypeIsAcceptedAndIgnored(t *testing.T) {
 // the first.
 func TestPlatformStaffRefundOnce(t *testing.T) {
 	app := newApp(t)
-	_, restaurateurID, orgID := signUp(t, app, "chef@example.com")
+	_, _, orgID := signUp(t, app, "chef@example.com")
 	customer, customerID, _ := signUp(t, app, "ada@example.com")
-	orderID := seedOrder(t, app, orgID, restaurateurID, customerID, "placed", 2350)
+	orderID := seedOrder(t, app, orgID, customerID, "placed", 2350)
 
 	var paid apiPayment
 	customer.Post("/v1/orders/"+orderID+"/pay", nil).JSON(t, &paid)
@@ -486,13 +485,13 @@ func TestPlatformStaffRefundOnce(t *testing.T) {
 // a payment that has moved past pending is not paid a second time.
 func TestAnOrderThatIsNotWaitingToBePaid(t *testing.T) {
 	app := newApp(t)
-	_, restaurateurID, orgID := signUp(t, app, "chef@example.com")
+	_, _, orgID := signUp(t, app, "chef@example.com")
 	customer, customerID, _ := signUp(t, app, "ada@example.com")
 
-	cancelled := seedOrder(t, app, orgID, restaurateurID, customerID, "cancelled", 900)
+	cancelled := seedOrder(t, app, orgID, customerID, "cancelled", 900)
 	customer.Post("/v1/orders/"+cancelled+"/pay", nil).AssertProblem(t, http.StatusConflict, "order_not_payable")
 
-	orderID := seedOrder(t, app, orgID, restaurateurID, customerID, "placed", 2350)
+	orderID := seedOrder(t, app, orgID, customerID, "placed", 2350)
 	var paid apiPayment
 	customer.Post("/v1/orders/"+orderID+"/pay", nil).JSON(t, &paid)
 	body := event("evt_1", "payment.authorised", paid.ID)

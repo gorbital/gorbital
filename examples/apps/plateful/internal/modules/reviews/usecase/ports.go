@@ -48,7 +48,7 @@ type Store interface {
 	// AddToRating adds countDelta reviews and sumDelta stars to a
 	// restaurant's running total, creating the row when it is the first.
 	// Deltas may be negative, which is how hiding a review takes it out.
-	AddToRating(ctx context.Context, restaurantID, orgID string, countDelta int, sumDelta int64, now time.Time) (domain.Rating, error)
+	AddToRating(ctx context.Context, orgID string, countDelta int, sumDelta int64, now time.Time) (domain.Rating, error)
 	// InTx runs fn in one transaction: it commits when fn returns nil and
 	// rolls back otherwise.
 	InTx(ctx context.Context, fn func(tx Store) error) error

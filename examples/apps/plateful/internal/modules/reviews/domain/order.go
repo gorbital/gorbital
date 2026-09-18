@@ -16,10 +16,9 @@ const OrderStatusDelivered = "delivered"
 // module therefore depends on four column names rather than on another
 // module's Go API, and the coupling is visible in one query.
 type OrderFacts struct {
-	OrgID        string
-	RestaurantID string
-	CustomerID   string
-	Status       string
+	OrgID      string // the restaurant, which is an organisation
+	CustomerID string
+	Status     string
 }
 
 // Reviewable reports whether customerID may review this order: it is theirs

@@ -21,7 +21,7 @@ var selectRestaurantsSQL = func() map[string]string {
 		// Text sorts ignore case and compare byte by byte, so the order
 		// doesn't depend on the database's locale.
 		{"name", `lower(name) COLLATE "C"`, `lower($2::text) COLLATE "C"`},
-		{"created_at", `created_at`, `$2::timestamptz`},
+		{"created_at", `profile_created_at`, `$2::timestamptz`},
 	}
 	queries := make(map[string]string, 2*len(sorts))
 	for _, s := range sorts {
@@ -31,8 +31,9 @@ var selectRestaurantsSQL = func() map[string]string {
 				name, dir, cmp = "-"+s.field, "DESC", "<"
 			}
 			queries[name] = `
-	SELECT ` + restaurantColumns + ` FROM restaurants
-	WHERE (cardinality($5::text[]) = 0 OR status = ANY($5))
+	SELECT ` + restaurantColumns + ` FROM orgs
+	WHERE ` + isRestaurant + `
+	  AND (cardinality($5::text[]) = 0 OR status = ANY($5))
 	  AND ($6::text = '' OR lower(cuisine) = lower($6))
 	  AND (NOT $1::boolean OR (` + s.key + `, id) ` + cmp + ` (` + s.after + `, $3))
 	ORDER BY ` + s.key + ` ` + dir + `, id ` + dir + `

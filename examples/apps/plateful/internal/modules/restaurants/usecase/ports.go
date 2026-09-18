@@ -36,16 +36,15 @@ type Position struct {
 // Store reads and writes restaurants; repository.Store implements it with
 // SQL.
 type Store interface {
-	// InsertRestaurant stores a new restaurant, or returns
-	// ErrRestaurantNameTaken.
-	InsertRestaurant(ctx context.Context, r domain.Restaurant) (domain.Restaurant, error)
-	// SelectRestaurantByOrg returns the organisation's restaurant, or
-	// ErrRestaurantNotFound. lock locks the row until the transaction ends.
-	SelectRestaurantByOrg(ctx context.Context, orgID string, lock bool) (domain.Restaurant, error)
-	// SelectRestaurant returns one restaurant by ID, whichever organisation
-	// it belongs to, or ErrRestaurantNotFound. Customers and platform staff
-	// reach restaurants this way; a restaurant's own staff go by
-	// organisation.
+	// CreateRestaurant saves an organisation's first profile, making it a
+	// restaurant. It returns ErrRestaurantNameTaken, and
+	// ErrRestaurantVersionConflict when the organisation already has one.
+	CreateRestaurant(ctx context.Context, r domain.Restaurant) (domain.Restaurant, error)
+	// SelectRestaurant returns the restaurant whose organisation is id, or
+	// ErrRestaurantNotFound when it has no profile. Staff, customers and
+	// platform staff all reach a restaurant by this one ID; what differs is
+	// the rule the use case applies. lock locks the row until the
+	// transaction ends.
 	SelectRestaurant(ctx context.Context, id string, lock bool) (domain.Restaurant, error)
 	// SelectRestaurants returns up to q.Limit restaurants in q.Sort order,
 	// with the ID breaking ties.

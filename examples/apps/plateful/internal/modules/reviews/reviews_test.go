@@ -74,32 +74,31 @@ func seedDB(t *testing.T, app *gorbitaltest.App) (*pgxpool.Pool, context.Context
 	return app.App().Deps().DB, postgres.WithoutRowLevelSecurity(context.Background(), "test: seed another module's rows")
 }
 
-// seedRestaurant inserts a restaurant of orgID, as the restaurants module
-// would.
+// seedRestaurant makes orgID an open restaurant called name, as the
+// restaurants module would, and returns its ID: the organisation's.
 func seedRestaurant(t *testing.T, app *gorbitaltest.App, orgID, name string) string {
 	t.Helper()
 	db, ctx := seedDB(t, app)
-	id := "rst_" + name
 	_, err := db.Exec(ctx, `
-		INSERT INTO restaurants (id, org_id, created_by, name, address, status, created_at, updated_at)
-		VALUES ($1, $2, 'usr_seed', $3, 'Example address', 'open', now(), now())`, id, orgID, name)
+		UPDATE orgs SET name = $2, address = 'Example address', status = 'open', profile_created_at = now()
+		WHERE id = $1`, orgID, name)
 	if err != nil {
 		t.Fatalf("seed restaurant: %v", err)
 	}
-	return id
+	return orgID
 }
 
 // seedOrder inserts an order of the restaurant, placed by customerID and in
 // status, as the orders module would.
-func seedOrder(t *testing.T, app *gorbitaltest.App, orgID, restaurantID, customerID, status, suffix string) string {
+func seedOrder(t *testing.T, app *gorbitaltest.App, restaurantID, customerID, status, suffix string) string {
 	t.Helper()
 	db, ctx := seedDB(t, app)
 	id := "ord_" + suffix
 	_, err := db.Exec(ctx, `
-		INSERT INTO orders (id, org_id, restaurant_id, customer_id, status, address, total_minor,
+		INSERT INTO orders (id, org_id, customer_id, status, address, total_minor,
 		                    placed_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, 'Example address', 1250, now(), now(), now())`,
-		id, orgID, restaurantID, customerID, status)
+		VALUES ($1, $2, $3, $4, 'Example address', 1250, now(), now(), now())`,
+		id, restaurantID, customerID, status)
 	if err != nil {
 		t.Fatalf("seed order: %v", err)
 	}
@@ -146,7 +145,7 @@ func TestWriteReviewMovesTheAggregate(t *testing.T) {
 		t.Errorf("list of an unreviewed restaurant = %+v, want nothing", empty)
 	}
 
-	adaOrder := seedOrder(t, app, org, restaurant, adaID, "delivered", "ada")
+	adaOrder := seedOrder(t, app, restaurant, adaID, "delivered", "ada")
 	res := ada.Post(reviewPath(adaOrder), map[string]any{"rating": 5, "comment": "  Faultless  "})
 	res.AssertStatus(t, http.StatusCreated)
 	var written apiReview
@@ -161,7 +160,7 @@ func TestWriteReviewMovesTheAggregate(t *testing.T) {
 		t.Errorf("after one review = %d reviews averaging %v, want 1 averaging 5", one.ReviewCount, one.AverageRating)
 	}
 
-	bobOrder := seedOrder(t, app, org, restaurant, bobID, "delivered", "bob")
+	bobOrder := seedOrder(t, app, restaurant, bobID, "delivered", "bob")
 	bob.Post(reviewPath(bobOrder), map[string]any{"rating": 2, "comment": "Cold"}).AssertStatus(t, http.StatusCreated)
 
 	var two apiReviewPage
@@ -190,7 +189,7 @@ func TestTheEditWindowCloses(t *testing.T) {
 	_, _, org := signUp(t, app, "owner@example.com")
 	restaurant := seedRestaurant(t, app, org, "website")
 	ada, adaID, _ := signUp(t, app, "ada@example.com")
-	order := seedOrder(t, app, org, restaurant, adaID, "delivered", "ada")
+	order := seedOrder(t, app, restaurant, adaID, "delivered", "ada")
 
 	var written apiReview
 	ada.Post(reviewPath(order), map[string]any{"rating": 3, "comment": "Fine"}).JSON(t, &written)
@@ -221,7 +220,7 @@ func TestOneReviewPerOrder(t *testing.T) {
 	_, _, org := signUp(t, app, "owner@example.com")
 	restaurant := seedRestaurant(t, app, org, "website")
 	ada, adaID, _ := signUp(t, app, "ada@example.com")
-	order := seedOrder(t, app, org, restaurant, adaID, "delivered", "ada")
+	order := seedOrder(t, app, restaurant, adaID, "delivered", "ada")
 
 	ada.Post(reviewPath(order), map[string]any{"rating": 5}).AssertStatus(t, http.StatusCreated)
 	ada.Post(reviewPath(order), map[string]any{"rating": 1, "comment": "On reflection"}).
@@ -245,7 +244,7 @@ func TestOnlyTheCustomerWhoOrderedMayReview(t *testing.T) {
 	restaurant := seedRestaurant(t, app, org, "website")
 	_, adaID, _ := signUp(t, app, "ada@example.com")
 	bob, _, _ := signUp(t, app, "bob@example.com")
-	adasOrder := seedOrder(t, app, org, restaurant, adaID, "delivered", "ada")
+	adasOrder := seedOrder(t, app, restaurant, adaID, "delivered", "ada")
 
 	bob.Post(reviewPath(adasOrder), map[string]any{"rating": 1, "comment": "Not mine"}).
 		AssertProblem(t, http.StatusNotFound, "order_not_found")
@@ -273,7 +272,7 @@ func TestAnOrderMustBeDeliveredFirst(t *testing.T) {
 
 	for _, status := range []string{"placed", "accepted", "preparing", "ready", "collected", "cancelled", "rejected"} {
 		t.Run(status, func(t *testing.T) {
-			order := seedOrder(t, app, org, restaurant, adaID, status, status)
+			order := seedOrder(t, app, restaurant, adaID, status, status)
 			ada.Post(reviewPath(order), map[string]any{"rating": 5}).
 				AssertProblem(t, http.StatusConflict, "order_not_delivered")
 		})
@@ -288,7 +287,7 @@ func TestThePublicListNeedsNoCredentials(t *testing.T) {
 	restaurant := seedRestaurant(t, app, org, "website")
 	for i := range 3 {
 		client, userID, _ := signUp(t, app, fmt.Sprintf("diner%d@example.com", i))
-		order := seedOrder(t, app, org, restaurant, userID, "delivered", fmt.Sprintf("d%d", i))
+		order := seedOrder(t, app, restaurant, userID, "delivered", fmt.Sprintf("d%d", i))
 		client.Post(reviewPath(order), map[string]any{"rating": i + 2, "comment": fmt.Sprintf("Visit %d", i)}).
 			AssertStatus(t, http.StatusCreated)
 	}
@@ -340,8 +339,8 @@ func TestOnlyPlatformStaffHideAReview(t *testing.T) {
 	ada, adaID, _ := signUp(t, app, "ada@example.com")
 	bob, bobID, _ := signUp(t, app, "bob@example.com")
 
-	adaOrder := seedOrder(t, app, org, restaurant, adaID, "delivered", "ada")
-	bobOrder := seedOrder(t, app, org, restaurant, bobID, "delivered", "bob")
+	adaOrder := seedOrder(t, app, restaurant, adaID, "delivered", "ada")
+	bobOrder := seedOrder(t, app, restaurant, bobID, "delivered", "bob")
 	var abusive apiReview
 	ada.Post(reviewPath(adaOrder), map[string]any{"rating": 1, "comment": "Unrepeatable"}).JSON(t, &abusive)
 	bob.Post(reviewPath(bobOrder), map[string]any{"rating": 5, "comment": "Wonderful"}).AssertStatus(t, http.StatusCreated)

@@ -65,9 +65,12 @@ func (s *Service) PlaceOrder(ctx context.Context, restaurantID string, in PlaceO
 		}
 	}
 
+	// A restaurant is an organisation: its ID is the one the order, the menu
+	// and the stock all belong to.
+	orgID := restaurantID
 	var placed domain.Order
 	err = s.tx.InTx(ctx, func(tx Tx) error {
-		orgID, accepting, err := tx.SelectRestaurant(ctx, restaurantID)
+		accepting, err := tx.SelectRestaurant(ctx, orgID)
 		switch {
 		case err != nil:
 			return err
@@ -112,7 +115,7 @@ func (s *Service) PlaceOrder(ctx context.Context, restaurantID string, in PlaceO
 			})
 		}
 
-		order, err := domain.NewOrder(s.newID(), orgID, restaurantID, customer, currency, basket, s.clock())
+		order, err := domain.NewOrder(s.newID(), orgID, customer, currency, basket, s.clock())
 		if err != nil {
 			return err
 		}

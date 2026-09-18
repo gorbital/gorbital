@@ -116,7 +116,7 @@ The delivery worker ([chapter 13](13-background-jobs.md) built the job it runs i
 
 > Five would not be five failures; they would be one failure described five times, and an audit trail that inflates like that is one nobody reads.
 
-**What just happened.** Plateful's audit trail now answers Bruno's question — `GET /ops/audit?resource_type=restaurant&resource_id=rst_…` shows the suspension, the operator who did it and the reason they typed — — the suspension was [chapter 5](05-the-restaurants-module.md)'s platform-only operation — and it answers it the same way whether the change came from a request, from the payment provider's webhook or from a job at four in the morning.
+**What just happened.** Plateful's audit trail now answers Bruno's question — `GET /ops/audit?resource_type=restaurant&resource_id=org_…` shows the suspension, the operator who did it and the reason they typed — — the suspension was [chapter 5](05-the-restaurants-module.md)'s platform-only operation — and it answers it the same way whether the change came from a request, from the payment provider's webhook or from a job at four in the morning.
 
 Reading it:
 

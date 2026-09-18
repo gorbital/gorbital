@@ -58,13 +58,15 @@ func (v Status) SetByStaff() bool {
 
 // docs:end restaurant-status
 
-// A Restaurant is one organisation's place: the profile customers see and
-// the switch that decides whether it takes orders.
+// A Restaurant is an organisation seen as a place to eat: the profile
+// customers see and the switch that decides whether it takes orders. It is
+// stored on the organisation's own row, so the two share an ID, a name and
+// a version.
 type Restaurant struct {
-	ID    string
-	OrgID string
-	// CreatedBy is the member who created the profile, for display and
-	// audit. Access comes only from membership.
+	// ID is the organisation's ID. There is no second one.
+	ID string
+	// CreatedBy is the account that created the organisation, for display
+	// and audit. Access comes only from membership.
 	CreatedBy string
 	RestaurantFields
 	Status Status
@@ -97,12 +99,12 @@ type RestaurantFields struct {
 	CoverImageID string
 }
 
-// NewRestaurant returns a new restaurant of orgID created by createdBy, or a
+// NewRestaurant returns the first profile of the organisation orgID, or a
 // *ValidationError. It starts onboarding: nobody can order from it until its
 // staff publish it. maxRadius is the platform's cap on DeliveryRadiusM.
-func NewRestaurant(id, orgID, createdBy string, f RestaurantFields, maxRadius int, now time.Time) (Restaurant, error) {
+func NewRestaurant(orgID string, f RestaurantFields, maxRadius int, now time.Time) (Restaurant, error) {
 	r := Restaurant{
-		ID: id, OrgID: orgID, CreatedBy: createdBy, RestaurantFields: f.clean(),
+		ID: orgID, RestaurantFields: f.clean(),
 		Status: StatusOnboarding, Version: 1, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := r.validate(maxRadius); err != nil {

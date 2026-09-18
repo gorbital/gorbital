@@ -13,7 +13,7 @@ type saveRestaurantInput struct {
 	OrgID string `path:"orgId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy"`
 	Body  struct {
 		Version         int64  `json:"version" minimum:"0" doc:"The version you read, or 0 to create the profile"`
-		Name            string `json:"name" minLength:"1" maxLength:"100"`
+		Name            string `json:"name" minLength:"1" maxLength:"100" doc:"The restaurant's name, which is the organisation's: saving it renames the organisation"`
 		Address         string `json:"address" minLength:"1" maxLength:"200"`
 		Cuisine         string `json:"cuisine,omitempty" maxLength:"60" example:"Neapolitan"`
 		OpensMinute     int    `json:"opens_minute" minimum:"0" maximum:"1440" doc:"Minutes from midnight UTC"`

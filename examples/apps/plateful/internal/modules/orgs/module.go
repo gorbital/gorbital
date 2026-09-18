@@ -38,6 +38,7 @@ func errorMappings() []httpx.Mapping {
 		{Err: orgsdomain.ErrSessionRequired, Status: http.StatusForbidden, Code: "session_required", Detail: "sign in to do this: an API key can't join or leave organisations"},
 		{Err: orgsdomain.ErrInvalidName, Status: http.StatusUnprocessableEntity, Code: "invalid_org_name", Detail: "an organisation name must be 1 to 100 characters on one line"},
 		{Err: orgsdomain.ErrOrgVersionConflict, Status: http.StatusConflict, Code: "org_version_conflict", Detail: "the organisation changed since you read it; get it again and retry"},
+		{Err: orgsdomain.ErrOrgNameTaken, Status: http.StatusConflict, Code: "org_name_taken", Detail: "another restaurant on the platform is called this"},
 		{Err: orgsdomain.ErrPersonalWorkspace, Status: http.StatusConflict, Code: "personal_workspace", Detail: "a personal workspace can't be left, deleted or shared; create an organisation instead"},
 		{Err: orgsdomain.ErrMemberNotFound, Status: http.StatusNotFound, Code: "member_not_found", Detail: "the organisation has no member with this ID"},
 		{Err: orgsdomain.ErrUnknownRole, Status: http.StatusUnprocessableEntity, Code: "unknown_role", Detail: "the role isn't one of the organisation roles"},

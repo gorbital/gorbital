@@ -21,7 +21,7 @@ import (
 // after the last row's (created_at, id), newest first.
 const selectReviewsSQL = `
 	SELECT ` + reviewColumns + ` FROM reviews
-	WHERE restaurant_id = $1
+	WHERE org_id = $1
 	  AND NOT hidden
 	  AND (NOT $2::boolean OR (created_at, id) < ($3::timestamptz, $4))
 	ORDER BY created_at DESC, id DESC

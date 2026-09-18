@@ -15,7 +15,7 @@ func (h handlers) getRestaurant(ctx context.Context, in *orgInput) (*restaurantO
 }
 
 type restaurantIDInput struct {
-	ID string `path:"id" maxLength:"64" example:"rst_mfrggzdfmztwq2lkmfrggzdfmy"`
+	ID string `path:"id" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy" doc:"The restaurant's ID, which is its organisation's"`
 }
 
 func (h handlers) viewRestaurant(ctx context.Context, in *restaurantIDInput) (*restaurantOutput, error) {

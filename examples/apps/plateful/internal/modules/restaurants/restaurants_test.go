@@ -87,16 +87,18 @@ func TestSaveAndPublish(t *testing.T) {
 	bruno, org := restaurateur(t, app, "bruno@example.com", "Trattoria Bruno")
 	path := "/v1/orgs/" + org + "/restaurant"
 
-	// There is no profile until the restaurateur writes one: gorbital has no
-	// "an organisation was created" hook, so nothing can create it for them.
+	// The organisation isn't a restaurant until the restaurateur saves a
+	// profile: a personal workspace is an organisation too.
 	bruno.Get(path).AssertProblem(t, http.StatusNotFound, "restaurant_not_found")
 
 	res := bruno.Put(path, body(0, "Trattoria Bruno", "onboarding"))
 	res.AssertStatus(t, http.StatusOK)
 	var created profile
 	res.JSON(t, &created)
-	if created.Status != "onboarding" || created.Version != 1 {
-		t.Fatalf("created = %+v, want onboarding version 1", created)
+	// The version is the organisation's row's: 1 when it was created, 2 now
+	// its restaurant columns are filled in. The ID is the organisation's.
+	if created.Status != "onboarding" || created.Version != 2 || created.ID != org {
+		t.Fatalf("created = %+v, want onboarding version 2 with the organisation's ID", created)
 	}
 
 	// Creating it twice is a conflict, not a second restaurant.
@@ -132,6 +134,15 @@ func TestProfileRules(t *testing.T) {
 	sara, sarasOrg := restaurateur(t, app, "sara@example.com", "Sara's")
 	sara.Put("/v1/orgs/"+sarasOrg+"/restaurant", body(0, "Trattoria Bruno", "onboarding")).
 		AssertProblem(t, http.StatusConflict, "restaurant_name_taken")
+
+	// The restaurant's name is the organisation's, so renaming the
+	// organisation is renaming the restaurant, and the same rule holds.
+	res := sara.Put("/v1/orgs/"+sarasOrg+"/restaurant", body(0, "Sara's", "onboarding"))
+	res.AssertStatus(t, http.StatusOK)
+	var saras profile
+	res.JSON(t, &saras)
+	sara.Patch("/v1/orgs/"+sarasOrg, map[string]any{"name": "trattoria bruno", "version": saras.Version}).
+		AssertProblem(t, http.StatusConflict, "org_name_taken")
 }
 
 // docs:start test-three-callers

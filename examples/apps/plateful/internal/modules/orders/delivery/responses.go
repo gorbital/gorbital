@@ -29,7 +29,7 @@ type LineResponse struct {
 // decided in the use cases, not by hiding fields.
 type OrderResponse struct {
 	ID           string         `json:"id" example:"ord_mfrggzdfmztwq2lkmfrggzdfmy"`
-	RestaurantID string         `json:"restaurant_id" example:"rst_mfrggzdfmztwq2lkmfrggzdfmy"`
+	RestaurantID string         `json:"restaurant_id" example:"org_mfrggzdfmztwq2lkmfrggzdfmy" doc:"The restaurant, whose ID is its organisation's"`
 	CustomerID   string         `json:"customer_id" example:"usr_mfrggzdfmztwq2lkmfrggzdfmy"`
 	CourierID    string         `json:"courier_id,omitempty" example:"cur_mfrggzdfmztwq2lkmfrggzdfmy"`
 	Status       string         `json:"status" enum:"placed,accepted,preparing,ready,collected,delivered,rejected,cancelled"`
@@ -71,7 +71,7 @@ type orgOrderIDInput struct {
 
 func toResponse(o domain.Order) OrderResponse {
 	res := OrderResponse{
-		ID: o.ID, RestaurantID: o.RestaurantID, CustomerID: o.CustomerID, CourierID: o.CourierID,
+		ID: o.ID, RestaurantID: o.OrgID, CustomerID: o.CustomerID, CourierID: o.CourierID,
 		Status: string(o.Status), Address: o.Address, Note: o.Note,
 		Lines: make([]LineResponse, len(o.Lines)), TotalMinor: o.TotalMinor, Currency: o.Currency,
 		ScheduledFor: optional(o.ScheduledFor), PlacedAt: o.PlacedAt,

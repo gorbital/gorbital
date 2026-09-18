@@ -28,7 +28,7 @@ func basket() domain.Basket {
 // the sum of the lines to the penny. The same sum in floating point
 // (12.50*2 + 4.00) is where a penny goes missing.
 func TestTotalIsExactInMinorUnits(t *testing.T) {
-	order, err := domain.NewOrder("ord_1", "org_1", "rst_1", "usr_1", "GBP", basket(), now)
+	order, err := domain.NewOrder("ord_1", "org_1", "usr_1", "GBP", basket(), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestNewOrderRules(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			b := basket()
 			change(&b)
-			if _, err := domain.NewOrder("ord_1", "org_1", "rst_1", "usr_1", "GBP", b, now); !errors.Is(err, domain.ErrInvalidOrder) {
+			if _, err := domain.NewOrder("ord_1", "org_1", "usr_1", "GBP", b, now); !errors.Is(err, domain.ErrInvalidOrder) {
 				t.Errorf("NewOrder = %v, want an invalid order", err)
 			}
 		})
@@ -64,7 +64,7 @@ func TestNewOrderRules(t *testing.T) {
 // double-accepts and a courier can't deliver something the kitchen hasn't
 // finished.
 func TestStateMachine(t *testing.T) {
-	order, err := domain.NewOrder("ord_1", "org_1", "rst_1", "usr_1", "GBP", basket(), now)
+	order, err := domain.NewOrder("ord_1", "org_1", "usr_1", "GBP", basket(), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestStateMachine(t *testing.T) {
 		}
 	}
 
-	placed, _ := domain.NewOrder("ord_2", "org_1", "rst_1", "usr_1", "GBP", basket(), now)
+	placed, _ := domain.NewOrder("ord_2", "org_1", "usr_1", "GBP", basket(), now)
 	for _, to := range []domain.Status{domain.StatusReady, domain.StatusCollected, domain.StatusDelivered, domain.StatusPreparing} {
 		if _, err := placed.MoveTo(to, "", now); !errors.Is(err, domain.ErrInvalidTransition) {
 			t.Errorf("a placed order jumping to %s = %v, want ErrInvalidTransition", to, err)
@@ -118,7 +118,7 @@ func TestStateMachine(t *testing.T) {
 // docs:end test-state-machine
 
 func TestAssignCourier(t *testing.T) {
-	order, _ := domain.NewOrder("ord_1", "org_1", "rst_1", "usr_1", "GBP", basket(), now)
+	order, _ := domain.NewOrder("ord_1", "org_1", "usr_1", "GBP", basket(), now)
 	assigned, err := order.AssignCourier("cur_1", now)
 	if err != nil || assigned.CourierID != "cur_1" {
 		t.Fatalf("assigning = %+v, %v", assigned, err)
@@ -139,7 +139,7 @@ func TestAssignCourier(t *testing.T) {
 }
 
 func TestLate(t *testing.T) {
-	order, _ := domain.NewOrder("ord_1", "org_1", "rst_1", "usr_1", "GBP", basket(), now)
+	order, _ := domain.NewOrder("ord_1", "org_1", "usr_1", "GBP", basket(), now)
 	if order.Late(time.Minute, now.Add(time.Hour)) {
 		t.Error("an order nobody has accepted is late; the clock starts when the kitchen takes it")
 	}

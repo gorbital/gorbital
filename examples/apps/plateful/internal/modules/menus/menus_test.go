@@ -345,7 +345,7 @@ func TestACustomerReadsAPublishedMenu(t *testing.T) {
 	// Signing in is still required: the permission is held by the "user"
 	// role, not by nobody.
 	app.Client().Get(menuOf(restaurant.ID)).AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
-	carol.Get(menuOf("rst_mfrggzdfmztwq2lkmfrggzdfmy")).AssertProblem(t, http.StatusNotFound, "restaurant_not_found")
+	carol.Get(menuOf("org_mfrggzdfmztwq2lkmfrggzdfmy")).AssertProblem(t, http.StatusNotFound, "restaurant_not_found")
 }
 
 // TestAPausedRestaurantHasNoMenu checks that a restaurant which isn't open

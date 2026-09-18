@@ -10,7 +10,7 @@ import (
 // docs:start place-order-handler
 
 type placeOrderInput struct {
-	RestaurantID string `path:"restaurantId" maxLength:"64" example:"rst_mfrggzdfmztwq2lkmfrggzdfmy"`
+	RestaurantID string `path:"restaurantId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy" doc:"The restaurant's ID, which is its organisation's"`
 	Body         struct {
 		Address      string     `json:"address,omitempty" maxLength:"200" doc:"Where to take it; the address on your profile by default"`
 		Note         string     `json:"note,omitempty" maxLength:"500" doc:"Anything the kitchen or the courier should know"`

@@ -1,6 +1,7 @@
 // Package repository stores the restaurants module's restaurants in
-// PostgreSQL with hand-written SQL, one file per operation. The table comes
-// from db/migrations.
+// PostgreSQL with hand-written SQL, one file per operation. A restaurant is
+// a row of orgs, the organisations module's table: the migration
+// db/migrations/20260918010020_orgs_restaurant.sql adds its columns.
 package repository
 
 import (
@@ -44,13 +45,25 @@ func (s *Store) InTx(ctx context.Context, fn func(tx usecase.Store) error) error
 
 // docs:end restaurant-store
 
-// restaurantColumns are the columns scanRestaurant reads, in its order.
-const restaurantColumns = `id, org_id, created_by, name, address, cuisine, opens_minute, closes_minute, ` +
-	`delivery_radius_m, status, suspended_reason, cover_image_id, version, created_at, updated_at`
+// docs:start restaurant-columns-go
+
+// restaurantColumns are the columns scanRestaurant reads, in its order. The
+// organisation's id and name are the restaurant's; profile_created_at is
+// when it became one.
+const restaurantColumns = `id, created_by, name, address, cuisine, opens_minute, closes_minute, ` +
+	`delivery_radius_m, status, suspended_reason, cover_image_id, version, profile_created_at, updated_at`
+
+// isRestaurant keeps the organisations that are restaurants: their staff
+// have saved a profile, and nobody has deleted the organisation. Every
+// query of this module has it in its WHERE clause, so an organisation that
+// is only a personal workspace never reaches a use case.
+const isRestaurant = `profile_created_at IS NOT NULL AND deleted_at IS NULL`
+
+// docs:end restaurant-columns-go
 
 func scanRestaurant(row pgx.CollectableRow) (domain.Restaurant, error) {
 	var r domain.Restaurant
-	err := row.Scan(&r.ID, &r.OrgID, &r.CreatedBy, &r.Name, &r.Address, &r.Cuisine,
+	err := row.Scan(&r.ID, &r.CreatedBy, &r.Name, &r.Address, &r.Cuisine,
 		&r.OpensMinute, &r.ClosesMinute, &r.DeliveryRadiusM, &r.Status, &r.SuspendedReason, &r.CoverImageID,
 		&r.Version, &r.CreatedAt, &r.UpdatedAt)
 	r.CreatedAt, r.UpdatedAt = r.CreatedAt.UTC(), r.UpdatedAt.UTC()
@@ -64,12 +77,8 @@ func scanRestaurant(row pgx.CollectableRow) (domain.Restaurant, error) {
 func constraintError(err error) error {
 	if constraint, ok := postgres.UniqueViolation(err); ok {
 		switch constraint {
-		case "restaurants_name":
+		case "orgs_restaurant_name":
 			return domain.ErrRestaurantNameTaken
-		case "restaurants_org_id_key":
-			// The organisation already has a restaurant: two saves of a
-			// first profile raced, and the loser reads the winner's row.
-			return domain.ErrRestaurantVersionConflict
 		}
 	}
 	return err

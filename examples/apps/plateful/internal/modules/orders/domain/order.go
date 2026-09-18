@@ -105,11 +105,10 @@ func (l Line) Total() int64 { return l.PriceMinor * int64(l.Quantity) }
 
 // An Order is one customer's order from one restaurant.
 type Order struct {
-	ID    string
+	ID string
+	// OrgID is the restaurant the order is from. A restaurant is an
+	// organisation, so its staff reach the order through this one ID.
 	OrgID string
-	// RestaurantID is the restaurant, always one of OrgID's: the migration's
-	// foreign key is on (org_id, restaurant_id).
-	RestaurantID string
 	// CustomerID is the account that placed it. It is a member of no
 	// organisation, so nothing about membership decides what it may do; the
 	// use cases compare this against the caller.
@@ -153,9 +152,9 @@ type Basket struct {
 // NewOrder returns a placed order, or a *ValidationError. The lines are
 // already priced from the menu by the use case; this checks what an order
 // must look like and adds up the total.
-func NewOrder(id, orgID, restaurantID, customerID, currency string, b Basket, now time.Time) (Order, error) {
+func NewOrder(id, orgID, customerID, currency string, b Basket, now time.Time) (Order, error) {
 	o := Order{
-		ID: id, OrgID: orgID, RestaurantID: restaurantID, CustomerID: customerID,
+		ID: id, OrgID: orgID, CustomerID: customerID,
 		Status: StatusPlaced, Address: strings.TrimSpace(b.Address), Note: strings.TrimSpace(b.Note),
 		ScheduledFor: b.ScheduledFor, Lines: b.Lines, Currency: currency,
 		PlacedAt: now, Version: 1, CreatedAt: now, UpdatedAt: now,

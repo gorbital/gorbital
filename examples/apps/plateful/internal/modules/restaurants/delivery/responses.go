@@ -12,8 +12,8 @@ import (
 
 // RestaurantResponse is a restaurant as the API returns it.
 type RestaurantResponse struct {
-	ID              string `json:"id" example:"rst_mfrggzdfmztwq2lkmfrggzdfmy"`
-	Name            string `json:"name"`
+	ID              string `json:"id" example:"org_mfrggzdfmztwq2lkmfrggzdfmy" doc:"The organisation's ID: a restaurant is an organisation"`
+	Name            string `json:"name" doc:"The organisation's name"`
 	Address         string `json:"address"`
 	Cuisine         string `json:"cuisine"`
 	OpensMinute     int    `json:"opens_minute" doc:"Minutes from midnight UTC, 0 to 1440"`
@@ -24,7 +24,7 @@ type RestaurantResponse struct {
 	// SuspendedReason is empty for customers: only the restaurant's own
 	// staff and the platform's see why it was suspended.
 	SuspendedReason string    `json:"suspended_reason,omitempty"`
-	CreatedBy       string    `json:"created_by" example:"usr_mfrggzdfmztwq2lkmfrggzdfmy" doc:"The member who created the profile"`
+	CreatedBy       string    `json:"created_by" example:"usr_mfrggzdfmztwq2lkmfrggzdfmy" doc:"The account that created the organisation"`
 	Version         int64     `json:"version" example:"1" doc:"Increases with every change; send it back when updating"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`

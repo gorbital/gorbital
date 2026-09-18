@@ -37,7 +37,7 @@ func TestApp(t *testing.T) {
 	// A diner choosing where to eat hasn't signed in yet, so a restaurant's
 	// reviews are the one thing the platform answers to nobody in
 	// particular. Everything else is deny by default.
-	anonymous.Get("/v1/restaurants/rst_unknown/reviews").AssertStatus(t, http.StatusOK)
+	anonymous.Get("/v1/restaurants/org_unknown/reviews").AssertStatus(t, http.StatusOK)
 	for _, path := range []string{"/v1/restaurants", "/v1/orders", "/v1/orgs", "/ops/settings"} {
 		anonymous.Get(path).AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
 	}

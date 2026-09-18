@@ -28,7 +28,7 @@ func (s *Service) RestaurantAccepting(ctx context.Context, restaurantID string) 
 	if _, err := callerID(ctx); err != nil {
 		return err
 	}
-	_, accepting, err := s.store.SelectRestaurant(ctx, restaurantID)
+	accepting, err := s.store.SelectRestaurant(ctx, restaurantID)
 	switch {
 	case err != nil:
 		return storeError("restaurant", err)

@@ -98,10 +98,11 @@ type Store interface {
 	// CountOpenOrders counts one restaurant's orders that haven't finished.
 	CountOpenOrders(ctx context.Context, orgID string) (int, error)
 
-	// SelectRestaurant returns the organisation and status of a restaurant,
-	// from the restaurants module's table. It is read with SQL because a
-	// module never imports another module's layers.
-	SelectRestaurant(ctx context.Context, restaurantID string) (orgID string, accepting bool, err error)
+	// SelectRestaurant reports whether the restaurant id, an organisation's
+	// ID, is taking orders, or returns ErrRestaurantNotFound. It reads the
+	// restaurant's columns of orgs with SQL because a module never imports
+	// another module's layers.
+	SelectRestaurant(ctx context.Context, id string) (accepting bool, err error)
 	// SelectMenuItems returns the menu items of orgID with these IDs, from
 	// the menus module's table. lock locks the rows so two orders can't take
 	// the last portion of the same dish.

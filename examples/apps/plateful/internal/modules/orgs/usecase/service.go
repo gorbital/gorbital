@@ -311,7 +311,7 @@ func (s *Service) audit(ctx context.Context, action string, orgID orgslib.ID, re
 func storeError(op string, err error) error {
 	known := []error{
 		orgslib.ErrOrgNotFound, actor.ErrUnauthenticated, actor.ErrForbidden, actor.ErrStepUpRequired,
-		orgsdomain.ErrUnauthenticated, orgsdomain.ErrForbidden, orgsdomain.ErrSessionRequired, orgsdomain.ErrInvalidName, orgsdomain.ErrOrgVersionConflict,
+		orgsdomain.ErrUnauthenticated, orgsdomain.ErrForbidden, orgsdomain.ErrSessionRequired, orgsdomain.ErrInvalidName, orgsdomain.ErrOrgVersionConflict, orgsdomain.ErrOrgNameTaken,
 		orgsdomain.ErrPersonalWorkspace, orgsdomain.ErrMemberNotFound, orgsdomain.ErrUnknownRole,
 		orgsdomain.ErrRoleNotAllowed, orgsdomain.ErrLastOwner, orgsdomain.ErrSoleOwner,
 		orgsdomain.ErrAlreadyMember, orgsdomain.ErrAlreadyInvited, orgsdomain.ErrInvitationNotFound, orgsdomain.ErrInvitationEmail,
