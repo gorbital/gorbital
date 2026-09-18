@@ -30,6 +30,10 @@ CREATE TABLE orders (
     -- never ambiguous.
     total_minor   bigint      NOT NULL CHECK (total_minor >= 0),
     currency      text        NOT NULL DEFAULT 'GBP' CHECK (char_length(currency) = 3),
+    -- When the customer asked for it, NULL for "as soon as you can". Only
+    -- accepted while the orders.scheduled_ordering flag is on, which is also
+    -- what the customer app reads from GET /v1/flags to show the control.
+    scheduled_for timestamptz,
     -- One timestamp per step it has actually taken; NULL until then. They
     -- are what the daily summary measures preparation time from.
     placed_at     timestamptz NOT NULL,
