@@ -9,10 +9,10 @@ What changes for existing apps in each release, and what to do that `orb upgrade
 v0.2.0 moves routes, guards, the middleware stack, the application itself, sign-in, the operations API and organisations from generated code into the library ([ADR-0081](../adr/0081-a-framework-you-import.md), [v0.2 roadmap](../v0.2-roadmap.md)). **It is additive.** An app created with `v0.1.0` builds and passes its tests against `v0.2.0` with no code changes, and CI checks that on every change:
 
 ```bash
-go get gorbital.dev@v0.2.0
-go get gorbital.dev/modules/...@v0.2.0    # every gorbital.dev module your go.mod requires
+go get gorbital.dev@latest
+go get gorbital.dev/modules/...@latest    # every gorbital.dev module your go.mod requires
 go mod tidy && go build ./... && go test ./...
-go install gorbital.dev/cli/cmd/orb@v0.2.0
+go install gorbital.dev/cli/cmd/orb@latest
 orb doctor
 ```
 
