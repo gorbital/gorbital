@@ -8,11 +8,27 @@ page is included from this directory.
 
 ```text
 cmd/api/main.go                          gorbital.Main with sign-in, the built-in ops and flags modules, the app's modules and migrations
-db/migrations/                           the app's own migrations
+db/migrations/                           the app's migrations, sign-in's included
 internal/modules/modules.gen.go          the module list (orb gen modules; don't edit)
 internal/modules/announcements/          a module: module.go, domain/, usecase/, repository/, delivery/
+internal/modules/auth/                   sign-in: login, password reset, sessions, second factors, API keys, /ops/auth/users
 api/                                     the OpenAPI document, a Postman collection and llms.txt
 ```
+
+Sign-in (`internal/modules/auth`) is the app's own code, not the library's:
+`orb eject` copied it from gorbital so that every step can be read here. It
+is laid out like the app's other modules: the root package with its options
+and hooks, then `domain/`, `usecase/` (`login.go`, `password.go`,
+`sessions.go`, `mfa.go`, `apikeys.go`, `operators.go`, …), `repository/`
+with one SQL statement per file, and `delivery/` with the routes and jobs,
+with the tests that came with it. Its migrations are in `db/migrations`
+under the versions the library gives them (`20260915000001_auth.sql`, …), so
+a database migrated before the copy applies nothing new, and `gorbital.lock`
+records the copy. The package keeps its name, `authhttp`, so no call
+changed; the API, the tables and the behaviour are the library's. Library
+releases no longer change this code, and `orb doctor` warns when the
+library's copy does ([Ejecting a
+module](../../../docs/guides/ejecting-a-module.md)).
 
 What the announcements module declares:
 

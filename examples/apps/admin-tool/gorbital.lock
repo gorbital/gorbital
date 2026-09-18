@@ -1,0 +1,22 @@
+{
+  "apiVersion": "gorbital.dev/v2",
+  "orb": {
+    "version": "v0.2.0-dev"
+  },
+  "inputs": {
+    "name": "",
+    "module": "",
+    "preset": "",
+    "tenancy": ""
+  },
+  "files": [],
+  "ejected": [
+    {
+      "module": "auth",
+      "package": "gorbital.dev/gorbital/authhttp",
+      "version": "v0.2.0",
+      "date": "2026-09-18",
+      "sha256": "c9dc6bddf034775de5153f531589d3a3464da189f31df4e32979b09239f679ee"
+    }
+  ]
+}

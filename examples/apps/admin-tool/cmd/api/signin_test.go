@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/flagshttp"
 	"gorbital.dev/gorbital/gorbitaltest"
 	"gorbital.dev/gorbital/opshttp"
@@ -15,6 +14,7 @@ import (
 	"example.com/admin-tool/db/migrations"
 	"example.com/admin-tool/internal/modules"
 	"example.com/admin-tool/internal/modules/announcements"
+	authhttp "example.com/admin-tool/internal/modules/auth"
 )
 
 // These tests are in package main to build sign-in with signInOptions, as

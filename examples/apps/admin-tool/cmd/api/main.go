@@ -13,18 +13,18 @@ import (
 	"time"
 
 	"gorbital.dev/gorbital"
-	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/flagshttp"
 	"gorbital.dev/gorbital/opshttp"
 
 	"example.com/admin-tool/db/migrations"
 	"example.com/admin-tool/internal/modules"
 	"example.com/admin-tool/internal/modules/announcements"
+	authhttp "example.com/admin-tool/internal/modules/auth"
 )
 
 // docs:start main
 func main() {
-	auth := authhttp.New(signInOptions()...) // sign-in: accounts, sessions, second factors, API keys
+	auth := authhttp.New(signInOptions()...) // sign-in, the app's own code: internal/modules/auth
 	gorbital.Main(
 		gorbital.WithName("admin-tool"),
 		gorbital.WithAuth(auth),                                    // /v1/auth/, the platform roles and their second factor
