@@ -79,7 +79,7 @@ func planAddMail(ctx context.Context, app appInfo, input json.RawMessage) (genpl
 		plan.Summary = fmt.Sprintf("The app already sends email with %s; nothing to change.", recipe.Label)
 	} else {
 		plan.Summary = mailSummary(in, recipe, mp)
-		plan.Next = append(plan.Next, strings.Split(strings.TrimSpace(mailNextSteps(in, mp)), "\n")...)
+		plan.Next = append(plan.Next, strings.Split(strings.TrimSpace(mailNextSteps(app.dir, in, mp)), "\n")...)
 	}
 	return plan, mp, nil
 }
