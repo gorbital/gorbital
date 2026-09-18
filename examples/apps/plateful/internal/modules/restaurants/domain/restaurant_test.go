@@ -2,106 +2,118 @@ package domain_test
 
 import (
 	"errors"
-	"slices"
-	"strings"
 	"testing"
 	"time"
 
 	"example.com/plateful/internal/modules/restaurants/domain"
 )
 
-var now = time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
-
-// validFields returns fields that pass every rule.
-func validFields() domain.RestaurantFields {
-	return domain.RestaurantFields{Name: "Example name", Address: "Example address", Cuisine: "Example cuisine", Status: domain.StatusOnboarding}
+// fields are a valid profile the tests start from.
+func fields() domain.RestaurantFields {
+	return domain.RestaurantFields{
+		Name: "Trattoria Bruno", Address: "12 Market Street, Leeds", Cuisine: "Neapolitan",
+		OpensMinute: 11 * 60, ClosesMinute: 22 * 60, DeliveryRadiusM: 3000,
+	}
 }
 
-func TestNewRestaurant(t *testing.T) {
-	f := validFields()
-	f.Name = "  " + f.Name + "  "
-	f.Address = "  " + f.Address + "  "
-	f.Cuisine = "  " + f.Cuisine + "  "
-	f.Status = ""
-	restaurant, err := domain.NewRestaurant("rst_1", "org_1", "usr_1", f, now)
+var now = time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
+
+func TestNewRestaurantStartsOnboarding(t *testing.T) {
+	r, err := domain.NewRestaurant("rst_1", "org_1", "usr_1", fields(), 10_000, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if restaurant.RestaurantFields != validFields() || restaurant.ID != "rst_1" || restaurant.OrgID != "org_1" || restaurant.CreatedBy != "usr_1" || restaurant.Version != 1 ||
-		!restaurant.CreatedAt.Equal(now) || !restaurant.UpdatedAt.Equal(now) {
-		t.Errorf("NewRestaurant() = %+v, want trimmed text and default choices", restaurant)
+	if r.Status != domain.StatusOnboarding || r.Version != 1 {
+		t.Errorf("new restaurant = %s version %d, want onboarding version 1", r.Status, r.Version)
+	}
+	if r.Accepting(now) {
+		t.Error("a restaurant being onboarded accepts orders; it must not")
 	}
 }
 
-func TestNewRestaurantValidates(t *testing.T) {
-	type fields = domain.RestaurantFields
-	tests := []struct {
-		name       string
-		edit       func(f *fields)
-		wantFields []string
-	}{
-		{"blank name", func(f *fields) { f.Name = "   " }, []string{"name"}},
-		{"name at the limit", func(f *fields) { f.Name = strings.Repeat("é", domain.MaxNameLength) }, nil},
-		{"name too long", func(f *fields) { f.Name = strings.Repeat("é", domain.MaxNameLength+1) }, []string{"name"}},
-		{"name with a NUL character", func(f *fields) { f.Name = "ok\x00" }, []string{"name"}},
-		{"blank address", func(f *fields) { f.Address = "   " }, []string{"address"}},
-		{"address at the limit", func(f *fields) { f.Address = strings.Repeat("é", domain.MaxAddressLength) }, nil},
-		{"address too long", func(f *fields) { f.Address = strings.Repeat("é", domain.MaxAddressLength+1) }, []string{"address"}},
-		{"address with a NUL character", func(f *fields) { f.Address = "ok\x00" }, []string{"address"}},
-		{"blank cuisine", func(f *fields) { f.Cuisine = "   " }, []string{"cuisine"}},
-		{"cuisine at the limit", func(f *fields) { f.Cuisine = strings.Repeat("é", domain.MaxCuisineLength) }, nil},
-		{"cuisine too long", func(f *fields) { f.Cuisine = strings.Repeat("é", domain.MaxCuisineLength+1) }, []string{"cuisine"}},
-		{"cuisine with a NUL character", func(f *fields) { f.Cuisine = "ok\x00" }, []string{"cuisine"}},
-		{"unknown status", func(f *fields) { f.Status = "?" }, []string{"status"}},
-		{"every field invalid", func(f *fields) { *f = fields{Name: "\x00", Address: "\x00", Cuisine: "\x00", Status: "?"} }, []string{"name", "address", "cuisine", "status"}},
-	}
-	for _, tt := range tests {
-		f := validFields()
-		tt.edit(&f)
-		_, err := domain.NewRestaurant("rst_1", "org_1", "usr_1", f, now)
-		if tt.wantFields == nil {
-			if err != nil {
-				t.Errorf("%s: NewRestaurant() error = %v", tt.name, err)
+func TestNewRestaurantRules(t *testing.T) {
+	for name, change := range map[string]func(*domain.RestaurantFields){
+		"blank name":     func(f *domain.RestaurantFields) { f.Name = "   " },
+		"blank address":  func(f *domain.RestaurantFields) { f.Address = "" },
+		"no radius":      func(f *domain.RestaurantFields) { f.DeliveryRadiusM = 0 },
+		"radius too big": func(f *domain.RestaurantFields) { f.DeliveryRadiusM = 50_000 },
+		"opens too late": func(f *domain.RestaurantFields) { f.OpensMinute = 2000 },
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := fields()
+			change(&f)
+			if _, err := domain.NewRestaurant("rst_1", "org_1", "usr_1", f, 10_000, now); !errors.Is(err, domain.ErrInvalidRestaurant) {
+				t.Errorf("NewRestaurant = %v, want an invalid restaurant", err)
 			}
-			continue
-		}
-		var invalid *domain.ValidationError
-		if !errors.As(err, &invalid) || !errors.Is(err, domain.ErrInvalidRestaurant) {
-			t.Errorf("%s: NewRestaurant() error = %v, want a ValidationError", tt.name, err)
-			continue
-		}
-		var got []string
-		for _, fe := range invalid.Errors {
-			got = append(got, fe.Field)
-		}
-		if !slices.Equal(got, tt.wantFields) {
-			t.Errorf("%s: invalid fields = %v, want %v", tt.name, got, tt.wantFields)
-		}
+		})
 	}
 }
 
-func TestApply(t *testing.T) {
-	restaurant, err := domain.NewRestaurant("rst_1", "org_1", "usr_1", validFields(), now)
+// docs:start test-status-rules
+
+// TestStatusRules: the two rules the domain keeps so no handler has to. A
+// restaurant's own staff can't set the suspended status, and a suspended
+// restaurant is frozen until platform staff lift the suspension.
+func TestStatusRules(t *testing.T) {
+	r, err := domain.NewRestaurant("rst_1", "org_1", "usr_1", fields(), 10_000, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	later := now.Add(time.Hour)
-	title, same, blank := " "+restaurant.Name+" v2 ", restaurant.Name, ""
-	choice := domain.StatusSuspended
-
-	next, changed, err := restaurant.Apply(domain.Changes{Name: &title, Status: &choice}, later)
-	if err != nil || next.Name != restaurant.Name+" v2" || next.Status != choice || !next.UpdatedAt.Equal(later) ||
-		!slices.Equal(changed, []string{"name", "status"}) {
-		t.Errorf("Apply() = %+v, %v, %v", next, changed, err)
+	if _, _, err := r.Apply(fields(), domain.StatusSuspended, 10_000, now); !errors.Is(err, domain.ErrSuspensionIsPlatformOnly) {
+		t.Errorf("staff setting suspended = %v, want ErrSuspensionIsPlatformOnly", err)
 	}
 
-	unchanged, changed, err := restaurant.Apply(domain.Changes{Name: &same}, later)
-	if err != nil || len(changed) != 0 || unchanged != restaurant {
-		t.Errorf("Apply(same name) = %+v, %v, %v; want no change", unchanged, changed, err)
+	open, changed, err := r.Apply(fields(), domain.StatusOpen, 10_000, now)
+	if err != nil || len(changed) != 1 || changed[0] != "status" {
+		t.Fatalf("publishing = %v, changed %v", err, changed)
+	}
+	if !open.Accepting(now) {
+		t.Error("an open restaurant within its hours doesn't accept orders")
 	}
 
-	kept, _, err := restaurant.Apply(domain.Changes{Name: &blank}, later)
-	if !errors.Is(err, domain.ErrInvalidRestaurant) || kept != restaurant {
-		t.Errorf("Apply(blank name) = %+v, %v; want the original and a validation error", kept, err)
+	suspended, err := open.Suspend("selling food it doesn't have", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if suspended.Accepting(now) {
+		t.Error("a suspended restaurant accepts orders")
+	}
+	if _, _, err := suspended.Apply(fields(), domain.StatusOpen, 10_000, now); !errors.Is(err, domain.ErrRestaurantSuspended) {
+		t.Errorf("a suspended restaurant editing itself open = %v, want ErrRestaurantSuspended", err)
+	}
+	lifted, err := suspended.Lift(now)
+	if err != nil || lifted.Status != domain.StatusPaused || lifted.SuspendedReason != "" {
+		t.Errorf("lifting = %s %q %v, want paused with no reason", lifted.Status, lifted.SuspendedReason, err)
+	}
+}
+
+// docs:end test-status-rules
+
+// TestWithinHours covers a kitchen that works past midnight, which is the
+// case a single comparison gets wrong.
+func TestWithinHours(t *testing.T) {
+	at := func(hour, minute int) time.Time {
+		return time.Date(2026, 9, 18, hour, minute, 0, 0, time.UTC)
+	}
+	night := domain.Restaurant{RestaurantFields: domain.RestaurantFields{OpensMinute: 18 * 60, ClosesMinute: 2 * 60}}
+	day := domain.Restaurant{RestaurantFields: domain.RestaurantFields{OpensMinute: 11 * 60, ClosesMinute: 22 * 60}}
+	always := domain.Restaurant{}
+	for name, tt := range map[string]struct {
+		r    domain.Restaurant
+		when time.Time
+		want bool
+	}{
+		"night, evening":   {night, at(20, 0), true},
+		"night, after one": {night, at(1, 30), true},
+		"night, lunchtime": {night, at(13, 0), false},
+		"day, lunchtime":   {day, at(13, 0), true},
+		"day, after close": {day, at(23, 0), false},
+		"always open":      {always, at(4, 0), true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := tt.r.WithinHours(tt.when); got != tt.want {
+				t.Errorf("WithinHours = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -13,19 +12,16 @@ import (
 	"example.com/plateful/internal/modules/restaurants/usecase"
 )
 
-// selectRestaurantsSQL holds one fixed query per sort, keyed "created_at",
-// "-created_at" and so on. Only the allowlisted sort expressions below become
-// SQL text; every value is a placeholder. Pages use keyset
+// selectRestaurantsSQL holds one fixed query per sort, keyed "name",
+// "-name" and so on. Only the allowlisted sort expressions below ever become
+// SQL text; everything a request sends is a placeholder. Pages use keyset
 // pagination: the next page starts after the last row's (sort value, id).
 var selectRestaurantsSQL = func() map[string]string {
 	sorts := []struct{ field, key, after string }{
-		{"created_at", `created_at`, `$3::timestamptz`},
-		{"updated_at", `updated_at`, `$3::timestamptz`},
 		// Text sorts ignore case and compare byte by byte, so the order
 		// doesn't depend on the database's locale.
-		{"name", `lower(name) COLLATE "C"`, `lower($3::text) COLLATE "C"`},
-		{"address", `lower(address) COLLATE "C"`, `lower($3::text) COLLATE "C"`},
-		{"cuisine", `lower(cuisine) COLLATE "C"`, `lower($3::text) COLLATE "C"`},
+		{"name", `lower(name) COLLATE "C"`, `lower($2::text) COLLATE "C"`},
+		{"created_at", `created_at`, `$2::timestamptz`},
 	}
 	queries := make(map[string]string, 2*len(sorts))
 	for _, s := range sorts {
@@ -36,19 +32,19 @@ var selectRestaurantsSQL = func() map[string]string {
 			}
 			queries[name] = `
 	SELECT ` + restaurantColumns + ` FROM restaurants
-	WHERE org_id = $1
-	  AND ($6::text = '' OR status = $6)
-	  AND (NOT $2::boolean OR (` + s.key + `, id) ` + cmp + ` (` + s.after + `, $4))
+	WHERE (cardinality($5::text[]) = 0 OR status = ANY($5))
+	  AND ($6::text = '' OR lower(cuisine) = lower($6))
+	  AND (NOT $1::boolean OR (` + s.key + `, id) ` + cmp + ` (` + s.after + `, $3))
 	ORDER BY ` + s.key + ` ` + dir + `, id ` + dir + `
-	LIMIT $5`
+	LIMIT $4`
 		}
 	}
 	return queries
 }()
 
-// SelectRestaurants returns up to q.Limit of an organisation's restaurants in q.Sort
-// order, starting after q.After.
-func (s *Store) SelectRestaurants(ctx context.Context, q usecase.ListQuery) ([]domain.Restaurant, error) {
+// SelectRestaurants returns up to q.Limit restaurants in q.Sort order,
+// starting after q.After.
+func (s *Store) SelectRestaurants(ctx context.Context, q usecase.BrowseQuery) ([]domain.Restaurant, error) {
 	name := q.Sort.Field
 	if q.Sort.Desc {
 		name = "-" + name
@@ -57,23 +53,23 @@ func (s *Store) SelectRestaurants(ctx context.Context, q usecase.ListQuery) ([]d
 	if !ok {
 		return nil, fmt.Errorf("%w: %q is not sortable", page.ErrInvalidSort, q.Sort.Field)
 	}
-	byTime := q.Sort.Field == "created_at" || q.Sort.Field == "updated_at"
-	var after any
-	switch {
-	case q.After != nil && byTime:
-		after = q.After.Time
-	case q.After != nil:
-		after = q.After.Text
-	case byTime:
-		after = time.Time{}
-	default:
-		after = ""
+	// The unused side of the comparison still has to parse, so a first page
+	// passes a value of the right shape rather than an empty string.
+	after, afterID := "", ""
+	if q.Sort.Field == "created_at" {
+		after = "0001-01-01T00:00:00Z"
 	}
-	var afterID string
 	if q.After != nil {
 		afterID = q.After.ID
+		if after = q.After.Text; q.Sort.Field == "created_at" {
+			after = q.After.Time
+		}
 	}
-	rows, err := s.db.Query(ctx, sql, q.OrgID, q.After != nil, after, afterID, q.Limit, q.Status)
+	statuses := make([]string, len(q.Statuses))
+	for i, st := range q.Statuses {
+		statuses[i] = string(st)
+	}
+	rows, err := s.db.Query(ctx, sql, q.After != nil, after, afterID, q.Limit, statuses, q.Cuisine)
 	if err != nil {
 		return nil, err
 	}

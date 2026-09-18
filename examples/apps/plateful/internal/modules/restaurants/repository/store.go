@@ -1,6 +1,6 @@
-// Package repository stores the restaurants module's restaurants in PostgreSQL
-// with hand-written SQL, one file per operation. The table comes from
-// db/migrations.
+// Package repository stores the restaurants module's restaurants in
+// PostgreSQL with hand-written SQL, one file per operation. The table comes
+// from db/migrations.
 package repository
 
 import (
@@ -41,13 +41,16 @@ func (s *Store) InTx(ctx context.Context, fn func(tx usecase.Store) error) error
 }
 
 // restaurantColumns are the columns scanRestaurant reads, in its order.
-const restaurantColumns = `id, org_id, created_by, name, address, cuisine, status, version, created_at, updated_at`
+const restaurantColumns = `id, org_id, created_by, name, address, cuisine, opens_minute, closes_minute, ` +
+	`delivery_radius_m, status, suspended_reason, cover_image_id, version, created_at, updated_at`
 
 func scanRestaurant(row pgx.CollectableRow) (domain.Restaurant, error) {
-	var restaurant domain.Restaurant
-	err := row.Scan(&restaurant.ID, &restaurant.OrgID, &restaurant.CreatedBy, &restaurant.Name, &restaurant.Address, &restaurant.Cuisine, &restaurant.Status, &restaurant.Version, &restaurant.CreatedAt, &restaurant.UpdatedAt)
-	restaurant.CreatedAt, restaurant.UpdatedAt = restaurant.CreatedAt.UTC(), restaurant.UpdatedAt.UTC()
-	return restaurant, err
+	var r domain.Restaurant
+	err := row.Scan(&r.ID, &r.OrgID, &r.CreatedBy, &r.Name, &r.Address, &r.Cuisine,
+		&r.OpensMinute, &r.ClosesMinute, &r.DeliveryRadiusM, &r.Status, &r.SuspendedReason, &r.CoverImageID,
+		&r.Version, &r.CreatedAt, &r.UpdatedAt)
+	r.CreatedAt, r.UpdatedAt = r.CreatedAt.UTC(), r.UpdatedAt.UTC()
+	return r, err
 }
 
 // constraintError turns the constraint violations the use cases handle into
@@ -55,8 +58,12 @@ func scanRestaurant(row pgx.CollectableRow) (domain.Restaurant, error) {
 func constraintError(err error) error {
 	if constraint, ok := postgres.UniqueViolation(err); ok {
 		switch constraint {
-		case "restaurants_org_name":
+		case "restaurants_name":
 			return domain.ErrRestaurantNameTaken
+		case "restaurants_org_id_key":
+			// The organisation already has a restaurant: two saves of a
+			// first profile raced, and the loser reads the winner's row.
+			return domain.ErrRestaurantVersionConflict
 		}
 	}
 	return err

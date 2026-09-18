@@ -12,17 +12,19 @@ import (
 
 const updateRestaurantSQL = `
 	UPDATE restaurants
-	SET name = $3, address = $4, cuisine = $5, status = $6, updated_at = $7, version = version + 1
-	WHERE id = $1 AND org_id = $2 AND version = $8
+	SET name = $2, address = $3, cuisine = $4, opens_minute = $5, closes_minute = $6,
+	    delivery_radius_m = $7, status = $8, suspended_reason = $9, cover_image_id = $10,
+	    updated_at = $11, version = version + 1
+	WHERE id = $1 AND version = $12
 	RETURNING ` + restaurantColumns
 
-// UpdateRestaurant saves restaurant when the stored version is still restaurant.Version and
-// returns it with the next version. It returns ErrRestaurantVersionConflict when
-// no row has that version (changed, deleted or not the organisation's), and
-// ErrRestaurantNameTaken.
-func (s *Store) UpdateRestaurant(ctx context.Context, restaurant domain.Restaurant) (domain.Restaurant, error) {
+// UpdateRestaurant saves r when the stored version is still r.Version and
+// returns it with the next version. It returns ErrRestaurantVersionConflict
+// when no row has that version (changed or deleted).
+func (s *Store) UpdateRestaurant(ctx context.Context, r domain.Restaurant) (domain.Restaurant, error) {
 	rows, err := s.db.Query(ctx, updateRestaurantSQL,
-		restaurant.ID, restaurant.OrgID, restaurant.Name, restaurant.Address, restaurant.Cuisine, restaurant.Status, restaurant.UpdatedAt, restaurant.Version)
+		r.ID, r.Name, r.Address, r.Cuisine, r.OpensMinute, r.ClosesMinute,
+		r.DeliveryRadiusM, r.Status, r.SuspendedReason, r.CoverImageID, r.UpdatedAt, r.Version)
 	if err != nil {
 		return domain.Restaurant{}, constraintError(err)
 	}

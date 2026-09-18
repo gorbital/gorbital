@@ -1,28 +1,23 @@
 package restaurants_test
 
 import (
-	"context"
 	"net/http"
-	"net/url"
-	"slices"
-	"strings"
 	"testing"
-	"time"
 
 	"gorbital.dev/gorbital"
 	"gorbital.dev/gorbital/authhttp"
 	"gorbital.dev/gorbital/gorbitaltest"
 	"gorbital.dev/gorbital/orgshttp"
-	"gorbital.dev/modules/postgres"
 
 	"example.com/plateful/db/migrations"
 	"example.com/plateful/internal/modules/restaurants"
 	"example.com/plateful/internal/modules/restaurants/usecase"
 )
 
-// These tests drive the restaurants routes through the app's real middleware
-// stack, on a new database per test (gorbitaltest), with real accounts:
-// organisation members are sign-in's users.
+// These tests drive the restaurants routes through the app's real
+// middleware stack, on a new database per test (gorbitaltest), with real
+// accounts: a restaurant's staff are members of its organisation, and a
+// customer is an account that belongs to none.
 
 // newApp builds the app with sign-in, organisations and the restaurants
 // module for the test.
@@ -36,248 +31,195 @@ func newApp(t *testing.T) *gorbitaltest.App {
 	)
 }
 
-// signUp creates an account for email and returns its client, its user ID
-// and its personal workspace, the organisation every account gets.
-func signUp(t *testing.T, app *gorbitaltest.App, email string) (*gorbitaltest.Client, string, string) {
+// restaurateur signs an account up and gives it an organisation of its own,
+// which is what a restaurant is on Plateful.
+func restaurateur(t *testing.T, app *gorbitaltest.App, email, name string) (*gorbitaltest.Client, string) {
 	t.Helper()
-	client, userID := app.SignUp(t, email)
-	var orgs struct {
-		Items []struct {
-			ID       string `json:"id"`
-			Personal bool   `json:"personal"`
-		} `json:"items"`
+	client, _ := app.SignUp(t, email)
+	res := client.Post("/v1/orgs", map[string]string{"name": name})
+	res.AssertStatus(t, http.StatusCreated)
+	var org struct {
+		ID string `json:"id"`
 	}
-	client.Get("/v1/orgs").JSON(t, &orgs)
-	for _, org := range orgs.Items {
-		if org.Personal {
-			return client, userID, org.ID
-		}
-	}
-	t.Fatalf("%s has no personal workspace", email)
-	return nil, "", ""
+	res.JSON(t, &org)
+	return client, org.ID
 }
 
-// collection is the path of the organisation orgID's restaurants.
-func collection(orgID string) string { return "/v1/orgs/" + orgID + "/restaurants" }
+// profile is a restaurant's profile as the API returns it.
+type profile struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Status          string `json:"status"`
+	DeliveryRadiusM int    `json:"delivery_radius_m"`
+	SuspendedReason string `json:"suspended_reason"`
+	Version         int64  `json:"version"`
+}
 
-// apiKey creates an API key for the client's account, limited to scopes.
-func apiKey(t *testing.T, client *gorbitaltest.Client, scopes ...string) string {
+// body is a valid profile for name.
+func body(version int64, name, status string) map[string]any {
+	return map[string]any{
+		"version": version, "name": name, "address": "12 Market Street, Leeds",
+		"cuisine": "Neapolitan", "opens_minute": 660, "closes_minute": 1320,
+		"delivery_radius_m": 3000, "status": status,
+	}
+}
+
+// publish creates an open restaurant for the organisation and returns it.
+func publish(t *testing.T, client *gorbitaltest.Client, orgID, name string) profile {
 	t.Helper()
-	res := client.Post("/v1/auth/api-keys", map[string]any{
-		"name": "Test", "scopes": scopes, "password": gorbitaltest.SignUpPassword,
-		"expires_at": time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339),
-	})
-	res.AssertStatus(t, http.StatusCreated)
-	var created struct {
-		Key string `json:"key"`
+	path := "/v1/orgs/" + orgID + "/restaurant"
+	var created profile
+	if got := client.Get(path); got.Status == http.StatusOK {
+		got.JSON(t, &created)
+	} else {
+		client.Put(path, body(0, name, "onboarding")).AssertStatus(t, http.StatusOK)
+		client.Get(path).JSON(t, &created)
 	}
-	res.JSON(t, &created)
-	return created.Key
-}
-
-// apiRestaurant is a restaurant as the API returns it.
-type apiRestaurant struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Address   string `json:"address"`
-	Cuisine   string `json:"cuisine"`
-	Status    string `json:"status"`
-	CreatedBy string `json:"created_by"`
-	Version   int64  `json:"version"`
-}
-
-// apiRestaurantPage is a page of restaurants.
-type apiRestaurantPage struct {
-	Items      []apiRestaurant `json:"items"`
-	NextCursor string          `json:"next_cursor"`
-}
-
-func TestCreateAndGetRestaurant(t *testing.T) {
-	app := newApp(t)
-	ada, adaID, adaOrg := signUp(t, app, "ada@example.com")
-
-	res := ada.Post(collection(adaOrg), map[string]any{"name": " Website ", "address": "Example address", "cuisine": "Example cuisine"})
-	res.AssertStatus(t, http.StatusCreated)
-	var created apiRestaurant
-	res.JSON(t, &created)
-	if !strings.HasPrefix(created.ID, "rst_") || created.Name != "Website" || created.Status != "onboarding" || created.CreatedBy != adaID || created.Version != 1 {
-		t.Errorf("created = %+v, want a rst_ ID, the name trimmed, the default status, created by Ada and version 1", created)
-	}
-
-	var got apiRestaurant
-	ada.Get(collection(adaOrg)+"/"+created.ID).JSON(t, &got)
-	if got != created {
-		t.Errorf("GET = %+v, want %+v", got, created)
-	}
-}
-
-func TestRestaurantRules(t *testing.T) {
-	app := newApp(t)
-	ada, _, adaOrg := signUp(t, app, "ada@example.com")
-	ada.Post(collection(adaOrg), map[string]any{"name": "Website", "address": "Example address", "cuisine": "Example cuisine"}).AssertStatus(t, http.StatusCreated)
-
-	for _, tt := range []struct {
-		name   string
-		body   map[string]any
-		status int
-		code   string
-	}{
-		{"blank name", map[string]any{"name": "   ", "address": "Example address", "cuisine": "Example cuisine"}, http.StatusUnprocessableEntity, "validation_failed"},
-		{"missing name", map[string]any{}, http.StatusUnprocessableEntity, "validation_failed"},
-		{"unknown status", map[string]any{"name": "Docs", "address": "Example address", "cuisine": "Example cuisine", "status": "?"}, http.StatusUnprocessableEntity, "validation_failed"},
-		{"name already taken, ignoring case", map[string]any{"name": "WEBSITE", "address": "Example address", "cuisine": "Example cuisine"}, http.StatusConflict, "restaurant_name_taken"},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			ada.Post(collection(adaOrg), tt.body).AssertProblem(t, tt.status, tt.code)
-		})
-	}
-	// Another organisation can use the same name.
-	bob, _, bobOrg := signUp(t, app, "bob@example.com")
-	bob.Post(collection(bobOrg), map[string]any{"name": "Website", "address": "Example address", "cuisine": "Example cuisine"}).AssertStatus(t, http.StatusCreated)
-}
-
-// TestRestaurantsAreProtected checks deny by default, membership, organisation
-// isolation and API key scopes: an organisation someone isn't a member of
-// doesn't exist for them, and another organisation's restaurant isn't in theirs.
-func TestRestaurantsAreProtected(t *testing.T) {
-	app := newApp(t)
-	ada, _, adaOrg := signUp(t, app, "ada@example.com")
-	bob, _, bobOrg := signUp(t, app, "bob@example.com")
-	var website apiRestaurant
-	ada.Post(collection(adaOrg), map[string]any{"name": "Website", "address": "Example address", "cuisine": "Example cuisine"}).JSON(t, &website)
-	item := collection(adaOrg) + "/" + website.ID
-
-	app.Client().Get(collection(adaOrg)).AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
-
-	for name, res := range map[string]*gorbitaltest.Response{
-		"list":                      bob.Get(collection(adaOrg)),
-		"create":                    bob.Post(collection(adaOrg), map[string]any{"name": "Mine now", "address": "Example address", "cuisine": "Example cuisine"}),
-		"get":                       bob.Get(item),
-		"update":                    bob.Patch(item, map[string]any{"version": 1, "name": "Mine now"}),
-		"delete":                    bob.Delete(item),
-		"list in an unknown org":    bob.Get(collection("org_mfrggzdfmztwq2lkmfrggzdfmy")),
-		"list with a malformed org": bob.Get(collection("not-an-org")),
-	} {
-		t.Run("non-member "+name, func(t *testing.T) {
-			res.AssertProblem(t, http.StatusNotFound, "org_not_found")
-		})
-	}
-
-	bobItem := collection(bobOrg) + "/" + website.ID
-	bob.Get(bobItem).AssertProblem(t, http.StatusNotFound, "restaurant_not_found")
-	bob.Patch(bobItem, map[string]any{"version": 1, "name": "Mine now"}).AssertProblem(t, http.StatusNotFound, "restaurant_not_found")
-	bob.Delete(bobItem).AssertProblem(t, http.StatusNotFound, "restaurant_not_found")
-	var bobs apiRestaurantPage
-	bob.Get(collection(bobOrg)).JSON(t, &bobs)
-	if len(bobs.Items) != 0 {
-		t.Errorf("another organisation's list = %+v, want none", bobs.Items)
-	}
-
-	readOnly := app.Client().WithHeader("Authorization", "Bearer "+apiKey(t, ada, usecase.PermRead))
-	readOnly.Get(item).AssertStatus(t, http.StatusOK)
-	readOnly.Post(collection(adaOrg), map[string]any{"name": "By a key", "address": "Example address", "cuisine": "Example cuisine"}).AssertProblem(t, http.StatusForbidden, "forbidden")
-	readOnly.Patch(item, map[string]any{"version": 1, "name": "By a key"}).AssertProblem(t, http.StatusForbidden, "forbidden")
-	readOnly.Delete(item).AssertProblem(t, http.StatusForbidden, "forbidden")
-}
-
-func TestListRestaurantsPages(t *testing.T) {
-	app := newApp(t)
-	ada, _, adaOrg := signUp(t, app, "ada@example.com")
-	ada.Post(collection(adaOrg), map[string]any{"name": "Website", "address": "Example address", "cuisine": "Example cuisine"}).AssertStatus(t, http.StatusCreated)
-	ada.Post(collection(adaOrg), map[string]any{"name": "Docs", "address": "Example address", "cuisine": "Example cuisine", "status": "suspended"}).AssertStatus(t, http.StatusCreated)
-
-	var titles []string
-	cursor := ""
-	for range 3 {
-		var p apiRestaurantPage
-		ada.Get(collection(adaOrg)+"?limit=1&sort=name&cursor="+url.QueryEscape(cursor)).JSON(t, &p)
-		for _, item := range p.Items {
-			titles = append(titles, item.Name)
-		}
-		if cursor = p.NextCursor; cursor == "" {
-			break
-		}
-	}
-	if want := []string{"Docs", "Website"}; !slices.Equal(titles, want) {
-		t.Errorf("pages sorted by name = %v, want %v", titles, want)
-	}
-
-	var first apiRestaurantPage
-	ada.Get(collection(adaOrg)+"?limit=1").JSON(t, &first)
-	ada.Get(collection(adaOrg)+"?sort=name&cursor="+url.QueryEscape(first.NextCursor)).AssertProblem(t, http.StatusBadRequest, "invalid_cursor")
-	ada.Get(collection(adaOrg)+"?sort=org_id").AssertProblem(t, http.StatusBadRequest, "invalid_sort")
-
-	var filtered apiRestaurantPage
-	ada.Get(collection(adaOrg)+"?status=suspended").JSON(t, &filtered)
-	if len(filtered.Items) != 1 || filtered.Items[0].Name != "Docs" {
-		t.Errorf("list with status=suspended = %+v, want Docs only", filtered.Items)
-	}
-}
-
-func TestUpdateAndDeleteRestaurant(t *testing.T) {
-	app := newApp(t)
-	ada, adaID, adaOrg := signUp(t, app, "ada@example.com")
-	var website apiRestaurant
-	ada.Post(collection(adaOrg), map[string]any{"name": "Website", "address": "Example address", "cuisine": "Example cuisine"}).JSON(t, &website)
-	item := collection(adaOrg) + "/" + website.ID
-
-	ada.Patch(item, map[string]any{"name": "No version"}).AssertProblem(t, http.StatusUnprocessableEntity, "validation_failed")
-	ada.Patch(item, map[string]any{"version": 2, "name": "Too new"}).AssertProblem(t, http.StatusConflict, "restaurant_version_conflict")
-
-	res := ada.Patch(item, map[string]any{"version": 1, "name": "Renamed", "status": "suspended"})
+	res := client.Put(path, body(created.Version, name, "open"))
 	res.AssertStatus(t, http.StatusOK)
-	var updated apiRestaurant
-	res.JSON(t, &updated)
-	if updated.Name != "Renamed" || updated.Status != "suspended" || updated.Version != 2 {
-		t.Errorf("updated = %+v, want the new values and version 2", updated)
-	}
-	// Changing a restaurant with the version it already had is a conflict.
-	ada.Patch(item, map[string]any{"version": 1, "name": "Again"}).AssertProblem(t, http.StatusConflict, "restaurant_version_conflict")
-
-	ada.Delete(item).AssertStatus(t, http.StatusNoContent)
-	ada.Get(item).AssertProblem(t, http.StatusNotFound, "restaurant_not_found")
-	ada.Delete(item).AssertProblem(t, http.StatusNotFound, "restaurant_not_found")
-
-	// Every event names the member and the organisation.
-	rows, err := app.App().Deps().DB.Query(context.Background(),
-		`SELECT action, actor_id, coalesce(org_id, '') FROM audit_events WHERE resource_type = 'restaurant' AND resource_id = $1 ORDER BY id`, website.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	var trail []string
-	for rows.Next() {
-		var action, actorID, orgID string
-		if err := rows.Scan(&action, &actorID, &orgID); err != nil {
-			t.Fatal(err)
-		}
-		trail = append(trail, action+" by "+actorID+" in "+orgID)
-	}
-	var want []string
-	for _, action := range []string{usecase.ActionCreated, usecase.ActionUpdated, usecase.ActionDeleted} {
-		want = append(want, action+" by "+adaID+" in "+adaOrg)
-	}
-	if !slices.Equal(trail, want) {
-		t.Errorf("audit trail = %v, want %v", trail, want)
-	}
+	var open profile
+	res.JSON(t, &open)
+	return open
 }
 
-// TestPurgingAnOrganisationDeletesItsRestaurants checks the migration's foreign key:
-// the orgs_purge job deletes an organisation once its restore period ends,
-// and its restaurants go with it.
-func TestPurgingAnOrganisationDeletesItsRestaurants(t *testing.T) {
+func TestSaveAndPublish(t *testing.T) {
 	app := newApp(t)
-	ada, _, adaOrg := signUp(t, app, "ada@example.com")
-	ada.Post(collection(adaOrg), map[string]any{"name": "Website", "address": "Example address", "cuisine": "Example cuisine"}).AssertStatus(t, http.StatusCreated)
+	bruno, org := restaurateur(t, app, "bruno@example.com", "Trattoria Bruno")
+	path := "/v1/orgs/" + org + "/restaurant"
 
-	// Every organisation's rows, whether or not the app has row-level security.
-	ctx := postgres.WithoutRowLevelSecurity(context.Background(), "test: purge")
-	db := app.App().Deps().DB
-	if _, err := db.Exec(ctx, `DELETE FROM orgs WHERE id = $1`, adaOrg); err != nil {
-		t.Fatal(err)
+	// There is no profile until the restaurateur writes one: gorbital has no
+	// "an organisation was created" hook, so nothing can create it for them.
+	bruno.Get(path).AssertProblem(t, http.StatusNotFound, "restaurant_not_found")
+
+	res := bruno.Put(path, body(0, "Trattoria Bruno", "onboarding"))
+	res.AssertStatus(t, http.StatusOK)
+	var created profile
+	res.JSON(t, &created)
+	if created.Status != "onboarding" || created.Version != 1 {
+		t.Fatalf("created = %+v, want onboarding version 1", created)
 	}
-	var left int
-	if err := db.QueryRow(ctx, `SELECT count(*) FROM restaurants WHERE org_id = $1`, adaOrg).Scan(&left); err != nil || left != 0 {
-		t.Errorf("restaurants left after purging the organisation = %d, %v; want 0", left, err)
+
+	// Creating it twice is a conflict, not a second restaurant.
+	bruno.Put(path, body(0, "Trattoria Bruno", "onboarding")).
+		AssertProblem(t, http.StatusConflict, "restaurant_version_conflict")
+
+	opened := publish(t, bruno, org, "Trattoria Bruno")
+	if opened.Status != "open" {
+		t.Errorf("published = %+v, want open", opened)
 	}
 }
+
+func TestProfileRules(t *testing.T) {
+	app := newApp(t)
+	bruno, org := restaurateur(t, app, "bruno@example.com", "Trattoria Bruno")
+	path := "/v1/orgs/" + org + "/restaurant"
+	created := publish(t, bruno, org, "Trattoria Bruno")
+
+	// docs:start test-radius-setting
+	// The delivery radius is capped by a runtime setting, so the limit moves
+	// in /ops/settings rather than in a deploy.
+	over := body(created.Version, "Trattoria Bruno", "open")
+	over["delivery_radius_m"] = 40_000
+	bruno.Put(path, over).AssertProblem(t, http.StatusUnprocessableEntity, "validation_failed")
+	// docs:end test-radius-setting
+
+	// A restaurant's own staff can't suspend themselves — or unsuspend.
+	suspend := body(created.Version, "Trattoria Bruno", "open")
+	suspend["status"] = "suspended"
+	bruno.Put(path, suspend).AssertProblem(t, http.StatusUnprocessableEntity, "validation_failed")
+
+	// A name another restaurant already uses.
+	sara, sarasOrg := restaurateur(t, app, "sara@example.com", "Sara's")
+	sara.Put("/v1/orgs/"+sarasOrg+"/restaurant", body(0, "Trattoria Bruno", "onboarding")).
+		AssertProblem(t, http.StatusConflict, "restaurant_name_taken")
+}
+
+// docs:start test-three-callers
+
+// TestThreeKindsOfCaller: one table, three ways in. A restaurant's staff
+// reach their own profile through their organisation; a customer who
+// belongs to no organisation browses what is open; platform staff see
+// everything and suspend.
+func TestThreeKindsOfCaller(t *testing.T) {
+	app := newApp(t)
+	bruno, brunosOrg := restaurateur(t, app, "bruno@example.com", "Trattoria Bruno")
+	open := publish(t, bruno, brunosOrg, "Trattoria Bruno")
+	sara, sarasOrg := restaurateur(t, app, "sara@example.com", "Sara's")
+	sara.Put("/v1/orgs/"+sarasOrg+"/restaurant", body(0, "Sara's Kitchen", "onboarding")).AssertStatus(t, http.StatusOK)
+
+	// Staff: their own organisation only. Another restaurant's is 404
+	// org_not_found, as if it didn't exist.
+	sara.Get("/v1/orgs/"+brunosOrg+"/restaurant").AssertProblem(t, http.StatusNotFound, "org_not_found")
+
+	// A customer: no organisation at all, and no way to use one. They see
+	// the restaurants that are open, and not the one still being set up.
+	diner, _ := app.SignUp(t, "diner@example.com")
+	var page struct {
+		Items []profile `json:"items"`
+	}
+	diner.Get("/v1/restaurants").JSON(t, &page)
+	if len(page.Items) != 1 || page.Items[0].Name != "Trattoria Bruno" {
+		t.Fatalf("a customer's list = %+v, want the open restaurant only", page.Items)
+	}
+	diner.Get("/v1/restaurants/"+open.ID).AssertStatus(t, http.StatusOK)
+	diner.Get("/v1/platform/restaurants").AssertProblem(t, http.StatusForbidden, "forbidden")
+	app.Client().Get("/v1/restaurants").AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+
+	// Platform staff: every restaurant, whatever its status.
+	staff := app.As(gorbitaltest.User("usr_staff", usecase.PermOversee, usecase.PermSuspend))
+	staff.Get("/v1/platform/restaurants").JSON(t, &page)
+	if len(page.Items) != 2 {
+		t.Errorf("the platform's list = %+v, want both restaurants", page.Items)
+	}
+}
+
+// docs:end test-three-callers
+
+// docs:start test-suspension
+
+// TestSuspension: suspending is the platform's, and it stops the restaurant
+// at once — a customer stops seeing it, and its own staff can't edit their
+// way out.
+func TestSuspension(t *testing.T) {
+	app := newApp(t)
+	bruno, org := restaurateur(t, app, "bruno@example.com", "Trattoria Bruno")
+	open := publish(t, bruno, org, "Trattoria Bruno")
+	diner, _ := app.SignUp(t, "diner@example.com")
+	staff := app.As(gorbitaltest.User("usr_staff", usecase.PermOversee, usecase.PermSuspend))
+
+	// A restaurateur can't reach the platform's routes at all.
+	bruno.Post("/v1/platform/restaurants/"+open.ID+"/suspend", map[string]string{"reason": "no"}).
+		AssertProblem(t, http.StatusForbidden, "forbidden")
+
+	res := staff.Post("/v1/platform/restaurants/"+open.ID+"/suspend", map[string]string{"reason": "selling food it doesn't have"})
+	res.AssertStatus(t, http.StatusOK)
+	var suspended profile
+	res.JSON(t, &suspended)
+	if suspended.Status != "suspended" || suspended.SuspendedReason == "" {
+		t.Fatalf("suspended = %+v, want the status and the reason", suspended)
+	}
+
+	diner.Get("/v1/restaurants/"+open.ID).AssertProblem(t, http.StatusNotFound, "restaurant_not_found")
+	bruno.Put("/v1/orgs/"+org+"/restaurant", body(suspended.Version, "Trattoria Bruno", "open")).
+		AssertProblem(t, http.StatusConflict, "restaurant_suspended")
+
+	// Its own staff still see why, which a customer never does.
+	var own profile
+	bruno.Get("/v1/orgs/"+org+"/restaurant").JSON(t, &own)
+	if own.SuspendedReason == "" {
+		t.Error("the restaurant's own staff can't see why it was suspended")
+	}
+
+	// Lifting brings it back paused, not open.
+	res = staff.Post("/v1/platform/restaurants/"+open.ID+"/unsuspend", nil)
+	res.AssertStatus(t, http.StatusOK)
+	var lifted profile
+	res.JSON(t, &lifted)
+	if lifted.Status != "paused" {
+		t.Errorf("lifted = %+v, want paused", lifted)
+	}
+	staff.Post("/v1/platform/restaurants/"+open.ID+"/unsuspend", nil).
+		AssertProblem(t, http.StatusConflict, "restaurant_not_suspended")
+}
+
+// docs:end test-suspension
