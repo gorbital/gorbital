@@ -135,6 +135,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The layout end-to-end test runs orb upgrade, which reads the
+          # templates of the release the app was created with out of this
+          # checkout, so the release tags have to be here.
+          fetch-tags: true
+          fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.26.x"

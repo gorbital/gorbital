@@ -446,8 +446,14 @@ func TestIncidentDetectionThroughJob(t *testing.T) {
 	if inc["severity"] != "sev2" || inc["status"] != "investigating" || inc["created_by"].(map[string]any)["id"] != "incidents_detect" {
 		t.Errorf("automatic incident = %v", inc)
 	}
-	events, _ := do(t, h, "GET", "/ops/audit?action=ops.incident.opened", "", admin...).json["events"].([]any)
-	if len(events) != 1 || events[0].(map[string]any)["actor_id"] != "incidents_detect" || events[0].(map[string]any)["actor_kind"] != "system" {
+	// The job records the audit event after it opens the incident, so wait
+	// for it as well rather than reading once the incident is there.
+	var events []any
+	waitFor(t, "the incident's audit event", func() bool {
+		events, _ = do(t, h, "GET", "/ops/audit?action=ops.incident.opened", "", admin...).json["events"].([]any)
+		return len(events) == 1
+	})
+	if events[0].(map[string]any)["actor_id"] != "incidents_detect" || events[0].(map[string]any)["actor_kind"] != "system" {
 		t.Errorf("audit events = %v, want ops.incident.opened by system incidents_detect", events)
 	}
 }
