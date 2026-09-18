@@ -15,6 +15,8 @@ Unlike the golden apps next to this directory (`examples/minimal`, `examples/ful
 | [`payments`](payments/README.md) | The *Receiving payment webhooks* recipe: `guard.Webhook` with a `webhook.NewStandard` verifier, idempotency by the provider's event ID, and a job enqueued with `jobs.Client.InsertTx` in the write's transaction |
 | [`plateful`](plateful/README.md) | The restaurant delivery platform of the multi-tenancy chapters: three kinds of caller over one table, a state machine, a transaction across four tables, a custom guard, module middleware, jobs, file storage, and outbound webhooks the framework doesn't provide |
 
+Every app that signs people in carries sign-in as its own code, and every app with organisations carries those too: `internal/modules/auth` in Shelfie, Admin tool, Invoicing and Plateful, and `internal/modules/orgs` in Shelfie, Invoicing and Plateful, copied from the library by `orb eject` with their tests and their migrations, so a reader can see what registration, verification, login, password reset and an organisation's life do. Mobile backend signs nobody in (an external identity provider's tokens are its only way in) and Payments has no sign-in module yet, so neither has them. See [Ejecting a module](../../docs/guides/ejecting-a-module.md).
+
 ## Layout
 
 One directory per app, each its own Go module:
