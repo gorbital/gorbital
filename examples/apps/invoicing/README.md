@@ -14,8 +14,27 @@ db/migrations/20260922000001_row_level_security.sql   the row-level security pol
 db/migrations/20260922000002_invoices.sql        the invoices table, with its own policy (orb gen module --org)
 internal/modules/modules.gen.go                  the module list (orb gen modules; don't edit)
 internal/modules/invoices/                       the invoices module, as orb gen module --org wrote it
+internal/modules/auth/                           sign-in: registration, verification, login, password reset, sessions, MFA, passkeys, API keys
+internal/modules/orgs/                           organisations: companies, members, roles and invitations
 api/                                             the OpenAPI document, a Postman collection and llms.txt
 ```
+
+Sign-in (`internal/modules/auth`) and organisations
+(`internal/modules/orgs`) are the app's own code, not the library's: `orb
+eject` copied them from gorbital so that every step can be read here. Each
+is laid out like the app's other modules: the root package with its options
+and hooks, then `domain/`, `usecase/` (`register.go`, `verify_email.go`,
+`login.go`, `password.go`; `orgs.go`, `members.go`, `invitations.go`),
+`repository/` with one SQL statement per file, and `delivery/` with the
+routes and jobs, with the tests that came with them. Their migrations are in
+`db/migrations` under the versions the library gives them
+(`20260915000001_auth.sql`, `20260916000001_orgs.sql`, …), so a database
+migrated before the copy applies nothing new, and `gorbital.lock` records
+the copy. The packages keep their names, `authhttp` and `orgshttp`, so no
+call changed; the API, the tables and the behaviour are the library's.
+Library releases no longer change this code, and `orb doctor` warns when the
+library's copy does ([Ejecting a
+module](../../../docs/guides/ejecting-a-module.md)).
 
 The invoices module is the unchanged output of:
 
