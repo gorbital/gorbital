@@ -46,10 +46,19 @@ const (
 	defaultPortalPort = "3100"
 )
 
-// preparePortal chooses the portal's port and token before the banner, and
-// checks the port is free, so a conflict stops orb dev with a clear message
-// like the other ports.
+// preparePortal refuses a production app, then chooses the portal's port
+// and token before the banner, and checks the port is free, so a conflict
+// stops orb dev with a clear message like the other ports.
 func (d *devRunner) preparePortal(env []string) error {
+	// The portal reads the app's database, edits .env and writes files, and
+	// its own API answers with this run's token alone (ADR-0066): it is for
+	// development, so orb dev stops rather than serve it over a production
+	// configuration. --no-portal runs the app without it.
+	if envValue(env, "APP_ENV", "") == "production" {
+		return usageError("the Dev Portal is for development only, and APP_ENV is production" +
+			"\n  it reads the database and changes the project: run orb dev with a development .env," +
+			"\n  or pass --no-portal to run the app without the portal")
+	}
 	port := d.portalPortFlag
 	if port == "" {
 		port = envValue(env, devPortalPortVar, defaultPortalPort)

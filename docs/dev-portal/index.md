@@ -6,7 +6,7 @@ The Dev Portal is the web UI `orb dev` serves at http://127.0.0.1:3100 while it 
 
 ## What it is
 
-- `orb dev` serves it: the UI, the portal's own API under `/_portal/api/`, and a proxy under `/_portal/app/` to the app. None of it is in the app or in a production build, and the portal refuses to start when `APP_ENV` is production.
+- `orb dev` serves it: the UI, the portal's own API under `/_portal/api/`, and a proxy under `/_portal/app/` to the app. None of it is in the app or in a production build, and `orb dev` refuses to start the portal when `APP_ENV` is production (`--no-portal` runs the app without it).
 - The link `orb dev` prints holds a token for this run (`/_portal/auth?t=…`). Opening it once sets the `orb_portal` cookie (HttpOnly, SameSite=Strict), and the portal works for the rest of the run. The next run prints a new link; an old link shows a page saying so.
 - Every request for data needs the cookie or `Authorization: Bearer <token>`, a `Host` naming `localhost`, `127.0.0.1` or `[::1]`, and a connection from this machine. Anything but GET and HEAD also needs an `X-Orb-Portal` header, which a page on another site can't send without a preflight the portal never answers.
 - In Full apps, the requests the portal proxies to `/ops/` and `/_dev/` run as the development operator: `orb dev` adds the dev console token, the UI never sees it, and the audit log records the actor as `dev console (orb dev)`.

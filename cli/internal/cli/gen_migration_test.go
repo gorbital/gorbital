@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 // newMigrationApp creates a stand-in for a Full preset app with one
@@ -58,6 +59,31 @@ func TestGenMigration(t *testing.T) {
 	}
 	if len(names) != 4 || !strings.HasSuffix(names[1], "_add_customer_phone.sql") || !strings.HasSuffix(names[2], "_add_customer_phone.sql") || names[1] == names[2] {
 		t.Errorf("migrations = %v, want two add_customer_phone migrations after auth", names)
+	}
+}
+
+// TestGenMigrationNextStepFollowsTheLayout checks the next step the plan
+// carries, which the Dev Portal shows after generating a migration, is the
+// command the app actually has: cmd/migrate in a v0.1 app, cmd/api migrate
+// in an app on gorbital.Main.
+func TestGenMigrationNextStepFollowsTheLayout(t *testing.T) {
+	dir := newMigrationApp(t)
+	plan, err := planMigration(appInfo{dir: dir, module: "example.com/shop"}, "add_customer_phone", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(plan.Next, "go run ./cmd/migrate") {
+		t.Errorf("v0.1 next steps = %v", plan.Next)
+	}
+
+	// An app on gorbital.Main has no cmd/migrate: it migrates through cmd/api.
+	writeFile(t, filepath.Join(dir, "go.mod"), "module example.com/shop\n\ngo 1.26.0\n\nrequire "+gorbitalImportPath+" v0.2.0\n")
+	plan, err = planMigration(appInfo{dir: dir, module: "example.com/shop"}, "add_customer_phone", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(plan.Next, "go run ./cmd/api migrate") {
+		t.Errorf("v0.2 next steps = %v, want the cmd/api migrate command", plan.Next)
 	}
 }
 
