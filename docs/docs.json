@@ -83,7 +83,7 @@
         {
           "name": "Your first module",
           "pages": [
-            { "title": "4. Sign-in you didn't write", "slug": "build/sign-in", "source": "docs/build/04-sign-in-you-didnt-write.md" },
+            { "title": "4. Sign-in, in your repository", "slug": "build/sign-in", "source": "docs/build/04-sign-in-you-didnt-write.md" },
             { "title": "5. The restaurants module", "slug": "build/restaurants-module", "source": "docs/build/05-the-restaurants-module.md" },
             { "title": "6. Migrations and the database", "slug": "build/migrations-and-the-database", "source": "docs/build/06-migrations-and-the-database.md" },
             { "title": "7. The menu, money and photos", "slug": "build/menu-money-and-photos", "source": "docs/build/07-the-menu-money-and-photos.md" }
