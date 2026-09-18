@@ -58,3 +58,33 @@ ec3a4d5366fde4ad9a61a6740380b38eac525824:gorbital/platform_internal_test.go:gene
 # every app, in the commit that added the plateful example. The file is not
 # in the app any more, but the scan reads history.
 4d54f337fbc87ba05a2903a5aa6bdf7f894daa21:examples/apps/plateful/AUTH_PROVIDERS.md:generic-api-key:372
+# Reviewed 2026-09-18: the same fixtures as gorbital/authhttp's above, in the
+# example apps that carry sign-in as their own code (orb eject auth): the
+# dev console token fixture, the sign-in tests' fake provider credentials
+# (GOCSPX-abc123, Iv23liAbCdEfGhIjKlMn, a counting hex string) and the JWT
+# that decodes to {"alg":"RS256"}, {"sub":"1234567890"} and
+# "signature-value-here". Each decoded and read in its source.
+2736be71ad610526ceceb3ec9b77e561c495c3c6:examples/apps/plateful/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:35
+2736be71ad610526ceceb3ec9b77e561c495c3c6:examples/apps/plateful/internal/modules/auth/delivery/signintest/signintest_test.go:jwt:150
+2736be71ad610526ceceb3ec9b77e561c495c3c6:examples/apps/plateful/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:151
+2736be71ad610526ceceb3ec9b77e561c495c3c6:examples/apps/plateful/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:224
+2736be71ad610526ceceb3ec9b77e561c495c3c6:examples/apps/plateful/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:244
+2736be71ad610526ceceb3ec9b77e561c495c3c6:examples/apps/plateful/internal/modules/auth/ops_users_test.go:generic-api-key:20
+bd84e42ecb378d28838908d6230e14e9e5a3d765:examples/apps/shelfie/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:35
+bd84e42ecb378d28838908d6230e14e9e5a3d765:examples/apps/shelfie/internal/modules/auth/delivery/signintest/signintest_test.go:jwt:150
+bd84e42ecb378d28838908d6230e14e9e5a3d765:examples/apps/shelfie/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:151
+bd84e42ecb378d28838908d6230e14e9e5a3d765:examples/apps/shelfie/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:224
+bd84e42ecb378d28838908d6230e14e9e5a3d765:examples/apps/shelfie/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:244
+bd84e42ecb378d28838908d6230e14e9e5a3d765:examples/apps/shelfie/internal/modules/auth/ops_users_test.go:generic-api-key:20
+1cbfb79501f4714e0dee2cafdc1874419d4f329b:examples/apps/invoicing/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:35
+1cbfb79501f4714e0dee2cafdc1874419d4f329b:examples/apps/invoicing/internal/modules/auth/delivery/signintest/signintest_test.go:jwt:150
+1cbfb79501f4714e0dee2cafdc1874419d4f329b:examples/apps/invoicing/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:151
+1cbfb79501f4714e0dee2cafdc1874419d4f329b:examples/apps/invoicing/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:224
+1cbfb79501f4714e0dee2cafdc1874419d4f329b:examples/apps/invoicing/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:244
+1cbfb79501f4714e0dee2cafdc1874419d4f329b:examples/apps/invoicing/internal/modules/auth/ops_users_test.go:generic-api-key:20
+bac0dea8c1174cc2a3c2a0acaa01ec4aac0ab988:examples/apps/admin-tool/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:35
+bac0dea8c1174cc2a3c2a0acaa01ec4aac0ab988:examples/apps/admin-tool/internal/modules/auth/delivery/signintest/signintest_test.go:jwt:150
+bac0dea8c1174cc2a3c2a0acaa01ec4aac0ab988:examples/apps/admin-tool/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:151
+bac0dea8c1174cc2a3c2a0acaa01ec4aac0ab988:examples/apps/admin-tool/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:224
+bac0dea8c1174cc2a3c2a0acaa01ec4aac0ab988:examples/apps/admin-tool/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:244
+bac0dea8c1174cc2a3c2a0acaa01ec4aac0ab988:examples/apps/admin-tool/internal/modules/auth/ops_users_test.go:generic-api-key:20
