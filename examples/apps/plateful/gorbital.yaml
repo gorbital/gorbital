@@ -1,0 +1,12 @@
+# gorbital project file: how this app was created. The orb CLI reads it.
+apiVersion: gorbital.dev/v1
+name: plateful
+module: example.com/plateful
+preset: full
+tenancy: multi
+# The app's layout: v0.2 apps run on gorbital.Main (cmd/api/main.go) with
+# their modules in internal/modules (ADR-0083).
+layout: v0.2
+features: [postgres, settings, jobs, audit, mail, auth, orgs, ops]
+# Email provider, changed with `orb add mail`: resend or smtp.
+mail: resend
