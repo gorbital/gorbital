@@ -47,7 +47,7 @@ func (s *Service) WriteReview(ctx context.Context, orderID string, in WriteRevie
 		if err := order.Reviewable(customer); err != nil {
 			return err
 		}
-		r, err := domain.NewReview(s.newID(), order.OrgID, order.RestaurantID, orderID, customer, in.Rating, in.Comment, s.clock())
+		r, err := domain.NewReview(s.newID(), order.OrgID, orderID, customer, in.Rating, in.Comment, s.clock())
 		if err != nil {
 			return err
 		}
@@ -55,14 +55,14 @@ func (s *Service) WriteReview(ctx context.Context, orderID string, in WriteRevie
 			return err
 		}
 		count, sum := saved.Contribution()
-		_, err = tx.AddToRating(ctx, saved.RestaurantID, saved.OrgID, count, sum, saved.UpdatedAt)
+		_, err = tx.AddToRating(ctx, saved.OrgID, count, sum, saved.UpdatedAt)
 		return err
 	})
 	if err != nil {
 		return domain.Review{}, storeError("write", err)
 	}
 	s.audit(ctx, ActionCreated, saved.ID, saved.OrgID, map[string]any{
-		"order_id": saved.OrderID, "restaurant_id": saved.RestaurantID, "rating": saved.Rating,
+		"order_id": saved.OrderID, "restaurant_id": saved.OrgID, "rating": saved.Rating,
 	})
 	return saved, nil
 }

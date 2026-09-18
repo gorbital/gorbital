@@ -9,9 +9,9 @@
 -- docs:start orders-table
 CREATE TABLE orders (
     id            text        PRIMARY KEY,
-    -- The restaurant's organisation. Staff reach the order through it.
+    -- The restaurant: an organisation is a restaurant, so this one column
+    -- is both. Staff reach the order through it.
     org_id        text        NOT NULL,
-    restaurant_id text        NOT NULL,
     -- The account that placed the order. Not a member of org_id, and not a
     -- foreign key: orders outlive accounts, and the customer's own rules
     -- live in the use cases.
@@ -51,8 +51,7 @@ CREATE TABLE orders (
     updated_at    timestamptz NOT NULL,
     -- Other organisation tables reference (org_id, id), so a row can only
     -- point at an order of its own organisation.
-    UNIQUE (org_id, id),
-    FOREIGN KEY (org_id, restaurant_id) REFERENCES restaurants (org_id, id) ON DELETE CASCADE
+    UNIQUE (org_id, id)
 );
 -- docs:end orders-table
 

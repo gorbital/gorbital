@@ -445,7 +445,7 @@ func TestTheRestaurantHasToBeOpen(t *testing.T) {
 	place(t, diner, k, basket(k)).AssertProblem(t, http.StatusConflict, "restaurant_not_accepting")
 	// A restaurant that doesn't exist answers the same way as one that isn't
 	// open to this caller.
-	diner.Post("/v1/restaurants/rst_nothing/orders", basket(k)).
+	diner.Post("/v1/restaurants/org_nothing/orders", basket(k)).
 		AssertProblem(t, http.StatusNotFound, "restaurant_not_found")
 }
 

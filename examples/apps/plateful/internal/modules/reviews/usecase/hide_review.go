@@ -55,14 +55,14 @@ func (s *Service) HideReview(ctx context.Context, id, reason string) (domain.Rev
 		// The review leaves the rating in the transaction that hides it, so
 		// the average a diner reads never counts a review they can't see.
 		count, sum := current.Contribution()
-		_, err = tx.AddToRating(ctx, saved.RestaurantID, saved.OrgID, -count, -sum, saved.UpdatedAt)
+		_, err = tx.AddToRating(ctx, saved.OrgID, -count, -sum, saved.UpdatedAt)
 		return err
 	})
 	if err != nil {
 		return domain.Review{}, storeError("hide", err)
 	}
 	s.audit(ctx, ActionHidden, saved.ID, saved.OrgID, map[string]any{
-		"restaurant_id": saved.RestaurantID, "reason": saved.HiddenReason,
+		"restaurant_id": saved.OrgID, "reason": saved.HiddenReason,
 	})
 	return saved, nil
 }

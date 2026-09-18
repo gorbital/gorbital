@@ -19,7 +19,7 @@ func fields() domain.RestaurantFields {
 var now = time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 
 func TestNewRestaurantStartsOnboarding(t *testing.T) {
-	r, err := domain.NewRestaurant("rst_1", "org_1", "usr_1", fields(), 10_000, now)
+	r, err := domain.NewRestaurant("org_1", fields(), 10_000, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestNewRestaurantRules(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			f := fields()
 			change(&f)
-			if _, err := domain.NewRestaurant("rst_1", "org_1", "usr_1", f, 10_000, now); !errors.Is(err, domain.ErrInvalidRestaurant) {
+			if _, err := domain.NewRestaurant("org_1", f, 10_000, now); !errors.Is(err, domain.ErrInvalidRestaurant) {
 				t.Errorf("NewRestaurant = %v, want an invalid restaurant", err)
 			}
 		})
@@ -55,7 +55,7 @@ func TestNewRestaurantRules(t *testing.T) {
 // restaurant's own staff can't set the suspended status, and a suspended
 // restaurant is frozen until platform staff lift the suspension.
 func TestStatusRules(t *testing.T) {
-	r, err := domain.NewRestaurant("rst_1", "org_1", "usr_1", fields(), 10_000, now)
+	r, err := domain.NewRestaurant("org_1", fields(), 10_000, now)
 	if err != nil {
 		t.Fatal(err)
 	}

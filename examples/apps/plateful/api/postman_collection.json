@@ -5639,7 +5639,8 @@
               "variable": [
                 {
                   "key": "restaurantId",
-                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy",
+                  "description": "The restaurant's ID, which is its organisation's"
                 }
               ]
             },
@@ -7185,7 +7186,8 @@
               "variable": [
                 {
                   "key": "restaurantId",
-                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy",
+                  "description": "The restaurant's ID, which is its organisation's"
                 }
               ]
             }
@@ -8595,7 +8597,8 @@
               "variable": [
                 {
                   "key": "id",
-                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy",
+                  "description": "The restaurant's ID, which is its organisation's"
                 }
               ]
             },
@@ -8646,7 +8649,8 @@
               "variable": [
                 {
                   "key": "id",
-                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy",
+                  "description": "The restaurant's ID, which is its organisation's"
                 }
               ]
             }
@@ -8792,7 +8796,8 @@
               "variable": [
                 {
                   "key": "id",
-                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy",
+                  "description": "The restaurant's ID, which is its organisation's"
                 }
               ]
             }
@@ -8827,7 +8832,8 @@
               "variable": [
                 {
                   "key": "restaurantId",
-                  "value": "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                  "value": "org_mfrggzdfmztwq2lkmfrggzdfmy",
+                  "description": "The restaurant's ID, which is its organisation's"
                 }
               ]
             }

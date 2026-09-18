@@ -45,7 +45,7 @@ GORBITAL_TEST_DATABASE_URL='postgres://gorbital:gorbital@127.0.0.1:5432/plateful
 
 | Module | What it is | Worth reading for |
 |---|---|---|
-| [`restaurants`](internal/modules/restaurants) | The tenant's own profile, and its status | One table three kinds of caller reach; a platform-only operation |
+| [`restaurants`](internal/modules/restaurants) | The tenant's own profile and status, stored on its organisation's row | One table three kinds of caller reach; a platform-only operation |
 | [`menus`](internal/modules/menus) | Sections, dishes, prices, stock | Money as integer minor units; a customer-facing read of a tenant's data |
 | [`orders`](internal/modules/orders) | The heart: a state machine from `placed` to `delivered` | Three ownership shapes, one transaction over four tables, a custom guard, module middleware, a job, a read model |
 | [`couriers`](internal/modules/couriers) | A courier's profile and availability | The one table with **no `org_id`** |
@@ -73,12 +73,35 @@ own, under the versions the library gives them (`20260915000001_auth.sql`,
 `20260916000001_orgs.sql`, …), so a database migrated before the copy sees
 nothing new. [`gorbital.lock`](gorbital.lock) records the copy, and
 `orb doctor` warns when the library's version of either changes. The API,
-the tables and the behaviour are the library's; `main.go` builds both
-exactly as it did, with the same options and hooks. The package names stay
+the tables and the behaviour are the library's, with one addition described
+below; `main.go` builds both exactly as it did, with the same options and
+hooks. The package names stay
 `authhttp` and `orgshttp`, which is why the code and this README still
 use those names.
 [Ejecting a module](../../../docs/guides/ejecting-a-module.md) explains
 what that gives up: library releases no longer change this code.
+
+### A restaurant is its organisation
+
+There is no `restaurants` table. Every organisation on Plateful runs one
+restaurant, so the restaurant's fields — address, cuisine, opening hours,
+delivery radius, status, suspension reason, cover image — are columns of
+`orgs`, added by
+[`20260918010020_orgs_restaurant.sql`](db/migrations/20260918010020_orgs_restaurant.sql).
+The organisation's ID is the restaurant's ID in every route, table and
+response, and its name is the restaurant's name; renaming one renames the
+other, and both answer `409` for a name another restaurant uses
+(`restaurant_name_taken` from the profile, `org_name_taken` from
+`PATCH /v1/orgs/{orgId}`). `profile_created_at` is `NULL` until the staff
+first save a profile, which is what keeps a personal workspace out of the
+list of restaurants.
+
+The ejected `20260916000001_orgs.sql` is untouched: the columns come in a
+new migration, because an applied migration is never rewritten. An earlier
+revision of Plateful had a separate `restaurants` table with `org_id UNIQUE`;
+its migration was deleted outright rather than dropped by a later one,
+because Plateful was published on 2026-09-18, the same day, and no database
+worth keeping had applied it. From here on the history only moves forward.
 
 ### Why `notifications` is a module and not a package inside `orders`
 
@@ -220,9 +243,10 @@ the rule compile-checked for nothing.
 
 **4. There is no "an organisation was created" hook.** `orgshttp` gives a new
 account its personal workspace and creates organisations on request without
-telling the app's modules, so a restaurant profile cannot appear when the
-restaurant does. It appears the first time its owner saves one, with
-`version: 0`. `authhttp` has `OnRegister`, but it runs *inside* the
+telling the app's modules, so nothing can tell a restaurateur's new
+organisation from a personal workspace when it is created. Its restaurant
+columns sit at their defaults until its owner first saves a profile, with
+`version: 0`, which sets `profile_created_at`. `authhttp` has `OnRegister`, but it runs *inside* the
 account's transaction and the personal workspace is created *after* it
 commits — so an `OnRegister` hook cannot touch the new account's
 organisation either.

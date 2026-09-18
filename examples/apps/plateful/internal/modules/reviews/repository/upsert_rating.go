@@ -18,11 +18,11 @@ import (
 //
 // Three decisions are worth reading off this statement.
 //
-// The total lives in this module's own table, not in a rating column on
-// restaurants. It is derived entirely from reviews, and the module that owns
-// the rows owns what is computed from them; writing to the restaurants table
-// would make this module a second writer of another module's data, and a
-// restaurant would be locked by every review anybody left.
+// The total lives in this module's own table, not in a rating column on the
+// restaurant's row in orgs. It is derived entirely from reviews, and the
+// module that owns the rows owns what is computed from them; writing to
+// orgs would make this module a second writer of another module's data, and
+// a restaurant would be locked by every review anybody left.
 //
 // It is recomputed in the transaction that writes the review, which is why
 // this is called from inside usecase.WriteReview's InTx and not after it.
@@ -43,19 +43,19 @@ import (
 // changed in Go and written back, so two reviews landing at the same instant
 // both count. The row is the only thing they contend on.
 const addToRatingSQL = `
-	INSERT INTO restaurant_ratings (restaurant_id, org_id, review_count, rating_sum, updated_at)
-	VALUES ($1, $2, $3, $4, $5)
-	ON CONFLICT (restaurant_id) DO UPDATE
-	SET review_count = restaurant_ratings.review_count + $3,
-	    rating_sum   = restaurant_ratings.rating_sum + $4,
-	    updated_at   = $5
-	RETURNING restaurant_id, org_id, review_count, rating_sum, updated_at`
+	INSERT INTO restaurant_ratings (org_id, review_count, rating_sum, updated_at)
+	VALUES ($1, $2, $3, $4)
+	ON CONFLICT (org_id) DO UPDATE
+	SET review_count = restaurant_ratings.review_count + $2,
+	    rating_sum   = restaurant_ratings.rating_sum + $3,
+	    updated_at   = $4
+	RETURNING org_id, review_count, rating_sum, updated_at`
 
 // AddToRating adds countDelta reviews and sumDelta stars to a restaurant's
 // running total. The deltas are negative when a review is hidden, which is
 // how moderation takes it back out.
-func (s *Store) AddToRating(ctx context.Context, restaurantID, orgID string, countDelta int, sumDelta int64, now time.Time) (domain.Rating, error) {
-	rows, err := s.db.Query(ctx, addToRatingSQL, restaurantID, orgID, countDelta, sumDelta, now)
+func (s *Store) AddToRating(ctx context.Context, orgID string, countDelta int, sumDelta int64, now time.Time) (domain.Rating, error) {
+	rows, err := s.db.Query(ctx, addToRatingSQL, orgID, countDelta, sumDelta, now)
 	if err != nil {
 		return domain.Rating{}, err
 	}
@@ -65,8 +65,8 @@ func (s *Store) AddToRating(ctx context.Context, restaurantID, orgID string, cou
 // docs:end rating-upsert
 
 const selectRatingSQL = `
-	SELECT restaurant_id, org_id, review_count, rating_sum, updated_at
-	FROM restaurant_ratings WHERE restaurant_id = $1`
+	SELECT org_id, review_count, rating_sum, updated_at
+	FROM restaurant_ratings WHERE org_id = $1`
 
 // SelectRating returns a restaurant's running total. A restaurant nobody has
 // reviewed has no row, and gets a zero-valued Rating rather than an error:
@@ -78,14 +78,14 @@ func (s *Store) SelectRating(ctx context.Context, restaurantID string) (domain.R
 	}
 	a, err := pgx.CollectExactlyOneRow(rows, scanRating)
 	if postgres.IsNoRows(err) {
-		return domain.Rating{RestaurantID: restaurantID}, nil
+		return domain.Rating{OrgID: restaurantID}, nil
 	}
 	return a, err
 }
 
 func scanRating(row pgx.CollectableRow) (domain.Rating, error) {
 	var a domain.Rating
-	err := row.Scan(&a.RestaurantID, &a.OrgID, &a.Count, &a.Sum, &a.UpdatedAt)
+	err := row.Scan(&a.OrgID, &a.Count, &a.Sum, &a.UpdatedAt)
 	a.UpdatedAt = a.UpdatedAt.UTC()
 	return a, err
 }

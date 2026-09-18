@@ -57,7 +57,7 @@ And there is no better permission available. There is no `customer` role, becaus
 
 <!-- include examples/apps/plateful/internal/modules/orders/usecase/get_order.go#get-org-order -->
 
-The query behind it is `SELECT … FROM orders WHERE org_id = $1 AND id = $2`.
+The query behind it is `SELECT … FROM orders WHERE org_id = $1 AND id = $2`. On Plateful `org_id` is also the restaurant: a restaurant is its organisation's row in `orgs` ([chapter 5](05-the-restaurants-module.md#a-restaurant-is-its-organisation-one-table)), so there is no `restaurant_id` beside it that could name a different tenant than the one the guard checked.
 
 **What just happened.** The organisation is *part of the query*, not a check performed afterwards. Another restaurant's order is not filtered out of the result; it was never in it. The route declares the whole rule, and `orb routes` can print it, and the OpenAPI document records it as `org_member:orders.order.read`.
 
@@ -75,7 +75,7 @@ A customer orders from Trattoria Bruno. The order belongs to Bruno's organisatio
 
 - `guard.OrgMember` cannot let them in, because they fail the membership check by definition;
 - putting customers into every restaurant's organisation to make the guard work would hand them the *staff* routes for that restaurant, which is catastrophically worse;
-- there is no organisation-scoped path to hang the route on anyway: `/v1/orgs/{orgId}/orders/{id}` is meaningless to a diner who does not know or care which organisation runs the restaurant.
+- the organisation-scoped path is the wrong door anyway. The restaurant's ID *is* its organisation's, so a diner does know it — it is in `/v1/restaurants/{id}` — but everything under `/v1/orgs/{orgId}/` is the staff's, guarded by membership. Knowing an ID is not a reason to be let through a door.
 
 **What the framework already gives us.** `guard.Permission(usecase.PermView)` — "somebody is signed in and holds `orders.order.view`" — and `actor.From(ctx)`, which is the signed-in account.
 

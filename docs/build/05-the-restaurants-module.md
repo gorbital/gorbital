@@ -1,6 +1,6 @@
 # 5. The restaurants module
 
-Plateful's first module, end to end. By the end of this chapter one table exists, three kinds of caller reach it through three different guards, the error codes and permissions are declared in one file, and the platform's delivery-radius limit is a runtime setting an operator can change without a deploy.
+Plateful's first module, end to end. By the end of this chapter the organisations table carries a restaurant's fields — one table, not two — three kinds of caller reach it through three different guards, the error codes and permissions are declared in one file, and the platform's delivery-radius limit is a runtime setting an operator can change without a deploy.
 
 Everything here is in [`internal/modules/restaurants`](../../examples/apps/plateful/internal/modules/restaurants). Read [chapter 4](04-sign-in-you-didnt-write.md) first if you haven't: accounts and organisations already exist when this chapter starts.
 
@@ -12,7 +12,7 @@ Everything here is in [`internal/modules/restaurants`](../../examples/apps/plate
 
 **What the framework already gives us.** `orb gen module` writes the whole skeleton: the migration with its `CHECK` constraints and indexes, the domain type with validation, the use cases with an organisation check, the SQL with `org_id` in every statement, the HTTP handlers, the route table with guards, and a test file that already covers deny-by-default, cross-organisation isolation, pagination and optimistic locking. With `--org` it wires `guard.OrgMember` throughout.
 
-**What we build ourselves.** Everything that makes a restaurant a restaurant: opening hours, a delivery radius, a suspension only the platform may apply, and the two routes that let a diner browse.
+**What we build ourselves.** Everything that makes a restaurant a restaurant: opening hours, a delivery radius, a suspension only the platform may apply, the two routes that let a diner browse — and the decision to keep all of it on the organisation's own row rather than in the table the generator writes.
 
 **How.**
 
@@ -25,7 +25,7 @@ Read the pieces:
 
 | Part | Means |
 |---|---|
-| `Restaurant` | Singular. The module is its plural: `internal/modules/restaurants`, table `restaurants`, IDs prefixed `rst_` |
+| `Restaurant` | Singular. The module is its plural: `internal/modules/restaurants`. The generator also writes a table `restaurants` with IDs prefixed `rst_`; Plateful replaces it, [below](#a-restaurant-is-its-organisation-one-table) |
 | `name:string:unique` | 1–100 characters, required, sortable, unique. The first required string field becomes the title lists sort by |
 | `'cuisine:string?'` | Optional. Quote it: `?` is a glob character in your shell |
 | `status:enum(...)` | One of the values, the first by default; filterable |
@@ -52,6 +52,35 @@ Field types are `string`, `string?`, `text` and `enum` and nothing else. Platefu
 
 > [!NOTE]
 > The generator is documented in full in [Generating code](../guides/generating-code.md#what-orb-gen-module-writes-file-by-file), including what each file contains and what `--org` changes. This chapter reads the finished module rather than repeating that page.
+
+### A restaurant is its organisation: one table
+
+The generated migration creates a `restaurants` table with its own `id` and an `org_id`. On Plateful every organisation runs exactly one restaurant, so that table would need `org_id NOT NULL UNIQUE` — and a one-to-one side table is one row split in two. Every reader would have to learn which half holds the name, which ID a route takes, and why an organisation and its restaurant can drift apart. The product owner put it more simply: an organisation *is* a restaurant.
+
+So Plateful deletes the generated table and puts the restaurant's fields on `orgs`. The organisation's `id` is the restaurant's ID everywhere — in `/v1/restaurants/{id}`, in `orders.org_id`, in `restaurant_ratings` — and the organisation's `name` is the restaurant's name. That is possible because [chapter 4](04-sign-in-you-didnt-write.md) ejected the organisations module: its table is now your code, and a tenant's own fields belong on the tenant.
+
+The columns arrive in a migration of their own, `db/migrations/20260918010020_orgs_restaurant.sql`:
+
+<!-- include examples/apps/plateful/db/migrations/20260918010020_orgs_restaurant.sql#restaurant-columns -->
+
+Read three decisions off it:
+
+- **A new migration, not an edit to the ejected one.** `20260916000001_orgs.sql` has run on every database Plateful has — yours, CI's, production's. goose records it as applied and never runs it again, so a column added to that file would appear in new databases and silently never reach the existing ones. A migration that has run is history: you add the next one, you never rewrite it. (The same rule is why the organisations module keeps a byte-for-byte copy of that file.)
+- **Every organisation has the columns; only a restaurant needs them filled.** A new account's personal workspace is an organisation too. `profile_created_at` stays `NULL` until the staff first save a profile, and the table-level `CHECK` requires an address only after that. The unique index on names is partial for the same reason: two personal workspaces may share a name, two restaurants may not.
+- **The CHECK constraints match the domain's limits**, exactly as the generated table's did, so the database and `domain.validate` refuse the same values.
+
+The repository says what "is a restaurant" means once, and every query of the module uses it:
+
+<!-- include examples/apps/plateful/internal/modules/restaurants/repository/store.go#restaurant-columns-go -->
+
+And there is no `INSERT`: the row has existed since the organisation was created, so creating a restaurant is an `UPDATE` that fills its columns in, once:
+
+<!-- include examples/apps/plateful/internal/modules/restaurants/repository/create_restaurant.go#create-restaurant-sql -->
+
+One row also means one version. Renaming the organisation through `PATCH /v1/orgs/{orgId}` and saving the restaurant's profile both change it, so each refuses to overwrite the other with a version conflict; and a rename to another restaurant's name answers `409 org_name_taken`, from the same unique index that gives the profile save `restaurant_name_taken`.
+
+> **Don't do this:** keep a second table keyed by the tenant because the generator made one, or edit an applied migration because the file is right there.
+> **Do this instead:** when a table is one-to-one with the organisation, add its columns to `orgs` with a new migration.
 
 ## 2. The four layers
 
@@ -149,7 +178,7 @@ Constraint violations become domain errors here and nowhere else:
 
 <!-- include examples/apps/plateful/internal/modules/restaurants/repository/store.go#restaurant-constraint-error -->
 
-`postgres.UniqueViolation` gives you the **constraint name**, so two different unique indexes on one table map to two different API errors. [Chapter 6](06-migrations-and-the-database.md#7-constraint-violations-are-typed-errors) covers the full set of these helpers.
+`postgres.UniqueViolation` gives you the **constraint name**, so each unique index maps to exactly the API error it means — even on a table two modules write: `orgs_restaurant_name` is `restaurant_name_taken` here and `org_name_taken` in the organisations module. [Chapter 6](06-migrations-and-the-database.md#7-constraint-violations-are-typed-errors) covers the full set of these helpers.
 
 > **Don't do this:** return the driver's error to the caller, or match on its text.
 > **Do this instead:** map the constraints your use cases handle, and let everything else be wrapped and hidden — `storeError` in `service.go` returns the module's own errors unchanged and turns anything else into an opaque message, because a driver error is not API.
@@ -240,8 +269,8 @@ Every assertion in it is a rule from this chapter: staff see only their own orga
 
 ## What just happened
 
-You ran one command and then wrote a domain. The module now has: a table with constraints that match its Go validation; five permissions across two catalogues; eight error codes; a runtime setting with a range, a description and a required reason; audit events for every change; cursor pagination; optimistic locking; and three kinds of caller reaching one table through three different doors — with the difference visible in `delivery/routes.go`, in one screen.
+You ran one command and then wrote a domain. The module now has: its columns on the organisations table, added by a migration of its own, with constraints that match its Go validation; five permissions across two catalogues; eight error codes; a runtime setting with a range, a description and a required reason; audit events for every change; cursor pagination; optimistic locking; and three kinds of caller reaching one table through three different doors — with the difference visible in `delivery/routes.go`, in one screen.
 
 What gorbital did *not* do: decide what a restaurant is, write a line of your SQL, or notice that `ViewRestaurant` must check `Status == open`. That check is one `if` in a use case, and only the test on the previous page stands between it and an information leak.
 
-Next: [chapter 6](06-migrations-and-the-database.md) goes under the module — the migration this one generated, the single history it joins, and the database tools the repository layer uses.
+Next: [chapter 6](06-migrations-and-the-database.md) goes under the module — the migration that added its columns, the single history it joins, and the database tools the repository layer uses.

@@ -21,32 +21,31 @@ type SaveRestaurantInput struct {
 // SaveRestaurant creates or replaces the organisation orgID's restaurant
 // profile.
 //
-// gorbital has no hook for "an organisation was created" — orgshttp gives a
-// new account its personal workspace and creates organisations on request,
-// without telling the app's modules — so the profile can't appear by itself
-// when the restaurateur signs up. It appears the first time they save one,
-// with version 0, and starts onboarding: nothing can be ordered from it
-// until its staff publish it.
+// The restaurant is the organisation's own row, so it exists as soon as the
+// organisation does, but not every organisation is a restaurant yet: a new
+// account's personal workspace is one too. An organisation becomes a
+// restaurant the first time its staff save a profile, with version 0; it
+// starts onboarding, and nothing can be ordered from it until they publish
+// it. After that, the version is the organisation's.
 func (s *Service) SaveRestaurant(ctx context.Context, orgID string, in SaveRestaurantInput) (domain.Restaurant, error) {
-	member, err := memberID(ctx, orgID)
-	if err != nil {
+	if _, err := memberID(ctx, orgID); err != nil {
 		return domain.Restaurant{}, err
 	}
 	var saved domain.Restaurant
 	created := false
-	err = s.store.InTx(ctx, func(tx Store) error {
-		current, err := tx.SelectRestaurantByOrg(ctx, orgID, true)
+	err := s.store.InTx(ctx, func(tx Store) error {
+		current, err := tx.SelectRestaurant(ctx, orgID, true)
 		switch {
 		case errors.Is(err, domain.ErrRestaurantNotFound):
 			if in.Version != 0 {
 				return domain.ErrRestaurantVersionConflict
 			}
-			r, err := domain.NewRestaurant(s.newID(), orgID, member, in.Fields, s.limit(ctx), s.clock())
+			r, err := domain.NewRestaurant(orgID, in.Fields, s.limit(ctx), s.clock())
 			if err != nil {
 				return err
 			}
 			created = true
-			saved, err = tx.InsertRestaurant(ctx, r)
+			saved, err = tx.CreateRestaurant(ctx, r)
 			return err
 		case err != nil:
 			return err

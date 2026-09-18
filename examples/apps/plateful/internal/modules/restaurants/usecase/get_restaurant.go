@@ -12,7 +12,7 @@ func (s *Service) GetRestaurant(ctx context.Context, orgID string) (domain.Resta
 	if _, err := memberID(ctx, orgID); err != nil {
 		return domain.Restaurant{}, err
 	}
-	r, err := s.store.SelectRestaurantByOrg(ctx, orgID, false)
+	r, err := s.store.SelectRestaurant(ctx, orgID, false)
 	if err != nil {
 		return domain.Restaurant{}, storeError("get", err)
 	}

@@ -22,7 +22,7 @@ The modules Plateful ends up with:
 
 | Module | What it is |
 |---|---|
-| `restaurants` | The tenant's own profile, and its status. [Chapter 5](05-the-restaurants-module.md) builds it end to end |
+| `restaurants` | The tenant's own profile and status, stored on its organisation's row. [Chapter 5](05-the-restaurants-module.md) builds it end to end |
 | `menus` | Sections, dishes, prices, stock |
 | `orders` | The heart: a state machine from `placed` to `delivered` |
 | `couriers` | A courier's profile and availability — the one table with no `org_id` |
@@ -47,7 +47,7 @@ curl -X PUT http://localhost:8080/v1/orgs/org_mfrggzdfmztwq2lkmfrggzdfmy/restaur
 
 ```json
 {
-  "id": "rst_mfrggzdfmztwq2lkmfrggzdfmy",
+  "id": "org_mfrggzdfmztwq2lkmfrggzdfmy",
   "name": "Trattoria Bruno",
   "address": "12 Market Street, Leeds",
   "cuisine": "Neapolitan",
@@ -75,7 +75,7 @@ curl "http://localhost:8080/v1/restaurants?cuisine=Neapolitan&limit=20" \
 {
   "items": [
     {
-      "id": "rst_mfrggzdfmztwq2lkmfrggzdfmy",
+      "id": "org_mfrggzdfmztwq2lkmfrggzdfmy",
       "name": "Trattoria Bruno",
       "address": "12 Market Street, Leeds",
       "cuisine": "Neapolitan",

@@ -3643,8 +3643,9 @@
             "type": "string"
           },
           "restaurant_id": {
+            "description": "The restaurant, whose ID is its organisation's",
             "examples": [
-              "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+              "org_mfrggzdfmztwq2lkmfrggzdfmy"
             ],
             "type": "string"
           },
@@ -5439,7 +5440,7 @@
             "type": "string"
           },
           "created_by": {
-            "description": "The member who created the profile",
+            "description": "The account that created the organisation",
             "examples": [
               "usr_mfrggzdfmztwq2lkmfrggzdfmy"
             ],
@@ -5454,12 +5455,14 @@
             "type": "integer"
           },
           "id": {
+            "description": "The organisation's ID: a restaurant is an organisation",
             "examples": [
-              "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+              "org_mfrggzdfmztwq2lkmfrggzdfmy"
             ],
             "type": "string"
           },
           "name": {
+            "description": "The organisation's name",
             "type": "string"
           },
           "opens_minute": {
@@ -5830,6 +5833,7 @@
             "type": "integer"
           },
           "name": {
+            "description": "The restaurant's name, which is the organisation's: saving it renames the organisation",
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
@@ -27216,12 +27220,14 @@
         "operationId": "restaurants-suspend",
         "parameters": [
           {
+            "description": "The restaurant's ID, which is its organisation's",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
+              "description": "The restaurant's ID, which is its organisation's",
               "examples": [
-                "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                "org_mfrggzdfmztwq2lkmfrggzdfmy"
               ],
               "maxLength": 64,
               "type": "string"
@@ -27344,12 +27350,14 @@
         "operationId": "restaurants-unsuspend",
         "parameters": [
           {
+            "description": "The restaurant's ID, which is its organisation's",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
+              "description": "The restaurant's ID, which is its organisation's",
               "examples": [
-                "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                "org_mfrggzdfmztwq2lkmfrggzdfmy"
               ],
               "maxLength": 64,
               "type": "string"
@@ -27710,12 +27718,14 @@
         "operationId": "restaurants-view",
         "parameters": [
           {
+            "description": "The restaurant's ID, which is its organisation's",
             "in": "path",
             "name": "id",
             "required": true,
             "schema": {
+              "description": "The restaurant's ID, which is its organisation's",
               "examples": [
-                "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                "org_mfrggzdfmztwq2lkmfrggzdfmy"
               ],
               "maxLength": 64,
               "type": "string"
@@ -27805,12 +27815,14 @@
         "operationId": "menus-view-menu",
         "parameters": [
           {
+            "description": "The restaurant's ID, which is its organisation's",
             "in": "path",
             "name": "restaurantId",
             "required": true,
             "schema": {
+              "description": "The restaurant's ID, which is its organisation's",
               "examples": [
-                "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                "org_mfrggzdfmztwq2lkmfrggzdfmy"
               ],
               "maxLength": 64,
               "type": "string"
@@ -27900,12 +27912,14 @@
         "operationId": "orders-place",
         "parameters": [
           {
+            "description": "The restaurant's ID, which is its organisation's",
             "in": "path",
             "name": "restaurantId",
             "required": true,
             "schema": {
+              "description": "The restaurant's ID, which is its organisation's",
               "examples": [
-                "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                "org_mfrggzdfmztwq2lkmfrggzdfmy"
               ],
               "maxLength": 64,
               "type": "string"
@@ -28077,12 +28091,14 @@
             }
           },
           {
+            "description": "The restaurant's ID, which is its organisation's",
             "in": "path",
             "name": "restaurantId",
             "required": true,
             "schema": {
+              "description": "The restaurant's ID, which is its organisation's",
               "examples": [
-                "rst_mfrggzdfmztwq2lkmfrggzdfmy"
+                "org_mfrggzdfmztwq2lkmfrggzdfmy"
               ],
               "maxLength": 64,
               "type": "string"

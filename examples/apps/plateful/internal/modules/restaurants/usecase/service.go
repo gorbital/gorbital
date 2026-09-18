@@ -7,8 +7,6 @@ package usecase
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base32"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -61,7 +59,6 @@ type Service struct {
 	// until they next save.
 	maxRadius *settings.Setting[int]
 	now       func() time.Time
-	newID     func() string
 }
 
 // NewService returns a Service storing restaurants in store and recording
@@ -71,16 +68,7 @@ func NewService(store Store, recorder audit.Recorder, logger *slog.Logger, maxRa
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	return &Service{store: store, recorder: recorder, logger: logger, maxRadius: maxRadius, now: time.Now, newID: newID}
-}
-
-var idEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
-
-// newID returns "rst_" and 128 random bits.
-func newID() string {
-	b := make([]byte, 16)
-	_, _ = rand.Read(b) // never fails (crypto/rand)
-	return "rst_" + idEncoding.EncodeToString(b)
+	return &Service{store: store, recorder: recorder, logger: logger, maxRadius: maxRadius, now: time.Now}
 }
 
 // clock returns the time at PostgreSQL's microsecond precision, so a stored

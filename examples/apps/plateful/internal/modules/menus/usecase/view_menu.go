@@ -34,11 +34,12 @@ func (s *Service) ViewMenu(ctx context.Context, restaurantID string) ([]domain.S
 	if _, err := callerID(ctx); err != nil {
 		return nil, err
 	}
-	orgID, err := s.store.SelectOpenRestaurantOrg(ctx, restaurantID)
-	if err != nil {
+	if err := s.store.SelectOpenRestaurant(ctx, restaurantID); err != nil {
 		return nil, storeError("view menu", err)
 	}
-	items, err := s.store.SelectMenu(ctx, orgID)
+	// A restaurant is an organisation, so its ID is the one the menu
+	// belongs to.
+	items, err := s.store.SelectMenu(ctx, restaurantID)
 	if err != nil {
 		return nil, storeError("view menu", err)
 	}

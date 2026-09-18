@@ -18,15 +18,17 @@ const updateOrgNameSQL = `
 	RETURNING ` + orgColumns
 
 // UpdateOrgName renames an organisation at version and increments the
-// version, or returns ErrOrgVersionConflict.
+// version, or returns ErrOrgVersionConflict. The name of an organisation
+// that is a restaurant is the restaurant's, unique across the platform, so a
+// rename can also return ErrOrgNameTaken.
 func (s *Store) UpdateOrgName(ctx context.Context, id orgslib.ID, name string, version int64, now time.Time) (orgsdomain.Org, error) {
 	rows, err := s.db.Query(ctx, updateOrgNameSQL, id, name, now, version)
 	if err != nil {
-		return orgsdomain.Org{}, err
+		return orgsdomain.Org{}, constraintError(err)
 	}
 	o, err := pgx.CollectExactlyOneRow(rows, scanOrg)
 	if postgres.IsNoRows(err) {
 		return orgsdomain.Org{}, orgsdomain.ErrOrgVersionConflict
 	}
-	return o, err
+	return o, constraintError(err)
 }

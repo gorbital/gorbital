@@ -1,6 +1,7 @@
-// Package restaurants is Plateful's restaurants module: one restaurant per
-// organisation, in four layers (domain, usecase, repository, delivery) with
-// one file per operation in each.
+// Package restaurants is Plateful's restaurants module: the restaurant
+// domain of an organisation, whose fields live on the organisation's own row
+// in orgs. Four layers (domain, usecase, repository, delivery) with one file
+// per operation in each.
 //
 // It is where the platform's three kinds of caller meet one table. A
 // restaurant's own staff read and write their profile through

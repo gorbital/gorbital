@@ -39,14 +39,14 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{db: pool} }
 func newStoreOn(db postgres.DBTX) *Store { return &Store{db: db} }
 
 // orderColumns are the columns scanOrder reads, in its order.
-const orderColumns = `id, org_id, restaurant_id, customer_id, courier_id, status, address, note, ` +
+const orderColumns = `id, org_id, customer_id, courier_id, status, address, note, ` +
 	`total_minor, currency, scheduled_for, placed_at, accepted_at, ready_at, collected_at, ` +
 	`delivered_at, closed_at, closed_reason, version, created_at, updated_at`
 
 func scanOrder(row pgx.CollectableRow) (domain.Order, error) {
 	var o domain.Order
 	var scheduled, accepted, ready, collected, delivered, closed *time.Time
-	err := row.Scan(&o.ID, &o.OrgID, &o.RestaurantID, &o.CustomerID, &o.CourierID, &o.Status,
+	err := row.Scan(&o.ID, &o.OrgID, &o.CustomerID, &o.CourierID, &o.Status,
 		&o.Address, &o.Note, &o.TotalMinor, &o.Currency, &scheduled, &o.PlacedAt,
 		&accepted, &ready, &collected, &delivered, &closed, &o.ClosedReason,
 		&o.Version, &o.CreatedAt, &o.UpdatedAt)
@@ -71,30 +71,28 @@ func nullTime(t time.Time) any {
 	return t
 }
 
-// SelectRestaurant returns the organisation and whether the restaurant is
-// taking orders. restaurants is the restaurants module's table; a whole
-// order points at it through the migration's foreign key, so this module
-// reads it here rather than importing that module's layers. "Taking orders"
-// is the same rule the restaurants module's domain applies: open, and inside
-// its hours, with a kitchen that works past midnight counted correctly.
-func (s *Store) SelectRestaurant(ctx context.Context, restaurantID string) (string, bool, error) {
+// SelectRestaurant reports whether the restaurant id is taking orders. A
+// restaurant is a row of orgs whose restaurant columns the restaurants
+// module owns; this module reads them here rather than importing that
+// module's layers. "Taking orders" is the same rule the restaurants
+// module's domain applies: open, and inside its hours, with a kitchen that
+// works past midnight counted correctly.
+func (s *Store) SelectRestaurant(ctx context.Context, id string) (bool, error) {
 	const sql = `
-	SELECT org_id,
-	       status = 'open' AND (
+	SELECT status = 'open' AND (
 	           opens_minute = closes_minute
 	           OR (opens_minute < closes_minute AND m >= opens_minute AND m < closes_minute)
 	           OR (opens_minute > closes_minute AND (m >= opens_minute OR m < closes_minute))
 	       )
-	FROM restaurants, LATERAL (SELECT (EXTRACT(HOUR FROM now() AT TIME ZONE 'UTC') * 60
+	FROM orgs, LATERAL (SELECT (EXTRACT(HOUR FROM now() AT TIME ZONE 'UTC') * 60
 	                                 + EXTRACT(MINUTE FROM now() AT TIME ZONE 'UTC'))::int AS m) AS clock
-	WHERE id = $1`
-	var orgID string
+	WHERE id = $1 AND profile_created_at IS NOT NULL AND deleted_at IS NULL`
 	var accepting bool
-	err := s.db.QueryRow(ctx, sql, restaurantID).Scan(&orgID, &accepting)
+	err := s.db.QueryRow(ctx, sql, id).Scan(&accepting)
 	if postgres.IsNoRows(err) {
-		return "", false, domain.ErrRestaurantNotFound
+		return false, domain.ErrRestaurantNotFound
 	}
-	return orgID, accepting, err
+	return accepting, err
 }
 
 // CourierOfUser returns the courier profile of a user account, or

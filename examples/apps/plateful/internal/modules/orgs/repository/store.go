@@ -51,6 +51,8 @@ func constraintError(err error) error {
 			return orgsdomain.ErrAlreadyMember
 		case "org_invitations_open":
 			return orgsdomain.ErrAlreadyInvited
+		case "orgs_restaurant_name":
+			return orgsdomain.ErrOrgNameTaken
 		}
 	}
 	return err

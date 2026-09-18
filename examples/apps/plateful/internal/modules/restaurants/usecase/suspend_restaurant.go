@@ -56,7 +56,7 @@ func (s *Service) setSuspension(ctx context.Context, id, reason string, suspend 
 		return domain.Restaurant{}, storeError("suspend", err)
 	}
 	action := ActionUnsuspended
-	metadata := map[string]any{"status": string(saved.Status), "org_id": saved.OrgID}
+	metadata := map[string]any{"status": string(saved.Status)}
 	if suspend {
 		// The reason is what an operator wrote about a business, so the
 		// audit event keeps it: that is the record of why.

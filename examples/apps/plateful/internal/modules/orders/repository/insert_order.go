@@ -11,10 +11,10 @@ import (
 )
 
 const insertOrderSQL = `
-	INSERT INTO orders (id, org_id, restaurant_id, customer_id, courier_id, status, address, note,
+	INSERT INTO orders (id, org_id, customer_id, courier_id, status, address, note,
 	                    total_minor, currency, scheduled_for, placed_at, accepted_at, ready_at,
 	                    collected_at, delivered_at, closed_at, closed_reason, version, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 	RETURNING ` + orderColumns
 
 // docs:start insert-order
@@ -27,7 +27,7 @@ const insertOrderSQL = `
 // placed at rather than pointing at the menu.
 func (s *Store) InsertOrder(ctx context.Context, o domain.Order) (domain.Order, error) {
 	rows, err := s.db.Query(ctx, insertOrderSQL,
-		o.ID, o.OrgID, o.RestaurantID, o.CustomerID, o.CourierID, o.Status, o.Address, o.Note,
+		o.ID, o.OrgID, o.CustomerID, o.CourierID, o.Status, o.Address, o.Note,
 		o.TotalMinor, o.Currency, nullTime(o.ScheduledFor), o.PlacedAt, nullTime(o.AcceptedAt),
 		nullTime(o.ReadyAt), nullTime(o.CollectedAt), nullTime(o.DeliveredAt), nullTime(o.ClosedAt),
 		o.ClosedReason, o.Version, o.CreatedAt, o.UpdatedAt)
@@ -61,13 +61,13 @@ func (s *Store) InsertOrder(ctx context.Context, o domain.Order) (domain.Order, 
 // docs:end insert-order
 
 // constraintError turns the constraint violations the use cases handle into
-// domain errors. An order whose restaurant isn't one of the organisation's
-// breaks the foreign key on (org_id, restaurant_id), which the database
-// refuses even if a use case forgot to look.
+// domain errors. An order for an organisation that doesn't exist breaks the
+// foreign key on org_id, which the database refuses even if a use case
+// forgot to look.
 func constraintError(err error) error {
 	if constraint, ok := postgres.ForeignKeyViolation(err); ok {
 		switch constraint {
-		case "orders_org_id_restaurant_id_fkey":
+		case "orders_org_id_fkey":
 			return domain.ErrRestaurantNotFound
 		}
 	}

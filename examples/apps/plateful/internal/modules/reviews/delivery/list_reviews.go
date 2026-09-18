@@ -10,7 +10,7 @@ import (
 
 type listReviewsInput struct {
 	page.Params
-	RestaurantID string `path:"restaurantId" maxLength:"64" example:"rst_mfrggzdfmztwq2lkmfrggzdfmy"`
+	RestaurantID string `path:"restaurantId" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy" doc:"The restaurant's ID, which is its organisation's"`
 }
 
 // listReviews answers the app's one unauthenticated route. It never reads an

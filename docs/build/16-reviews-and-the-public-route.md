@@ -64,7 +64,7 @@ Three refusals live side by side and mean three different things: `review_not_fo
 
 **What just happened.** Three decisions, each of which had an obvious-looking alternative.
 
-**The total is in `restaurant_ratings`, not in a `rating` column on `restaurants`.** It is derived entirely from reviews, and the module that owns the rows owns what is computed from them. Writing to the restaurants table would make this module a second writer of another module's data — and it would mean a restaurant row is locked by every review anybody leaves. This is the same boundary [chapter 15](15-payments-a-rule-across-modules.md) had to cross with SQL, and here we simply don't cross it.
+**The total is in `restaurant_ratings`, not in a `rating` column on the restaurant's row in `orgs`.** It is derived entirely from reviews, and the module that owns the rows owns what is computed from them. Writing to the restaurant's columns would make this module a second writer of another module's data — and it would mean a restaurant row is locked by every review anybody leaves. This is the same boundary [chapter 15](15-payments-a-rule-across-modules.md) had to cross with SQL, and here we simply don't cross it.
 
 **It is recomputed in the transaction that writes the review.** So the number a diner reads never disagrees with the rows on the same page. The alternative is a job that re-adds the column every few minutes: a smaller transaction and one fewer row to lock, at the cost of an average that is briefly wrong. A busier platform would take that trade. Plateful does not, because a restaurant with four reviews shows a visibly wrong average for as long as the job is behind.
 

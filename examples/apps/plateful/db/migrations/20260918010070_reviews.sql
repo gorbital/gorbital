@@ -5,19 +5,19 @@
 -- choosing where to eat has not signed in yet.
 --
 -- The second table, restaurant_ratings, is the running total the public list
--- shows. It lives here rather than on restaurants because it is derived from
--- these rows: the module that owns the reviews owns what is computed from
--- them, and the restaurants module never has to know a review exists.
+-- shows. It lives here rather than on the restaurant's row in orgs because it
+-- is derived from these rows: the module that owns the reviews owns what is
+-- computed from them, and the restaurants module never has to know a review
+-- exists.
 
 -- +goose Up
 -- docs:start reviews-table
 CREATE TABLE reviews (
     id            text     PRIMARY KEY,
-    -- The restaurant's organisation. The review is the tenant's data even
-    -- though no member of the tenant wrote it, so it is purged with the
-    -- organisation and joins like every other org-scoped row.
+    -- The restaurant, which is an organisation. The review is the tenant's
+    -- data even though no member of the tenant wrote it, so it is purged
+    -- with the organisation and joins like every other org-scoped row.
     org_id        text     NOT NULL,
-    restaurant_id text     NOT NULL,
     -- The order being reviewed. UNIQUE is the rule "one review per order":
     -- the database enforces it, so two requests that race still leave one
     -- review and the loser gets review_exists.
@@ -65,8 +65,8 @@ CREATE TABLE reviews (
 -- kept by the use cases instead: a review contributes exactly once, and is
 -- taken back out exactly once (domain.Review.Contribution).
 CREATE TABLE restaurant_ratings (
-    restaurant_id text    PRIMARY KEY,
-    org_id        text    NOT NULL,
+    -- The restaurant: its organisation's id.
+    org_id        text    PRIMARY KEY,
     review_count  integer NOT NULL DEFAULT 0,
     rating_sum    bigint  NOT NULL DEFAULT 0,
     updated_at    timestamptz NOT NULL
@@ -75,7 +75,7 @@ CREATE TABLE restaurant_ratings (
 
 -- The public list: a restaurant's visible reviews, newest first. Partial, so
 -- the scan skips hidden rows however many of them moderation accumulates.
-CREATE INDEX reviews_restaurant_created ON reviews (restaurant_id, created_at DESC, id DESC)
+CREATE INDEX reviews_restaurant_created ON reviews (org_id, created_at DESC, id DESC)
     WHERE NOT hidden;
 
 -- Purging an organisation deletes its reviews. orgs is the organisations

@@ -13,15 +13,17 @@ import (
 // docs:start update-restaurant-sql
 
 const updateRestaurantSQL = `
-	UPDATE restaurants
+	UPDATE orgs
 	SET name = $2, address = $3, cuisine = $4, opens_minute = $5, closes_minute = $6,
 	    delivery_radius_m = $7, status = $8, suspended_reason = $9, cover_image_id = $10,
 	    updated_at = $11, version = version + 1
-	WHERE id = $1 AND version = $12
+	WHERE id = $1 AND version = $12 AND ` + isRestaurant + `
 	RETURNING ` + restaurantColumns
 
 // UpdateRestaurant saves r when the stored version is still r.Version and
-// returns it with the next version. It returns ErrRestaurantVersionConflict
+// returns it with the next version. The version is the organisation's: a
+// rename through the organisations module changes the same row, so it
+// changes the version too. It returns ErrRestaurantVersionConflict
 // when no row has that version (changed or deleted).
 func (s *Store) UpdateRestaurant(ctx context.Context, r domain.Restaurant) (domain.Restaurant, error) {
 	rows, err := s.db.Query(ctx, updateRestaurantSQL,

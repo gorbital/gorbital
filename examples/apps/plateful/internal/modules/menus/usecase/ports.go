@@ -56,9 +56,9 @@ type Store interface {
 	// SelectMenu returns the organisation's available items in the order a
 	// menu reads: section, then position, then ID.
 	SelectMenu(ctx context.Context, orgID string) ([]domain.Item, error)
-	// SelectOpenRestaurantOrg returns the organisation of the restaurant
-	// restaurantID when it is open, or ErrRestaurantNotFound.
-	SelectOpenRestaurantOrg(ctx context.Context, restaurantID string) (string, error)
+	// SelectOpenRestaurant returns nil when the restaurant id, an
+	// organisation's ID, is open, and ErrRestaurantNotFound otherwise.
+	SelectOpenRestaurant(ctx context.Context, id string) error
 	// InTx runs fn in one transaction: it commits when fn returns nil and
 	// rolls back otherwise.
 	InTx(ctx context.Context, fn func(tx Store) error) error

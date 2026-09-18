@@ -19,6 +19,11 @@ var (
 	// ErrOrgVersionConflict reports a change to a version that is no longer
 	// current.
 	ErrOrgVersionConflict = errors.New("organisation was changed since it was read")
+	// ErrOrgNameTaken reports renaming a restaurant to a name another
+	// restaurant on the platform uses. A restaurant is an organisation, and
+	// the restaurants module's index (orgs_restaurant_name) keeps their names
+	// unique.
+	ErrOrgNameTaken = errors.New("another restaurant uses this name")
 	// ErrPersonalWorkspace reports something a personal workspace doesn't
 	// allow: leaving, deleting, or inviting people.
 	ErrPersonalWorkspace = errors.New("not allowed in a personal workspace")

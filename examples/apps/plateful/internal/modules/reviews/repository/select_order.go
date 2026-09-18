@@ -19,14 +19,14 @@ import (
 // forbids. Four column names it is. They are part of the app's shared
 // contract (see the table list in the build notes), so renaming one is a
 // change to more than one module.
-const selectOrderSQL = `SELECT org_id, restaurant_id, customer_id, status FROM orders WHERE id = $1`
+const selectOrderSQL = `SELECT org_id, customer_id, status FROM orders WHERE id = $1`
 
 // SelectOrder returns what this module needs to know about an order, or
 // ErrOrderNotFound.
 func (s *Store) SelectOrder(ctx context.Context, orderID string) (domain.OrderFacts, error) {
 	var o domain.OrderFacts
 	err := s.db.QueryRow(ctx, selectOrderSQL, orderID).
-		Scan(&o.OrgID, &o.RestaurantID, &o.CustomerID, &o.Status)
+		Scan(&o.OrgID, &o.CustomerID, &o.Status)
 	if postgres.IsNoRows(err) {
 		return domain.OrderFacts{}, domain.ErrOrderNotFound
 	}

@@ -1,6 +1,6 @@
 # 6. Migrations and the database
 
-[Chapter 5](05-the-restaurants-module.md) generated a module and a migration with it. This chapter goes underneath: where that migration runs, why the app's tables and the library's share one numbered history, why forward-only is a rule rather than a preference, and the four small tools the repository layer uses — `postgres.InTx`, the typed constraint helpers, and `pgtest`, which gives every test a database of its own.
+[Chapter 5](05-the-restaurants-module.md) generated a module, then replaced its table with a migration that adds the restaurant's columns to `orgs`. This chapter goes underneath: where that migration runs, why the app's tables and the library's share one numbered history, why forward-only is a rule rather than a preference, and the four small tools the repository layer uses — `postgres.InTx`, the typed constraint helpers, and `pgtest`, which gives every test a database of its own.
 
 gorbital has no ORM, no query builder and no schema DSL. You write SQL. What it gives you is the plumbing around it.
 
@@ -123,7 +123,7 @@ The consequences in practice are more nuanced than "there is no Down section", s
 |---|---|
 | A file from `orb gen migration` | **No.** The template stops at `-- +goose Up`. Its comment: *migrations only go forward (ADR-0005)* |
 | A migration from `orb gen module` | **Yes** — a `DROP TABLE`. It exists for the window before the migration is released, while you are still iterating on the new module |
-| Plateful's own nine migrations | Yes, all `DROP TABLE`, for the same reason |
+| Plateful's own nine migrations | Yes, for the same reason: `DROP TABLE`, or `DROP COLUMN` for the one that adds the restaurant's columns to `orgs` |
 | The library's released migrations | Never rolled back in production |
 
 `go run ./cmd/api migrate-down` rolls back the most recent migration and **refuses to run when `APP_ENV=production`**:
@@ -139,23 +139,23 @@ One sharp edge worth knowing: a migration **without** a Down section still rolls
 
 ## 5. What a table looks like
 
-Here is the table [chapter 5](05-the-restaurants-module.md) built on:
+[Chapter 5](05-the-restaurants-module.md#a-restaurant-is-its-organisation-one-table) didn't create a table: a restaurant is an organisation, so its migration added columns to `orgs` with `ALTER TABLE`. Here is a table Plateful does create, the one every order lives in:
 
-<!-- include examples/apps/plateful/db/migrations/20260918010020_restaurants.sql#restaurants-table -->
+<!-- include examples/apps/plateful/db/migrations/20260918010050_orders.sql#orders-table -->
 
 Things to copy from it:
 
-- **`CHECK` constraints mirror the Go validation.** The domain refuses a name over 100 characters and so does the database. Belt and braces, deliberately: the domain gives a good error message to a user, the constraint guarantees the invariant against a bug, a background job or a `psql` session.
-- **`org_id text NOT NULL`** is the multi-tenancy marker. The row-level-security migration looks for exactly that, and every statement in the repository filters on it or inserts it — never relying on RLS alone.
-- **`UNIQUE (org_id, id)`** looks redundant next to a primary key on `id`. It isn't: it lets *other* organisation tables carry a composite foreign key, so a row can only ever point at a record of its own organisation. `order_lines`' parent does exactly that:
+- **`CHECK` constraints mirror the Go validation.** The domain refuses an address over 200 characters and so does the database. Belt and braces, deliberately: the domain gives a good error message to a user, the constraint guarantees the invariant against a bug, a background job or a `psql` session.
+- **`org_id text NOT NULL`** is the multi-tenancy marker. The row-level-security migration looks for exactly that, and every statement in the repository filters on it or inserts it — never relying on RLS alone. On Plateful it is also the restaurant: there is no `restaurant_id` next to it, because the organisation's ID is the restaurant's.
+- **`UNIQUE (org_id, id)`** looks redundant next to a primary key on `id`. It isn't: it lets *other* organisation tables carry a composite foreign key, so a row can only ever point at a record of its own organisation. `reviews` does exactly that:
 
   ```sql
-  FOREIGN KEY (org_id, restaurant_id) REFERENCES restaurants (org_id, id) ON DELETE CASCADE
+  FOREIGN KEY (org_id, order_id) REFERENCES orders (org_id, id) ON DELETE CASCADE
   ```
 
-  A forged `restaurant_id` from another tenant is then not a bug you have to remember to check for; it is a constraint violation.
+  A forged `order_id` from another tenant is then not a bug you have to remember to check for; it is a constraint violation.
 - **`version bigint NOT NULL DEFAULT 1`** is the optimistic lock, matched in the `UPDATE`'s `WHERE`.
-- **`created_by text NOT NULL`, with no foreign key.** It is for display and audit; access comes from membership, and records outlive the account that made them.
+- **`customer_id text NOT NULL`, with no foreign key.** Orders outlive the accounts that placed them, and what a customer may do is decided in the use cases, not by a join.
 
 The foreign key to `orgs` is added conditionally, and the reason is worth understanding because you will copy the pattern:
 
@@ -164,7 +164,7 @@ The foreign key to `orgs` is added conditionally, and the reason is worth unders
 DO $$
 BEGIN
     IF to_regclass('orgs') IS NOT NULL THEN
-        ALTER TABLE restaurants ADD CONSTRAINT restaurants_org_id_fkey
+        ALTER TABLE orders ADD CONSTRAINT orders_org_id_fkey
             FOREIGN KEY (org_id) REFERENCES orgs (id) ON DELETE CASCADE;
     END IF;
 END
@@ -172,7 +172,7 @@ $$;
 -- +goose StatementEnd
 ```
 
-`orgs` belongs to the organisations module. When the app's migrations run with `orgshttp`, it exists and the key is added, so purging an organisation removes its restaurant. When they run without it — another module's test app, built from a smaller set of options — the table is still created, without the key, rather than failing. The `StatementBegin`/`StatementEnd` markers are goose's: a `DO $$ … $$` block contains semicolons, so goose has to be told where the statement ends.
+`orgs` belongs to the organisations module. When the app's migrations run with it, the table exists and the key is added, so purging an organisation removes its orders. When they run without it — another module's test app, built from a smaller set of options — the table is still created, without the key, rather than failing. The `StatementBegin`/`StatementEnd` markers are goose's: a `DO $$ … $$` block contains semicolons, so goose has to be told where the statement ends.
 
 Indexes earn their place the same way. Plateful's late-order sweep runs every few minutes over a table that grows forever, so its index is partial:
 
@@ -228,13 +228,13 @@ The orders module goes one step further and enqueues a background job *inside* t
 | `NotNullViolation(err) (column string, ok bool)` | The **column** name | 23502 |
 | `IsRetryable(err) bool` | A serialization failure or deadlock | 40001, 40P01 |
 
-The constraint name is the point. One table can have several unique indexes, and each becomes a different API error.
+The constraint name is the point. One table can have several unique indexes, and each becomes a different API error — or one index can mean the same thing to two modules that write the table.
 
 **What we build ourselves.** One function per repository, mapping only the constraints the use cases actually handle:
 
 <!-- include examples/apps/plateful/internal/modules/restaurants/repository/store.go#restaurant-constraint-error -->
 
-`restaurants_name` and `restaurants_org_id_key` are two unique constraints on one table, and they mean two different things to a caller: a name somebody else already uses, and a race between two first saves of the same organisation's profile. Both are `409`, with different codes.
+`orgs_restaurant_name` is the partial unique index the restaurant's migration put on `orgs`. The restaurants module maps it to `409 restaurant_name_taken`; the organisations module, whose rename writes the same column, maps it to `409 org_name_taken`. What the restaurants module no longer needs is a mapping for "this organisation already has a restaurant": with one row per organisation, two first saves racing is a `WHERE profile_created_at IS NULL` that the loser doesn't match, and that is a version conflict.
 
 `IsNoRows` does the other half — including the optimistic lock, where "no row matched" is not "not found" but "the version moved":
 
@@ -243,7 +243,7 @@ The constraint name is the point. One table can have several unique indexes, and
 > **Don't do this:** `SELECT` to check whether a name is free, then `INSERT`. Between the two, someone else inserts it.
 > **Do this instead:** insert, and map the unique violation. The database is the only thing that can answer that question without a race.
 
-Give constraints names you can read, because those names are what your Go code matches on. `restaurants_name` is a constraint name in a switch statement; rename the index and the mapping falls through silently — every test still passes and the API starts returning `500`.
+Give constraints names you can read, because those names are what your Go code matches on. `orgs_restaurant_name` is a constraint name in two switch statements; rename the index and the mapping falls through silently — every test still passes and the API starts returning `500`.
 
 ## 8. A database per test
 

@@ -41,12 +41,12 @@ func (s *Store) InTx(ctx context.Context, fn func(tx usecase.Store) error) error
 }
 
 // reviewColumns are the columns scanReview reads, in its order.
-const reviewColumns = `id, org_id, restaurant_id, order_id, customer_id, rating, comment, ` +
+const reviewColumns = `id, org_id, order_id, customer_id, rating, comment, ` +
 	`hidden, hidden_reason, version, created_at, updated_at`
 
 func scanReview(row pgx.CollectableRow) (domain.Review, error) {
 	var r domain.Review
-	err := row.Scan(&r.ID, &r.OrgID, &r.RestaurantID, &r.OrderID, &r.CustomerID,
+	err := row.Scan(&r.ID, &r.OrgID, &r.OrderID, &r.CustomerID,
 		&r.Rating, &r.Comment, &r.Hidden, &r.HiddenReason, &r.Version, &r.CreatedAt, &r.UpdatedAt)
 	r.CreatedAt, r.UpdatedAt = r.CreatedAt.UTC(), r.UpdatedAt.UTC()
 	return r, err

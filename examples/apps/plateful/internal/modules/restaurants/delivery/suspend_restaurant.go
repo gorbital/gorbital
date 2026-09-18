@@ -3,7 +3,7 @@ package delivery
 import "context"
 
 type suspendRestaurantInput struct {
-	ID   string `path:"id" maxLength:"64" example:"rst_mfrggzdfmztwq2lkmfrggzdfmy"`
+	ID   string `path:"id" maxLength:"64" example:"org_mfrggzdfmztwq2lkmfrggzdfmy" doc:"The restaurant's ID, which is its organisation's"`
 	Body struct {
 		Reason string `json:"reason" minLength:"1" maxLength:"500" doc:"Why the restaurant is suspended; the audit log keeps it"`
 	}

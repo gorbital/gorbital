@@ -55,14 +55,14 @@ func (s *Service) UpdateReview(ctx context.Context, id string, in UpdateReviewIn
 		if oldCount == newCount && oldSum == newSum {
 			return nil
 		}
-		_, err = tx.AddToRating(ctx, saved.RestaurantID, saved.OrgID, newCount-oldCount, newSum-oldSum, saved.UpdatedAt)
+		_, err = tx.AddToRating(ctx, saved.OrgID, newCount-oldCount, newSum-oldSum, saved.UpdatedAt)
 		return err
 	})
 	if err != nil {
 		return domain.Review{}, storeError("update", err)
 	}
 	s.audit(ctx, ActionUpdated, saved.ID, saved.OrgID, map[string]any{
-		"order_id": saved.OrderID, "restaurant_id": saved.RestaurantID, "rating": saved.Rating,
+		"order_id": saved.OrderID, "restaurant_id": saved.OrgID, "rating": saved.Rating,
 	})
 	return saved, nil
 }
