@@ -38,7 +38,7 @@ func options() []gorbital.Option {
 			mailevents.Module(), // POST /v1/webhooks/resend: bounces and complaints
 		),
 		gorbital.WithModules(orgshttp.Module(auth)), // organisations: members, roles, invitations, personal workspaces
-		gorbital.WithModules(modules.All()...),      // internal/modules/modules.gen.go: ping, projects
+		gorbital.WithModules(modules.All()...),      // internal/modules/modules.gen.go: the app's own
 		gorbital.WithMigrations(migrations.FS),      // db/migrations: the app's own tables
 		gorbital.WithMailerFunc(mailer),             // mail.go: the email provider, set by orb add mail
 		gorbital.WithStorageFunc(fileStorage),       // storage.go: S3-compatible file storage

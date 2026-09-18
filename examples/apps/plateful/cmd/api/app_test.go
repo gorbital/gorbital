@@ -22,43 +22,16 @@ func TestApp(t *testing.T) {
 	app := newApp(t)
 	anonymous := app.Client()
 
-	for _, path := range []string{"/livez", "/readyz", "/version", "/openapi.json", "/v1/ping"} {
+	for _, path := range []string{"/livez", "/readyz", "/version", "/openapi.json"} {
 		anonymous.Get(path).AssertStatus(t, http.StatusOK)
 	}
 	// Every route requires sign-in unless it is public.
 	anonymous.Get("/v1/orgs").AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
 	anonymous.Get("/ops/settings").AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
 
-	// Every account gets a personal workspace, where its projects go.
+	// Signing in works, and /ops is for operators only.
 	ada, _ := app.SignUp(t, "ada@example.com")
-	workspace := personalWorkspace(t, ada)
-	projects := "/v1/orgs/" + workspace + "/projects"
-	ada.Post(projects, map[string]string{"name": "Website"}).AssertStatus(t, http.StatusCreated)
-	var page struct {
-		Items []struct {
-			Name string `json:"name"`
-		} `json:"items"`
-	}
-	ada.Get(projects).JSON(t, &page)
-	if len(page.Items) != 1 || page.Items[0].Name != "Website" {
-		t.Errorf("GET %s = %+v, want the project Ada created", projects, page)
-	}
-
-	// Another account can't tell the organisation exists.
-	sam, _ := app.SignUp(t, "sam@example.com")
-	sam.Get(projects).AssertProblem(t, http.StatusNotFound, "org_not_found")
-
-	// Users hold no platform role: /ops is for operators.
 	ada.Get("/ops/settings").AssertProblem(t, http.StatusForbidden, "forbidden")
-
-	// Client feature flags, the example's among them.
-	var flags struct {
-		Flags map[string]bool `json:"flags"`
-	}
-	ada.Get("/v1/flags").JSON(t, &flags)
-	if on, ok := flags.Flags["example.ping_time"]; !ok || on {
-		t.Errorf("GET /v1/flags = %v, want example.ping_time off", flags)
-	}
 }
 
 // personalWorkspace returns the ID of the client's personal workspace.

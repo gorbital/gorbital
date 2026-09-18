@@ -10,14 +10,14 @@ package modules
 import (
 	"gorbital.dev/gorbital"
 
-	"example.com/plateful/internal/modules/ping"
-	"example.com/plateful/internal/modules/projects"
+	"example.com/plateful/internal/modules/orders"
+	"example.com/plateful/internal/modules/restaurants"
 )
 
 // All returns every module of the app, sorted by directory name.
 func All() []gorbital.Module {
 	return []gorbital.Module{
-		ping.Module(),
-		projects.Module(),
+		orders.Module(),
+		restaurants.Module(),
 	}
 }
