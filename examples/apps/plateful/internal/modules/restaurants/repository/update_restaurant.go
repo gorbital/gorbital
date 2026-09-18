@@ -10,6 +10,8 @@ import (
 	"example.com/plateful/internal/modules/restaurants/domain"
 )
 
+// docs:start update-restaurant-sql
+
 const updateRestaurantSQL = `
 	UPDATE restaurants
 	SET name = $2, address = $3, cuisine = $4, opens_minute = $5, closes_minute = $6,
@@ -34,3 +36,5 @@ func (s *Store) UpdateRestaurant(ctx context.Context, r domain.Restaurant) (doma
 	}
 	return updated, constraintError(err)
 }
+
+// docs:end update-restaurant-sql

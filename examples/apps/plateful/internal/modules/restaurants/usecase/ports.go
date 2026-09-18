@@ -31,6 +31,8 @@ type Position struct {
 	IsSet bool
 }
 
+// docs:start restaurant-store-port
+
 // Store reads and writes restaurants; repository.Store implements it with
 // SQL.
 type Store interface {
@@ -57,3 +59,5 @@ type Store interface {
 	// rolls back otherwise.
 	InTx(ctx context.Context, fn func(tx Store) error) error
 }
+
+// docs:end restaurant-store-port
