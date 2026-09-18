@@ -54,3 +54,7 @@ ec3a4d5366fde4ad9a61a6740380b38eac525824:gorbital/platform_internal_test.go:gene
 84726c4a04cac65a335958132c0c5dfa5d07b221:cli/internal/portal/ui/dist/_next/static/chunks/1xq8-49p6u1y7.js:generic-api-key:377
 3a204e8e2361b479ec177025b487f16f1f127ef2:cli/internal/portal/ui/dist/_next/static/chunks/3e-2ngh2z20ob.js:generic-api-key:269
 3a204e8e2361b479ec177025b487f16f1f127ef2:cli/internal/portal/ui/dist/_next/static/chunks/3e-2ngh2z20ob.js:generic-api-key:377
+# Reviewed 2026-09-18: the AUTH_PROVIDERS.md placeholder orb new writes into
+# every app, in the commit that added the plateful example. The file is not
+# in the app any more, but the scan reads history.
+4d54f337fbc87ba05a2903a5aa6bdf7f894daa21:examples/apps/plateful/AUTH_PROVIDERS.md:generic-api-key:372
