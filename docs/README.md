@@ -49,7 +49,7 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [The middleware stack](guides/middleware-stack.md) | Every step in order, and `gorbital.WithStack` |
 | [Security layers](guides/security-layers.md) | Request timeout, IP filter, signed webhooks, external identity providers |
 | [Generating code](guides/generating-code.md) | `orb gen module`, `orb gen middleware`, `orb routes` |
-| [Ejecting a module](guides/ejecting-a-module.md) | `orb eject`: taking a built-in module into the app's own code |
+| [The code in your repo](guides/the-code-in-your-repo.md) | What `orb new` wrote into the app, what stays in the library, and how to change either |
 | [Testing with gorbitaltest](guides/testing-with-gorbitaltest.md) | Signed-in requests, problem assertions, captured mail and jobs |
 | [Inside a generated app](guides/app-internals.md) | Every function of a v0.1 app's `internal/app` and its commands: purpose, inputs, side effects, errors |
 | [Services and libraries](guides/services-and-libraries.md) | Every dependency and service: what, why, where, without it |
