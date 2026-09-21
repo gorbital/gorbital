@@ -11,10 +11,11 @@ import (
 // An OrgAuthorizer decides whether the actor of a request may act in an
 // organisation.
 //
-// Deprecated: organisations are one [Scope] (ADR-0088). Use
-// [ScopeAuthorizer], whose AuthorizeScope has exactly these semantics.
-// This interface, [Platform.SetOrgAuthorizer] and guard.OrgMember keep
-// working for all of v0.x.
+// Organisations are one [Scope] (ADR-0088): prefer [ScopeAuthorizer],
+// whose AuthorizeScope has exactly these semantics. This interface,
+// [Platform.SetOrgAuthorizer] and guard.OrgMember keep working for all of
+// v0.x and carry no Deprecated marker, so staticcheck does not fail the
+// build of an app that already uses them.
 //
 // AuthorizeOrg checks that the actor in ctx is a member of orgID (a user,
 // or a service account of that organisation authenticated by its API key)
@@ -29,8 +30,8 @@ type OrgAuthorizer interface {
 
 // SetOrgAuthorizer makes a the app's organisation authorizer.
 //
-// Deprecated: use [Platform.SetScope] with a [Scope], which lets the app
-// name its own tenancy and validate its own IDs. This call is
+// Prefer [Platform.SetScope] with a [Scope], which lets the app name its
+// own tenancy and validate its own IDs. This call is
 // [Platform.SetScope] with the default organisation scope: the v0.1 and
 // v0.2 vocabulary, and no ID validation of its own, so a malformed ID is
 // refused by the authorizer exactly as an unknown one is.

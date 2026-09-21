@@ -110,9 +110,13 @@ type Permission struct {
 	// Roles too.
 	ScopeRoles []string
 
-	// OrgRoles is the v0.2 name of ScopeRoles.
+	// OrgRoles is the v0.2 name of ScopeRoles, still honoured: prefer
+	// ScopeRoles in new code, and set one or the other, never both. It
+	// carries no Deprecated marker on purpose — v0.2.2 is a patch, and a
+	// marker would make staticcheck fail the build of every app that
+	// already uses the name, including the copies of sign-in and
+	// organisations orb new wrote for them.
 	//
-	// Deprecated: use ScopeRoles. Setting both fails New.
 	// OrgRoles are the organisation roles that hold the permission, such
 	// as "owner", "admin" and "member" (ADR-0023, ADR-0048): a member holds
 	// it only while acting in an organisation, through guard.OrgMember. A

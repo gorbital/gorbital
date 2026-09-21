@@ -1931,7 +1931,7 @@ type OrgAuthorizer interface {
 
 An OrgAuthorizer decides whether the actor of a request may act in an organisation.
 
-Deprecated: organisations are one [Scope](#Scope) (ADR-0088). Use [ScopeAuthorizer](#ScopeAuthorizer), whose AuthorizeScope has exactly these semantics. This interface, [Platform.SetOrgAuthorizer](#Platform.SetOrgAuthorizer) and guard.OrgMember keep working for all of v0.x.
+Organisations are one [Scope](#Scope) (ADR-0088): prefer [ScopeAuthorizer](#ScopeAuthorizer), whose AuthorizeScope has exactly these semantics. This interface, [Platform.SetOrgAuthorizer](#Platform.SetOrgAuthorizer) and guard.OrgMember keep working for all of v0.x and carry no Deprecated marker, so staticcheck does not fail the build of an app that already uses them.
 
 AuthorizeOrg checks that the actor in ctx is a member of orgID (a user, or a service account of that organisation authenticated by its API key) whose role grants permission, and returns a context whose actor acts in the organisation: actor.Actor.OrgID set, and Permissions those of the role, limited by an API key's scopes. Its errors are [ScopeAuthorizer](#ScopeAuthorizer)'s, with orgs.ErrOrgNotFound accepted in place of [ErrScopeNotFound](#ErrScopeNotFound).
 
@@ -1981,9 +1981,13 @@ type Permission struct {
 	// Roles too.
 	ScopeRoles []string
 
-	// OrgRoles is the v0.2 name of ScopeRoles.
+	// OrgRoles is the v0.2 name of ScopeRoles, still honoured: prefer
+	// ScopeRoles in new code, and set one or the other, never both. It
+	// carries no Deprecated marker on purpose — v0.2.2 is a patch, and a
+	// marker would make staticcheck fail the build of every app that
+	// already uses the name, including the copies of sign-in and
+	// organisations orb new wrote for them.
 	//
-	// Deprecated: use ScopeRoles. Setting both fails New.
 	// OrgRoles are the organisation roles that hold the permission, such
 	// as "owner", "admin" and "member" (ADR-0023, ADR-0048): a member holds
 	// it only while acting in an organisation, through guard.OrgMember. A
@@ -2243,7 +2247,7 @@ func (p *Platform) SetOrgAuthorizer(a OrgAuthorizer) error
 
 SetOrgAuthorizer makes a the app's organisation authorizer.
 
-Deprecated: use [Platform.SetScope](#Platform.SetScope) with a [Scope](#Scope), which lets the app name its own tenancy and validate its own IDs. This call is [Platform.SetScope](#Platform.SetScope) with the default organisation scope: the v0.1 and v0.2 vocabulary, and no ID validation of its own, so a malformed ID is refused by the authorizer exactly as an unknown one is.
+Prefer [Platform.SetScope](#Platform.SetScope) with a [Scope](#Scope), which lets the app name its own tenancy and validate its own IDs. This call is [Platform.SetScope](#Platform.SetScope) with the default organisation scope: the v0.1 and v0.2 vocabulary, and no ID validation of its own, so a malformed ID is refused by the authorizer exactly as an unknown one is.
 
 *Since `v0.2.2 (unreleased)`*
 

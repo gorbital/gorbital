@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"gorbital.dev/cli/internal/merge"
 	"gorbital.dev/cli/internal/recipes"
 )
 
@@ -99,7 +98,8 @@ func TestV02UpgradeUpToDate(t *testing.T) {
 }
 
 // TestV02AddOrgsWithOwnSignIn: in an app that holds its sign-in, as orb new
-// writes them since v0.2.1, orb add orgs copies the organisations module
+// writes every Full app since v0.2.1 and as the only shape since v0.2.2
+// removed --no-eject, orb add orgs copies the organisations module
 // too, as orb eject orgs does, since the library's orgshttp takes the
 // library's sign-in: main.go and the tests import the app's copies, and
 // gorbital.lock records both.
@@ -133,56 +133,6 @@ func TestV02AddOrgsWithOwnSignIn(t *testing.T) {
 	}
 }
 
-// TestV02AddOrgs: orb add orgs moves a v0.2 app from the single-tenant tree
-// to the multi-tenant one: main.go adds orgshttp.Module(auth), the example
-// module belongs to organisations, and only the data conversion is a new
-// migration, since the organisations tables are the library's.
-func TestV02AddOrgs(t *testing.T) {
-	newGitApp(t, "--preset", "full", "--local", repoAbs(t))
-	writeFile(t, "internal/modules/customers/module.go", "package customers\n")
-	commitAll(t, "Add customers")
-
-	res, _ := addOrgs(t, 0, "--json", "--skip-build")
-	if res.Layout != recipes.LayoutV02 || len(res.Conflicts) != 0 || !slices.Equal(res.UserScoped, []string{"customers"}) {
-		t.Fatalf("result = %+v", res)
-	}
-	tree := mainTree(t, recipes.TenancyMulti, recipes.MailResend)
-	for p, content := range tree {
-		if isMigrationPath(p) || slices.Contains(slices.Concat(untrackedPaths, derivedPaths), p) {
-			continue
-		}
-		if got, err := os.ReadFile(p); err != nil || string(got) != string(content) {
-			t.Errorf("%s isn't the multi-tenant file (%v)", p, err)
-		}
-	}
-	if !strings.Contains(readFile(t, "cmd/api/main.go"), "gorbital.WithModules(orgshttp.Module(auth)),") {
-		t.Errorf("main.go doesn't add the organisations module:\n%s", readFile(t, "cmd/api/main.go"))
-	}
-	if orgs, _ := filepath.Glob("db/migrations/*_orgs.sql"); len(orgs) != 0 {
-		t.Errorf("orb add orgs copied %v; the library's organisations module has its migrations", orgs)
-	}
-	converts, _ := filepath.Glob("db/migrations/*_orgs_convert.sql")
-	if len(converts) != 1 || readFile(t, converts[0]) != string(recipes.OrgsConversion()) {
-		t.Errorf("conversion migrations = %v", converts)
-	}
-	if _, err := os.Stat("db/migrations/20260916000002_projects.sql"); err == nil {
-		t.Error("the multi-tenant projects migration was copied; the conversion changes the existing table")
-	}
-	for _, c := range res.Changes {
-		if c.Path == "cmd/api/main.go" && c.Action != merge.Update {
-			t.Errorf("main.go: %s", c.Action)
-		}
-	}
-	lock, err := readLock(".")
-	if err != nil || lock.Inputs.Tenancy != recipes.TenancyMulti || lock.Inputs.Layout != recipes.LayoutV02 {
-		t.Errorf("lock inputs = %+v, %v", lock.Inputs, err)
-	}
-	assertLockRebuilds(t, ".")
-}
-
-// TestV02AddRLS: orb add rls works in an app on gorbital.Main, which Phase 7
-// couldn't do without a lock, and orb gen module --org then writes the
-// policy.
 func TestV02AddRLS(t *testing.T) {
 	newGitApp(t, "--preset", "full", "--tenancy", "multi")
 	_, out, _ := addRLS(t, 0)

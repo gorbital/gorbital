@@ -145,8 +145,8 @@ func Scope(permission string) gorbital.RouteOption {
 // route's {orgId} path parameter with a role granting permission, for
 // routes under /v1/orgs/{orgId}/ (ADR-0023, ADR-0048).
 //
-// Deprecated: organisations are one scope (ADR-0088). Use [Scope], which
-// is this guard under the app's own tenancy; an app that mounts
+// Organisations are one scope (ADR-0088): prefer [Scope], which is this
+// guard under the app's own tenancy; an app that mounts
 // gorbital.dev/gorbital/orgshttp and changes nothing sees no difference.
 // This name keeps working for all of v0.x. Its guard name in logs and
 // metrics stays "org_member:<permission>".
