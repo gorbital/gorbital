@@ -4,3 +4,8 @@ internal/tools/apicheck/apicheck
 internal/tools/docscheck/docscheck
 internal/tools/refdocs/refdocs
 internal/tools/contracts/contracts
+
+# The showcase applications' repository, fetched by scripts/examples.sh at
+# the ref docs/examples.json pins, so that docscheck can resolve the
+# <!-- include examples/apps/... --> markers (ADR-0093).
+/.examples/
