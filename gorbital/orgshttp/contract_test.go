@@ -1,3 +1,5 @@
+//orb:noeject compares organisations with the frozen v0.2.1 contracts in the gorbital repository
+
 package orgshttp
 
 import (
