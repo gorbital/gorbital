@@ -41,7 +41,7 @@ type newResult struct {
 	Files int `json:"files"`
 	// Ejected are the built-in modules copied into internal/modules, in the
 	// order they were copied: sign-in, and organisations with --tenancy
-	// multi, unless --no-eject.
+	// multi.
 	Ejected []newEjected `json:"ejected"`
 }
 
@@ -52,7 +52,6 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	preset := flags.String("preset", "minimal", "preset: minimal (HTTP API, no database) or full (PostgreSQL, authentication, jobs, email, audit, ops APIs)")
 	tenancy := flags.String("tenancy", recipes.TenancySingle, "who owns the data (Full preset): single (users) or multi (organisations with members, roles and invitations)")
 	local := flags.String("local", "", "path to a gorbital checkout, used through replace directives (default: the checkout you are in, if any)")
-	noEject := flags.Bool("no-eject", false, "Full preset: keep sign-in and organisations in the library (gorbital.dev/gorbital/authhttp and orgshttp), updated with go get, instead of copying their code into internal/modules. Copied code no longer receives library fixes automatically; orb doctor tells you when the library's version changed")
 	noGit := flags.Bool("no-git", false, "don't initialise a git repository")
 	start := flags.Bool("start", false, "run orb dev in the new app and open the Dev Portal when it is created (the default in a terminal; --no-start turns it off)")
 	noStart := flags.Bool("no-start", false, "don't run orb dev afterwards")
@@ -161,17 +160,18 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	step(fmt.Sprintf("wrote %d files", len(files)))
 
 	// Sign-in and organisations are the app's code from the start (v0.2.1):
-	// the modules are copied from the library version go.mod requires, as
-	// orb eject copies them.
+	// the modules are copied from the library version go.mod requires.
+	// There is one shape of Full app, and no flag to ask for the other
+	// one (ADR-0092).
 	ejected := []newEjected{}
-	if modules := chosen.Ejects(); len(modules) > 0 && !*noEject {
+	if modules := chosen.Ejects(); len(modules) > 0 {
 		lib, err := newAppLibrary(ctx, name, localPath)
 		if err == nil {
 			ejected, err = ejectIntoNewApp(name, modules, lib, time.Now())
 		}
 		if err != nil {
 			return errors.Join(fmt.Errorf("copy sign-in into the app: %w\n"+
-				"  check your network and GOPROXY, or keep sign-in in the library with --no-eject", err), os.RemoveAll(name))
+				"  check your network and GOPROXY, then try again", err), os.RemoveAll(name))
 		}
 		for _, e := range ejected {
 			step(fmt.Sprintf("copied %s into %s: %d files and %d migrations, from %s %s", ejectedAbout(e.Module), e.Directory, e.Files, len(e.Migrations), e.Package, e.Version))

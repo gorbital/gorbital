@@ -77,7 +77,7 @@ func TestNewValidation(t *testing.T) {
 	}
 }
 
-// TestNewCreatesApp checks what the templates write; with --no-eject, the
+// TestNewCreatesApp checks what the templates write; with the library from the checkout, the
 // files gorbital.lock tracks are exactly those. TestNewAppHoldsSignIn checks
 // the copied modules.
 func TestNewCreatesApp(t *testing.T) {
@@ -111,7 +111,7 @@ func TestNewCreatesApp(t *testing.T) {
 	} {
 		t.Run(tt.recipe, func(t *testing.T) {
 			t.Chdir(t.TempDir())
-			code, out, errOut := runOrb(t, "new", "shop-api", "--module", "example.com/shop-api", "--preset", tt.preset, "--tenancy", tt.tenancy, "--skip-tidy", "--no-git", "--json", "--no-eject")
+			code, out, errOut := runOrb(t, "new", "shop-api", "--module", "example.com/shop-api", "--preset", tt.preset, "--tenancy", tt.tenancy, "--skip-tidy", "--no-git", "--json", "--local", repoAbs(t))
 			if code != 0 {
 				t.Fatalf("orb new --preset %s --tenancy %s = %d, stderr %q", tt.preset, tt.tenancy, code, errOut)
 			}

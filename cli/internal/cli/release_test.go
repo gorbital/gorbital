@@ -15,6 +15,16 @@ import (
 )
 
 // repoRoot returns the gorbital checkout these tests run in.
+// repoAbs is repoRoot as an absolute path, for orb new --local.
+func repoAbs(t *testing.T) string {
+	t.Helper()
+	abs, err := filepath.Abs(repoRoot(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return abs
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	_, file, _, _ := runtime.Caller(0)

@@ -138,7 +138,7 @@ func TestV02AddOrgsWithOwnSignIn(t *testing.T) {
 // module belongs to organisations, and only the data conversion is a new
 // migration, since the organisations tables are the library's.
 func TestV02AddOrgs(t *testing.T) {
-	newGitApp(t, "--preset", "full", "--no-eject")
+	newGitApp(t, "--preset", "full", "--local", repoAbs(t))
 	writeFile(t, "internal/modules/customers/module.go", "package customers\n")
 	commitAll(t, "Add customers")
 
