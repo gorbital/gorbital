@@ -69,6 +69,7 @@ Usage:
   orb upgrade [flags]            merge this release's templates into the app on a branch
   orb upgrade --layout v0.2      move a v0.1 app (internal/app) to the v0.2 layout (gorbital.Main)
   orb doctor [flags]             check the app, its environment and database, and say what to fix
+  orb doctor --security          review the code the app owns: what changed upstream, and static rules
   orb version [--json]           print version information
   orb help                       show this help
 

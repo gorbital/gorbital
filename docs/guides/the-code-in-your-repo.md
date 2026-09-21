@@ -107,6 +107,65 @@ Acting on it is yours to do: read the entries, print the library's directory wit
 
 This is the one thing a copy has that a fork does not: it knows where it came from, so the question *has anything happened upstream that I should know about?* has an answer.
 
+## `orb doctor --security`
+
+That answer is what `orb doctor --security` is for. It is a review of its own rather than more lines in `orb doctor`: it needs no database and no build, and it ends by saying what it did not look at.
+
+```bash
+orb doctor --security
+orb doctor --security --json   # for scripts and agents
+```
+
+It does two things. The first uses the provenance in `gorbital.lock`: it fetches the version each copy was made from, copies that version again in memory, and compares it with both your files and the version your `go.mod` requires now.
+
+```text
+warn  internal/modules/auth
+      copied from gorbital.dev/gorbital/authhttp v0.2.1 on 2026-09-18; the app requires v0.2.2
+      provenance: verified: authhttp at v0.2.1 hashes to what gorbital.lock recorded
+      6 of the 205 files the app holds changed upstream; the app has itself changed 3 of the
+      files it holds, 1 of those among them, so porting those is a merge
+        internal/modules/auth/usecase/login.go  (touches login — a hint from the file's name,
+          not a verdict; you have edited this file)
+        internal/modules/auth/repository/insert_session.go  (touches sessions — a hint …)
+        …
+      2 files the library has gained since, which the app has no copy of
+      changelog v0.2.2 (2026-09-21):
+        - authhttp: sessions end when a password changes
+      not determined: which of these changes are security fixes: gorbital publishes no advisory
+        feed, so orb can say that your copy has diverged and where to read, and nothing more
+      fix: diff -ru /…/gorbital.dev/gorbital@v0.2.1/authhttp /…/gorbital.dev/gorbital@v0.2.2/authhttp
+```
+
+Read that last line carefully, because it is the honest limit of the tool. **`orb doctor --security` cannot tell you whether a change upstream is a security fix.** There is no advisory feed in gorbital, so there are no advisory IDs and no severities, and nothing here invents them. What it can tell you is that your copy has diverged, exactly where, whether you have edited those files too, and what the changelog says about the package — so that you know where to read and how much work porting would be. The flow named beside a file (*touches login*) is read from the file's name and is a hint, not a verdict: a renamed variable in `login.go` lands there exactly as a fix would.
+
+Three things it works out that you cannot see by eye:
+
+| | |
+|---|---|
+| **Provenance** | The recorded version's source is hashed the way the copy hashed it and compared with `gorbital.lock`. *Verified* means the entry still describes real source; anything else means the entry, or your module cache, is not what it was |
+| **What changed upstream** | Only among the files you actually hold. A file the library added after your copy is listed separately, because it is not a change to anything you have |
+| **What you changed** | Your file against the recorded version copied again. Import grouping is ignored — `orb` has changed how it groups imports between releases, and counting that as your edit would put most of a module in the list and make the list worthless |
+
+The second half runs static rules over your own code: the Go syntax trees under `cmd/` and `internal/`, and the SQL in `db/migrations`. Seven rules, each with the file, the line, what goes wrong and the fix.
+
+| Rule | What it looks for |
+|---|---|
+| `credential-stored-unhashed` | A migration column, or a statement writing one, that holds a credential as it is sent |
+| `password-without-kdf` | A value nothing hashed, written to a password or secret hash column |
+| `secret-compared-directly` | `==` or `!=` between two secrets, hashes or signatures, where [`crypto/subtle`](https://pkg.go.dev/crypto/subtle#ConstantTimeCompare) belongs |
+| `weak-random-secret` | `math/rand` producing a token, secret, password or key |
+| `scope-query-without-soft-delete` | A query reading a membership together with the tenant it belongs to, without asking whether the tenant is still there |
+| `credential-in-route-path` | A token or key in a URL path, where proxies, logs and `Referer` headers keep it |
+| `secret-in-log` | A secret passed to a logger or printed |
+
+A value is a credential when the last word of its name is `token`, `secret`, `password`, `passphrase` or `apikey`, or its last two are `api_key`, `private_key`, `secret_key`, `signing_key`, `encryption_key`, `access_key` or `session_key`. That is why `token_hash`, `refresh_token_ciphertext`, `password_changed_at`, `api_key_prefix` and `key_id` are never reported: the last word says the value is not the secret. It is also why a name ending in a word the rules do not know is not reported either — `pkce_verifier`, a `recovery_code` of your own. The rules are quiet where they are unsure, on purpose. A check people learn to ignore is worse than no check, so the whole set is run against the applications `orb new` writes, and a single finding in one of them is a bug.
+
+No finding ever prints a value. It prints where the value is and what it is called, because a report that quotes a secret is a second copy of it.
+
+**What a clean run means.** Every run — clean or not — ends with what it checked and what it did not: whether any change is a security fix; the library's own code and everything else `go.mod` pulls in, which [`govulncheck`](https://go.dev/blog/govulncheck) reads; test files and SQL built at run time; and anything that needs the app running, such as configuration, TLS and what the database role may do. The rules are patterns for mistakes that have names. Nothing matched is not the same as nothing wrong.
+
+Exit code 1 when something failed, 0 when only warnings, so it can gate a pipeline.
+
 ## Apps that came from somewhere else
 
 **An app created before v0.2.1** has sign-in and organisations in the library rather than in `internal/modules`. Nothing is wrong with it and nothing is deprecated; it keeps building. `orb upgrade --layout v0.2` writes the copies for a v0.1 app as part of the move ([Upgrading apps](../start/upgrading.md#move-to-the-v02-layout)).

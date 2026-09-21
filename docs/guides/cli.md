@@ -641,9 +641,10 @@ The `--json` output is public API (here `orb routes --app --json`):
 Checks the app in the current directory and says what to fix. It changes nothing ([ADR-0051](../adr/0051-operations-v0-5.md)).
 
 ```bash
-orb doctor           # every check
-orb doctor --fast    # skip the checks that build the app
-orb doctor --json    # for scripts and agents
+orb doctor            # every check
+orb doctor --fast     # skip the checks that build the app
+orb doctor --json     # for scripts and agents
+orb doctor --security # review the code the app owns instead (see below)
 ```
 
 ```text
@@ -684,6 +685,16 @@ orb doctor · shop-api (full, single tenancy)
 | `row-level security` (Full preset) | | Row-level security is on and the database role is a superuser or has `BYPASSRLS`, a table's row-level security isn't forced, or an organisation table has no policy ([row-level security](row-level-security.md)) |
 
 Values from `.env` are never printed. The database checks run the app's own `go run ./cmd/migrate --status --json`, or `go run ./cmd/api migrate --status --json` in an app on `gorbital.Main`, whose status covers the merged history of the library's and the app's migrations; so `orb` needs no database driver. The JSON result says the app's `layout` (`main` or `v0.1`). Exit code 1 when any check fails.
+
+### `orb doctor --security`
+
+A review of the code the app owns, in place of the checks above ([the code in your repo](the-code-in-your-repo.md#orb-doctor---security), [ADR-0092 §7](../adr/0092-what-the-framework-owns.md)). It needs no database and no build, and it changes nothing.
+
+It does two things. For each module `gorbital.lock` records as copied from the library, it fetches the version the copy was made from and reports the recorded and current versions, whether the recorded source still hashes to what the lock says, how many of the files the app holds changed upstream and which, how many the app has itself changed, the files the library has gained since, the changelog entries naming the package by release, and the `diff -ru` to run. Then it runs seven static rules over the app's Go syntax trees under `cmd/` and `internal/`, and the SQL in `db/migrations`: `credential-stored-unhashed`, `password-without-kdf`, `secret-compared-directly`, `weak-random-secret`, `scope-query-without-soft-delete`, `credential-in-route-path` and `secret-in-log`. Each finding carries the file, the line, why it matters, the fix and a guide.
+
+**It cannot tell you whether a change upstream is a security fix.** gorbital publishes no advisory feed, so the command names no advisory IDs and no severities; the flow it may name beside a changed file (*touches login*) is read from the file's name and labelled as a hint. Every run ends with what it checked and what it did not, in the output and in `--json`, because a clean run is not an assurance. No finding prints a value it found — only where it is and what it is called.
+
+Exit code 1 when something failed, 0 when only warnings were reported.
 
 ## `orb dev`
 
@@ -752,6 +763,7 @@ The port check listens on `127.0.0.1` only. On macOS, a program listening on all
 | `orb add rls` | `name`, `already_on`, `migration`, `files`, `dry_run` |
 | `orb add orgs`, `orb upgrade` | `name`, `from`, `to`, `up_to_date`, `branch`, `changes` (`path`, `action`, `note`), `conflicts`, `unproven`, `committed`, `dry_run`, `layout`, `user_scoped_modules` and `migration_order_warning` (`orb add orgs`) |
 | `orb doctor` | `app`, `preset`, `tenancy`, `layout`, `checks` (`name`, `status`, `detail`, `fix`), `failures`, `warnings` |
+| `orb doctor --security` | `app`, `copies` (`module`, `package`, `directory`, `recorded_version`, `recorded_date`, `current_version`, `status`, `held_files`, `changed_upstream`, `added_upstream`, `removed_upstream`, `edited_locally`, `provenance`, `changelog`, `undetermined`, `fix`), `findings` (`rule`, `status`, `file`, `line`, `message`, `why`, `fix`, `docs`), `rules`, `checked`, `not_checked`, `failures`, `warnings` |
 | `orb version` | `version`, `recipe`, `library` |
 
 Commands, flags, exit codes and JSON fields are public API from `v1.0.0` ([ADR-0015](../adr/0015-public-api-and-stability-tiers.md)). Within `schemaVersion` 1, fields are only added; check the version before reading the rest. The shape of each output is recorded in `cli/internal/cli/testdata/json` and checked by `TestJSONOutputs` ([stability](stability.md), [ADR-0054](../adr/0054-api-freeze-and-scaffold-compatibility.md)).

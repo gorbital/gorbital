@@ -98,9 +98,19 @@ Code that `orb new` wrote is *the app's code*. It is not "ejected", because it w
 
 ### 7. Copied code gets a fix path, not only a warning
 
-Layer 2 is the app's, so a library fix does not reach it by `go get`. `orb doctor` already reports that the library's version of a copied module has changed and quotes the changelog. v0.2.2 adds `orb doctor --security`, which uses the source version and SHA-256 in `gorbital.lock` to show the upstream diff, name security-relevant changes by advisory ID and severity, and offer `orb upgrade --module <name> --only-security`.
+Layer 2 is the app's, so a library fix does not reach it by `go get`. `orb doctor` already reports that the library's version of a copied module has changed and quotes the changelog. v0.2.2 adds `orb doctor --security`, which uses the source version and SHA-256 in `gorbital.lock` to fetch the version each copy was made from and compare it, file by file, with the version the app requires now.
 
 This is what makes copying better than a fork: the copy knows where it came from.
+
+Per copied module it reports the recorded version and the current one; whether the recorded version's source still hashes to what `gorbital.lock` says; how many of the files the app holds changed upstream and which; how many of them the app has itself changed, so that porting a change is a merge rather than a copy; the files the library has gained that the app has no copy of; the library's changelog entries naming the package, by release, with their dates; and the `diff -ru` between the two versions' directories, as a command to run. Beside a changed file it may name a sign-in flow — login, sessions, registration, password reset, two-factor, API keys, passkeys — read from the file's name.
+
+It also runs static rules over the app's own Go syntax trees and the SQL in `db/migrations`: a credential column stored as it is sent, a value nothing hashed written to a hash column, `==` between two secrets where `crypto/subtle` belongs, `math/rand` producing a secret, a membership query that reads a soft-deleted tenant as live, a credential in a URL path, and a secret passed to a logger. Each finding carries the file, the line, what goes wrong, the fix and a guide. It never prints a value it found.
+
+**What this record asked for and could not be built.** Advisory IDs and severities do not exist: gorbital publishes no advisory feed, and nothing in this repository can tell a security fix from a rename. Inventing a classifier would produce exactly the thing §7 was meant to avoid — a confident label nobody can check. So the command surfaces the diff and the changelog and leaves the judgement with the operator, and every run ends by saying so, along with everything else it did not look at. The flow named beside a changed file is a hint from a file name, labelled as one, and does not affect the exit code.
+
+`orb upgrade --module <name> --only-security` is not built either, and follows the same reasoning: without a way to know which changes are security fixes there is no *only* to apply, and a command that applied *some* changes to code the app owns would be the library editing layer 2 — the thing this record forbids. The remedy is the diff and the developer's hands.
+
+An advisory feed is future work, and the shape of it is known: a signed file in the repository listing, per release, the packages and files a fix touched, so `orb doctor --security` can say *this change is a fix for X* instead of *this changed*. Until it exists, saying less is the honest option.
 
 ## Consequences
 
@@ -110,3 +120,4 @@ This is what makes copying better than a fork: the copy knows where it came from
 - Nobody can take `opshttp`, `flagshttp` or `mailevents` into their app any more. Accepted; reopen with an ADR if a real need appears.
 - 60 documentation references and one guide change. ADR-0083's ejection section is superseded in part and gains a note.
 - Removing a CLI command is a breaking change for anyone scripting it. In v0 this is allowed; the one-release explanatory error and a changelog entry are the mitigation.
+- `orb doctor --security` tells an operator that a copy has diverged, not that it is vulnerable. Anyone who reads a clean run as an assurance has been told otherwise by the run itself; anyone who wants the stronger statement needs the advisory feed, and that is a decision for another record.

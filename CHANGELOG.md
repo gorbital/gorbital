@@ -44,6 +44,15 @@ Tenancy becomes a contract your app fills in, sign-in becomes a choice, and a ge
 
 - `--scope org` is the older name of `--scope tenant` and still works. `--json` reports the canonical `tenant`.
 
+### A copy that knows what it is missing
+
+Since v0.2.1 `orb new` writes sign-in and organisations into the app as the app's own code, so a fix in the library does not reach them with `go get`. This is the other half of that trade ([ADR-0092 §7](docs/adr/0092-what-the-framework-owns.md)).
+
+#### Added
+
+- **`orb doctor --security`** ([The code in your repo](docs/guides/the-code-in-your-repo.md#orb-doctor---security)). For each module `gorbital.lock` records as copied from the library, it fetches the version the copy was made from and reports: whether that version's source still hashes to what the lock recorded, how many of the files your app holds changed upstream and which of them, how many you have changed yourself so that porting is a merge rather than a copy, the files the library has gained since, the changelog entries naming the package by release, and the `diff -ru` to run. It then runs seven static rules over your own Go syntax trees and the SQL in `db/migrations`: `credential-stored-unhashed`, `password-without-kdf`, `secret-compared-directly`, `weak-random-secret`, `scope-query-without-soft-delete`, `credential-in-route-path` and `secret-in-log`, each with the file, the line, why it matters, the fix and a guide. `--json` like the rest of `orb doctor`; exit code 1 when something failed.
+- **It cannot tell you whether a change upstream is a security fix**, and says so. gorbital publishes no advisory feed, so there are no advisory IDs and no severities; the sign-in flow it may name beside a changed file is read from the file's name and labelled a hint. Every run ends by listing what it checked and what it did not, because a clean run is not an assurance. No finding prints a value it found — only where it is and what it is called.
+
 ### Removed
 
 - **`orb eject`.** `orb new` has written sign-in and organisations into the app since v0.2.1, so the command answers a question nobody has ([ADR-0092](docs/adr/0092-what-the-framework-owns.md)). The name stays registered for this release and explains itself rather than failing as an unknown command; the copy machinery underneath still runs for `orb new`, `orb add orgs` and `orb upgrade --layout v0.2`.
