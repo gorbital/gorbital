@@ -49,12 +49,6 @@ type patch struct{ from, to string }
 // golden app already has. Everything else conditional is a hand-written
 // template under tree/.
 var patches = map[string][]patch{
-	// The demonstration module is generated after the templates are
-	// rendered (orb gen module), and adds itself to this file.
-	"internal/modules/modules.gen.go.tmpl": {
-		{from: "\t\"⟦.Module⟧/internal/modules/ping\"\n\t\"⟦.Module⟧/internal/modules/projects\"\n", to: "\t\"⟦.Module⟧/internal/modules/ping\"\n"},
-		{from: "\t\tping.Module(),\n\t\tprojects.Module(),\n", to: "\t\tping.Module(),\n"},
-	},
 	// Organisations are a requirement only of an app that mounts them.
 	"go.mod.tmpl": {
 		{
@@ -136,11 +130,6 @@ func renderInto(dir, app string, profile recipes.Profile) error {
 	if len(tree) == 0 {
 		return fmt.Errorf("render %s into %s: no files", dir, app)
 	}
-	// orb new records the demonstration module's access rule in
-	// gorbital.yaml as orb gen module does, so the golden app has it too.
-	if manifest, ok := tree[manifestPath]; ok {
-		tree[manifestPath] = recipes.SetModuleScope(manifest, demoPackage, profile.ResourceScope())
-	}
 	for rel, content := range tree {
 		if renderSkipped[rel] {
 			continue
@@ -158,16 +147,8 @@ func renderInto(dir, app string, profile recipes.Profile) error {
 
 // renderSkipped are the files of a golden app the render-back leaves
 // alone: go.mod, whose replace directives point at this checkout and
-// whose template is derived from it, and modules.gen.go, which the
-// demonstration module orb new generates adds itself to.
-var renderSkipped = map[string]bool{"go.mod": true, "internal/modules/modules.gen.go": true}
-
-// manifestPath is the app's gorbital.yaml, and demoPackage the Go package
-// of the demonstration module orb new generates.
-const (
-	manifestPath = "gorbital.yaml"
-	demoPackage  = "projects"
-)
+// whose template is derived from it.
+var renderSkipped = map[string]bool{"go.mod": true}
 
 // produceAPI writes the app's API artefacts as orb new does after go mod
 // tidy (ADR-0090 §5): the OpenAPI document, the Postman collection and

@@ -250,6 +250,14 @@ func planLayoutMove(ctx context.Context, app appInfo, now time.Time) (*layoutPla
 	if err != nil {
 		return nil, err
 	}
+	// orb new generates the demonstration module rather than writing it
+	// from templates (ADR-0090 §5); the move compares the app's v0.1 one
+	// against it, so the target tree has to hold it.
+	demo, err := demoModuleTree(next)
+	if err != nil {
+		return nil, err
+	}
+	maps.Copy(target, demo)
 	ours, err := appFiles(ctx, app.dir)
 	if err != nil {
 		return nil, err
@@ -417,4 +425,32 @@ func (m *layoutMove) delete(paths ...string) {
 func (m *layoutMove) write(p string, content []byte) {
 	m.writes[p] = content
 	m.handled[p] = true
+}
+
+// demoModuleTree renders the demonstration module orb new generates into
+// an app of the lock's profile, keyed by path.
+func demoModuleTree(in lockInputs) (map[string][]byte, error) {
+	profile, err := in.profile()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", lockPath, err)
+	}
+	fields, err := recipes.ParseModuleFields(recipes.DemoFields())
+	if err != nil {
+		return nil, err
+	}
+	data, err := recipes.NewModuleData(in.Module, recipes.DemoModule, fields, recipes.ResourceOptions{
+		Scope: profile.ResourceScope(), Migration: recipes.DemoMigrationVersion, Vocabulary: profile.Vocabulary(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	files, err := recipes.RenderModule(data)
+	if err != nil {
+		return nil, err
+	}
+	tree := make(map[string][]byte, len(files))
+	for _, f := range files {
+		tree[f.Path] = f.Content
+	}
+	return tree, nil
 }

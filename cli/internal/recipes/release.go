@@ -73,7 +73,7 @@ func (r Release) Tree(preset, tenancy, layout, mail string, d Data) (map[string]
 // older release fetched by orb upgrade still has v0.2/full and
 // v0.2/full-multi, and is rendered from those.
 func (r Release) appTree(preset, tenancy, layout string, d Data) (map[string][]byte, error) {
-	if layout == LayoutV02 {
+	if known, ok := LookupPreset(preset, TenancySingle); layout == LayoutV02 && ok && known.Layout() == LayoutV02 {
 		if _, err := fs.Stat(r.fsys, TreeV022); err == nil {
 			p := d.Profile
 			if p.Auth == "" {

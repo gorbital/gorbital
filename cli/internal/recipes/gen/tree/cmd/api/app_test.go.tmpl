@@ -35,18 +35,20 @@ func TestApp(t *testing.T) {
 	}
 ⟦- if not .Profile.SignsIn⟧
 
-	// This app has no sign-in: projects are world-readable, and writing one
-	// needs the middleware you put in front of it.
-	anonymous.Post("/v1/projects", map[string]string{"name": "Website"}).AssertStatus(t, http.StatusCreated)
+	// This app has no sign-in: projects are world-readable, so anyone may
+	// list them, and nobody holds the permission that writes one until the
+	// app adds an authenticator of its own (gorbital.WithAuth).
 	var projects struct {
 		Items []struct {
 			Name string `json:"name"`
 		} `json:"items"`
 	}
 	anonymous.Get("/v1/projects").JSON(t, &projects)
-	if len(projects.Items) != 1 || projects.Items[0].Name != "Website" {
-		t.Errorf("GET /v1/projects = %+v, want the project that was created", projects)
+	if len(projects.Items) != 0 {
+		t.Errorf("GET /v1/projects = %+v, want no projects", projects)
 	}
+	anonymous.Post("/v1/projects", map[string]string{"name": "Website"}).AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+	anonymous.Get("/ops/settings").AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
 ⟦- else if .Profile.Named⟧
 	// Every route requires sign-in unless it is public.
 	anonymous.Get("/v1/⟦.Profile.Vocabulary.Segment⟧").AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
@@ -77,10 +79,10 @@ func TestApp(t *testing.T) {
 	// Every route requires sign-in unless it is public.
 	anonymous.Get("/ops/settings").AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
 
-	// Membership is this app's own (internal/modules/scope): until its
-	// authorizer is written, every ⟦.Profile.Vocabulary.Name⟧ route refuses.
+	// Membership is this app's own (internal/modules/scope), and until its
+	// authorizer is written every ⟦.Profile.Vocabulary.Name⟧ route refuses. Add the
+	// cases for your rule here once AuthorizeScope decides.
 	ada, _ := app.SignUp(t, "ada@example.com")
-	ada.Get("/v1/⟦.Profile.Vocabulary.Segment⟧/t_example/projects").AssertStatus(t, http.StatusNotImplemented)
 
 	// Users hold no platform role: /ops is for operators.
 	ada.Get("/ops/settings").AssertProblem(t, http.StatusForbidden, "forbidden")
@@ -105,18 +107,28 @@ func TestApp(t *testing.T) {
 	ada.Get("/ops/settings").AssertProblem(t, http.StatusForbidden, "forbidden")
 ⟦- end⟧
 
+⟦- if .Profile.SignsIn⟧
+
 	// Client feature flags, the example's among them.
 	var flags struct {
 		Flags map[string]bool `json:"flags"`
 	}
-⟦- if .Profile.SignsIn⟧
 	ada.Get("/v1/flags").JSON(t, &flags)
-⟦- else⟧
-	anonymous.Get("/v1/flags").JSON(t, &flags)
-⟦- end⟧
 	if on, ok := flags.Flags["example.ping_time"]; !ok || on {
 		t.Errorf("GET /v1/flags = %v, want example.ping_time off", flags)
 	}
+⟦- else⟧
+
+	// Client feature flags are listed to signed-in clients, and this app
+	// signs nobody in: the list is empty until it has an authenticator.
+	var flags struct {
+		Flags map[string]bool `json:"flags"`
+	}
+	anonymous.Get("/v1/flags").JSON(t, &flags)
+	if len(flags.Flags) != 0 {
+		t.Errorf("GET /v1/flags = %v, want no flags for a caller who isn't signed in", flags)
+	}
+⟦- end⟧
 }
 ⟦- if .Profile.Named⟧
 

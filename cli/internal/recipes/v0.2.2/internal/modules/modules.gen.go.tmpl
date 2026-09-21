@@ -11,11 +11,13 @@ import (
 	"gorbital.dev/gorbital"
 
 	"⟦.Module⟧/internal/modules/ping"
+	"⟦.Module⟧/internal/modules/projects"
 )
 
 // All returns every module of the app, sorted by directory name.
 func All() []gorbital.Module {
 	return []gorbital.Module{
 		ping.Module(),
+		projects.Module(),
 	}
 }

@@ -128,30 +128,44 @@ func TestNewAppHoldsSignIn(t *testing.T) {
 	}
 }
 
+// goldenApps are the three shapes orb new writes byte for byte: the
+// shapes the guides document (ADR-0090 §7). The other six are covered by
+// the create-build-vet-test matrix in CI, which has no golden app to
+// compare with.
+var goldenApps = []struct{ name, auth, scope string }{
+	{"full-multi", recipes.AuthFull, recipes.DefaultScopeName},
+	{"full-single", recipes.AuthFull, recipes.ScopeSingle},
+	{"api-basic", recipes.AuthBasic, recipes.ScopeNone},
+}
+
 // TestNewAppIsTheGoldenApp: orb new with the golden apps' name and module
-// writes the golden apps in examples/, sign-in and organisations included,
-// file for file. api/surface.json is left out: --skip-tidy doesn't record
-// it (go generate does, into both). When it fails after a change to a
-// library module or to a golden app, run go generate ./internal/recipes/.
+// writes the golden apps in examples/, sign-in and organisations
+// included, file for file — the demonstration module it generates and the
+// API artefacts it produces among them (ADR-0090 §5). When it fails after
+// a change to a library module or to a golden app, run
+// go generate ./internal/recipes/.
 func TestNewAppIsTheGoldenApp(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds and runs each golden app")
+	}
 	repo, err := filepath.Abs(repoRoot(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tenancy := range []string{"single", "multi"} {
-		t.Run(tenancy, func(t *testing.T) {
+	for _, golden := range goldenApps {
+		t.Run(golden.name, func(t *testing.T) {
 			dir := t.TempDir()
 			t.Chdir(dir)
-			if code, _, errOut := runOrb(t, "new", generate.PlaceholderName, "--module", generate.PlaceholderModule, "--preset", "full", "--tenancy", tenancy, "--local", repo, "--skip-tidy", "--no-git"); code != 0 {
+			if code, _, errOut := runOrb(t, "new", generate.PlaceholderName, "--module", generate.PlaceholderModule, "--auth", golden.auth, "--scope", golden.scope, "--local", repo, "--no-git"); code != 0 {
 				t.Fatalf("orb new = %d: %s", code, errOut)
 			}
 			app := filepath.Join(dir, generate.PlaceholderName)
-			golden := filepath.Join(repo, "examples", "full-"+tenancy)
+			golden := filepath.Join(repo, "examples", golden.name)
 			tracked, ok, err := generate.GitFiles(t.Context(), golden)
 			if err != nil || !ok {
-				t.Skipf("examples/full-%s isn't in a git work tree (%v)", tenancy, err)
+				t.Skipf("%s isn't in a git work tree (%v)", golden, err)
 			}
-			skip := map[string]bool{"go.mod": true, "go.sum": true, "gorbital.lock": true, surfacePath: true}
+			skip := map[string]bool{"go.mod": true, "go.sum": true, "gorbital.lock": true}
 			written := map[string]bool{}
 			_ = filepath.WalkDir(app, func(p string, d fs.DirEntry, err error) error {
 				if err == nil && !d.IsDir() {
@@ -166,13 +180,13 @@ func TestNewAppIsTheGoldenApp(t *testing.T) {
 				}
 				want := readFile(t, filepath.Join(golden, filepath.FromSlash(rel)))
 				if got, err := os.ReadFile(filepath.Join(app, filepath.FromSlash(rel))); err != nil || string(got) != want {
-					t.Errorf("orb new wrote %s differently from examples/full-%s (%v); run go generate ./internal/recipes/", rel, tenancy, err)
+					t.Errorf("orb new wrote %s differently from %s (%v); run go generate ./internal/recipes/", rel, golden, err)
 				}
 				delete(written, rel)
 			}
 			for rel := range written {
 				if !skip[rel] {
-					t.Errorf("orb new wrote %s, which examples/full-%s lacks; run go generate ./internal/recipes/", rel, tenancy)
+					t.Errorf("orb new wrote %s, which %s lacks; run go generate ./internal/recipes/", rel, golden)
 				}
 			}
 		})

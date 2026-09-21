@@ -13,14 +13,41 @@ import (
 	"gorbital.dev/cli/internal/recipes/generate"
 )
 
-// goldenApps are the hand-written apps each preset is generated from, by
-// template directory.
-var goldenApps = []struct{ templates, preset, tenancy, layout, dir string }{
-	{"minimal", "minimal", "single", recipes.LayoutV01, "../../../examples/minimal"},
-	{"full", "full", "single", recipes.LayoutV01, "../../../examples/v0.1/full-single"},
-	{"full-multi", "full", "multi", recipes.LayoutV01, "../../../examples/v0.1/full-multi"},
-	{"v0.2/full", "full", "single", recipes.LayoutV02, "../../../examples/full-single"},
-	{"v0.2/full-multi", "full", "multi", recipes.LayoutV02, "../../../examples/full-multi"},
+// goldenApps are the hand-written apps the templates are generated from.
+// The v0.1 trees have one each; the v0.2.2 tree has three, one per shape
+// the guides document, and the manifest and the conditional templates
+// decide which of its paths each one gets (ADR-0090).
+var goldenApps = []struct {
+	name, preset, tenancy, layout, dir string
+	auth, scope                        string
+	// templates is the tree generate.Run writes from this golden app, for
+	// the v0.1 trees, which have one golden app each. The v0.2.2 tree is
+	// written from examples/full-multi alone, and TestGoldenApps checks it
+	// against all three of its shapes instead.
+	templates string
+}{
+	{"minimal", "minimal", "single", recipes.LayoutV01, "../../../examples/minimal", "", "", "minimal"},
+	{"v0.1/full-single", "full", "single", recipes.LayoutV01, "../../../examples/v0.1/full-single", "", "", "full"},
+	{"v0.1/full-multi", "full", "multi", recipes.LayoutV01, "../../../examples/v0.1/full-multi", "", "", "full-multi"},
+	{"full-single", "full", "single", recipes.LayoutV02, "../../../examples/full-single", recipes.AuthFull, recipes.ScopeSingle, ""},
+	{"full-multi", "full", "multi", recipes.LayoutV02, "../../../examples/full-multi", recipes.AuthFull, recipes.DefaultScopeName, ""},
+	{"api-basic", "full", "single", recipes.LayoutV02, "../../../examples/api-basic", recipes.AuthBasic, recipes.ScopeNone, ""},
+}
+
+// produced are the paths orb new writes into an app rather than rendering
+// from a template: the demonstration module it generates with the
+// resource generator, and the API artefacts the app itself writes
+// (ADR-0090 §5). They are in the golden apps and in no tree.
+func produced(rel string) bool {
+	switch rel {
+	// Rewritten by the demonstration module orb new generates: the module
+	// list it adds itself to, and the access rule it records.
+	case "internal/modules/modules.gen.go", "gorbital.yaml":
+		return true
+	case "db/migrations/" + recipes.DemoMigrationVersion + "_projects.sql":
+		return true
+	}
+	return strings.HasPrefix(rel, "internal/modules/projects/") || strings.HasPrefix(rel, "api/")
 }
 
 // goldenFiles returns the files of the golden app at dir that git tracks or
@@ -57,6 +84,40 @@ func renderInto(t *testing.T, preset, tenancy string, d recipes.Data) (string, [
 	return dir, files
 }
 
+// profileOf returns the profile of a golden app on gorbital.Main, and the
+// zero profile for a v0.1 one.
+func profileOf(t *testing.T, layout, auth, scope string) recipes.Profile {
+	t.Helper()
+	if layout != recipes.LayoutV02 {
+		return recipes.Profile{}
+	}
+	p, err := recipes.ParseProfile(auth, scope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// renderProfile writes the profile's app as orb new does.
+func renderProfile(t *testing.T, auth, scope string, d recipes.Data) (string, []recipes.File) {
+	t.Helper()
+	p, err := recipes.ParseProfile(auth, scope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	files, err := p.Render(root, d)
+	if err != nil {
+		t.Fatalf("Render(%s) error = %v", p, err)
+	}
+	return dir, files
+}
+
 // renderLayout writes the preset's tree in layout, as orb upgrade rebuilds
 // it, and returns the directory and the files' paths.
 func renderLayout(t *testing.T, preset, tenancy, layout string, d recipes.Data) (string, []string) {
@@ -84,10 +145,10 @@ func renderLayout(t *testing.T, preset, tenancy, layout string, d recipes.Data) 
 // the built-in modules orb new copies into apps of the preset
 // (generate.Uneject), returning the copy: what the templates hold. It
 // returns dir itself for presets orb new copies nothing into.
-func unejected(t *testing.T, dir, preset, tenancy, layout string) string {
+func unejected(t *testing.T, dir, preset, tenancy, layout, auth, scope string) string {
 	t.Helper()
-	p, _ := recipes.LookupPreset(preset, tenancy)
-	if layout != p.Layout() || len(p.Ejects()) == 0 {
+	copies := goldenCopies(t, preset, tenancy, layout, auth, scope)
+	if len(copies) == 0 {
 		return dir
 	}
 	tracked := goldenFiles(t, dir)
@@ -115,13 +176,32 @@ func unejected(t *testing.T, dir, preset, tenancy, layout string) string {
 		t.Fatal(err)
 	}
 	var modules []generate.Ejected
-	for _, e := range p.Ejects() {
+	for _, e := range copies {
 		modules = append(modules, generate.Ejected{Dir: e.Dir(), Package: e.Package})
 	}
 	if err := generate.Uneject(out, generate.PlaceholderModule, modules); err != nil {
 		t.Fatal(err)
 	}
 	return out
+}
+
+// goldenCopies are the built-in modules orb copies into an app of the
+// golden app's shape: the profile's for the v0.2 layout, the preset's for
+// v0.1.
+func goldenCopies(t *testing.T, preset, tenancy, layout, auth, scope string) []recipes.EjectedModule {
+	t.Helper()
+	if layout == recipes.LayoutV02 {
+		p, err := recipes.ParseProfile(auth, scope)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p.Copies()
+	}
+	p, _ := recipes.LookupPreset(preset, tenancy)
+	if layout != p.Layout() {
+		return nil
+	}
+	return p.Ejects()
 }
 
 // TestGoldenApps: rendering each preset with the placeholder name reproduces
@@ -131,13 +211,14 @@ func unejected(t *testing.T, dir, preset, tenancy, layout string) string {
 // (TestNewAppIsTheGoldenApp checks the copies).
 func TestGoldenApps(t *testing.T) {
 	for _, golden := range goldenApps {
-		t.Run(golden.templates, func(t *testing.T) {
+		t.Run(golden.name, func(t *testing.T) {
 			dir, files := renderLayout(t, golden.preset, golden.tenancy, golden.layout, recipes.Data{
 				Name:           generate.PlaceholderName,
 				Module:         generate.PlaceholderModule,
 				LibraryVersion: recipes.LibraryVersion,
+				Profile:        profileOf(t, golden.layout, golden.auth, golden.scope),
 			})
-			goldenDir := unejected(t, golden.dir, golden.preset, golden.tenancy, golden.layout)
+			goldenDir := unejected(t, golden.dir, golden.preset, golden.tenancy, golden.layout, golden.auth, golden.scope)
 			tracked := goldenFiles(t, goldenDir)
 			copied := goldenDir != golden.dir
 			if copied {
@@ -164,6 +245,9 @@ func TestGoldenApps(t *testing.T) {
 				if generate.Skipped(rel) || (tracked != nil && !tracked[rel]) {
 					return nil
 				}
+				if golden.layout == recipes.LayoutV02 && produced(rel) {
+					return nil // orb new writes it, no template does
+				}
 				if rel == "api/surface.json" && copied {
 					delete(rendered, rel)
 					return nil // recorded by go generate, not by Uneject
@@ -184,6 +268,9 @@ func TestGoldenApps(t *testing.T) {
 			}
 			delete(rendered, "go.mod")
 			for extra := range rendered {
+				if golden.layout == recipes.LayoutV02 && produced(extra) {
+					continue // orb new rewrites it after rendering
+				}
 				t.Errorf("rendered %s, which is not in %s", extra, golden.dir)
 			}
 		})
@@ -195,20 +282,21 @@ func TestGoldenApps(t *testing.T) {
 // exactly what the golden go.mod does.
 func TestGoModMatchesGolden(t *testing.T) {
 	for _, golden := range goldenApps {
-		t.Run(golden.templates, func(t *testing.T) {
+		t.Run(golden.name, func(t *testing.T) {
 			local := "../.."
 			if golden.layout == recipes.LayoutV01 && golden.preset == "full" {
 				local = "../../.." // examples/v0.1/<app>
 			}
 			dir, _ := renderLayout(t, golden.preset, golden.tenancy, golden.layout, recipes.Data{
 				Name: generate.PlaceholderName, Module: generate.PlaceholderModule, LibraryVersion: recipes.LibraryVersion, Local: local,
+				Profile: profileOf(t, golden.layout, golden.auth, golden.scope),
 			})
 			gotRequires, gotReplaces := parseGoMod(t, filepath.Join(dir, "go.mod"))
 			wantRequires, wantReplaces := parseGoMod(t, filepath.Join(golden.dir, "go.mod"))
 			// The golden app requires directly what its copies of sign-in
 			// and organisations import, which go mod tidy marks after orb
 			// new copies them: compare modules and versions.
-			if p, _ := recipes.LookupPreset(golden.preset, golden.tenancy); golden.layout == p.Layout() && len(p.Ejects()) > 0 {
+			if len(goldenCopies(t, golden.preset, golden.tenancy, golden.layout, golden.auth, golden.scope)) > 0 {
 				for _, m := range []map[string]string{gotRequires, wantRequires} {
 					for k, v := range m {
 						m[k] = strings.TrimSuffix(v, " // indirect")
@@ -274,7 +362,7 @@ func TestRenderGoMod(t *testing.T) {
 		t.Errorf("cmd/api/main.go not rendered for the new module:\n%s", main)
 	}
 
-	dir, _ = renderInto(t, "full", "single", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/src/gorbital"})
+	dir, _ = renderProfile(t, recipes.AuthFull, recipes.ScopeSingle, recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0", Local: "/src/gorbital"})
 	goMod, _ = os.ReadFile(filepath.Join(dir, "go.mod"))
 	for _, want := range []string{
 		"gorbital.dev/gorbital v0.1.0",
@@ -298,7 +386,7 @@ func TestRenderGoMod(t *testing.T) {
 func TestLayouts(t *testing.T) {
 	// orb new writes the v0.2 layout for the Full preset: main.go on
 	// gorbital.Main, no internal/app.
-	dir, _ := renderInto(t, "full", "multi", recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0"})
+	dir, _ := renderProfile(t, recipes.AuthFull, recipes.DefaultScopeName, recipes.Data{Name: "shop-api", Module: "shop-api", LibraryVersion: "v0.1.0"})
 	main, _ := os.ReadFile(filepath.Join(dir, "cmd", "api", "main.go"))
 	if !strings.Contains(string(main), "gorbital.Main(") || !strings.Contains(string(main), "orgshttp.Module(auth)") {
 		t.Errorf("new Full app's main.go isn't on gorbital.Main:\n%s", main)
@@ -351,10 +439,16 @@ func TestPresets(t *testing.T) {
 	}
 }
 
-// TestTemplatesUpToDate fails when a golden app changed but
-// `go generate ./...` wasn't run.
+// TestTemplatesUpToDate fails when a v0.1 golden app changed but
+// `go generate ./...` wasn't run. The v0.2.2 tree is generated from one
+// golden app and rendered back over all three, so TestGoldenApps checks
+// it from the other end, and CI's diff after go generate catches the
+// rest.
 func TestTemplatesUpToDate(t *testing.T) {
 	for _, golden := range goldenApps {
+		if golden.templates == "" {
+			continue
+		}
 		t.Run(golden.templates, func(t *testing.T) {
 			fresh := filepath.Join(t.TempDir(), golden.templates)
 			if err := os.MkdirAll(filepath.Dir(fresh), 0o755); err != nil {
@@ -367,7 +461,7 @@ func TestTemplatesUpToDate(t *testing.T) {
 			// go generate records api/surface.json and tidies go.mod of the
 			// golden app without its copied modules, which needs the go
 			// command; CI's diff after go generate checks those two.
-			src := unejected(t, golden.dir, golden.preset, golden.tenancy, golden.layout)
+			src := unejected(t, golden.dir, golden.preset, golden.tenancy, golden.layout, golden.auth, golden.scope)
 			skip := map[string]bool{}
 			if src != golden.dir {
 				skip = map[string]bool{"api/surface.json.tmpl": true, "go.mod.tmpl": true}

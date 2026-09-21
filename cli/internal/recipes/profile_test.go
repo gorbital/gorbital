@@ -197,7 +197,14 @@ func TestProfileVocabulary(t *testing.T) {
 	if v.Name != "merchant" || v.PathParam != "merchantId" || v.Column != "merchant_id" || !v.Declared {
 		t.Errorf("merchant vocabulary = %+v", v)
 	}
-	for _, scope := range []string{recipes.ScopeNone, recipes.ScopeSingle, recipes.ScopeCustom, recipes.DefaultScopeName} {
+	custom, err := recipes.ParseProfile(recipes.AuthFull, recipes.ScopeCustom)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := custom.Vocabulary(); v.Name != recipes.CustomScopeName || !v.Declared {
+		t.Errorf("custom vocabulary = %+v, want the app's own %s", v, recipes.CustomScopeName)
+	}
+	for _, scope := range []string{recipes.ScopeNone, recipes.ScopeSingle, recipes.DefaultScopeName} {
 		p, err := recipes.ParseProfile(recipes.AuthFull, scope)
 		if err != nil {
 			t.Fatal(err)

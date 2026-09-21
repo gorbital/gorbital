@@ -89,17 +89,26 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 	set := map[string]bool{}
 	flags.Visit(func(f *flag.Flag) { set[f.Name] = true })
 	// --auth and --scope describe an app on gorbital.Main, so they choose
-	// the Full preset when none was named; --preset minimal is unchanged.
-	if !set["preset"] && (set["auth"] || set["scope"] || set["tenancy"]) {
+	// the Full preset when none was named; --preset minimal is unchanged,
+	// and so is --tenancy, which the Minimal preset has always refused.
+	if !set["preset"] && (set["auth"] || set["scope"]) {
 		*preset = "full"
 	}
 	// --tenancy is the v0.2 spelling of --scope, kept for all of v0.x.
-	if set["tenancy"] && !set["scope"] {
+	if set["tenancy"] && !set["scope"] && *preset == "full" {
 		p, err := recipes.ProfileFromTenancy(*tenancy)
 		if err != nil {
 			return usageError(err.Error())
 		}
 		*scope, set["scope"] = p.Scope, true
+	}
+	if *preset != "full" && (*tenancy != recipes.TenancySingle || set["tenancy"]) {
+		if _, err := recipes.ProfileFromTenancy(*tenancy); err != nil {
+			return usageError(err.Error())
+		}
+		if *tenancy != recipes.TenancySingle {
+			return usageError(fmt.Sprintf("--tenancy %s needs the Full preset: organisations need its database and authentication (use --preset full)", *tenancy))
+		}
 	}
 	// Reject a bad --preset, --auth or --scope before asking anything else.
 	if _, _, err := lookupShape(*preset, *auth, *scope); err != nil {
@@ -174,19 +183,20 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 		return err
 	}
 
-	files, err := create(name, chosen, profile, recipes.Data{Name: name, Module: *module, LibraryVersion: recipes.LibraryVersion, Local: localPath, Profile: profile})
+	// The demonstration module is generated, not templated: orb gen module
+	// writes it at the profile's access rule, which is the only thing that
+	// differed between the shapes (ADR-0090 §5). It runs before the lock is
+	// written, because it rewrites two of the rendered files.
+	demo := func() error { return nil }
+	if chosen.Layout() == recipes.LayoutV02 {
+		demo = func() error { return generateDemoModule(name, *module, profile) }
+	}
+	files, err := create(name, chosen, profile, recipes.Data{Name: name, Module: *module, LibraryVersion: recipes.LibraryVersion, Local: localPath, Profile: profile}, demo)
 	if err != nil {
 		return errors.Join(err, os.RemoveAll(name)) // we created the directory; remove the partial app
 	}
 	step(fmt.Sprintf("wrote %d files", len(files)))
-
-	// The demonstration module is generated, not templated: orb gen module
-	// writes it at the profile's access rule, which is the only thing that
-	// differed between the shapes (ADR-0090 §5).
 	if chosen.Layout() == recipes.LayoutV02 {
-		if err := generateDemoModule(name, *module, profile); err != nil {
-			return errors.Join(fmt.Errorf("generate the %s module: %w", strings.ToLower(recipes.DemoModule)+"s", err), os.RemoveAll(name))
-		}
 		step("generated the projects module, owned by " + demoOwner(profile))
 	}
 
@@ -225,13 +235,17 @@ func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr 
 			}
 			step("wrote " + strings.Join(recipes.APIArtefacts(), ", "))
 		}
-		// The copied modules' error codes and audit actions are the app's
-		// names now, recorded as orb eject recorded them (ADR-0054).
-		if len(ejected) > 0 {
+		// The app's public names, the copied modules' among them, are
+		// recorded as orb eject recorded them (ADR-0054).
+		if chosen.Layout() == recipes.LayoutV02 {
 			if _, err := recordSurface(ctx, name); err != nil {
 				return fmt.Errorf("created %s, but %w", name, err)
 			}
-			step("recorded " + surfacePath + ": the copied modules' error codes and audit actions are the app's")
+			recorded := "recorded " + surfacePath
+			if len(ejected) > 0 {
+				recorded += ": the copied modules' error codes and audit actions are the app's"
+			}
+			step(recorded)
 		}
 	} else if chosen.Layout() == recipes.LayoutV02 {
 		fmt.Fprintln(log, s.dim.Render("  --skip-tidy: once the module is tidy, write the API artefacts with go run ./cmd/api openapi --dir api"+
@@ -603,7 +617,7 @@ func findCheckout() string {
 
 // create renders the preset into dir and records this release, the inputs
 // and the tracked files' hashes in gorbital.lock (ADR-0050).
-func create(dir string, preset recipes.Preset, profile recipes.Profile, d recipes.Data) ([]recipes.File, error) {
+func create(dir string, preset recipes.Preset, profile recipes.Profile, d recipes.Data, after func() error) ([]recipes.File, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
@@ -616,6 +630,9 @@ func create(dir string, preset recipes.Preset, profile recipes.Profile, d recipe
 	}
 	files, err := render(root, d)
 	if err != nil {
+		return nil, err
+	}
+	if err := after(); err != nil {
 		return nil, err
 	}
 	if err := writeLock(root, newLock(preset, profile, d, files)); err != nil {

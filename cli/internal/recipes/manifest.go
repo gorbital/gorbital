@@ -131,6 +131,10 @@ func parseFeatures(value string) ([]string, error) {
 	return needed, nil
 }
 
+// Wants reports whether an app with these features gets a path needing
+// them, for orb doctor.
+func Wants(on map[string]bool, needed []string) bool { return wants(on, needed) }
+
 // wants reports whether an app with these features gets the path.
 func wants(on map[string]bool, needed []string) bool {
 	for _, f := range needed {

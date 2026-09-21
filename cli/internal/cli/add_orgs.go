@@ -76,6 +76,11 @@ func runAddOrgs(ctx context.Context, args []string, stdout, stderr io.Writer) er
 	from := lock.Inputs
 	to := from
 	to.Tenancy = recipes.TenancyMulti
+	// Since v0.2.2 the templates read the profile rather than the tenancy:
+	// adding organisations is giving the app a scope with their name.
+	if to.layout() == recipes.LayoutV02 {
+		to.Scope = recipes.DefaultScopeName
+	}
 	d := recipes.Data{Name: from.Name, Module: from.Module, LibraryVersion: recipes.LibraryVersion}
 	base, unproven, err := rebuildBase(recipes.Embedded(), lock, from, d, Version)
 	if err != nil {

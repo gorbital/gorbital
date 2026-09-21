@@ -446,6 +446,41 @@ func (p Profile) MethodList() string {
 	return "[" + strings.Join(p.MethodNames(), ", ") + "]"
 }
 
+// The gorbital.yaml keys that record the profile (ADR-0090 §8).
+const (
+	AuthKey = "auth"
+)
+
+// ProfileFromManifest returns the profile an app's gorbital.yaml records,
+// reading it defensively as ReadVocabulary does: an unknown or missing
+// value is no value rather than an error, because a later release of orb
+// writes the file than the one reading it. The zero Profile means the
+// manifest records none, which is every app up to v0.2.1.
+func ProfileFromManifest(manifest []byte) Profile {
+	var p Profile
+	for line := range strings.Lines(string(manifest)) {
+		line = strings.TrimRight(line, "\r\n")
+		if line == "" || strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") || strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, ":")
+		if !ok {
+			continue
+		}
+		value = strings.Trim(strings.TrimSpace(value), `"'`)
+		switch {
+		case key == AuthKey && slices.Contains(Auths, value):
+			p.Auth = value
+		case key == ScopeKey && value != "":
+			p.Scope = value
+			if value != ScopeNone && value != ScopeSingle && value != ScopeCustom && scopeNameWord.MatchString(value) {
+				p.ScopeName = value
+			}
+		}
+	}
+	return p
+}
+
 // ProfileFromTenancy returns the profile orb new --preset full --tenancy
 // tenancy creates: the deprecated alias of --auth full with --scope single
 // or --scope organisation (ADR-0090 §1).

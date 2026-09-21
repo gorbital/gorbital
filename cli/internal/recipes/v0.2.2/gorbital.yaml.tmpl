@@ -34,3 +34,8 @@ layout: v0.2
 features: [⟦.Profile.AppFeatures⟧]
 # Email provider, changed with `orb add mail`: resend or smtp.
 mail: resend
+# The access rule each generated module was created with (orb gen module
+# --scope). orb routes and orb doctor read it back; it doesn't change what
+# the app does, which is in the module's own code.
+modules:
+  projects: ⟦.Profile.ResourceScope⟧
