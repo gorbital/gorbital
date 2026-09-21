@@ -119,7 +119,11 @@ func writeOpenAPI(w io.Writer, o options) error {
 	if err := validateModules(modules); err != nil {
 		return err
 	}
-	api, _, _, err := buildAPI(cfg, o, modules, Deps{}, Scope{}, nil)
+	// The document is built without infrastructure, so no module's
+	// Platform runs and none has set the app's scope: the words come from
+	// gorbital.WithScope or gorbital.WithScopeWords, and default to
+	// organisations as they always have.
+	api, _, _, err := buildAPI(cfg, o, modules, Deps{}, o.scope, o.scopeAuth)
 	if err != nil {
 		return err
 	}

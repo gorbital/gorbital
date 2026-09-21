@@ -106,7 +106,10 @@ func TestV02UpgradeUpToDate(t *testing.T) {
 func TestV02AddOrgsWithOwnSignIn(t *testing.T) {
 	newGitApp(t, "--preset", "full")
 	res, _ := addOrgs(t, 0, "--json", "--skip-build")
-	if len(res.Conflicts) != 0 || len(res.UserScoped) != 0 {
+	// The demonstration module is the app's own code from the moment orb
+	// new generated it (ADR-0090 §5), so adding organisations leaves it
+	// owned by users and says so, instead of replacing it with a template.
+	if len(res.Conflicts) != 0 || !slices.Equal(res.UserScoped, []string{"projects"}) {
 		t.Fatalf("result = %+v", res)
 	}
 	main := readFile(t, "cmd/api/main.go")

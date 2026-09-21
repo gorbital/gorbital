@@ -106,6 +106,7 @@ func runDoctor(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	switch {
 	case main:
 		d.modules(app)
+		d.profile()
 		d.resourceScopes(app)
 		d.ejected(ctx)
 		d.stack()

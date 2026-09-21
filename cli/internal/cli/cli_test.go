@@ -95,13 +95,13 @@ func TestNewCreatesApp(t *testing.T) {
 			"go.mod":        "module example.com/shop-api\n",
 			"gorbital.yaml": "preset: minimal",
 		}},
-		{"full", "multi", "base-full-multi", 40, map[string]string{
-			"gorbital.yaml":                             "tenancy: multi",
-			"cmd/api/main.go":                           `gorbital.WithModules(orgshttp.Module(auth)),`,
-			"internal/modules/modules.gen.go":           `"example.com/shop-api/internal/modules/projects"`,
-			"db/migrations/20260916000002_projects.sql": "org_id      text        NOT NULL,",
+		{"full", "multi", "base-full-multi", 28, map[string]string{
+			"gorbital.yaml":                   "tenancy: multi",
+			"cmd/api/main.go":                 `gorbital.WithModules(orgshttp.Module(auth)),`,
+			"internal/modules/modules.gen.go": `"example.com/shop-api/internal/modules/projects"`,
+			"db/migrations/" + recipes.DemoMigrationVersion + "_projects.sql": "org_id      text        NOT NULL,",
 		}},
-		{"full", "single", "base-full", 40, map[string]string{
+		{"full", "single", "base-full", 28, map[string]string{
 			"go.mod":                              "module example.com/shop-api\n",
 			"gorbital.yaml":                       "layout: v0.2",
 			"compose.yaml":                        "POSTGRES_DB: shop-api",
@@ -130,6 +130,10 @@ func TestNewCreatesApp(t *testing.T) {
 			wantInputs := lockInputs{Name: "shop-api", Module: "example.com/shop-api", Preset: tt.preset, Tenancy: tt.tenancy}
 			if tt.preset == "full" {
 				wantInputs.Mail, wantInputs.Layout = "resend", recipes.LayoutV02
+				wantInputs.Auth, wantInputs.Scope = recipes.AuthFull, recipes.ScopeSingle
+				if tt.tenancy == recipes.TenancyMulti {
+					wantInputs.Scope = recipes.DefaultScopeName
+				}
 			}
 			lock, err := readLock("shop-api")
 			// Every rendered file is tracked except go.mod.
@@ -186,7 +190,7 @@ func TestNewFullPrintsNextSteps(t *testing.T) {
 		t.Fatalf("orb new --preset full = %d, stderr %q", code, errOut)
 	}
 	for _, want := range []string{
-		"creating shop-api in ./shop-api\n", "preset full · tenancy single · library", "✓ wrote ", "\ncreated shop-api\n",
+		"creating shop-api in ./shop-api\n", "auth full · scope single · library", "✓ wrote ", "\ncreated shop-api\n",
 		"docker compose up -d --wait", "go run ./cmd/api migrate", "go run ./cmd/api seed", "http://127.0.0.1:3100/mail", "admin@example.com", "gorbital.Main", "orb gen module",
 		"AUTH_PROVIDERS.md", "POSTGRES_PORT", "orb add mail", "next: cd shop-api\n        orb dev\n",
 	} {
@@ -205,7 +209,7 @@ func TestNewFullPrintsNextSteps(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("orb new --preset full --tenancy multi = %d, stderr %q", code, errOut)
 	}
-	for _, want := range []string{"preset full · tenancy multi · library", "personal workspace", "orgs.invitation_url", "next: cd team-api"} {
+	for _, want := range []string{"auth full · scope organisation · library", "personal workspace", "orgs.invitation_url", "next: cd team-api"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("orb new --tenancy multi output lacks %q:\n%s", want, out)
 		}

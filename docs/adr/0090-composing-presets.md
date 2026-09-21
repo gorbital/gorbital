@@ -1,6 +1,6 @@
 # ADR-0090: Composing presets
 
-**Status:** Proposed (2026-09-21) · **Amends:** ADR-0014, ADR-0050 · **Builds on:** ADR-0021, ADR-0083 · **Related:** ADR-0089, ADR-0091
+**Status:** Accepted (2026-09-21) · **Amends:** ADR-0014, ADR-0050 · **Builds on:** ADR-0021, ADR-0083 · **Related:** ADR-0089, ADR-0091
 
 ## Context
 
@@ -176,3 +176,61 @@ The other six get a CI matrix that creates the application, builds it, vets it a
 - CI grows a nine-way matrix. The three golden shapes are covered by the existing byte comparison and OpenAPI gates; the six others each create, build, vet and test one application on their own runner. They run in parallel, so wall-clock grows by roughly one application's create-build-test — the existing end-to-end step budgets 40 minutes for a run over two Full shapes — while runner-minutes for new-application testing rise about four and a half times.
 - The `v0.1` trees (`minimal`, `full`, `full-multi`, 812 files) are untouched. v0.1 applications still regenerate from them through `orb upgrade`, and their five golden applications and OpenAPI gates stay exactly as they are. This decision is about the v0.2 layout only.
 - `Preset` and `LookupPreset` go from the public shape of `orb new` to internal machinery for the Minimal and v0.1 paths. `gorbital.lock` files written by v0.2.1 keep validating, because `preset` and `tenancy` are still read.
+
+## What building it changed
+
+Phase 4 built this decision. Eight things in it were wrong or impossible as
+written, and the code follows what is below rather than what is above.
+
+1. **Seven templates branch, not six.** The six in §6 were chosen from the
+   two v0.2 trees without diffing them. `.env.example` and `compose.yaml`
+   were **byte-identical** in the two trees; `.env.example` branches only
+   for an app with no sign-in, and `compose.yaml` not at all. The seven
+   that do differ are `cmd/api/main.go`, `cmd/api/app_test.go`,
+   `README.md`, `AGENTS.md`, `ARCHITECTURE.md`, `gorbital.yaml` and
+   `go.mod`. `cmd/api/main_test.go` branches too, for the commands an app
+   without sign-in doesn't have — nine conditional templates in all.
+2. **The tree is 37 paths, not "about 65".** §3's arithmetic added the two
+   trees' file counts instead of taking their union minus what stops being
+   templated: 33 from the golden app, plus `manifest.yaml` and the three
+   templates a custom scope needs. 127 files become 37.
+3. **A tree generated from one golden app cannot hold a template no golden
+   app has.** §4's own example lists
+   `internal/modules/scope/authorizer.go.tmpl` for `[scope.custom]`, and
+   `examples/full-multi` has no such file. The hand-written part of the
+   tree — the manifest, the conditional templates and the custom scope's
+   stub — lives in `cli/internal/recipes/gen/tree/` and is copied over
+   what the generator writes.
+4. **`api/openapi.baseline.json` is not an output of `openapi --dir`.**
+   That command writes three files, not five. The baseline is the `/ops`
+   contract the app is held to, and for a new app it is the document the
+   app was created with, so `orb new` copies `api/openapi.json` onto it;
+   `api/surface.json` is recorded by the app's own `TestPublicSurface`.
+   The golden apps' baselines stop being the frozen v0.2.0 documents they
+   had been. The frozen `/ops` comparison is unaffected: it lives in
+   `internal/contracts/v0.1.0`.
+5. **The demonstration module's migration has one version for every app,
+   and it is neither of the two the golden apps had.** A new migration in
+   an app on `gorbital.Main` must come after the built-in modules', which
+   run in the same history, so `orb gen module` floors it at
+   `latestBuiltinMigration + 1`. Both golden apps' `*_projects.sql` move
+   to `20260918000071`; a test keeps the constant in step with the floor.
+6. **`TestNewAppIsTheGoldenApp` is affected after all.** It ran with
+   `--skip-tidy`, and the produced artefacts need a tidy module and a
+   compiler. It now creates each of the three apps for real, which takes
+   about 25 seconds for all three, and is skipped under `-short`.
+7. **A named scope other than `organisation` needed two library fixes.**
+   `openapi --dir` exported its document with an empty `gorbital.Scope`,
+   so every app was documented with the organisations vocabulary; and the
+   words a module mounts a scope under are not known until that module's
+   `Platform` runs, which is after `guard.Scope`'s route checks and long
+   after the document is exported. `gorbital.WithScopeWords` says them up
+   front. Without both, `orb new --scope merchant` created an app whose
+   own `openapi` command refused to run.
+8. **A `--scope custom` app cannot pass `go test ./...`, by design.** §7's
+   matrix "creates, builds, vets and tests" all six non-golden shapes, but
+   the generated `ScopeAuthorizer` returns `gorbital.ErrNotImplemented`
+   until the app writes the rule, and its test says so — the same
+   deliberate red as a `--scope custom` module's `policy_test.go`
+   (ADR-0091). The matrix requires every other package of those two apps
+   to pass and that one to fail.

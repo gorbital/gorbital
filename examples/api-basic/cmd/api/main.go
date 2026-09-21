@@ -1,0 +1,47 @@
+// Command api runs acme-api, built on gorbital.Main: the server, and the
+// commands its modules add.
+//
+//	go run ./cmd/api                     serve the API (APP_ENV and DATABASE_URL from the environment)
+//	go run ./cmd/api migrate             apply migrations; --status reports pending ones
+//	go run ./cmd/api openapi --dir api   write the OpenAPI document, the Postman collection and llms.txt
+//	go run ./cmd/api seed                create the development administrator (orb dev runs it)
+//	go run ./cmd/api grant-role <email> <role>
+//	                                     give an account a platform role
+//	go run ./cmd/api help                list every command
+package main
+
+import (
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/flagshttp"
+	"gorbital.dev/gorbital/mailevents"
+	"gorbital.dev/gorbital/opshttp"
+
+	"example.com/acme-api/db/migrations"
+	"example.com/acme-api/internal/modules"
+	authhttp "example.com/acme-api/internal/modules/auth"
+)
+
+func main() {
+	gorbital.Main(options()...)
+}
+
+// options are the app: what main.go runs and the tests build.
+func options() []gorbital.Option {
+	// sign-in: accounts, sessions, and the operators' account APIs. The
+	// other methods' tables exist and stay empty, so adding one is this one
+	// line and a restart (ADR-0089).
+	auth := authhttp.New(authhttp.Methods(authhttp.MethodPassword, authhttp.MethodOperators))
+	return []gorbital.Option{
+		gorbital.WithName("acme-api"),
+		gorbital.WithAuth(auth),
+		gorbital.WithModules(
+			opshttp.Module(opshttp.MailProvider(mailProvider)), // /ops/: settings, flags, jobs, audit, email, observability
+			flagshttp.Module(),  // GET /v1/flags: client feature flags
+			mailevents.Module(), // POST /v1/webhooks/resend: bounces and complaints
+		),
+		gorbital.WithModules(modules.All()...), // internal/modules/modules.gen.go: ping, projects
+		gorbital.WithMigrations(migrations.FS), // db/migrations: the app's own tables
+		gorbital.WithMailerFunc(mailer),        // mail.go: the email provider, set by orb add mail
+		gorbital.WithStorageFunc(fileStorage),  // storage.go: S3-compatible file storage
+	}
+}

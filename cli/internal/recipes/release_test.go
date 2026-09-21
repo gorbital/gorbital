@@ -18,7 +18,7 @@ var shopData = recipes.Data{Name: "shop-api", Module: "example.com/shop-api", Li
 // what orb new writes, for every preset.
 func TestTreeMatchesRender(t *testing.T) {
 	for _, golden := range goldenApps {
-		t.Run(golden.templates, func(t *testing.T) {
+		t.Run(golden.name, func(t *testing.T) {
 			mail := ""
 			if golden.preset == "full" {
 				mail = recipes.MailResend
@@ -27,11 +27,19 @@ func TestTreeMatchesRender(t *testing.T) {
 			if golden.layout != p.Layout() {
 				t.Skipf("orb new writes the %s layout", p.Layout())
 			}
-			tree, err := recipes.Embedded().Tree(golden.preset, golden.tenancy, golden.layout, mail, shopData)
+			d := shopData
+			d.Profile = profileOf(t, golden.layout, golden.auth, golden.scope)
+			tree, err := recipes.Embedded().Tree(golden.preset, golden.tenancy, golden.layout, mail, d)
 			if err != nil {
 				t.Fatal(err)
 			}
-			dir, files := renderInto(t, golden.preset, golden.tenancy, shopData)
+			var dir string
+			var files []recipes.File
+			if golden.layout == recipes.LayoutV02 {
+				dir, files = renderProfile(t, golden.auth, golden.scope, d)
+			} else {
+				dir, files = renderInto(t, golden.preset, golden.tenancy, d)
+			}
 			if len(tree) != len(files) {
 				t.Errorf("tree has %d files, Render wrote %d", len(tree), len(files))
 			}
@@ -79,7 +87,7 @@ func TestMainTreeWithSMTP(t *testing.T) {
 	if example := string(tree[".env.example"]); !strings.Contains(example, "\nSMTP_HOST=\n") || strings.Contains(example, "RESEND_API_KEY") {
 		t.Errorf(".env.example doesn't hold the SMTP block alone:\n%s", example)
 	}
-	if manifest := string(tree["gorbital.yaml"]); !strings.HasSuffix(manifest, "\nmail: smtp\n") {
+	if manifest := string(tree["gorbital.yaml"]); !strings.Contains(manifest, "\nmail: smtp\n") {
 		t.Errorf("gorbital.yaml = %s", manifest)
 	}
 }

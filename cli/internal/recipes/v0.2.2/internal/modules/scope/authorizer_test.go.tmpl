@@ -1,0 +1,44 @@
+package scope
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"gorbital.dev/gorbital"
+)
+
+// TestAuthorizerIsImplemented fails until AuthorizeScope decides who may
+// act in ⟦.Profile.Vocabulary.A⟧ ⟦.Profile.Vocabulary.Name⟧. That is deliberate, and it is the whole
+// point of --scope custom: the app is generated red, because gorbital
+// cannot know the rule and an app that lets everybody into every
+// ⟦.Profile.Vocabulary.Name⟧ must not look finished.
+//
+// Write it, and this test goes green on its own. Then add the tests this
+// one cannot write: a member whose role grants the permission, a member
+// whose role doesn't, and somebody who isn't a member at all.
+func TestAuthorizerIsImplemented(t *testing.T) {
+	_, err := New().AuthorizeScope(context.Background(), "t_example", "projects.project.read")
+	if errors.Is(err, gorbital.ErrNotImplemented) {
+		t.Error("AuthorizeScope isn't written yet: decide who may act in ⟦.Profile.Vocabulary.A⟧ ⟦.Profile.Vocabulary.Name⟧ in internal/modules/scope/authorizer.go, and delete the gorbital.ErrNotImplemented it returns")
+	}
+}
+
+// TestScopeIsValid checks the words the app chose against what
+// gorbital.Scope accepts, so a typo fails here rather than at start-up.
+func TestScopeIsValid(t *testing.T) {
+	s := Scope()
+	switch {
+	case s.Name == "":
+		t.Error("Scope().Name is empty")
+	case s.PathParam == "":
+		t.Error("Scope().PathParam is empty")
+	case s.NotFoundCode == "":
+		t.Error("Scope().NotFoundCode is empty")
+	case len(s.Roles) == 0:
+		t.Error("Scope() has no roles: a member's role is what grants a permission")
+	}
+	if s.ValidID != nil && s.ValidID("") {
+		t.Error("Scope().ValidID accepts an empty ID")
+	}
+}

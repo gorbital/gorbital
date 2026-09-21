@@ -58,6 +58,7 @@ pkg gorbital.dev/gorbital, func WithMigrations(fs.FS) Option
 pkg gorbital.dev/gorbital, func WithModules(...Module) Option
 pkg gorbital.dev/gorbital, func WithName(string) Option
 pkg gorbital.dev/gorbital, func WithScope(Scope, ScopeAuthorizer) Option
+pkg gorbital.dev/gorbital, func WithScopeWords(Scope) Option
 pkg gorbital.dev/gorbital, func WithStack(func(Stack) []func(http.Handler) http.Handler) Option
 pkg gorbital.dev/gorbital, func WithStorage(storage.Store) Option
 pkg gorbital.dev/gorbital, func WithStorageFunc(func(Config) (storage.Store, error)) Option
