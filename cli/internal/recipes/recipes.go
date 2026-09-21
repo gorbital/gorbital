@@ -50,7 +50,7 @@ const (
 	FullName      = "base-full"
 	FullMultiName = "base-full-multi"
 	// LibraryVersion is the gorbital library version generated apps require.
-	LibraryVersion = "v0.2.1"
+	LibraryVersion = "v0.3.0"
 )
 
 // App layouts. A layout is how an app's code is organised, and which
