@@ -156,7 +156,7 @@ func loadExamples(root string) (*examples, error) {
 	if !filepath.IsAbs(dir) {
 		dir = filepath.Join(root, dir)
 	}
-	info, err := os.Stat(dir)
+	info, err := os.Stat(dir) //nolint:gosec // a checkout path this tool is told to read, from the repository or GORBITAL_EXAMPLES_DIR
 	if err != nil || !info.IsDir() {
 		return nil, fmt.Errorf("%s is not a checkout of %s: run scripts/examples.sh, which clones it at %s", dir, pin.Repository, pin.Ref)
 	}

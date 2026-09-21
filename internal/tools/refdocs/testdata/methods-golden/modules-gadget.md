@@ -28,7 +28,7 @@ const (
 )
 ```
 
-*Since `v0.1.0`: Loose; `v0.2.0 (unreleased)`: Tight*
+*Since `v0.1.0`: Loose; `v0.2.2 (unreleased)`: Tight*
 
 ## Functions
 
@@ -42,7 +42,7 @@ func Fresh()
 
 Fresh is new and has no example.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 <a id="Make"></a>
 
@@ -54,7 +54,7 @@ func Make()
 
 Make makes a gadget. It is new and has an example.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -82,7 +82,7 @@ Old was released and has no example.
 func Undocumented()
 ```
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 ## Types
 
@@ -112,7 +112,7 @@ _ = Gadget{}
 func (Gadget) Run()
 ```
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
