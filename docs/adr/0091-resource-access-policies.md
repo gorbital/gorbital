@@ -74,6 +74,8 @@ The default stays what it is today — `tenant` in an app with a scope, `user` o
 
 A `tenant` resource takes its name, path parameter, column and refusal code from the app's `Scope` (ADR-0088) instead of the hardcoded organisation words: `/v1/merchants/{merchantId}/orders`, `merchant_id`, `merchant_not_found`, and `guard.Scope` rather than `guard.OrgMember`. Roles come from `Scope.Roles`, so the sentence printed after generation names the app's roles. An app on the supplied organisations scope generates byte-identical output to v0.2.1; that equality is a release gate.
 
+Those two sentences pull against each other, because v0.2.1 wrote `guard.OrgMember` and `OrgRoles`. As implemented, the vocabulary decides: an app whose `gorbital.yaml` names a scope gets `guard.Scope`, `Permission.ScopeRoles` and its own words, and an app that names none — every app up to v0.2.1 — gets the organisation words and the two deprecated names, byte for byte what it got before. The release gate wins for apps that never asked for anything else, and `--scope org` and `--scope tenant` are one value with two spellings, so the alias cannot drift from the scope.
+
 ### 4. `public`
 
 Reads are `guard.Public()`. Writes are `guard.Permission`, never public. There is no owner column, and the migration has no tenancy constraint to omit by accident. The delivery file carries the comment in full, because the next reader of this module needs it more than the person who typed the flag:

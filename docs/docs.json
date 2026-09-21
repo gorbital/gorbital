@@ -29,6 +29,7 @@
             { "title": "The middleware stack", "slug": "guides/middleware-stack", "source": "docs/guides/middleware-stack.md" },
             { "title": "Testing with gorbitaltest", "slug": "guides/testing-with-gorbitaltest", "source": "docs/guides/testing-with-gorbitaltest.md" },
             { "title": "Generating code", "slug": "guides/generating-code", "source": "docs/guides/generating-code.md" },
+            { "title": "Resource access scopes", "slug": "guides/resource-access-scopes", "source": "docs/guides/resource-access-scopes.md" },
             { "title": "Ejecting a module", "slug": "guides/ejecting-a-module", "source": "docs/guides/ejecting-a-module.md" },
             { "title": "Security layers", "slug": "guides/security-layers", "source": "docs/guides/security-layers.md" },
             { "title": "Organisations", "slug": "guides/organisations", "source": "docs/start/organisations.md" },
