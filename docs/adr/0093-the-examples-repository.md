@@ -8,17 +8,22 @@
 
 The **golden apps** — `examples/minimal`, `examples/full-single`, `examples/full-multi`, `examples/v0.1/full-single` and `examples/v0.1/full-multi` — are the source the CLI's templates are generated from. `go generate ./cli/internal/recipes/` renders `cli/internal/recipes/*` out of them, and CI byte-compares both the rendered templates and the golden apps themselves. They are not documentation; they are input to the build, and the build fails if they move.
 
-The **showcase apps** — the six directories under `examples/apps/` — are documentation. Their only job is to be included, by marker, into pages a reader reads. Nothing in the library is generated from them and nothing is compared against them. They are 1 637 files, and the library's CI builds and tests all six on every pull request.
+The **showcase apps** — the six directories under `examples/apps/` — look like documentation. Their job is to be included, by marker, into pages a reader reads. They are 1 637 files, and the library's CI builds and tests all six on every pull request.
 
-This record moves the second kind out and keeps the first kind in. The distinction is the whole decision; a reader who takes "the examples move" to mean all of `examples/` has misread it.
+Five of them are documentation and nothing else. **`shelfie` is not**, and this record said it was. The `cli` module's tests read it: `cli/internal/recipes/module_test.go` compares `orb gen module`'s rendered output with `shelfie/internal/modules/shelves` and `internal/modules/clubbooks` file by file, and `cli/internal/cli`'s tests copy the whole application to run `orb gen module`, `orb eject` and `orb doctor` against a real one. It is a fixture in the same category as the golden apps, and it stays — at `examples/shelfie`, next to them, not under an `examples/apps/` that is going away.
+
+The mistake was easy to make and worth naming, because the check that would have caught it is not the obvious one: the `cli` module is a separate Go module, so `go test ./...` from the repository root never runs those tests.
+
+This record moves the documentation-only apps out and keeps everything the build reads. The distinction is the whole decision; a reader who takes "the examples move" to mean all of `examples/` has misread it.
 
 Facts checked on 2026-09-21 against `main` (`93040dff`, v0.2.1):
 
 | Area | Today | Evidence |
 |---|---|---|
 | Golden apps | Five: `minimal`, `full-single`, `full-multi`, `v0.1/full-single`, `v0.1/full-multi`, each the hand-written source of a preset's templates | package doc of `cli/internal/recipes/recipes.go` |
+| Golden fixture | `shelfie`, the golden output `orb gen module` is compared against, and the application four of the CLI's test files copy | `cli/internal/recipes/module_test.go:12`, `cli/internal/cli/gen_module_test.go`, `eject_test.go`, `json_test.go` |
 | Why they cannot move | `go generate ./internal/recipes/` then `git diff --exit-code` over `internal/recipes/…` **and** `../examples/full-single ../examples/full-multi` | `.github/workflows/ci.yml:150`–`155` |
-| Showcase apps | Six under `examples/apps/`: `plateful` 525 files, `shelfie` 453, `invoicing` 326, `admin-tool` 256, `mobile-backend` 41, `payments` 36 — 1 637, plus the directory's README | `git ls-tree -r --name-only main examples/apps/<name>` |
+| Showcase apps | Six under `examples/apps/`: `plateful` 525 files, `shelfie` 453, `invoicing` 326, `admin-tool` 256, `mobile-backend` 41, `payments` 36 — 1 637, plus the directory's README. Five move; `shelfie` is a fixture and stays | `git ls-tree -r --name-only main examples/apps/<name>` |
 | Their CI cost | One job builds, vets, gofmt-checks and `go test -race`s every `examples/apps/*/go.mod` against Docker PostgreSQL and Mailpit | `.github/workflows/ci.yml:274`–`341`, step at `:317` |
 | Their build path | Each app is its own Go module requiring `gorbital.dev@v0.2.1` and then replacing every module with a relative path into this checkout | `examples/apps/README.md` ("Layout"), `examples/apps/plateful/go.mod:111`–`131` |
 | How the docs use them | 351 `<!-- include -->` markers under `docs/`; 345 name a path under `examples/apps` (171 in `docs/build`, all Plateful; 167 in `docs/examples`) | `grep -rn '<!-- include ' docs/` |
@@ -64,7 +69,11 @@ Two things follow. The apps prove only that the library *in this checkout* works
 
 ### 1. What moves, and what stays
 
-`examples/apps/*` moves to `github.com/gorbital/examples`, public, under the same licence and code of conduct. The golden apps stay in the library repository, unchanged and still byte-compared. `examples/README.md` is rewritten to say that what remains is template source, not documentation, and the `example apps` CI job is deleted.
+`examples/apps/plateful`, `invoicing`, `admin-tool`, `mobile-backend` and `payments` move to `github.com/gorbital/examples`, public, under the same licence and code of conduct.
+
+`examples/apps/shelfie` **stays**, at `examples/shelfie`. It is the golden output `orb gen module` is compared against and the application the CLI's tests copy, so it is input to the build in the same way the golden apps are, and moving it breaks `go test -C cli ./...`. Its markers — 99 of them — resolve locally, like the five that name `examples/full-single`.
+
+The golden apps stay too, unchanged and still byte-compared. `examples/README.md` is rewritten to say that what remains is template source and test fixtures, not documentation, and names shelfie and what it verifies. The `example apps` CI job is deleted, and `examples/shelfie` joins the `test`, `lint` and `govulncheck` matrices with the golden apps.
 
 ### 2. Layout
 
@@ -80,10 +89,11 @@ github.com/gorbital/examples
 ├── byo-identity/          no gorbital sign-in, no gorbital organisations; the proof
 ├── mobile-backend/        modules/jwt wired by hand (unchanged)
 ├── payments/              signed webhooks, idempotency, InsertTx
-├── shelfie/               (candidate for retirement, §9)
 ├── invoicing/             (candidate for retirement, §9)
 └── admin-tool/            (candidate for retirement, §9)
 ```
+
+`shelfie` is not in that list: it stays in the library repository, at `examples/shelfie` (§1).
 
 ### 3. The move preserves history
 
@@ -121,7 +131,7 @@ Plateful, the restaurant delivery platform, is built all the way through and is 
 
 ### 9. Deferred, written down, not done
 
-`shelfie`, `invoicing` and `admin-tool` overlap Plateful and should be folded into it or retired. That is an editorial change to a dozen documentation pages and a judgement about what each chapter teaches. It must not ride along with a mechanical move, so it is not in this record's scope and gets its own decision. `mobile-backend` (41 files, `modules/jwt` wired by hand) and `payments` (36 files) are small and stay untouched.
+`invoicing` and `admin-tool` overlap Plateful and should be folded into it or retired. (`shelfie` overlaps it too, but it is a fixture the CLI's tests read, so retiring it is a different question and a harder one.) That is an editorial change to a dozen documentation pages and a judgement about what each chapter teaches. It must not ride along with a mechanical move, so it is not in this record's scope and gets its own decision. `mobile-backend` (41 files, `modules/jwt` wired by hand) and `payments` (36 files) are small and stay untouched.
 
 ## Consequences
 
@@ -129,5 +139,6 @@ Plateful, the restaurant delivery platform, is built all the way through and is 
 - An example can now rot silently against an unreleased library, because a pull request to the library no longer builds them. The nightly job against `gorbital` `main` is the mitigation, and it moves the detection window from "immediately" to "within a day".
 - The documentation build gains a cross-repository dependency and a pinned version in `docs/examples.json` to bump every release. A release that forgets it pins the previous examples tag, and `docscheck` fails when a marker has since moved.
 - A contributor changing an application and the library together needs `go.work`. Before, the relative `replace` directives did it silently.
-- 345 include markers and 39 prose references change, across 48 documentation files.
-- `examples/` in the library repository comes to mean one thing: template source. The name is now narrower than it reads, which `examples/README.md` has to say plainly.
+- 245 include markers move to the other repository and 99 (Shelfie's) are rewritten from `examples/apps/shelfie/…` to `examples/shelfie/…`; the five that name `examples/full-single` are untouched. Measured, not estimated: 344 markers named `examples/apps` before the move, across 39 files, with 49 further prose lines naming it.
+- `examples/` in the library repository comes to mean two things, neither of them documentation: template source and test fixtures. The name is now narrower than it reads, which `examples/README.md` has to say plainly.
+- **The `cli` module's tests are not run by `go test ./...` from the repository root.** `cli` is a separate Go module, so a change that breaks four of its test files passes every check a contributor is likely to run by hand. That is how this record came to classify `shelfie` as documentation, and how the reclassification survived a full verification pass. Anything that touches `examples/` has to run `go test -C cli ./...`, which takes minutes, not seconds.

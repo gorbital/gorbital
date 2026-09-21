@@ -7,7 +7,7 @@ Real applications built with gorbital, explained step by step. Each chapter adds
 
 ## Shelfie
 
-Shelfie is a reading-tracker API for a web and a mobile app: people keep a shelf of books, track what they're reading, and share shelves in book clubs. It starts as an empty project and grows chapter by chapter into an app you could deploy. Its code is in `examples/apps/shelfie/`.
+Shelfie is a reading-tracker API for a web and a mobile app: people keep a shelf of books, track what they're reading, and share shelves in book clubs. It starts as an empty project and grows chapter by chapter into an app you could deploy. Its code is in `examples/shelfie/`.
 
 | Chapter | Shows | Arrives with |
 |---|---|---|

@@ -8,7 +8,8 @@ Notes for contributors writing a page in the Examples tab ([index.md](index.md))
 |---|---|
 | A Shelfie chapter | `docs/examples/shelfie/<nn>-<name>.md`, listed in the Examples tab of `docs/docs.json` |
 | A recipe page | `docs/examples/recipes/<name>.md`, listed there too |
-| The app | `examples/apps/<app>/` (for example `examples/apps/shelfie/`), a Go module CI builds and tests |
+| Shelfie's code | `examples/shelfie/`, in this repository: it is also the golden output `orb gen module` is compared against, so it stays here (ADR-0093) |
+| Any other app's code | `<app>/` in <https://github.com/gorbital/examples>, at the ref `docs/examples.json` pins; a page still writes the path as `examples/apps/<app>/…` |
 
 Each phase that ships a feature adds or extends its chapter in the same pull request as the feature ([v0.2 roadmap](../v0.2-roadmap.md#what-every-phase-writes)).
 
@@ -27,7 +28,7 @@ func (h handlers) createBook(ctx context.Context, in *createBookInput) (*bookOut
 On the page, put an HTML comment on its own line where the code goes. It holds the word `include`, the file path from the repository root, `#`, and the region name:
 
 ```text
-<!-- include examples/apps/shelfie/internal/modules/books/delivery/create_book.go#create-book -->
+<!-- include examples/shelfie/internal/modules/books/delivery/create_book.go#create-book -->
 ```
 
 `#` and `--` comments mark regions too (`.env.example`, SQL, YAML), and without `#name` the whole file is included. The marker lines themselves aren't shown.

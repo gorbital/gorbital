@@ -29,8 +29,10 @@
 // command fails with one message, not one per marker, when it is missing or
 // at the wrong ref.
 //
-// Everything else — examples/full-single and the other golden apps, which
-// generate the CLI's templates — still resolves inside this checkout.
+// Everything else resolves inside this checkout: examples/full-single and
+// the other golden apps, which generate the CLI's templates, and
+// examples/shelfie, which the cli module's tests compare orb gen module's
+// output against. Only the examples/apps/ prefix crosses repositories.
 package main
 
 import (

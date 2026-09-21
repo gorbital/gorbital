@@ -1,6 +1,6 @@
 # 0. Start a project
 
-Shelfie is a reading-tracker API: people keep a shelf of books and track what they're reading, from a web app and a mobile app. This chapter creates the project with `orb new`, reads the files it writes, and starts the app for the first time. The finished code is in [`examples/apps/shelfie`](https://github.com/gorbital/gorbital/tree/main/examples/apps/shelfie).
+Shelfie is a reading-tracker API: people keep a shelf of books and track what they're reading, from a web app and a mobile app. This chapter creates the project with `orb new`, reads the files it writes, and starts the app for the first time. The finished code is in [`examples/shelfie`](https://github.com/gorbital/gorbital/tree/main/examples/shelfie).
 
 Install [Go, Docker and git](../../start/prerequisites.md) first, then the CLI: `go install gorbital.dev/cli/cmd/orb@latest`. If you want the whole tour of a new app — signing up, reading the emails it sends, signing in as the administrator — the [Quickstart](../../start/quickstart.md) is that walk-through; this chapter reads the files instead, because the rest of the tutorial changes them.
 

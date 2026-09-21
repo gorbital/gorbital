@@ -6,7 +6,7 @@ Shelfie is finished: books, shelves, profiles, phone sign-in, book clubs, a part
 
 `cmd/api` is the whole app: the server and every command its modules add. The image builds that one binary and copies it into a distroless base, so there is no shell, no package manager and nothing running as root:
 
-<!-- include examples/apps/shelfie/Dockerfile#dockerfile -->
+<!-- include examples/shelfie/Dockerfile#dockerfile -->
 
 ```bash
 docker build --build-arg VERSION="$(git rev-parse --short HEAD)" -t shelfie:$(git rev-parse --short HEAD) .
@@ -53,17 +53,17 @@ The command applies gorbital's, the built-in modules' and Shelfie's own migratio
 
 Shelfie's workflow runs the same checks a developer runs, then proves the migrations apply to real data, then builds the image.
 
-<!-- include examples/apps/shelfie/.github/workflows/ci.yml#test-job -->
+<!-- include examples/shelfie/.github/workflows/ci.yml#test-job -->
 
 Two details do the work. `GORBITAL_TEST_DATABASE_URL` points the suite at the service container: every test clones a database from a template migrated once from `db/migrations`, so there is no migrate step and tests don't share state ([chapter 4](04-tests.md)). `GORBITAL_REQUIRE_DB=1` turns a missing database from "skip the database tests" into a failure — without it a broken service container looks like a green build.
 
 The `api/` check keeps the document clients are generated from honest: a route added without regenerating it fails the build, not the mobile team's next release.
 
-<!-- include examples/apps/shelfie/.github/workflows/ci.yml#migrate-job -->
+<!-- include examples/shelfie/.github/workflows/ci.yml#migrate-job -->
 
 The staging database is a restore of the production backup, not production. A migration that takes a lock for four minutes on a table with three rows and forty minutes on the real one is found here.
 
-<!-- include examples/apps/shelfie/.github/workflows/ci.yml#image-job -->
+<!-- include examples/shelfie/.github/workflows/ci.yml#image-job -->
 
 ## 5. Health checks
 

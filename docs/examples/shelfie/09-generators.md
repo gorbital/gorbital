@@ -4,7 +4,7 @@ Readers want named shelves: "Summer 2026", "To lend Ada". A shelf has a name, a 
 
 ## Generate the module
 
-In `examples/apps/shelfie`, with a clean git tree:
+In `examples/shelfie`, with a clean git tree:
 
 ```bash
 orb gen module Shelf name:string:unique description:text 'visibility:enum(private,shared)' --plural Shelves --dry-run
@@ -43,24 +43,24 @@ internal/modules/shelves/
 
 The module list now names it, so `main.go` serves it without a change:
 
-<!-- include examples/apps/shelfie/internal/modules/modules.gen.go -->
+<!-- include examples/shelfie/internal/modules/modules.gen.go -->
 
 ## What it wrote
 
 The module declares its errors and permissions, and wires the layers:
 
-<!-- include examples/apps/shelfie/internal/modules/shelves/module.go -->
+<!-- include examples/shelfie/internal/modules/shelves/module.go -->
 
 The route table is the books module's, with a cursor-paginated list and an update that needs the `version` the client read:
 
-<!-- include examples/apps/shelfie/internal/modules/shelves/delivery/routes.go -->
+<!-- include examples/shelfie/internal/modules/shelves/delivery/routes.go -->
 
 The table, with a constraint per rule and an index per sort:
 
-<!-- include examples/apps/shelfie/db/migrations/20260920000002_shelves.sql -->
+<!-- include examples/shelfie/db/migrations/20260920000002_shelves.sql -->
 
 > [!NOTE]
-> A generated migration's version is the time you run the command, and always after the app's newest one, so an existing database has nothing to apply out of order. The file in `examples/apps/shelfie` carries an earlier version than the chapters before this one, because the app was built in a different order from the one you read it in; yours will be the newest.
+> A generated migration's version is the time you run the command, and always after the app's newest one, so an existing database has nothing to apply out of order. The file in `examples/shelfie` carries an earlier version than the chapters before this one, because the app was built in a different order from the one you read it in; yours will be the newest.
 
 Migrate and test:
 
@@ -113,7 +113,7 @@ POST    /v1/webhooks/partners/purchases   partners-post-v1-webhooks-partners-pur
 25 routes, 3 public
 ```
 
-That is the finished app in `examples/apps/shelfie`, so it already has the two partner routes [chapter 10](10-hardening.md) adds; at the end of this chapter the listing is 23 routes. The `MIDDLEWARE` column is [chapter 3](03-your-own-middleware.md)'s `RequireClientVersion` on the books group.
+That is the finished app in `examples/shelfie`, so it already has the two partner routes [chapter 10](10-hardening.md) adds; at the end of this chapter the listing is 23 routes. The `MIDDLEWARE` column is [chapter 3](03-your-own-middleware.md)'s `RequireClientVersion` on the books group.
 
 `--app` keeps the routes in Shelfie's source. Without it, `orb routes` lists the library modules' routes too, with no source: sign-in's `/v1/auth/…`, `/ops/…`, `/v1/flags`, the organisations module's `/v1/orgs/…` and `/v1/invitations/…`, and `/version`, 181 in all, of which the 25 above have a source. Shelfie's only public routes are phone sign-in's two ([chapter 7](07-phone-code-sign-in.md)) and the partner webhook ([chapter 10](10-hardening.md)), which say `guard.Public()`: deny by default holds for everything else Shelfie wrote. `orb routes --public` lists what needs no sign-in (the sign-in routes, those three and `/version`), `--module shelves` one module, and `--json` is for scripts and CI (for example, failing a build when a new public route appears). The Dev Portal's Routes screen shows the same guards and sources, and opens a source in your editor.
 
