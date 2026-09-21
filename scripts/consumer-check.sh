@@ -26,7 +26,10 @@ go 1.26.0
 GOMOD
 
 echo "== $module@$version in $dir" >&2
-GOFLAGS=-mod=mod GOWORK=off go get "$module@$version"
-printf 'package main\n\nimport _ "%s"\n\nfunc main() {}\n' "$module" > main.go
-GOFLAGS=-mod=mod GOWORK=off go build ./...
+export GOFLAGS=-mod=mod GOWORK=off
+go get "$module@$version"
+# Build every package the module has, not one: gorbital.dev and a few
+# others have no package at the module path itself, and a module is only
+# consumable if all of it compiles.
+go build "$module/..."
 echo "== $module@$version builds for a consumer" >&2
