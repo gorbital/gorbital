@@ -208,7 +208,12 @@ func (d ModuleData) BodyChoice() string {
 func (d ModuleData) testTemplate() string {
 	switch d.Scope {
 	case ScopeTenant:
-		return "module_org_test.go"
+		if d.Vocabulary.IsOrganisations() {
+			return "module_org_test.go"
+		}
+		// The app's own tenancy: membership comes from its authorizer, not
+		// from orgshttp's sign-up, so the test brings its own.
+		return "module_scope_test.go"
 	case ScopePublic:
 		return "module_public_test.go"
 	case ScopeCustom:

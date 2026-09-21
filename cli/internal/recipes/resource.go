@@ -655,7 +655,10 @@ func (d ResourceData) Pad(name string) string {
 	for _, f := range d.Fields {
 		width = max(width, len(f.Name))
 	}
-	return name + strings.Repeat(" ", width-len(name))
+	for _, c := range d.OwnerColumns() {
+		width = max(width, len(c))
+	}
+	return name + strings.Repeat(" ", max(width-len(name), 0))
 }
 
 func goStrings(names []string) string {

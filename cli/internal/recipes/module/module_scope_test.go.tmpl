@@ -1,0 +1,286 @@
+package ⟦.Package⟧_test⟦$t := .Title⟧⟦$e := .FirstEnum⟧⟦$u := .FirstUnique⟧
+
+import (
+	"context"
+	"net/http"
+	"net/url"
+	"slices"
+	"strings"
+	"testing"
+
+	"gorbital.dev/actor"
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/gorbitaltest"
+
+	"⟦.Module⟧/db/migrations"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+// These tests drive the ⟦.PluralHuman⟧ routes through the app's real middleware
+// stack, on a new database per test (gorbitaltest), under the app's own
+// tenancy: ⟦.ScopeA⟧ ⟦.ScopeName⟧ in the path, and membership answered by a
+// gorbital.ScopeAuthorizer (ADR-0088).
+//
+// The authorizer here is the test's own, so the module can be checked
+// without the ⟦.Vocabulary.Plural⟧ module's tables. Point newApp at the
+// app's real one once you would rather test them together; what these
+// tests assert about isolation holds either way.
+
+// The ⟦.ScopeName⟧s the tests act in.
+const (
+	ada⟦.ScopeParamField⟧ = "⟦.Vocabulary.IDPrefix⟧_ada"
+	bob⟦.ScopeParamField⟧ = "⟦.Vocabulary.IDPrefix⟧_bob"
+)
+
+// grants is what each ⟦.ScopeName⟧ role may do with ⟦.PluralHuman⟧. It mirrors
+// ⟦.ScopeRolesField⟧ in module.go; the app's own authorizer reads it from
+// the app's tables instead.
+var grants = map[string][]string{
+⟦- range .Vocabulary.Roles⟧
+	⟦quote .⟧: {usecase.PermRead, usecase.PermWrite},
+⟦- end⟧
+}
+
+// members is a scope authorizer over a membership table, keyed
+// "⟦.ScopeName⟧/actor".
+type members map[string]string
+
+func (m members) AuthorizeScope(ctx context.Context, scopeID, permission string) (context.Context, error) {
+	a, ok := actor.From(ctx)
+	if !ok || a.ID == "" {
+		return ctx, actor.ErrUnauthenticated
+	}
+	role, member := m[scopeID+"/"+a.ID]
+	if !member {
+		// Unknown, deleted and "not yours" are one answer, so ⟦.ScopeName⟧
+		// IDs can't be probed.
+		return ctx, gorbital.ErrScopeNotFound
+	}
+	if !slices.Contains(grants[role], permission) {
+		return ctx, actor.ErrForbidden
+	}
+	a.OrgID, a.Permissions = scopeID, grants[role]
+	return actor.With(ctx, a), nil
+}
+
+// newApp builds the app with the ⟦.PluralHuman⟧ module and a tenancy whose
+// members are ada in ⟦.ScopeA⟧ ⟦.ScopeName⟧ of her own and bob in one of his.
+func newApp(t *testing.T) *gorbitaltest.App {
+	t.Helper()
+	return gorbitaltest.New(t,
+		gorbital.WithScope(gorbital.Scope{
+			Name:         ⟦quote .ScopeName⟧,
+			PathParam:    ⟦quote .ScopePathParam⟧,
+			NotFoundCode: ⟦quote .ScopeNotFoundCode⟧,
+			ValidID:      func(id string) bool { return strings.HasPrefix(id, "⟦.Vocabulary.IDPrefix⟧_") },
+			Roles: []gorbital.ScopeRole{
+⟦- range .Vocabulary.Roles⟧
+				{Name: ⟦quote .⟧, Description: "Granted by the app's modules"},
+⟦- end⟧
+			},
+		}, members{
+			ada⟦.ScopeParamField⟧ + "/usr_ada": ⟦quote (index .Vocabulary.Roles 0)⟧,
+			bob⟦.ScopeParamField⟧ + "/usr_bob": ⟦quote (index .Vocabulary.Roles 0)⟧,
+		}),
+		gorbital.WithModules(⟦.Package⟧.Module()),
+		gorbital.WithMigrations(migrations.FS),
+	)
+}
+
+// api⟦.Ident⟧ is ⟦.A⟧ ⟦.Human⟧ as the API returns it.
+type api⟦.Ident⟧ struct {
+	ID string `json:"id"`
+⟦- range .Fields⟧
+	⟦.Ident⟧ string `json:"⟦.Name⟧"`
+⟦- end⟧
+	Version int64 `json:"version"`
+}
+
+// api⟦.Ident⟧Page is a page of ⟦.PluralHuman⟧.
+type api⟦.Ident⟧Page struct {
+	Items      []api⟦.Ident⟧ `json:"items"`
+	NextCursor string `json:"next_cursor"`
+}
+
+// collection is the path of the ⟦.ScopeName⟧ ⟦.ScopeVar⟧'s ⟦.PluralHuman⟧.
+func collection(⟦.ScopeVar⟧ string) string {
+	return "/v1/⟦.ScopeSegment⟧/" + ⟦.ScopeVar⟧ + "/⟦.Route⟧"
+}
+
+func TestCreateAndGet⟦.Ident⟧(t *testing.T) {
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada"))
+
+	res := ada.Post(collection(ada⟦.ScopeParamField⟧), map[string]any{⟦.BodyFields " Website "⟧})
+	res.AssertStatus(t, http.StatusCreated)
+	var created api⟦.Ident⟧
+	res.JSON(t, &created)
+	if !strings.HasPrefix(created.ID, "⟦.IDPrefix⟧_") || created.⟦$t.Ident⟧ != "Website"⟦if .HasEnums⟧ || created.⟦$e.Ident⟧ != ⟦quote $e.FirstValue.Value⟧⟦end⟧ || created.Version != 1 {
+		t.Errorf("created = %+v, want a ⟦.IDPrefix⟧_ ID, the ⟦$t.Human⟧ trimmed⟦if .HasEnums⟧, the default ⟦$e.Human⟧⟦end⟧ and version 1", created)
+	}
+
+	var got api⟦.Ident⟧
+	ada.Get(collection(ada⟦.ScopeParamField⟧)+"/"+created.ID).JSON(t, &got)
+	if got != created {
+		t.Errorf("GET = %+v, want %+v", got, created)
+	}
+}
+
+func Test⟦.Ident⟧Rules(t *testing.T) {
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada"))
+	ada.Post(collection(ada⟦.ScopeParamField⟧), map[string]any{⟦.BodyFields "Website"⟧}).AssertStatus(t, http.StatusCreated)
+
+	for _, tt := range []struct {
+		name   string
+		body   map[string]any
+		status int
+		code   string
+	}{
+		{"blank ⟦$t.Human⟧", map[string]any{⟦.BodyFields "   "⟧}, http.StatusUnprocessableEntity, "validation_failed"},
+		{"missing ⟦$t.Human⟧", map[string]any{}, http.StatusUnprocessableEntity, "validation_failed"},
+⟦- if .HasEnums⟧
+		{"unknown ⟦$e.Human⟧", map[string]any{⟦.BodyFields "Docs"⟧, ⟦quote $e.Name⟧: "?"}, http.StatusUnprocessableEntity, "validation_failed"},
+⟦- end⟧
+⟦- if .HasUniques⟧
+		{"⟦$u.Human⟧ already taken, ignoring case", map[string]any{⟦.BodyDuplicate⟧}, http.StatusConflict, "⟦.Snake⟧_⟦$u.Name⟧_taken"},
+⟦- end⟧
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ada.Post(collection(ada⟦.ScopeParamField⟧), tt.body).AssertProblem(t, tt.status, tt.code)
+		})
+	}
+⟦- if .HasUniques⟧
+	// Another ⟦.ScopeName⟧ can use the same ⟦$u.Human⟧.
+	bob := app.As(gorbitaltest.User("usr_bob"))
+	bob.Post(collection(bob⟦.ScopeParamField⟧), map[string]any{⟦.BodyFields "Website"⟧}).AssertStatus(t, http.StatusCreated)
+⟦- end⟧
+}
+
+// Test⟦.Plural⟧AreProtected checks deny by default, membership and
+// ⟦.ScopeName⟧ isolation across list, create, get, update and delete: ⟦.ScopeA⟧
+// ⟦.ScopeName⟧ somebody isn't a member of doesn't exist for them, an unknown
+// or malformed ⟦.ScopeName⟧ ID is refused the same way so IDs can't be
+// probed, and another ⟦.ScopeName⟧'s ⟦.Human⟧ isn't in theirs.
+func Test⟦.Plural⟧AreProtected(t *testing.T) {
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada"))
+	bob := app.As(gorbitaltest.User("usr_bob"))
+	var website api⟦.Ident⟧
+	ada.Post(collection(ada⟦.ScopeParamField⟧), map[string]any{⟦.BodyFields "Website"⟧}).JSON(t, &website)
+	item := collection(ada⟦.ScopeParamField⟧) + "/" + website.ID
+
+	app.Client().Get(collection(ada⟦.ScopeParamField⟧)).AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+
+	for name, res := range map[string]*gorbitaltest.Response{
+		"list":   bob.Get(collection(ada⟦.ScopeParamField⟧)),
+		"create": bob.Post(collection(ada⟦.ScopeParamField⟧), map[string]any{⟦.BodyFields "Mine now"⟧}),
+		"get":    bob.Get(item),
+		"update": bob.Patch(item, map[string]any{"version": 1, ⟦quote $t.Name⟧: "Mine now"}),
+		"delete": bob.Delete(item),
+		"list in an unknown ⟦.ScopeName⟧":   bob.Get(collection("⟦.Vocabulary.IDPrefix⟧_nobody")),
+		"list with a malformed ⟦.ScopeName⟧": bob.Get(collection("not-⟦.ScopeA⟧-⟦.ScopeName⟧")),
+	} {
+		t.Run("non-member "+name, func(t *testing.T) {
+			res.AssertProblem(t, http.StatusNotFound, ⟦quote .ScopeNotFoundCode⟧)
+		})
+	}
+
+	// In his own ⟦.ScopeName⟧, bob is a member — and ada's ⟦.Human⟧ still
+	// isn't his.
+	bobItem := collection(bob⟦.ScopeParamField⟧) + "/" + website.ID
+	bob.Get(bobItem).AssertProblem(t, http.StatusNotFound, "⟦.Snake⟧_not_found")
+	bob.Patch(bobItem, map[string]any{"version": 1, ⟦quote $t.Name⟧: "Mine now"}).AssertProblem(t, http.StatusNotFound, "⟦.Snake⟧_not_found")
+	bob.Delete(bobItem).AssertProblem(t, http.StatusNotFound, "⟦.Snake⟧_not_found")
+	var bobs api⟦.Ident⟧Page
+	bob.Get(collection(bob⟦.ScopeParamField⟧)).JSON(t, &bobs)
+	if len(bobs.Items) != 0 {
+		t.Errorf("another ⟦.ScopeName⟧'s list = %+v, want none", bobs.Items)
+	}
+}
+
+func TestList⟦.Plural⟧Pages(t *testing.T) {
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada"))
+	ada.Post(collection(ada⟦.ScopeParamField⟧), map[string]any{⟦.BodyFields "Website"⟧}).AssertStatus(t, http.StatusCreated)
+	ada.Post(collection(ada⟦.ScopeParamField⟧), map[string]any{⟦.BodyFields "Docs"⟧⟦.BodyChoice⟧}).AssertStatus(t, http.StatusCreated)
+
+	var titles []string
+	cursor := ""
+	for range 3 {
+		var p api⟦.Ident⟧Page
+		ada.Get(collection(ada⟦.ScopeParamField⟧)+"?limit=1&sort=⟦$t.Name⟧&cursor="+url.QueryEscape(cursor)).JSON(t, &p)
+		for _, item := range p.Items {
+			titles = append(titles, item.⟦$t.Ident⟧)
+		}
+		if cursor = p.NextCursor; cursor == "" {
+			break
+		}
+	}
+	if want := []string{"Docs", "Website"}; !slices.Equal(titles, want) {
+		t.Errorf("pages sorted by ⟦$t.Name⟧ = %v, want %v", titles, want)
+	}
+
+	var first api⟦.Ident⟧Page
+	ada.Get(collection(ada⟦.ScopeParamField⟧) + "?limit=1").JSON(t, &first)
+	ada.Get(collection(ada⟦.ScopeParamField⟧)+"?sort=⟦$t.Name⟧&cursor="+url.QueryEscape(first.NextCursor)).AssertProblem(t, http.StatusBadRequest, "invalid_cursor")
+	// A sort can't reach the ⟦.ScopeName⟧ column, which isolation depends on.
+	ada.Get(collection(ada⟦.ScopeParamField⟧)+"?sort=⟦.ScopeColumn⟧").AssertProblem(t, http.StatusBadRequest, "invalid_sort")
+⟦- if .HasEnums⟧
+
+	var filtered api⟦.Ident⟧Page
+	ada.Get(collection(ada⟦.ScopeParamField⟧) + "?⟦$e.Name⟧=⟦$e.LastValue.Value⟧").JSON(t, &filtered)
+	if len(filtered.Items) != 1 || filtered.Items[0].⟦$t.Ident⟧ != "Docs" {
+		t.Errorf("list with ⟦$e.Name⟧=⟦$e.LastValue.Value⟧ = %+v, want Docs only", filtered.Items)
+	}
+⟦- end⟧
+}
+
+func TestUpdateAndDelete⟦.Ident⟧(t *testing.T) {
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada"))
+	var website api⟦.Ident⟧
+	ada.Post(collection(ada⟦.ScopeParamField⟧), map[string]any{⟦.BodyFields "Website"⟧}).JSON(t, &website)
+	item := collection(ada⟦.ScopeParamField⟧) + "/" + website.ID
+
+	ada.Patch(item, map[string]any{⟦quote $t.Name⟧: "No version"}).AssertProblem(t, http.StatusUnprocessableEntity, "validation_failed")
+	ada.Patch(item, map[string]any{"version": 2, ⟦quote $t.Name⟧: "Too new"}).AssertProblem(t, http.StatusConflict, "⟦.Snake⟧_version_conflict")
+
+	res := ada.Patch(item, map[string]any{"version": 1, ⟦quote $t.Name⟧: "Renamed"⟦if .HasEnums⟧, ⟦quote $e.Name⟧: ⟦quote $e.LastValue.Value⟧⟦end⟧})
+	res.AssertStatus(t, http.StatusOK)
+	var updated api⟦.Ident⟧
+	res.JSON(t, &updated)
+	if updated.⟦$t.Ident⟧ != "Renamed"⟦if .HasEnums⟧ || updated.⟦$e.Ident⟧ != ⟦quote $e.LastValue.Value⟧⟦end⟧ || updated.Version != 2 {
+		t.Errorf("updated = %+v, want the new values and version 2", updated)
+	}
+	// Changing ⟦.A⟧ ⟦.Human⟧ with the version it already had is a conflict.
+	ada.Patch(item, map[string]any{"version": 1, ⟦quote $t.Name⟧: "Again"}).AssertProblem(t, http.StatusConflict, "⟦.Snake⟧_version_conflict")
+
+	ada.Delete(item).AssertStatus(t, http.StatusNoContent)
+	ada.Get(item).AssertProblem(t, http.StatusNotFound, "⟦.Snake⟧_not_found")
+	ada.Delete(item).AssertProblem(t, http.StatusNotFound, "⟦.Snake⟧_not_found")
+
+	// Every event names the member and the ⟦.ScopeName⟧.
+	rows, err := app.App().Deps().DB.Query(context.Background(),
+		`SELECT action, actor_id, coalesce(org_id, '') FROM audit_events WHERE resource_type = '⟦.Snake⟧' AND resource_id = $1 ORDER BY id`, website.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var trail []string
+	for rows.Next() {
+		var action, actorID, scopeID string
+		if err := rows.Scan(&action, &actorID, &scopeID); err != nil {
+			t.Fatal(err)
+		}
+		trail = append(trail, action+" by "+actorID+" in "+scopeID)
+	}
+	var want []string
+	for _, action := range []string{usecase.ActionCreated, usecase.ActionUpdated, usecase.ActionDeleted} {
+		want = append(want, action+" by usr_ada in "+ada⟦.ScopeParamField⟧)
+	}
+	if !slices.Equal(trail, want) {
+		t.Errorf("audit trail = %v, want %v", trail, want)
+	}
+}

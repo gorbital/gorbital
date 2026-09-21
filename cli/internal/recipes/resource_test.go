@@ -327,8 +327,11 @@ func TestResourceValidation(t *testing.T) {
 		{"Project", []string{"title:string", "project_fields:string"}, ResourceOptions{}, "clashes"},
 		{"Project", []string{"title:string", "org_id:string"}, ResourceOptions{}, "reserved"},
 		{"Project", []string{"title:string", "created_by:string"}, ResourceOptions{}, "reserved"},
-		{"Project", []string{"title:string"}, ResourceOptions{Scope: "global"}, "scope must be user or org"},
+		{"Project", []string{"title:string"}, ResourceOptions{Scope: "global"}, "scope must be user|tenant|public|custom"},
 		{"Project", []string{"title:string"}, ResourceOptions{Scope: ScopeOrg}, ""},
+		{"Project", []string{"title:string"}, ResourceOptions{Scope: ScopeTenant}, ""},
+		{"Project", []string{"title:string"}, ResourceOptions{Scope: ScopePublic}, ""},
+		{"Project", []string{"title:string"}, ResourceOptions{Scope: ScopeCustom}, ""},
 	} {
 		fields := title
 		if tt.fields != nil || tt.wantErr == "at least one field" {
