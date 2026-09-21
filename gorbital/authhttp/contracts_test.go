@@ -455,3 +455,105 @@ func TestRefusalCodesExcludeV010Codes(t *testing.T) {
 		}
 	}
 }
+
+// v021Prefixes are the paths of the frozen v0.2.1 document the Methods
+// option could change: /ops/service-accounts is the rest of sign-in's
+// surface, which TestOpenAPIMatchesV010 covers.
+var v021Prefixes = []string{"/v1/auth/", "/ops/auth/users"}
+
+// underV021Prefixes reports whether path is one the default method set
+// must keep.
+func underV021Prefixes(path string) bool {
+	return slices.ContainsFunc(v021Prefixes, func(p string) bool { return strings.HasPrefix(path, p) })
+}
+
+// v021Document is the frozen v0.2.1 document of the full-single app.
+func v021Document(t *testing.T) openAPIDoc {
+	t.Helper()
+	var doc openAPIDoc
+	path := filepath.Join(repo, "internal", "contracts", "v0.2.1", "examples", "full-single", "api", "openapi.json")
+	if err := json.Unmarshal(readFile(t, path), &doc); err != nil {
+		t.Fatal(err)
+	}
+	return doc
+}
+
+// TestDefaultMethodsServeV021Operations: without the option, the
+// operations under /v1/auth/ and /ops/auth/users are exactly the frozen
+// v0.2.1 document's, by path, method and operation ID.
+func TestDefaultMethodsServeV021Operations(t *testing.T) {
+	base, cur := v021Document(t), openAPIDoc{}
+	if err := json.Unmarshal(authDocumentJSON(t), &cur); err != nil {
+		t.Fatal(err)
+	}
+	operations := 0
+	for path, item := range base.Paths {
+		if !underV021Prefixes(path) {
+			continue
+		}
+		for method, op := range item {
+			operations++
+			got, ok := cur.Paths[path][method]
+			if !ok {
+				t.Errorf("%s %s of v0.2.1 is missing without the Methods option", method, path)
+				continue
+			}
+			if a, b := operationID(t, op), operationID(t, got); a != b {
+				t.Errorf("%s %s is %q, was v0.2.1's %q", method, path, b, a)
+			}
+		}
+	}
+	for path, item := range cur.Paths {
+		for method := range item {
+			if _, ok := base.Paths[path][method]; underV021Prefixes(path) && !ok {
+				t.Errorf("%s %s is new under sign-in's paths", method, path)
+			}
+		}
+	}
+	if operations != 58 {
+		t.Errorf("compared %d operations, want v0.2.1's 58", operations)
+	}
+}
+
+// operationID is raw's operationId.
+func operationID(t *testing.T, raw json.RawMessage) string {
+	t.Helper()
+	var op struct {
+		ID string `json:"operationId"`
+	}
+	if err := json.Unmarshal(raw, &op); err != nil {
+		t.Fatal(err)
+	}
+	return op.ID
+}
+
+// TestDefaultMethodsMatchV021Document: an app without the option serves
+// those operations byte for byte as v0.2.1 documented them — parameters,
+// request bodies, responses and guards — so the default is v0.2's
+// contract and not merely its operation IDs.
+func TestDefaultMethodsMatchV021Document(t *testing.T) {
+	base := v021Document(t)
+	r := do(t, newApp(t, nil).Handler(), "GET", "/openapi.json", "")
+	if r.code != http.StatusOK {
+		t.Fatalf("GET /openapi.json = %d", r.code)
+	}
+	var cur openAPIDoc
+	if err := json.Unmarshal([]byte(r.body), &cur); err != nil {
+		t.Fatal(err)
+	}
+	for path, item := range base.Paths {
+		if !underV021Prefixes(path) {
+			continue
+		}
+		for method, op := range item {
+			got, ok := cur.Paths[path][method]
+			if !ok {
+				t.Errorf("%s %s of v0.2.1 is missing", method, path)
+				continue
+			}
+			if a, b := canonical(t, op), canonical(t, got); a != b {
+				t.Errorf("%s %s changed:\nv0.2.1: %s\nnow:    %s", method, path, a, b)
+			}
+		}
+	}
+}
