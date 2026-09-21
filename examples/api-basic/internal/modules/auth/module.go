@@ -6,17 +6,18 @@ import (
 	"net/http"
 	"time"
 
+	"gorbital.dev/gorbital"
+	"gorbital.dev/httpx"
+	authlib "gorbital.dev/modules/auth"
+	"gorbital.dev/modules/jobs"
+	"gorbital.dev/modules/settings"
+
 	"example.com/acme-api/internal/modules/auth/delivery"
 	"example.com/acme-api/internal/modules/auth/delivery/jobs/authcleanup"
 	"example.com/acme-api/internal/modules/auth/delivery/jobs/authrevoke"
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	"example.com/acme-api/internal/modules/auth/repository/migrations"
 	"example.com/acme-api/internal/modules/auth/usecase"
-	"gorbital.dev/gorbital"
-	"gorbital.dev/httpx"
-	authlib "gorbital.dev/modules/auth"
-	"gorbital.dev/modules/jobs"
-	"gorbital.dev/modules/settings"
 )
 
 // Platform roles of v0.1 apps (ADR-0038). Their names are public API.

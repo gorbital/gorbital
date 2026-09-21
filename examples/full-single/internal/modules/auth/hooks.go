@@ -8,15 +8,16 @@ import (
 	"regexp"
 	"time"
 
-	authdomain "example.com/acme-api/internal/modules/auth/domain"
-	"example.com/acme-api/internal/modules/auth/repository"
-	"example.com/acme-api/internal/modules/auth/usecase"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	"gorbital.dev/httpx"
+
+	authdomain "example.com/acme-api/internal/modules/auth/domain"
+	"example.com/acme-api/internal/modules/auth/repository"
+	"example.com/acme-api/internal/modules/auth/usecase"
 )
 
 // A User is an account, as hooks and modules see it. It never carries the

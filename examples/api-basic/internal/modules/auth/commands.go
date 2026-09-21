@@ -10,9 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"example.com/acme-api/internal/modules/auth/domain"
-	"example.com/acme-api/internal/modules/auth/repository"
-	"example.com/acme-api/internal/modules/auth/usecase"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"gorbital.dev/actor"
@@ -20,6 +17,10 @@ import (
 	"gorbital.dev/modules/auditpg"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/postgres"
+
+	"example.com/acme-api/internal/modules/auth/domain"
+	"example.com/acme-api/internal/modules/auth/repository"
+	"example.com/acme-api/internal/modules/auth/usecase"
 )
 
 // Commands returns sign-in's commands, which gorbital.Main serves beside

@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 
+	"gorbital.dev/gorbital"
+	authlib "gorbital.dev/modules/auth"
+
 	"example.com/acme-api/internal/modules/auth/delivery"
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	"example.com/acme-api/internal/modules/auth/usecase"
-	"gorbital.dev/gorbital"
-	authlib "gorbital.dev/modules/auth"
 )
 
 // Organisations is what sign-in needs from an app's organisations

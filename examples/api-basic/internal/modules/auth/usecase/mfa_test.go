@@ -10,11 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"gorbital.dev/actor"
+	authlib "gorbital.dev/modules/auth"
+
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	authrepository "example.com/acme-api/internal/modules/auth/repository"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"
-	"gorbital.dev/actor"
-	authlib "gorbital.dev/modules/auth"
 )
 
 var (

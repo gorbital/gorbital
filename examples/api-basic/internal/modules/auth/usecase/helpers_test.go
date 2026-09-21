@@ -8,15 +8,16 @@ import (
 	"testing"
 	"time"
 
-	authrepository "example.com/acme-api/internal/modules/auth/repository"
-	"example.com/acme-api/internal/modules/auth/repository/migrations"
-	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"gorbital.dev/actor"
 	"gorbital.dev/audit"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/postgres/pgtest"
+
+	authrepository "example.com/acme-api/internal/modules/auth/repository"
+	"example.com/acme-api/internal/modules/auth/repository/migrations"
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 )
 
 // These tests run the use cases on the real repository and Docker

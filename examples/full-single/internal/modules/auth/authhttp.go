@@ -32,13 +32,14 @@ import (
 	"strings"
 	"sync"
 
-	"example.com/acme-api/internal/modules/auth/delivery/signintest"
-	"example.com/acme-api/internal/modules/auth/repository"
-	"example.com/acme-api/internal/modules/auth/usecase"
 	"gorbital.dev/gorbital"
 	"gorbital.dev/mail"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/auth/passkey"
+
+	"example.com/acme-api/internal/modules/auth/delivery/signintest"
+	"example.com/acme-api/internal/modules/auth/repository"
+	"example.com/acme-api/internal/modules/auth/usecase"
 )
 
 // An Authenticator is sign-in for one app. It implements

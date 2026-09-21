@@ -45,17 +45,18 @@ import (
 	"sync"
 	"time"
 
-	authhttp "example.com/acme-api/internal/modules/auth"
-	"example.com/acme-api/internal/modules/orgs/delivery"
-	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
-	"example.com/acme-api/internal/modules/orgs/repository"
-	"example.com/acme-api/internal/modules/orgs/usecase"
 	"gorbital.dev/gorbital"
 	"gorbital.dev/httpx"
 	"gorbital.dev/mail"
 	authlib "gorbital.dev/modules/auth"
 	orgslib "gorbital.dev/modules/orgs"
 	"gorbital.dev/ratelimit"
+
+	authhttp "example.com/acme-api/internal/modules/auth"
+	"example.com/acme-api/internal/modules/orgs/delivery"
+	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
+	"example.com/acme-api/internal/modules/orgs/repository"
+	"example.com/acme-api/internal/modules/orgs/usecase"
 )
 
 // An Option configures [Module].

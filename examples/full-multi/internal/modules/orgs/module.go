@@ -8,16 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"example.com/acme-api/internal/modules/orgs/delivery/jobs/orgspurge"
-	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
-	"example.com/acme-api/internal/modules/orgs/repository/migrations"
-	"example.com/acme-api/internal/modules/orgs/usecase"
 	"gorbital.dev/actor"
 	"gorbital.dev/gorbital"
 	"gorbital.dev/httpx"
 	"gorbital.dev/modules/jobs"
 	orgslib "gorbital.dev/modules/orgs"
 	"gorbital.dev/modules/settings"
+
+	"example.com/acme-api/internal/modules/orgs/delivery/jobs/orgspurge"
+	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
+	"example.com/acme-api/internal/modules/orgs/repository/migrations"
+	"example.com/acme-api/internal/modules/orgs/usecase"
 )
 
 // purgeJob is the name of the job that purges deleted organisations.

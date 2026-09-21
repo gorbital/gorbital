@@ -6,10 +6,11 @@ import (
 	"testing"
 	"time"
 
-	authdomain "example.com/acme-api/internal/modules/auth/domain"
-	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 	"gorbital.dev/config"
 	authlib "gorbital.dev/modules/auth"
+
+	authdomain "example.com/acme-api/internal/modules/auth/domain"
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 )
 
 func TestSessionExpiry(t *testing.T) {

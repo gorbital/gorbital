@@ -7,12 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	authdomain "example.com/acme-api/internal/modules/auth/domain"
-	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/auth/passkey"
 	"gorbital.dev/modules/auth/passkey/passkeytest"
 	"gorbital.dev/ratelimit"
+
+	authdomain "example.com/acme-api/internal/modules/auth/domain"
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 )
 
 const passkeyOrigin = "http://localhost:8080"

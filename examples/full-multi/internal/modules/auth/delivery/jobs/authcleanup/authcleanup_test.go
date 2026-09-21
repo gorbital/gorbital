@@ -8,10 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"example.com/acme-api/internal/modules/auth/delivery/jobs/authcleanup"
-	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
+
+	"example.com/acme-api/internal/modules/auth/delivery/jobs/authcleanup"
+	authdomain "example.com/acme-api/internal/modules/auth/domain"
 )
 
 func TestWorker(t *testing.T) {

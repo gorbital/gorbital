@@ -5,9 +5,10 @@ import (
 	"errors"
 	"fmt"
 
+	authlib "gorbital.dev/modules/auth"
+
 	"example.com/acme-api/internal/modules/auth/delivery"
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
-	authlib "gorbital.dev/modules/auth"
 )
 
 // ErrUserNotFound is returned by [Authenticator.User] for an unknown or

@@ -9,14 +9,15 @@ import (
 	"testing"
 	"time"
 
-	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
-	orgsrepository "example.com/acme-api/internal/modules/orgs/repository"
-	orgsusecase "example.com/acme-api/internal/modules/orgs/usecase"
 	"gorbital.dev/actor"
 	"gorbital.dev/config"
 	authlib "gorbital.dev/modules/auth"
 	orgslib "gorbital.dev/modules/orgs"
 	"gorbital.dev/ratelimit"
+
+	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
+	orgsrepository "example.com/acme-api/internal/modules/orgs/repository"
+	orgsusecase "example.com/acme-api/internal/modules/orgs/usecase"
 )
 
 // These tests cover the internal security review of 2026-09 (ADR-0048,

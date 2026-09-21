@@ -12,13 +12,14 @@ import (
 	"testing"
 	"time"
 
-	authdomain "example.com/acme-api/internal/modules/auth/domain"
-	authrepository "example.com/acme-api/internal/modules/auth/repository"
-	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 	"gorbital.dev/actor"
 	"gorbital.dev/config"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/ratelimit"
+
+	authdomain "example.com/acme-api/internal/modules/auth/domain"
+	authrepository "example.com/acme-api/internal/modules/auth/repository"
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 )
 
 // keyCatalog has the user role every user holds (their notes), a role

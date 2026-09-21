@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
+
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"
-	"github.com/danielgtaylor/huma/v2"
 )
 
 // PasskeyResponse is a passkey of the signed-in user.
