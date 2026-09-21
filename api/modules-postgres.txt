@@ -4,6 +4,8 @@ pkg gorbital.dev/modules/postgres, const DefaultConnectTimeout = 5000000000
 pkg gorbital.dev/modules/postgres, const DefaultConnectTimeout time.Duration
 pkg gorbital.dev/modules/postgres, const OrgSetting = "gorbital.org_id"
 pkg gorbital.dev/modules/postgres, const OrgSetting ideal-string
+pkg gorbital.dev/modules/postgres, const ScopeSetting = "gorbital.org_id"
+pkg gorbital.dev/modules/postgres, const ScopeSetting ideal-string
 pkg gorbital.dev/modules/postgres, func CheckRowLevelSecurity(context.Context, DBTX) (RowLevelSecurityReport, error)
 pkg gorbital.dev/modules/postgres, func CheckViolation(error) (string, bool)
 pkg gorbital.dev/modules/postgres, func ForeignKeyViolation(error) (string, bool)
@@ -28,6 +30,7 @@ pkg gorbital.dev/modules/postgres, func WithMaxConns(int32) Option
 pkg gorbital.dev/modules/postgres, func WithMeterProvider(metric.MeterProvider) Option
 pkg gorbital.dev/modules/postgres, func WithMinConns(int32) Option
 pkg gorbital.dev/modules/postgres, func WithOrg(context.Context, string) context.Context
+pkg gorbital.dev/modules/postgres, func WithScope(context.Context, string) context.Context
 pkg gorbital.dev/modules/postgres, func WithTracerProvider(trace.TracerProvider) Option
 pkg gorbital.dev/modules/postgres, func WithoutRowLevelSecurity(context.Context, string) context.Context
 pkg gorbital.dev/modules/postgres, method (RowLevelSecurityReport) On() bool

@@ -42,9 +42,9 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 
 ## Contents
 
-- Constants: [`MailDevMail`](#MailDevMail), [`MailMailpit`](#MailMailpit), [`MailProvider`](#MailProvider), [`StorageLocal`](#StorageLocal), [`StorageS3`](#StorageS3), [`StorageSpaces`](#StorageSpaces), [`StorageR2`](#StorageR2), [`StorageMinIO`](#StorageMinIO), [`RetentionJob`](#RetentionJob)
-- Variables: [`ErrUsage`](#ErrUsage)
-- Functions: [`Declare`](#Declare), [`Delete`](#Delete), [`Get`](#Get), [`Grants`](#Grants), [`Main`](#Main), [`Migrate`](#Migrate), [`Mount`](#Mount), [`OrgGrants`](#OrgGrants), [`Patch`](#Patch), [`Post`](#Post), [`Put`](#Put)
+- Constants: [`MailDevMail`](#MailDevMail), [`MailMailpit`](#MailMailpit), [`MailProvider`](#MailProvider), [`StorageLocal`](#StorageLocal), [`StorageS3`](#StorageS3), [`StorageSpaces`](#StorageSpaces), [`StorageR2`](#StorageR2), [`StorageMinIO`](#StorageMinIO), [`DefaultScopeName`](#DefaultScopeName), [`DefaultScopePathParam`](#DefaultScopePathParam), [`DefaultScopeNotFoundCode`](#DefaultScopeNotFoundCode), [`RetentionJob`](#RetentionJob)
+- Variables: [`ErrScopeNotFound`](#ErrScopeNotFound), [`ErrUsage`](#ErrUsage)
+- Functions: [`Declare`](#Declare), [`Delete`](#Delete), [`Get`](#Get), [`Grants`](#Grants), [`Main`](#Main), [`Migrate`](#Migrate), [`Mount`](#Mount), [`OrgGrants`](#OrgGrants), [`Patch`](#Patch), [`Post`](#Post), [`Put`](#Put), [`ScopeGrants`](#ScopeGrants)
 - Types:
   - [`App`](#App): [`New`](#New), [`App.Close`](#App.Close), [`App.Deps`](#App.Deps), [`App.Handler`](#App.Handler), [`App.Run`](#App.Run)
   - [`AuthConfig`](#AuthConfig)
@@ -58,15 +58,18 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
   - [`MailConfig`](#MailConfig)
   - [`Migration`](#Migration)
   - [`Module`](#Module)
-  - [`Option`](#Option): [`WithAuth`](#WithAuth), [`WithLogger`](#WithLogger), [`WithMailer`](#WithMailer), [`WithMailerFunc`](#WithMailerFunc), [`WithMiddleware`](#WithMiddleware), [`WithMiddlewareFunc`](#WithMiddlewareFunc), [`WithMigrations`](#WithMigrations), [`WithModules`](#WithModules), [`WithName`](#WithName), [`WithStack`](#WithStack), [`WithStorage`](#WithStorage), [`WithStorageFunc`](#WithStorageFunc)
+  - [`Option`](#Option): [`WithAuth`](#WithAuth), [`WithLogger`](#WithLogger), [`WithMailer`](#WithMailer), [`WithMailerFunc`](#WithMailerFunc), [`WithMiddleware`](#WithMiddleware), [`WithMiddlewareFunc`](#WithMiddlewareFunc), [`WithMigrations`](#WithMigrations), [`WithModules`](#WithModules), [`WithName`](#WithName), [`WithScope`](#WithScope), [`WithStack`](#WithStack), [`WithStorage`](#WithStorage), [`WithStorageFunc`](#WithStorageFunc)
   - [`OrgAuthorizer`](#OrgAuthorizer)
   - [`Permission`](#Permission)
   - [`PermissionDeclarer`](#PermissionDeclarer)
-  - [`Platform`](#Platform): [`Platform.Authenticate`](#Platform.Authenticate), [`Platform.OnShutdown`](#Platform.OnShutdown), [`Platform.RateLimiters`](#Platform.RateLimiters), [`Platform.Retention`](#Platform.Retention), [`Platform.SetOrgAuthorizer`](#Platform.SetOrgAuthorizer), [`Platform.SignInMethods`](#Platform.SignInMethods)
+  - [`Platform`](#Platform): [`Platform.Authenticate`](#Platform.Authenticate), [`Platform.OnShutdown`](#Platform.OnShutdown), [`Platform.RateLimiters`](#Platform.RateLimiters), [`Platform.Retention`](#Platform.Retention), [`Platform.SetOrgAuthorizer`](#Platform.SetOrgAuthorizer), [`Platform.SetScope`](#Platform.SetScope), [`Platform.SignInMethods`](#Platform.SignInMethods)
   - [`RateLimiter`](#RateLimiter)
   - [`Retention`](#Retention)
   - [`RouteOption`](#RouteOption): [`AuthenticateAfterInput`](#AuthenticateAfterInput), [`Customize`](#Customize), [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Timeout`](#Timeout), [`Use`](#Use)
   - [`Router`](#Router): [`Router.Group`](#Router.Group)
+  - [`Scope`](#Scope): [`DefaultOrgScope`](#DefaultOrgScope)
+  - [`ScopeAuthorizer`](#ScopeAuthorizer)
+  - [`ScopeRole`](#ScopeRole)
   - [`SignInMethod`](#SignInMethod)
   - [`Stack`](#Stack): [`Stack.Default`](#Stack.Default)
   - [`StorageConfig`](#StorageConfig)
@@ -118,6 +121,22 @@ Storage drivers, the values of STORAGE\_DRIVER.
 
 *Since `v0.2.0 (unreleased)`*
 
+<a id="DefaultScopeName"></a>
+<a id="DefaultScopePathParam"></a>
+<a id="DefaultScopeNotFoundCode"></a>
+
+```go
+const (
+	DefaultScopeName         = "organisation"
+	DefaultScopePathParam    = route.OrgIDParam
+	DefaultScopeNotFoundCode = "org_not_found"
+)
+```
+
+Defaults for the fields of a [Scope](#Scope) left empty. They are the vocabulary of v0.1 and v0.2 organisation apps, whose HTTP contract they keep.
+
+*Since `v0.2.0 (unreleased)`*
+
 <a id="RetentionJob"></a>
 
 ```go
@@ -129,6 +148,18 @@ RetentionJob is the name of the built-in job that calls every [Retention.Delete]
 *Since `v0.2.0 (unreleased)`*
 
 ## Variables
+
+<a id="ErrScopeNotFound"></a>
+
+```go
+var ErrScopeNotFound = errors.New("gorbital: scope not found")
+```
+
+ErrScopeNotFound is what a [ScopeAuthorizer](#ScopeAuthorizer) returns for a scope the actor is not a member of: one that doesn't exist, is deleted, or exists and doesn't have them. The guard answers all three, and a malformed ID, with 404 and the scope's NotFoundCode, so scope IDs can't be probed.
+
+orgs.ErrOrgNotFound is treated the same way, so an organisations authorizer needs no change.
+
+*Since `v0.2.0 (unreleased)`*
 
 <a id="ErrUsage"></a>
 
@@ -517,6 +548,41 @@ Output:
 
 ```text
 PUT /v1/books/{id}/title id=books-put-v1-books-by-id-title summary="Replace a book's title" tags=[] secured=true deprecated=false
+```
+
+<a id="ScopeGrants"></a>
+
+### func ScopeGrants
+
+```go
+func ScopeGrants(role string, modules ...Module) []string
+```
+
+ScopeGrants returns the permissions the modules give to the scope role role ([Permission.ScopeRoles](#Permission.ScopeRoles)), sorted and without duplicates, for declaring the role in the scope catalog. It is [OrgGrants](#OrgGrants) under the name the framework now uses for tenancy (ADR-0088).
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+orders := gorbital.Module{
+	Name: "orders",
+	Permissions: []gorbital.Permission{
+		{Name: "orders.order.read", Description: "See orders", ScopeRoles: []string{"owner", "manager", "courier"}},
+		{Name: "orders.order.refund", Description: "Refund an order", ScopeRoles: []string{"owner"}},
+	},
+}
+fmt.Println(gorbital.ScopeGrants("owner", orders))
+fmt.Println(gorbital.ScopeGrants("courier", orders))
+fmt.Println(gorbital.Grants("owner", orders)) // platform roles hold none of them
+```
+
+Output:
+
+```text
+[orders.order.read orders.order.refund]
+[orders.order.read]
+[]
 ```
 
 ## Types
@@ -1745,6 +1811,51 @@ WithName sets the app's name, used as the service name in logs, traces and metri
 gorbital.Main(gorbital.WithName("shelfie"), gorbital.WithModules(modulesAll()...))
 ```
 
+<a id="WithScope"></a>
+
+#### func WithScope
+
+```go
+func WithScope(s Scope, a ScopeAuthorizer) Option
+```
+
+WithScope gives the app its tenancy: what a tenant is called, how its IDs look, which roles it has, and how a request's tenant reaches the database, with the authorizer that decides who may act in one (ADR-0088). Every route with guard.Scope asks it.
+
+An app that mounts gorbital.dev/gorbital/orgshttp doesn't need this: the module sets the scope itself. Use it for an app with its own membership tables:
+
+```go
+gorbital.WithScope(gorbital.Scope{
+	Name:         "merchant",
+	PathParam:    "merchantId",
+	NotFoundCode: "merchant_not_found",
+	ValidID:      merchants.ValidID,
+	Roles:        merchants.Roles,
+	Session:      postgres.WithScope,
+}, merchants.NewAuthorizer(db))
+```
+
+[New](#New) fails when a is nil, the scope is invalid, or a module also sets one: an app has one source of truth for membership.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// An app with its own membership tables gives gorbital the vocabulary
+// and the authorizer; guard.Scope asks it on every scope route.
+opts := []gorbital.Option{
+	gorbital.WithName("shop-api"),
+	gorbital.WithScope(merchantScope(), members{}),
+}
+fmt.Println(len(opts), "options")
+```
+
+Output:
+
+```text
+2 options
+```
+
 <a id="WithStack"></a>
 
 #### func WithStack
@@ -1818,16 +1929,11 @@ type OrgAuthorizer interface {
 }
 ```
 
-An OrgAuthorizer decides whether the actor of a request may act in an organisation, for guard.OrgMember. gorbital.dev/gorbital/orgshttp is one; it gives it to the app with [Platform.SetOrgAuthorizer](#Platform.SetOrgAuthorizer).
+An OrgAuthorizer decides whether the actor of a request may act in an organisation.
 
-AuthorizeOrg checks that the actor in ctx is a member of orgID (a user, or a service account of that organisation authenticated by its API key) whose role grants permission, and returns a context whose actor acts in the organisation: actor.Actor.OrgID set, and Permissions those of the role, limited by an API key's scopes. It returns
+Deprecated: organisations are one [Scope](#Scope) (ADR-0088). Use [ScopeAuthorizer](#ScopeAuthorizer), whose AuthorizeScope has exactly these semantics. This interface, [Platform.SetOrgAuthorizer](#Platform.SetOrgAuthorizer) and guard.OrgMember keep working for all of v0.x.
 
-  - orgs.ErrOrgNotFound when orgID isn't an organisation the actor is a member of, deleted and nonexistent ones included, so organisation IDs can't be probed;
-  - actor.ErrUnauthenticated without a member actor;
-  - actor.ErrStepUpRequired when the role grants permission only to sessions verified with a second factor;
-  - actor.ErrForbidden when the role doesn't grant it;
-
-and any other error for a failure, which the guard answers with 500. orgs.RequireMember has exactly these semantics.
+AuthorizeOrg checks that the actor in ctx is a member of orgID (a user, or a service account of that organisation authenticated by its API key) whose role grants permission, and returns a context whose actor acts in the organisation: actor.Actor.OrgID set, and Permissions those of the role, limited by an API key's scopes. Its errors are [ScopeAuthorizer](#ScopeAuthorizer)'s, with orgs.ErrOrgNotFound accepted in place of [ErrScopeNotFound](#ErrScopeNotFound).
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -1854,6 +1960,7 @@ orgs: organisation not found
 <a id="Permission.Name"></a>
 <a id="Permission.Description"></a>
 <a id="Permission.Roles"></a>
+<a id="Permission.ScopeRoles"></a>
 <a id="Permission.OrgRoles"></a>
 
 ### type Permission
@@ -1865,6 +1972,18 @@ type Permission struct {
 	// Roles are the platform roles that hold the permission, such as
 	// "user". A role the app doesn't declare grants nothing.
 	Roles []string
+	// ScopeRoles are the scope roles that hold the permission, such as
+	// "owner", "admin" and "member" for organisations, or whatever the
+	// app's [Scope] declares: a member holds it only while acting in a
+	// scope, through guard.Scope. A permission with ScopeRoles is a scope
+	// permission: it is declared in the scope catalog
+	// ([Platform.OrgPermissions]), not the platform's, and can't have
+	// Roles too.
+	ScopeRoles []string
+
+	// OrgRoles is the v0.2 name of ScopeRoles.
+	//
+	// Deprecated: use ScopeRoles. Setting both fails New.
 	// OrgRoles are the organisation roles that hold the permission, such
 	// as "owner", "admin" and "member" (ADR-0023, ADR-0048): a member holds
 	// it only while acting in an organisation, through guard.OrgMember. A
@@ -2122,7 +2241,9 @@ _ = report
 func (p *Platform) SetOrgAuthorizer(a OrgAuthorizer) error
 ```
 
-SetOrgAuthorizer makes a the app's [OrgAuthorizer](#OrgAuthorizer), which every route with guard.OrgMember asks. It is for the organisations module (gorbital.dev/gorbital/orgshttp), which calls it from Module.Platform. It returns an error when a is nil or the app already has one: an app has one source of truth for memberships.
+SetOrgAuthorizer makes a the app's organisation authorizer.
+
+Deprecated: use [Platform.SetScope](#Platform.SetScope) with a [Scope](#Scope), which lets the app name its own tenancy and validate its own IDs. This call is [Platform.SetScope](#Platform.SetScope) with the default organisation scope: the v0.1 and v0.2 vocabulary, and no ID validation of its own, so a malformed ID is refused by the authorizer exactly as an unknown one is.
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -2144,6 +2265,40 @@ Output:
 
 ```text
 orgs
+```
+
+<a id="Platform.SetScope"></a>
+
+#### func (*Platform) SetScope
+
+```go
+func (p *Platform) SetScope(s Scope, a ScopeAuthorizer) error
+```
+
+SetScope makes s the app's scope and a its authorizer, which every route with guard.Scope asks. It is for a module that owns membership, such as gorbital.dev/gorbital/orgshttp, called from Module.Platform. An app that authorizes scopes itself uses [WithScope](#WithScope) instead.
+
+It returns an error when a is nil, the scope is invalid, or the app already has one.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// A module that owns membership sets the scope once the app is built.
+// gorbital.dev/gorbital/orgshttp does this for organisations.
+merchants := gorbital.Module{
+	Name: "merchants",
+	Platform: func(p *gorbital.Platform) error {
+		return p.SetScope(merchantScope(), members{})
+	},
+}
+fmt.Println(merchants.Name)
+```
+
+Output:
+
+```text
+merchants
 ```
 
 <a id="Platform.SignInMethods"></a>
@@ -2804,6 +2959,206 @@ Output:
 ```text
 GET /v1/books/{id} id=books-get-v1-books-by-id summary="Get v1 books by ID" tags=[Books] secured=true deprecated=false
 GET /v1/catalog/{id} id=books-get-v1-catalog-by-id summary="Get v1 catalog by ID" tags=[Books] secured=false deprecated=false
+```
+
+<a id="Scope"></a>
+<a id="Scope.Name"></a>
+<a id="Scope.PathParam"></a>
+<a id="Scope.NotFoundCode"></a>
+<a id="Scope.ValidID"></a>
+<a id="Scope.Roles"></a>
+<a id="Scope.Session"></a>
+
+### type Scope
+
+```go
+type Scope struct {
+	// Name is the concept in lowercase singular, such as "organisation" or
+	// "merchant". It names guards in logs and metrics and appears in the
+	// registration errors the guards return.
+	Name string
+
+	// PathParam is the path parameter scope routes carry the ID in, such
+	// as "orgId". Registration fails for a scope route whose path lacks
+	// it. Empty uses [DefaultScopePathParam].
+	PathParam string
+
+	// NotFoundCode is the problem code that refuses a request for a scope
+	// the actor is not a member of, such as "org_not_found". Unknown,
+	// deleted, forbidden and malformed IDs are all refused with it and
+	// 404, so scope IDs can't be probed. Empty uses
+	// [DefaultScopeNotFoundCode].
+	NotFoundCode string
+
+	// ValidID reports whether s is a well-formed scope ID. A malformed ID
+	// is refused exactly as an unknown one is, before the authorizer is
+	// asked, so it never reaches the app's queries. Nil accepts any
+	// non-empty string, which is correct for an app whose authorizer
+	// validates the ID itself.
+	ValidID func(s string) bool
+
+	// Roles are the scope's roles, most privileged first, with what each
+	// one grants. [Permission.ScopeRoles] names them. Roles a permission
+	// names and this list doesn't are declared with a generic description.
+	Roles []ScopeRole
+
+	// Session carries the scope into the request's database connections,
+	// for row-level security (postgres.WithScope, ADR-0061). Nil leaves
+	// connections unscoped, which is correct only for an app that filters
+	// by scope in every query.
+	Session func(ctx context.Context, scopeID string) context.Context
+}
+```
+
+A Scope is the app's tenancy: what a tenant is called, how its IDs look, which roles it has, and how a request's tenant reaches the database (ADR-0088). The framework never learns the app's table names and never queries them; membership lives behind the [ScopeAuthorizer](#ScopeAuthorizer).
+
+gorbital.dev/gorbital/orgshttp supplies one for organisations. An app with its own membership tables supplies its own:
+
+```go
+gorbital.WithScope(gorbital.Scope{
+	Name:         "merchant",
+	PathParam:    "merchantId",
+	NotFoundCode: "merchant_not_found",
+	ValidID:      merchants.ValidID,
+	Roles:        merchants.Roles,
+	Session:      postgres.WithScope,
+}, merchants.NewAuthorizer(db))
+```
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+s := merchantScope()
+fmt.Println(s.Name, s.PathParam, s.NotFoundCode)
+// Routes carry the ID in the scope's own parameter.
+fmt.Println("/v1/merchants/{" + s.PathParam + "}/orders")
+```
+
+Output:
+
+```text
+merchant merchantId merchant_not_found
+/v1/merchants/{merchantId}/orders
+```
+
+<a id="DefaultOrgScope"></a>
+
+#### func DefaultOrgScope
+
+```go
+func DefaultOrgScope() Scope
+```
+
+DefaultOrgScope is the tenancy of v0.1 and v0.2 organisation apps: the concept named "organisation" in {orgId}, refused with org\_not\_found, the roles owner, admin and member, and the organisation carried into the request's connections for row-level security.
+
+It has no ValidID: gorbital does not know how an app's organisation IDs are shaped. gorbital.dev/gorbital/orgshttp supplies orgs.ParseID with its own DefaultScope.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+s := gorbital.DefaultOrgScope()
+fmt.Println(s.Name, s.PathParam, s.NotFoundCode)
+for _, r := range s.Roles {
+	fmt.Print(r.Name, " ")
+}
+fmt.Println()
+```
+
+Output:
+
+```text
+organisation orgId org_not_found
+owner admin member
+```
+
+<a id="ScopeAuthorizer"></a>
+<a id="ScopeAuthorizer.AuthorizeScope"></a>
+
+### type ScopeAuthorizer
+
+```go
+type ScopeAuthorizer interface {
+	AuthorizeScope(ctx context.Context, scopeID, permission string) (context.Context, error)
+}
+```
+
+A ScopeAuthorizer decides whether the actor of a request may act in a scope, for guard.Scope. An app sets one with [WithScope](#WithScope); a module sets one with [Platform.SetScope](#Platform.SetScope).
+
+AuthorizeScope checks that the actor in ctx is a member of scopeID whose role grants permission, and returns a context whose actor acts in the scope: actor.Actor.OrgID set to scopeID, and Permissions those of the role, limited by an API key's scopes. It returns
+
+  - [ErrScopeNotFound](#ErrScopeNotFound) when scopeID isn't a scope the actor is a member of, deleted and nonexistent ones included;
+  - actor.ErrUnauthenticated without a member actor;
+  - actor.ErrStepUpRequired when the role grants permission only to sessions verified with a second factor;
+  - actor.ErrForbidden when the role doesn't grant it;
+
+and any other error for a failure, which the guard answers with 500. orgs.RequireMember has exactly these semantics.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+var authorizer gorbital.ScopeAuthorizer = members{
+	"mch_1/usr_ada": "owner",
+	"mch_1/usr_bo":  "courier",
+}
+ada := actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_ada"})
+bo := actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_bo"})
+
+ctx, err := authorizer.AuthorizeScope(ada, "mch_1", "orders.order.refund")
+a, _ := actor.From(ctx)
+fmt.Println(a.OrgID, err)
+
+_, err = authorizer.AuthorizeScope(bo, "mch_1", "orders.order.refund")
+fmt.Println(err)
+
+_, err = authorizer.AuthorizeScope(ada, "mch_2", "orders.order.read")
+fmt.Println(err)
+```
+
+Output:
+
+```text
+mch_1 <nil>
+actor: permission denied
+gorbital: scope not found
+```
+
+<a id="ScopeRole"></a>
+<a id="ScopeRole.Name"></a>
+<a id="ScopeRole.Description"></a>
+
+### type ScopeRole
+
+```go
+type ScopeRole struct {
+	Name        string
+	Description string
+}
+```
+
+A ScopeRole is one role of a [Scope](#Scope), such as an organisation's owner.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+for _, r := range merchantScope().Roles {
+	fmt.Printf("%s: %s\n", r.Name, r.Description)
+}
+```
+
+Output:
+
+```text
+owner: Runs the merchant
+manager: Manages staff and orders
+courier: Delivers orders
 ```
 
 <a id="SignInMethod"></a>

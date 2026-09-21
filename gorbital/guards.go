@@ -124,8 +124,8 @@ type sharedLimiter struct {
 
 // guardMiddleware returns the operation middleware that runs guard.
 func (g *registry) guardMiddleware(module string, op *huma.Operation, guard route.Guard, public bool) (func(huma.Context, func(huma.Context)), error) {
-	if guard.Org != nil {
-		return g.orgMiddleware(module, op, guard, public)
+	if guard.Scope != nil {
+		return g.scopeMiddleware(module, op, guard, public)
 	}
 	check := guard.Check
 	if guard.Limit != nil {
