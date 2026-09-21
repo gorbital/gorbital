@@ -89,9 +89,9 @@ func (m *layoutMove) planBuiltinModules(ctx context.Context) error {
 			Module: e.name, Package: e.importPath(), Version: keep.Version, Date: m.now.Format("2006-01-02"), SHA256: keep.SHA256,
 		})
 		m.res.Ejected = append(m.res.Ejected, keep)
-		detail := fmt.Sprintf("you changed it, so the app keeps it: the library's %s copied in as orb eject copies it, with your changes", e.importPath())
+		detail := fmt.Sprintf("you changed it, so the app keeps it: the library's %s copied into internal/modules, with your changes", e.importPath())
 		if len(keep.Carried) == 0 {
-			detail = fmt.Sprintf("you changed it, so the app keeps it: the library's %s copied in as orb eject copies it", e.importPath())
+			detail = fmt.Sprintf("you changed it, so the app keeps it: the library's %s copied into internal/modules", e.importPath())
 		}
 		m.item(itemKept, e.dir(), detail, keep.Carried, keep.Hooks)
 	}

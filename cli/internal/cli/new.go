@@ -385,7 +385,7 @@ func nextSteps(s styles, dir string, preset recipes.Preset, profile recipes.Prof
 		if ejected {
 			rows = append(rows, [2]string{"sign-in", "internal/modules/auth is your code: login, registration, email verification, password reset"})
 		} else {
-			rows = append(rows, [2]string{"sign-in", "gorbital.dev/gorbital/authhttp, updated with go get; orb eject auth copies it into internal/modules"})
+			rows = append(rows, [2]string{"sign-in", "gorbital.dev/gorbital/authhttp, updated with go get"})
 		}
 		rows = append(rows, [2]string{"providers", "AUTH_PROVIDERS.md lists what to set for passkeys, Google and Apple"})
 		if profile.Named() {

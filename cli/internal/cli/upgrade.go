@@ -156,7 +156,7 @@ func runUpgrade(ctx context.Context, args []string, stdin io.Reader, stdout, std
 		return err
 	}
 	if !lock.rendered() && lock.APIVersion == LockAPIVersion {
-		return fmt.Errorf("%s records only modules orb eject copied: orb upgrade works in apps created with orb new", lockPath)
+		return fmt.Errorf("%s records only built-in modules the app owns: orb upgrade works in apps created with orb new", lockPath)
 	}
 	if !insideGitRepo(ctx, app.dir) {
 		return errors.New("orb upgrade works on a git branch; put the app in git first: git init && git add -A && git commit -m 'Create app'")

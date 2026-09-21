@@ -177,7 +177,7 @@ func goOutputIn(ctx context.Context, dir string, stderr io.Writer, args ...strin
 func planEjectFrom(app appInfo, m ejectableModule, lib librarySource, lock lockFile, lockExists bool, now time.Time) (genplan.Plan, error) {
 	src := filepath.Join(lib.Dir, m.pkg)
 	if info, err := os.Stat(src); err != nil || !info.IsDir() {
-		return genplan.Plan{}, fmt.Errorf("%s %s has no %s package; orb eject copies modules from v0.2.0 on", gorbitalImportPath, lib.Version, m.pkg)
+		return genplan.Plan{}, fmt.Errorf("%s %s has no %s package; modules are copied into apps from v0.2.0 on", gorbitalImportPath, lib.Version, m.pkg)
 	}
 	res := ejectResult{
 		Module: m.name, Package: m.importPath(), Version: lib.Version, Directory: m.dir(),
@@ -601,11 +601,11 @@ func readMigrationLiteral(lit *ast.CompositeLit, imports map[string]string, libD
 	for _, elt := range lit.Elts {
 		kv, ok := elt.(*ast.KeyValueExpr)
 		if !ok {
-			return mig, errors.New("orb eject reads gorbital.Migration literals with field names")
+			return mig, errors.New("copying a module reads gorbital.Migration literals with field names")
 		}
 		key, ok := kv.Key.(*ast.Ident)
 		if !ok {
-			return mig, errors.New("orb eject reads gorbital.Migration literals with field names")
+			return mig, errors.New("copying a module reads gorbital.Migration literals with field names")
 		}
 		switch key.Name {
 		case "Version":
@@ -631,7 +631,7 @@ func readMigrationLiteral(lit *ast.CompositeLit, imports map[string]string, libD
 	}
 	rest, inModule := strings.CutPrefix(fsImport, m.importPath()+"/")
 	if mig.version <= 0 || mig.name == "" || mig.file == "" || !inModule || !fs.ValidPath(mig.file) {
-		return mig, errors.New("orb eject copies migrations declared with a literal Version, Name and File and an FS of the module's own package")
+		return mig, errors.New("only migrations declared with a literal Version, Name and File and an FS of the module's own package are copied")
 	}
 	content, err := os.ReadFile(filepath.Join(libDir, m.pkg, filepath.FromSlash(rest), filepath.FromSlash(mig.file))) //nolint:gosec // the library's source
 	if err != nil {
@@ -790,11 +790,11 @@ func checkModuleUse(dir string, m ejectableModule) error {
 		return err
 	}
 	if len(uses) == 0 {
-		return fmt.Errorf("the app doesn't use %s: no file of cmd/api imports %s, so there is nothing to eject", m.pkg, m.importPath())
+		return fmt.Errorf("the app doesn't use %s: no file of cmd/api imports %s, so there is nothing to copy", m.pkg, m.importPath())
 	}
 	for file, name := range uses {
 		if name == "_" || name == "." {
-			return fmt.Errorf("%s imports %s as %q, which orb eject can't follow; import it by name and call %s.%s, as a new app's main.go does, then run orb eject %s again", file, m.importPath(), name, m.pkg, m.constructor, m.name)
+			return fmt.Errorf("%s imports %s as %q, which the copy can't follow; import it by name and call %s.%s, as a new app's main.go does", file, m.importPath(), name, m.pkg, m.constructor)
 		}
 	}
 	calls, err := commandSelectors(dir, m.importPath(), m.constructor)
@@ -802,7 +802,7 @@ func checkModuleUse(dir string, m ejectableModule) error {
 		return err
 	}
 	if !calls {
-		return fmt.Errorf("cmd/api imports %s but never calls %s.%s, which orb eject keeps while it changes the import; add the module with %s.%s in main.go, as a new app's does, then run orb eject %s again", m.importPath(), m.pkg, m.constructor, m.pkg, m.constructor, m.name)
+		return fmt.Errorf("cmd/api imports %s but never calls %s.%s, which the copy keeps while it changes the import; add the module with %s.%s in main.go, as a new app's does", m.importPath(), m.pkg, m.constructor, m.pkg, m.constructor)
 	}
 	return nil
 }

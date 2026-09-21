@@ -28,7 +28,7 @@ Further v0.x releases follow as work lands. In Go terms v0 carries no compatibil
 | [Client templates](#client-templates) | Proposed | |
 | [Public website](#public-website) | Built early, published | gorbital.dev, docs.gorbital.dev |
 | [Dev Portal](#dev-portal) | In progress; the phases built so far are in v0.1.0 | `orb dev` serves the portal; phases in the [Dev Portal roadmap](dev-portal-roadmap.md) |
-| [A framework you import](v0.2-roadmap.md) | Done, in v0.2.0 | Modules with explicit, deny-by-default routes and guards, `gorbital.Main`, sign-in, ops and organisations in the library, `orb gen module`, `orb routes`, `orb eject`, `orb upgrade --layout v0.2`, request timeouts, IP filters, signed webhooks and external JWTs, versioned docs with Methods and Examples tabs |
+| [A framework you import](v0.2-roadmap.md) | Done, in v0.2.0 | Modules with explicit, deny-by-default routes and guards, `gorbital.Main`, sign-in, ops and organisations in the library, `orb gen module`, `orb routes`, `orb eject` (removed in v0.2.2), `orb upgrade --layout v0.2`, request timeouts, IP filters, signed webhooks and external JWTs, versioned docs with Methods and Examples tabs |
 | [Choose what you get](v0.2.2-roadmap.md) | In progress | `gorbital.Scope` and `guard.Scope`, tenancy under the app's own word, `--auth none\|basic\|full`, `orb gen resource --scope user\|tenant\|public\|custom`, `orb doctor --security`, the examples repository |
 
 Each milestone below has the same parts: **status** with what was built, then a table of what it **delivers**, what's **not included**, when it's **done**, and measured **results**.

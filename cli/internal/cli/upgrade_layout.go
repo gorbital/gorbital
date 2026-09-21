@@ -26,7 +26,7 @@ and the built-in ones from the library (ADR-0083).
 
   - generated code you never changed is deleted: the library runs it;
   - a built-in module you changed is kept as the app's own code, copied
-    from the library like orb eject, with your changes moved into the copy;
+    from the library into internal/modules, with your changes moved in;
   - your modules stay in internal/modules: their huma.Register calls become
     gorbital routes, and their error mappings and permissions move from
     internal/app into each module's Module value;

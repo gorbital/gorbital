@@ -70,7 +70,7 @@ const doctorUsage = `Usage: orb doctor [flags]
 Checks the app in the current directory and prints what to fix: the Go
 toolchain, git, Docker and the Go orb was built with; gorbital.lock and the
 library version; the lines generators insert at (v0.1 apps) or the module
-list, modules copied with orb eject, the middleware stack and
+list, the built-in modules the app owns, the middleware stack and
 APP_REQUEST_TIMEOUT (apps on gorbital.Main);
 .env; whether api/ matches the code; and the database's migrations and
 row-level security. It changes nothing (ADR-0051).
@@ -217,7 +217,7 @@ func (d *doctor) project(ctx context.Context) {
 	case lock.APIVersion == lockAPIVersionV1:
 		d.add(doctorWarn, "gorbital.lock", "written by an early development build of orb, without the release that created the app", "orb upgrade --from <commit that created the app>")
 	case !lock.rendered():
-		d.add(doctorOK, "gorbital.lock", fmt.Sprintf("records %d modules orb eject copied", len(lock.Ejected)), "")
+		d.add(doctorOK, "gorbital.lock", fmt.Sprintf("records %d built-in modules the app owns", len(lock.Ejected)), "")
 	default:
 		edited := 0
 		for _, f := range lock.Files {

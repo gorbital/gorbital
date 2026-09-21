@@ -303,7 +303,7 @@ func (m *layoutMove) report() []byte {
 	}
 	if len(m.res.Ejected) > 0 {
 		b.WriteString("\n## Modules the app now owns\n\n")
-		b.WriteString("They are copies of the library's modules, like `orb eject`: library releases\n" +
+		b.WriteString("They are copies of the library's modules: library releases\n" +
 			"no longer change them, `orb doctor` says when the library's version changes,\n" +
 			"and `gorbital.lock` records where each came from.\n\n")
 		for _, e := range m.res.Ejected {

@@ -264,7 +264,7 @@ func (d *doctor) requestTimeout(env []string) {
 
 // ejected checks the built-in modules gorbital.lock records as ejected: the
 // app has their code, and whether the library's package changed since, so
-// the app may be missing fixes (orb eject).
+// the app may be missing fixes (ADR-0092).
 func (d *doctor) ejected(ctx context.Context) {
 	lock, err := readLock(d.dir)
 	if err != nil || len(lock.Ejected) == 0 {
@@ -275,10 +275,10 @@ func (d *doctor) ejected(ctx context.Context) {
 		m, _ := lookupEjectable(e.Module)
 		if info, err := os.Stat(d.path(m.dir())); err != nil || !info.IsDir() {
 			d.add(doctorFail, "ejected", fmt.Sprintf("gorbital.lock records %s as ejected, but %s is missing, so the app doesn't build", m.name, m.dir()),
-				fmt.Sprintf("restore it from git history, or go back to the library's %s: remove the entry from gorbital.lock and change the imports back (docs/guides/ejecting-a-module.md)", m.pkg))
+				fmt.Sprintf("restore it from git history, or go back to the library's %s: remove the entry from gorbital.lock and change the imports back (docs/guides/the-code-in-your-repo.md)", m.pkg))
 			continue
 		}
-		since := fmt.Sprintf("%s is the app's code, ejected from %s %s on %s", m.dir(), m.importPath(), e.Version, e.Date)
+		since := fmt.Sprintf("%s is the app's code, copied from %s %s on %s", m.dir(), m.importPath(), e.Version, e.Date)
 		if libErr != nil {
 			d.add(doctorWarn, "ejected", since+"; couldn't compare it with the library: "+firstLine(libErr.Error()), "check that go.mod requires gorbital.dev/gorbital and go mod download works")
 			continue
@@ -295,7 +295,7 @@ func (d *doctor) ejected(ctx context.Context) {
 				detail += ". Changelog: " + strings.Join(entries, " · ")
 			}
 			d.add(doctorWarn, "ejected", detail,
-				fmt.Sprintf("compare %s with %s in gorbital.dev/gorbital %s and port the fixes you need: library releases and orb upgrade don't change ejected modules", m.dir(), m.pkg, lib.Version))
+				fmt.Sprintf("compare %s with %s in gorbital.dev/gorbital %s and port the fixes you need: library releases and orb upgrade don't change the modules the app owns", m.dir(), m.pkg, lib.Version))
 		}
 	}
 }
