@@ -96,16 +96,16 @@ type lockInputs struct {
 	// recipes.LayoutV02 for apps on gorbital.Main (ADR-0083).
 	Layout string `json:"layout,omitempty"`
 	// Auth is how much sign-in the app was created with: none, basic or
-	// full. Empty in every lock written before v0.2.2, and in a Minimal
+	// full. Empty in every lock written before v0.3.0, and in a Minimal
 	// app's, which means the full sign-in those releases always wrote.
 	Auth string `json:"auth,omitempty"`
 	// Scope is what a tenant is: none, single, custom or its name. Empty
-	// before v0.2.2, which means the tenancy above.
+	// before v0.3.0, which means the tenancy above.
 	Scope string `json:"scope,omitempty"`
 }
 
 // profile returns the app's profile: the one the lock records, or the one
-// its tenancy means in a lock written before v0.2.2.
+// its tenancy means in a lock written before v0.3.0.
 func (in lockInputs) profile() (recipes.Profile, error) {
 	if in.Auth == "" {
 		return recipes.ProfileFromTenancy(in.Tenancy)

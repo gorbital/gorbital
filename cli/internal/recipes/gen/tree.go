@@ -13,7 +13,7 @@ import (
 	"gorbital.dev/cli/internal/recipes/generate"
 )
 
-// treeFS holds the hand-written part of the v0.2.2 tree: manifest.yaml,
+// treeFS holds the hand-written part of the v0.3.0 tree: manifest.yaml,
 // the conditional templates (ADR-0090 §6) and the templates no golden app
 // has, such as a custom scope's stub. generate.Run writes the rest from
 // examples/full-multi and these are copied over it, so one directory holds

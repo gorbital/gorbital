@@ -256,7 +256,7 @@ func (p Profile) Layout() string { return LayoutV02 }
 
 // Tenancy is the profile as the tenancy of v0.1 and v0.2 records it:
 // multi for a named scope, single for everything else. gorbital.yaml,
-// gorbital.lock and orb upgrade keep reading it, so a v0.2.2 app stays
+// gorbital.lock and orb upgrade keep reading it, so a v0.3.0 app stays
 // readable by v0.2.1's orb.
 func (p Profile) Tenancy() string {
 	if p.Named() {

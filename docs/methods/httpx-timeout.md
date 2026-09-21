@@ -49,7 +49,7 @@ Once the handler has started its response (written the status or body, flushed, 
 
 The handler runs on the request's goroutine, so the request ends when the handler returns: pass r.Context() to everything that waits, so it stops at the deadline. The 503 is written and flushed at the deadline with a Content-Length, so an HTTP/1.1 client has the whole response even while a handler that ignores its context keeps the connection. Install it after httpx.Recover and httpx.RequestID.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 

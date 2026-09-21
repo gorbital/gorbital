@@ -23,7 +23,7 @@ const (
 	// when it has none.
 	OrgSetting = "gorbital.org_id"
 	// ScopeSetting is [OrgSetting] under the name the framework uses for
-	// tenancy since v0.2.2 (ADR-0088). There is one session setting whatever
+	// tenancy since v0.3.0 (ADR-0088). There is one session setting whatever
 	// an app calls its scope: it is invisible to people, row-level-security
 	// policies in live databases name it, and renaming it would change what
 	// those policies mean.
@@ -61,7 +61,7 @@ func WithOrg(ctx context.Context, orgID string) context.Context {
 // WithScope returns a copy of ctx whose connections carry scopeID in
 // [ScopeSetting], so row-level security policies limit them to that
 // scope's rows. It is [WithOrg] under the name the framework uses for
-// tenancy since v0.2.2, and is what gorbital.Scope.Session is usually set
+// tenancy since v0.3.0, and is what gorbital.Scope.Session is usually set
 // to.
 func WithScope(ctx context.Context, scopeID string) context.Context {
 	return WithOrg(ctx, scopeID)

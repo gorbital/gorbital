@@ -25,7 +25,7 @@ func (d *doctor) profile() {
 }
 
 // profileFromLock returns the profile gorbital.lock records, and false for
-// an app with no lock or one written before v0.2.2, which records no
+// an app with no lock or one written before v0.3.0, which records no
 // profile to check.
 func (d *doctor) profileFromLock() (recipes.Profile, bool) {
 	lock, err := readLock(d.dir)
@@ -45,7 +45,7 @@ func (d *doctor) profileFromLock() (recipes.Profile, bool) {
 // the developer added is not one of those: only the paths the templates
 // own are checked.
 func (d *doctor) profileFiles(profile recipes.Profile) {
-	paths, err := recipes.ManifestPaths(recipes.Templates(), recipes.TreeV022)
+	paths, err := recipes.ManifestPaths(recipes.Templates(), recipes.TreeV03)
 	if err != nil {
 		d.add(doctorFail, "profile", err.Error(), "")
 		return

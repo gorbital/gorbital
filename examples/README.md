@@ -41,7 +41,7 @@ golden Full apps, exactly as `orb new` does, so a change to `authhttp` or
   `go generate ./internal/recipes/` in `cli/`, and commit both.
 - **Don't treat `v0.1/` as maintainable.** It is frozen. An upgrade path
   compares against it.
-- **Don't move `shelfie/`.** It was moved out once, in v0.2.2, on the reading
+- **Don't move `shelfie/`.** It was moved out once, in v0.3.0, on the reading
   that it was only documentation; the `cli` module's tests broke and it came
   back. Run `go test -C cli ./...` before touching it.
 - `api/openapi.json` in each application is regenerated and compared in CI;
@@ -52,7 +52,7 @@ golden Full apps, exactly as `orb new` does, so a change to `authhttp` or
 
 The applications the documentation includes code from — Plateful, the
 recipes — are **not here any more**. Five of the six moved to their own
-repository in v0.2.2 ([ADR-0093](../docs/adr/0093-the-examples-repository.md));
+repository in v0.3.0 ([ADR-0093](../docs/adr/0093-the-examples-repository.md));
 Shelfie stayed, because of the tests above:
 
 <https://github.com/gorbital/examples>

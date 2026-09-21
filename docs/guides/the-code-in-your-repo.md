@@ -51,7 +51,7 @@ A handful of the library's own test files are not copied. They are marked `//orb
 | [`gorbital.dev/gorbital/flagshttp`](../methods/gorbital-flagshttp.md) | `GET /v1/flags` |
 | [`gorbital.dev/gorbital/mailevents`](../methods/gorbital-mailevents.md) | `POST /v1/webhooks/resend` |
 
-The last three were copyable on demand before v0.2.2 and were never copied by default. They contain no business rules — an operations API, a flags endpoint, a webhook receiver — so nothing in the rule above asks for them to be yours, and they now stay in the library for good. If you need one of them to behave differently, the answer is an option, a guard or a module of your own beside it; if none of those reach it, open an issue, because a hook is cheaper for everyone than a copy.
+The last three were copyable on demand before v0.3.0 and were never copied by default. They contain no business rules — an operations API, a flags endpoint, a webhook receiver — so nothing in the rule above asks for them to be yours, and they now stay in the library for good. If you need one of them to behave differently, the answer is an option, a guard or a module of your own beside it; if none of those reach it, open an issue, because a hook is cheaper for everyone than a copy.
 
 ## Before you edit a flow
 
@@ -97,10 +97,10 @@ The check compares the SHA-256 in `gorbital.lock` with the library package at th
 ```text
 warning  ejected   internal/modules/auth is the app's code, copied from
                    gorbital.dev/gorbital/authhttp v0.2.1 on 2026-09-18; the library's
-                   authhttp has changed since (the app requires v0.2.2).
+                   authhttp has changed since (the app requires v0.3.0).
                    Changelog: …
                    → compare internal/modules/auth with authhttp in
-                     gorbital.dev/gorbital v0.2.2 and port the fixes you need
+                     gorbital.dev/gorbital v0.3.0 and port the fixes you need
 ```
 
 Acting on it is yours to do: read the entries, print the library's directory with `go list -m -json gorbital.dev/gorbital`, diff it against `internal/modules/auth`, and take the fixes you need. `orb upgrade` never changes these modules' files and keeps their `gorbital.lock` entries.
@@ -120,7 +120,7 @@ It does two things. The first uses the provenance in `gorbital.lock`: it fetches
 
 ```text
 warn  internal/modules/auth
-      copied from gorbital.dev/gorbital/authhttp v0.2.1 on 2026-09-18; the app requires v0.2.2
+      copied from gorbital.dev/gorbital/authhttp v0.2.1 on 2026-09-18; the app requires v0.3.0
       provenance: verified: authhttp at v0.2.1 hashes to what gorbital.lock recorded
       6 of the 205 files the app holds changed upstream; the app has itself changed 3 of the
       files it holds, 1 of those among them, so porting those is a merge
@@ -129,11 +129,11 @@ warn  internal/modules/auth
         internal/modules/auth/repository/insert_session.go  (touches sessions — a hint …)
         …
       2 files the library has gained since, which the app has no copy of
-      changelog v0.2.2 (2026-09-21):
+      changelog v0.3.0 (2026-09-21):
         - authhttp: sessions end when a password changes
       not determined: which of these changes are security fixes: gorbital publishes no advisory
         feed, so orb can say that your copy has diverged and where to read, and nothing more
-      fix: diff -ru /…/gorbital.dev/gorbital@v0.2.1/authhttp /…/gorbital.dev/gorbital@v0.2.2/authhttp
+      fix: diff -ru /…/gorbital.dev/gorbital@v0.2.1/authhttp /…/gorbital.dev/gorbital@v0.3/authhttp
 ```
 
 Read that last line carefully, because it is the honest limit of the tool. **`orb doctor --security` cannot tell you whether a change upstream is a security fix.** There is no advisory feed in gorbital, so there are no advisory IDs and no severities, and nothing here invents them. What it can tell you is that your copy has diverged, exactly where, whether you have edited those files too, and what the changelog says about the package — so that you know where to read and how much work porting would be. The flow named beside a file (*touches login*) is read from the file's name and is a hint, not a verdict: a renamed variable in `login.go` lands there exactly as a fix would.

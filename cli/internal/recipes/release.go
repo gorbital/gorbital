@@ -7,8 +7,8 @@ import (
 
 // A Release is the templates of one orb release, laid out like this
 // package's directory: minimal/, full/, full-multi/ and mail/, with
-// v0.2/full/ and v0.2/full-multi/ in v0.2 releases and v0.2.2/ from
-// v0.2.2 on. Every release uses the same template format, and keeps each
+// v0.2/full/ and v0.2/full-multi/ in v0.2 releases and v0.3/ from
+// v0.3.0 on. Every release uses the same template format, and keeps each
 // directory for the layout it has always held (ADR-0050).
 type Release struct {
 	fsys fs.FS
@@ -68,20 +68,20 @@ func (r Release) Tree(preset, tenancy, layout, mail string, d Data) (map[string]
 	return tree, nil
 }
 
-// appTree renders the preset's or the profile's templates. Since v0.2.2
+// appTree renders the preset's or the profile's templates. Since v0.3.0
 // the v0.2 layout has one tree and a profile chooses what it writes; an
 // older release fetched by orb upgrade still has v0.2/full and
 // v0.2/full-multi, and is rendered from those.
 func (r Release) appTree(preset, tenancy, layout string, d Data) (map[string][]byte, error) {
 	if known, ok := LookupPreset(preset, TenancySingle); layout == LayoutV02 && ok && known.Layout() == LayoutV02 {
-		if _, err := fs.Stat(r.fsys, TreeV022); err == nil {
+		if _, err := fs.Stat(r.fsys, TreeV03); err == nil {
 			p := d.Profile
 			if p.Auth == "" {
 				if p, err = ProfileFromTenancy(tenancy); err != nil {
 					return nil, fmt.Errorf("recipes: %w", err)
 				}
 			}
-			return RenderTree(r.fsys, TreeV022, p, d)
+			return RenderTree(r.fsys, TreeV03, p, d)
 		}
 	}
 	p, ok := LookupPreset(preset, tenancy)

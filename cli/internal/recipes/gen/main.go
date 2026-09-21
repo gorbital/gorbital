@@ -32,7 +32,7 @@ import (
 const repoRoot = "../../.."
 
 // goldenApps maps each golden app to the template directory it generates.
-// Only examples/full-multi generates the v0.2.2 tree: it is the richest
+// Only examples/full-multi generates the v0.3.0 tree: it is the richest
 // shape, and the manifest decides what a narrower one leaves out
 // (ADR-0090 §3). The other golden apps on gorbital.Main have no dst: their
 // copies of the built-in modules are refreshed from this checkout all the
@@ -49,7 +49,7 @@ var goldenApps = []struct {
 	{"../../../examples/minimal", "minimal", false, "", ""},
 	{"../../../examples/v0.1/full-single", "full", false, "", ""},
 	{"../../../examples/v0.1/full-multi", "full-multi", false, "", ""},
-	{"../../../examples/full-multi", recipes.TreeV022, true, recipes.AuthFull, recipes.DefaultScopeName},
+	{"../../../examples/full-multi", recipes.TreeV03, true, recipes.AuthFull, recipes.DefaultScopeName},
 	{"../../../examples/full-single", "", true, recipes.AuthFull, recipes.ScopeSingle},
 	{"../../../examples/api-basic", "", true, recipes.AuthBasic, recipes.ScopeNone},
 }
@@ -159,7 +159,7 @@ func generateEjected(ctx context.Context, src, dst string, profile recipes.Profi
 	// as orb new does.
 	tree := dst
 	if tree == "" {
-		tree = recipes.TreeV022
+		tree = recipes.TreeV03
 	}
 	if err := renderInto(tree, tmp, profile); err != nil {
 		return err

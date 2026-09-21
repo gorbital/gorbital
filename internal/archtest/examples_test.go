@@ -20,7 +20,7 @@ var multiTenantChanges = []string{
 	"cmd/api/main.go",
 	"cmd/api/app_test.go", // tests the app with organisations
 	// Projects belong to an organisation instead of a user.
-	// Since v0.2.2 orb new generates the module rather than writing it
+	// Since v0.3.0 orb new generates the module rather than writing it
 	// from templates (ADR-0090 §5), so both apps' migrations have the
 	// one version every app of a release gets, and only their contents
 	// differ.

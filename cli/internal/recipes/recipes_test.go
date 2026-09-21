@@ -14,14 +14,14 @@ import (
 )
 
 // goldenApps are the hand-written apps the templates are generated from.
-// The v0.1 trees have one each; the v0.2.2 tree has three, one per shape
+// The v0.1 trees have one each; the v0.3.0 tree has three, one per shape
 // the guides document, and the manifest and the conditional templates
 // decide which of its paths each one gets (ADR-0090).
 var goldenApps = []struct {
 	name, preset, tenancy, layout, dir string
 	auth, scope                        string
 	// templates is the tree generate.Run writes from this golden app, for
-	// the v0.1 trees, which have one golden app each. The v0.2.2 tree is
+	// the v0.1 trees, which have one golden app each. The v0.3.0 tree is
 	// written from examples/full-multi alone, and TestGoldenApps checks it
 	// against all three of its shapes instead.
 	templates string
@@ -440,7 +440,7 @@ func TestPresets(t *testing.T) {
 }
 
 // TestTemplatesUpToDate fails when a v0.1 golden app changed but
-// `go generate ./...` wasn't run. The v0.2.2 tree is generated from one
+// `go generate ./...` wasn't run. The v0.3.0 tree is generated from one
 // golden app and rendered back over all three, so TestGoldenApps checks
 // it from the other end, and CI's diff after go generate catches the
 // rest.

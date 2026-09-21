@@ -4,7 +4,7 @@
 
 ## Context
 
-`orb new` offers three shapes, and each shape is a directory of templates generated from a golden application. That worked while there were three. v0.2.2 gives the developer two independent choices — how much sign-in (ADR-0089) and what a tenant is (ADR-0088) — and nine of their combinations are legal. Extending the present design by one directory per shape would mean nine template trees and nine golden applications.
+`orb new` offers three shapes, and each shape is a directory of templates generated from a golden application. That worked while there were three. v0.3.0 gives the developer two independent choices — how much sign-in (ADR-0089) and what a tenant is (ADR-0088) — and nine of their combinations are legal. Extending the present design by one directory per shape would mean nine template trees and nine golden applications.
 
 The two trees that exist already show the cost. `v0.2/full` and `v0.2/full-multi` share 62 of their paths; 26 of those are byte-identical and the other 36 differ, almost all of them files of the same demonstration `projects` module. The whole structural difference between a single-tenant and a multi-tenant Full app is one renamed migration and one extra file.
 
@@ -104,18 +104,18 @@ cli/internal/recipes/
 ├── minimal/              32 files   unchanged (v0.1 layout)
 ├── full/                357 files   unchanged (v0.1 layout)
 ├── full-multi/          423 files   unchanged (v0.1 layout)
-└── v0.2.2/                            replaces v0.2/full and v0.2/full-multi
+└── v0.3/                            replaces v0.2/full and v0.2/full-multi
     ├── manifest.yaml
     ├── cmd/api/main.go.tmpl
     └── …
 ```
 
-`v0.2/full` and `v0.2/full-multi` are deleted. The tree is still generated, not written: `//go:generate go run ./gen` builds `v0.2.2/` from `examples/full-multi`, the richest shape, and the manifest decides what a narrower shape leaves out. The CI gate at `.github/workflows/ci.yml:150-155` keeps its form, with `internal/recipes/v0.2` replaced by `internal/recipes/v0.2.2`.
+`v0.2/full` and `v0.2/full-multi` are deleted. The tree is still generated, not written: `//go:generate go run ./gen` builds `v0.3/` from `examples/full-multi`, the richest shape, and the manifest decides what a narrower shape leaves out. The CI gate at `.github/workflows/ci.yml:150-155` keeps its form, with `internal/recipes/v0.2` replaced by `internal/recipes/v0.3`.
 
 ### 4. The manifest is the only mapping
 
 ```yaml
-# cli/internal/recipes/v0.2.2/manifest.yaml
+# cli/internal/recipes/v0.3/manifest.yaml
 paths:
   cmd/api/main.go.tmpl:                       always
   db/row_level_security.sql.tmpl:             [scope.named]

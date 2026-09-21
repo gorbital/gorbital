@@ -9,11 +9,11 @@ import (
 	"strings"
 )
 
-// TreeV022 is the one template tree orb new writes every profile from
+// TreeV03 is the one template tree orb new writes every profile from
 // (ADR-0090 §3). It replaced v0.2/full and v0.2/full-multi: the tree is
 // the union of every shape, and manifest.yaml is the only mapping from a
 // feature to the files it owns.
-const TreeV022 = "v0.2.2"
+const TreeV03 = "v0.3"
 
 // ManifestName is the file in a template tree that says which features
 // each path needs.
@@ -151,7 +151,7 @@ func wants(on map[string]bool, needed []string) bool {
 // (ADR-0090 §5, §6).
 func (p Profile) Render(root *os.Root, d Data) ([]File, error) {
 	d.Profile = p
-	tree, err := RenderTree(templatesFS, TreeV022, p, d)
+	tree, err := RenderTree(templatesFS, TreeV03, p, d)
 	if err != nil {
 		return nil, err
 	}

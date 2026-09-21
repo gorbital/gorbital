@@ -39,7 +39,7 @@ const DefaultWebhookBodyLimit = 1 << 20
 
 DefaultWebhookBodyLimit is the largest webhook body [Webhook](#Webhook) reads unless [WebhookBodyLimit](#WebhookBodyLimit) sets another: 1 MiB, Huma's default body limit.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 ## Functions
 
@@ -69,7 +69,7 @@ subscribed := guard.New(guard.Spec{
 })
 ```
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -116,7 +116,7 @@ OrgMember refuses callers who aren't members of the organisation in the route's 
 
 Organisations are one scope (ADR-0088): prefer [Scope](#Scope), which is this guard under the app's own tenancy; an app that mounts gorbital.dev/gorbital/orgshttp and changes nothing sees no difference. This name keeps working for all of v0.x. Its guard name in logs and metrics stays "org\_member:\<permission>".
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -154,7 +154,7 @@ func Permission(name string) gorbital.RouteOption
 
 Permission refuses callers without permission: 403 forbidden, or 403 mfa\_required when the caller's roles grant it only to a session signed in with a second factor. API keys hold a permission only when their scopes include it.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -185,7 +185,7 @@ func Public() gorbital.RouteOption
 
 Public lets requests without an authenticated actor reach the route, and removes its security requirement from the OpenAPI document. On a group, it applies to every route in the group.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -217,7 +217,7 @@ RateLimit allows n requests per window for each caller (see [ByUser](#ByUser), [
 
 With gorbital.Deps.RateLimits set, the budget is shared by every instance; without it, each instance counts on its own. A limiter that can't decide allows the request.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -249,7 +249,7 @@ func RecentReauth() gorbital.RouteOption
 
 RecentReauth refuses a session that neither signed in nor verified a second factor within auth.RecentVerification (10 minutes), with 403 reauthentication\_required, and refuses API keys with 403 session\_required. Use it on operations that change how an account signs in or that an attacker holding a stolen session shouldn't reach.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -292,7 +292,7 @@ On success, the actor acts in the scope: its OrgID is set and its permissions ar
 
 Registration fails when the path has no scope parameter or the route is public, and gorbital.New fails when the app has no scope.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -342,7 +342,7 @@ gorbital.Post(r, "/v1/webhooks/payments", h.paymentEvent, guard.Public(), guard.
 
 A verified request can still arrive twice: senders retry, and a captured request can be replayed within the verifier's tolerance. Make the handler idempotent, for example by storing the delivery ID with the change it makes.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -379,7 +379,7 @@ type RateLimitOption func(*rateLimit)
 
 A RateLimitOption configures [RateLimit](#RateLimit).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -413,7 +413,7 @@ func ByAPIKey() RateLimitOption
 
 ByAPIKey counts requests per API key, so each of a user's keys has its own budget; requests with a session are counted per user.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -444,7 +444,7 @@ func ByIP() RateLimitOption
 
 ByIP counts requests per client address: the address after httpx.TrustedProxies, with IPv6 clients grouped by /64 (ratelimit.ClientKey).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -473,7 +473,7 @@ func ByUser() RateLimitOption
 
 ByUser counts requests per authenticated user or service account, and per client address for requests without one (on a public route). It is the default.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -506,7 +506,7 @@ func Named(name string) RateLimitOption
 
 Named sets the limiter's name. Routes whose limits share a name share their budget, so a group can limit all its writes together; they must use the same limit. Without it, each route has its own limiter named after its operation ID. Names appear in the shared rate-limit store and in /ops/auth/rate-limits.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -540,7 +540,7 @@ type Request struct {
 
 A Request is what a custom guard can read about the request before its input is parsed.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -567,7 +567,7 @@ func (r Request) Header(name string) string
 
 Header returns the first value of a request header.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -602,7 +602,7 @@ func (r Request) Operation() *huma.Operation
 
 Operation returns the route's OpenAPI operation, such as its ID and path.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -632,7 +632,7 @@ func (r Request) PathParam(name string) string
 
 PathParam returns the value of a path parameter, such as "id" in /v1/books/{id}.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -662,7 +662,7 @@ func (r Request) Query(name string) string
 
 Query returns the first value of a query parameter.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -706,7 +706,7 @@ type Spec struct {
 
 A Spec describes a custom guard for [New](#New).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -748,7 +748,7 @@ type WebhookOption func(*webhookGuard)
 
 A WebhookOption configures [Webhook](#Webhook).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -787,7 +787,7 @@ func WebhookBodyLimit(n int64) WebhookOption
 
 WebhookBodyLimit sets the largest body [Webhook](#Webhook) reads, in bytes. Larger requests are refused with 413 request\_too\_large before they are verified. Default: [DefaultWebhookBodyLimit](#DefaultWebhookBodyLimit).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 

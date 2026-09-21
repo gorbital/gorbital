@@ -169,7 +169,7 @@ type Migration struct {
 ### 7. Ejection
 
 > [!NOTE]
-> **Superseded in part by [ADR-0092](0092-what-the-framework-owns.md) (2026-09-21).** The `orb eject` command described in this section was removed in v0.2.2: since v0.2.1 `orb new` writes sign-in and organisations into the app, so an on-demand copy answers a question nobody has. The copy machinery below is unchanged and still runs, as internal plumbing, for `orb new`, `orb add orgs` and `orb upgrade --layout v0.2`; `opshttp`, `flagshttp` and `mailevents` are library-only from v0.2.2 on. What follows records the design as it stood on 2026-09-17.
+> **Superseded in part by [ADR-0092](0092-what-the-framework-owns.md) (2026-09-21).** The `orb eject` command described in this section was removed in v0.3.0: since v0.2.1 `orb new` writes sign-in and organisations into the app, so an on-demand copy answers a question nobody has. The copy machinery below is unchanged and still runs, as internal plumbing, for `orb new`, `orb add orgs` and `orb upgrade --layout v0.2`; `opshttp`, `flagshttp` and `mailevents` are library-only from v0.3.0 on. What follows records the design as it stood on 2026-09-17.
 
 `orb eject <auth|ops|orgs|flags|mailevents>`:
 
@@ -764,7 +764,7 @@ The Dev Portal's module form offers `--org` (gorbital-dashboards `framework/phas
 - `orb new` offers no way to create a v0.1-layout app.
 ## Phase 9 implementation notes: orb eject (2026-09-17)
 
-`orb eject <auth|flags|mailevents|ops|orgs>` (roadmap item 84) implements §7. The command was removed in v0.2.2 ([ADR-0092](0092-what-the-framework-owns.md)); what an app's own copy of a module is, and how it is maintained, is now [The code in your repo](../guides/the-code-in-your-repo.md).
+`orb eject <auth|flags|mailevents|ops|orgs>` (roadmap item 84) implements §7. The command was removed in v0.3.0 ([ADR-0092](0092-what-the-framework-owns.md)); what an app's own copy of a module is, and how it is maintained, is now [The code in your repo](../guides/the-code-in-your-repo.md).
 
 ### What is copied, and where
 

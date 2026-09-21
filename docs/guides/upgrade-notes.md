@@ -4,9 +4,9 @@ What changes for existing apps in each release, and what to do that `orb upgrade
 
 `v0.1.0` is the first public release: apps created with it or later start here, and each later release adds its section above this line. Apps created with a development build of `orb` before `v0.1.0` follow [Before v0.1.0](#before-v010-development-builds).
 
-## Upgrading to v0.2.2
+## Upgrading to v0.3.0
 
-**Your app needs no code changes.** The library is additive: every name v0.2 apps use keeps working, `apicheck` records one changed line and no removed one, and the HTTP contract, problem codes, permission names, role names and migration versions of an existing app are unchanged. `go get gorbital.dev@v0.2.2` and its modules, and you are done.
+**Your app needs no code changes.** The library is additive: every name v0.2 apps use keeps working, `apicheck` records one changed line and no removed one, and the HTTP contract, problem codes, permission names, role names and migration versions of an existing app are unchanged. `go get gorbital.dev@v0.3.0` and its modules, and you are done.
 
 Two things changed in the CLI, and one of them may be in your scripts.
 
@@ -14,7 +14,7 @@ Two things changed in the CLI, and one of them may be in your scripts.
 
 ```text
 $ orb eject auth
-orb eject was removed in v0.2.2.
+orb eject was removed in v0.3.0.
 ```
 
 Since v0.2.1 `orb new` writes sign-in and organisations into the app, so there was nothing left for the command to do ([ADR-0092](../adr/0092-what-the-framework-owns.md)). The name still answers for this release and explains itself; it will be gone entirely in the next.

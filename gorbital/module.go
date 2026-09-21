@@ -112,7 +112,7 @@ type Permission struct {
 
 	// OrgRoles is the v0.2 name of ScopeRoles, still honoured: prefer
 	// ScopeRoles in new code, and set one or the other, never both. It
-	// carries no Deprecated marker on purpose — v0.2.2 is a patch, and a
+	// carries no Deprecated marker on purpose — v0.3.0 is a patch, and a
 	// marker would make staticcheck fail the build of every app that
 	// already uses the name, including the copies of sign-in and
 	// organisations orb new wrote for them.

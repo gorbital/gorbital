@@ -83,7 +83,7 @@ const DefaultMaintenanceMessage = "the service is down for maintenance; try agai
 
 DefaultMaintenanceMessage is the problem detail [Maintenance](#Maintenance) sends while MaintenanceOptions.Message is unset or empty.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="ProblemContentType"></a>
 
@@ -241,7 +241,7 @@ type Captured struct {
 
 Captured is a response writer that records what the handler wrote, for middleware that reads the response after the handler returns: its status, whether headers were sent, and the body size. Create one with [Capture](#Capture).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -274,7 +274,7 @@ next.ServeHTTP(cw, r)
 if cw.Status() >= 500 { … }
 ```
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -316,7 +316,7 @@ func (w *Captured) Bytes() int64
 
 Bytes returns the number of body bytes written.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -343,7 +343,7 @@ func (w *Captured) Status() int
 
 Status returns the status the handler sent: 200 when it wrote a body without calling WriteHeader, or wrote nothing at all.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -371,7 +371,7 @@ func (w *Captured) Unwrap() http.ResponseWriter
 
 Unwrap supports http.ResponseController (flushing, deadlines).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="Captured.Write"></a>
 
@@ -383,7 +383,7 @@ func (w *Captured) Write(b []byte) (int, error)
 
 Write records an implicit 200 status and the number of bytes written.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="Captured.WriteHeader"></a>
 
@@ -395,7 +395,7 @@ func (w *Captured) WriteHeader(code int)
 
 WriteHeader records the first status code and forwards it.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="Captured.WroteHeader"></a>
 
@@ -407,7 +407,7 @@ func (w *Captured) WroteHeader() bool
 
 WroteHeader reports whether the handler has sent the status and headers, after which a middleware can no longer change them.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -479,7 +479,7 @@ type MaintenanceOptions struct {
 
 MaintenanceOptions configures [Maintenance](#Maintenance). The values are read on every request, so runtime settings (config.Value) switch maintenance mode on every instance without a restart.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -666,7 +666,7 @@ func Maintenance(opts MaintenanceOptions) Middleware
 
 Maintenance answers every request with 503 and the problem code maintenance while opts.Enabled is on, except requests for opts.Open paths (ADR-0051). It reads the values from opts on each request and does no other work, so it costs no database query when the values are runtime settings.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 

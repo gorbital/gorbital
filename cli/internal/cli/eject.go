@@ -36,10 +36,10 @@ type ejectRemovedMessage string
 
 func (e ejectRemovedMessage) Error() string { return string(e) }
 
-// errEjectRemoved answers `orb eject`, removed in v0.2.2 (ADR-0092). The
+// errEjectRemoved answers `orb eject`, removed in v0.3.0 (ADR-0092). The
 // name stays registered for one release so a script or an old page gets an
 // answer rather than "unknown command".
-const errEjectRemoved = ejectRemovedMessage(`orb eject was removed in v0.2.2.
+const errEjectRemoved = ejectRemovedMessage(`orb eject was removed in v0.3.0.
 
 Sign-in and organisations are already in your app, under internal/modules:
 orb new put them there. There is nothing to eject.

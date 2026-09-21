@@ -135,7 +135,7 @@ func TestCopiedPackageFilesMatchTheCopy(t *testing.T) {
 func TestChangelogSections(t *testing.T) {
 	changelog := `# Changelog
 
-## v0.2.2 (2026-09-21)
+## v0.3.0 (2026-09-21)
 
 ### Fixed
 
@@ -154,13 +154,13 @@ func TestChangelogSections(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("changelogSections() = %+v, want two releases", got)
 	}
-	if got[0].Version != "v0.2.2" || got[0].Date != "2026-09-21" || len(got[0].Entries) != 1 {
+	if got[0].Version != "v0.3.0" || got[0].Date != "2026-09-21" || len(got[0].Entries) != 1 {
 		t.Errorf("newest release = %+v", got[0])
 	}
 	if got[1].Version != "v0.2.1" || len(got[1].Entries) != 1 {
 		t.Errorf("older release = %+v", got[1])
 	}
-	if got := changelogSections(changelog, "authhttp", "v0.2.2"); len(got) != 0 {
+	if got := changelogSections(changelog, "authhttp", "v0.3.0"); len(got) != 0 {
 		t.Errorf("changelogSections() at the newest version = %+v", got)
 	}
 }

@@ -61,7 +61,7 @@ func TestModuleMatchesShelfie(t *testing.T) {
 //	orb gen module Project name:string:unique description:text 'status:enum(active,archived)'
 //
 // owned by users in examples/full-single and examples/api-basic, and with
-// --scope tenant by organisations in examples/full-multi. Since v0.2.2 orb
+// --scope tenant by organisations in examples/full-multi. Since v0.3.0 orb
 // new generates the module rather than writing it from templates
 // (ADR-0090 §5), so every app of a release has one migration version for
 // it: the first after the built-in modules', which run in the same

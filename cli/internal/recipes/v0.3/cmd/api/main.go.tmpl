@@ -1,0 +1,100 @@
+// Command api runs ⟦.Name⟧, built on gorbital.Main: the server, and the
+// commands its modules add.
+//
+//	go run ./cmd/api                     serve the API (APP_ENV and DATABASE_URL from the environment)
+//	go run ./cmd/api migrate             apply migrations; --status reports pending ones
+//	go run ./cmd/api openapi --dir api   write the OpenAPI document, the Postman collection and llms.txt
+⟦- if .Profile.SignsIn⟧
+//	go run ./cmd/api seed                create the development administrator (orb dev runs it)
+//	go run ./cmd/api grant-role <email> <role>
+//	                                     give an account a platform role
+⟦- end⟧
+//	go run ./cmd/api help                list every command
+package main
+
+import (
+	"gorbital.dev/gorbital"
+⟦- if .Profile.SignsIn⟧
+	"gorbital.dev/gorbital/authhttp"
+⟦- end⟧
+	"gorbital.dev/gorbital/flagshttp"
+	"gorbital.dev/gorbital/mailevents"
+	"gorbital.dev/gorbital/opshttp"
+⟦- if .Profile.Named⟧
+	"gorbital.dev/gorbital/orgshttp"
+⟦- end⟧
+
+	"⟦.Module⟧/db/migrations"
+	"⟦.Module⟧/internal/modules"
+⟦- if .Profile.CustomScope⟧
+	"⟦.Module⟧/internal/modules/scope"
+⟦- end⟧
+)
+
+func main() {
+	gorbital.Main(options()...)
+}
+
+// options are the app: what main.go runs and the tests build.
+func options() []gorbital.Option {
+⟦- if .Profile.SignsIn⟧
+⟦- if .Profile.AllMethods⟧
+	auth := authhttp.New() // sign-in: accounts, sessions, 2FA, passkeys, Google, Apple, GitHub, API keys
+⟦- else⟧
+	// sign-in: accounts, sessions, and the operators' account APIs. The
+	// other methods' tables exist and stay empty, so adding one is this one
+	// line and a restart (ADR-0089).
+	auth := authhttp.New(authhttp.Methods(⟦range $i, $m := .Profile.AuthMethods⟧⟦if $i⟧, ⟦end⟧authhttp.Method⟦$m.Ident⟧⟦end⟧))
+⟦- end⟧
+⟦- end⟧
+⟦- if .Profile.CustomScope⟧
+	// ⟦.Profile.Vocabulary.Plural⟧: the app's own membership rules
+	// (internal/modules/scope). guard.Scope asks the authorizer on every
+	// request to a /v1/⟦.Profile.Vocabulary.Segment⟧/{⟦.Profile.Vocabulary.PathParam⟧}/… route.
+	tenants := scope.New()
+⟦- end⟧
+	return []gorbital.Option{
+		gorbital.WithName("⟦.Name⟧"),
+⟦- if .Profile.SignsIn⟧
+		gorbital.WithAuth(auth),
+⟦- end⟧
+⟦- if .Profile.Named⟧⟦if not .Profile.Vocabulary.IsOrganisations⟧
+		// The words the ⟦.Profile.Vocabulary.Plural⟧ module is mounted under, said
+		// before it runs: guard.Scope's route checks and the exported
+		// OpenAPI document are built before any module sets the scope.
+		gorbital.WithScopeWords(gorbital.Scope{
+			Name:         "⟦.Profile.Vocabulary.Name⟧",
+			PathParam:    "⟦.Profile.Vocabulary.PathParam⟧",
+			NotFoundCode: "⟦.Profile.Vocabulary.NotFoundCode⟧",
+		}),
+⟦- end⟧⟦end⟧
+⟦- if .Profile.CustomScope⟧
+		gorbital.WithScope(scope.Scope(), tenants),
+⟦- end⟧
+		gorbital.WithModules(
+			opshttp.Module(opshttp.MailProvider(mailProvider)), // /ops/: settings, flags, jobs, audit, email, observability
+			flagshttp.Module(),  // GET /v1/flags: client feature flags
+			mailevents.Module(), // POST /v1/webhooks/resend: bounces and complaints
+		),
+⟦- if .Profile.Named⟧
+⟦- if .Profile.Vocabulary.IsOrganisations⟧
+		gorbital.WithModules(orgshttp.Module(auth)), // organisations: members, roles, invitations, personal workspaces
+⟦- else⟧
+		// ⟦.Profile.Vocabulary.Plural⟧: members, roles, invitations, personal workspaces.
+		// The organisations module under this app's own words; its service
+		// accounts keep sign-in's paths, so they are left out.
+		gorbital.WithModules(orgshttp.Module(auth,
+			orgshttp.ScopeName("⟦.Profile.Vocabulary.Name⟧", "⟦.Profile.Vocabulary.Segment⟧", "⟦.Profile.Vocabulary.PathParam⟧"),
+			orgshttp.WithoutServiceAccounts(),
+		)),
+⟦- end⟧
+⟦- end⟧
+⟦- if .Profile.CustomScope⟧
+		gorbital.WithModules(tenants.Module()), // internal/modules/scope: the membership tables behind guard.Scope
+⟦- end⟧
+		gorbital.WithModules(modules.All()...), // internal/modules/modules.gen.go: ping, projects
+		gorbital.WithMigrations(migrations.FS), // db/migrations: the app's own tables
+		gorbital.WithMailerFunc(mailer),        // mail.go: the email provider, set by orb add mail
+		gorbital.WithStorageFunc(fileStorage),  // storage.go: S3-compatible file storage
+	}
+}

@@ -61,7 +61,7 @@ const (
 
 Defaults and bounds of [Config](#Config).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="ReservedPermissionPrefix"></a>
 
@@ -71,7 +71,7 @@ const ReservedPermissionPrefix = "ops."
 
 ReservedPermissionPrefix is the permission namespace of the framework's own operations console (gorbital.dev/gorbital/opshttp). The default actor mapping drops permissions under it, because /ops authorizes on the actor's permissions alone and the claim a provider puts them in is often not fully under the operator's control: an OAuth "scope" claim is asked for by the client, and several providers map user-editable metadata into it. An app that does grant its operators /ops through the provider says so with [Config.ActorFrom](#Config.ActorFrom), which this never touches.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 ## Variables
 
@@ -95,7 +95,7 @@ var (
 
 Errors returned by [Authenticator.Verify](#Authenticator.Verify). Check them with [errors.Is](https://pkg.go.dev/errors#Is).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="DefaultAlgorithms"></a>
 
@@ -105,7 +105,7 @@ var DefaultAlgorithms = []string{"RS256", "ES256", "EdDSA"}
 
 DefaultAlgorithms are the signature algorithms accepted unless [Config.Algorithms](#Config.Algorithms) sets others.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="ErrNoClaim"></a>
 
@@ -115,7 +115,7 @@ var ErrNoClaim = errors.New("jwt: no such claim")
 
 ErrNoClaim reports a claim the token doesn't carry.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 ## Types
 
@@ -131,7 +131,7 @@ type Authenticator struct {
 
 An Authenticator verifies tokens from one provider. Create it with [New](#New). It is safe for concurrent use.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -179,7 +179,7 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*Authenticator, error
 
 New validates cfg and fetches the provider's keys, within ctx. It returns an error for a missing issuer or audience, an unknown or disallowed algorithm, a JWKS URL that isn't https (or http on a loopback address), a clock skew out of bounds, an HMAC secret that is short or not matched by an HS algorithm, or keys that can't be fetched or contain no usable signing key, so a misconfigured app fails when it starts.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -222,7 +222,7 @@ Middleware returns middleware that authenticates requests carrying a JWT in an "
 
 A JWT that fails verification is refused with 401 invalid\_token and a WWW-Authenticate header (RFC 6750), rather than continuing anonymously, so a client learns to get a new token instead of silently losing access. When the provider's keys can't be fetched it answers 503 auth\_unavailable. Refusals are logged at debug level; failed key fetches at warn level, at most once every 30 seconds.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -276,7 +276,7 @@ func (a *Authenticator) Verify(ctx context.Context, token string) (Claims, error
 
 Verify checks token and returns its claims. It returns an error wrapping [ErrInvalidToken](#ErrInvalidToken) when the token isn't acceptable, and [ErrKeysUnavailable](#ErrKeysUnavailable) when its key isn't cached and the provider's keys can't be fetched. Use it outside HTTP middleware, such as for a WebSocket's first message.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -336,7 +336,7 @@ type Claims struct {
 
 Claims are a verified token's claims: the registered ones as fields, and any other through [Claims.String](#Claims.String), [Claims.Strings](#Claims.Strings) and [Claims.Decode](#Claims.Decode).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -370,7 +370,7 @@ func (c Claims) Decode(name string, v any) error
 
 Decode unmarshals a claim's JSON into v, such as a provider's nested metadata object. It returns an error wrapping [ErrNoClaim](#ErrNoClaim) when the claim is missing, or the JSON error when it doesn't fit v.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -402,7 +402,7 @@ func (c Claims) String(name string) string
 
 String returns a string claim, or "" when the claim is missing or isn't a string.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -427,7 +427,7 @@ func (c Claims) Strings(name string) []string
 
 Strings returns a claim holding a list of strings, such as "permissions", or one space-separated string, such as "scope". It returns nil when the claim is missing or is neither.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -504,7 +504,7 @@ type Config struct {
 
 Config configures [New](#New).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -560,7 +560,7 @@ type Option func(*options)
 
 An Option configures [New](#New).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -591,7 +591,7 @@ func WithClock(now func() time.Time) Option
 
 WithClock sets the clock used to check token times and cache ages, for tests. Default: [time.Now](https://pkg.go.dev/time#Now).
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -625,7 +625,7 @@ func WithHMACSecret(secret []byte) Option
 
 WithHMACSecret sets the shared secret for HS256, HS384 and HS512 tokens, such as a Supabase project's legacy JWT secret. It must be at least 32 bytes, and those algorithms must be listed in [Config.Algorithms](#Config.Algorithms). Prefer a provider's asymmetric keys: anyone holding the secret can issue tokens.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -661,7 +661,7 @@ func WithHTTPClient(c *http.Client) Option
 
 WithHTTPClient sets the client used to fetch the provider's keys, such as one with a proxy or custom root certificates. Default: a client with a 10-second timeout that follows at most 3 redirects, each to an allowed URL.
 
-*Since `v0.2.2 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 

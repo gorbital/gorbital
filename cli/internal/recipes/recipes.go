@@ -1,12 +1,12 @@
 // Package recipes renders the project templates used by orb new.
 //
 // Each tree of templates is generated from a hand-written golden app by
-// `go generate`: minimal/ from examples/minimal; v0.2.2/, the layout orb
+// `go generate`: minimal/ from examples/minimal; v0.3/, the layout orb
 // new writes (apps on gorbital.Main, ADR-0083), from examples/full-multi;
 // and full/ and full-multi/, the v0.1 layout that v0.1 apps keep, from
 // examples/v0.1/full-single and examples/v0.1/full-multi (ADR-0041,
 // ADR-0048). Never edit them by hand — except the hand-written part of
-// v0.2.2/, which lives in gen/tree/ and is copied over the generated one.
+// v0.3/, which lives in gen/tree/ and is copied over the generated one.
 //
 // One tree serves every shape: manifest.yaml says which features each
 // path belongs to, and Profile.Render writes the ones the app asked for
@@ -41,7 +41,7 @@ import (
 // templatesFS holds this directory's preset and email templates, laid out
 // like an older release's cli/internal/recipes (ADR-0050).
 //
-//go:embed all:minimal all:full all:full-multi all:v0.2.2 mail/*.tmpl
+//go:embed all:minimal all:full all:full-multi all:v0.3 mail/*.tmpl
 var templatesFS embed.FS
 
 // Recipe identities: the names of the preset template trees.
@@ -206,7 +206,7 @@ type Data struct {
 	// Local, when set, is a path to a gorbital checkout used through
 	// replace directives (development before a release is published).
 	Local string
-	// Profile is the app's shape, which the v0.2.2 tree's conditional
+	// Profile is the app's shape, which the v0.3.0 tree's conditional
 	// templates read (ADR-0090 §6). It is the zero Profile for the v0.1
 	// trees, which have no conditionals of their own.
 	Profile Profile

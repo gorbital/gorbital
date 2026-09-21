@@ -128,19 +128,19 @@ This is the release's central trade-off, and it is taken deliberately. `modules/
 
 `none` has no `authhttp` at all, so its migrations are never in the app's history — that is a different case from omitting one of eight.
 
-### 6. External identity is not a profile in v0.2.2
+### 6. External identity is not a profile in v0.3.0
 
 `modules/jwt` already satisfies `gorbital.Authenticator`, which has exactly one method — `Middleware(*slog.Logger) func(http.Handler) http.Handler` (`gorbital/options.go:39`) — and works today wired by hand. The `--auth external` profile, tenancy read from claims, `JWT_*` configuration and the Auth0 and Clerk guides are v0.4 (D14).
 
 Deferring costs nothing, and that is checkable rather than hopeful: nothing in this record has to change for it. `--auth external` is a fourth row in the table above and a scope authorizer built from claims. The `Methods` option, the migration rule and the reporting are unaffected, because an app with an external identity provider does not mount `authhttp` at all.
 
-### 7. Turning a method on after creation is not in v0.2.2
+### 7. Turning a method on after creation is not in v0.3.0
 
 `orb add auth` and `orb add passkeys` need out-of-order migration support, a rollback story and their own ADR (D7). What decision 3 buys is that, until they exist, turning a method on is still possible by hand: add the constant to the `Methods` call in `main.go` and restart. One line, no migration, because the tables are already there. That is precisely why decision 3 was made.
 
 ### 8. A disabled method's code still ships
 
-Honestly recorded, because it is the limit of this release: `orb new` writes `authhttp` into the app (ADR-0092), and a `basic` app holds the passkey, social and API-key files whether or not it serves them. Delivery, use cases and ports are interlinked; deleting the files would not compile. What shrinks is the routes, the settings, the jobs, the rate limiters, the permissions and the OpenAPI document — what the app *exposes*, not what it *contains*. Splitting `authhttp` into per-method packages would fix this and is future work, not v0.2.2 (D6).
+Honestly recorded, because it is the limit of this release: `orb new` writes `authhttp` into the app (ADR-0092), and a `basic` app holds the passkey, social and API-key files whether or not it serves them. Delivery, use cases and ports are interlinked; deleting the files would not compile. What shrinks is the routes, the settings, the jobs, the rate limiters, the permissions and the OpenAPI document — what the app *exposes*, not what it *contains*. Splitting `authhttp` into per-method packages would fix this and is future work, not v0.3.0 (D6).
 
 ## Threat model
 

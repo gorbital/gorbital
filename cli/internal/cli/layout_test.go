@@ -98,7 +98,7 @@ func TestV02UpgradeUpToDate(t *testing.T) {
 }
 
 // TestV02AddOrgsWithOwnSignIn: in an app that holds its sign-in, as orb new
-// writes every Full app since v0.2.1 and as the only shape since v0.2.2
+// writes every Full app since v0.2.1 and as the only shape since v0.3.0
 // removed --no-eject, orb add orgs copies the organisations module
 // too, as orb eject orgs does, since the library's orgshttp takes the
 // library's sign-in: main.go and the tests import the app's copies, and

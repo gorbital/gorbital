@@ -153,8 +153,8 @@ jobs:
         working-directory: cli
         run: |
           go generate ./internal/recipes/
-          git diff --exit-code -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2.2 ../examples/full-single ../examples/full-multi ../examples/api-basic
-          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2.2 ../examples/full-single ../examples/full-multi ../examples/api-basic)"
+          git diff --exit-code -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.3 ../examples/full-single ../examples/full-multi ../examples/api-basic
+          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.3 ../examples/full-single ../examples/full-multi ../examples/api-basic)"
       - name: exported Go API matches the listings in api/ (ADR-0054)
         run: go run -C internal/tools/apicheck .
       - name: docs/reference matches the golden apps' error codes, audit actions, permissions, settings and jobs

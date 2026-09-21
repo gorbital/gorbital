@@ -1,8 +1,8 @@
 # Frozen v0.2.1 contracts
 
-These files are the public contracts of gorbital `v0.2.1`, copied unchanged from the tag with `git show v0.2.1:<path>`. v0.2.2 is additive ([roadmap](../../../docs/v0.2.2-roadmap.md), goal 5): an app built against v0.2.1 keeps working, so nothing recorded here may disappear or change incompatibly.
+These files are the public contracts of gorbital `v0.2.1`, copied unchanged from the tag with `git show v0.2.1:<path>`. v0.3.0 is additive ([roadmap](../../../docs/v0.3-roadmap.md), goal 5): an app built against v0.2.1 keeps working, so nothing recorded here may disappear or change incompatibly.
 
-v0.2.2 renames the vocabulary of tenancy ([ADR-0088](../../../docs/adr/0088-scope-tenancy-as-a-contract.md)) and lets an app decline sign-in methods ([ADR-0089](../../../docs/adr/0089-sign-in-profiles.md)). Both are additive by construction, and this fixture set is what proves it: the `Org*` names stay in the Go API listings, and a Full app's HTTP contract does not move.
+v0.3.0 renames the vocabulary of tenancy ([ADR-0088](../../../docs/adr/0088-scope-tenancy-as-a-contract.md)) and lets an app decline sign-in methods ([ADR-0089](../../../docs/adr/0089-sign-in-profiles.md)). Both are additive by construction, and this fixture set is what proves it: the `Org*` names stay in the Go API listings, and a Full app's HTTP contract does not move.
 
 | File | From |
 |---|---|

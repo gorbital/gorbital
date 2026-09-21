@@ -14,7 +14,7 @@ import (
 // every entry names a template. A file added without an entry fails here
 // and in go generate, not in somebody's app.
 func TestManifestCoversTheTree(t *testing.T) {
-	if err := recipes.CheckManifest(recipes.Templates(), recipes.TreeV022); err != nil {
+	if err := recipes.CheckManifest(recipes.Templates(), recipes.TreeV03); err != nil {
 		t.Error(err)
 	}
 }
@@ -76,7 +76,7 @@ func TestRenderWritesWhatTheProfileAsksFor(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		tree, err := recipes.RenderTree(recipes.Templates(), recipes.TreeV022, p, data())
+		tree, err := recipes.RenderTree(recipes.Templates(), recipes.TreeV03, p, data())
 		if err != nil {
 			t.Fatalf("%s: %v", p, err)
 		}
@@ -104,7 +104,7 @@ func TestRenderWritesWhatTheProfileAsksFor(t *testing.T) {
 // them writes main.go and gorbital.yaml.
 func TestEveryLegalProfileRenders(t *testing.T) {
 	for _, p := range recipes.LegalProfiles() {
-		tree, err := recipes.RenderTree(recipes.Templates(), recipes.TreeV022, p, data())
+		tree, err := recipes.RenderTree(recipes.Templates(), recipes.TreeV03, p, data())
 		if err != nil {
 			t.Errorf("%s: %v", p, err)
 			continue
@@ -123,7 +123,7 @@ func TestEveryLegalProfileRenders(t *testing.T) {
 // TestTreePathCount: the one tree is smaller than the two it replaced.
 func TestTreePathCount(t *testing.T) {
 	var paths []string
-	err := fs.WalkDir(recipes.Templates(), recipes.TreeV022, func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(recipes.Templates(), recipes.TreeV03, func(p string, d fs.DirEntry, err error) error {
 		if err == nil && !d.IsDir() {
 			paths = append(paths, p)
 		}
@@ -133,10 +133,10 @@ func TestTreePathCount(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(paths) > 64 {
-		t.Errorf("%s has %d files; v0.2/full and v0.2/full-multi had 63 and 64 between them, and one tree must be smaller than either", recipes.TreeV022, len(paths))
+		t.Errorf("%s has %d files; v0.2/full and v0.2/full-multi had 63 and 64 between them, and one tree must be smaller than either", recipes.TreeV03, len(paths))
 	}
-	if !slices.Contains(paths, recipes.TreeV022+"/"+recipes.ManifestName) {
-		t.Errorf("%s has no %s", recipes.TreeV022, recipes.ManifestName)
+	if !slices.Contains(paths, recipes.TreeV03+"/"+recipes.ManifestName) {
+		t.Errorf("%s has no %s", recipes.TreeV03, recipes.ManifestName)
 	}
 }
 

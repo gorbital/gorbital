@@ -375,7 +375,7 @@
           "pages": [
             { "title": "Roadmap", "slug": "roadmap", "source": "docs/roadmap.md" },
             { "title": "v0.2 roadmap", "slug": "v0.2-roadmap", "source": "docs/v0.2-roadmap.md" },
-            { "title": "v0.2.2 roadmap", "slug": "v0.2.2-roadmap", "source": "docs/v0.2.2-roadmap.md" },
+            { "title": "v0.3.0 roadmap", "slug": "v0.3-roadmap", "source": "docs/v0.3-roadmap.md" },
             { "title": "Changelog", "slug": "changelog", "source": "CHANGELOG.md" }
           ]
         }

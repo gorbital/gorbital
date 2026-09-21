@@ -4,7 +4,7 @@
 
 Every exported constant, variable, function, type and method of the gorbital library, one page per package: its signature, its doc comment, runnable examples from the package's `Example` functions, and the release it arrived in. The pages are generated from the Go source, so they match `go doc` for the same version.
 
-*Since* names the first release whose API listing (`api/*.txt`) has the identifier; `v0.2.2 (unreleased)` marks API added on this branch. What the tiers promise: [Stability](../guides/stability.md).
+*Since* names the first release whose API listing (`api/*.txt`) has the identifier; `v0.3.0 (unreleased)` marks API added on this branch. What the tiers promise: [Stability](../guides/stability.md).
 
 ## Core
 

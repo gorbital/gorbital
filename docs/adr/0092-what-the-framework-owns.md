@@ -70,7 +70,7 @@ This becomes a tier table in ADR-0015 beside the existing Public / Experimental 
 The command, its help line and its interactive picker go. For one release the name stays registered and exits non-zero with an explanation rather than "unknown command":
 
 ```text
-orb eject was removed in v0.2.2.
+orb eject was removed in v0.3.0.
 Sign-in and organisations are already in your app, under internal/modules —
 orb new put them there. There is nothing to eject.
 ```
@@ -98,7 +98,7 @@ Code that `orb new` wrote is *the app's code*. It is not "ejected", because it w
 
 ### 7. Copied code gets a fix path, not only a warning
 
-Layer 2 is the app's, so a library fix does not reach it by `go get`. `orb doctor` already reports that the library's version of a copied module has changed and quotes the changelog. v0.2.2 adds `orb doctor --security`, which uses the source version and SHA-256 in `gorbital.lock` to fetch the version each copy was made from and compare it, file by file, with the version the app requires now.
+Layer 2 is the app's, so a library fix does not reach it by `go get`. `orb doctor` already reports that the library's version of a copied module has changed and quotes the changelog. v0.3.0 adds `orb doctor --security`, which uses the source version and SHA-256 in `gorbital.lock` to fetch the version each copy was made from and compare it, file by file, with the version the app requires now.
 
 This is what makes copying better than a fork: the copy knows where it came from.
 

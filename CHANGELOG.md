@@ -4,7 +4,7 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
-## v0.2.2 (unreleased)
+## v0.3.0 (unreleased)
 
 Tenancy becomes a contract your app fills in, sign-in becomes a choice, and a generated resource states its access rule instead of assuming one. The library is additive; the CLI removes two things.
 
@@ -70,7 +70,7 @@ Since v0.2.1 `orb new` writes sign-in and organisations into the app as the app'
 #### Added
 
 - [Tenancy](docs/guides/tenancy.md), [Access control](docs/guides/access-control.md) and [Resource access](docs/guides/resource-access.md).
-- ADRs [0088](docs/adr/0088-scope-tenancy-as-a-contract.md), [0089](docs/adr/0089-sign-in-profiles.md), [0090](docs/adr/0090-composing-presets.md), [0091](docs/adr/0091-resource-access-policies.md), [0092](docs/adr/0092-what-the-framework-owns.md), [0093](docs/adr/0093-the-examples-repository.md), and the [v0.2.2 roadmap](docs/v0.2.2-roadmap.md).
+- ADRs [0088](docs/adr/0088-scope-tenancy-as-a-contract.md), [0089](docs/adr/0089-sign-in-profiles.md), [0090](docs/adr/0090-composing-presets.md), [0091](docs/adr/0091-resource-access-policies.md), [0092](docs/adr/0092-what-the-framework-owns.md), [0093](docs/adr/0093-the-examples-repository.md), and the [v0.3.0 roadmap](docs/v0.3-roadmap.md).
 
 #### Fixed
 
