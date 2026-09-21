@@ -26,7 +26,7 @@ invoices := r.Group("/v1/orgs/{orgId}/invoices")
 gorbital.Get(invoices, "", h.list, guard.Scope("invoices.invoice.read"))
 ```
 
-[Module](#Module) takes an [Identity](#Identity) rather than a particular sign-in.
+[ScopeName](#ScopeName) mounts the same module under the app's own words, and [Module](#Module) takes an [Identity](#Identity) rather than a particular sign-in.
 
 Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 
@@ -35,7 +35,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 - Functions: [`DefaultScope`](#DefaultScope), [`Module`](#Module)
 - Types:
   - [`Identity`](#Identity)
-  - [`Option`](#Option): [`Brand`](#Brand), [`WithoutServiceAccounts`](#WithoutServiceAccounts)
+  - [`Option`](#Option): [`Brand`](#Brand), [`ScopeName`](#ScopeName), [`WithoutServiceAccounts`](#WithoutServiceAccounts)
 
 ## Functions
 
@@ -49,7 +49,7 @@ func DefaultScope() gorbital.Scope
 
 DefaultScope is the tenancy organisations give an app (ADR-0088): the concept named "organisation", its ID in {orgId} and shaped like orgs.ParseID accepts, refused with 404 org\_not\_found, the roles owner, admin and member, and the organisation carried into the request's connections for row-level security. It is the vocabulary of v0.1 and v0.2 multi-tenant apps, so their HTTP contract doesn't change.
 
-[Module](#Module) sets it with gorbital.Platform.SetScope, so an app that mounts organisations needs nothing else for guard.Scope. An app that writes its own membership rules starts from its own gorbital.Scope instead.
+[Module](#Module) sets it with gorbital.Platform.SetScope, so an app that mounts organisations needs nothing else for guard.Scope. An app that writes its own membership rules starts from its own gorbital.Scope instead; [ScopeName](#ScopeName) renames this one.
 
 Unlike gorbital.DefaultOrgScope it has a ValidID: only this package may import gorbital.dev/modules/orgs, so only this package knows how an organisation ID is shaped.
 
@@ -219,6 +219,58 @@ auth := authhttp.New(authhttp.Brand(brand))
 _ = gorbital.WithModules(orgshttp.Module(auth, orgshttp.Brand(brand)))
 ```
 
+<a id="ScopeName"></a>
+
+#### func ScopeName
+
+```go
+func ScopeName(singular, plural, param string) Option
+```
+
+ScopeName mounts the same organisations under the app's own words: singular names the concept ("merchant"), plural is the path segment the routes are under ("merchants"), and param is the path parameter the ID is read from ("merchantId").
+
+It changes four things, and only these four:
+
+  - the route paths, /v1/orgs/… becoming /v1/\<plural>/…;
+  - the path parameter, {orgId} becoming {param}, in the paths, in the OpenAPI document and for guard.Scope;
+  - the refusal code of a request from someone who isn't a member, org\_not\_found becoming \<singular>\_not\_found, with the 403 forbidden and mfa\_required details worded for the concept;
+  - the OpenAPI tag, Organisations becoming the plural capitalised.
+
+Everything else is the app's data or its declared API, and renaming it is out of scope for v0.3: the database tables and columns, the migrations, the permission names (orgs.\*), the role names (owner, admin, member), the operation IDs (orgs-\*), the schema names, the audit actions (orgs.\*), the runtime setting keys (orgs.\*), the job name (orgs\_purge), the other error codes and the wording of the messages that carry them. The ID format is unchanged too: a merchant's ID is still org\_….
+
+The organisation service accounts under /v1/orgs/{orgId}/service-accounts are sign-in's operations, registered by gorbital.dev/gorbital/authhttp under its own paths, so they can't follow the new words: gorbital.New fails unless [WithoutServiceAccounts](#WithoutServiceAccounts) leaves them out.
+
+singular and plural are lowercase letters; param is a letter followed by letters and digits. gorbital.New fails, naming the value, when one isn't.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// A shop API mounts the same organisations as merchants: the routes
+// are /v1/merchants/{merchantId}/…, a request from someone who isn't
+// a member is refused with merchant_not_found, and the OpenAPI tag is
+// Merchants. The tables, migrations, permission names and role names
+// are the organisations module's, unchanged.
+auth := authhttp.New()
+m := orgshttp.Module(auth,
+	orgshttp.ScopeName("merchant", "merchants", "merchantId"),
+	orgshttp.WithoutServiceAccounts(), // sign-in registers those under /v1/orgs
+)
+var roles []string
+for _, p := range m.Permissions {
+	roles = append(roles, p.ScopeRoles...)
+}
+slices.Sort(roles)
+fmt.Println(m.Name, slices.Compact(roles))
+```
+
+Output:
+
+```text
+orgs [admin member owner]
+```
+
 <a id="WithoutServiceAccounts"></a>
 
 #### func WithoutServiceAccounts
@@ -229,7 +281,7 @@ func WithoutServiceAccounts() Option
 
 WithoutServiceAccounts leaves out the operations on organisations' service accounts and their API keys (/v1/orgs/{orgId}/service-accounts, ADR-0058) and the orgs.service\_accounts.manage permission that guards them.
 
-They are sign-in's operations, registered through the [Identity](#Identity)'s OrgServiceAccountRoutes: an identity that can't issue API keys doesn't have that method. Without this option gorbital.New fails, naming it.
+They are sign-in's operations, registered through the [Identity](#Identity)'s OrgServiceAccountRoutes: an identity that can't issue API keys doesn't have that method, and an app that mounts organisations under its own words ([ScopeName](#ScopeName)) can't have them under /v1/orgs. Without this option gorbital.New fails in both cases, naming it.
 
 *Since `v0.2.0 (unreleased)`*
 

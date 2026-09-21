@@ -106,3 +106,23 @@ func ExampleWithoutServiceAccounts() {
 	fmt.Println(slices.Contains(names, "orgs.service_accounts.manage"))
 	// Output: false
 }
+
+func ExampleScopeName() {
+	// A shop API mounts the same organisations as merchants: the routes
+	// are /v1/merchants/{merchantId}/…, a request from someone who isn't
+	// a member is refused with merchant_not_found, and the OpenAPI tag is
+	// Merchants. The tables, migrations, permission names and role names
+	// are the organisations module's, unchanged.
+	auth := authhttp.New()
+	m := orgshttp.Module(auth,
+		orgshttp.ScopeName("merchant", "merchants", "merchantId"),
+		orgshttp.WithoutServiceAccounts(), // sign-in registers those under /v1/orgs
+	)
+	var roles []string
+	for _, p := range m.Permissions {
+		roles = append(roles, p.ScopeRoles...)
+	}
+	slices.Sort(roles)
+	fmt.Println(m.Name, slices.Compact(roles))
+	// Output: orgs [admin member owner]
+}

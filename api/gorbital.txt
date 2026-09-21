@@ -397,6 +397,7 @@ pkg gorbital.dev/gorbital/opshttp, type Option func(*options)
 pkg gorbital.dev/gorbital/orgshttp, func Brand(mail.Brand) Option
 pkg gorbital.dev/gorbital/orgshttp, func DefaultScope() gorbital.Scope
 pkg gorbital.dev/gorbital/orgshttp, func Module(Identity, ...Option) gorbital.Module
+pkg gorbital.dev/gorbital/orgshttp, func ScopeName(string, string, string) Option
 pkg gorbital.dev/gorbital/orgshttp, func WithoutServiceAccounts() Option
 pkg gorbital.dev/gorbital/orgshttp, type Identity interface { UseOrganisations }
 pkg gorbital.dev/gorbital/orgshttp, type Identity interface, UseOrganisations(authhttp.Organisations) error
