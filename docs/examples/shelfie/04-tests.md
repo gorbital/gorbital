@@ -67,7 +67,7 @@ The books module sends neither yet; the test shows the calls, and a later chapte
 | Test | Checks | Needs |
 |---|---|---|
 | `internal/modules/books/domain/book_test.go` | The rules of `NewBook` and `Apply`, and a fuzz test of ISBN normalisation (`go test -fuzz FuzzNormalizeISBN ./internal/modules/books/domain`) | Nothing |
-| `internal/modules/architecture_test.go` | The layers: `domain` imports only the standard library, `delivery` never imports `repository`, a module never imports another module's layers (only its root package, such as an ejected sign-in module's authenticator) | Nothing |
+| `internal/modules/architecture_test.go` | The layers: `domain` imports only the standard library, `delivery` never imports `repository`, a module never imports another module's layers (only its root package, such as the app's own sign-in module's authenticator) | Nothing |
 | `internal/modules/books/protection_test.go` | [Chapter 2](02-protecting-routes.md)'s guards: deny by default, a missing permission, the rate limit, and the recent sign-in `DELETE /v1/books` needs | A database |
 | `internal/modules/books/client_version_test.go`, `subscription_test.go`, `delivery/require_client_version_test.go` | [Chapter 3](03-your-own-middleware.md)'s middleware and guard, end to end and on their own | The first two, a database |
 | `cmd/api/main_test.go` | `api/openapi.json` is what the code describes; after changing a route, run `go run ./cmd/api openapi --dir api` | Go |

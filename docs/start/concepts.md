@@ -14,7 +14,7 @@ Why split it this way:
 
 - **Your code stays yours.** Everything specific to your product is plain Go in your repository, and `main.go` says in one line each what the library adds. There's no hidden framework magic: no reflection, no code in comments.
 - **Fixes are easy to get.** Sign-in, `/ops` and the wiring are in the library, so a fix reaches your app when you update it with `go get`.
-- **You can take anything back.** Options and hooks change the built-in parts; for anything else, `orb eject` copies a built-in module into your app as your code.
+- **The parts you are most likely to change are already yours.** Sign-in and organisations are written into your repository when the app is created, so a change no option or hook reaches is an edit to a file you own ([The code in your repo](../guides/the-code-in-your-repo.md)).
 - **Nothing locks you in.** Remove `orb` and your app still builds, runs and deploys.
 
 ## What a new app looks like
