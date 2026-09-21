@@ -75,6 +75,10 @@ APP_REQUEST_TIMEOUT (apps on gorbital.Main);
 .env; whether api/ matches the code; and the database's migrations and
 row-level security. It changes nothing (ADR-0051).
 
+--security runs a review of its own instead: what has changed upstream in
+the modules the app owns a copy of, and static rules over the app's own
+code. Run "orb doctor --security -h" for what it can and cannot tell you.
+
 Exit codes: 0 when no check failed (warnings allowed), 1 when one did, 2 for
 invalid usage.
 `
@@ -84,8 +88,13 @@ func runDoctor(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	flags.SetOutput(stderr)
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	fast := flags.Bool("fast", false, "skip the checks that build the app: api/ files and database")
+	security := flags.Bool("security", false, "review the code the app owns instead: what changed upstream, and static rules")
 	flags.Usage = func() {
-		fmt.Fprint(stderr, doctorUsage+"\nFlags:\n")
+		usage := doctorUsage
+		if slices.Contains(args, "--security") || slices.Contains(args, "-security") {
+			usage = doctorSecurityUsage
+		}
+		fmt.Fprint(stderr, usage+"\nFlags:\n")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(args); err != nil {
@@ -97,6 +106,9 @@ func runDoctor(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	app, err := findApp()
 	if err != nil {
 		return err
+	}
+	if *security {
+		return runDoctorSecurity(ctx, app, *asJSON, stdout)
 	}
 
 	d := &doctor{dir: app.dir, res: doctorResult{App: filepath.Base(app.dir), Layout: appLayout(app.dir), Checks: []doctorCheck{}}}
