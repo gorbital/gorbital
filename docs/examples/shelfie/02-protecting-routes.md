@@ -6,19 +6,19 @@
 
 The books route table, in full:
 
-<!-- include examples/apps/shelfie/internal/modules/books/delivery/routes.go#routes -->
+<!-- include examples/shelfie/internal/modules/books/delivery/routes.go#routes -->
 
 The group's `gorbital.Use(RequireClientVersion)` and the `ActiveSubscription()` on the export are the module's own, and [chapter 3](03-your-own-middleware.md) writes them; everything else here is the library's.
 
 Not one of these routes says who may call it in general, and that is the point: a route with no `guard.Public()` requires an authenticated caller. Forgetting a guard makes a route *harder* to reach, never easier. The refusal happens before Huma parses the request, so an anonymous caller never learns what the body should have looked like:
 
-<!-- include examples/apps/shelfie/internal/modules/books/protection_test.go#deny-by-default -->
+<!-- include examples/shelfie/internal/modules/books/protection_test.go#deny-by-default -->
 
 ## 2. Permissions
 
 `guard.Permission("books.book.read")` checks a permission the authentication middleware computed from the caller's roles. The module declares it so it exists in the catalogue, and names the roles that hold it:
 
-<!-- include examples/apps/shelfie/internal/modules/books/module.go#permissions -->
+<!-- include examples/shelfie/internal/modules/books/module.go#permissions -->
 
 Every signed-in reader holds the `user` role, so every reader can manage their own shelf. An API key holds a permission only when its scopes include it, which is how a reader hands out a key that reads their shelf without being able to empty it ([chapter 4](04-tests.md) tests that).
 
@@ -28,7 +28,7 @@ A permission is not ownership. `books.book.write` says a reader may write *books
 
 `guard.RateLimit(30, time.Minute)` on `POST /v1/books` gives each reader thirty new books a minute, in bursts of up to thirty:
 
-<!-- include examples/apps/shelfie/internal/modules/books/protection_test.go#rate-limit -->
+<!-- include examples/shelfie/internal/modules/books/protection_test.go#rate-limit -->
 
 The budget is per caller, not per route: one reader hitting the limit doesn't slow anyone else down, and the reads on the same shelf are untouched. `guard.ByIP()` counts per client address instead, which is what [chapter 7](07-phone-code-sign-in.md)'s sign-in routes use, because a caller who hasn't signed in yet has no user to count. A limiter that can't decide at all allows the request: rate limits slow abuse down, they don't lock readers out.
 
@@ -36,9 +36,9 @@ The budget is per caller, not per route: one reader hitting the limit doesn't sl
 
 `DELETE /v1/books` empties a shelf, and nothing keeps a copy. A permission is the wrong question for an operation like that, because a stolen session holds every permission its owner does; the question is whether the person is still at the keyboard. `guard.RecentReauth()` requires a session that signed in, or verified a second factor, in the last ten minutes:
 
-<!-- include examples/apps/shelfie/internal/modules/books/delivery/routes.go#empty-shelf-route -->
+<!-- include examples/shelfie/internal/modules/books/delivery/routes.go#empty-shelf-route -->
 
-<!-- include examples/apps/shelfie/internal/modules/books/protection_test.go#recent-reauth -->
+<!-- include examples/shelfie/internal/modules/books/protection_test.go#recent-reauth -->
 
 A client that gets `reauthentication_required` asks the person to sign in again and retries. An API key never can, so it gets `session_required` instead: this is an operation for a person, not for a script. The same guard belongs on anything that changes how an account signs in, or shows its recovery codes.
 

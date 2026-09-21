@@ -9,7 +9,7 @@ Shelfie runs in production now, and the people who run it need to change things 
 
 One line in `main.go`:
 
-<!-- include examples/apps/shelfie/cmd/api/main.go#main -->
+<!-- include examples/shelfie/cmd/api/main.go#main -->
 
 | Module | Adds |
 |---|---|
@@ -24,14 +24,14 @@ What `/ops` shows comes from the whole app. Without writing anything else, opera
 
 A module declares its runtime settings and flags in `Settings` and `Flags`, and keeps what they return for its routes:
 
-<!-- include examples/apps/shelfie/internal/modules/books/module.go#settings-and-flags -->
+<!-- include examples/shelfie/internal/modules/books/module.go#settings-and-flags -->
 
 - `books.shelf_limit` is how many books a reader's shelf holds. Its value lives in PostgreSQL, so a change reaches every instance within a second, without a restart. `ReasonRequired` makes operators say why they change it; the reason is in the setting's history and the audit log.
 - `books.reading_goals` is a client flag: the web and mobile apps read it from `GET /v1/flags` and show reading goals when it's on. The server doesn't branch on it.
 
 The use case reads the setting on every new book:
 
-<!-- include examples/apps/shelfie/internal/modules/books/usecase/create_book.go#check-shelf -->
+<!-- include examples/shelfie/internal/modules/books/usecase/create_book.go#check-shelf -->
 
 and `module.go` maps `ErrShelfFull` to 409 `shelf_full`.
 
@@ -57,15 +57,15 @@ A flag can also roll out to a percentage of readers, or to named users first ([f
 
 An operator lowers the limit, and the next book is refused:
 
-<!-- include examples/apps/shelfie/internal/modules/books/shelf_limit_test.go#shelf-limit -->
+<!-- include examples/shelfie/internal/modules/books/shelf_limit_test.go#shelf-limit -->
 
 `cmd/api/operations_test.go` builds the app with the options of `main.go` and checks who can do what. A reader holding only the books permissions gets 403 `forbidden` on `/ops/`, a viewer reads but can't change:
 
-<!-- include examples/apps/shelfie/cmd/api/operations_test.go#ops-permissions -->
+<!-- include examples/shelfie/cmd/api/operations_test.go#ops-permissions -->
 
 and the flag reaches the apps once an operator turns it on:
 
-<!-- include examples/apps/shelfie/cmd/api/operations_test.go#flags -->
+<!-- include examples/shelfie/cmd/api/operations_test.go#flags -->
 
 `gorbitaltest.User` holds exactly the permissions you name, so the tests don't depend on how roles are granted.
 
@@ -73,7 +73,7 @@ and the flag reaches the apps once an operator turns it on:
 
 Operators usually reach `/ops/` over a VPN. Set `OPS_ALLOWED_IPS` and every other address gets 403 `ip_not_allowed` before the request is even authenticated:
 
-<!-- include examples/apps/shelfie/.env.example#ops-allowed-ips -->
+<!-- include examples/shelfie/.env.example#ops-allowed-ips -->
 
 The address is the client's after `APP_TRUSTED_PROXIES`: behind a load balancer, list the balancer there, or every request seems to come from it. Chapter 10 hardens the rest of the API ([security layers](../../guides/security-layers.md#ip-filter)).
 

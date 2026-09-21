@@ -51,13 +51,13 @@ Next:
 
 It also writes the module's tests, adds the module to `internal/modules/modules.gen.go`, and stops there: the code is yours from now on. [Chapter 9](09-generators.md) is about the generator itself — its fields, its flags and what else it writes.
 
-The rest of this chapter reads Shelfie's own books module, which is that skeleton with Shelfie's rules in it: an author is optional, an ISBN is optional and normalised, and a listing is the newest twenty books rather than the generator's sortable, cursor-paginated one. Where a file already carries work from a later chapter, the text says so, so you know what you're looking at. The whole module is in [`examples/apps/shelfie/internal/modules/books`](https://github.com/gorbital/gorbital/tree/main/examples/apps/shelfie/internal/modules/books).
+The rest of this chapter reads Shelfie's own books module, which is that skeleton with Shelfie's rules in it: an author is optional, an ISBN is optional and normalised, and a listing is the newest twenty books rather than the generator's sortable, cursor-paginated one. Where a file already carries work from a later chapter, the text says so, so you know what you're looking at. The whole module is in [`examples/shelfie/internal/modules/books`](https://github.com/gorbital/gorbital/tree/main/examples/shelfie/internal/modules/books).
 
 ## The table
 
 The generator wrote `db/migrations/<timestamp>_books.sql`. Shelfie's version, which the app is built on, makes the author optional and the ISBN both optional and checked:
 
-<!-- include examples/apps/shelfie/db/migrations/20260920000001_books.sql -->
+<!-- include examples/shelfie/db/migrations/20260920000001_books.sql -->
 
 Apply it with `go run ./cmd/api migrate` (`orb dev` does it when the file changes). A migration is yours to change until it is released; afterwards, add a new one. Each reader's books are theirs: every query filters on `owner_id`.
 
@@ -65,11 +65,11 @@ Apply it with `go run ./cmd/api migrate` (`orb dev` does it when the file change
 
 `domain/` holds the book and its rules, in plain Go with no imports beyond the standard library, so they're tested without a database. A new book is validated and normalised in one place:
 
-<!-- include examples/apps/shelfie/internal/modules/books/domain/book.go#new-book -->
+<!-- include examples/shelfie/internal/modules/books/domain/book.go#new-book -->
 
 The module's errors are sentinel values; the use cases return them, and `module.go` maps each to a status and a stable code:
 
-<!-- include examples/apps/shelfie/internal/modules/books/domain/errors.go#errors -->
+<!-- include examples/shelfie/internal/modules/books/domain/errors.go#errors -->
 
 The last of them, `ErrShelfFull`, belongs to the shelf limit in [chapter 5](05-operations.md); the other seven are this chapter's.
 
@@ -77,19 +77,19 @@ The last of them, `ErrShelfFull`, belongs to the shelf limit in [chapter 5](05-o
 
 `usecase/service.go` holds what every operation shares: the store, the audit log, the logger and the clock.
 
-<!-- include examples/apps/shelfie/internal/modules/books/usecase/service.go#service -->
+<!-- include examples/shelfie/internal/modules/books/usecase/service.go#service -->
 
 `shelfLimit` is [chapter 5](05-operations.md)'s: a runtime setting operators change through `/ops`, read on every new book. A module without a limit passes nil for it, and nothing is checked.
 
 The use cases own the port the repository implements, in `ports.go`:
 
-<!-- include examples/apps/shelfie/internal/modules/books/usecase/ports.go#store -->
+<!-- include examples/shelfie/internal/modules/books/usecase/ports.go#store -->
 
 Five of those seven methods are this chapter's five operations. `DeleteBooks` belongs to "empty my shelf" ([chapter 2](02-protecting-routes.md)) and `CountBooks` to the shelf limit ([chapter 5](05-operations.md)). One repository file implements one method, so adding a method here means adding a file under `repository/`.
 
 And each operation is a file. Adding a book finds the signed-in reader, applies the domain rules, stores the book and records an audit event:
 
-<!-- include examples/apps/shelfie/internal/modules/books/usecase/create_book.go#create-book -->
+<!-- include examples/shelfie/internal/modules/books/usecase/create_book.go#create-book -->
 
 The use case doesn't check permissions: the route's guard did before the request body was even read. It does check who the reader is, because a book belongs to them.
 
@@ -97,7 +97,7 @@ The use case doesn't check permissions: the route's guard did before the request
 
 One SQL statement per file, through `postgres.DBTX`, so the same store works on the pool or inside a transaction. Database conditions the use cases handle become domain errors: no row is `ErrBookNotFound`, the unique ISBN per shelf is `ErrISBNTaken`.
 
-<!-- include examples/apps/shelfie/internal/modules/books/repository/insert_book.go#insert-book -->
+<!-- include examples/shelfie/internal/modules/books/repository/insert_book.go#insert-book -->
 
 `store.go` holds what the files share: the column list, the row scanner, and the `driverError` that turns "no rows" and the `books_owner_isbn` unique violation into those two domain errors. Anything else stays a driver error and never reaches the API.
 
@@ -105,7 +105,7 @@ One SQL statement per file, through `postgres.DBTX`, so the same store works on 
 
 `delivery/routes.go` is the whole route table: every path, its summary, status and guards, in one place.
 
-<!-- include examples/apps/shelfie/internal/modules/books/delivery/routes.go#routes -->
+<!-- include examples/shelfie/internal/modules/books/delivery/routes.go#routes -->
 
 Three things here arrive later and are worth skipping for now: `DELETE /v1/books` and its `guard.RecentReauth()` are [chapter 2](02-protecting-routes.md), and both the `RequireClientVersion` middleware on the group and `GET /v1/books/export`, with the `subs` argument and the `ActiveSubscription` guard, are [chapter 3](03-your-own-middleware.md). What the generator wrote, and what this chapter is about, is the five routes in the middle.
 
@@ -113,13 +113,13 @@ Every route requires a signed-in reader, because none is `guard.Public()`; `guar
 
 Each operation's file holds its input and output types and its handler. The struct tags are the API's validation and its OpenAPI document:
 
-<!-- include examples/apps/shelfie/internal/modules/books/delivery/create_book.go#create-book -->
+<!-- include examples/shelfie/internal/modules/books/delivery/create_book.go#create-book -->
 
 ## The module
 
 `module.go` names the module, maps its errors, declares its permissions and wires the layers:
 
-<!-- include examples/apps/shelfie/internal/modules/books/module.go#module -->
+<!-- include examples/shelfie/internal/modules/books/module.go#module -->
 
 Again, later chapters are visible in it: the `active_subscription_refused` mapping is [chapter 3](03-your-own-middleware.md), and the `shelf_full` mapping, the `Settings` and `Flags` functions and the `shelfLimit` argument to `NewService` are [chapter 5](05-operations.md). What the generator writes is the name, the mappings for its own errors, the two permissions and `Routes`.
 

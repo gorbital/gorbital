@@ -9,7 +9,7 @@ import (
 	"gorbital.dev/cli/internal/imports"
 )
 
-const goldenShelfie = "../../../examples/apps/shelfie"
+const goldenShelfie = "../../../examples/shelfie"
 
 // shelvesData is the golden module's command:
 //
@@ -44,7 +44,7 @@ func clubBooksData(t *testing.T) ModuleData {
 }
 
 // TestModuleMatchesShelfie checks that orb gen module reproduces
-// examples/apps/shelfie's shelves module (owned by users), its clubbooks
+// examples/shelfie's shelves module (owned by users), its clubbooks
 // module (owned by organisations) and their migrations exactly, and that
 // the architecture test it writes into apps without one is Shelfie's
 // (ADR-0083). After changing the templates, run

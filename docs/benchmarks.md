@@ -29,7 +29,7 @@ A golden app's size and startup:
 ```bash
 scripts/bench-baseline.sh examples/full-single       # RUNS=5 by default; on gorbital.Main
 scripts/bench-baseline.sh examples/v0.1/full-single  # the same app on the v0.1 layout
-scripts/bench-baseline.sh examples/apps/shelfie
+scripts/bench-baseline.sh examples/shelfie
 ```
 
 It prints the dependency counts, the stripped binary size, and the median time and memory to start until `GET /readyz` answers 200 (details in the script's header). Full apps need `GORBITAL_TEST_DATABASE_URL`: the script creates, migrates and drops a database `bench_<app>`.
@@ -90,7 +90,7 @@ Everything below was measured on 2026-09-17 on the release tree, with `scripts/b
 
 ### Golden apps: size, startup and memory
 
-`scripts/bench-baseline.sh` with `RUNS=5`, the five apps back to back in one session. `examples/full-single`, `examples/full-multi` and `examples/apps/shelfie` are on `gorbital.Main` (the v0.2 layout); `examples/v0.1/full-single` is the same Full single-tenant app on the v0.1 layout; `examples/minimal` composes core packages directly and has no database.
+`scripts/bench-baseline.sh` with `RUNS=5`, the five apps back to back in one session. `examples/full-single`, `examples/full-multi` and `examples/shelfie` are on `gorbital.Main` (the v0.2 layout); `examples/v0.1/full-single` is the same Full single-tenant app on the v0.1 layout; `examples/minimal` composes core packages directly and has no database.
 
 | App | Packages (`go list -deps ./cmd/api`) | Modules (`go list -m all`) | Stripped binary | Startup to `/readyz` 200 (median) | RSS at ready (median) |
 |---|---|---|---|---|---|
@@ -98,7 +98,7 @@ Everything below was measured on 2026-09-17 on the release tree, with `scripts/b
 | `examples/v0.1/full-single` (v0.1 layout) | 675 | 449 | 35 860 306 bytes (34.2 MiB) | 110 ms | 57 888 KiB (56.5 MiB) |
 | `examples/full-single` (`gorbital.Main`) | 679 | 451 | 39 034 690 bytes (37.2 MiB) | 116 ms | 61 088 KiB (59.7 MiB) |
 | `examples/full-multi` (`gorbital.Main`) | 686 | 451 | 40 225 042 bytes (38.4 MiB) | 119 ms | 62 896 KiB (61.4 MiB) |
-| `examples/apps/shelfie` (`gorbital.Main`) | 666 | 270 | 38 967 666 bytes (37.2 MiB) | 115 ms | 61 584 KiB (60.1 MiB) |
+| `examples/shelfie` (`gorbital.Main`) | 666 | 270 | 38 967 666 bytes (37.2 MiB) | 115 ms | 61 584 KiB (60.1 MiB) |
 
 Individual starts (ms): minimal 51, 47, 44, 49, 50; v0.1 full-single 116, 115, 90, 90, 110; full-single 117, 115, 116, 115, 118; full-multi 120, 121, 117, 119, 117; shelfie 113, 119, 115, 110, 115.
 
@@ -186,7 +186,7 @@ What each phase measured when it landed, kept as the record behind the numbers a
 | App | Packages (`go list -deps ./cmd/api`) | Modules (`go list -m all`) | Stripped binary | Startup to `/readyz` 200 (median) | RSS at ready (median) |
 |---|---|---|---|---|---|
 | `examples/minimal` (v0.1 wiring, no database) | 456 | 169 | 18 543 234 bytes (17.7 MiB) | 54 ms | 19 952 KiB (19.5 MiB) |
-| `examples/apps/shelfie` (`gorbital.Main`, one module, no sign-in yet) | 584 | 266 | 26 155 282 bytes (24.9 MiB) | 58 ms and 74 ms (two runs of 9) | 29 968 and 29 920 KiB (29.2 MiB) |
+| `examples/shelfie` (`gorbital.Main`, one module, no sign-in yet) | 584 | 266 | 26 155 282 bytes (24.9 MiB) | 58 ms and 74 ms (two runs of 9) | 29 968 and 29 920 KiB (29.2 MiB) |
 | `examples/full-single` (v0.1 wiring, sign-in and `/ops`) | 674 | 449 | 35 843 778 bytes (34.2 MiB) | 145 ms | 57 840 KiB (56.5 MiB) |
 
 Against the v0.1.0 baselines below: `full-single` is unchanged in packages and binary size (674, 35 843 778 bytes); `minimal`'s binary grew by 16 bytes, with the same packages, while core `httpx` gained `Maintenance`, which Minimal doesn't call. Startup times differ from the baselines' for the same `full-single` code because the machine's load differed: compare rows of one table only.

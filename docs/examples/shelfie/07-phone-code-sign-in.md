@@ -14,25 +14,25 @@ Many of Shelfie's readers use the mobile app and forget passwords. This chapter 
 | `POST /v1/phone-sign-in/code` | Anyone | Texts a sign-in code when an account confirmed the number; always 202 |
 | `POST /v1/phone-sign-in` | Anyone | Checks the code and signs the reader in, answering as `POST /v1/auth/login` |
 
-<!-- include examples/apps/shelfie/internal/modules/phonelogin/delivery/routes.go#routes -->
+<!-- include examples/shelfie/internal/modules/phonelogin/delivery/routes.go#routes -->
 
 ## 2. The module takes the authenticator
 
 `phonelogin` needs sign-in to create the session, so its `Module` takes the `*authhttp.Authenticator` and a sender:
 
-<!-- include examples/apps/shelfie/internal/modules/phonelogin/module.go#module -->
+<!-- include examples/shelfie/internal/modules/phonelogin/module.go#module -->
 
 `main.go` passes the authenticator it gives to `gorbital.WithAuth`:
 
-<!-- include examples/apps/shelfie/cmd/api/main.go#main -->
+<!-- include examples/shelfie/cmd/api/main.go#main -->
 
 A module whose `Module` takes arguments isn't in `modules.All()` (`orb gen modules` lists `func Module()` only), so `main.go` adds it on its own line. `gorbital` doesn't import `authhttp` and `Deps` has no sign-in field: the dependency is visible in `main.go` instead of looked up ([ADR-0083](../../adr/0083-modules-stack-migrations-and-ejection.md#phase-6-implementation-notes-sign-in-options-hooks-and-custom-methods-2026-09-17)).
 
 The sender in development:
 
-<!-- include examples/apps/shelfie/cmd/api/signin.go#sms-sender -->
+<!-- include examples/shelfie/cmd/api/signin.go#sms-sender -->
 
-<!-- include examples/apps/shelfie/internal/modules/phonelogin/sender.go#log-sender -->
+<!-- include examples/shelfie/internal/modules/phonelogin/sender.go#log-sender -->
 
 ## 3. What the module verifies
 
@@ -42,11 +42,11 @@ The sender in development:
 - **Codes are single-use, short-lived and bounded.** Each works once, for 10 minutes and 5 guesses; a number receives at most one code a minute and five an hour, so at most 25 guesses an hour whoever asks. Only the code's SHA-256 is stored, and it is compared in constant time. The routes add `guard.RateLimit` per client address.
 - **Nothing reveals whose number it is.** `POST /v1/phone-sign-in/code` answers 202 after the same minimum time whether or not an account confirmed the number:
 
-<!-- include examples/apps/shelfie/internal/modules/phonelogin/usecase/send_sign_in_code.go#send-sign-in-code -->
+<!-- include examples/shelfie/internal/modules/phonelogin/usecase/send_sign_in_code.go#send-sign-in-code -->
 
 and a wrong code, a used one and a number without one all answer 401 `invalid_phone_code`:
 
-<!-- include examples/apps/shelfie/internal/modules/phonelogin/usecase/verify_sign_in_code.go#verify-sign-in-code -->
+<!-- include examples/shelfie/internal/modules/phonelogin/usecase/verify_sign_in_code.go#verify-sign-in-code -->
 
 - **The user ID comes from the verified code, never from the request.**
 
@@ -54,7 +54,7 @@ and a wrong code, a used one and a number without one all answer 401 `invalid_ph
 
 The handler hands the verified reader to sign-in and returns its answer as it is:
 
-<!-- include examples/apps/shelfie/internal/modules/phonelogin/delivery/sign_in.go#sign-in -->
+<!-- include examples/shelfie/internal/modules/phonelogin/delivery/sign_in.go#sign-in -->
 
 [`SignIn`](../../methods/gorbital-authhttp.md#Authenticator.SignIn) applies, in order, what `POST /v1/auth/login` applies after a correct password:
 
@@ -73,15 +73,15 @@ The audit log records `auth.login.succeeded` with `method: phone_code`, and hook
 
 The tests use a sender that records codes instead of texting them:
 
-<!-- include examples/apps/shelfie/internal/modules/phonelogin/phonelogin_test.go#fake-sms -->
+<!-- include examples/shelfie/internal/modules/phonelogin/phonelogin_test.go#fake-sms -->
 
 Ada confirms her number, then signs in on a new phone; a number nobody confirmed gets the same answer and no text, and a code works once:
 
-<!-- include examples/apps/shelfie/internal/modules/phonelogin/phonelogin_test.go#phone-sign-in -->
+<!-- include examples/shelfie/internal/modules/phonelogin/phonelogin_test.go#phone-sign-in -->
 
 With an authenticator app on, the phone code is only the first factor:
 
-<!-- include examples/apps/shelfie/internal/modules/phonelogin/phonelogin_test.go#phone-sign-in-mfa -->
+<!-- include examples/shelfie/internal/modules/phonelogin/phonelogin_test.go#phone-sign-in-mfa -->
 
 ## Next
 

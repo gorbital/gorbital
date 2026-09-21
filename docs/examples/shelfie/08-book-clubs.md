@@ -14,7 +14,7 @@ Readers meet in book clubs: the Thursday club at the library, a group of friends
 
 Organisations are a built-in module, `gorbital.dev/gorbital/orgshttp`. Its members are sign-in's accounts, so `orgshttp.Module` takes the authenticator `main.go` already passes to `gorbital.WithAuth`, and goes on its own line like phone sign-in's module ([chapter 7](07-phone-code-sign-in.md)):
 
-<!-- include examples/apps/shelfie/cmd/api/main.go#main -->
+<!-- include examples/shelfie/cmd/api/main.go#main -->
 
 With that line, Shelfie serves v0.1's organisation API unchanged, under `/v1/orgs` and `/v1/invitations`, and its two migrations join the app's history.
 
@@ -70,13 +70,13 @@ Next:
 
 ## 3. Organisation permissions
 
-<!-- include examples/apps/shelfie/internal/modules/clubbooks/module.go -->
+<!-- include examples/shelfie/internal/modules/clubbooks/module.go -->
 
 The permissions name `OrgRoles` instead of `Roles`: they are organisation permissions, which a member holds through their role in the club they act in, never through a platform role. All three roles read and write the list, as v0.1's organisation resources did. A club that wants only its admins to change the list drops `"member"` from `PermWrite`; a role of Shelfie's own, such as a `moderator`, only needs naming there, and gorbital declares it.
 
 ## 4. `guard.OrgMember`
 
-<!-- include examples/apps/shelfie/internal/modules/clubbooks/delivery/routes.go -->
+<!-- include examples/shelfie/internal/modules/clubbooks/delivery/routes.go -->
 
 Every route has `guard.OrgMember` with the permission it needs. Before the body is read, the guard asks the organisations module about the `{orgId}` in the path:
 
@@ -90,7 +90,7 @@ Every route has `guard.OrgMember` with the permission it needs. Before the body 
 
 The use case then takes the club from the path, checks it is the club the guard authorized, and passes it to the store, and audit events record it:
 
-<!-- include examples/apps/shelfie/internal/modules/clubbooks/usecase/create_club_book.go -->
+<!-- include examples/shelfie/internal/modules/clubbooks/usecase/create_club_book.go -->
 
 ## 5. Cross-club isolation
 
@@ -106,11 +106,11 @@ A club's reading list is kept apart in layers, each of which would hold on its o
 
 The store's statements take the club as a parameter:
 
-<!-- include examples/apps/shelfie/internal/modules/clubbooks/repository/select_club_book.go -->
+<!-- include examples/shelfie/internal/modules/clubbooks/repository/select_club_book.go -->
 
 and the table is led by it:
 
-<!-- include examples/apps/shelfie/db/migrations/20260920000005_club_books.sql -->
+<!-- include examples/shelfie/db/migrations/20260920000005_club_books.sql -->
 
 The foreign key to `orgs` is added in a `DO` block when `orgs` exists. It always does in Shelfie, whose migrations run with `orgshttp`; the tests of the books and shelves modules build apps without organisations, and their databases get the table without the key instead of failing to migrate.
 
@@ -138,9 +138,9 @@ The policies apply only to a database role that isn't a superuser and has no `BY
 
 A club with more than one member is Shelfie's own test, in `cmd/api/clubs_test.go`, on the app `accounts_test.go` builds with Shelfie's sign-in options and `orgshttp`:
 
-<!-- include examples/apps/shelfie/cmd/api/accounts_test.go#new-accounts-app -->
+<!-- include examples/shelfie/cmd/api/accounts_test.go#new-accounts-app -->
 
-<!-- include examples/apps/shelfie/cmd/api/clubs_test.go#book-club -->
+<!-- include examples/shelfie/cmd/api/clubs_test.go#book-club -->
 
 `cmd/api/operations_test.go` signs in as `gorbitaltest.User` principals, which aren't accounts and so can't be members; its app leaves out the modules with organisation permissions.
 

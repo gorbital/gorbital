@@ -14,7 +14,7 @@ import (
 
 // The module templates of orb gen module (ADR-0083 §3, D13): a module for
 // apps on gorbital.Main, layered, with one file per operation in usecase/,
-// repository/ and delivery/. examples/apps/shelfie's shelves module is the
+// repository/ and delivery/. examples/shelfie's shelves module is the
 // golden output.
 //
 //go:embed module/*.tmpl

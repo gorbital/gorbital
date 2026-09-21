@@ -10,12 +10,12 @@ import (
 	"testing"
 )
 
-// copyExampleApp copies examples/apps/<name> with its replace directives
+// copyExampleApp copies examples/<name> with its replace directives
 // pointing at this repository, so it builds, commits it and makes the copy
 // the working directory.
 func copyExampleApp(t *testing.T, name string) string {
 	t.Helper()
-	return copyAppAt(t, filepath.Join("examples", "apps", name), name)
+	return copyAppAt(t, filepath.Join("examples", name), name)
 }
 
 // copyAppAt copies the app at rel in the repository into a temporary
