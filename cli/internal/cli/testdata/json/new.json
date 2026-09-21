@@ -5,6 +5,8 @@
   "dir": "shop-api",
   "preset": "full",
   "tenancy": "multi",
+  "auth": "full",
+  "scope": "organisation",
   "files": 0,
   "ejected": [
     {

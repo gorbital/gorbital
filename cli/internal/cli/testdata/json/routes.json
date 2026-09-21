@@ -32,6 +32,7 @@
         "RequireClientVersion"
       ],
       "public": false,
+      "scope": "",
       "deprecated": false
     },
     {
@@ -60,6 +61,7 @@
         "RequireClientVersion"
       ],
       "public": false,
+      "scope": "",
       "deprecated": false
     }
   ],
