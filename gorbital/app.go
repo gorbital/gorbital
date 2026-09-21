@@ -76,8 +76,10 @@ type App struct {
 	deps        Deps
 	settings    builtinSettings
 	catalog     *auth.Catalog
-	orgCatalog  *auth.Catalog // organisation roles and permissions (Permission.OrgRoles)
-	orgs        OrgAuthorizer // guard.OrgMember's, set by an organisations module
+	orgCatalog  *auth.Catalog   // organisation roles and permissions (Permission.OrgRoles)
+	scope       Scope           // the app's tenancy (ADR-0088)
+	scopeAuth   ScopeAuthorizer // guard.Scope's, set by WithScope or a module
+	scopeFrom   string          // where the scope came from, for the error on a second one
 	migrations  fs.FS
 	jobsManager *jobs.Manager
 	releases    *releases.Tracker
@@ -152,6 +154,11 @@ func New(ctx context.Context, cfg Config, opts ...Option) (*App, error) {
 // infrastructure.
 func newBase(ctx context.Context, cfg Config, o options) (*App, error) {
 	a := &App{cfg: cfg, o: o, cleanup: &lifecycle.Cleanup{}, started: time.Now()}
+	if o.scopeAuth != nil {
+		if err := a.setScope(o.scope, o.scopeAuth, "set with gorbital.WithScope"); err != nil {
+			return nil, fmt.Errorf("gorbital: %w", err)
+		}
+	}
 
 	var err error
 	if cfg.devConsoleOn() && o.logger == nil {
@@ -243,7 +250,7 @@ func (a *App) build(ctx context.Context) error {
 	if err := declareRoles(a.catalog, a.modules); err != nil {
 		return err
 	}
-	if err := declareOrgRoles(a.orgCatalog, a.modules); err != nil {
+	if err := declareScopeRoles(a.orgCatalog, a.scope.withDefaults(), a.modules); err != nil {
 		return err
 	}
 	settingsStore, err := settings.NewStore(ctx, pool, reg, recorder, settings.WithLogger(a.logger))
@@ -400,11 +407,11 @@ func (a *App) build(ctx context.Context) error {
 		return err
 	}
 
-	api, mux, mounted, err := buildAPI(cfg, o, a.modules, a.deps, a.orgs)
+	api, mux, mounted, err := buildAPI(cfg, o, a.modules, a.deps, a.scope, a.scopeAuth)
 	if err != nil {
 		return err
 	}
-	if err := checkOrgRoutes(mounted); err != nil {
+	if err := checkScopeRoutes(mounted); err != nil {
 		return err
 	}
 	if err := checkGuardLimiters(a.rateLimiters, mounted); err != nil {

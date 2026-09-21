@@ -309,10 +309,12 @@ type registry struct {
 	paths      map[string]string // method and path with parameters blanked → module
 	limiters   map[string]sharedLimiter
 	refusals   metric.Int64Counter
-	// orgs authorizes guard.OrgMember; nil outside an app built by New
-	// with an organisations module. orgRoutes are the routes that use it.
-	orgs      OrgAuthorizer
-	orgRoutes []string
+	// scope and scopeAuth authorize guard.Scope; scopeAuth is nil outside
+	// an app built by New with a scope. scopeRoutes are the routes that
+	// use it.
+	scope       Scope
+	scopeAuth   ScopeAuthorizer
+	scopeRoutes []string
 }
 
 func newRegistry(api huma.API, mapper *httpx.Mapper, rateLimits *ratelimitpg.Store) *registry {

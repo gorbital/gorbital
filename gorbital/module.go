@@ -101,6 +101,18 @@ type Permission struct {
 	// Roles are the platform roles that hold the permission, such as
 	// "user". A role the app doesn't declare grants nothing.
 	Roles []string
+	// ScopeRoles are the scope roles that hold the permission, such as
+	// "owner", "admin" and "member" for organisations, or whatever the
+	// app's [Scope] declares: a member holds it only while acting in a
+	// scope, through guard.Scope. A permission with ScopeRoles is a scope
+	// permission: it is declared in the scope catalog
+	// ([Platform.OrgPermissions]), not the platform's, and can't have
+	// Roles too.
+	ScopeRoles []string
+
+	// OrgRoles is the v0.2 name of ScopeRoles.
+	//
+	// Deprecated: use ScopeRoles. Setting both fails New.
 	// OrgRoles are the organisation roles that hold the permission, such
 	// as "owner", "admin" and "member" (ADR-0023, ADR-0048): a member holds
 	// it only while acting in an organisation, through guard.OrgMember. A
@@ -129,6 +141,15 @@ type Deps struct {
 	RateLimits *ratelimitpg.Store
 	// Logger is tagged with the module's name by [Mount].
 	Logger *slog.Logger
+}
+
+// scopeRoles returns the scope roles the permission is held by, from
+// either field. Declare rejects a permission that sets both.
+func (p Permission) scopeRoles() []string {
+	if len(p.ScopeRoles) > 0 {
+		return p.ScopeRoles
+	}
+	return p.OrgRoles
 }
 
 var moduleName = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)

@@ -50,6 +50,8 @@ type options struct {
 	stack      func(Stack) []func(http.Handler) http.Handler
 	logger     *slog.Logger
 	migrations fs.FS
+	scope      Scope
+	scopeAuth  ScopeAuthorizer
 }
 
 func newOptions(opts []Option) options {
@@ -95,6 +97,30 @@ func WithModules(modules ...Module) Option {
 // can't be reached.
 func WithAuth(a Authenticator) Option {
 	return optionFunc(func(o *options) { o.auth = a })
+}
+
+// WithScope gives the app its tenancy: what a tenant is called, how its
+// IDs look, which roles it has, and how a request's tenant reaches the
+// database, with the authorizer that decides who may act in one
+// (ADR-0088). Every route with guard.Scope asks it.
+//
+// An app that mounts gorbital.dev/gorbital/orgshttp doesn't need this: the
+// module sets the scope itself. Use it for an app with its own membership
+// tables:
+//
+//	gorbital.WithScope(gorbital.Scope{
+//		Name:         "merchant",
+//		PathParam:    "merchantId",
+//		NotFoundCode: "merchant_not_found",
+//		ValidID:      merchants.ValidID,
+//		Roles:        merchants.Roles,
+//		Session:      postgres.WithScope,
+//	}, merchants.NewAuthorizer(db))
+//
+// [New] fails when a is nil, the scope is invalid, or a module also sets
+// one: an app has one source of truth for membership.
+func WithScope(s Scope, a ScopeAuthorizer) Option {
+	return optionFunc(func(o *options) { o.scope, o.scopeAuth = s, a })
 }
 
 // WithStorage sets the app's file storage, passed to modules as

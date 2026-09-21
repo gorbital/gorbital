@@ -49,8 +49,11 @@ func Declare(d Declarations, modules ...Module) error {
 			if prev, ok := owner[p.Name]; ok {
 				return fmt.Errorf("gorbital: permission %q is declared by modules %q and %q", p.Name, prev, m.Name)
 			}
-			if len(p.Roles) > 0 && len(p.OrgRoles) > 0 {
-				return fmt.Errorf("gorbital: module %q: permission %q has both Roles and OrgRoles; a permission is held on the platform or in an organisation", m.Name, p.Name)
+			if len(p.ScopeRoles) > 0 && len(p.OrgRoles) > 0 {
+				return fmt.Errorf("gorbital: module %q: permission %q has both ScopeRoles and OrgRoles; OrgRoles is the old name of ScopeRoles, so set one", m.Name, p.Name)
+			}
+			if len(p.Roles) > 0 && len(p.scopeRoles()) > 0 {
+				return fmt.Errorf("gorbital: module %q: permission %q has both Roles and ScopeRoles; a permission is held on the platform or in a scope", m.Name, p.Name)
 			}
 			owner[p.Name] = m.Name
 		}
@@ -58,7 +61,7 @@ func Declare(d Declarations, modules ...Module) error {
 	for _, m := range modules {
 		for _, p := range m.Permissions {
 			target := d.Permissions
-			if len(p.OrgRoles) > 0 {
+			if len(p.scopeRoles()) > 0 {
 				target = d.OrgPermissions
 			}
 			if target == nil {
@@ -111,11 +114,19 @@ func OrgGrants(role string, modules ...Module) []string {
 	var perms []string
 	for _, m := range modules {
 		for _, p := range m.Permissions {
-			if slices.Contains(p.OrgRoles, role) {
+			if slices.Contains(p.scopeRoles(), role) {
 				perms = append(perms, p.Name)
 			}
 		}
 	}
 	slices.Sort(perms)
 	return slices.Compact(perms)
+}
+
+// ScopeGrants returns the permissions the modules give to the scope role
+// role ([Permission.ScopeRoles]), sorted and without duplicates, for
+// declaring the role in the scope catalog. It is [OrgGrants] under the
+// name the framework now uses for tenancy (ADR-0088).
+func ScopeGrants(role string, modules ...Module) []string {
+	return OrgGrants(role, modules...)
 }
