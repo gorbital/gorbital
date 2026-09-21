@@ -169,7 +169,11 @@ var refExtraModules = []string{"gorbital.dev/modules/jwt"}
 
 // scanReference finds error codes and audit actions the way
 // TestPublicSurface does, keeping each one's status, detail, metadata keys
-// and where it is written.
+// and where it is written. It reads a code written as a string literal and
+// one written as its own package's string constant; a code taken from a
+// struct field or another package is invisible, so a code the library
+// lets an app rename is also declared, with its default, where the
+// default refusal is built.
 func scanReference(t *testing.T, d *refDump) {
 	t.Helper()
 	statuses := httpStatuses(t)
@@ -205,6 +209,10 @@ func scanPackages(t *testing.T, list, module, extra string, statuses map[string]
 		var names []string
 		actionParams := map[string][]int{}
 		actionConsts := map[string]string{} // constant name → action
+		// Package-level string constants, so a code written as the
+		// package's own constant is read like the literal it stands for:
+		// gorbital.DefaultScopeNotFoundCode is org_not_found.
+		stringConsts := map[string]string{}
 		for _, name := range strings.Split(parts[4], ",") {
 			f, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.SkipObjectResolution)
 			if err != nil {
@@ -217,8 +225,17 @@ func scanPackages(t *testing.T, list, module, extra string, statuses map[string]
 					for _, spec := range gd.Specs {
 						vs := spec.(*ast.ValueSpec)
 						for i, id := range vs.Names {
-							if lit, ok := valueAt(vs, i).(*ast.BasicLit); ok && strings.HasPrefix(id.Name, "Action") {
-								actionConsts[id.Name], _ = strconv.Unquote(lit.Value)
+							lit, ok := valueAt(vs, i).(*ast.BasicLit)
+							if !ok || lit.Kind != token.STRING {
+								continue
+							}
+							value, err := strconv.Unquote(lit.Value)
+							if err != nil {
+								continue
+							}
+							stringConsts[id.Name] = value
+							if strings.HasPrefix(id.Name, "Action") {
+								actionConsts[id.Name] = value
 							}
 						}
 					}
@@ -245,7 +262,7 @@ func scanPackages(t *testing.T, list, module, extra string, statuses map[string]
 				rel, _ := filepath.Rel(modDir, filepath.Join(dir, names[i]))
 				location = filepath.ToSlash(rel)
 			}
-			scanFile(f, location, statuses, actionParams, actionConsts, d)
+			scanFile(f, location, statuses, actionParams, actionConsts, stringConsts, d)
 		}
 	}
 	if extra != "" {
@@ -255,7 +272,7 @@ func scanPackages(t *testing.T, list, module, extra string, statuses map[string]
 	}
 }
 
-func scanFile(f *ast.File, location string, statuses map[string]int, actionParams map[string][]int, actionConsts map[string]string, d *refDump) {
+func scanFile(f *ast.File, location string, statuses map[string]int, actionParams map[string][]int, actionConsts, stringConsts map[string]string, d *refDump) {
 	imports := map[string]bool{}
 	for _, imp := range f.Imports {
 		path, _ := strconv.Unquote(imp.Path.Value)
@@ -272,6 +289,19 @@ func scanFile(f *ast.File, location string, statuses map[string]int, actionParam
 		}
 		s, err := strconv.Unquote(lit.Value)
 		return s, err == nil
+	}
+	// codeName reads a problem code written as a string literal or as the
+	// package's own string constant, so a code declared once and used by
+	// name stays in the reference.
+	codeName := func(e ast.Expr) (string, bool) {
+		if s, ok := literal(e); ok {
+			return s, true
+		}
+		if id, ok := e.(*ast.Ident); ok {
+			s, ok := stringConsts[id.Name]
+			return s, ok
+		}
+		return "", false
 	}
 	status := func(e ast.Expr) int {
 		switch e := e.(type) {
@@ -387,7 +417,7 @@ func scanFile(f *ast.File, location string, statuses map[string]int, actionParam
 					}
 					switch {
 					case mapping && key.Name == "Code":
-						code, _ = literal(kv.Value)
+						code, _ = codeName(kv.Value)
 					case mapping && key.Name == "Detail":
 						detail, _ = literal(kv.Value)
 					case mapping && key.Name == "Status":
@@ -406,7 +436,7 @@ func scanFile(f *ast.File, location string, statuses map[string]int, actionParam
 				}
 			case *ast.CallExpr:
 				if refIsName(n.Fun, "httpx", "NewProblem", f.Name.Name) && len(n.Args) == 3 {
-					if code, ok := literal(n.Args[1]); ok && refCodePattern.MatchString(code) {
+					if code, ok := codeName(n.Args[1]); ok && refCodePattern.MatchString(code) {
 						detail, _ := literal(n.Args[2])
 						d.Codes = append(d.Codes, refCode{Code: code, Status: status(n.Args[0]), Detail: detail, Location: location})
 					}

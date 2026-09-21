@@ -196,11 +196,12 @@ func (p *Platform) SetScope(s Scope, a ScopeAuthorizer) error {
 var (
 	// errOrgNotFound is the refusal of a scope that kept the organisation
 	// vocabulary. It stays a declaration of its own, rather than one more
-	// problem built from the scope's fields, because the surface inventory
-	// and docs/reference/error-codes.md are read from declarations: built
-	// inline, a code v0.1 apps have returned since the first release
-	// disappears from the recorded contract while the route still answers
-	// with it.
+	// problem built from the scope's fields, because it is the only place
+	// the default code is written: orgshttp's mapping and notFound below
+	// take it from Scope.NotFoundCode, which says nothing about the
+	// default. docs/reference/error-codes.md is generated from the codes
+	// the library's source declares, so built inline this one would
+	// vanish from the reference while the route still answers with it.
 	errOrgNotFound      = httpx.NewProblem(http.StatusNotFound, DefaultScopeNotFoundCode, "you aren't a member of an organisation with this ID")
 	errScopeForbidden   = httpx.NewProblem(http.StatusForbidden, "forbidden", "your role in this organisation doesn't allow this")
 	errScopeMFARequired = httpx.NewProblem(http.StatusForbidden, "mfa_required", "sign in with two-factor authentication to do this in this organisation")
