@@ -58,6 +58,16 @@ func options() []gorbital.Option {
 ⟦- if .Profile.SignsIn⟧
 		gorbital.WithAuth(auth),
 ⟦- end⟧
+⟦- if .Profile.Named⟧⟦if not .Profile.Vocabulary.IsOrganisations⟧
+		// The words the ⟦.Profile.Vocabulary.Plural⟧ module is mounted under, said
+		// before it runs: guard.Scope's route checks and the exported
+		// OpenAPI document are built before any module sets the scope.
+		gorbital.WithScopeWords(gorbital.Scope{
+			Name:         "⟦.Profile.Vocabulary.Name⟧",
+			PathParam:    "⟦.Profile.Vocabulary.PathParam⟧",
+			NotFoundCode: "⟦.Profile.Vocabulary.NotFoundCode⟧",
+		}),
+⟦- end⟧⟦end⟧
 ⟦- if .Profile.CustomScope⟧
 		gorbital.WithScope(scope.Scope(), tenants),
 ⟦- end⟧
@@ -71,7 +81,7 @@ func options() []gorbital.Option {
 		gorbital.WithModules(orgshttp.Module(auth)), // organisations: members, roles, invitations, personal workspaces
 ⟦- else⟧
 		// ⟦.Profile.Vocabulary.Plural⟧: members, roles, invitations, personal workspaces.
-		// The organisations module under the app's own words; its service
+		// The organisations module under this app's own words; its service
 		// accounts keep sign-in's paths, so they are left out.
 		gorbital.WithModules(orgshttp.Module(auth,
 			orgshttp.ScopeName("⟦.Profile.Vocabulary.Name⟧", "⟦.Profile.Vocabulary.Segment⟧", "⟦.Profile.Vocabulary.PathParam⟧"),

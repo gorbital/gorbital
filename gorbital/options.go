@@ -123,6 +123,27 @@ func WithScope(s Scope, a ScopeAuthorizer) Option {
 	return optionFunc(func(o *options) { o.scope, o.scopeAuth = s, a })
 }
 
+// WithScopeWords says what the app calls its tenant when a module owns
+// membership and renames it, such as
+// orgshttp.Module(auth, orgshttp.ScopeName("merchant", "merchants", "merchantId")).
+// The module still sets the scope and its authorizer; this only tells the
+// parts of [New] that run before any module's Platform does — the route
+// checks of guard.Scope, and the OpenAPI document `openapi --dir` exports
+// without connecting to anything — which words to expect:
+//
+//	gorbital.WithScopeWords(gorbital.Scope{
+//		Name:         "merchant",
+//		PathParam:    "merchantId",
+//		NotFoundCode: "merchant_not_found",
+//	})
+//
+// It carries no authorizer, so it is not a second scope: an app whose
+// membership is its own uses [WithScope] instead, which says the same
+// words and more.
+func WithScopeWords(s Scope) Option {
+	return optionFunc(func(o *options) { o.scope = s.withDefaults() })
+}
+
 // WithStorage sets the app's file storage, passed to modules as
 // Deps.Storage. Without it, New opens the local driver for
 // STORAGE_DRIVER=local (the default in development) and refuses the
