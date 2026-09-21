@@ -34,7 +34,7 @@ the copy. The packages keep their names, `authhttp` and `orgshttp`, so no
 call changed; the API, the tables and the behaviour are the library's.
 Library releases no longer change this code, and `orb doctor` warns when the
 library's copy does ([Ejecting a
-module](../../docs/guides/ejecting-a-module.md)).
+module](../../docs/guides/the-code-in-your-repo.md)).
 
 Chapter 6's registration fields and hooks and chapter 7's phone sign-in
 are `signin.go`, `profiles` and `phonelogin`, unchanged: they use the

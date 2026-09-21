@@ -2559,7 +2559,7 @@ func AuthenticateAfterInput() RouteOption
 
 AuthenticateAfterInput checks the route's authenticated actor after Huma has parsed and validated the input, just before the handler, instead of before parsing. The route still requires sign-in, in the OpenAPI document and on every request: only the order of refusals changes, so a request without credentials and with an invalid body gets 422 validation\_failed (or 400) rather than 401 unauthenticated.
 
-It exists for code that must keep v0.1's order of responses, such as sign-in's endpoints (gorbital.dev/gorbital/authhttp) and a module ejected from them; new routes don't need it. Registration fails when the route is public or has guards, which run before input parsing and would see a request nobody authenticated.
+It exists for code that must keep v0.1's order of responses, such as sign-in's endpoints (gorbital.dev/gorbital/authhttp) and the copies of them an app holds; new routes don't need it. Registration fails when the route is public or has guards, which run before input parsing and would see a request nobody authenticated.
 
 *Since `v0.2.2 (unreleased)`*
 
