@@ -235,7 +235,7 @@ Quote enum fields: shells treat parentheses specially.
 | Fields | positional, after the name, separated by spaces | required |
 | (flag only) Plural | `--plural People` | the name with -s, -es or -ies |
 | (flag only) ID prefix | `--id-prefix prj` (2 to 8 lowercase letters) | first letter and the next consonants: `prj`, `cst` |
-| (flag only) Who the records belong to | `--scope user\|tenant` | `tenant` in multi-tenant apps (`tenancy: multi` in `gorbital.yaml`), `user` otherwise; `tenant` needs the orgs module, and `org` is its old name. `public` and `custom` need an app on `gorbital.Main` ([Resource access scopes](resource-access-scopes.md)) |
+| (flag only) Who the records belong to | `--scope user\|tenant` | `tenant` in multi-tenant apps (`tenancy: multi` in `gorbital.yaml`), `user` otherwise; `tenant` needs the orgs module, and `org` is its old name. `public` and `custom` need an app on `gorbital.Main` ([Resource access scopes](resource-access.md)) |
 
 Flags may come before, between or after the name and fields. Other flags: `--dry-run`, `--json`, `--allow-dirty`, `--yes`, `--no-input`, `--plain`.
 
@@ -312,7 +312,7 @@ Modules are found by parsing Go files (`go/parser`), never by building or runnin
 
 ## `orb gen module`
 
-Generates a module in an app on `gorbital.Main` (v0.2): records that belong to the signed-in user, or, with `--scope`, to a tenant, to everyone, or to whoever the module's own `policy.go` says ([Resource access scopes](resource-access-scopes.md)), in `internal/modules/<names>/` with four layers and **one file per operation** in each, the route table in `delivery/routes.go`, a migration, tests, and the module added to `modules.gen.go` ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#3-app-layout)). Everything it writes is your code; [Generating code](generating-code.md) goes through it file by file. Shelfie's `internal/modules/shelves` is exactly what the first example writes ([chapter 9](../examples/shelfie/09-generators.md)).
+Generates a module in an app on `gorbital.Main` (v0.2): records that belong to the signed-in user, or, with `--scope`, to a tenant, to everyone, or to whoever the module's own `policy.go` says ([Resource access scopes](resource-access.md)), in `internal/modules/<names>/` with four layers and **one file per operation** in each, the route table in `delivery/routes.go`, a migration, tests, and the module added to `modules.gen.go` ([ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#3-app-layout)). Everything it writes is your code; [Generating code](generating-code.md) goes through it file by file. Shelfie's `internal/modules/shelves` is exactly what the first example writes ([chapter 9](../examples/shelfie/09-generators.md)).
 
 ```bash
 orb gen module Shelf name:string:unique description:text 'visibility:enum(private,shared)' --plural Shelves
@@ -329,7 +329,7 @@ Quote enum fields and optional strings: shells treat parentheses and `?` special
 | Fields | positional, after the name | required |
 | (flag only) Plural | `--plural Shelves` | the name with -s, -es or -ies; the module, table and route come from it |
 | (flag only) ID prefix | `--id-prefix shl` (2 to 8 lowercase letters) | first letter and the next consonants |
-| (flag only) Who may read and write the records | `--scope user\|tenant\|public\|custom` | `tenant` in an app with a tenancy, `user` otherwise. `--org` and `--scope org` are the old names of `--scope tenant` ([Resource access scopes](resource-access-scopes.md)) |
+| (flag only) Who may read and write the records | `--scope user\|tenant\|public\|custom` | `tenant` in an app with a tenancy, `user` otherwise. `--org` and `--scope org` are the old names of `--scope tenant` ([Resource access scopes](resource-access.md)) |
 
 Other flags: `--dry-run`, `--diff` (prints the plan as a unified diff), `--json`, `--allow-dirty`, `--yes`, `--no-input`, `--plain`.
 
@@ -587,7 +587,7 @@ note: orb routes --app lists only the routes in the app's source
 | Column | Comes from |
 |---|---|
 | METHOD, PATH, OPERATION | The OpenAPI document |
-| SCOPE | Who the route's records belong to: the app's tenant, `user`, `public` or `custom`, from the module's record in `gorbital.yaml`, or from the route's own guards when there is none. A dash means neither knows, as for a library module's routes ([Resource access scopes](resource-access-scopes.md)) |
+| SCOPE | Who the route's records belong to: the app's tenant, `user`, `public` or `custom`, from the module's record in `gorbital.yaml`, or from the route's own guards when there is none. A dash means neither knows, as for a library module's routes ([Resource access scopes](resource-access.md)) |
 | GUARDS | `x-gorbital-guards`: `authenticated` or `public`, then each guard in the order it runs. A route without it (a library route) shows `public` when it has no security requirement |
 | MIDDLEWARE | Shown when a route has any: `Module.Middleware`, then each group's `gorbital.Use` (outer first), then the route's, as written in the source |
 | MODULE, HANDLER, SOURCE | The app's Go source, read with `go/parser`: the directory under `internal/modules` (or its `gorbital.Module` `Name`), the handler expression, and the `gorbital.Get`/`Post`/… call's file and line |
@@ -745,7 +745,7 @@ orb doctor · shop-api (full, single tenancy)
 | `ejected` (apps on `gorbital.Main`, one per module `gorbital.lock` records) | The module's directory is gone | The library's package at the version `go.mod` requires differs from the one copied (its SHA-256), with the changelog entries that name it; or it can't be compared |
 | `stack` (apps on `gorbital.Main`) | | A `gorbital.WithStack` in `cmd/api` leaves out `Recover` or `Auth` (a function literal, or a function declared in `cmd/api`, that never names them and doesn't use `Default()`); a stack built any other way can't be checked, and the warning points at the one `gorbital.New` logs at start |
 | `timeout` (apps on `gorbital.Main`) | `APP_REQUEST_TIMEOUT` isn't a duration, or isn't shorter than the server's 60s write timeout: the app refuses to start | It is `0` (no deadline) or shorter than a second |
-| `scopes` (apps on `gorbital.Main` whose `gorbital.yaml` records module scopes) | | A `tenant` module's **generated** repository queries don't mention the tenant column, or a `custom` module's `policy.go` still returns `gorbital.ErrNotImplemented`. It is a static check over generated files: it can't see SQL added later, a query built at run time, or a view that widens the rows, so a clean run is a reminder and not a proof ([Resource access scopes](resource-access-scopes.md)) |
+| `scopes` (apps on `gorbital.Main` whose `gorbital.yaml` records module scopes) | | A `tenant` module's **generated** repository queries don't mention the tenant column, or a `custom` module's `policy.go` still returns `gorbital.ErrNotImplemented`. It is a static check over generated files: it can't see SQL added later, a query built at run time, or a view that widens the rows, so a clean run is a reminder and not a proof ([Resource access scopes](resource-access.md)) |
 | `row-level security` (Full preset) | | Row-level security is on and the database role is a superuser or has `BYPASSRLS`, a table's row-level security isn't forced, or an organisation table has no policy ([row-level security](row-level-security.md)) |
 
 Values from `.env` are never printed. The database checks run the app's own `go run ./cmd/migrate --status --json`, or `go run ./cmd/api migrate --status --json` in an app on `gorbital.Main`, whose status covers the merged history of the library's and the app's migrations; so `orb` needs no database driver. The JSON result says the app's `layout` (`main` or `v0.1`). Exit code 1 when any check fails.

@@ -124,7 +124,7 @@ The migration creates the table with a `CHECK` per field limit and enum, a uniqu
 
 ### Access scopes
 
-`--scope` states who may read and write the records: `user` (the default), `tenant`, `public` or `custom`. [Resource access scopes](resource-access-scopes.md) goes through all four, what each generates and how `orb routes` and `orb doctor` read the rule back. What follows is `tenant` under the organisations vocabulary, which is what `--org` and `--scope org` have always written.
+`--scope` states who may read and write the records: `user` (the default), `tenant`, `public` or `custom`. [Resource access scopes](resource-access.md) goes through all four, what each generates and how `orb routes` and `orb doctor` read the rule back. What follows is `tenant` under the organisations vocabulary, which is what `--org` and `--scope org` have always written.
 
 ### Organisations
 

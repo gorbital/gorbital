@@ -105,31 +105,32 @@ Three ways, none of them a deploy.
 
 ## Per-user permissions
 
-There is no built-in way to give one person one extra permission, and that is on purpose: per-user grants are hard to audit and harder to remember six months later. It is nonetheless your app, and the permission list is built by your code, so you can:
+Real applications sometimes grant one person one extra thing, and "deploy a new role" is not always an answer. gorbital supports this as an extension, not a built-in: it supplies no table, no endpoint and no migration for it. Your authorizer appends to what the role grants, from your own table:
 
 ```go
 func (a *Authorizer) AuthorizeScope(ctx context.Context, scopeID, permission string) (context.Context, error) {
-	role, err := a.store.MemberRole(ctx, scopeID, actorID(ctx))
-	if err != nil {
-		return ctx, gorbital.ErrScopeNotFound
+	ctx, err := a.roles.AuthorizeScope(ctx, scopeID, permission)
+	if err == nil {
+		return ctx, nil
 	}
-
-	perms := a.catalog.Permissions(role)                    // what the role grants
-	extra, err := a.store.ExtraPermissions(ctx, scopeID, actorID(ctx))
-	if err != nil {
+	extra, lookupErr := a.grants.For(ctx, actorID(ctx), scopeID) // your table
+	if lookupErr != nil || !slices.Contains(extra, permission) {
 		return ctx, err
 	}
-	perms = append(perms, extra...)                         // what this person also has
-	// …
+	if slices.ContainsFunc(extra, func(p string) bool { return strings.HasPrefix(p, "ops.") }) {
+		return ctx, fmt.Errorf("per-user grant of an operator permission: %v", extra)
+	}
+	// Put the actor back with the extra permissions it now holds.
+	acting, _ := actor.From(ctx)
+	acting.OrgID, acting.Permissions = scopeID, append(slices.Clone(acting.Permissions), extra...)
+	return actor.With(ctx, acting), nil
 }
 ```
 
-Two rules if you do:
+Two warnings, and they are the whole feature:
 
-- **Never grant `ops.*` this way.** Those are the operations API's own permissions. Refuse them in the appender rather than trusting the table.
-- **Record who granted it and why.** An `audit.Record` at the point of granting is the difference between an exception and a mystery.
-
-If you find yourself adding the same extra to several people, that is a role asking to exist. A role is easier to explain, easier to audit and easier to take away.
+- **A new role is usually the better answer.** A role's grants are declared in Go and reviewed in a pull request. A per-user row is an `INSERT` that nobody reviews, and it is invisible in the code that decides what the permission does.
+- **Never grant an operator permission this way.** Refuse any permission whose name starts with `ops.`: operator permissions belong to platform roles, not to a scope's members, and the refusal is a hard error rather than a silent drop.
 
 ## What the framework does with all this
 

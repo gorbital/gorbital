@@ -43,7 +43,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 ## Contents
 
 - Constants: [`MailDevMail`](#MailDevMail), [`MailMailpit`](#MailMailpit), [`MailProvider`](#MailProvider), [`StorageLocal`](#StorageLocal), [`StorageS3`](#StorageS3), [`StorageSpaces`](#StorageSpaces), [`StorageR2`](#StorageR2), [`StorageMinIO`](#StorageMinIO), [`DefaultScopeName`](#DefaultScopeName), [`DefaultScopePathParam`](#DefaultScopePathParam), [`DefaultScopeNotFoundCode`](#DefaultScopeNotFoundCode), [`RetentionJob`](#RetentionJob)
-- Variables: [`ErrScopeNotFound`](#ErrScopeNotFound), [`ErrUsage`](#ErrUsage)
+- Variables: [`ErrNotImplemented`](#ErrNotImplemented), [`ErrScopeNotFound`](#ErrScopeNotFound), [`ErrUsage`](#ErrUsage)
 - Functions: [`Declare`](#Declare), [`Delete`](#Delete), [`Get`](#Get), [`Grants`](#Grants), [`Main`](#Main), [`Migrate`](#Migrate), [`Mount`](#Mount), [`OrgGrants`](#OrgGrants), [`Patch`](#Patch), [`Post`](#Post), [`Put`](#Put), [`ScopeGrants`](#ScopeGrants)
 - Types:
   - [`App`](#App): [`New`](#New), [`App.Close`](#App.Close), [`App.Deps`](#App.Deps), [`App.Handler`](#App.Handler), [`App.Run`](#App.Run)
@@ -148,6 +148,27 @@ RetentionJob is the name of the built-in job that calls every [Retention.Delete]
 *Since `v0.2.2 (unreleased)`*
 
 ## Variables
+
+<a id="ErrNotImplemented"></a>
+
+```go
+var ErrNotImplemented = errors.New("gorbital: not implemented")
+```
+
+ErrNotImplemented is what a decision the app hasn't made yet returns. It exists so that "nobody has written this rule" is a refusal in its own right, distinguishable from "the rule ran and said no": a module that returns it is unfinished, not restrictive.
+
+orb gen module --scope custom writes a policy.go whose CanRead, CanWrite and Filter return it (ADR-0091). The generated module maps it to 501 not\_implemented, its shipped test fails while any of the three still returns it, and orb doctor names the module until they don't. An unwritten access rule therefore refuses every request and fails the build, rather than serving every row to everyone:
+
+```go
+// CanRead reports whether the actor in ctx may read this order.
+func (p Policy) CanRead(ctx context.Context, order domain.Order) error {
+	return gorbital.ErrNotImplemented // decide: who may read one order?
+}
+```
+
+Application code is free to return it from anything else it has not finished. The framework itself never returns it.
+
+*Since `v0.2.2 (unreleased)`*
 
 <a id="ErrScopeNotFound"></a>
 
