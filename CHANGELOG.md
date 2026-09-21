@@ -4,6 +4,69 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
+## v0.2.2 (unreleased)
+
+Tenancy becomes a contract your app fills in, sign-in becomes a choice, and a generated resource states its access rule instead of assuming one. The library is additive; the CLI removes two things.
+
+### Tenancy is yours to name
+
+#### Added
+
+- `gorbital.Scope` and `gorbital.ScopeAuthorizer`: the framework's tenancy is now five pieces of data your app supplies — the concept's name, the path parameter its ID arrives in, the code a refusal carries, whether an ID is well formed, and its roles — plus a one-method authorizer that decides membership ([Tenancy](docs/guides/tenancy.md), [ADR-0088](docs/adr/0088-scope-tenancy-as-a-contract.md)). Your API can say `/v1/merchants/{merchantId}/orders` and refuse with `merchant_not_found`. **The framework never learns your table names and never queries them**; membership lives behind the authorizer, in one function you write.
+- `gorbital.WithScope`, `Platform.SetScope`, `gorbital.ErrScopeNotFound`, `gorbital.ScopeRole`, `gorbital.ScopeGrants`, `Permission.ScopeRoles`, `guard.Scope` and `postgres.WithScope`.
+- `orgshttp.DefaultScope` supplies the organisation vocabulary, and `orgshttp.ScopeName` mounts the same organisations module under your own words: it changes the paths, the path parameter, the refusal code and the OpenAPI tag, and deliberately changes no table, migration, permission or role name.
+- `orgshttp.Module` takes an `Identity` interface instead of `*authhttp.Authenticator`, so organisations work with whatever authenticates the app. `orgshttp.WithoutServiceAccounts` is for an identity that cannot issue API keys.
+
+#### Changed
+
+- `guard.OrgMember`, `OrgAuthorizer`, `Platform.SetOrgAuthorizer` and `Permission.OrgRoles` are the older names of the four above. They keep working for all of v0.x and carry no `Deprecated` marker, so `staticcheck` does not fail the build of an app that already uses them.
+- `actor.Actor.OrgID` and the row-level-security session setting `gorbital.org_id` keep their names. Both now mean *the scope*; renaming either would change what already-stored audit rows and live policies mean.
+
+### Sign-in is a choice
+
+#### Added
+
+- `authhttp.Methods` gates sign-in by method: password (13 operations), operators (16), TOTP (5), passkeys (9), social (12) and API keys (19 including organisation service accounts). A disabled method registers no routes, declares no settings, jobs, limiters or permissions, and appears in no OpenAPI document; its paths answer 404, never 401 ([Sign-in profiles](docs/adr/0089-sign-in-profiles.md)).
+
+#### Unchanged on purpose
+
+- A method that is off keeps its migrations. The tables exist and stay empty, so turning the method on later is a line in `main.go` and not a migration applied out of order.
+
+### A resource states its access rule
+
+#### Added
+
+- `orb gen module --scope user|tenant|public|custom` ([Resource access](docs/guides/resource-access.md), [ADR-0091](docs/adr/0091-resource-access-policies.md)). `custom` writes a `policy.go` into the module as your file, with `CanRead`, `CanWrite` and `Filter` returning `gorbital.ErrNotImplemented`, which the module maps to 501: an unwritten rule refuses rather than serving every row. The generator adds no implicit tenant filter and no tenant column.
+- `orb routes` gains a scope column. `orb doctor` names `tenant` modules whose generated repository queries have lost the tenant column, and `custom` modules whose policy is unimplemented — a static check over generated files, which the output says.
+- Generated isolation tests for `user` and `tenant`, in your app's own vocabulary.
+
+#### Changed
+
+- `--scope org` is the older name of `--scope tenant` and still works. `--json` reports the canonical `tenant`.
+
+### Removed
+
+- **`orb eject`.** `orb new` has written sign-in and organisations into the app since v0.2.1, so the command answers a question nobody has ([ADR-0092](docs/adr/0092-what-the-framework-owns.md)). The name stays registered for this release and explains itself rather than failing as an unknown command; the copy machinery underneath still runs for `orb new`, `orb add orgs` and `orb upgrade --layout v0.2`.
+- **`orb new --no-eject`.** There was one shape of Full app and one flag that asked for a second; now there is only the first.
+- `opshttp`, `flagshttp` and `mailevents` can no longer be copied into an app. They are plumbing, not business rules.
+
+### The example applications moved
+
+- The showcase applications live in [github.com/gorbital/examples](https://github.com/gorbital/examples), tagged in step with the library ([ADR-0093](docs/adr/0093-the-examples-repository.md)). Their history moved with them and this repository's CI no longer builds them.
+- `examples/minimal`, `examples/full-single`, `examples/full-multi`, `examples/v0.1/*` and `examples/shelfie` stay: they are not documentation but the source the CLI's templates are generated from and compared against.
+- A page includes their code by marker as before; `scripts/examples.sh` fetches the ref `docs/examples.json` pins, and `docscheck` fails when it is missing or stale.
+
+### Documentation
+
+#### Added
+
+- [Tenancy](docs/guides/tenancy.md), [Access control](docs/guides/access-control.md) and [Resource access](docs/guides/resource-access.md).
+- ADRs [0088](docs/adr/0088-scope-tenancy-as-a-contract.md), [0089](docs/adr/0089-sign-in-profiles.md), [0090](docs/adr/0090-composing-presets.md), [0091](docs/adr/0091-resource-access-policies.md), [0092](docs/adr/0092-what-the-framework-owns.md), [0093](docs/adr/0093-the-examples-repository.md), and the [v0.2.2 roadmap](docs/v0.2.2-roadmap.md).
+
+#### Fixed
+
+- `refdocs` recorded new identifiers as arriving in `v0.2.0`, frozen two releases ago.
+
 ## v0.2.1 (2026-09-18)
 
 A new app now carries its own sign-in and organisations. Existing apps are unchanged.

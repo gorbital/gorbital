@@ -4,6 +4,52 @@ What changes for existing apps in each release, and what to do that `orb upgrade
 
 `v0.1.0` is the first public release: apps created with it or later start here, and each later release adds its section above this line. Apps created with a development build of `orb` before `v0.1.0` follow [Before v0.1.0](#before-v010-development-builds).
 
+## Upgrading to v0.2.2
+
+**Your app needs no code changes.** The library is additive: every name v0.2 apps use keeps working, `apicheck` records one changed line and no removed one, and the HTTP contract, problem codes, permission names, role names and migration versions of an existing app are unchanged. `go get gorbital.dev@v0.2.2` and its modules, and you are done.
+
+Two things changed in the CLI, and one of them may be in your scripts.
+
+### `orb eject` is gone
+
+```text
+$ orb eject auth
+orb eject was removed in v0.2.2.
+```
+
+Since v0.2.1 `orb new` writes sign-in and organisations into the app, so there was nothing left for the command to do ([ADR-0092](../adr/0092-what-the-framework-owns.md)). The name still answers for this release and explains itself; it will be gone entirely in the next.
+
+**If you scripted it**, remove the call: the modules it copied are already in `internal/modules`. **If you were about to run it** to take `opshttp`, `flagshttp` or `mailevents` into your app, you can't any more — they stay in the library, because they are plumbing rather than business rules. Tell us if that blocks you.
+
+`orb new --no-eject` is gone with it. There is one shape of Full app.
+
+### The example applications moved
+
+They are at [github.com/gorbital/examples](https://github.com/gorbital/examples) now. If you cloned this repository to read Plateful or a recipe, that is where to look ([ADR-0093](../adr/0093-the-examples-repository.md)).
+
+### What you may want to do, but need not
+
+None of this is required. Everything below keeps working under its old name for all of v0.x.
+
+| If you have | You may prefer | Why |
+|---|---|---|
+| `guard.OrgMember(p)` | `guard.Scope(p)` | The same guard under your app's own tenancy |
+| `Permission.OrgRoles` | `Permission.ScopeRoles` | Same values; one name for every kind of tenant |
+| `Platform.SetOrgAuthorizer` | `Platform.SetScope` | Lets you name your tenancy and validate your own IDs |
+| `postgres.WithOrg` | `postgres.WithScope` | The same function; one session setting either way |
+
+None of these carries a `Deprecated` marker on purpose: `staticcheck` turns those into build failures, and your app should not go red because we renamed something in a patch.
+
+**To call your tenant something other than an organisation**, see [Tenancy](tenancy.md). In short: `orgshttp.ScopeName("merchant", "merchants", "merchantId")` changes the routes, the path parameter, the refusal code and the OpenAPI tag, and nothing in your database. Changing a public URL is a breaking change for your own clients, so add the new path and keep the old one until your next API version.
+
+**`actor.Actor.OrgID` and the `gorbital.org_id` session setting keep their names**, whatever you call your tenant. Both now mean *the scope*. Renaming them would change what every audit row you have already written, and every row-level-security policy in your live database, means.
+
+### New things you may want
+
+- **Turn sign-in methods off.** `authhttp.New(authhttp.Methods(authhttp.MethodPassword, authhttp.MethodOperators))` serves 29 operations instead of 74, declares no settings, jobs or permissions for the rest, and answers their paths with 404. The migrations stay, so the tables are there, empty, and turning a method back on later is this one line and no migration.
+- **State a resource's access rule.** `orb gen module --scope user|tenant|public|custom`. `custom` writes a policy file you own; until you implement it the module answers 501 rather than serving every row.
+- **`orb routes`** now shows which scope each route requires.
+
 ## Upgrading to v0.2.0
 
 v0.2.0 moves routes, guards, the middleware stack, the application itself, sign-in, the operations API and organisations from generated code into the library ([ADR-0081](../adr/0081-a-framework-you-import.md), [v0.2 roadmap](../v0.2-roadmap.md)). **It is additive.** An app created with `v0.1.0` builds and passes its tests against `v0.2.0` with no code changes, and CI checks that on every change:
