@@ -78,15 +78,7 @@ the Full preset's auth module
 preset
 ```
 
-`orb eject` refuses:
-
-```text
-this app uses the v0.1 layout (internal/app), where internal/modules/auth is generated code the
-app already owns; orb eject works in apps on gorbital.Main: convert the app with
-orb upgrade --layout v0.2, which keeps a changed module as owned code
-```
-
-And that last suggestion — convert it — is the one that doesn't apply. `orb upgrade --layout v0.2` converts a *Full* v0.1 app, and refuses a Minimal one outright:
+Each refusal names the way out, and for a Minimal app the way out is always the same one: convert it. That is the suggestion that doesn't apply. `orb upgrade --layout v0.2` converts a *Full* v0.1 app, and refuses a Minimal one outright:
 
 ```text
 the minimal preset has one layout, and keeps it: only Full apps move to v0.2
@@ -279,6 +271,6 @@ mail: resend
 
 ## What just happened
 
-You have an app that builds, tests and runs, with sign-in, organisations, an operations API and a database schema — and about sixty files you own outright. You also made the one decision in this guide you cannot revisit: `--preset full`, which is what `orb gen module`, `orb eject` and every later chapter require.
+You have an app that builds, tests and runs, with sign-in, organisations, an operations API and a database schema — and about sixty files you own outright. You also made the one decision in this guide you cannot revisit: `--preset full`, which is what `orb gen module` and every later chapter require.
 
 Next: [chapter 2](02-framework-and-your-app.md) draws the line between the library and your code, then [chapter 3](03-configuration-and-first-run.md) starts the thing.
