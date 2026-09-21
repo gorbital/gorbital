@@ -1,0 +1,141 @@
+package main
+
+import (
+	"net/http"
+	"testing"
+
+	"gorbital.dev/gorbital/gorbitaltest"
+)
+
+// These tests run the app as main.go builds it, through its real middleware
+// stack, on a new database per test (gorbitaltest). The modules' own tests
+⟦- if .Profile.Named⟧
+// are next to them in internal/modules; sign-in, ⟦.Profile.Vocabulary.Plural⟧, /ops, flags
+// and email events are gorbital's, tested in the library.
+⟦- else if .Profile.SignsIn⟧
+// are next to them in internal/modules; sign-in, /ops, flags and email
+// events are gorbital's, tested in the library.
+⟦- else⟧
+// are next to them in internal/modules; /ops, flags and email events are
+// gorbital's, tested in the library.
+⟦- end⟧
+
+// newApp builds the app with main.go's options.
+func newApp(t *testing.T) *gorbitaltest.App {
+	t.Helper()
+	return gorbitaltest.New(t, options()...)
+}
+
+func TestApp(t *testing.T) {
+	app := newApp(t)
+	anonymous := app.Client()
+
+	for _, path := range []string{"/livez", "/readyz", "/version", "/openapi.json", "/v1/ping"} {
+		anonymous.Get(path).AssertStatus(t, http.StatusOK)
+	}
+⟦- if not .Profile.SignsIn⟧
+
+	// This app has no sign-in: projects are world-readable, and writing one
+	// needs the middleware you put in front of it.
+	anonymous.Post("/v1/projects", map[string]string{"name": "Website"}).AssertStatus(t, http.StatusCreated)
+	var projects struct {
+		Items []struct {
+			Name string `json:"name"`
+		} `json:"items"`
+	}
+	anonymous.Get("/v1/projects").JSON(t, &projects)
+	if len(projects.Items) != 1 || projects.Items[0].Name != "Website" {
+		t.Errorf("GET /v1/projects = %+v, want the project that was created", projects)
+	}
+⟦- else if .Profile.Named⟧
+	// Every route requires sign-in unless it is public.
+	anonymous.Get("/v1/⟦.Profile.Vocabulary.Segment⟧").AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+	anonymous.Get("/ops/settings").AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+
+	// Every account gets a personal workspace, where its projects go.
+	ada, _ := app.SignUp(t, "ada@example.com")
+	workspace := personalWorkspace(t, ada)
+	projects := "/v1/⟦.Profile.Vocabulary.Segment⟧/" + workspace + "/projects"
+	ada.Post(projects, map[string]string{"name": "Website"}).AssertStatus(t, http.StatusCreated)
+	var page struct {
+		Items []struct {
+			Name string `json:"name"`
+		} `json:"items"`
+	}
+	ada.Get(projects).JSON(t, &page)
+	if len(page.Items) != 1 || page.Items[0].Name != "Website" {
+		t.Errorf("GET %s = %+v, want the project Ada created", projects, page)
+	}
+
+	// Another account can't tell the ⟦.Profile.Vocabulary.Name⟧ exists.
+	sam, _ := app.SignUp(t, "sam@example.com")
+	sam.Get(projects).AssertProblem(t, http.StatusNotFound, "⟦.Profile.Vocabulary.NotFoundCode⟧")
+
+	// Users hold no platform role: /ops is for operators.
+	ada.Get("/ops/settings").AssertProblem(t, http.StatusForbidden, "forbidden")
+⟦- else if .Profile.CustomScope⟧
+	// Every route requires sign-in unless it is public.
+	anonymous.Get("/ops/settings").AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+
+	// Membership is this app's own (internal/modules/scope): until its
+	// authorizer is written, every ⟦.Profile.Vocabulary.Name⟧ route refuses.
+	ada, _ := app.SignUp(t, "ada@example.com")
+	ada.Get("/v1/⟦.Profile.Vocabulary.Segment⟧/t_example/projects").AssertStatus(t, http.StatusNotImplemented)
+
+	// Users hold no platform role: /ops is for operators.
+	ada.Get("/ops/settings").AssertProblem(t, http.StatusForbidden, "forbidden")
+⟦- else⟧
+	// Every route requires sign-in unless it is public.
+	anonymous.Get("/v1/projects").AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+	anonymous.Get("/ops/settings").AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+
+	ada, _ := app.SignUp(t, "ada@example.com")
+	ada.Post("/v1/projects", map[string]string{"name": "Website"}).AssertStatus(t, http.StatusCreated)
+	var projects struct {
+		Items []struct {
+			Name string `json:"name"`
+		} `json:"items"`
+	}
+	ada.Get("/v1/projects").JSON(t, &projects)
+	if len(projects.Items) != 1 || projects.Items[0].Name != "Website" {
+		t.Errorf("GET /v1/projects = %+v, want the project Ada created", projects)
+	}
+
+	// Users hold no platform role: /ops is for operators.
+	ada.Get("/ops/settings").AssertProblem(t, http.StatusForbidden, "forbidden")
+⟦- end⟧
+
+	// Client feature flags, the example's among them.
+	var flags struct {
+		Flags map[string]bool `json:"flags"`
+	}
+⟦- if .Profile.SignsIn⟧
+	ada.Get("/v1/flags").JSON(t, &flags)
+⟦- else⟧
+	anonymous.Get("/v1/flags").JSON(t, &flags)
+⟦- end⟧
+	if on, ok := flags.Flags["example.ping_time"]; !ok || on {
+		t.Errorf("GET /v1/flags = %v, want example.ping_time off", flags)
+	}
+}
+⟦- if .Profile.Named⟧
+
+// personalWorkspace returns the ID of the client's personal workspace.
+func personalWorkspace(t *testing.T, client *gorbitaltest.Client) string {
+	t.Helper()
+	var orgs struct {
+		Items []struct {
+			ID       string `json:"id"`
+			Personal bool   `json:"personal"`
+		} `json:"items"`
+	}
+	client.Get("/v1/⟦.Profile.Vocabulary.Segment⟧").JSON(t, &orgs)
+	for _, org := range orgs.Items {
+		if org.Personal {
+			return org.ID
+		}
+	}
+	t.Fatal("no personal workspace")
+	return ""
+}
+⟦- end⟧

@@ -25,7 +25,14 @@ const upgradeBranchPrefix = "orb-upgrade/"
 // derivedPaths are generated from the app's code, so upgrades regenerate
 // them instead of merging (ADR-0021). api/surface.json is recorded from the
 // merged code too: the upgrade commit shows what changed in it (ADR-0054).
-var derivedPaths = []string{"api/openapi.json", "api/postman_collection.json", "api/llms.txt", surfacePath}
+var derivedPaths = []string{recipes.OpenAPIPath, recipes.OpenAPIBaselinePath, recipes.PostmanPath, recipes.LLMsPath, surfacePath}
+
+// producedPaths are written into a new app rather than templated, so an
+// upgrade leaves them where they are: the demonstration module orb new
+// generates with orb gen module is the app's code from the first commit,
+// and a release that stops shipping it must not delete somebody's
+// (ADR-0090 §5).
+var producedPaths = []string{"internal/modules/projects/", "db/migrations/" + recipes.DemoMigrationVersion + "_projects.sql"}
 
 // surfacePath is the app's recorded public surface, written by its
 // TestPublicSurface test (ADR-0054).
@@ -201,6 +208,13 @@ func runUpgrade(ctx context.Context, args []string, stdin io.Reader, stdout, std
 	for _, p := range slices.Concat(untrackedPaths, derivedPaths) {
 		delete(base, p)
 		delete(theirs, p)
+	}
+	for _, tree := range []map[string][]byte{base, theirs} {
+		for p := range tree {
+			if produced(p) {
+				delete(tree, p)
+			}
+		}
 	}
 
 	root, err := os.OpenRoot(app.dir)
@@ -471,6 +485,13 @@ func rebuildBase(release recipes.Release, lock lockFile, in lockInputs, d recipe
 // email with mail, at release: the preset's tree, and row-level security in
 // gorbital.yaml when orb add rls recorded it (ADR-0061).
 func inputsTree(release recipes.Release, in lockInputs, mail string, d recipes.Data) (map[string][]byte, error) {
+	if in.layout() == recipes.LayoutV02 {
+		profile, err := in.profile()
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", lockPath, err)
+		}
+		d.Profile = profile
+	}
 	tree, err := release.Tree(in.Preset, in.Tenancy, in.layout(), mail, d)
 	if err == nil && in.RLS {
 		recipes.SetRowLevelSecurity(tree)
@@ -716,4 +737,15 @@ func wrapText(s string, width int) []string {
 		lines = append(lines, line)
 	}
 	return lines
+}
+
+// produced reports a path orb new writes into an app rather than
+// rendering from a template, which an upgrade neither merges nor removes.
+func produced(path string) bool {
+	for _, p := range producedPaths {
+		if path == p || (strings.HasSuffix(p, "/") && strings.HasPrefix(path, p)) {
+			return true
+		}
+	}
+	return false
 }

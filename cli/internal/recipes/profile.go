@@ -67,6 +67,18 @@ const (
 	MethodAPIKeys   Method = "api_keys"
 )
 
+// Ident is the method's authhttp constant without its prefix, such as
+// APIKeys for api_keys, so a template can write authhttp.MethodAPIKeys.
+func (m Method) Ident() string {
+	switch m {
+	case MethodAPIKeys:
+		return "APIKeys"
+	case MethodTOTP:
+		return "TOTP"
+	}
+	return strings.ToUpper(string(m)[:1]) + string(m)[1:]
+}
+
 // allMethods are the methods AuthFull serves, which is every one there is.
 var allMethods = []Method{MethodPassword, MethodOperators, MethodTOTP, MethodPasskeys, MethodSocial, MethodAPIKeys}
 
@@ -178,6 +190,9 @@ func (p Profile) CustomScope() bool { return p.Scope == ScopeCustom }
 // whose records belong to a tenant rather than to a user or to nobody.
 func (p Profile) Scoped() bool { return p.Named() || p.CustomScope() }
 
+// FullAuth reports a profile serving every sign-in method gorbital has.
+func (p Profile) FullAuth() bool { return p.Auth == AuthFull }
+
 // SignsIn reports a profile with gorbital's sign-in, basic or full.
 func (p Profile) SignsIn() bool { return p.Auth == AuthBasic || p.Auth == AuthFull }
 
@@ -264,21 +279,155 @@ func (p Profile) String() string {
 	return "--auth " + p.Auth + " --scope " + p.Scope
 }
 
+// CustomScopeName is what an app with its own membership rules calls its
+// tenant until it renames it: the neutral word, so the generated code and
+// the stub's tables agree from the first commit.
+const CustomScopeName = "tenant"
+
 // Vocabulary is what the app calls its tenant: the scope's name with the
-// words derived from it, or the organisations vocabulary for a profile
-// that names no scope.
+// words derived from it, "tenant" for a custom scope, and the
+// organisations vocabulary for a profile that names none. An app that
+// never named its tenant gets an undeclared vocabulary, so orb gen module
+// writes it byte for byte what v0.2.1 wrote (ADR-0091 §3).
 func (p Profile) Vocabulary() Vocabulary {
-	if !p.Named() {
+	name := p.ScopeName
+	if p.CustomScope() {
+		name = CustomScopeName
+	}
+	if name == "" || name == DefaultScopeName {
 		return OrganisationVocabulary()
 	}
-	v := Vocabulary{Name: p.ScopeName}
-	if p.ScopeName == DefaultScopeName {
-		return OrganisationVocabulary()
-	}
-	v = v.withDefaults()
+	v := Vocabulary{Name: name}.withDefaults()
 	v.Declared = true
 	return v
 }
+
+// DeclaresScope reports a profile whose gorbital.yaml records a scope
+// block: one whose tenant has words of its own. A --scope organisation app
+// records none, so orb gen module writes it exactly what v0.2.1 wrote.
+func (p Profile) DeclaresScope() bool { return p.Vocabulary().Declared }
+
+// ScopeTable is the table the app's tenants live in: orgs for the supplied
+// organisations, whatever their words, and the scope's plural for an app
+// with its own membership rules.
+func (p Profile) ScopeTable() string {
+	if p.Named() {
+		return "orgs"
+	}
+	return p.Vocabulary().Plural
+}
+
+// ScopeMembersTable is the table holding who belongs to a tenant and with
+// which role.
+func (p Profile) ScopeMembersTable() string {
+	if p.Named() {
+		return "org_members"
+	}
+	return p.Vocabulary().Name + "_members"
+}
+
+// The demonstration module orb new generates into every app it creates
+// (ADR-0090 §5): the module orb gen module writes, at the profile's scope,
+// instead of 25 template files that differ only by their access rule. Its
+// migration version is fixed, so every app of a release has the same one.
+const (
+	DemoModule = "Project"
+	// DemoMigrationVersion is its migration's version: the first one after
+	// the built-in modules', which run in the same history. A test in the
+	// CLI keeps it in step with them.
+	DemoMigrationVersion = "20260918000071"
+	// DemoFields are the fields of the demonstration module, as orb gen
+	// module takes them.
+	demoFields = "name:string:unique description:text status:enum(active,archived)"
+)
+
+// DemoMigration is the demonstration module's migration file name.
+func (p Profile) DemoMigration() string { return DemoMigrationVersion + "_projects.sql" }
+
+// DemoFields returns the demonstration module's field specifications.
+func DemoFields() []string { return strings.Fields(demoFields) }
+
+// ResourceScope is the access rule orb gen resource gives the
+// demonstration module in an app of this profile: a tenant's where the app
+// has a tenancy, a user's where it has sign-in and no tenancy, and
+// world-readable where it has neither.
+func (p Profile) ResourceScope() string {
+	switch {
+	case p.Scoped():
+		return ScopeTenant
+	case p.SignsIn():
+		return ScopeUser
+	}
+	return ScopePublic
+}
+
+// ScopeTitle is the tenant's plural starting with a capital letter, for a
+// heading.
+func (p Profile) ScopeTitle() string {
+	plural := p.Vocabulary().Plural
+	return strings.ToUpper(plural[:1]) + plural[1:]
+}
+
+// RolesFile is where an app of this profile changes its scope's roles.
+func (p Profile) RolesFile() string {
+	if p.CustomScope() {
+		return "internal/modules/scope/scope.go"
+	}
+	return "gorbital.yaml"
+}
+
+// The API artefacts an app produces rather than orb new writing them
+// (ADR-0090 §5): the app's own openapi command writes the first three,
+// the fourth is the /ops contract it is held to, and the fifth is
+// recorded by its own TestPublicSurface.
+const (
+	OpenAPIPath         = "api/openapi.json"
+	OpenAPIBaselinePath = "api/openapi.baseline.json"
+	PostmanPath         = "api/postman_collection.json"
+	LLMsPath            = "api/llms.txt"
+)
+
+// APIArtefacts are the files orb new produces by running the app, in the
+// order it lists them.
+func APIArtefacts() []string {
+	return []string{OpenAPIPath, OpenAPIBaselinePath, PostmanPath, LLMsPath}
+}
+
+// ScopeMigration is the migration that creates a custom scope's tables.
+func (p Profile) ScopeMigration() string { return "20260916000001_scope.sql" }
+
+// SQLRoles is the scope's roles as SQL string literals, for a CHECK
+// constraint: 'owner', 'admin', 'member'.
+func (p Profile) SQLRoles() string {
+	roles := p.Vocabulary().Roles
+	quoted := make([]string, len(roles))
+	for i, r := range roles {
+		quoted[i] = "'" + r + "'"
+	}
+	return strings.Join(quoted, ", ")
+}
+
+// RoleList is the scope's roles, comma-separated, for gorbital.yaml.
+func (p Profile) RoleList() string { return strings.Join(p.Vocabulary().Roles, ", ") }
+
+// appFeatures are the features gorbital.yaml lists, in the order it lists
+// them: the app's infrastructure, then what the profile adds.
+func (p Profile) appFeatures() []string {
+	f := []string{"postgres", "settings", "jobs", "audit", "mail"}
+	if p.SignsIn() {
+		f = append(f, "auth")
+	}
+	if p.Named() {
+		f = append(f, "orgs")
+	}
+	if p.CustomScope() {
+		f = append(f, "scope")
+	}
+	return append(f, "ops")
+}
+
+// AppFeatures is appFeatures as gorbital.yaml writes them.
+func (p Profile) AppFeatures() string { return strings.Join(p.appFeatures(), ", ") }
 
 // MethodNames are the profile's sign-in methods as their names, for
 // gorbital.yaml and the templates.

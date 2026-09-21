@@ -95,6 +95,22 @@ type lockInputs struct {
 	// v0.1 layout (every lock before v0.2, and Minimal apps), or
 	// recipes.LayoutV02 for apps on gorbital.Main (ADR-0083).
 	Layout string `json:"layout,omitempty"`
+	// Auth is how much sign-in the app was created with: none, basic or
+	// full. Empty in every lock written before v0.2.2, and in a Minimal
+	// app's, which means the full sign-in those releases always wrote.
+	Auth string `json:"auth,omitempty"`
+	// Scope is what a tenant is: none, single, custom or its name. Empty
+	// before v0.2.2, which means the tenancy above.
+	Scope string `json:"scope,omitempty"`
+}
+
+// profile returns the app's profile: the one the lock records, or the one
+// its tenancy means in a lock written before v0.2.2.
+func (in lockInputs) profile() (recipes.Profile, error) {
+	if in.Auth == "" {
+		return recipes.ProfileFromTenancy(in.Tenancy)
+	}
+	return recipes.ParseProfile(in.Auth, in.Scope)
 }
 
 // layout returns the app's layout, recipes.LayoutV01 or recipes.LayoutV02.
@@ -159,11 +175,19 @@ type lockedFile struct {
 var untrackedPaths = []string{"go.mod", "go.sum"}
 
 // newLock records files rendered from preset with d by this orb.
-func newLock(preset recipes.Preset, d recipes.Data, files []recipes.File) lockFile {
+func newLock(preset recipes.Preset, profile recipes.Profile, d recipes.Data, files []recipes.File) lockFile {
 	l := lockFile{
 		APIVersion: LockAPIVersion,
 		Orb:        lockOrb{Version: Version, Revision: buildRevision()},
 		Inputs:     lockInputs{Name: d.Name, Module: d.Module, Preset: preset.Name, Tenancy: preset.Tenancy, Layout: layoutValue(preset.Layout())},
+	}
+	// An app on gorbital.Main is written from a profile, so the lock
+	// records it beside the preset and tenancy orb v0.2.1 wrote: orb
+	// upgrade rebuilds the merge base from the templates the app was
+	// actually written from (ADR-0090 §8).
+	if preset.Layout() == recipes.LayoutV02 {
+		l.Inputs.Tenancy = profile.Tenancy()
+		l.Inputs.Auth, l.Inputs.Scope = profile.Auth, profile.Scope
 	}
 	if preset.Name == "full" {
 		l.Inputs.Mail = recipes.MailResend // the golden apps send with Resend

@@ -1,0 +1,89 @@
+// Package scope is this app's tenancy: what ⟦.Profile.Vocabulary.A⟧
+// ⟦.Profile.Vocabulary.Name⟧ is, who belongs to one and with which role
+// (ADR-0088). orb new wrote it because the app was created with
+// --scope custom; the rules are yours from the first commit, and nothing
+// in gorbital decides them for you.
+//
+// main.go gives the scope to the app and mounts this module:
+//
+//	tenants := scope.New()
+//	gorbital.WithScope(scope.Scope(), tenants)
+//	gorbital.WithModules(tenants.Module())
+//
+// A module whose routes live under /v1/⟦.Profile.Vocabulary.Segment⟧/{⟦.Profile.Vocabulary.PathParam⟧}/ guards them
+// with guard.Scope(permission), which asks [Tenants.AuthorizeScope] on
+// every request.
+package scope
+
+import (
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"gorbital.dev/gorbital"
+	"gorbital.dev/modules/postgres"
+)
+
+// ModuleName is this module's name in /ops and in the logs.
+const ModuleName = "scope"
+
+// The roles ⟦.Profile.Vocabulary.A⟧ ⟦.Profile.Vocabulary.Name⟧'s members hold, most privileged first.
+// A module grants its permissions to them with ScopeRoles in its
+// module.go. Rename them, add to them, or cut them to one: they are this
+// app's words, and [Scope] is the only place that declares them.
+const (
+⟦- range .Profile.Vocabulary.ScopeRoles⟧
+	Role⟦.Ident⟧ = "⟦.Name⟧"
+⟦- end⟧
+)
+
+// Scope is what this app calls its tenant, how its IDs look, which roles
+// it has and how the ⟦.Profile.Vocabulary.Name⟧ reaches the database.
+func Scope() gorbital.Scope {
+	return gorbital.Scope{
+		Name:         "⟦.Profile.Vocabulary.Name⟧",
+		PathParam:    "⟦.Profile.Vocabulary.PathParam⟧",
+		NotFoundCode: "⟦.Profile.Vocabulary.NotFoundCode⟧",
+		ValidID:      ValidID,
+		Roles: []gorbital.ScopeRole{
+⟦- range .Profile.Vocabulary.ScopeRoles⟧
+			{Name: Role⟦.Ident⟧, Description: "Decide what ⟦.Name⟧ may do, in scope.go"},
+⟦- end⟧
+		},
+		// Every database connection of a request in ⟦.Profile.Vocabulary.A⟧ ⟦.Profile.Vocabulary.Name⟧ carries its
+		// ID, which the optional row-level security policies read
+		// (ADR-0061). Set it to nil if every query filters by the
+		// ⟦.Profile.Vocabulary.Column⟧ itself.
+		Session: postgres.WithScope,
+	}
+}
+
+// ValidID reports whether id is shaped like one of this app's
+// ⟦.Profile.Vocabulary.Name⟧ IDs. A malformed ID is refused exactly as an unknown one
+// is, before AuthorizeScope is asked, so it never reaches a query.
+func ValidID(id string) bool { return id != "" }
+
+// Tenants answers guard.Scope: it decides whether the actor of a request
+// may act in ⟦.Profile.Vocabulary.A⟧ ⟦.Profile.Vocabulary.Name⟧, and with which permissions.
+type Tenants struct {
+	db *pgxpool.Pool
+}
+
+// New returns the app's ⟦.Profile.Vocabulary.Name⟧ authorizer. It takes the database
+// when the app starts, through Module.
+func New() *Tenants { return &Tenants{} }
+
+// Module registers this module with the app. It adds no routes of its
+// own — the ⟦.Profile.Vocabulary.Plural⟧ API is yours to write, here or in a module of
+// its own — and takes the database the authorizer queries.
+func (t *Tenants) Module() gorbital.Module {
+	return gorbital.Module{
+		Name: ModuleName,
+		Routes: func(_ *gorbital.Router, d gorbital.Deps) {
+			// d is zero while the OpenAPI document is exported: no request
+			// runs, so no query does either.
+			t.db = d.DB
+		},
+	}
+}
+
+// DB is the pool the authorizer queries, once the app has started.
+func (t *Tenants) DB() *pgxpool.Pool { return t.db }

@@ -136,6 +136,46 @@ func (v Vocabulary) GoRoles() string {
 	return strings.Join(quoted, ", ")
 }
 
+// A is the indefinite article for the tenant's name: "an organisation",
+// "a merchant".
+func (v Vocabulary) A() string { return article(v.Name) }
+
+// AColumn is the indefinite article for the tenant's column name: "an
+// org_id", "a merchant_id".
+func (v Vocabulary) AColumn() string { return article(v.Column) }
+
+// Title is the tenant's name starting with a capital letter.
+func (v Vocabulary) Title() string {
+	return strings.ToUpper(v.Name[:1]) + v.Name[1:]
+}
+
+// CodeRoles is the roles as inline code, for prose: `owner`, `admin` and
+// `member`.
+func (v Vocabulary) CodeRoles() string {
+	quoted := make([]string, len(v.Roles))
+	for i, r := range v.Roles {
+		quoted[i] = "`" + r + "`"
+	}
+	return andList(quoted)
+}
+
+// A ScopeRole is one of the scope's roles with its Go identifier, for the
+// templates that declare them.
+type ScopeRole struct {
+	Name  string
+	Ident string
+}
+
+// ScopeRoles are the scope's roles with the constant name each one gets,
+// most privileged first.
+func (v Vocabulary) ScopeRoles() []ScopeRole {
+	roles := make([]ScopeRole, len(v.Roles))
+	for i, r := range v.Roles {
+		roles[i] = ScopeRole{Name: r, Ident: identFromWords(splitWords(r))}
+	}
+	return roles
+}
+
 // IsOrganisations reports the supplied organisations vocabulary.
 func (v Vocabulary) IsOrganisations() bool { return v.Name == "organisation" }
 

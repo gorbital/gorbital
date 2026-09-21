@@ -1,0 +1,36 @@
+# gorbital project file: how this app was created. The orb CLI reads it.
+apiVersion: gorbital.dev/v1
+name: ⟦.Name⟧
+module: ⟦.Module⟧
+preset: full
+tenancy: ⟦.Profile.Tenancy⟧
+# How much sign-in this app serves (orb new --auth): none, basic or full.
+auth: ⟦.Profile.Auth⟧
+⟦- if .Profile.SignsIn⟧
+# The sign-in methods cmd/api/main.go registers (authhttp.Methods). Every
+# method's tables exist whichever are served, so adding one is one line
+# there and a restart (ADR-0089).
+methods: ⟦.Profile.MethodList⟧
+⟦- end⟧
+⟦- if .Profile.DeclaresScope⟧
+# What this app calls its tenant (orb new --scope, ADR-0088). orb gen
+# module reads it: the routes, the column, the refusal code and the roles
+# of a --scope tenant module follow these words.
+scope:
+  name: ⟦.Profile.Vocabulary.Name⟧
+  plural: ⟦.Profile.Vocabulary.Plural⟧
+  param: ⟦.Profile.Vocabulary.PathParam⟧
+  table: ⟦.Profile.ScopeTable⟧
+  members: ⟦.Profile.ScopeMembersTable⟧
+  column: ⟦.Profile.Vocabulary.Column⟧
+roles: [⟦.Profile.RoleList⟧]
+⟦- else⟧
+# What a tenant is (orb new --scope): none, single, or the name of a scope.
+scope: ⟦.Profile.Scope⟧
+⟦- end⟧
+# The app's layout: v0.2 apps run on gorbital.Main (cmd/api/main.go) with
+# their modules in internal/modules (ADR-0083).
+layout: v0.2
+features: [⟦.Profile.AppFeatures⟧]
+# Email provider, changed with `orb add mail`: resend or smtp.
+mail: resend

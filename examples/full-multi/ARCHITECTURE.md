@@ -1,6 +1,6 @@
 # Architecture
 
-This app runs on `gorbital.Main` (gorbital's v0.2 layout, ADR-0083). The library builds and runs the server: configuration, the middleware stack, `/ops`, jobs, email, audit, migrations and the commands. The app's own code is `main.go`, its modules and its migrations; sign-in, organisations are among its modules, copied from the library when the app was created. The module rules below are checked by `internal/modules/architecture_test.go`, so `go test ./...` fails when they are broken.
+This app runs on `gorbital.Main` (gorbital's v0.2 layout, ADR-0083). The library builds and runs the server: configuration, the middleware stack, `/ops`, jobs, email, audit, migrations and the commands. The app's own code is `main.go`, its modules and its migrations; sign-in and organisations are among its modules, copied from the library when the app was created. The module rules below are checked by `internal/modules/architecture_test.go`, so `go test ./...` fails when they are broken.
 
 ## Layout
 
@@ -21,7 +21,7 @@ internal/modules/
     repository/          store.go, then one file per SQL statement (hand-written SQL)
     delivery/            routes.go (the route table and its guards), responses.go, then one file per operation
     <name>_test.go       HTTP tests through the real stack (gorbitaltest)
-internal/modules/projects/ example module owned by organisations, as orb gen module --org writes it
+internal/modules/projects/ example module owned by organisations, as orb gen module --scope tenant writes it
 internal/modules/ping/   example module: a public endpoint, a runtime setting and a feature flag
 internal/modules/auth/   sign-in, copied from gorbital.dev/gorbital/authhttp by orb new: package authhttp, its layers and tests
 internal/modules/orgs/   organisations, copied from gorbital.dev/gorbital/orgshttp by orb new: package orgshttp
@@ -45,7 +45,7 @@ What `main.go` adds, and where it lives:
 | `WithMigrations(migrations.FS)` | The app's migrations, run in one history with the library's | `db/migrations` |
 | `WithMailerFunc(mailer)`, `WithStorageFunc(fileStorage)` | The email provider and file storage | `cmd/api/mail.go`, `cmd/api/storage.go` |
 
-Sign-in and organisations are already your code: `orb new` copied them from the library version `go.mod` requires, with the migrations into `db/migrations` under the library's versions, and `gorbital.lock` records where from. Library releases no longer change them; `orb doctor` says when the library's copy has changed since, quoting the changelog. To change another built-in module beyond its options and hooks, `orb eject <module>` copies it the same way.
+Sign-in and organisations are already your code: `orb new` copied them from the library version `go.mod` requires, with the migrations into `db/migrations` under the library's versions, and `gorbital.lock` records where from. Library releases no longer change them; `orb doctor` says when the library's copy has changed since, quoting the changelog.
 
 ## Request flow
 
@@ -75,9 +75,9 @@ Platform roles grant `/ops` permissions; organisation roles (`owner`, `admin`, `
 
 ## Business modules
 
-`internal/modules/projects` is exactly what `orb gen module Project name:string:unique description:text 'status:enum(active,archived)' --org` creates. Generate your own modules the same way, or copy it. All of it is your code: change any rule, query or response.
+`internal/modules/projects` is exactly what `orb gen module Project name:string:unique description:text 'status:enum(active,archived)' --scope tenant` creates. Generate your own modules the same way, or copy it. All of it is your code: change any rule, query or response.
 
-- **Ownership:** every project has an `org_id` and a `created_by`. Every route has `guard.OrgMember`, every use case checks the organisation in the path is the one the guard authorized, every repository method takes the organisation ID, and a project of another organisation returns 404 `project_not_found`, so IDs can't be probed. `UNIQUE (org_id, id)` lets other org-scoped tables reference a project only within the same organisation. Purging an organisation deletes its projects.
+- **Ownership:** every project has an `org_id` and a `created_by`. Every route has `guard.OrgMember`, every use case checks the organisation in the path is the one the guard authorized, every repository method takes the organisation ID, and a project of another organisation returns 404 `project_not_found`, so IDs can't be probed. Purging an organisation deletes its projects.
 - **Permissions:** `projects.project.read` and `.write`, held by the organisation roles owner, admin and member, and by an API key only when its scopes include them.
 - **Lists:** `GET /v1/orgs/{orgId}/projects` uses keyset pagination through `gorbital.dev/page`: `limit`, an opaque `cursor`, and `sort` by one allowlisted field, with one fixed query per sort in `repository/select_projects.go`.
 - **Updates:** `PATCH` sends the `version` it read; a stale version returns 409 `project_version_conflict` instead of overwriting someone else's change.
