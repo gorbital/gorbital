@@ -151,7 +151,7 @@ func TestNoEjectReason(t *testing.T) {
 func TestChangelogMentions(t *testing.T) {
 	changelog := `# Changelog
 
-## Unreleased (v0.3.0)
+## Unreleased (v0.2.2)
 
 ### Fixed
 
@@ -172,7 +172,7 @@ func TestChangelogMentions(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Errorf("changelogMentions() = %q, want %q", got, want)
 	}
-	if got := changelogMentions(changelog, "authhttp", "v0.3.0"); len(got) != 0 {
+	if got := changelogMentions(changelog, "authhttp", "v0.2.2"); len(got) != 0 {
 		t.Errorf("changelogMentions() at the newest version = %q", got)
 	}
 	long := "## v0.2.1\n" + strings.Repeat("- authhttp fix\n", maxChangelogEntries+2)

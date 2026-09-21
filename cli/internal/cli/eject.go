@@ -27,10 +27,10 @@ import (
 	"gorbital.dev/cli/internal/recipes"
 )
 
-// errEjectRemoved answers `orb eject`, removed in v0.3 (ADR-0092). The
+// errEjectRemoved answers `orb eject`, removed in v0.2.2 (ADR-0092). The
 // name stays registered for one release so a script or an old page gets an
 // answer rather than "unknown command".
-var errEjectRemoved = errors.New(`orb eject was removed in v0.3.
+var errEjectRemoved = errors.New(`orb eject was removed in v0.2.2.
 
 Sign-in and organisations are already in your app, under internal/modules:
 orb new put them there. There is nothing to eject.

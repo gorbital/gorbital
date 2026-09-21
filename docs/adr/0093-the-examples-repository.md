@@ -97,7 +97,7 @@ That branch becomes the new repository's root, so each app keeps its own commits
 
 ### 4. Each app builds against the published library
 
-Every app's `go.mod` drops its relative `replace` block and requires the published `gorbital.dev@v0.3.0` modules. A root `go.work` lets a contributor point all of them at a local checkout with one line.
+Every app's `go.mod` drops its relative `replace` block and requires the published `gorbital.dev@v0.2.2` modules. A root `go.work` lets a contributor point all of them at a local checkout with one line.
 
 This is strictly better than what exists today. The apps then prove that the **published** library works, not only the contents of one checkout.
 
@@ -107,7 +107,7 @@ A matrix over `*/go.mod` running `gofmt`, `go vet`, `go build` and `go test -rac
 
 ### 6. The repositories are tagged in lockstep
 
-`examples/v0.3.0` is tagged at the same time as the library's `v0.3.0`. Documentation can then pin a pair of versions known to build together, and a reader who checks out either tag gets the other's counterpart.
+`examples/v0.2.2` is tagged at the same time as the library's `v0.2.2`. Documentation can then pin a pair of versions known to build together, and a reader who checks out either tag gets the other's counterpart.
 
 ### 7. Includes resolve across repositories
 

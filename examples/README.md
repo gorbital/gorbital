@@ -37,7 +37,7 @@ golden Full apps, exactly as `orb new` does, so a change to `authhttp` or
 
 The applications the documentation includes code from — Plateful, Shelfie,
 the recipes — are **not here any more**. They moved to their own repository
-in v0.3 ([ADR-0093](../docs/adr/0093-the-examples-repository.md)):
+in v0.2.2 ([ADR-0093](../docs/adr/0093-the-examples-repository.md)):
 
 <https://github.com/gorbital/examples>
 
