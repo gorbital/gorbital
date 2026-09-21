@@ -33,8 +33,8 @@ func (v State) Valid() bool {
 	return false
 }
 
-// Record's access rule is the module's own, in policy.go: nothing in this
-// package decides who may see or change one.
+// Record has the access rule the module wrote for itself, in policy.go:
+// nothing in this package decides who may see or change one.
 type Record struct {
 	ID string
 	// CreatedBy is who created it, for display and audit, and the one

@@ -53,8 +53,8 @@ type ⟦.Ident⟧ struct {
 type ⟦.Ident⟧ struct {
 	ID string
 ⟦- else if .Custom -⟧
-// ⟦.Ident⟧'s access rule is the module's own, in policy.go: nothing in this
-// package decides who may see or change one.
+// ⟦.Ident⟧ has the access rule the module wrote for itself, in policy.go:
+// nothing in this package decides who may see or change one.
 type ⟦.Ident⟧ struct {
 	ID string
 	// CreatedBy is who created it, for display and audit, and the one

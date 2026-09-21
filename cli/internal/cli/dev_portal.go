@@ -759,7 +759,10 @@ type moduleInputJSON struct {
 	Fields   []string `json:"fields"`
 	Plural   string   `json:"plural"`
 	IDPrefix string   `json:"id_prefix"`
-	Org      bool     `json:"org"`
+	// Scope is who may read and write the records: user, tenant, public
+	// or custom (ADR-0091). Org is the old name of tenant.
+	Scope string `json:"scope"`
+	Org   bool   `json:"org"`
 }
 
 func portalModuleInput(app func() (appInfo, error), input json.RawMessage) (appInfo, moduleInput, error) {
@@ -771,7 +774,7 @@ func portalModuleInput(app func() (appInfo, error), input json.RawMessage) (appI
 	if err := decodeInput(input, &in); err != nil {
 		return appInfo{}, moduleInput{}, err
 	}
-	return a, moduleInput{name: in.Name, specs: in.Fields, plural: in.Plural, idPrefix: in.IDPrefix, org: in.Org}, nil
+	return a, moduleInput{name: in.Name, specs: in.Fields, plural: in.Plural, idPrefix: in.IDPrefix, scope: in.Scope, org: in.Org}, nil
 }
 
 // middlewareInputJSON is orb gen middleware's answers.
