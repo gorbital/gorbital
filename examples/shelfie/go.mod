@@ -97,24 +97,24 @@ require (
 )
 
 replace (
-	gorbital.dev => ../../..
-	gorbital.dev/gorbital => ../../../gorbital
-	gorbital.dev/modules/auditpg => ../../../modules/auditpg
-	gorbital.dev/modules/auth => ../../../modules/auth
-	gorbital.dev/modules/devconsole => ../../../modules/devconsole
-	gorbital.dev/modules/flags => ../../../modules/flags
-	gorbital.dev/modules/idempotency => ../../../modules/idempotency
-	gorbital.dev/modules/jobs => ../../../modules/jobs
-	gorbital.dev/modules/mail/resend => ../../../modules/mail/resend
-	gorbital.dev/modules/mail/smtp => ../../../modules/mail/smtp
-	gorbital.dev/modules/mail/suppressionpg => ../../../modules/mail/suppressionpg
-	gorbital.dev/modules/observability => ../../../modules/observability
-	gorbital.dev/modules/openapi => ../../../modules/openapi
-	gorbital.dev/modules/orgs => ../../../modules/orgs
-	gorbital.dev/modules/postgres => ../../../modules/postgres
-	gorbital.dev/modules/ratelimitpg => ../../../modules/ratelimitpg
-	gorbital.dev/modules/releases => ../../../modules/releases
-	gorbital.dev/modules/settings => ../../../modules/settings
-	gorbital.dev/modules/storage => ../../../modules/storage
-	gorbital.dev/modules/telemetry => ../../../modules/telemetry
+	gorbital.dev => ../..
+	gorbital.dev/gorbital => ../../gorbital
+	gorbital.dev/modules/auditpg => ../../modules/auditpg
+	gorbital.dev/modules/auth => ../../modules/auth
+	gorbital.dev/modules/devconsole => ../../modules/devconsole
+	gorbital.dev/modules/flags => ../../modules/flags
+	gorbital.dev/modules/idempotency => ../../modules/idempotency
+	gorbital.dev/modules/jobs => ../../modules/jobs
+	gorbital.dev/modules/mail/resend => ../../modules/mail/resend
+	gorbital.dev/modules/mail/smtp => ../../modules/mail/smtp
+	gorbital.dev/modules/mail/suppressionpg => ../../modules/mail/suppressionpg
+	gorbital.dev/modules/observability => ../../modules/observability
+	gorbital.dev/modules/openapi => ../../modules/openapi
+	gorbital.dev/modules/orgs => ../../modules/orgs
+	gorbital.dev/modules/postgres => ../../modules/postgres
+	gorbital.dev/modules/ratelimitpg => ../../modules/ratelimitpg
+	gorbital.dev/modules/releases => ../../modules/releases
+	gorbital.dev/modules/settings => ../../modules/settings
+	gorbital.dev/modules/storage => ../../modules/storage
+	gorbital.dev/modules/telemetry => ../../modules/telemetry
 )

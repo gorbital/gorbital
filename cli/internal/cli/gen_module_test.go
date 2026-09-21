@@ -12,14 +12,14 @@ import (
 	"time"
 )
 
-// newMainApp copies examples/apps/shelfie without the shelves and clubbooks
+// newMainApp copies examples/shelfie without the shelves and clubbooks
 // modules, which orb gen module generates, and makes the copy the working
 // directory. With
 // buildable, the copy's replace directives point at this repository, so it
 // builds.
 func newMainApp(t *testing.T, buildable bool) string {
 	t.Helper()
-	shelfie := filepath.Join(repoRoot(t), "examples", "apps", "shelfie")
+	shelfie := filepath.Join(repoRoot(t), "examples", "shelfie")
 	dir := filepath.Join(t.TempDir(), "shelfie")
 	err := filepath.WalkDir(shelfie, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -55,8 +55,10 @@ func newMainApp(t *testing.T, buildable bool) string {
 	}
 	writeFile(t, filepath.Join(dir, filepath.FromSlash(modulesGenPath)), string(list))
 	if buildable {
+		// absoluteReplaces resolves each directive against the application's
+		// own directory, so this doesn't care how deep examples/shelfie is.
 		goMod := readFile(t, filepath.Join(dir, "go.mod"))
-		writeFile(t, filepath.Join(dir, "go.mod"), strings.ReplaceAll(goMod, " => ../../..", " => "+repoRoot(t)))
+		writeFile(t, filepath.Join(dir, "go.mod"), absoluteReplaces(t, goMod, shelfie))
 	}
 	t.Chdir(dir)
 	return dir
@@ -84,7 +86,7 @@ var clubBooksArgs = []string{"gen", "module", "ClubBook", "title:string:unique",
 
 func TestGenModule(t *testing.T) {
 	dir := newMainApp(t, false)
-	shelfie := filepath.Join(repoRoot(t), "examples", "apps", "shelfie")
+	shelfie := filepath.Join(repoRoot(t), "examples", "shelfie")
 
 	code, out, errOut := runOrb(t, append(shelvesArgs, "--dry-run", "--json")...)
 	var res genModuleResult
@@ -134,7 +136,7 @@ func TestGenModule(t *testing.T) {
 
 func TestGenModuleOrg(t *testing.T) {
 	dir := newMainApp(t, false)
-	shelfie := filepath.Join(repoRoot(t), "examples", "apps", "shelfie")
+	shelfie := filepath.Join(repoRoot(t), "examples", "shelfie")
 
 	code, out, errOut := runOrb(t, append(clubBooksArgs, "--dry-run", "--json")...)
 	var res genModuleResult

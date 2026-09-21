@@ -381,7 +381,7 @@ func checkMigrationsPackage(dir string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("%s/db/migrations isn't a Go package: add migrations.go embedding the files as FS (//go:embed *.sql), which gorbital.WithMigrations and the generated tests use; see examples/apps/shelfie/db/migrations/migrations.go", dir)
+	return fmt.Errorf("%s/db/migrations isn't a Go package: add migrations.go embedding the files as FS (//go:embed *.sql), which gorbital.WithMigrations and the generated tests use; see examples/shelfie/db/migrations/migrations.go", dir)
 }
 
 // mainUsesModuleList reports whether cmd/api passes modules.All to
