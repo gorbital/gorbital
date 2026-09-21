@@ -170,10 +170,19 @@ func (p Profile) check() error {
 	if p.Auth != AuthNone || p.Scope == ScopeNone {
 		return nil
 	}
-	return fmt.Errorf("--auth none --scope %s is not a shape orb can create.\n"+
+	return illegalProfile(fmt.Sprintf("--auth none --scope %s is not a shape orb can create.\n"+
 		"A scope decides which user may act in it, and --auth none means the app has\n"+
-		"no users. Use --scope none, or --auth basic.", p.Scope)
+		"no users. Use --scope none, or --auth basic.", p.Scope))
 }
+
+// An illegalProfile explains, in several sentences meant for a person,
+// why a combination of flags is not one orb can create. It is a type of
+// its own because that explanation is prose: it is printed, never wrapped
+// into a longer message, so the one-lowercase-clause shape an error string
+// usually takes would make it worse to read.
+type illegalProfile string
+
+func (e illegalProfile) Error() string { return string(e) }
 
 // Legal reports whether the profile is one of the nine.
 func (p Profile) Legal() bool { return p.check() == nil }
