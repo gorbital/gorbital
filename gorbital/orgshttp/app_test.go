@@ -81,7 +81,7 @@ func appOptions(auth *authhttp.Authenticator, orgs *module, extra ...gorbital.Mo
 	return []gorbital.Option{
 		gorbital.WithName(testAppName),
 		gorbital.WithAuth(auth),
-		gorbital.WithModules(opshttp.Module(), flagshttp.Module(), orgs.gorbitalModule(), testProjects(), exampleFlags()),
+		gorbital.WithModules(opshttp.Module(), flagshttp.Module(), orgs.gorbitalModule()),
 		gorbital.WithModules(extra...),
 		gorbital.WithMigrations(testMigrations),
 		gorbital.WithLogger(slog.New(slog.DiscardHandler)),
@@ -118,14 +118,25 @@ func newApp(t *testing.T, env map[string]string, extra ...gorbital.Module) *test
 // appRole, the URL as the test server's user.
 func newAppWithURL(t *testing.T, env map[string]string, extra ...gorbital.Module) (*testApp, string) {
 	t.Helper()
+	return newAppWith(t, env, nil, nil, append([]gorbital.Module{testProjects(), exampleFlags()}, extra...)...)
+}
+
+// newAppWith is [newAppWithURL] for an app whose organisations module is
+// built from its own identity and options, with its own modules around it:
+// identity nil is the app's sign-in, which the function builds.
+func newAppWith(t *testing.T, env map[string]string, identity func(*authhttp.Authenticator) Identity, options []Option, modules ...gorbital.Module) (*testApp, string) {
+	t.Helper()
 	ctx := context.Background()
 	dbURL := pgtest.NewDatabase(t)
 	full := map[string]string{"DATABASE_URL": dbURL}
 	maps.Copy(full, env)
 	cfg := testConfig(t, full)
-	auth, orgs := authhttp.New(), newModule(nil)
+	auth, orgs := authhttp.New(), newModule(nil, options...)
 	orgs.auth = auth
-	opts := appOptions(auth, orgs, extra...)
+	if identity != nil {
+		orgs.auth = identity(auth)
+	}
+	opts := appOptions(auth, orgs, modules...)
 	if err := gorbital.Migrate(ctx, cfg, io.Discard, opts...); err != nil {
 		t.Fatalf("Migrate() error = %v", err)
 	}

@@ -130,14 +130,17 @@ type handler struct {
 	svc *orgsusecase.Service
 }
 
-// Register adds the organisation operations to r. Every operation needs a
-// signed-in user; operations on an organisation answer 404 org_not_found to
-// anyone who isn't a member. An API key needs each operation's permission in
-// its scopes, and can't join or leave organisations (ADR-0058).
-func Register(r *gorbital.Router, svc *orgsusecase.Service) {
+// Register adds the organisation operations to r, under v's words. Every
+// operation needs a signed-in user; operations on an organisation answer 404
+// org_not_found to anyone who isn't a member. An API key needs each
+// operation's permission in its scopes, and can't join or leave
+// organisations (ADR-0058).
+func Register(r *gorbital.Router, svc *orgsusecase.Service, v Vocabulary) {
 	h := &handler{svc: svc}
+	r = r.Group("", v.routeOptions()...)
 	op := func(o huma.Operation) huma.Operation {
-		o.Tags, o.Security = []string{"Organisations"}, openapi.Bearer
+		o.Path = v.path(o.Path)
+		o.Tags, o.Security = []string{v.Tag}, openapi.Bearer
 		o.Errors = append([]int{http.StatusUnauthorized}, o.Errors...)
 		return o
 	}
