@@ -11,8 +11,8 @@ require (
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/sdk v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
-	gorbital.dev v0.2.1
-	gorbital.dev/modules/postgres v0.2.1
+	gorbital.dev v0.3.0
+	gorbital.dev/modules/postgres v0.3.0
 )
 
 require (

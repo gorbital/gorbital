@@ -4,8 +4,8 @@ go 1.26.0
 
 require (
 	github.com/jackc/pgx/v5 v5.11.0
-	gorbital.dev v0.2.1
-	gorbital.dev/modules/postgres v0.2.1
+	gorbital.dev v0.3.0
+	gorbital.dev/modules/postgres v0.3.0
 )
 
 require (

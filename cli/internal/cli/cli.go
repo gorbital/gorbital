@@ -21,7 +21,7 @@ import (
 // fallback is what an unstamped build of this tree reports, so it names the
 // release being prepared: it reaches users' apps through gorbital.lock and
 // orb upgrade's branch and commit names.
-var Version = moduleVersion("v0.3.0-dev", debug.ReadBuildInfo)
+var Version = moduleVersion("v0.3.1-dev", debug.ReadBuildInfo)
 
 // cliModulePath is the module orb is built from.
 const cliModulePath = "gorbital.dev/cli"
