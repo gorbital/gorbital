@@ -41,7 +41,7 @@ func bashBlock(t *testing.T, markdown, want string) []string {
 func TestNewPrintsTheStepsTheREADMEDoes(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	code, out, errOut := runOrb(t, "new", "shop-api", "--skip-tidy", "--no-git", "--preset", "full")
+	code, out, errOut := runOrb(t, "new", "shop-api", "--skip-tidy", "--no-git", "--preset", "full", "--local", repoAbs(t))
 	if code != 0 {
 		t.Fatalf("orb new --preset full = %d: %s", code, errOut)
 	}

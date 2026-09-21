@@ -185,7 +185,7 @@ func TestNewCreatesApp(t *testing.T) {
 
 func TestNewFullPrintsNextSteps(t *testing.T) {
 	t.Chdir(t.TempDir())
-	code, out, errOut := runOrb(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git")
+	code, out, errOut := runOrb(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git", "--local", repoAbs(t))
 	if code != 0 {
 		t.Fatalf("orb new --preset full = %d, stderr %q", code, errOut)
 	}
@@ -205,7 +205,7 @@ func TestNewFullPrintsNextSteps(t *testing.T) {
 		}
 	}
 
-	code, out, errOut = runOrb(t, "new", "team-api", "--preset", "full", "--tenancy", "multi", "--skip-tidy", "--no-git")
+	code, out, errOut = runOrb(t, "new", "team-api", "--preset", "full", "--tenancy", "multi", "--skip-tidy", "--no-git", "--local", repoAbs(t))
 	if code != 0 {
 		t.Fatalf("orb new --preset full --tenancy multi = %d, stderr %q", code, errOut)
 	}

@@ -37,7 +37,7 @@ func TestJSONOutputs(t *testing.T) {
 		}},
 		{name: "new", run: func(t *testing.T) (int, string, string) {
 			t.Chdir(t.TempDir())
-			return runOrb(t, "new", "shop-api", "--preset", "full", "--tenancy", "multi", "--skip-tidy", "--no-git", "--json")
+			return runOrb(t, "new", "shop-api", "--preset", "full", "--tenancy", "multi", "--skip-tidy", "--no-git", "--json", "--local", repoAbs(t))
 		}},
 		{name: "gen-job", run: func(t *testing.T) (int, string, string) {
 			newFullApp(t)
