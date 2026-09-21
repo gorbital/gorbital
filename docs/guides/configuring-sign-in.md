@@ -1,6 +1,6 @@
 # Configuring sign-in
 
-How an app on [`gorbital.Main`](main-go.md) changes sign-in without owning its code: options passed to `authhttp.New`. Without options, sign-in is v0.1's, with the same endpoints, error codes and OpenAPI. The package is `gorbital.dev/gorbital/authhttp` ([Methods](../methods/gorbital-authhttp.md#Option)); the decisions are in [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#phase-6-implementation-notes-sign-in-options-hooks-and-custom-methods-2026-09-17), Phase 6 of the [v0.2 roadmap](../v0.2-roadmap.md).
+How an app on [`gorbital.Main`](main-go.md) changes sign-in without editing it: options passed to `authhttp.New`. The module's code is the app's own, in `internal/modules/auth` ([The code in your repo](the-code-in-your-repo.md)), but an option is a line in `main.go` that every later release keeps working, so it is the cheaper place for anything it reaches. Without options, sign-in is v0.1's, with the same endpoints, error codes and OpenAPI. The package is `gorbital.dev/gorbital/authhttp` ([Methods](../methods/gorbital-authhttp.md#Option)); the decisions are in [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#phase-6-implementation-notes-sign-in-options-hooks-and-custom-methods-2026-09-17), Phase 6 of the [v0.2 roadmap](../v0.2-roadmap.md).
 
 A v0.1 app changed its generated `internal/modules/auth` for the same reasons. It keeps that code and needs nothing from this guide.
 

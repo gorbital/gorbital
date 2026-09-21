@@ -94,9 +94,9 @@ orb new my-api --no-start                 # create it, but don't start orb dev
 | Tenancy (Full only): records belong to users, or to organisations | `--tenancy single\|multi` | `single` |
 | Initialise git | `--no-git` | yes |
 
-Other flags: `--no-eject` (see below), `--local <path>` (use a gorbital checkout instead of the published library; default: the checkout you run `orb` inside, if any), `--skip-tidy` (don't run `go mod tidy`), `--json`, `--yes`, `--no-input`, `--plain`.
+Other flags: `--local <path>` (use a gorbital checkout instead of the published library; default: the checkout you run `orb` inside, if any), `--skip-tidy` (don't run `go mod tidy`), `--json`, `--yes`, `--no-input`, `--plain`.
 
-With `--preset full`, `orb new` puts sign-in in the app: it runs [`orb eject`](#orb-eject) for you, `orgs` first when `--tenancy multi`, then `auth`. The app gets `internal/modules/auth` (and `internal/modules/orgs`), every migration in `db/migrations`, `cmd/api/main.go` importing those packages, and `gorbital.lock` recording both under `ejected`. The API, database and behaviour are identical to importing them from the library. `--no-eject` keeps them in the library instead, updated with `go get`. Either way the primitives they call — password hashing, session tokens, TOTP, passkey and OAuth verification — stay in the library. Since v0.2.1.
+With `--preset full`, `orb new` writes sign-in into the app: `internal/modules/auth` (and `internal/modules/orgs` with `--tenancy multi`), every migration in `db/migrations`, `cmd/api/main.go` importing those packages, and `gorbital.lock` recording where each was copied from. It is the app's code from the first commit, and there is one shape of Full app: since v0.2.2 no flag keeps these modules in the library instead ([ADR-0092](../adr/0092-what-the-framework-owns.md)). The API, the database and the behaviour are the same as importing them from the library, and the primitives they call — password hashing, session tokens, TOTP, passkey and OAuth verification — stay there ([The code in your repo](the-code-in-your-repo.md)).
 
 Questions come one at a time. Each answered question folds into one line, and values you passed by flag are listed the same way, so every answer is on screen before the last question: create the app, yes or no.
 
@@ -308,7 +308,7 @@ go generate ./internal/modules # the same: the generated file carries the direct
 
 Flags: `--dry-run`, `--json`, `--no-input` (it never prompts). It needs no clean git tree: it writes only its own generated file, and nothing when the file is up to date.
 
-Modules are found by parsing Go files (`go/parser`), never by building or running code: test files, `testdata` and directories starting with `.` or `_` are skipped; a `Module` function with parameters, a receiver or another return type isn't a module, and neither is a built-in module copied with [`orb eject`](#orb-eject), which `main.go` adds itself. `orb dev` runs it before every build when the app already has `modules.gen.go`, so adding a module directory is enough; apps without the file (v0.1 apps) are left alone.
+Modules are found by parsing Go files (`go/parser`), never by building or running code: test files, `testdata` and directories starting with `.` or `_` are skipped; a `Module` function with parameters, a receiver or another return type isn't a module, and neither is a built-in module the app owns, such as `internal/modules/auth`, which `main.go` adds itself. `orb dev` runs it before every build when the app already has `modules.gen.go`, so adding a module directory is enough; apps without the file (v0.1 apps) are left alone.
 
 ## `orb gen module`
 
@@ -539,7 +539,7 @@ The report has one line per decision, and `UPGRADE-v0.2.md` in the app repeats t
 | `library` | Generated code you never changed, deleted: the library runs it now (`authhttp`, `opshttp`, `flagshttp`, `mailevents`, `orgshttp`, `gorbital.Main`) |
 | `template` | Written from the v0.2 templates, such as an example module nobody changed |
 | `converted` | One of your modules, kept where it is: its `huma.Register` calls become `gorbital` routes, and the error mappings and permissions of `internal/app/module_<name>.go` move into its `Module` value |
-| `kept` | A built-in module you changed, now the app's own code: the library's module copied in as [`orb eject`](ejecting-a-module.md) copies it, with your changes moved into the copy, and recorded in `gorbital.lock`. The line names the [options and hooks](configuring-sign-in.md) that could replace the change |
+| `kept` | A built-in module you changed, now the app's own code: the library's module copied into `internal/modules`, with your changes moved into the copy, and recorded in `gorbital.lock` ([The code in your repo](the-code-in-your-repo.md)). The line names the [options and hooks](configuring-sign-in.md) that could replace the change |
 | `carried` | A change moved to where it belongs in the new layout, such as your middleware into `gorbital.WithStack` in `main.go` |
 | `manual` | A change orb can't make. It stops the move; `--allow-manual` converts the rest and keeps those files in `_upgrade-v0.1/`, which the go command ignores |
 | `follow-up` | Something left for you that doesn't stop the move, such as a test of the old composition root |
@@ -636,71 +636,6 @@ The `--json` output is public API (here `orb routes --app --json`):
 | `routes[].guards`, `middleware`, `tags` | array of strings | Always present, possibly empty |
 | `warnings` | array of strings | What couldn't be found, for people; don't parse them |
 
-## `orb eject`
-
-Copies a built-in module of `gorbital.dev/gorbital` into an app on `gorbital.Main` as code the app owns, for a change no option or hook covers ([Ejecting a module](ejecting-a-module.md), [ADR-0083](../adr/0083-modules-stack-migrations-and-ejection.md#7-ejection)). The API, the database and the module's behaviour don't change; from then on library releases don't change the module either.
-
-```bash
-orb eject orgs --dry-run --diff   # what would change, as a diff; writes nothing
-orb eject orgs
-orb eject auth                    # after orgs: gorbital's orgshttp takes sign-in's authenticator
-```
-
-| Module | Library package | Constructor `cmd/api` must call |
-|---|---|---|
-| `auth` | `gorbital.dev/gorbital/authhttp` | `authhttp.New` |
-| `flags` | `gorbital.dev/gorbital/flagshttp` | `flagshttp.Module` |
-| `mailevents` | `gorbital.dev/gorbital/mailevents` | `mailevents.Module` |
-| `ops` | `gorbital.dev/gorbital/opshttp` | `opshttp.Module` |
-| `orgs` | `gorbital.dev/gorbital/orgshttp` | `orgshttp.Module` |
-
-What it does, as one plan applied at once (ADR-0021):
-
-| Step | Files |
-|---|---|
-| Copies the package at the version `go list -m gorbital.dev/gorbital` reports (the module cache, or a `replace` directive's directory): the root package and its layers, `internal/<layer>/…` becoming `<layer>/…`, with their tests and testdata. Imports of the module, and of modules ejected before, name the app's copies; the package keeps its name (`package authhttp` in `internal/modules/auth`), imported under it. Test files of the library itself, marked `//orb:noeject` (they read the gorbital repository), aren't copied | `internal/modules/<module>/…` |
-| Changes the imports of the library package in every Go file of the app to the copy, keeping the name, so `main.go`'s options, hooks and arguments stay as they are | `cmd/api/*.go`, modules that take the authenticator, tests, modules ejected before |
-| Copies the migrations the module declares (`Module.Migrations`) under the same versions, named as `gorbital.Migrate` names them; the merge treats each copy and the module's declaration as one migration, so a database applies nothing | `db/migrations/<version>_<name>.sql` |
-| Records the module, library package, version, date and a SHA-256 of the package's source | `gorbital.lock` (created when the app has none) |
-| Runs `go mod tidy` (not with `--skip-tidy`): the copied tests import packages the app didn't | `go.mod`, `go.sum` |
-| Records the app's public names again: the module's error codes and audit actions are the app's now | `api/surface.json` |
-
-Flags: `--dry-run`, `--diff`, `--json`, `--allow-dirty`, `--skip-tidy`, `--yes` (no confirmation in a terminal), `--no-input` (never prompts: the module is required), `--plain`. Without a module in a terminal, it asks which of the modules `cmd/api` uses to eject.
-
-It refuses, with exit code 1 and what to do, when: the app is on the v0.1 layout (convert it with `orb upgrade --layout v0.2`, which keeps changed generated modules as owned code); no Go file of `cmd/api` calls `gorbital.Main`; `cmd/api` doesn't import the module's package (nothing to eject), imports it as `_` or `.`, or never calls its constructor; `gorbital.lock` records the module as ejected already, or `internal/modules/<module>` exists; a library package the app still uses imports the module (`orgshttp` imports `authhttp`: eject `orgs` first); a migration version of the module is taken by another file in `db/migrations`; the git repository has uncommitted changes (unless `--allow-dirty`). An unknown module or a missing one with `--no-input` is exit code 2.
-
-Afterwards, `orb gen modules` doesn't list ejected modules (`main.go` adds them where it added the library's), `orb doctor` reports each one and warns when the library's package has changed since, quoting the changelog entries that name it, and `orb upgrade` keeps them in `gorbital.lock`. The generated architecture test allows a module to import another module's root package, such as the ejected sign-in's authenticator, never its layers.
-
-The `--json` output (here `orb eject orgs --dry-run --json`, arrays shortened):
-
-```json
-{
-  "schemaVersion": 1,
-  "module": "orgs",
-  "package": "gorbital.dev/gorbital/orgshttp",
-  "version": "v0.2.0",
-  "directory": "internal/modules/orgs",
-  "files": ["internal/modules/orgs/app_test.go", "internal/modules/orgs/delivery/flags.go", "…"],
-  "migrations": ["db/migrations/20260916000001_orgs.sql", "db/migrations/20260918000002_settings_org_purge.sql"],
-  "modified": ["cmd/api/accounts_test.go", "cmd/api/main.go", "…", "gorbital.lock"],
-  "not_copied": [{"path": "bypass_test.go", "reason": "reads every Go file of the gorbital repository"}, "…"],
-  "notes": [],
-  "tidied": false,
-  "dry_run": true
-}
-```
-
-| Field | Holds |
-|---|---|
-| `module`, `package`, `version`, `directory` | The module, the library package, the `gorbital.dev/gorbital` version it was copied at, and where it now is |
-| `files` | The module's files created in `directory`, sorted |
-| `migrations` | Migrations created in `db/migrations` |
-| `modified` | The app's files whose imports changed, and `gorbital.lock` |
-| `not_copied` | Library tests left out: `path` in the package, `reason` |
-| `notes` | What it left as it was, such as a migration `db/migrations` already has with identical content |
-| `tidied` | `go mod tidy` ran |
-| `dry_run` | Nothing was written |
-
 ## `orb doctor`
 
 Checks the app in the current directory and says what to fix. It changes nothing ([ADR-0051](../adr/0051-operations-v0-5.md)).
@@ -741,8 +676,8 @@ orb doctor · shop-api (full, single tenancy)
 | `.env` (Full preset) | It holds secrets and git doesn't ignore it | It's missing, git doesn't ignore it, or it lacks variables `.env.example` has |
 | `api files` | | `api/openapi.json`, `postman_collection.json` or `llms.txt` doesn't match the code |
 | `configuration`, `database` (Full preset) | The app's configuration doesn't load; the database ran migrations the code doesn't have | The database is unreachable, or migrations are pending |
-| `modules` (apps on `gorbital.Main`) | `modules.gen.go` is missing or stale: a module directory isn't listed, or a listed one is gone | A directory under `internal/modules` has Go files but no `func Module() gorbital.Module` (a `Module` that takes arguments, which `main.go` adds on its own line, and modules copied with `orb eject` aren't reported) |
-| `ejected` (apps on `gorbital.Main`, one per module `gorbital.lock` records) | The module's directory is gone | The library's package at the version `go.mod` requires differs from the one copied (its SHA-256), with the changelog entries that name it; or it can't be compared |
+| `modules` (apps on `gorbital.Main`) | `modules.gen.go` is missing or stale: a module directory isn't listed, or a listed one is gone | A directory under `internal/modules` has Go files but no `func Module() gorbital.Module` (a `Module` that takes arguments, which `main.go` adds on its own line, and the built-in modules the app owns aren't reported) |
+| `ejected` (apps on `gorbital.Main`, one per built-in module the app owns, as `gorbital.lock` records them) | The module's directory is gone | The library's package at the version `go.mod` requires differs from the one copied (its SHA-256), with the changelog entries that name it; or it can't be compared |
 | `stack` (apps on `gorbital.Main`) | | A `gorbital.WithStack` in `cmd/api` leaves out `Recover` or `Auth` (a function literal, or a function declared in `cmd/api`, that never names them and doesn't use `Default()`); a stack built any other way can't be checked, and the warning points at the one `gorbital.New` logs at start |
 | `timeout` (apps on `gorbital.Main`) | `APP_REQUEST_TIMEOUT` isn't a duration, or isn't shorter than the server's 60s write timeout: the app refuses to start | It is `0` (no deadline) or shorter than a second |
 | `scopes` (apps on `gorbital.Main` whose `gorbital.yaml` records module scopes) | | A `tenant` module's **generated** repository queries don't mention the tenant column, or a `custom` module's `policy.go` still returns `gorbital.ErrNotImplemented`. It is a static check over generated files: it can't see SQL added later, a query built at run time, or a view that widens the rows, so a clean run is a reminder and not a proof ([Resource access scopes](resource-access.md)) |
@@ -816,7 +751,6 @@ The port check listens on `127.0.0.1` only. On macOS, a program listening on all
 | `orb add mail` | `provider`, `already_configured`, `files`, `env_variables`, `modules`, `dry_run` |
 | `orb add rls` | `name`, `already_on`, `migration`, `files`, `dry_run` |
 | `orb add orgs`, `orb upgrade` | `name`, `from`, `to`, `up_to_date`, `branch`, `changes` (`path`, `action`, `note`), `conflicts`, `unproven`, `committed`, `dry_run`, `layout`, `user_scoped_modules` and `migration_order_warning` (`orb add orgs`) |
-| `orb eject` | `module`, `package`, `version`, `directory`, `files`, `migrations`, `modified`, `not_copied` (`path`, `reason`), `notes`, `tidied`, `dry_run` (see [`orb eject`](#orb-eject)) |
 | `orb doctor` | `app`, `preset`, `tenancy`, `layout`, `checks` (`name`, `status`, `detail`, `fix`), `failures`, `warnings` |
 | `orb version` | `version`, `recipe`, `library` |
 
