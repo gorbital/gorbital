@@ -221,7 +221,7 @@ var (
 	mappedCode  = regexp.MustCompile(`Code: "([a-z0-9_]+)"`)
 	problemCode = regexp.MustCompile(`httpx\.NewProblem\(http\.Status[A-Za-z]+, "([a-z0-9_]+)"`)
 	auditAction = regexp.MustCompile(`"(auth\.[a-z_]+\.[a-z_]+)"`)
-	limiterName = regexp.MustCompile(`\{"(auth_[a-z_]+)", &limits\.`)
+	limiterName = regexp.MustCompile(`\{"(auth_[a-z_]+)", (?:Method[A-Za-z]+, )?&limits\.`)
 )
 
 func matches(re *regexp.Regexp, s string) []string {

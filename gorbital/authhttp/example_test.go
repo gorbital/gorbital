@@ -157,6 +157,20 @@ func ExampleOption() {
 	gorbital.Main(gorbital.WithAuth(auth), gorbital.WithModules(modulesAll()...))
 }
 
+func ExampleMethods() {
+	// An app with an email address, a password and the operators' account
+	// APIs: 29 operations instead of 74, and no passkey, provider or API
+	// key settings, jobs, limiters or permissions in /ops.
+	_ = authhttp.New(authhttp.Methods(authhttp.MethodPassword, authhttp.MethodOperators))
+}
+
+func ExampleMethod() {
+	// The methods are values, so an app can read its own from
+	// configuration. MethodPassword is always among them.
+	methods := []authhttp.Method{authhttp.MethodPassword, authhttp.MethodTOTP, authhttp.MethodPasskeys}
+	_ = authhttp.New(authhttp.Methods(methods...))
+}
+
 func ExampleMinPasswordLength() {
 	err := authhttp.New(authhttp.MinPasswordLength(8)).CheckConfig(gorbital.Config{})
 	fmt.Println(err)

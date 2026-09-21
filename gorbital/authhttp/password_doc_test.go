@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5"
 
 	"gorbital.dev/gorbital"
@@ -110,6 +111,32 @@ func authDocument(t *testing.T, opts ...Option) map[string]any {
 // authDocumentJSON is authDocument's document as written.
 func authDocumentJSON(t *testing.T, opts ...Option) []byte {
 	t.Helper()
+	var out bytes.Buffer
+	if err := openapi.WriteSpec(&out, authAPI(t, opts...)); err != nil {
+		t.Fatal(err)
+	}
+	return out.Bytes()
+}
+
+// authMux serves an app's sign-in operations without a database, so a path
+// no method registers is the mux's 404.
+func authMux(t *testing.T, opts ...Option) *http.ServeMux {
+	t.Helper()
+	mux := http.NewServeMux()
+	authMountOn(t, mux, opts...)
+	return mux
+}
+
+// authAPI is the API of an app with sign-in and opts, built without a
+// database as `go run ./cmd/api openapi` builds it.
+func authAPI(t *testing.T, opts ...Option) huma.API {
+	t.Helper()
+	return authMountOn(t, http.NewServeMux(), opts...)
+}
+
+// authMountOn mounts sign-in's module on mux.
+func authMountOn(t *testing.T, mux *http.ServeMux, opts ...Option) huma.API {
+	t.Helper()
 	auth := New(opts...)
 	if err := auth.CheckConfig(gorbital.Config{Env: "development"}); err != nil {
 		t.Fatalf("CheckConfig() error = %v", err)
@@ -119,15 +146,11 @@ func authDocumentJSON(t *testing.T, opts ...Option) []byte {
 		t.Fatal(err)
 	}
 	openapi.InstallErrors(mapper)
-	api := openapi.New(http.NewServeMux(), testAppName, "test", openapi.WithBearerAuth("a session token"))
+	api := openapi.New(mux, testAppName, "test", openapi.WithBearerAuth("a session token"))
 	if err := gorbital.Mount(api, mapper, gorbital.Deps{}, auth.Module()); err != nil {
 		t.Fatalf("Mount() error = %v", err)
 	}
-	var out bytes.Buffer
-	if err := openapi.WriteSpec(&out, api); err != nil {
-		t.Fatal(err)
-	}
-	return out.Bytes()
+	return api
 }
 
 // registerBody is POST /v1/auth/register's request body properties.

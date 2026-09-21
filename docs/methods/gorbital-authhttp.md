@@ -29,8 +29,9 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
   - [`Authenticator`](#Authenticator): [`New`](#New), [`Authenticator.CheckConfig`](#Authenticator.CheckConfig), [`Authenticator.Commands`](#Authenticator.Commands), [`Authenticator.Middleware`](#Authenticator.Middleware), [`Authenticator.Module`](#Authenticator.Module), [`Authenticator.OrgServiceAccountRoutes`](#Authenticator.OrgServiceAccountRoutes), [`Authenticator.Setup`](#Authenticator.Setup), [`Authenticator.SignIn`](#Authenticator.SignIn), [`Authenticator.SignInMethods`](#Authenticator.SignInMethods), [`Authenticator.UseOrganisations`](#Authenticator.UseOrganisations), [`Authenticator.User`](#Authenticator.User)
   - [`LoginAttempt`](#LoginAttempt)
   - [`LoginEvent`](#LoginEvent)
+  - [`Method`](#Method): [`MethodPassword`](#MethodPassword), [`MethodOperators`](#MethodOperators), [`MethodTOTP`](#MethodTOTP), [`MethodPasskeys`](#MethodPasskeys), [`MethodSocial`](#MethodSocial), [`MethodAPIKeys`](#MethodAPIKeys)
   - [`NewAccount`](#NewAccount)
-  - [`Option`](#Option): [`APIKeyMaxTTL`](#APIKeyMaxTTL), [`AfterLogin`](#AfterLogin), [`BeforeLogin`](#BeforeLogin), [`Brand`](#Brand), [`MinPasswordLength`](#MinPasswordLength), [`OnRegister`](#OnRegister), [`PasswordPolicy`](#PasswordPolicy), [`RegisterFields`](#RegisterFields), [`RequireMFA`](#RequireMFA), [`RouteMiddleware`](#RouteMiddleware), [`WithoutRegistration`](#WithoutRegistration)
+  - [`Option`](#Option): [`APIKeyMaxTTL`](#APIKeyMaxTTL), [`AfterLogin`](#AfterLogin), [`BeforeLogin`](#BeforeLogin), [`Brand`](#Brand), [`Methods`](#Methods), [`MinPasswordLength`](#MinPasswordLength), [`OnRegister`](#OnRegister), [`PasswordPolicy`](#PasswordPolicy), [`RegisterFields`](#RegisterFields), [`RequireMFA`](#RequireMFA), [`RouteMiddleware`](#RouteMiddleware), [`WithoutRegistration`](#WithoutRegistration)
   - [`Organisations`](#Organisations)
   - [`Refusal`](#Refusal): [`Refusal.Error`](#Refusal.Error)
   - [`SignInRequest`](#SignInRequest)
@@ -270,6 +271,8 @@ func (a *Authenticator) Module() gorbital.Module
 
 Module returns sign-in as a gorbital module, which gorbital.New adds before the app's modules: its routes under /v1/auth/, /ops/auth/users and /ops/service-accounts, its error mappings, permissions, runtime settings (auth.\*), the auth\_cleanup and auth\_revoke\_tokens jobs, its rate limiters and the retention of deleted and unverified accounts (which the operations API lists in /ops/auth/rate-limits and /ops/retention), and its migrations under the versions v0.1 apps hold them under, so a v0.1 database migrates as a no-op.
 
+Everything but the migrations is what the app's sign-in methods declare ([Methods](#Methods)): a method it doesn't serve has no routes, settings, jobs, limiters or permissions, so /ops lists none of them. The migrations are applied whichever methods are served (ADR-0089).
+
 *Since `v0.2.0 (unreleased)`*
 
 **Example**
@@ -302,7 +305,7 @@ ops.service_accounts.write [platform_admin]
 func (a *Authenticator) OrgServiceAccountRoutes(r *gorbital.Router)
 ```
 
-OrgServiceAccountRoutes registers the operations on organisations' service accounts and their API keys under /v1/orgs/{orgId}/service-accounts on r, with v0.1's operation IDs, schemas and error codes (ADR-0058). The organisations module registers them; they work once [Authenticator.UseOrganisations](#Authenticator.UseOrganisations) is called, and before [Authenticator.Setup](#Authenticator.Setup) they register for the OpenAPI document only.
+OrgServiceAccountRoutes registers the operations on organisations' service accounts and their API keys under /v1/orgs/{orgId}/service-accounts on r, with v0.1's operation IDs, schemas and error codes (ADR-0058). The organisations module registers them; they work once [Authenticator.UseOrganisations](#Authenticator.UseOrganisations) is called, and before [Authenticator.Setup](#Authenticator.Setup) they register for the OpenAPI document only. An app that doesn't serve [MethodAPIKeys](#MethodAPIKeys) has no service accounts, so it registers none of them.
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -413,6 +416,8 @@ func (a *Authenticator) SignInMethods(cfg gorbital.Config) []gorbital.SignInMeth
 ```
 
 SignInMethods reports each sign-in method a v0.1 app has, whether cfg configures it and, for the ones that are off, the environment variables that turn them on and the section of AUTH\_PROVIDERS.md that explains them (ADR-0045). It never includes secret values. The operations API lists them in GET /ops/auth/providers (gorbital.Platform.SignInMethods), and the auth-providers command prints them.
+
+A method the app doesn't serve ([Methods](#Methods)) is reported off with no variables to set and a Detail saying so: naming variables that would change nothing would tell an operator to set them (ADR-0089).
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -565,6 +570,63 @@ _ = authhttp.New(authhttp.AfterLogin(func(ctx context.Context, e authhttp.LoginE
 	return nil
 }))
 ```
+
+<a id="Method"></a>
+
+### type Method
+
+```go
+type Method string
+```
+
+A Method is one way of signing in, with the operations, runtime settings, jobs, rate limiters and permissions that belong to it. [Methods](#Methods) chooses the ones an app serves. The values are public API: the operations API and the CLI's profiles name them.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// The methods are values, so an app can read its own from
+// configuration. MethodPassword is always among them.
+methods := []authhttp.Method{authhttp.MethodPassword, authhttp.MethodTOTP, authhttp.MethodPasskeys}
+_ = authhttp.New(authhttp.Methods(methods...))
+```
+
+<a id="MethodPassword"></a>
+<a id="MethodOperators"></a>
+<a id="MethodTOTP"></a>
+<a id="MethodPasskeys"></a>
+<a id="MethodSocial"></a>
+<a id="MethodAPIKeys"></a>
+
+```go
+const (
+	// MethodPassword is registration, email verification, signing in with
+	// a password, sessions, password changes and deleting the account.
+	// Every app serves it: it is what this package implements.
+	MethodPassword Method = "password"
+	// MethodOperators is the operators' account APIs under
+	// /ops/auth/users, with the ops.auth.write permission.
+	MethodOperators Method = "operators"
+	// MethodTOTP is two-factor authentication with an authenticator app,
+	// its recovery codes and finishing a sign-in with them.
+	MethodTOTP Method = "totp"
+	// MethodPasskeys is signing in with a passkey, and adding, naming and
+	// removing them.
+	MethodPasskeys Method = "passkeys"
+	// MethodSocial is Google, Apple and GitHub sign-in and the accounts
+	// linked to them.
+	MethodSocial Method = "social"
+	// MethodAPIKeys is the API keys of a signed-in account and the
+	// platform's service accounts, with their ops.service_accounts
+	// permissions.
+	MethodAPIKeys Method = "api_keys"
+)
+```
+
+The sign-in methods [Methods](#Methods) chooses from. Their migrations are applied whichever are served, so the tables of a method an app leaves out exist and stay empty, and adding the method later is one line in main.go (ADR-0089).
+
+*Since `v0.2.0 (unreleased)`*
 
 <a id="NewAccount"></a>
 <a id="NewAccount.User"></a>
@@ -731,6 +793,31 @@ _ = authhttp.New(authhttp.Brand(mail.Brand{
 	SupportEmail: "help@shelfie.example",
 	Footer:       "Shelfie Ltd, 1 Main Street, London",
 }))
+```
+
+<a id="Methods"></a>
+
+#### func Methods
+
+```go
+func Methods(m ...Method) Option
+```
+
+Methods chooses the sign-in methods the app serves, such as authhttp.Methods(authhttp.MethodPassword, authhttp.MethodOperators) for an app that wants an email address, a password and the operators' account APIs. Without the option every method is served, which is v0.2's sign-in byte for byte.
+
+A method the app doesn't serve has no operations, so its paths are 404 and they leave the OpenAPI document, and it declares no runtime settings, jobs, rate limiters or permissions, so /ops doesn't list them and no role can be granted them. Its migrations are applied all the same: the tables exist and stay empty, so adding the method later is this one line and a restart (ADR-0089).
+
+[MethodPassword](#MethodPassword) is required: this package is the password implementation, and an app that doesn't want passwords wants another authenticator. A set without it, or with a method that doesn't exist, is reported by [Authenticator.CheckConfig](#Authenticator.CheckConfig), so the app exits with status 2 before it connects.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// An app with an email address, a password and the operators' account
+// APIs: 29 operations instead of 74, and no passkey, provider or API
+// key settings, jobs, limiters or permissions in /ops.
+_ = authhttp.New(authhttp.Methods(authhttp.MethodPassword, authhttp.MethodOperators))
 ```
 
 <a id="MinPasswordLength"></a>
