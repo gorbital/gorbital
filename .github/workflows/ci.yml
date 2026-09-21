@@ -153,8 +153,8 @@ jobs:
         working-directory: cli
         run: |
           go generate ./internal/recipes/
-          git diff --exit-code -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2 ../examples/full-single ../examples/full-multi
-          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2 ../examples/full-single ../examples/full-multi)"
+          git diff --exit-code -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2.2 ../examples/full-single ../examples/full-multi ../examples/api-basic
+          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2.2 ../examples/full-single ../examples/full-multi ../examples/api-basic)"
       - name: exported Go API matches the listings in api/ (ADR-0054)
         run: go run -C internal/tools/apicheck .
       - name: docs/reference matches the golden apps' error codes, audit actions, permissions, settings and jobs
@@ -180,6 +180,11 @@ jobs:
           git diff --exit-code -- api/openapi.json
       - name: api/openapi.json matches examples/full-multi code
         working-directory: examples/full-multi
+        run: |
+          go run ./cmd/api openapi > api/openapi.json
+          git diff --exit-code -- api/openapi.json
+      - name: api/openapi.json matches examples/api-basic code
+        working-directory: examples/api-basic
         run: |
           go run ./cmd/api openapi > api/openapi.json
           git diff --exit-code -- api/openapi.json
@@ -266,6 +271,77 @@ jobs:
           # module in this checkout.
           ORB_COMPAT_PUBLISHED: "1"
         run: go test -run TestScaffoldCompatibility -count=1 -timeout 30m -v ./internal/cli/
+
+  profiles:
+    name: orb new --auth ${{ matrix.auth }} --scope ${{ matrix.scope }}
+    runs-on: ubuntu-latest
+    # The nine shapes orb new can create (ADR-0090 §2). Three of them have
+    # a golden app the generated/ job compares byte for byte; the other six
+    # have none, so this job creates, builds, vets and tests each one
+    # instead. Golden files are for the shapes we document; the matrix is
+    # for the shapes we support.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { auth: none, scope: none }
+          - { auth: basic, scope: none }
+          - { auth: basic, scope: single }
+          - { auth: basic, scope: custom }
+          - { auth: basic, scope: organisation }
+          - { auth: full, scope: none }
+          - { auth: full, scope: single }
+          - { auth: full, scope: custom }
+          - { auth: full, scope: organisation }
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: gorbital
+          POSTGRES_PASSWORD: gorbital
+          POSTGRES_DB: gorbital
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gorbital -d gorbital"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      GORBITAL_TEST_DATABASE_URL: postgres://gorbital:gorbital@localhost:5432/gorbital?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+          cache-dependency-path: "**/go.sum"
+      - name: create the app
+        run: |
+          go build -C cli -o "$RUNNER_TEMP/orb" ./cmd/orb
+          mkdir -p "$RUNNER_TEMP/apps"
+          cd "$RUNNER_TEMP/apps"
+          "$RUNNER_TEMP/orb" new profile-api --auth "${{ matrix.auth }}" --scope "${{ matrix.scope }}" \
+            --local "$GITHUB_WORKSPACE" --no-git --no-input
+      - name: build and vet it
+        working-directory: ${{ runner.temp }}/apps/profile-api
+        run: |
+          go build ./...
+          go vet ./...
+      # A custom scope is generated red on purpose: its authorizer returns
+      # gorbital.ErrNotImplemented until the app writes the rule, and its
+      # test says so (ADR-0091's --scope custom, roadmap item 53). Every
+      # other package must pass.
+      - name: run its tests
+        working-directory: ${{ runner.temp }}/apps/profile-api
+        run: |
+          if [ "${{ matrix.scope }}" = custom ]; then
+            go test $(go list ./... | grep -v /internal/modules/scope)
+            ! go test ./internal/modules/scope
+          else
+            go test ./...
+          fi
 
   secrets:
     name: secret scan

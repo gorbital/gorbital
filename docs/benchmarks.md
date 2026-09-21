@@ -46,8 +46,11 @@ The `Benchmarks` workflow (`.github/workflows/bench.yml`) runs `scripts/bench.sh
 | Each guard on the allow path | 0 allocations, except `guard.RateLimit` (it takes a token) and `guard.Webhook` (it reads and keeps the body it verifies) |
 | A Full golden app on `gorbital.Main` versus the same app on the v0.1 layout: start time to `/readyz` 200, and RSS when ready | ≤ +10 % |
 | `go list -deps` count and binary size of the golden apps | No growth without a note on this page |
+| `orb new` end to end, from the command to a created app | ≤ 60 s with a warm module cache |
 
 The third budget was written as "`gorbital.New` start time and memory versus v0.1 `full-single`" when sign-in and `/ops` were still generated into apps, so the two sides were not comparable ([Phase 3](#gorbitalmain-apps-phase-3)). From Phase 9 they are: `examples/full-single` is the Full single-tenant golden app on `gorbital.Main` and `examples/v0.1/full-single` is the same app on the v0.1 layout, measured the same way in the same session. The budget now names that comparison, which is what a user actually feels; `BenchmarkNew` stays as the allocation-level measurement of `gorbital.New` itself.
+
+Since v0.2.2 `orb new` compiles and runs the app it has just written, once, to produce `api/openapi.json`, its `/ops` baseline, the Postman collection and `llms.txt`, and once more to record `api/surface.json` — the files stopped being templates because they are the application's output, not gorbital's ([ADR-0090](adr/0090-composing-presets.md) §5). That is the extra cost in the last budget above, on a tree `go mod tidy` has just built. Measured on an Apple M-series laptop with a warm module cache and `--local`: `--auth full --scope organisation` 8 s, `--auth full --scope single` 6 s, `--auth basic --scope none` 7 s, of which the compile and run is roughly three. A regression beyond the budget fails the benchmark gate.
 
 `guard.OrgMember` has no benchmark: it answers from a database query per request, so the "0 allocations" budget was never meant for it, and its cost is a query, not allocations. Either give it a benchmark with a warm connection or state it as a third exception before the budget is enforced in CI.
 

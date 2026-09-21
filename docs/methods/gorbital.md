@@ -58,7 +58,7 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
   - [`MailConfig`](#MailConfig)
   - [`Migration`](#Migration)
   - [`Module`](#Module)
-  - [`Option`](#Option): [`WithAuth`](#WithAuth), [`WithLogger`](#WithLogger), [`WithMailer`](#WithMailer), [`WithMailerFunc`](#WithMailerFunc), [`WithMiddleware`](#WithMiddleware), [`WithMiddlewareFunc`](#WithMiddlewareFunc), [`WithMigrations`](#WithMigrations), [`WithModules`](#WithModules), [`WithName`](#WithName), [`WithScope`](#WithScope), [`WithStack`](#WithStack), [`WithStorage`](#WithStorage), [`WithStorageFunc`](#WithStorageFunc)
+  - [`Option`](#Option): [`WithAuth`](#WithAuth), [`WithLogger`](#WithLogger), [`WithMailer`](#WithMailer), [`WithMailerFunc`](#WithMailerFunc), [`WithMiddleware`](#WithMiddleware), [`WithMiddlewareFunc`](#WithMiddlewareFunc), [`WithMigrations`](#WithMigrations), [`WithModules`](#WithModules), [`WithName`](#WithName), [`WithScope`](#WithScope), [`WithScopeWords`](#WithScopeWords), [`WithStack`](#WithStack), [`WithStorage`](#WithStorage), [`WithStorageFunc`](#WithStorageFunc)
   - [`OrgAuthorizer`](#OrgAuthorizer)
   - [`Permission`](#Permission)
   - [`PermissionDeclarer`](#PermissionDeclarer)
@@ -1867,6 +1867,52 @@ gorbital.WithScope(gorbital.Scope{
 opts := []gorbital.Option{
 	gorbital.WithName("shop-api"),
 	gorbital.WithScope(merchantScope(), members{}),
+}
+fmt.Println(len(opts), "options")
+```
+
+Output:
+
+```text
+2 options
+```
+
+<a id="WithScopeWords"></a>
+
+#### func WithScopeWords
+
+```go
+func WithScopeWords(s Scope) Option
+```
+
+WithScopeWords says what the app calls its tenant when a module owns membership and renames it, such as orgshttp.Module(auth, orgshttp.ScopeName("merchant", "merchants", "merchantId")). The module still sets the scope and its authorizer; this only tells the parts of [New](#New) that run before any module's Platform does — the route checks of guard.Scope, and the OpenAPI document \`openapi --dir\` exports without connecting to anything — which words to expect:
+
+```go
+gorbital.WithScopeWords(gorbital.Scope{
+	Name:         "merchant",
+	PathParam:    "merchantId",
+	NotFoundCode: "merchant_not_found",
+})
+```
+
+It carries no authorizer, so it is not a second scope: an app whose membership is its own uses [WithScope](#WithScope) instead, which says the same words and more.
+
+*Since `v0.2.2 (unreleased)`*
+
+**Example**
+
+```go
+// An app whose membership is a module's, mounted under its own words:
+// the module still sets the scope, and this says the words before it
+// runs, for guard.Scope's route checks and the exported OpenAPI
+// document.
+opts := []gorbital.Option{
+	gorbital.WithName("shop-api"),
+	gorbital.WithScopeWords(gorbital.Scope{
+		Name:         "merchant",
+		PathParam:    "merchantId",
+		NotFoundCode: "merchant_not_found",
+	}),
 }
 fmt.Println(len(opts), "options")
 ```

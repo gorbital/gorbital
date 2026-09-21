@@ -100,6 +100,23 @@ func ExampleWithScope() {
 	// Output: 2 options
 }
 
+func ExampleWithScopeWords() {
+	// An app whose membership is a module's, mounted under its own words:
+	// the module still sets the scope, and this says the words before it
+	// runs, for guard.Scope's route checks and the exported OpenAPI
+	// document.
+	opts := []gorbital.Option{
+		gorbital.WithName("shop-api"),
+		gorbital.WithScopeWords(gorbital.Scope{
+			Name:         "merchant",
+			PathParam:    "merchantId",
+			NotFoundCode: "merchant_not_found",
+		}),
+	}
+	fmt.Println(len(opts), "options")
+	// Output: 2 options
+}
+
 func ExamplePlatform_SetScope() {
 	// A module that owns membership sets the scope once the app is built.
 	// gorbital.dev/gorbital/orgshttp does this for organisations.
