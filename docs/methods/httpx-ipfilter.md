@@ -42,7 +42,7 @@ var ErrDenyAll = errors.New("ipfilter: a deny range can't cover every address; l
 
 ErrDenyAll reports a deny range covering every IPv4 or IPv6 address, which would refuse every request of that family.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 ## Functions
 
@@ -58,7 +58,7 @@ New returns middleware that refuses requests by client address with a 403 proble
 
 It returns an error for an invalid range, a deny range covering every address of a family ([ErrDenyAll](#ErrDenyAll); list allowed ranges instead), or an allow range entirely inside a deny range, which could never match. With both lists empty the middleware changes nothing.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -127,7 +127,7 @@ func ParsePrefixes(list string) ([]netip.Prefix, error)
 
 ParsePrefixes reads a comma-separated list of CIDR ranges or single addresses, such as "10.0.0.0/8, 2001:db8::/32, 192.0.2.10", for [New](#New). Ranges are masked ("10.0.0.5/8" is 10.0.0.0/8), and IPv4 addresses written in IPv6 form ("::ffff:10.0.0.5") become IPv4, as client addresses are compared. An empty list returns nil.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 

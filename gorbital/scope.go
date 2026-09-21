@@ -61,6 +61,13 @@ type Scope struct {
 	// Roles are the scope's roles, most privileged first, with what each
 	// one grants. [Permission.ScopeRoles] names them. Roles a permission
 	// names and this list doesn't are declared with a generic description.
+	//
+	// They order and describe the roles in the scope catalog, which is
+	// built before any module's Platform runs. A scope set with
+	// [WithScope] is in place by then; one set with [Platform.SetScope] is
+	// not, so its roles keep the owner, admin and member order and
+	// descriptions of organisation apps. Set the scope with [WithScope]
+	// when the roles are the app's own.
 	Roles []ScopeRole
 
 	// Session carries the scope into the request's database connections,
@@ -320,9 +327,19 @@ func checkScopeRoutes(reg *registry) error {
 // name, with the permissions the modules grant it: the scope's own roles
 // first, in its order, then any others by name.
 func declareScopeRoles(catalog *auth.Catalog, s Scope, modules []Module) error {
+	roleOrder := s.Roles
+	if len(roleOrder) == 0 {
+		// The app has no scope yet: either it has none, or a module will
+		// set one from Module.Platform, which runs after this. Order and
+		// describe the roles as v0.1 and v0.2 organisation apps do, whose
+		// owner/admin/member order is part of their recorded surface. A
+		// scope with its own roles reaches this through [WithScope],
+		// which the app sets before anything is declared.
+		roleOrder = DefaultOrgScope().Roles
+	}
 	var named []string
-	descriptions := make(map[string]string, len(s.Roles))
-	for _, r := range s.Roles {
+	descriptions := make(map[string]string, len(roleOrder))
+	for _, r := range roleOrder {
 		named = append(named, r.Name)
 		descriptions[r.Name] = r.Description
 	}

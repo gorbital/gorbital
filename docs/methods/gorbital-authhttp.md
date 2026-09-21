@@ -48,7 +48,7 @@ var ErrUserNotFound = authdomain.ErrUserNotFound
 
 ErrUserNotFound is returned by [Authenticator.User](#Authenticator.User) for an unknown or deleted account. Returned from a handler, it answers 404 user\_not\_found.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 ## Functions
 
@@ -66,7 +66,7 @@ Refuse returns the error a [BeforeLogin](#BeforeLogin), [OnRegister](#OnRegister
 var errSuspended = authhttp.Refuse("reader_suspended", "this account is suspended; write to support")
 ```
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -100,7 +100,7 @@ type Authenticator struct {
 
 An Authenticator is sign-in for one app. It implements gorbital.Authenticator, with the optional methods gorbital.New and gorbital.Main look for. Create it with [New](#New) and pass it to gorbital.WithAuth; the app calls its methods.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -132,7 +132,7 @@ New returns sign-in for an app, configured from the environment variables gorbit
 
 Without options it is v0.1's sign-in. Options change the password policy ([MinPasswordLength](#MinPasswordLength), [PasswordPolicy](#PasswordPolicy)), second factors ([RequireMFA](#RequireMFA)), API keys ([APIKeyMaxTTL](#APIKeyMaxTTL)), sign-up ([WithoutRegistration](#WithoutRegistration), [RegisterFields](#RegisterFields)), emails ([Brand](#Brand)) and the routes ([RouteMiddleware](#RouteMiddleware)), and add hooks ([BeforeLogin](#BeforeLogin), [AfterLogin](#AfterLogin), [OnRegister](#OnRegister)). [Authenticator.CheckConfig](#Authenticator.CheckConfig) reports an invalid option.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -162,7 +162,7 @@ CheckConfig checks what sign-in needs its own packages for, which gorbital.LoadC
 
 It also reports the options [New](#New) received that can't apply, such as [MinPasswordLength](#MinPasswordLength) below 12, after the configuration's problems.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -212,7 +212,7 @@ seed [--email <email>]       create a development administrator with two-factor 
 
 Changes are recorded in the audit log as the "cli" system actor. Wrong arguments exit with status 2 (gorbital.ErrUsage), as every command of gorbital.Main does; other failures, such as an unknown account, with 1.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -246,7 +246,7 @@ Middleware authenticates each request with its session cookie (\_\_Host-session)
 
 gorbital.New calls it after [Authenticator.Setup](#Authenticator.Setup); it panics before.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -273,7 +273,7 @@ Module returns sign-in as a gorbital module, which gorbital.New adds before the 
 
 Everything but the migrations is what the app's sign-in methods declare ([Methods](#Methods)): a method it doesn't serve has no routes, settings, jobs, limiters or permissions, so /ops lists none of them. The migrations are applied whichever methods are served (ADR-0089).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -307,7 +307,7 @@ func (a *Authenticator) OrgServiceAccountRoutes(r *gorbital.Router)
 
 OrgServiceAccountRoutes registers the operations on organisations' service accounts and their API keys under /v1/orgs/{orgId}/service-accounts on r, with v0.1's operation IDs, schemas and error codes (ADR-0058). The organisations module registers them; they work once [Authenticator.UseOrganisations](#Authenticator.UseOrganisations) is called, and before [Authenticator.Setup](#Authenticator.Setup) they register for the OpenAPI document only. An app that doesn't serve [MethodAPIKeys](#MethodAPIKeys) has no service accounts, so it registers none of them.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -349,7 +349,7 @@ Setup builds sign-in from the app's configuration and dependencies: the use case
 
 gorbital.New calls it once; gorbital.Main calls it with zero Deps before one of [Authenticator.Commands](#Authenticator.Commands) runs, which then opens its own database connection. It returns an error when called a second time with a database, or when a dependency sign-in needs is missing.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -385,7 +385,7 @@ SignIn doesn't check anything about the method itself: the module must have veri
 
 The errors are problems (or sign-in's mapped errors) a handler returns as they are. Calling SignIn before gorbital.New has set sign-in up, or with an invalid Method or Transport, returns a plain error (500).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -419,7 +419,7 @@ SignInMethods reports each sign-in method a v0.1 app has, whether cfg configures
 
 A method the app doesn't serve ([Methods](#Methods)) is reported off with no variables to set and a Detail saying so: naming variables that would change nothing would tell an operator to set them (ADR-0089).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -454,7 +454,7 @@ func (a *Authenticator) UseOrganisations(o Organisations) error
 
 UseOrganisations connects sign-in to the app's organisations: new accounts and deleted ones reach o, and the operations of [Authenticator.OrgServiceAccountRoutes](#Authenticator.OrgServiceAccountRoutes) manage the service accounts of organisations o authorizes. Until it is called, accounts are created and deleted without organisations, and organisations have no service accounts (404 service\_account\_not\_found). A later call replaces o.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -483,7 +483,7 @@ func (a *Authenticator) User(ctx context.Context, id string) (User, error)
 
 User returns an account with its platform roles, or [ErrUserNotFound](#ErrUserNotFound). A module uses it to show or check the account its own records point to.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -525,7 +525,7 @@ type LoginAttempt struct {
 
 A LoginAttempt is a sign-in whose every factor is verified, just before its session is created, as [BeforeLogin](#BeforeLogin) hooks receive it: a correct password for a verified address, a passkey, a Google, Apple or GitHub identity, or a module's method through [Authenticator.SignIn](#Authenticator.SignIn), and, for an account with two-factor authentication, the second factor too. A banned account is refused before the hooks run. The hooks never see unknown addresses, wrong passwords or failed second factors, so they can't tell anyone whether an address has an account, and a refusal is only ever shown to someone who passed every check. Impersonation in development doesn't run them.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -560,7 +560,7 @@ type LoginEvent struct {
 
 A LoginEvent is a sign-in whose session is committed and audited, as [AfterLogin](#AfterLogin) hooks receive it. It never carries the session's token.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -581,7 +581,7 @@ type Method string
 
 A Method is one way of signing in, with the operations, runtime settings, jobs, rate limiters and permissions that belong to it. [Methods](#Methods) chooses the ones an app serves. The values are public API: the operations API and the CLI's profiles name them.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -626,7 +626,7 @@ const (
 
 The sign-in methods [Methods](#Methods) chooses from. Their migrations are applied whichever are served, so the tables of a method an app leaves out exist and stay empty, and adding the method later is one line in main.go (ADR-0089).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 <a id="NewAccount"></a>
 <a id="NewAccount.User"></a>
@@ -660,7 +660,7 @@ What a hook's error does depends on how the account is created:
   - google, apple, github (a first sign-in): the account is rolled back; a [Refuse](#Refuse) error answers 403 with its code (in the redirect's fragment for web sign-ins) and any other error 500. The provider already proved the identity, so nothing is revealed.
   - operator (POST /ops/auth/users, orb dev's seed data): the account is rolled back; 403 with a refusal's code, otherwise 500.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -685,7 +685,7 @@ type Option interface {
 
 An Option changes sign-in from v0.1's behaviour, which [New](#New) keeps when it gets none (ADR-0083, Phase 6). Deployment values, such as provider credentials and the passkey relying party, stay in environment variables. A mistake in an option, such as a password length below the minimum, is reported by [Authenticator.CheckConfig](#Authenticator.CheckConfig), so the app exits with status 2 before it connects.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -710,7 +710,7 @@ func APIKeyMaxTTL(d time.Duration) Option
 
 APIKeyMaxTTL caps the lifetime of new API keys: the runtime setting auth.api\_key\_max\_ttl, which operators change, accepts at most d (instead of a year) and defaults to d when d is shorter than its 90-day default. d is 24 hours to 365 days. Existing keys keep their expiry.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -730,7 +730,7 @@ func AfterLogin(hook func(ctx context.Context, e LoginEvent) error) Option
 
 AfterLogin adds a hook that runs after a session is created (see [LoginEvent](#LoginEvent)). It can't change the sign-in: its error is logged, and the response waits for it at most 5 seconds, after which its context is cancelled. A panic is recovered and logged. Several hooks run in order.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -752,7 +752,7 @@ func BeforeLogin(hook func(ctx context.Context, tx pgx.Tx, a LoginAttempt) error
 
 BeforeLogin adds a hook that decides whether a sign-in may start a session (see [LoginAttempt](#LoginAttempt) for when it runs). Return [Refuse](#Refuse)'s error to refuse it with 403 and your code; any other error fails the sign-in with 500 internal\_error, and nil lets it through. tx is the transaction that creates the session: read the app's tables in it, and what the hook writes commits only with the session. Several hooks run in the order given, until one returns an error.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -783,7 +783,7 @@ func Brand(b mail.Brand) Option
 
 Brand sets what every email sign-in sends has in common (mail.Brand): a logo, the support address, a footer line. An empty Name is the app's name (gorbital.WithName) and an empty URL is APP\_PUBLIC\_URL, as without the option. The dev console's previews use it too.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -809,7 +809,7 @@ A method the app doesn't serve has no operations, so its paths are 404 and they 
 
 [MethodPassword](#MethodPassword) is required: this package is the password implementation, and an app that doesn't want passwords wants another authenticator. A set without it, or with a method that doesn't exist, is reported by [Authenticator.CheckConfig](#Authenticator.CheckConfig), so the app exits with status 2 before it connects.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -832,7 +832,7 @@ MinPasswordLength raises the shortest password accepted when an account register
 
 The OpenAPI document states n too, wherever a password field documents the minimum: registration, the password reset, the password change and the operators' account creation.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -857,7 +857,7 @@ func OnRegister(hook func(ctx context.Context, tx pgx.Tx, a NewAccount) error) O
 
 OnRegister adds a hook that runs in the transaction that creates an account, for every way one is created (see [NewAccount](#NewAccount)). Write the app's rows for the account in tx: a profile, a default workspace, a job with jobs.Client.InsertTx. An error rolls the account back; see [NewAccount](#NewAccount) for what the client receives. Several hooks run in order, until one returns an error.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -880,7 +880,7 @@ func PasswordPolicy(check func(ctx context.Context, password string) error) Opti
 
 PasswordPolicy adds a check every new password must pass after the built-in rules (length, not blank) and [MinPasswordLength](#MinPasswordLength), such as a breached-password lookup or a ban on the app's name. A non-nil error refuses the password with 422 weak\_password and the detail "the password " followed by the error's text, so word it to follow: "is too common". Several policies run in order. A policy runs before anything is stored and for every request, so its result can't reveal whether an address has an account; it must not log the password.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -910,7 +910,7 @@ Only email registration sends them: an account created by a first Google, Apple 
 
 save's error rolls the account back, like OnRegister's; the response is still 202 (see [NewAccount](#NewAccount)), so validate in T, not in save. T's JSON names can't be email or password, and RegisterFields can be given once.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -935,7 +935,7 @@ func RequireMFA(roles ...string) Option
 
 RequireMFA grants the permissions of roles only to sessions signed in with a second factor, as sign-in always does for platform\_admin and ops\_viewer: a session without one gets 403 mfa\_required from routes those roles open, and an API key never holds them. A role must be declared by a module (gorbital.Module.Permissions); the user role every account holds can't require a second factor. Setup returns an error otherwise.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -955,7 +955,7 @@ func RouteMiddleware(middleware ...func(http.Handler) http.Handler) Option
 
 RouteMiddleware runs middleware on every operation under /v1/auth/, such as a CAPTCHA check on registration and sign-in or a country filter, after the app's middleware stack and before sign-in's own checks. It doesn't run on /ops/auth/users or /ops/service-accounts. Refuse with a problem (httpx.WriteProblem) and a code of your own. Middleware for the whole app goes in gorbital.WithMiddleware.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -983,7 +983,7 @@ func WithoutRegistration() Option
 
 WithoutRegistration closes sign-up, for apps whose accounts come from operators or the app's own flows: POST /v1/auth/register isn't served (404, and it leaves the OpenAPI document), and a first Google, Apple or GitHub sign-in of an address without an account gets 403 registration\_closed (in the redirect's fragment for web sign-ins). Every other flow still works: accounts operators create (POST /ops/auth/users, orb dev's seed data), their verification and password reset, sign-in and linking providers to existing accounts, and custom methods through [Authenticator.SignIn](#Authenticator.SignIn).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -1030,7 +1030,7 @@ type Organisations interface {
 
 Organisations is what sign-in needs from an app's organisations (ADR-0048, ADR-0058): taking part in creating and deleting accounts, and deciding who manages an organisation's service accounts, which sign-in stores and authenticates. gorbital.dev/gorbital/orgshttp implements it and connects it with [Authenticator.UseOrganisations](#Authenticator.UseOrganisations); apps don't call either.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -1063,7 +1063,7 @@ type Refusal struct {
 
 A Refusal is a hook refusing a sign-in or an account: the client receives 403 with Code and Detail as a problem. Create one with [Refuse](#Refuse).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -1092,7 +1092,7 @@ func (r *Refusal) Error() string
 
 Error returns the code and detail.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 <a id="SignInRequest"></a>
 <a id="SignInRequest.UserID"></a>
@@ -1120,7 +1120,7 @@ type SignInRequest struct {
 
 A SignInRequest signs an account in with a module's own method, once the module has verified the person controls it (see [Authenticator.SignIn](#Authenticator.SignIn)).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -1145,7 +1145,7 @@ type SignedIn = delivery.LoginOutput
 
 SignedIn is the response of a sign-in, the same as POST /v1/auth/login's: Status 200 with the session (Body.User, Body.Session, and Body.Token for transport bearer, or the cookie in SetCookie), or 202 with Body.MFA (challenge\_token, methods, expires\_at) for an account with two-factor authentication, which the client finishes with POST /v1/auth/login/mfa. Return it from a Huma handler as is: its body schema is login's LoginResponse.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 
@@ -1193,7 +1193,7 @@ type User struct {
 
 A User is an account, as hooks and modules see it. It never carries the password hash.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.2.2 (unreleased)`*
 
 **Example**
 

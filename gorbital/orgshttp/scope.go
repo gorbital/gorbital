@@ -63,7 +63,7 @@ func validOrgID(id string) bool {
 //   - the OpenAPI tag, Organisations becoming the plural capitalised.
 //
 // Everything else is the app's data or its declared API, and renaming it
-// is out of scope for v0.3: the database tables and columns, the
+// is out of scope for v0.2.2: the database tables and columns, the
 // migrations, the permission names (orgs.*), the role names (owner, admin,
 // member), the operation IDs (orgs-*), the schema names, the audit actions
 // (orgs.*), the runtime setting keys (orgs.*), the job name (orgs_purge),
