@@ -18,6 +18,19 @@
 // docs/docs.json lists. Links to http(s) and mailto are not followed; the
 // docs site's version switcher and the public website are checked by
 // gorbital-web's own build.
+//
+// # The showcase applications
+//
+// The applications the Examples and Build an app pages include code from
+// live in their own repository (ADR-0093). A path under examples/apps/, in
+// an include marker or in a link, resolves against a checkout of that
+// repository at the ref docs/examples.json pins: examples/apps/plateful/x.go
+// is plateful/x.go there. scripts/examples.sh makes the checkout, and this
+// command fails with one message, not one per marker, when it is missing or
+// at the wrong ref.
+//
+// Everything else — examples/full-single and the other golden apps, which
+// generate the CLI's templates — still resolves inside this checkout.
 package main
 
 import (
@@ -85,6 +98,93 @@ var navExempt = []string{
 	"docs/brand/",
 }
 
+const (
+	// examplesPrefix is the path a page writes for a file in the showcase
+	// applications' repository. The segment after it is the application.
+	examplesPrefix = "examples/apps/"
+	// examplesPin is the file that pins that repository and its ref.
+	examplesPin = "docs/examples.json"
+	// examplesDir is where scripts/examples.sh puts the checkout, relative
+	// to the root of this one. .gitignore has it. GORBITAL_EXAMPLES_DIR
+	// overrides it, for a checkout kept somewhere else.
+	examplesDir = ".examples"
+	// examplesStamp is the file scripts/examples.sh writes in the checkout,
+	// holding the ref it fetched, so that a stale checkout is an error
+	// rather than documentation built against the wrong code.
+	examplesStamp = ".ref"
+)
+
+// examplesJSON is docs/examples.json: which repository holds the showcase
+// applications, and which of its refs this documentation resolves against.
+type examplesJSON struct {
+	Repository string `json:"repository"`
+	Ref        string `json:"ref"`
+	Note       string `json:"note"`
+}
+
+// examples is the checkout a path under examplesPrefix resolves against.
+type examples struct {
+	dir string // absolute, and known to exist
+	pin examplesJSON
+}
+
+// loadExamples reads the pin and finds the checkout. Every failure here
+// stops the whole run: the alternative is one identical problem for each of
+// the hundreds of markers that name an application.
+func loadExamples(root string) (*examples, error) {
+	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(examplesPin))) //nolint:gosec // a fixed file in the checkout
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w\n\t%s pins the repository the showcase applications live in (ADR-0093)", examplesPin, err, examplesPin)
+	}
+	var pin examplesJSON
+	if err := json.Unmarshal(raw, &pin); err != nil {
+		return nil, fmt.Errorf("%s: %w", examplesPin, err)
+	}
+	if pin.Repository == "" {
+		return nil, fmt.Errorf(`%s: no "repository"`, examplesPin)
+	}
+	if pin.Ref == "" {
+		return nil, fmt.Errorf(`%s: no "ref": it has to pin a tag of %s, so that a page and the code it shows are read from the same release`, examplesPin, pin.Repository)
+	}
+
+	dir := os.Getenv("GORBITAL_EXAMPLES_DIR")
+	if dir == "" {
+		dir = filepath.Join(root, examplesDir)
+	}
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(root, dir)
+	}
+	info, err := os.Stat(dir)
+	if err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("%s is not a checkout of %s: run scripts/examples.sh, which clones it at %s", dir, pin.Repository, pin.Ref)
+	}
+	stamp, err := os.ReadFile(filepath.Join(dir, examplesStamp)) //nolint:gosec // inside the checkout the pin names
+	if err != nil {
+		return nil, fmt.Errorf("%s holds no %s, so which ref it is at is unknown: run scripts/examples.sh, which clones %s at %s", dir, examplesStamp, pin.Repository, pin.Ref)
+	}
+	if at := strings.TrimSpace(string(stamp)); at != pin.Ref {
+		return nil, fmt.Errorf("%s is at %s, but %s pins %s: run scripts/examples.sh", dir, at, examplesPin, pin.Ref)
+	}
+	return &examples{dir: dir, pin: pin}, nil
+}
+
+// path turns a path a page writes into a path on disk, and says whether the
+// file is one of the showcase applications' at all.
+func (e *examples) path(rel string) (string, bool) {
+	if !strings.HasPrefix(rel, examplesPrefix) {
+		return "", false
+	}
+	// examples/apps/plateful/x.go is plateful/x.go in that repository: the
+	// applications are its top-level directories (ADR-0093, decision 2).
+	return filepath.Join(e.dir, filepath.FromSlash(strings.TrimPrefix(rel, examplesPrefix))), true
+}
+
+// where names a file the way a reader should look for it: in the other
+// repository, not in this checkout.
+func (e *examples) where(rel string) string {
+	return fmt.Sprintf("%s in %s at %s", strings.TrimPrefix(rel, examplesPrefix), e.pin.Repository, e.pin.Ref)
+}
+
 type nav struct {
 	Tabs []struct {
 		Name   string `json:"name"`
@@ -103,6 +203,10 @@ type nav struct {
 
 func check(root string) ([]string, error) {
 	var problems []string
+	ex, err := loadExamples(root)
+	if err != nil {
+		return nil, err
+	}
 	listed, navProblems, err := checkNav(root)
 	if err != nil {
 		return nil, err
@@ -116,7 +220,7 @@ func check(root string) ([]string, error) {
 	// anchors are read once per target file, for every link that needs them.
 	anchors := map[string]map[string]bool{}
 	for _, page := range pages {
-		problems = append(problems, checkPage(root, page, anchors)...)
+		problems = append(problems, checkPage(root, page, anchors, ex)...)
 	}
 	sort.Strings(problems)
 	return problems, nil
@@ -234,7 +338,7 @@ var (
 	fenceRE   = regexp.MustCompile("^\\s{0,3}(```|~~~)")
 )
 
-func checkPage(root, page string, anchors map[string]map[string]bool) []string {
+func checkPage(root, page string, anchors map[string]map[string]bool, ex *examples) []string {
 	var problems []string
 	raw, err := os.ReadFile(filepath.Join(root, page)) //nolint:gosec // a page of this checkout
 	if err != nil {
@@ -255,7 +359,7 @@ func checkPage(root, page string, anchors map[string]map[string]bool) []string {
 		// both includes and links from the line with its code spans blanked.
 		outside := stripInlineCode(line)
 		for _, m := range includeRE.FindAllStringSubmatch(outside, -1) {
-			problems = append(problems, checkInclude(root, at, m[1])...)
+			problems = append(problems, checkInclude(root, at, m[1], ex)...)
 		}
 		targets := []string{}
 		for _, m := range linkRE.FindAllStringSubmatch(outside, -1) {
@@ -265,7 +369,7 @@ func checkPage(root, page string, anchors map[string]map[string]bool) []string {
 			targets = append(targets, m[1])
 		}
 		for _, target := range targets {
-			problems = append(problems, checkLink(root, page, at, target, anchors)...)
+			problems = append(problems, checkLink(root, page, at, target, anchors, ex)...)
 		}
 	}
 	if inFence {
@@ -294,7 +398,7 @@ func stripInlineCode(line string) string {
 	return b.String()
 }
 
-func checkLink(root, page, at, target string, anchors map[string]map[string]bool) []string {
+func checkLink(root, page, at, target string, anchors map[string]map[string]bool, ex *examples) []string {
 	switch {
 	case target == "":
 		return []string{at + ": empty link target"}
@@ -312,11 +416,26 @@ func checkLink(root, page, at, target string, anchors map[string]map[string]bool
 	dest := page
 	if file != "" {
 		dest = path.Join(path.Dir(page), file)
-		info, err := os.Stat(filepath.Join(root, dest))
+		on := filepath.Join(root, dest)
+		elsewhere := false
+		if p, ok := ex.path(dest); ok {
+			// A link into the showcase applications' repository, which a
+			// reader follows on the site to that repository.
+			on, elsewhere = p, true
+		}
+		info, err := os.Stat(on)
 		if err != nil {
+			if elsewhere {
+				return []string{fmt.Sprintf("%s: link %s: %s doesn't exist", at, target, ex.where(dest))}
+			}
 			return []string{fmt.Sprintf("%s: link %s: %s doesn't exist", at, target, dest)}
 		}
 		if info.IsDir() {
+			return nil
+		}
+		if elsewhere {
+			// Anchors are only read from pages of this checkout; a heading
+			// of a file in the other repository isn't ours to check.
 			return nil
 		}
 	}
@@ -334,11 +453,16 @@ func checkLink(root, page, at, target string, anchors map[string]map[string]bool
 	return nil
 }
 
-func checkInclude(root, at, spec string) []string {
+func checkInclude(root, at, spec string, ex *examples) []string {
 	file, marker, _ := strings.Cut(spec, "#")
-	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file))) //nolint:gosec // a path written in a page of this checkout
+	on := filepath.Join(root, filepath.FromSlash(file))
+	name := file
+	if p, ok := ex.path(file); ok {
+		on, name = p, ex.where(file)
+	}
+	raw, err := os.ReadFile(on) //nolint:gosec // a path written in a page of this checkout
 	if err != nil {
-		return []string{fmt.Sprintf("%s: include %s: %s doesn't exist", at, spec, file)}
+		return []string{fmt.Sprintf("%s: include %s: %s doesn't exist", at, spec, name)}
 	}
 	if marker == "" {
 		return nil
@@ -346,10 +470,10 @@ func checkInclude(root, at, spec string) []string {
 	if !strings.Contains(string(raw), "docs:start "+marker+"\n") &&
 		!strings.Contains(string(raw), "docs:start "+marker+" ") &&
 		!strings.HasSuffix(strings.TrimRight(string(raw), "\n"), "docs:start "+marker) {
-		return []string{fmt.Sprintf("%s: include %s: %s marks no region %q (a line with \"docs:start %s\")", at, spec, file, marker, marker)}
+		return []string{fmt.Sprintf("%s: include %s: %s marks no region %q (a line with \"docs:start %s\")", at, spec, name, marker, marker)}
 	}
 	if !strings.Contains(string(raw), "docs:end "+marker) {
-		return []string{fmt.Sprintf("%s: include %s: %s opens region %q and never closes it (\"docs:end %s\")", at, spec, file, marker, marker)}
+		return []string{fmt.Sprintf("%s: include %s: %s opens region %q and never closes it (\"docs:end %s\")", at, spec, name, marker, marker)}
 	}
 	return nil
 }
