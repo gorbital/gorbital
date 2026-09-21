@@ -6,7 +6,7 @@ require gorbital.dev/modules/openapi v0.1.0
 
 require (
 	github.com/danielgtaylor/huma/v2 v2.39.1 // indirect
-	gorbital.dev v0.2.1 // indirect
+	gorbital.dev v0.3.0 // indirect
 )
 
 // Always the checkout's openapi module and its core.

@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/minio/minio-go/v7 v7.3.0
-	gorbital.dev v0.2.1
+	gorbital.dev v0.3.0
 )
 
 require (
