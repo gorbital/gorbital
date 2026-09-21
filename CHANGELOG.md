@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0
 
 ### Fixed
 
-- **`gorbital.dev/gorbital@v0.3.0` and eleven modules did not build for anyone who downloaded them.** Each module's `go.mod` still required its siblings at `v0.2.1`, and the `replace` directives that make the repository work do not apply to a consumer, so `gorbital.dev/gorbital` resolved `gorbital.dev/modules/postgres v0.2.1` and failed on `undefined: postgres.WithScope`. Every sibling requirement now names `v0.3.0`, and the whole set is retagged `v0.3.1` so one version resolves across it. Use `v0.3.1`; `v0.3.0` cannot be repaired, because release tags are immutable.
+- **`gorbital.dev/gorbital@v0.3.0` does not build for anyone who downloads it.** Twelve modules' `go.mod` still required their siblings at `v0.2.1`, and the `replace` directives that make this repository work do not apply to a consumer. Only `gorbital.dev/gorbital` actually broke — it is the one that calls a symbol this release added to a sibling — so it resolved `gorbital.dev/modules/postgres v0.2.1` and failed on `undefined: postgres.WithScope`. The other twenty modules build at `v0.3.0`. Every sibling requirement now names `v0.3.0`, and the whole set is retagged `v0.3.1` so one version resolves across all of it. Use `v0.3.1`; `v0.3.0` cannot be repaired, because release tags are immutable.
 - The release runbook gains the check that would have caught it: `go get` the module into an empty module and build it, before any tag is pushed.
 
 ## v0.3.0 (2026-09-21)
