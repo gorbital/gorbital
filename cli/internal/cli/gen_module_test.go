@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gorbital.dev/cli/internal/recipes"
 )
 
 // newMainApp copies examples/apps/shelfie without the shelves and clubbooks
@@ -89,7 +91,7 @@ func TestGenModule(t *testing.T) {
 	code, out, errOut := runOrb(t, append(shelvesArgs, "--dry-run", "--json")...)
 	var res genModuleResult
 	if code != 0 || json.Unmarshal([]byte(out), &res) != nil || !res.DryRun || res.Module != "shelves" || res.Route != "/v1/shelves" ||
-		!slices.Equal(res.Permissions, []string{"shelves.shelf.read", "shelves.shelf.write"}) || len(res.Files) != 27 {
+		!slices.Equal(res.Permissions, []string{"shelves.shelf.read", "shelves.shelf.write"}) || len(res.Files) != 28 {
 		t.Fatalf("orb gen module --dry-run --json = %d %s %s", code, out, errOut)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "internal", "modules", "shelves")); err == nil {
@@ -109,8 +111,8 @@ func TestGenModule(t *testing.T) {
 		t.Error("modules.gen.go doesn't list shelves")
 	}
 	for _, f := range res.Files {
-		if f == modulesGenPath {
-			continue // Shelfie's lists clubbooks too
+		if f == modulesGenPath || f == manifestPath {
+			continue // Shelfie's lists clubbooks too, and records their scopes
 		}
 		golden := f
 		if strings.HasSuffix(f, "_shelves.sql") {
@@ -138,21 +140,21 @@ func TestGenModuleOrg(t *testing.T) {
 
 	code, out, errOut := runOrb(t, append(clubBooksArgs, "--dry-run", "--json")...)
 	var res genModuleResult
-	if code != 0 || json.Unmarshal([]byte(out), &res) != nil || res.Scope != "org" || res.Route != "/v1/orgs/{orgId}/club-books" || res.RowLevelSecurity ||
-		!slices.Equal(res.Permissions, []string{"clubbooks.club_book.read", "clubbooks.club_book.write"}) || len(res.Files) != 27 {
+	if code != 0 || json.Unmarshal([]byte(out), &res) != nil || res.Scope != recipes.ScopeTenant || res.Route != "/v1/orgs/{orgId}/club-books" || res.RowLevelSecurity ||
+		!slices.Equal(res.Permissions, []string{"clubbooks.club_book.read", "clubbooks.club_book.write"}) || len(res.Files) != 28 {
 		t.Fatalf("orb gen module --org --dry-run --json = %d %s %s", code, out, errOut)
 	}
 
 	// Shelfie's main.go adds orgshttp, so the next steps don't ask for it.
 	code, out, errOut = runOrb(t, append(clubBooksArgs, "--allow-dirty")...)
 	if code != 0 || !strings.Contains(out, "for an organisation's club books (guard.OrgMember)") || !strings.Contains(out, "GET /v1/orgs") ||
-		!strings.Contains(out, "Every organisation role (owner, admin, member)") || strings.Contains(out, "orgshttp.Module(auth)") {
+		!strings.Contains(out, "Every organisation role (owner, admin and member)") || strings.Contains(out, "orgshttp.Module(auth)") {
 		t.Fatalf("orb gen module --org = %d %s %s", code, out, errOut)
 	}
 	// The files are Shelfie's clubbooks module, which TestModuleMatchesShelfie
 	// keeps equal to the templates.
 	for _, f := range res.Files {
-		if f == modulesGenPath {
+		if f == modulesGenPath || f == manifestPath {
 			continue
 		}
 		golden := f
@@ -262,10 +264,11 @@ func TestGenModuleErrors(t *testing.T) {
 			t.Errorf("orb gen module %q = %d %q, want %d containing %q", tt.args, code, errOut, tt.code, tt.want)
 		}
 	}
-	// orb gen resource --scope org is orb gen module --org.
+	// orb gen resource --scope org is orb gen module --scope tenant: org is
+	// the old name of the scope, and reported under the new one.
 	code, out, errOut := runOrb(t, "gen", "resource", "Shelf", "name:string", "--scope", "org", "--dry-run", "--json")
 	var res genModuleResult
-	if code != 0 || json.Unmarshal([]byte(out), &res) != nil || res.Scope != "org" || res.Route != "/v1/orgs/{orgId}/shelfs" {
+	if code != 0 || json.Unmarshal([]byte(out), &res) != nil || res.Scope != recipes.ScopeTenant || res.Route != "/v1/orgs/{orgId}/shelfs" {
 		t.Errorf("orb gen resource --scope org = %d %s %s", code, out, errOut)
 	}
 

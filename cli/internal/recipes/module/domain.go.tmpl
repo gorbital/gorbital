@@ -37,14 +37,29 @@ func (v ⟦.Ident⟧) Valid() bool {
 }
 ⟦end⟧
 ⟦if .Org -⟧
-// ⟦.Ident⟧ belongs to one organisation. Its members reach it through their
+// ⟦.Ident⟧ belongs to one ⟦.ScopeName⟧. Its members reach it through their
 // role; nobody else can see or change it.
 type ⟦.Ident⟧ struct {
 	ID    string
-	OrgID string
-	// CreatedBy is the member who created it, a user or the organisation's
+	⟦.ScopeField⟧ string
+	// CreatedBy is the member who created it, a user or the ⟦.ScopeName⟧'s
 	// service account, for display and audit. Access comes only from
 	// membership.
+	CreatedBy string
+⟦- else if .Public -⟧
+// ⟦.Ident⟧ is world-readable: anyone can read one, and only a caller with
+// the write permission can change it. There is no owner field, because
+// there is nobody a read is checked against.
+type ⟦.Ident⟧ struct {
+	ID string
+⟦- else if .Custom -⟧
+// ⟦.Ident⟧'s access rule is the module's own, in policy.go: nothing in this
+// package decides who may see or change one.
+type ⟦.Ident⟧ struct {
+	ID string
+	// CreatedBy is who created it, for display and audit, and the one
+	// fact about a ⟦.Human⟧ the generator knows the policy may want. It
+	// grants nothing by itself.
 	CreatedBy string
 ⟦- else -⟧
 // ⟦.Ident⟧ belongs to one user, its owner, and only the owner can see or
@@ -69,10 +84,20 @@ type ⟦.Ident⟧Fields struct {
 }
 
 ⟦if .Org -⟧
-// New⟦.Ident⟧ returns a new ⟦.Human⟧ of orgID created by createdBy, or a
+// New⟦.Ident⟧ returns a new ⟦.Human⟧ of ⟦.ScopeVar⟧ created by createdBy, or a
 // *ValidationError. Text is trimmed⟦if .HasEnums⟧, and an empty choice takes its first
 // value⟦end⟧.
-func New⟦.Ident⟧(id, orgID, createdBy string, f ⟦.Ident⟧Fields, now time.Time) (⟦.Ident⟧, error) {
+func New⟦.Ident⟧(id, ⟦.ScopeVar⟧, createdBy string, f ⟦.Ident⟧Fields, now time.Time) (⟦.Ident⟧, error) {
+⟦- else if .Public -⟧
+// New⟦.Ident⟧ returns a new ⟦.Human⟧, or a *ValidationError. Text is
+// trimmed⟦if .HasEnums⟧, and an empty choice takes its first value⟦end⟧.
+func New⟦.Ident⟧(id string, f ⟦.Ident⟧Fields, now time.Time) (⟦.Ident⟧, error) {
+⟦- else if .Custom -⟧
+// New⟦.Ident⟧ returns a new ⟦.Human⟧ created by createdBy, or a
+// *ValidationError. Whether createdBy may create one is the policy's
+// decision, not this function's. Text is trimmed⟦if .HasEnums⟧, and an empty choice
+// takes its first value⟦end⟧.
+func New⟦.Ident⟧(id, createdBy string, f ⟦.Ident⟧Fields, now time.Time) (⟦.Ident⟧, error) {
 ⟦- else -⟧
 // New⟦.Ident⟧ returns a new ⟦.Human⟧ owned by ownerID, or a *ValidationError.
 // Text is trimmed⟦if .HasEnums⟧, and an empty choice takes its first value⟦end⟧.
@@ -86,7 +111,7 @@ func New⟦.Ident⟧(id, ownerID string, f ⟦.Ident⟧Fields, now time.Time) (�
 		f.⟦.Ident⟧ = ⟦.Ident⟧⟦.FirstValue.Ident⟧
 	}
 ⟦- end⟧
-	⟦.Var⟧ := ⟦.Ident⟧{ID: id, ⟦if .Org⟧OrgID: orgID, CreatedBy: createdBy⟦else⟧OwnerID: ownerID⟦end⟧, ⟦.Ident⟧Fields: f, Version: 1, CreatedAt: now, UpdatedAt: now}
+	⟦.Var⟧ := ⟦.Ident⟧{ID: id, ⟦if .Org⟧⟦.ScopeField⟧: ⟦.ScopeVar⟧, CreatedBy: createdBy, ⟦else if .Custom⟧CreatedBy: createdBy, ⟦else if .Filtered⟧OwnerID: ownerID, ⟦end⟧⟦.Ident⟧Fields: f, Version: 1, CreatedAt: now, UpdatedAt: now}
 	if err := ⟦.Var⟧.validate(); err != nil {
 		return ⟦.Ident⟧{}, err
 	}

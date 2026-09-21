@@ -9,9 +9,11 @@ import (
 	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
 )
 
-// ListQuery selects one page of ⟦if .Org⟧an organisation's⟦else⟧an owner's⟦end⟧ ⟦.PluralHuman⟧.
+// ListQuery selects one page of ⟦if .Filtered⟧⟦.OwnerA⟧ ⟦.Owner⟧'s⟦else⟧the⟦end⟧ ⟦.PluralHuman⟧.
 type ListQuery struct {
-	⟦if .Org⟧OrgID⟦else⟧OwnerID⟦end⟧ string
+⟦- if .Filtered⟧
+	⟦.ScopeField⟧ string
+⟦- end⟧
 ⟦- range .Enums⟧
 	// ⟦.Ident⟧ keeps ⟦$.PluralHuman⟧ with this ⟦.Human⟧; empty keeps all.
 	⟦.Ident⟧ domain.⟦.Ident⟧
@@ -31,13 +33,27 @@ type Position struct {
 }
 
 // Store reads and writes ⟦.PluralHuman⟧; repository.Store implements it with SQL.
-// Every method is limited to one ⟦if .Org⟧organisation's⟦else⟧owner's⟦end⟧ ⟦.PluralHuman⟧.
+⟦- if .Filtered⟧
+// Every method is limited to one ⟦.Owner⟧'s ⟦.PluralHuman⟧.
+⟦- else if .Custom⟧
+// It carries no access rule of its own: the rows a list returns are the
+// ones Policy.Filter leaves, and every other operation is checked by the
+// service before it is called.
+⟦- else⟧
+// It carries no access rule: every ⟦.Human⟧ is world-readable.
+⟦- end⟧
 type Store interface {
 	// Insert⟦.Ident⟧ stores a new ⟦.Human⟧⟦if .HasUniques⟧, or returns ⟦.TakenErrors⟧⟦end⟧.
 	Insert⟦.Ident⟧(ctx context.Context, ⟦.Var⟧ domain.⟦.Ident⟧) (domain.⟦.Ident⟧, error)
+⟦- if .Filtered⟧
 	// Select⟦.Ident⟧ returns one of ⟦.ScopeVar⟧'s ⟦.PluralHuman⟧, or Err⟦.Ident⟧NotFound.
 	// lock locks the row until the transaction ends.
 	Select⟦.Ident⟧(ctx context.Context, ⟦.ScopeVar⟧, id string, lock bool) (domain.⟦.Ident⟧, error)
+⟦- else⟧
+	// Select⟦.Ident⟧ returns the ⟦.Human⟧ with this ID, or Err⟦.Ident⟧NotFound.
+	// lock locks the row until the transaction ends.
+	Select⟦.Ident⟧(ctx context.Context, id string, lock bool) (domain.⟦.Ident⟧, error)
+⟦- end⟧
 	// Select⟦.Plural⟧ returns up to q.Limit ⟦.PluralHuman⟧ in q.Sort order, with the
 	// ID breaking ties.
 	Select⟦.Plural⟧(ctx context.Context, q ListQuery) ([]domain.⟦.Ident⟧, error)
@@ -45,10 +61,33 @@ type Store interface {
 	// increments the version. It returns Err⟦.Ident⟧VersionConflict when the
 	// version changed or the ⟦.Human⟧ is gone⟦if .HasUniques⟧, and ⟦.TakenErrors⟧⟦end⟧.
 	Update⟦.Ident⟧(ctx context.Context, ⟦.Var⟧ domain.⟦.Ident⟧) (domain.⟦.Ident⟧, error)
+⟦- if .Filtered⟧
 	// Delete⟦.Ident⟧ removes one of ⟦.ScopeVar⟧'s ⟦.PluralHuman⟧, or returns
 	// Err⟦.Ident⟧NotFound.
 	Delete⟦.Ident⟧(ctx context.Context, ⟦.ScopeVar⟧, id string) error
+⟦- else⟧
+	// Delete⟦.Ident⟧ removes the ⟦.Human⟧ with this ID, or returns
+	// Err⟦.Ident⟧NotFound.
+	Delete⟦.Ident⟧(ctx context.Context, id string) error
+⟦- end⟧
 	// InTx runs fn in one transaction: it commits when fn returns nil and
 	// rolls back otherwise.
 	InTx(ctx context.Context, fn func(tx Store) error) error
 }
+⟦- if .Custom⟧
+
+// Policy decides who may see and change one ⟦.Human⟧. The module's policy.go
+// implements it, and nothing else in this package knows the rule.
+//
+// Both methods return nil to allow, domain.ErrUnauthenticated or
+// domain.Err⟦.Ident⟧NotFound to refuse — a ⟦.Human⟧ somebody may not see must
+// not exist for them — or gorbital.ErrNotImplemented while the rule is
+// unwritten, which the module answers with 501.
+type Policy interface {
+	// CanRead reports whether the actor in ctx may read ⟦.Var⟧.
+	CanRead(ctx context.Context, ⟦.Var⟧ domain.⟦.Ident⟧) error
+	// CanWrite reports whether the actor in ctx may create, update or
+	// delete ⟦.Var⟧.
+	CanWrite(ctx context.Context, ⟦.Var⟧ domain.⟦.Ident⟧) error
+}
+⟦- end⟧

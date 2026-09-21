@@ -312,19 +312,17 @@ type ResourceOptions struct {
 	// Migration is the migration's version: a UTC timestamp such as
 	// 20260915093000.
 	Migration string
-	// Scope is who the records belong to: ScopeUser (the default) or
-	// ScopeOrg, for multi-tenant apps (ADR-0048).
+	// Scope is who the records belong to: ScopeUser (the default),
+	// ScopeTenant, ScopePublic or ScopeCustom (ADR-0091). ScopeOrg is
+	// accepted as the old name of ScopeTenant.
 	Scope string
-	// RLS adds the row-level security policy to an organisation resource's
+	// Vocabulary is what the app calls its tenant, for a ScopeTenant
+	// resource (ADR-0088). The zero value is the organisations one.
+	Vocabulary Vocabulary
+	// RLS adds the row-level security policy to a tenant resource's
 	// migration, for apps that ran orb add rls (ADR-0061).
 	RLS bool
 }
-
-// Resource scopes of orb gen resource --scope.
-const (
-	ScopeUser = "user"
-	ScopeOrg  = "org"
-)
 
 // ResourceData fills the resource templates (ADR-0039).
 type ResourceData struct {
@@ -340,11 +338,17 @@ type ResourceData struct {
 	Route       string // projects, as in /v1/projects
 	IDPrefix    string // prj
 	Migration   string // 20260915000002
-	// Org reports records that belong to an organisation (--scope org)
-	// instead of a user.
+	// Scope is the access rule the generator states: ScopeUser,
+	// ScopeTenant, ScopePublic or ScopeCustom (ADR-0091).
+	Scope string
+	// Vocabulary is what the app calls its tenant, for a ScopeTenant
+	// resource (ADR-0088).
+	Vocabulary Vocabulary
+	// Org reports records that belong to a tenant (--scope tenant, or its
+	// old name org) instead of a user.
 	Org bool
-	// RLS reports an organisation resource whose migration forces
-	// row-level security with the organisation policy (ADR-0061).
+	// RLS reports a tenant resource whose migration forces row-level
+	// security with the tenant policy (ADR-0061).
 	RLS    bool
 	Fields []Field
 }
@@ -375,13 +379,19 @@ func NewResourceData(module, name string, fields []Field, o ResourceOptions) (Re
 		Route:       strings.Join(plural, "-"),
 		IDPrefix:    o.IDPrefix,
 		Migration:   o.Migration,
-		Org:         o.Scope == ScopeOrg,
-		RLS:         o.RLS && o.Scope == ScopeOrg,
 		Fields:      fields,
 	}
-	if o.Scope != "" && o.Scope != ScopeUser && o.Scope != ScopeOrg {
-		return ResourceData{}, fmt.Errorf("scope must be %s or %s, got %q", ScopeUser, ScopeOrg, o.Scope)
+	scope, err := ParseScope(o.Scope)
+	if err != nil {
+		return ResourceData{}, fmt.Errorf("scope must be %s, got %q", ScopeUsage, o.Scope)
 	}
+	if scope == "" {
+		scope = ScopeUser
+	}
+	d.Scope = scope
+	d.Org = scope == ScopeTenant
+	d.RLS = o.RLS && d.Org
+	d.Vocabulary = o.Vocabulary.withDefaults()
 	d.Var = strings.ToLower(d.Ident[:1]) + d.Ident[1:]
 	if d.IDPrefix == "" {
 		d.IDPrefix = deriveIDPrefix(d.Snake)
@@ -571,32 +581,73 @@ func placeholders(from, to int) string {
 	return strings.Join(out, ", ")
 }
 
-// InsertPlaceholders are the insert's placeholders: id, the owner (or the
-// organisation and creator), the fields, version and the two times.
+// InsertPlaceholders are the insert's placeholders: id, the owner columns
+// (the tenant and the creator, the owner, or none), the fields, version and
+// the two times.
 func (d ResourceData) InsertPlaceholders() string {
-	if d.Org {
-		return placeholders(1, 6+len(d.Fields))
-	}
-	return placeholders(1, 5+len(d.Fields))
+	return placeholders(1, 4+len(d.OwnerColumns())+len(d.Fields))
 }
 
-// UpdateSet assigns each field from placeholders $3 onwards.
+// UpdateFirstField is the update's first field placeholder: $1 is the ID,
+// $2 the ownership column a filtered resource matches on, and the fields
+// follow.
+func (d ResourceData) UpdateFirstField() int {
+	if d.Filtered() {
+		return 3
+	}
+	return 2
+}
+
+// UpdateSet assigns each field from UpdateFirstField onwards.
 func (d ResourceData) UpdateSet() string {
 	sets := make([]string, len(d.Fields))
 	for i, f := range d.Fields {
-		sets[i] = f.Name + " = $" + strconv.Itoa(3+i)
+		sets[i] = f.Name + " = $" + strconv.Itoa(d.UpdateFirstField()+i)
 	}
 	return strings.Join(sets, ", ")
 }
 
 // UpdatedAtPlaceholder is the update's placeholder for updated_at.
-func (d ResourceData) UpdatedAtPlaceholder() int { return 3 + len(d.Fields) }
+func (d ResourceData) UpdatedAtPlaceholder() int { return d.UpdateFirstField() + len(d.Fields) }
 
 // VersionPlaceholder is the update's placeholder for the expected version.
-func (d ResourceData) VersionPlaceholder() int { return 4 + len(d.Fields) }
+func (d ResourceData) VersionPlaceholder() int { return d.UpdatedAtPlaceholder() + 1 }
+
+// The list query's placeholders: the ownership column when the resource has
+// one, then whether the page starts after a position, that position's sort
+// value and ID, the limit, and one per enum filter. A public or custom
+// resource has no ownership column, so every number shifts down by one.
+
+// ListFirstArg is the first placeholder after the ownership column.
+func (d ResourceData) ListFirstArg() int {
+	if d.Filtered() {
+		return 2
+	}
+	return 1
+}
+
+// AfterPlaceholder is the list query's placeholder for "the page starts
+// after a position".
+func (d ResourceData) AfterPlaceholder() int { return d.ListFirstArg() }
+
+// PositionPlaceholder is the list query's placeholder for the position's
+// sort value.
+func (d ResourceData) PositionPlaceholder() int { return d.ListFirstArg() + 1 }
+
+// PositionIDPlaceholder is the list query's placeholder for the position's
+// ID.
+func (d ResourceData) PositionIDPlaceholder() int { return d.ListFirstArg() + 2 }
+
+// LimitPlaceholder is the list query's placeholder for the page size.
+func (d ResourceData) LimitPlaceholder() int { return d.ListFirstArg() + 3 }
 
 // EnumPlaceholder is the list query's placeholder for the i-th enum filter.
-func (d ResourceData) EnumPlaceholder(i int) int { return 6 + i }
+func (d ResourceData) EnumPlaceholder(i int) int { return d.LimitPlaceholder() + 1 + i }
+
+// PolicyFirstArg is the first placeholder a custom resource's policy
+// conditions are numbered from: everything the store itself passes comes
+// before them.
+func (d ResourceData) PolicyFirstArg() int { return d.LimitPlaceholder() + 1 + len(d.Enums()) }
 
 // Pad pads a column name to align the migration's column types.
 func (d ResourceData) Pad(name string) string {
@@ -762,6 +813,9 @@ func (d ResourceData) PermissionsLine() string { return d.Package + "Permissions
 // RenderResource renders a resource's module, app wiring, tests and
 // migration (ADR-0039). Go output is formatted with gofmt.
 func RenderResource(d ResourceData) ([]JobFile, error) {
+	if d.Public() || d.Custom() {
+		return nil, fmt.Errorf("--scope %s needs an app on gorbital.Main, whose modules orb gen module writes; the v0.1 layout has user and tenant resources only", d.Scope)
+	}
 	dir := "internal/modules/" + d.Package + "/"
 	targets := []struct{ tmpl, path string }{
 		{"module.go", dir + "module.go"},

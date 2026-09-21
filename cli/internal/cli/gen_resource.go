@@ -22,10 +22,17 @@ import (
 const genResourceUsage = `Usage: orb gen resource <Name> <field:type>... [flags]
 
 Generates a module for records that belong to the signed-in user, or in a
-multi-tenant app to an organisation: domain rules, use cases, a repository
-with hand-written SQL, HTTP endpoints under /v1/<names> (or
+multi-tenant app to a tenant: domain rules, use cases, a repository with
+hand-written SQL, HTTP endpoints under /v1/<names> (or
 /v1/orgs/{orgId}/<names>), tests and a migration (ADR-0039, ADR-0048). The
 code is yours to change. Run it inside an app created with the Full preset.
+
+--scope states who may read and write the records (ADR-0091):
+  user     they belong to the signed-in user, and to nobody else
+  tenant   they belong to a tenant, whose members reach them through their
+           role; org is the old name of this scope
+  public   world-readable; needs an app on gorbital.Main (orb gen module)
+  custom   the module's own rule in policy.go; needs an app on gorbital.Main
 
 Field types:
   name:string                1 to 100 characters, required and sortable;
@@ -53,7 +60,7 @@ type genResourceResult struct {
 // resourceRoute is the collection path of a generated resource.
 func resourceRoute(d recipes.ResourceData) string {
 	if d.Org {
-		return "/v1/orgs/{orgId}/" + d.Route
+		return "/v1/" + d.ScopeSegment() + "/{" + d.ScopePathParam() + "}/" + d.Route
 	}
 	return "/v1/" + d.Route
 }
@@ -71,6 +78,30 @@ func appTenancy(dir string) string {
 		}
 	}
 	return recipes.TenancySingle
+}
+
+// manifestSource returns the app's gorbital.yaml, or nothing when it has
+// none: every reader of it falls back to a default rather than failing, so
+// a hand-made app without one still generates code.
+func manifestSource(dir string) []byte {
+	data, err := os.ReadFile(filepath.Join(dir, manifestPath))
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+// appVocabulary returns what the app calls its tenant, from the scope block
+// in its gorbital.yaml, or the organisations vocabulary when it records
+// none — which is every app up to v0.2.1 (ADR-0088, ADR-0091).
+func appVocabulary(dir string) recipes.Vocabulary {
+	return recipes.ReadVocabulary(manifestSource(dir))
+}
+
+// appModuleScopes returns the scope each generated module was created with,
+// as its gorbital.yaml records it.
+func appModuleScopes(dir string) map[string]string {
+	return recipes.ReadModuleScopes(manifestSource(dir))
 }
 
 // appRowLevelSecurity reports whether the app's gorbital.yaml records orb
@@ -93,7 +124,7 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	flags.SetOutput(stderr)
 	plural := flags.String("plural", "", "plural name when adding -s or -es is wrong, such as People")
 	idPrefix := flags.String("id-prefix", "", "2 to 8 lowercase letters that start every ID (default: derived from the name, such as prj)")
-	scope := flags.String("scope", "", "who the records belong to: user or org (default: org in multi-tenant apps, user otherwise)")
+	scope := flags.String("scope", "", "who may read and write the records: "+recipes.ScopeUsage+" (default: tenant in a multi-tenant app, user otherwise)")
 	dryRun := flags.Bool("dry-run", false, "show what would be generated without writing")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	allowDirty := flags.Bool("allow-dirty", false, "allow uncommitted changes in the git repository")
@@ -110,8 +141,8 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	if err != nil {
 		return err
 	}
-	if *scope != "" && *scope != recipes.ScopeUser && *scope != recipes.ScopeOrg {
-		return usageError(fmt.Sprintf("unknown --scope %q (want user or org)", *scope))
+	if _, err := recipes.ParseScope(*scope); err != nil {
+		return usageError(err.Error())
 	}
 	var name string
 	var specs []string
@@ -126,10 +157,9 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 	if appLayout(app.dir) == layoutMain {
 		// In an app on gorbital.Main, orb gen resource is orb gen module
 		// (ADR-0083): the same fields and flags, the new layout. As in v0.1,
-		// records belong to organisations by default in a multi-tenant app.
+		// records belong to the tenant by default in a multi-tenant app.
 		fmt.Fprintln(stderr, "orb: this app is on gorbital.Main, so orb gen resource runs orb gen module")
-		org := *scope == recipes.ScopeOrg || (*scope == "" && appTenancy(app.dir) == recipes.TenancyMulti)
-		in := moduleInput{name: name, specs: specs, plural: *plural, idPrefix: *idPrefix, org: org}
+		in := moduleInput{name: name, specs: specs, plural: *plural, idPrefix: *idPrefix, scope: *scope}
 		return genModule(ctx, app, in, genModuleRun{dryRun: *dryRun, asJSON: *asJSON, allowDirty: *allowDirty, prompts: p}, stdin, stdout, stderr)
 	}
 	if _, err := checkResourceApp(app, *scope); err != nil {
@@ -185,7 +215,8 @@ func runGenResource(ctx context.Context, args []string, stdin io.Reader, stdout,
 			fmt.Fprintf(stdout, "The migration forces row-level security on %s with the organisation policy (orb add rls).\n", result.Table)
 		}
 		if data.Org {
-			fmt.Fprintf(stdout, "Every organisation role gets %s.%s.read and .write; change that in declareOrgPermissions in internal/app/permissions.go.\n", data.Package, data.Snake)
+			fmt.Fprintf(stdout, "Every %s role (%s) gets %s.%s.read and .write; change that in declareOrgPermissions in internal/app/permissions.go.\n",
+				data.ScopeName(), data.ScopeRoleList(), data.Package, data.Snake)
 		} else {
 			fmt.Fprintf(stdout, "Every user holds %s.%s.read and .write through the user role in internal/app/permissions.go; an API key only when its scopes include them.\n", data.Package, data.Snake)
 		}
@@ -276,7 +307,7 @@ func resourceSummary(d recipes.ResourceData, files []string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "  Resource:  %s (table %s, IDs like %s_…)\n", d.Ident, d.Table, d.IDPrefix)
 	if d.Org {
-		fmt.Fprintf(&b, "  API:       %s, for an organisation's %s\n", resourceRoute(d), d.PluralHuman)
+		fmt.Fprintf(&b, "  API:       %s, for %s %s's %s\n", resourceRoute(d), d.OwnerA(), d.Owner(), d.PluralHuman)
 	} else {
 		fmt.Fprintf(&b, "  API:       %s, for the signed-in user's %s\n", resourceRoute(d), d.PluralHuman)
 	}

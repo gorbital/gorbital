@@ -1,0 +1,218 @@
+package ⟦.Package⟧_test⟦$t := .Title⟧⟦$e := .FirstEnum⟧⟦$u := .FirstUnique⟧
+
+import (
+	"context"
+	"net/http"
+	"net/url"
+	"slices"
+	"strings"
+	"testing"
+
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/gorbitaltest"
+
+	"⟦.Module⟧/db/migrations"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+// These tests drive the ⟦.PluralHuman⟧ routes through the app's real middleware
+// stack, on a new database per test (gorbitaltest).
+
+// newApp builds the app with the ⟦.PluralHuman⟧ module for the test.
+func newApp(t *testing.T) *gorbitaltest.App {
+	t.Helper()
+	return gorbitaltest.New(t,
+		gorbital.WithModules(⟦.Package⟧.Module()),
+		gorbital.WithMigrations(migrations.FS),
+	)
+}
+
+// api⟦.Ident⟧ is ⟦.A⟧ ⟦.Human⟧ as the API returns it.
+type api⟦.Ident⟧ struct {
+	ID string `json:"id"`
+⟦- range .Fields⟧
+	⟦.Ident⟧ string `json:"⟦.Name⟧"`
+⟦- end⟧
+	Version int64 `json:"version"`
+}
+
+// api⟦.Ident⟧Page is a page of ⟦.PluralHuman⟧.
+type api⟦.Ident⟧Page struct {
+	Items      []api⟦.Ident⟧ `json:"items"`
+	NextCursor string `json:"next_cursor"`
+}
+
+const collection = ⟦quote .RoutePath⟧
+
+func TestCreateAndGet⟦.Ident⟧(t *testing.T) {
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada", usecase.PermWrite))
+
+	res := ada.Post(collection, map[string]any{⟦.BodyFields " Website "⟧})
+	res.AssertStatus(t, http.StatusCreated)
+	var created api⟦.Ident⟧
+	res.JSON(t, &created)
+	if !strings.HasPrefix(created.ID, "⟦.IDPrefix⟧_") || created.⟦$t.Ident⟧ != "Website"⟦if .HasEnums⟧ || created.⟦$e.Ident⟧ != ⟦quote $e.FirstValue.Value⟧⟦end⟧ || created.Version != 1 {
+		t.Errorf("created = %+v, want a ⟦.IDPrefix⟧_ ID, the ⟦$t.Human⟧ trimmed⟦if .HasEnums⟧, the default ⟦$e.Human⟧⟦end⟧ and version 1", created)
+	}
+
+	var got api⟦.Ident⟧
+	ada.Get(collection+"/"+created.ID).JSON(t, &got)
+	if got != created {
+		t.Errorf("GET = %+v, want %+v", got, created)
+	}
+}
+
+func Test⟦.Ident⟧Rules(t *testing.T) {
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada", usecase.PermWrite))
+	ada.Post(collection, map[string]any{⟦.BodyFields "Website"⟧}).AssertStatus(t, http.StatusCreated)
+
+	for _, tt := range []struct {
+		name   string
+		body   map[string]any
+		status int
+		code   string
+	}{
+		{"blank ⟦$t.Human⟧", map[string]any{⟦.BodyFields "   "⟧}, http.StatusUnprocessableEntity, "validation_failed"},
+		{"missing ⟦$t.Human⟧", map[string]any{}, http.StatusUnprocessableEntity, "validation_failed"},
+⟦- if .HasEnums⟧
+		{"unknown ⟦$e.Human⟧", map[string]any{⟦.BodyFields "Docs"⟧, ⟦quote $e.Name⟧: "?"}, http.StatusUnprocessableEntity, "validation_failed"},
+⟦- end⟧
+⟦- if .HasUniques⟧
+		{"⟦$u.Human⟧ already taken, ignoring case", map[string]any{⟦.BodyDuplicate⟧}, http.StatusConflict, "⟦.Snake⟧_⟦$u.Name⟧_taken"},
+⟦- end⟧
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ada.Post(collection, tt.body).AssertProblem(t, tt.status, tt.code)
+		})
+	}
+⟦- if .HasUniques⟧
+	// Nobody else can use the same ⟦$u.Human⟧ either: ⟦.PluralHuman⟧ are world-
+	// readable, so their ⟦$u.HumanTitle⟧s are unique across all of them.
+	bob := app.As(gorbitaltest.User("usr_bob", usecase.PermWrite))
+	bob.Post(collection, map[string]any{⟦.BodyFields "Website"⟧}).AssertProblem(t, http.StatusConflict, "⟦.Snake⟧_⟦$u.Name⟧_taken")
+⟦- end⟧
+}
+
+// Test⟦.Plural⟧AreWorldReadableAndGuardedForWrites checks the two halves of
+// --scope public: reads serve callers who aren't signed in, and every
+// write needs ⟦.PermWrite⟧, whoever asks. It covers list, get, create,
+// update and delete, and API keys with and without the permission.
+func Test⟦.Plural⟧AreWorldReadableAndGuardedForWrites(t *testing.T) {
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada", usecase.PermWrite))
+	var website api⟦.Ident⟧
+	ada.Post(collection, map[string]any{⟦.BodyFields "Website"⟧}).JSON(t, &website)
+	item := collection + "/" + website.ID
+
+	// Reads: no sign-in, no permission, no headers at all.
+	stranger := app.Client()
+	stranger.Get(collection).AssertStatus(t, http.StatusOK)
+	stranger.Get(item).AssertStatus(t, http.StatusOK)
+	var all api⟦.Ident⟧Page
+	stranger.Get(collection).JSON(t, &all)
+	if len(all.Items) != 1 || all.Items[0].ID != website.ID {
+		t.Errorf("a caller who isn't signed in listed %+v, want the one ⟦.Human⟧", all.Items)
+	}
+
+	// Writes: never public.
+	stranger.Post(collection, map[string]any{⟦.BodyFields "By nobody"⟧}).AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+	stranger.Patch(item, map[string]any{"version": 1, ⟦quote $t.Name⟧: "By nobody"}).AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+	stranger.Delete(item).AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+
+	// A signed-in caller without the permission reads but can't write.
+	reader := app.As(gorbitaltest.User("usr_bob"))
+	reader.Get(item).AssertStatus(t, http.StatusOK)
+	reader.Post(collection, map[string]any{⟦.BodyFields "By a reader"⟧}).AssertProblem(t, http.StatusForbidden, "forbidden")
+	reader.Patch(item, map[string]any{"version": 1, ⟦quote $t.Name⟧: "By a reader"}).AssertProblem(t, http.StatusForbidden, "forbidden")
+	reader.Delete(item).AssertProblem(t, http.StatusForbidden, "forbidden")
+
+	// An API key holds the write permission only when its scopes include it.
+	readOnly := app.As(gorbitaltest.APIKey("usr_ada"))
+	readOnly.Get(item).AssertStatus(t, http.StatusOK)
+	readOnly.Post(collection, map[string]any{⟦.BodyFields "By a key"⟧}).AssertProblem(t, http.StatusForbidden, "forbidden")
+	writer := app.As(gorbitaltest.APIKey("usr_ada", usecase.PermWrite))
+	writer.Post(collection, map[string]any{⟦.BodyFields "By a scoped key"⟧}).AssertStatus(t, http.StatusCreated)
+}
+
+func TestList⟦.Plural⟧Pages(t *testing.T) {
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada", usecase.PermWrite))
+	ada.Post(collection, map[string]any{⟦.BodyFields "Website"⟧}).AssertStatus(t, http.StatusCreated)
+	ada.Post(collection, map[string]any{⟦.BodyFields "Docs"⟧⟦.BodyChoice⟧}).AssertStatus(t, http.StatusCreated)
+
+	anyone := app.Client()
+	var titles []string
+	cursor := ""
+	for range 3 {
+		var p api⟦.Ident⟧Page
+		anyone.Get(collection+"?limit=1&sort=⟦$t.Name⟧&cursor="+url.QueryEscape(cursor)).JSON(t, &p)
+		for _, item := range p.Items {
+			titles = append(titles, item.⟦$t.Ident⟧)
+		}
+		if cursor = p.NextCursor; cursor == "" {
+			break
+		}
+	}
+	if want := []string{"Docs", "Website"}; !slices.Equal(titles, want) {
+		t.Errorf("pages sorted by ⟦$t.Name⟧ = %v, want %v", titles, want)
+	}
+
+	var first api⟦.Ident⟧Page
+	anyone.Get(collection + "?limit=1").JSON(t, &first)
+	anyone.Get(collection+"?sort=⟦$t.Name⟧&cursor="+url.QueryEscape(first.NextCursor)).AssertProblem(t, http.StatusBadRequest, "invalid_cursor")
+	anyone.Get(collection+"?sort=version").AssertProblem(t, http.StatusBadRequest, "invalid_sort")
+⟦- if .HasEnums⟧
+
+	var filtered api⟦.Ident⟧Page
+	anyone.Get(collection + "?⟦$e.Name⟧=⟦$e.LastValue.Value⟧").JSON(t, &filtered)
+	if len(filtered.Items) != 1 || filtered.Items[0].⟦$t.Ident⟧ != "Docs" {
+		t.Errorf("list with ⟦$e.Name⟧=⟦$e.LastValue.Value⟧ = %+v, want Docs only", filtered.Items)
+	}
+⟦- end⟧
+}
+
+func TestUpdateAndDelete⟦.Ident⟧(t *testing.T) {
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada", usecase.PermWrite))
+	var website api⟦.Ident⟧
+	ada.Post(collection, map[string]any{⟦.BodyFields "Website"⟧}).JSON(t, &website)
+	item := collection + "/" + website.ID
+
+	ada.Patch(item, map[string]any{⟦quote $t.Name⟧: "No version"}).AssertProblem(t, http.StatusUnprocessableEntity, "validation_failed")
+	ada.Patch(item, map[string]any{"version": 2, ⟦quote $t.Name⟧: "Too new"}).AssertProblem(t, http.StatusConflict, "⟦.Snake⟧_version_conflict")
+
+	res := ada.Patch(item, map[string]any{"version": 1, ⟦quote $t.Name⟧: "Renamed"⟦if .HasEnums⟧, ⟦quote $e.Name⟧: ⟦quote $e.LastValue.Value⟧⟦end⟧})
+	res.AssertStatus(t, http.StatusOK)
+	var updated api⟦.Ident⟧
+	res.JSON(t, &updated)
+	if updated.⟦$t.Ident⟧ != "Renamed"⟦if .HasEnums⟧ || updated.⟦$e.Ident⟧ != ⟦quote $e.LastValue.Value⟧⟦end⟧ || updated.Version != 2 {
+		t.Errorf("updated = %+v, want the new values and version 2", updated)
+	}
+	// Changing ⟦.A⟧ ⟦.Human⟧ with the version it already had is a conflict.
+	ada.Patch(item, map[string]any{"version": 1, ⟦quote $t.Name⟧: "Again"}).AssertProblem(t, http.StatusConflict, "⟦.Snake⟧_version_conflict")
+
+	ada.Delete(item).AssertStatus(t, http.StatusNoContent)
+	ada.Get(item).AssertProblem(t, http.StatusNotFound, "⟦.Snake⟧_not_found")
+	ada.Delete(item).AssertProblem(t, http.StatusNotFound, "⟦.Snake⟧_not_found")
+
+	rows, err := app.App().Deps().DB.Query(context.Background(),
+		`SELECT action FROM audit_events WHERE resource_type = '⟦.Snake⟧' AND resource_id = $1 ORDER BY id`, website.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var trail []string
+	for rows.Next() {
+		var action string
+		if err := rows.Scan(&action); err != nil {
+			t.Fatal(err)
+		}
+		trail = append(trail, action)
+	}
+	if want := []string{usecase.ActionCreated, usecase.ActionUpdated, usecase.ActionDeleted}; !slices.Equal(trail, want) {
+		t.Errorf("audit trail = %v, want %v", trail, want)
+	}
+}

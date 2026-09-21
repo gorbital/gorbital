@@ -36,6 +36,7 @@ var reservedModuleNames = func() map[string]bool {
 		utf8 slices url testing any bool byte error int string true false nil append len cap make new min max
 		ctx err in out h r s c q id tx sql rows tag next current changed fields owner none sort after items last same blank choice later kept unchanged value msg errs values f now fe e v i t b w ok name edit tests body list first status dir cmp queries sorts desc key handlers routes changes invalid problem item trail action filtered website collection titles bobs
 		res req app ada bob svc known cursor limit want got tt invalid reader created updated title
+		policy policies query conditions condition base parts where scope tenant public custom
 		auth authhttp orgshttp member org orgs orgID workspace workspaces key keys expires stranger signUp userID adaID adaOrg bobOrg bobItem readOnly actorID db ctx left`) {
 		names[n] = true
 	}
@@ -50,8 +51,10 @@ type ModuleData struct {
 }
 
 // NewModuleData validates a module and derives every name. fields come from
-// ParseModuleFields. o.Scope is ScopeUser (the default) or ScopeOrg; o.RLS
-// adds the row-level security policy to an organisation module's migration.
+// ParseModuleFields. o.Scope is ScopeUser (the default), ScopeTenant,
+// ScopePublic or ScopeCustom (ADR-0091); o.Vocabulary is what the app calls
+// its tenant; o.RLS adds the row-level security policy to a tenant module's
+// migration.
 func NewModuleData(module, name string, fields []Field, o ResourceOptions) (ModuleData, error) {
 	if o.Scope == "" {
 		o.Scope = ScopeUser
@@ -94,19 +97,20 @@ func (d ModuleData) MigrationPath() string {
 }
 
 // RoutePath is the collection's path, such as /v1/shelves, or
-// /v1/orgs/{orgId}/club-books for an organisation module.
+// /v1/orgs/{orgId}/club-books for a tenant module under the app's own
+// tenancy vocabulary (ADR-0088).
 func (d ModuleData) RoutePath() string {
 	if d.Org {
-		return "/v1/orgs/{orgId}/" + d.Route
+		return "/v1/" + d.ScopeSegment() + "/{" + d.ScopePathParam() + "}/" + d.Route
 	}
 	return "/v1/" + d.Route
 }
 
 // ScopeVar is the Go parameter naming whose records an operation reaches:
-// orgID or ownerID.
+// orgID or ownerID. A public or custom module has neither.
 func (d ModuleData) ScopeVar() string {
 	if d.Org {
-		return "orgID"
+		return d.Vocabulary.Var
 	}
 	return "ownerID"
 }
@@ -114,7 +118,7 @@ func (d ModuleData) ScopeVar() string {
 // ScopeColumn is the column holding ScopeVar: org_id or owner_id.
 func (d ModuleData) ScopeColumn() string {
 	if d.Org {
-		return "org_id"
+		return d.Vocabulary.Column
 	}
 	return "owner_id"
 }
@@ -122,26 +126,19 @@ func (d ModuleData) ScopeColumn() string {
 // ScopeField is the domain field holding ScopeVar: OrgID or OwnerID.
 func (d ModuleData) ScopeField() string {
 	if d.Org {
-		return "OrgID"
+		return d.Vocabulary.Field
 	}
 	return "OwnerID"
 }
 
-// Guard is the guard the routes check their permission with:
-// guard.OrgMember in an organisation, guard.Permission otherwise.
+// Guard is the guard the routes check their permission with: the
+// tenancy's for a tenant module, guard.Permission otherwise. A public
+// module's reads use guard.Public() (delivery/routes.go), never this.
 func (d ModuleData) Guard() string {
 	if d.Org {
-		return "guard.OrgMember"
+		return d.ScopeGuard()
 	}
 	return "guard.Permission"
-}
-
-// Scope is ScopeOrg or ScopeUser.
-func (d ModuleData) Scope() string {
-	if d.Org {
-		return ScopeOrg
-	}
-	return ScopeUser
 }
 
 // PermRead and PermWrite are the module's permission names.
@@ -205,11 +202,17 @@ func (d ModuleData) BodyChoice() string {
 	return ", " + strconv.Quote(e.Name) + ": " + strconv.Quote(e.LastValue().Value)
 }
 
-// testTemplate is the template of the module's HTTP tests: an organisation
-// module's sign up real accounts, which organisations need.
+// testTemplate is the template of the module's HTTP tests, one per scope: a
+// tenant module's sign up real accounts, which membership needs, and a
+// public one's read without signing in.
 func (d ModuleData) testTemplate() string {
-	if d.Org {
+	switch d.Scope {
+	case ScopeTenant:
 		return "module_org_test.go"
+	case ScopePublic:
+		return "module_public_test.go"
+	case ScopeCustom:
+		return "module_custom_test.go"
 	}
 	return "module_test.go"
 }
@@ -218,7 +221,7 @@ func (d ModuleData) testTemplate() string {
 // the app.
 func (d ModuleData) moduleTemplates() []struct{ tmpl, path string } {
 	dir := d.Dir() + "/"
-	return []struct{ tmpl, path string }{
+	targets := []struct{ tmpl, path string }{
 		{"module.go", dir + "module.go"},
 		{d.testTemplate(), dir + d.Package + "_test.go"},
 		{"domain.go", dir + "domain/" + d.Snake + ".go"},
@@ -246,6 +249,17 @@ func (d ModuleData) moduleTemplates() []struct{ tmpl, path string } {
 		{"delivery_delete.go", dir + "delivery/delete_" + d.Snake + ".go"},
 		{"migration.sql", d.MigrationPath()},
 	}
+	if d.Custom() {
+		// policy.go is the app's file from the moment it lands: the
+		// generator never rewrites it and orb upgrade never touches it
+		// (ADR-0091 §5). policy_test.go beside it fails until it is
+		// written.
+		targets = append(targets,
+			struct{ tmpl, path string }{"policy.go", dir + "policy.go"},
+			struct{ tmpl, path string }{"policy_test.go", dir + "policy_test.go"},
+		)
+	}
+	return targets
 }
 
 // RenderModule renders a module's files and its migration, in the order

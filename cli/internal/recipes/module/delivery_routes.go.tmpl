@@ -17,11 +17,26 @@ type handlers struct {
 }
 
 ⟦- if .Org⟧
-// Register adds the ⟦.PluralHuman⟧ routes to r, under an organisation. Every
-// route requires a signed-in member of the organisation in the path whose
-// role grants the permission its guard names (guard.OrgMember): anyone else
-// gets 404 org_not_found, as if the organisation didn't exist. The use cases
-// reach only that organisation's ⟦.PluralHuman⟧.
+// Register adds the ⟦.PluralHuman⟧ routes to r, under ⟦.ScopeA⟧ ⟦.ScopeName⟧. Every
+// route requires a signed-in member of the ⟦.ScopeName⟧ in the path whose
+// role grants the permission its guard names (⟦.ScopeGuard⟧): anyone else
+// gets 404 ⟦.ScopeNotFoundCode⟧, as if the ⟦.ScopeName⟧ didn't exist. The use cases
+// reach only that ⟦.ScopeName⟧'s ⟦.PluralHuman⟧.
+⟦- else if .Public⟧
+// Register adds the ⟦.PluralHuman⟧ routes to r.
+//
+// Every ⟦.Human⟧ is world-readable: these routes serve them to callers who
+// are not signed in. Do not add a field here that one ⟦.Human⟧'s owner would
+// not publish.
+//
+// Writing is not public: create, update and delete require a signed-in
+// caller with ⟦.PermWrite⟧, as they do in every other module.
+⟦- else if .Custom⟧
+// Register adds the ⟦.PluralHuman⟧ routes to r. Every route requires a signed-in
+// caller (deny by default) with the permission its guard names, and then
+// the module's own rule decides: Policy.CanRead and Policy.CanWrite in
+// policy.go, and Policy.Filter for the rows a list returns. The permission
+// is the floor, never the whole rule.
 ⟦- else⟧
 // Register adds the ⟦.PluralHuman⟧ routes to r. Every route requires a signed-in
 // user (deny by default) and the permission its guard names; the use cases
@@ -36,14 +51,14 @@ func Register(r *gorbital.Router, svc *usecase.Service) {
 		gorbital.Errors(⟦if .HasUniques⟧http.StatusConflict, ⟦end⟧http.StatusUnprocessableEntity),
 		⟦.Guard⟧(usecase.PermWrite))
 	gorbital.Get(⟦.PluralVar⟧, "", h.list⟦.Plural⟧, gorbital.OperationID("⟦.Package⟧-list"),
-		gorbital.Summary("List ⟦if .Org⟧the organisation's⟦else⟧your⟦end⟧ ⟦.PluralHuman⟧"),
+		gorbital.Summary("List ⟦if .Org⟧the ⟦.ScopeName⟧'s⟦else if .Public⟧all⟦else if .Custom⟧the⟦else⟧your⟦end⟧ ⟦.PluralHuman⟧"),
 		gorbital.Description("Newest first unless `sort` says otherwise; sort by one of ⟦.SortListCode⟧. Paginate with `cursor`."),
 		gorbital.Errors(http.StatusBadRequest, http.StatusUnprocessableEntity),
-		⟦.Guard⟧(usecase.PermRead))
+		⟦if .Public⟧guard.Public()⟦else⟧⟦.Guard⟧(usecase.PermRead)⟦end⟧)
 	gorbital.Get(⟦.PluralVar⟧, "/{id}", h.get⟦.Ident⟧, gorbital.OperationID("⟦.Package⟧-get"),
 		gorbital.Summary("Get ⟦.A⟧ ⟦.Human⟧"),
 		gorbital.Errors(http.StatusNotFound),
-		⟦.Guard⟧(usecase.PermRead))
+		⟦if .Public⟧guard.Public()⟦else⟧⟦.Guard⟧(usecase.PermRead)⟦end⟧)
 	gorbital.Patch(⟦.PluralVar⟧, "/{id}", h.update⟦.Ident⟧, gorbital.OperationID("⟦.Package⟧-update"),
 		gorbital.Summary("Update ⟦.A⟧ ⟦.Human⟧"),
 		gorbital.Description("Send the fields to change and the `version` you read."),

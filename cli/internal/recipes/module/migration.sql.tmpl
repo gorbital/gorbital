@@ -1,13 +1,13 @@
 ⟦if .Org -⟧
--- ⟦.PluralTitle⟧: each ⟦.Human⟧ belongs to one organisation, whose members reach
+-- ⟦.PluralTitle⟧: each ⟦.Human⟧ belongs to one ⟦.ScopeName⟧, whose members reach
 -- it through their role. orb gen module wrote this migration; change it
 -- freely until it is released, then add a new one.
 
 -- +goose Up
 CREATE TABLE ⟦.Table⟧ (
     ⟦.Pad "id"⟧ text        PRIMARY KEY,
-    -- The organisation; NOT NULL, so row-level security covers the table.
-    ⟦.Pad "org_id"⟧ text        NOT NULL,
+    -- The ⟦.ScopeName⟧; NOT NULL, so row-level security covers the table.
+    ⟦.Pad .ScopeColumn⟧ text        NOT NULL,
     -- The member who created it, for display and audit. Access comes only
     -- from membership. Not a foreign key: ⟦.PluralHuman⟧ outlive their creator.
     ⟦.Pad "created_by"⟧ text        NOT NULL,
@@ -18,21 +18,21 @@ CREATE TABLE ⟦.Table⟧ (
     ⟦.Pad "version"⟧ bigint      NOT NULL DEFAULT 1,
     ⟦.Pad "created_at"⟧ timestamptz NOT NULL,
     ⟦.Pad "updated_at"⟧ timestamptz NOT NULL,
-    -- Other organisation tables reference (org_id, id), so a row can only
-    -- point at ⟦.A⟧ ⟦.Human⟧ of its own organisation.
-    UNIQUE (org_id, id)
+    -- Other ⟦.ScopeName⟧ tables reference (⟦.ScopeColumn⟧, id), so a row can only
+    -- point at ⟦.A⟧ ⟦.Human⟧ of its own ⟦.ScopeName⟧.
+    UNIQUE (⟦.ScopeColumn⟧, id)
 );
 ⟦range .Uniques⟧
--- ⟦.HumanTitle⟧ is unique per organisation, ignoring case.
-CREATE UNIQUE INDEX ⟦$.Table⟧_org_⟦.Name⟧ ON ⟦$.Table⟧ (org_id, lower(⟦.Name⟧));
+-- ⟦.HumanTitle⟧ is unique per ⟦$.ScopeName⟧, ignoring case.
+CREATE UNIQUE INDEX ⟦$.UniqueIndex .Name⟧ ON ⟦$.Table⟧ (⟦$.ScopeColumn⟧, lower(⟦.Name⟧));
 ⟦end⟧
 -- One index per sort of GET ⟦.RoutePath⟧.
-CREATE INDEX ⟦.Table⟧_org_created ON ⟦.Table⟧ (org_id, created_at, id);
-CREATE INDEX ⟦.Table⟧_org_updated ON ⟦.Table⟧ (org_id, updated_at, id);
+CREATE INDEX ⟦.SortIndex "created"⟧ ON ⟦.Table⟧ (⟦.ScopeColumn⟧, created_at, id);
+CREATE INDEX ⟦.SortIndex "updated"⟧ ON ⟦.Table⟧ (⟦.ScopeColumn⟧, updated_at, id);
 ⟦- range .Strings⟧
-CREATE INDEX ⟦$.Table⟧_org_⟦.Name⟧_sort ON ⟦$.Table⟧ (org_id, (lower(⟦.Name⟧) COLLATE "C"), id);
+CREATE INDEX ⟦$.SortIndex (print .Name "_sort")⟧ ON ⟦$.Table⟧ (⟦$.ScopeColumn⟧, (lower(⟦.Name⟧) COLLATE "C"), id);
 ⟦- end⟧
-
+⟦if .Vocabulary.IsOrganisations⟧
 -- Purging an organisation deletes its ⟦.PluralHuman⟧. orgs is the organisations
 -- module's table (orgshttp), which the app's migrations run with; an app
 -- migrated without it, such as another module's test app, gets the table
@@ -41,24 +41,32 @@ CREATE INDEX ⟦$.Table⟧_org_⟦.Name⟧_sort ON ⟦$.Table⟧ (org_id, (lower
 DO $$
 BEGIN
     IF to_regclass('orgs') IS NOT NULL THEN
-        ALTER TABLE ⟦.Table⟧ ADD CONSTRAINT ⟦.Table⟧_org_id_fkey
-            FOREIGN KEY (org_id) REFERENCES orgs (id) ON DELETE CASCADE;
+        ALTER TABLE ⟦.Table⟧ ADD CONSTRAINT ⟦.Table⟧_⟦.ScopeColumn⟧_fkey
+            FOREIGN KEY (⟦.ScopeColumn⟧) REFERENCES orgs (id) ON DELETE CASCADE;
     END IF;
 END
 $$;
 -- +goose StatementEnd
+⟦- else⟧
+-- Purging ⟦.ScopeA⟧ ⟦.ScopeName⟧ should delete its ⟦.PluralHuman⟧. gorbital doesn't
+-- know which table holds your ⟦.Vocabulary.Plural⟧, so add the foreign key
+-- yourself:
+--
+--     ALTER TABLE ⟦.Table⟧ ADD CONSTRAINT ⟦.Table⟧_⟦.ScopeColumn⟧_fkey
+--         FOREIGN KEY (⟦.ScopeColumn⟧) REFERENCES <your ⟦.ScopeName⟧ table> (id) ON DELETE CASCADE;
+⟦- end⟧
 ⟦- if .RLS⟧
 
 -- Row-level security (ADR-0061), as the app's row-level security migration
--- gives every organisation table: a database connection sees and writes only
--- the ⟦.PluralHuman⟧ of the organisation it carries.
+-- gives every ⟦.ScopeName⟧ table: a database connection sees and writes only
+-- the ⟦.PluralHuman⟧ of the ⟦.ScopeName⟧ it carries.
 ALTER TABLE ⟦.Table⟧ ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ⟦.Table⟧ FORCE ROW LEVEL SECURITY;
 CREATE POLICY org_isolation ON ⟦.Table⟧
-    USING (org_id = current_setting('gorbital.org_id', true) OR current_setting('gorbital.rls_bypass', true) = 'on')
-    WITH CHECK (org_id = current_setting('gorbital.org_id', true) OR current_setting('gorbital.rls_bypass', true) = 'on');
+    USING (⟦.ScopeColumn⟧ = current_setting('gorbital.org_id', true) OR current_setting('gorbital.rls_bypass', true) = 'on')
+    WITH CHECK (⟦.ScopeColumn⟧ = current_setting('gorbital.org_id', true) OR current_setting('gorbital.rls_bypass', true) = 'on');
 ⟦- end⟧
-⟦- else -⟧
+⟦- else if .Filtered -⟧
 -- ⟦.PluralTitle⟧: each ⟦.Human⟧ belongs to one user. orb gen module wrote this
 -- migration; change it freely until it is released, then add a new one.
 
@@ -84,6 +92,39 @@ CREATE INDEX ⟦.Table⟧_owner_created ON ⟦.Table⟧ (owner_id, created_at, i
 CREATE INDEX ⟦.Table⟧_owner_updated ON ⟦.Table⟧ (owner_id, updated_at, id);
 ⟦- range .Strings⟧
 CREATE INDEX ⟦$.Table⟧_owner_⟦.Name⟧_sort ON ⟦$.Table⟧ (owner_id, (lower(⟦.Name⟧) COLLATE "C"), id);
+⟦- end⟧
+⟦- else -⟧
+-- ⟦.PluralTitle⟧⟦if .Public⟧: every ⟦.Human⟧ is world-readable, so the table has no
+-- ownership column and the reads are not filtered⟦else⟧: who may see and change ⟦.A⟧ ⟦.Human⟧ is the module's
+-- own rule, in policy.go, so this table has no ownership column and no
+-- filter the generator chose⟦end⟧. orb gen module wrote this migration; change it
+-- freely until it is released, then add a new one.
+
+-- +goose Up
+CREATE TABLE ⟦.Table⟧ (
+    ⟦.Pad "id"⟧ text        PRIMARY KEY,
+⟦- if .HasCreatedBy⟧
+    -- Who created it, for display and audit. It grants nothing by itself:
+    -- policy.go decides what it means.
+    ⟦.Pad "created_by"⟧ text        NOT NULL,
+⟦- end⟧
+⟦- range .Fields⟧
+    ⟦$.Pad .Name⟧ text        ⟦.Constraint⟧,
+⟦- end⟧
+    -- Increases with every update; an update must send the version it read.
+    ⟦.Pad "version"⟧ bigint      NOT NULL DEFAULT 1,
+    ⟦.Pad "created_at"⟧ timestamptz NOT NULL,
+    ⟦.Pad "updated_at"⟧ timestamptz NOT NULL
+);
+⟦range .Uniques⟧
+-- ⟦.HumanTitle⟧ is unique across every ⟦$.Human⟧, ignoring case.
+CREATE UNIQUE INDEX ⟦$.UniqueIndex .Name⟧ ON ⟦$.Table⟧ (lower(⟦.Name⟧));
+⟦end⟧
+-- One index per sort of GET ⟦.RoutePath⟧.
+CREATE INDEX ⟦.SortIndex "created"⟧ ON ⟦.Table⟧ (created_at, id);
+CREATE INDEX ⟦.SortIndex "updated"⟧ ON ⟦.Table⟧ (updated_at, id);
+⟦- range .Strings⟧
+CREATE INDEX ⟦$.SortIndex (print .Name "_sort")⟧ ON ⟦$.Table⟧ ((lower(⟦.Name⟧) COLLATE "C"), id);
 ⟦- end⟧
 ⟦- end⟧
 

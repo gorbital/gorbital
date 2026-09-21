@@ -7,14 +7,34 @@ import (
 )
 
 ⟦- if .Org⟧
-// Create⟦.Ident⟧ adds ⟦.A⟧ ⟦.Human⟧ to the organisation orgID, created by the member
+// Create⟦.Ident⟧ adds ⟦.A⟧ ⟦.Human⟧ to the ⟦.ScopeName⟧ ⟦.ScopeVar⟧, created by the member
 // acting in it.
-func (s *Service) Create⟦.Ident⟧(ctx context.Context, orgID string, f domain.⟦.Ident⟧Fields) (domain.⟦.Ident⟧, error) {
-	member, err := memberID(ctx, orgID)
+func (s *Service) Create⟦.Ident⟧(ctx context.Context, ⟦.ScopeVar⟧ string, f domain.⟦.Ident⟧Fields) (domain.⟦.Ident⟧, error) {
+	member, err := memberID(ctx, ⟦.ScopeVar⟧)
 	if err != nil {
 		return domain.⟦.Ident⟧{}, err
 	}
-	⟦.Var⟧, err := domain.New⟦.Ident⟧(s.newID(), orgID, member, f, s.clock())
+	⟦.Var⟧, err := domain.New⟦.Ident⟧(s.newID(), ⟦.ScopeVar⟧, member, f, s.clock())
+⟦- else if .Public⟧
+// Create⟦.Ident⟧ adds ⟦.A⟧ ⟦.Human⟧, which everyone can then read. The route
+// requires PermWrite: publishing is not public.
+func (s *Service) Create⟦.Ident⟧(ctx context.Context, f domain.⟦.Ident⟧Fields) (domain.⟦.Ident⟧, error) {
+	⟦.Var⟧, err := domain.New⟦.Ident⟧(s.newID(), f, s.clock())
+⟦- else if .Custom⟧
+// Create⟦.Ident⟧ adds ⟦.A⟧ ⟦.Human⟧ created by the signed-in caller, when the
+// policy allows it.
+func (s *Service) Create⟦.Ident⟧(ctx context.Context, f domain.⟦.Ident⟧Fields) (domain.⟦.Ident⟧, error) {
+	creator, err := actorID(ctx)
+	if err != nil {
+		return domain.⟦.Ident⟧{}, err
+	}
+	⟦.Var⟧, err := domain.New⟦.Ident⟧(s.newID(), creator, f, s.clock())
+	if err != nil {
+		return domain.⟦.Ident⟧{}, err
+	}
+	if err := s.policy.CanWrite(ctx, ⟦.Var⟧); err != nil {
+		return domain.⟦.Ident⟧{}, err
+	}
 ⟦- else⟧
 // Create⟦.Ident⟧ adds ⟦.A⟧ ⟦.Human⟧ owned by the signed-in user.
 func (s *Service) Create⟦.Ident⟧(ctx context.Context, f domain.⟦.Ident⟧Fields) (domain.⟦.Ident⟧, error) {
