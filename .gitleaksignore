@@ -122,3 +122,7 @@ a017e9f8ce51a76da9ef4142c05dce34d0e13e20:examples/api-basic/internal/modules/aut
 #
 # The string crypto/subtle, a Go package named in a documentation table.
 aba10c74b00fac50b7eb84ae0d9ac5d3461dc406:docs/v0.3-roadmap.md:generic-api-key:89
+#
+# The placeholder GitHub client secret in the sign-in setup page, under the
+# template tree its new name. Sequential hex, in documentation.
+1b2d8d096c7c66e45394bf517e405e9505af854a:cli/internal/recipes/v0.3/AUTH_PROVIDERS.md.tmpl:generic-api-key:372
