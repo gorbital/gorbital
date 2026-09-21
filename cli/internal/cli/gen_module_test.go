@@ -66,17 +66,38 @@ func newMainApp(t *testing.T, buildable bool) string {
 	return dir
 }
 
-// nextMigrationAfterNewest is the version orb gives a migration generated in
-// dir: the one after the app's newest, since Shelfie's are dated later than
-// the clock this test runs on. It is computed rather than written down,
-// because every chapter that adds a migration moves it.
-func nextMigrationAfterNewest(t *testing.T, dir string) string {
+// newestMigration is the version of the newest migration already in dir.
+func newestMigration(t *testing.T, dir string) string {
 	t.Helper()
-	v, err := nextMigrationVersion(dir, time.Now())
+	entries, err := os.ReadDir(filepath.Join(dir, "db", "migrations"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return v
+	newest := ""
+	for _, e := range entries {
+		if v, _, ok := strings.Cut(e.Name(), "_"); ok && v > newest {
+			newest = v
+		}
+	}
+	return newest
+}
+
+// generatedMigration is the path of the migration orb wrote for suffix, and
+// the check that it runs after everything the app already had. The version
+// comes from the clock, so the test reads the name that was written instead
+// of predicting it: a second ticking over between orb's read of the clock
+// and the test's would otherwise fail a correct run.
+func generatedMigration(t *testing.T, dir, newest, suffix string) string {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(dir, "db", "migrations", "*"+suffix))
+	if err != nil || len(matches) != 1 {
+		t.Fatalf("db/migrations/*%s = %v, %v, want one file", suffix, matches, err)
+	}
+	name := filepath.Base(matches[0])
+	if v, _, _ := strings.Cut(name, "_"); v <= newest {
+		t.Errorf("migration = %s, want a version after the app's newest (%s)", name, newest)
+	}
+	return "db/migrations/" + name
 }
 
 // shelvesArgs is the command that generated Shelfie's shelves module.
@@ -100,7 +121,7 @@ func TestGenModule(t *testing.T) {
 		t.Fatal("--dry-run wrote the module")
 	}
 
-	wantVersion := nextMigrationAfterNewest(t, dir)
+	newest := newestMigration(t, dir)
 	code, out, errOut = runOrb(t, append(shelvesArgs, "--allow-dirty")...)
 	if code != 0 || !strings.Contains(out, "✓ Created module shelves") || !strings.Contains(out, "modify internal/modules/modules.gen.go") {
 		t.Fatalf("orb gen module = %d %s %s", code, out, errOut)
@@ -112,19 +133,18 @@ func TestGenModule(t *testing.T) {
 	if !strings.Contains(readFile(t, filepath.Join(dir, filepath.FromSlash(modulesGenPath))), "shelves.Module(),") {
 		t.Error("modules.gen.go doesn't list shelves")
 	}
+	migration := generatedMigration(t, dir, newest, "_shelves.sql")
 	for _, f := range res.Files {
 		if f == modulesGenPath || f == manifestPath {
 			continue // Shelfie's lists clubbooks too, and records their scopes
 		}
-		golden := f
+		written, golden := f, f
 		if strings.HasSuffix(f, "_shelves.sql") {
-			if f != "db/migrations/"+wantVersion+"_shelves.sql" {
-				t.Errorf("migration = %s, want the one after the app's newest (%s)", f, wantVersion)
-			}
+			written = migration
 			golden = "db/migrations/20260920000002_shelves.sql"
 		}
-		if got, want := readFile(t, filepath.Join(dir, filepath.FromSlash(f))), readFile(t, filepath.Join(shelfie, filepath.FromSlash(golden))); got != want {
-			t.Errorf("%s differs from Shelfie's", f)
+		if got, want := readFile(t, filepath.Join(dir, filepath.FromSlash(written))), readFile(t, filepath.Join(shelfie, filepath.FromSlash(golden))); got != want {
+			t.Errorf("%s differs from Shelfie's", written)
 		}
 	}
 
@@ -148,6 +168,7 @@ func TestGenModuleOrg(t *testing.T) {
 	}
 
 	// Shelfie's main.go adds orgshttp, so the next steps don't ask for it.
+	newest := newestMigration(t, dir)
 	code, out, errOut = runOrb(t, append(clubBooksArgs, "--allow-dirty")...)
 	if code != 0 || !strings.Contains(out, "for an organisation's club books (guard.OrgMember)") || !strings.Contains(out, "GET /v1/orgs") ||
 		!strings.Contains(out, "Every organisation role (owner, admin and member)") || strings.Contains(out, "orgshttp.Module(auth)") {
@@ -155,16 +176,18 @@ func TestGenModuleOrg(t *testing.T) {
 	}
 	// The files are Shelfie's clubbooks module, which TestModuleMatchesShelfie
 	// keeps equal to the templates.
+	migration := generatedMigration(t, dir, newest, "_club_books.sql")
 	for _, f := range res.Files {
 		if f == modulesGenPath || f == manifestPath {
 			continue
 		}
-		golden := f
+		written, golden := f, f
 		if strings.HasSuffix(f, "_club_books.sql") {
+			written = migration
 			golden = "db/migrations/20260920000005_club_books.sql" // Shelfie's, generated when its history was shorter
 		}
-		if got, want := readFile(t, filepath.Join(dir, filepath.FromSlash(f))), readFile(t, filepath.Join(shelfie, filepath.FromSlash(golden))); got != want {
-			t.Errorf("%s differs from Shelfie's", f)
+		if got, want := readFile(t, filepath.Join(dir, filepath.FromSlash(written))), readFile(t, filepath.Join(shelfie, filepath.FromSlash(golden))); got != want {
+			t.Errorf("%s differs from Shelfie's", written)
 		}
 	}
 }
@@ -185,7 +208,7 @@ func TestGenModuleOrgWiring(t *testing.T) {
 	withoutOrgs := strings.Join(kept, "")
 	writeFile(t, mainGo, withoutOrgs)
 
-	projectsVersion := nextMigrationAfterNewest(t, dir)
+	newest := newestMigration(t, dir)
 	code, out, errOut := runOrb(t, "gen", "module", "Project", "name:string", "--org", "--allow-dirty")
 	if code != 0 || !strings.Contains(out, "1. Add the organisations module") || !strings.Contains(out, "gorbital.WithModules(orgshttp.Module(auth))") ||
 		!strings.Contains(out, "passed to gorbital.WithAuth") {
@@ -194,7 +217,7 @@ func TestGenModuleOrgWiring(t *testing.T) {
 	if readFile(t, mainGo) != withoutOrgs {
 		t.Error("orb gen module --org changed main.go")
 	}
-	migration := readFile(t, filepath.Join(dir, "db", "migrations", projectsVersion+"_projects.sql"))
+	migration := readFile(t, filepath.Join(dir, filepath.FromSlash(generatedMigration(t, dir, newest, "_projects.sql"))))
 	if !strings.Contains(migration, "org_id     text        NOT NULL,") || !strings.Contains(migration, "REFERENCES orgs (id) ON DELETE CASCADE") ||
 		strings.Contains(migration, "ROW LEVEL SECURITY") {
 		t.Errorf("migration without row-level security:\n%s", migration)

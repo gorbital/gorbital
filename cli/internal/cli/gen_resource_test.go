@@ -176,6 +176,14 @@ func TestNextMigrationVersion(t *testing.T) {
 	if got, err := nextMigrationVersion(dir, now); err != nil || got != "20260916083001" {
 		t.Errorf("nextMigrationVersion() with a migration at now = %q, %v, want one later", got, err)
 	}
+	// An app whose history is dated after the clock still gets a version
+	// that runs last: goose applies in version order, and this repository
+	// does not set AllowMissing, so a migration written before an existing
+	// one would never be applied.
+	writeFile(t, filepath.Join(dir, "db", "migrations", "20270101000000_from_the_future.sql"), "")
+	if got, err := nextMigrationVersion(dir, now); err != nil || got != "20270101000001" {
+		t.Errorf("nextMigrationVersion() with a migration after now = %q, %v, want one after the newest", got, err)
+	}
 }
 
 // TestLatestBuiltinMigration: latestBuiltinMigration is the newest migration
