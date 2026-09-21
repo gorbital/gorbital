@@ -98,7 +98,6 @@ These are the codes of a Full app as generated, including the example `projects`
 | `not_found` | 404 | No route matches the method and path, or a resource wasn't found and no more specific code applies. | Any endpoint |
 | `observability_query_timeout` | 503 | The request counts took too long to read; try a shorter window. | `/ops` |
 | `observability_streams_limited` | 429 | Too many open streams; close one or try another instance. | `/ops` |
-| `org_not_found` | 404 | You aren't a member of an organisation with this ID. | Routes under `/v1/orgs/{orgId}/` (`guard.OrgMember`), `/v1/orgs`, `/v1/invitations`. *Multi-tenant apps only.* |
 | `org_version_conflict` | 409 | The organisation changed since you read it; get it again and retry. *Multi-tenant apps only.* | `/v1/orgs`, `/v1/invitations` |
 | `passkey_limit_reached` | 409 | An account can have at most 10 passkeys. | `/v1/auth` |
 | `passkey_not_found` | 404 | No passkey of yours has this ID. | `/v1/auth` |

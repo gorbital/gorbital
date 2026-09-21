@@ -194,6 +194,14 @@ func (p *Platform) SetScope(s Scope, a ScopeAuthorizer) error {
 // and details of v0.1 multi-tenant apps (module_orgs.go); the not-found
 // code comes from the scope.
 var (
+	// errOrgNotFound is the refusal of a scope that kept the organisation
+	// vocabulary. It stays a declaration of its own, rather than one more
+	// problem built from the scope's fields, because the surface inventory
+	// and docs/reference/error-codes.md are read from declarations: built
+	// inline, a code v0.1 apps have returned since the first release
+	// disappears from the recorded contract while the route still answers
+	// with it.
+	errOrgNotFound      = httpx.NewProblem(http.StatusNotFound, DefaultScopeNotFoundCode, "you aren't a member of an organisation with this ID")
 	errScopeForbidden   = httpx.NewProblem(http.StatusForbidden, "forbidden", "your role in this organisation doesn't allow this")
 	errScopeMFARequired = httpx.NewProblem(http.StatusForbidden, "mfa_required", "sign in with two-factor authentication to do this in this organisation")
 )
@@ -222,11 +230,11 @@ func (s Scope) pathSegment() string {
 
 // notFound is the scope's 404, built once per app.
 func (s Scope) notFound() error {
-	detail := "you aren't a member of an organisation with this ID"
-	if s.Name != DefaultScopeName {
-		detail = "you aren't a member of a " + s.Name + " with this ID"
+	if s.NotFoundCode == DefaultScopeNotFoundCode && s.Name == DefaultScopeName {
+		return errOrgNotFound
 	}
-	return httpx.NewProblem(http.StatusNotFound, s.NotFoundCode, detail)
+	return httpx.NewProblem(http.StatusNotFound, s.NotFoundCode,
+		"you aren't a member of a "+s.Name+" with this ID")
 }
 
 // forbidden and mfaRequired keep v0.1's wording for organisations and name
