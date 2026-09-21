@@ -27,10 +27,19 @@ import (
 	"gorbital.dev/cli/internal/recipes"
 )
 
+// An ejectRemovedMessage is an error whose whole value is a page of prose
+// for a person: nothing wraps it, Main prints it and exits. It is a type
+// of its own rather than errors.New so that it can be several sentences,
+// capitalised and punctuated, which is what the reader needs and what the
+// rules for an error fragment forbid.
+type ejectRemovedMessage string
+
+func (e ejectRemovedMessage) Error() string { return string(e) }
+
 // errEjectRemoved answers `orb eject`, removed in v0.2.2 (ADR-0092). The
 // name stays registered for one release so a script or an old page gets an
 // answer rather than "unknown command".
-var errEjectRemoved = errors.New(`orb eject was removed in v0.2.2.
+const errEjectRemoved = ejectRemovedMessage(`orb eject was removed in v0.2.2.
 
 Sign-in and organisations are already in your app, under internal/modules:
 orb new put them there. There is nothing to eject.
@@ -74,14 +83,6 @@ func lookupEjectable(name string) (ejectableModule, bool) {
 		return ejectableModule{}, false
 	}
 	return ejectableModules[i], true
-}
-
-func ejectableNames() string {
-	names := make([]string, len(ejectableModules))
-	for i, m := range ejectableModules {
-		names[i] = m.name
-	}
-	return strings.Join(names, ", ")
 }
 
 // moduleLayers are the directories an app module has below it (ADR-0083).
@@ -732,13 +733,6 @@ func commandImports(dir, imp string) (map[string]string, error) {
 	return found, nil
 }
 
-// callsGorbitalMain reports whether a non-test file of cmd/api calls
-// gorbital.Main.
-func callsGorbitalMain(dir string) bool {
-	calls, _ := commandSelectors(dir, gorbitalImportPath, "Main")
-	return calls
-}
-
 // commandSelectors reports whether a non-test file of cmd/api that imports
 // imp under a usable name refers to name in it, such as authhttp.New.
 func commandSelectors(dir, imp, name string) (bool, error) {
@@ -805,59 +799,4 @@ func checkModuleUse(dir string, m ejectableModule) error {
 		return fmt.Errorf("cmd/api imports %s but never calls %s.%s, which the copy keeps while it changes the import; add the module with %s.%s in main.go, as a new app's does", m.importPath(), m.pkg, m.constructor, m.pkg, m.constructor)
 	}
 	return nil
-}
-
-// checkLibraryDependents refuses to eject a module another library package
-// the app builds with imports, such as orgshttp, which takes sign-in's
-// authenticator: the app's copy would have other types than the ones that
-// package expects.
-func checkLibraryDependents(ctx context.Context, dir string, m ejectableModule) error {
-	var stderr bytes.Buffer
-	out, err := goOutputIn(ctx, dir, &stderr, "list", "-deps", "-json=ImportPath,Imports", "./...")
-	if err != nil {
-		return fmt.Errorf("list the app's packages: %w: %s", err, strings.TrimSpace(stderr.String()))
-	}
-	dec := json.NewDecoder(bytes.NewReader(out))
-	var dependents []string
-	for {
-		var pkg struct {
-			ImportPath string
-			Imports    []string
-		}
-		if err := dec.Decode(&pkg); errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return fmt.Errorf("read go list's output: %w", err)
-		}
-		inLibrary := strings.HasPrefix(pkg.ImportPath, gorbitalImportPath+"/")
-		own := pkg.ImportPath == m.importPath() || strings.HasPrefix(pkg.ImportPath, m.importPath()+"/")
-		if inLibrary && !own && slices.Contains(pkg.Imports, m.importPath()) {
-			dependents = append(dependents, pkg.ImportPath)
-		}
-	}
-	if len(dependents) == 0 {
-		return nil
-	}
-	slices.Sort(dependents)
-	var first []string
-	for _, d := range dependents {
-		if other, ok := ejectableFor(d); ok {
-			first = append(first, "orb eject "+other.name)
-		}
-	}
-	fix := "those packages need the library's " + m.pkg
-	if len(first) > 0 {
-		fix = "eject first: " + strings.Join(first, ", ")
-	}
-	return fmt.Errorf("the app uses %s from the library, which imports %s and takes its types, so the app's copy wouldn't fit it; %s", strings.Join(dependents, ", "), m.importPath(), fix)
-}
-
-// ejectableFor returns the ejectable module a library package belongs to.
-func ejectableFor(imp string) (ejectableModule, bool) {
-	for _, m := range ejectableModules {
-		if imp == m.importPath() || strings.HasPrefix(imp, m.importPath()+"/") {
-			return m, true
-		}
-	}
-	return ejectableModule{}, false
 }

@@ -1,13 +1,15 @@
 package cli
 
 import (
-	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
+
+	"gorbital.dev/cli/internal/recipes"
 )
 
 // copyExampleApp copies examples/<name> with its replace directives
@@ -72,19 +74,27 @@ func absoluteReplaces(t *testing.T, goMod, appDir string) string {
 	return strings.Join(out, "")
 }
 
-func eject(t *testing.T, wantCode int, args ...string) (ejectResult, string) {
+// copyModuleIntoApp copies a built-in module into the app in the working
+// directory, the way orb new does. orb eject is gone (ADR-0092), so a test
+// that needs a freshly copied module runs the planner the remaining
+// commands run.
+func copyModuleIntoApp(t *testing.T, name string) {
 	t.Helper()
-	code, out, errOut := runOrb(t, append([]string{"eject"}, args...)...)
-	if code != wantCode {
-		t.Fatalf("orb eject %v = %d, want %d; stdout %s stderr %s", args, code, wantCode, out, errOut)
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
 	}
-	var res ejectResult
-	if slices.Contains(args, "--json") && code == 0 {
-		if err := json.Unmarshal([]byte(out), &res); err != nil {
-			t.Fatalf("orb eject --json output %q: %v", out, err)
-		}
+	m, ok := lookupEjectable(name)
+	if !ok {
+		t.Fatalf("no built-in module %q", name)
 	}
-	return res, out + errOut
+	lib, err := resolveLibrary(t.Context(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ejectIntoNewApp(dir, []recipes.EjectedModule{{Name: m.name, Package: m.importPath()}}, lib, time.Now()); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestRewriteGoImports(t *testing.T) {
@@ -184,22 +194,24 @@ func TestChangelogMentions(t *testing.T) {
 func TestDoctorEjectedModules(t *testing.T) {
 	copyExampleApp(t, "shelfie")
 	writeFile(t, ".env", readFile(t, ".env.example"))
-	eject(t, 0, "flags", "--skip-tidy", "--allow-dirty")
+	copyModuleIntoApp(t, "flags")
 	fakeDoctorCommands(t, `{"current":1,"latest":1,"pending":0}`)
+	// Shelfie already owns sign-in and organisations, so the checks are
+	// read by the module they name.
 	check := func(res doctorResult, status, detail string) {
 		t.Helper()
 		for _, c := range res.Checks {
-			if c.Name == "ejected" {
+			if c.Name == "ejected" && strings.Contains(c.Detail, "flags") {
 				if c.Status != status || !strings.Contains(c.Detail, detail) {
-					t.Errorf("ejected check = %+v, want %s containing %q", c, status, detail)
+					t.Errorf("the flags check = %+v, want %s containing %q", c, status, detail)
 				}
 				return
 			}
 		}
-		t.Errorf("no ejected check in %+v", res.Checks)
+		t.Errorf("no ejected check for flags in %+v", res.Checks)
 	}
 	res := doctorRun(t, 0, "--fast")
-	check(res, doctorOK, "internal/modules/flags is the app's code, ejected from gorbital.dev/gorbital/flagshttp v0.2.0")
+	check(res, doctorOK, "internal/modules/flags is the app's code, copied from gorbital.dev/gorbital/flagshttp")
 	for _, c := range res.Checks {
 		if (c.Name == "modules" || c.Name == "gorbital.lock") && c.Status != doctorOK {
 			t.Errorf("%s check = %+v, want ok with an ejected module", c.Name, c)
@@ -211,7 +223,11 @@ func TestDoctorEjectedModules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lock.Ejected[0].SHA256 = strings.Repeat("0", 64)
+	for i, e := range lock.Ejected {
+		if e.Module == "flags" {
+			lock.Ejected[i].SHA256 = strings.Repeat("0", 64)
+		}
+	}
 	data, _ := lock.encode()
 	writeFile(t, lockPath, string(data))
 	res = doctorRun(t, 0, "--fast")

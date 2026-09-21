@@ -28,80 +28,77 @@ func TestJSONOutputs(t *testing.T) {
 	tests := []struct {
 		name string
 		run  func(t *testing.T) (int, string, string)
+		// code is the exit code the command is expected to end with: a
+		// review that finds something ends with 1.
+		code int
 	}{
-		{"version", func(t *testing.T) (int, string, string) {
+		{name: "version", run: func(t *testing.T) (int, string, string) {
 			return runOrb(t, "version", "--json")
 		}},
-		{"new", func(t *testing.T) (int, string, string) {
+		{name: "new", run: func(t *testing.T) (int, string, string) {
 			t.Chdir(t.TempDir())
 			return runOrb(t, "new", "shop-api", "--preset", "full", "--tenancy", "multi", "--skip-tidy", "--no-git", "--json")
 		}},
-		{"gen-job", func(t *testing.T) (int, string, string) {
+		{name: "gen-job", run: func(t *testing.T) (int, string, string) {
 			newFullApp(t)
 			return runOrb(t, "gen", "job", "SendDigest", "--every", "1h", "--json")
 		}},
-		{"gen-resource", func(t *testing.T) (int, string, string) {
+		{name: "gen-resource", run: func(t *testing.T) (int, string, string) {
 			newResourceApp(t)
 			return runOrb(t, "gen", "resource", "Customer", "email:string:unique", "--json")
 		}},
-		{"gen-migration", func(t *testing.T) (int, string, string) {
+		{name: "gen-migration", run: func(t *testing.T) (int, string, string) {
 			newMigrationApp(t)
 			return runOrb(t, "gen", "migration", "AddCustomerPhone", "--json")
 		}},
-		{"gen-modules", func(t *testing.T) (int, string, string) {
+		{name: "gen-modules", run: func(t *testing.T) (int, string, string) {
 			newModulesApp(t)
 			return runOrb(t, "gen", "modules", "--json")
 		}},
-		{"gen-module", func(t *testing.T) (int, string, string) {
+		{name: "gen-module", run: func(t *testing.T) (int, string, string) {
 			newMainApp(t, false)
 			return runOrb(t, append(shelvesArgs, "--allow-dirty", "--json")...)
 		}},
-		{"gen-middleware", func(t *testing.T) (int, string, string) {
+		{name: "gen-middleware", run: func(t *testing.T) (int, string, string) {
 			newMainApp(t, false)
 			return runOrb(t, "gen", "middleware", "ActiveSubscription", "--module", "profiles", "--guard", "--dry-run", "--json")
 		}},
-		{"routes", func(t *testing.T) (int, string, string) {
+		{name: "routes", run: func(t *testing.T) (int, string, string) {
 			newMainApp(t, false)
 			return runOrb(t, "routes", "--openapi", "api/openapi.json", "--app", "--json")
 		}},
-		{"eject", func(t *testing.T) (int, string, string) {
-			copyExampleApp(t, "shelfie")
-			code, out, errOut := runOrb(t, "eject", "orgs", "--dry-run", "--json")
-			// The library version Shelfie requires.
-			var res ejectResult
-			if json.Unmarshal([]byte(out), &res) == nil && res.Version != "" {
-				out = strings.ReplaceAll(out, `"`+res.Version+`"`, `"{version}"`)
-			}
-			return code, out, errOut
+		{name: "doctor-security", code: 1, run: func(t *testing.T) (int, string, string) {
+			securityFixtureApp(t)
+			return runOrb(t, "doctor", "--security", "--json")
 		}},
-		{"doctor-main", func(t *testing.T) (int, string, string) {
+		{name: "doctor-main", run: func(t *testing.T) (int, string, string) {
 			newMainApp(t, true)
 			writeFile(t, ".env", readFile(t, ".env.example"))
 			fakeDoctorCommands(t, `{"current":20260920000001,"latest":20260920000001,"pending":0}`)
 			return runOrb(t, "doctor", "--fast", "--json")
 		}},
-		{"add-mail", func(t *testing.T) (int, string, string) {
+		{name: "add-mail", run: func(t *testing.T) (int, string, string) {
 			newMailApp(t)
 			return runOrb(t, "add", "mail", "--provider", "smtp", "--smtp-host", "smtp.example.com", "--skip-tidy", "--json")
 		}},
-		{"add-orgs", func(t *testing.T) (int, string, string) {
+		{name: "add-orgs", run: func(t *testing.T) (int, string, string) {
 			newV01GitApp(t, recipes.TenancySingle)
 			return runOrb(t, "add", "orgs", "--dry-run", "--skip-tidy", "--json")
 		}},
-		{"add-rls", func(t *testing.T) (int, string, string) {
+		{name: "add-rls", run: func(t *testing.T) (int, string, string) {
 			newV01GitApp(t, recipes.TenancyMulti)
 			return runOrb(t, "add", "rls", "--dry-run", "--json")
 		}},
-		{"upgrade", func(t *testing.T) (int, string, string) {
+		{name: "upgrade", run: func(t *testing.T) (int, string, string) {
 			appFromRelease(t, olderRelease(t), "v0.0.9")
 			useRelease(t, recipes.Embedded())
 			return runOrb(t, "upgrade", "--dry-run", "--skip-tidy", "--json")
 		}},
-		{"upgrade-layout", func(t *testing.T) (int, string, string) {
+		{name: "upgrade-layout", run: func(t *testing.T) (int, string, string) {
 			newV01GitApp(t, recipes.TenancySingle)
 			return runOrb(t, "upgrade", "--layout", "v0.2", "--dry-run", "--json")
 		}},
-		{"doctor", func(t *testing.T) (int, string, string) {
+		{name: "doctor", run: func(t *testing.T) (int, string, string) {
 			newV01GitApp(t, recipes.TenancySingle)
 			writeFile(t, ".env", readFile(t, ".env.example"))
 			fakeDoctorCommands(t, `{"current":9,"latest":9,"pending":0}`)
@@ -111,8 +108,8 @@ func TestJSONOutputs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			code, out, errOut := tt.run(t)
-			if code != 0 {
-				t.Fatalf("exit %d; stdout %s; stderr %s", code, out, errOut)
+			if code != tt.code {
+				t.Fatalf("exit %d, want %d; stdout %s; stderr %s", code, tt.code, out, errOut)
 			}
 			var head struct {
 				SchemaVersion *int `json:"schemaVersion"`
@@ -152,7 +149,9 @@ func TestJSONOutputs(t *testing.T) {
 var (
 	timestampPattern = regexp.MustCompile(`\d{14}`)
 	// volatileFields hold text that depends on the machine or wording.
-	volatileFields = map[string]bool{"detail": true, "fix": true, "note": true}
+	volatileFields = map[string]bool{"detail": true, "fix": true, "note": true,
+		"message": true, "why": true, "about": true, "provenance": true,
+		"checked": true, "not_checked": true, "undetermined": true}
 )
 
 // normalizeJSON rewrites --json output for comparison: key order is kept,
