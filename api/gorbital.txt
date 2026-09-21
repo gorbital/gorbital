@@ -259,10 +259,23 @@ pkg gorbital.dev/gorbital, type StorageConfig struct, SecretKey config.Secret
 pkg gorbital.dev/gorbital, type StorageConfig struct, SigningKey config.Secret
 pkg gorbital.dev/gorbital, var ErrScopeNotFound error
 pkg gorbital.dev/gorbital, var ErrUsage error
+pkg gorbital.dev/gorbital/authhttp, const MethodAPIKeys = "api_keys"
+pkg gorbital.dev/gorbital/authhttp, const MethodAPIKeys Method
+pkg gorbital.dev/gorbital/authhttp, const MethodOperators = "operators"
+pkg gorbital.dev/gorbital/authhttp, const MethodOperators Method
+pkg gorbital.dev/gorbital/authhttp, const MethodPasskeys = "passkeys"
+pkg gorbital.dev/gorbital/authhttp, const MethodPasskeys Method
+pkg gorbital.dev/gorbital/authhttp, const MethodPassword = "password"
+pkg gorbital.dev/gorbital/authhttp, const MethodPassword Method
+pkg gorbital.dev/gorbital/authhttp, const MethodSocial = "social"
+pkg gorbital.dev/gorbital/authhttp, const MethodSocial Method
+pkg gorbital.dev/gorbital/authhttp, const MethodTOTP = "totp"
+pkg gorbital.dev/gorbital/authhttp, const MethodTOTP Method
 pkg gorbital.dev/gorbital/authhttp, func APIKeyMaxTTL(time.Duration) Option
 pkg gorbital.dev/gorbital/authhttp, func AfterLogin(func(context.Context, LoginEvent) error) Option
 pkg gorbital.dev/gorbital/authhttp, func BeforeLogin(func(context.Context, pgx.Tx, LoginAttempt) error) Option
 pkg gorbital.dev/gorbital/authhttp, func Brand(mail.Brand) Option
+pkg gorbital.dev/gorbital/authhttp, func Methods(...Method) Option
 pkg gorbital.dev/gorbital/authhttp, func MinPasswordLength(int) Option
 pkg gorbital.dev/gorbital/authhttp, func New(...Option) *Authenticator
 pkg gorbital.dev/gorbital/authhttp, func OnRegister(func(context.Context, pgx.Tx, NewAccount) error) Option
@@ -293,6 +306,7 @@ pkg gorbital.dev/gorbital/authhttp, type LoginAttempt struct, UserAgent string
 pkg gorbital.dev/gorbital/authhttp, type LoginEvent struct
 pkg gorbital.dev/gorbital/authhttp, type LoginEvent struct, SessionID string
 pkg gorbital.dev/gorbital/authhttp, type LoginEvent struct, embedded LoginAttempt
+pkg gorbital.dev/gorbital/authhttp, type Method string
 pkg gorbital.dev/gorbital/authhttp, type NewAccount struct
 pkg gorbital.dev/gorbital/authhttp, type NewAccount struct, IP string
 pkg gorbital.dev/gorbital/authhttp, type NewAccount struct, Method string

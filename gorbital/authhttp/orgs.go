@@ -62,7 +62,12 @@ func (a *Authenticator) UseOrganisations(o Organisations) error {
 // schemas and error codes (ADR-0058). The organisations module registers
 // them; they work once [Authenticator.UseOrganisations] is called, and
 // before [Authenticator.Setup] they register for the OpenAPI document only.
+// An app that doesn't serve [MethodAPIKeys] has no service accounts, so it
+// registers none of them.
 func (a *Authenticator) OrgServiceAccountRoutes(r *gorbital.Router) {
+	if !a.opts.has(MethodAPIKeys) {
+		return
+	}
 	delivery.RegisterOrgServiceAccounts(r, a.service())
 }
 

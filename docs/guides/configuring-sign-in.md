@@ -35,6 +35,7 @@ Keep the `*authhttp.Authenticator` in a variable when a module needs it, such as
 
 | Option | What it changes | Limits |
 |---|---|---|
+| [`Methods(m...)`](../methods/gorbital-authhttp.md#Methods) | Which sign-in methods the app serves: their operations, settings, jobs, rate limiters and permissions | Without it, every method. `MethodPassword` is required |
 | [`MinPasswordLength(n)`](../methods/gorbital-authhttp.md#MinPasswordLength) | The shortest password accepted when an account registers, resets or changes its password, or an operator creates one | 12 to 128 characters: it only raises v0.1's minimum. Existing passwords keep working |
 | [`PasswordPolicy(check)`](../methods/gorbital-authhttp.md#PasswordPolicy) | A check every new password must pass after the built-in rules, such as a breached-password lookup | Several run in order |
 | [`RequireMFA(roles...)`](../methods/gorbital-authhttp.md#RequireMFA) | A role's permissions are granted only to sessions signed in with a second factor, as for `platform_admin` and `ops_viewer` | The role must be declared by a module; not `user` |
@@ -55,6 +56,29 @@ authhttp: MinPasswordLength(8): a minimum is 12 to 128 characters; a lower one w
 ```
 
 `RequireMFA` needs the permission catalog, so its mistakes (a role no module declares, or `user`) are reported by `Setup`, when `gorbital.New` builds the app, and the app doesn't start either.
+
+## Which methods the app serves
+
+Sign-in has six methods, and without `Methods` an app serves all of them. Naming the ones it wants leaves the rest out:
+
+```go
+auth := authhttp.New(authhttp.Methods(authhttp.MethodPassword, authhttp.MethodOperators))
+```
+
+| Method | What it serves | Operations |
+|---|---|---:|
+| [`MethodPassword`](../methods/gorbital-authhttp.md#MethodPassword) | Registration, email verification, signing in, sessions, passwords, deleting the account | 13 |
+| [`MethodOperators`](../methods/gorbital-authhttp.md#MethodOperators) | The operators' account APIs under `/ops/auth/users` | 16 |
+| [`MethodTOTP`](../methods/gorbital-authhttp.md#MethodTOTP) | Two-factor authentication with an authenticator app | 5 |
+| [`MethodPasskeys`](../methods/gorbital-authhttp.md#MethodPasskeys) | Passkeys, to sign in and as a second factor | 9 |
+| [`MethodSocial`](../methods/gorbital-authhttp.md#MethodSocial) | Google, Apple and GitHub sign-in, and the linked accounts | 12 |
+| [`MethodAPIKeys`](../methods/gorbital-authhttp.md#MethodAPIKeys) | An account's API keys, and the platform's service accounts | 11 |
+
+- A method the app doesn't serve has no operations: its paths answer 404, and they leave the OpenAPI document. It declares no runtime settings, no jobs, no rate limiters and no permissions either, so `/ops` lists none of them and no role can be granted them.
+- `MethodPassword` is required. An app that doesn't want passwords wants another `gorbital.Authenticator`, not this one with a hole in it.
+- A provider configured for a method the app doesn't serve — `GOOGLE_CLIENT_ID` in a shared `.env`, say — doesn't stop the app. `GET /ops/auth/providers` reports the method as not enabled in this app, and the log says so at startup.
+- **Every migration is applied whichever methods you serve**, so the passkey, social and API-key tables exist and stay empty. That is deliberate ([ADR-0089](../adr/0089-sign-in-profiles.md)): adding a method later is this one line and a restart, with no migration to catch up on.
+- The code of a method you leave out still ships with the app. What shrinks is what the app *exposes*, not what it *contains*.
 
 ## Passwords
 
