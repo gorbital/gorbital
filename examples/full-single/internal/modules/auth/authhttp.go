@@ -32,13 +32,14 @@ import (
 	"strings"
 	"sync"
 
-	"example.com/acme-api/internal/modules/auth/delivery/signintest"
-	"example.com/acme-api/internal/modules/auth/repository"
-	"example.com/acme-api/internal/modules/auth/usecase"
 	"gorbital.dev/gorbital"
 	"gorbital.dev/mail"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/auth/passkey"
+
+	"example.com/acme-api/internal/modules/auth/delivery/signintest"
+	"example.com/acme-api/internal/modules/auth/repository"
+	"example.com/acme-api/internal/modules/auth/usecase"
 )
 
 // An Authenticator is sign-in for one app. It implements
@@ -157,7 +158,7 @@ func (a *Authenticator) Setup(ctx context.Context, s gorbital.AuthSetup) error {
 	if d.Audit == nil || d.Mailer == nil || d.RateLimits == nil || d.Logger == nil {
 		return errors.New("authhttp: AuthSetup.Deps needs DB, Audit, Mailer, RateLimits and Logger")
 	}
-	limits, err := newRateLimits(d.RateLimits, a.settings)
+	limits, err := newRateLimits(d.RateLimits, a.settings, a.opts)
 	if err != nil {
 		return err
 	}
@@ -172,7 +173,7 @@ func (a *Authenticator) Setup(ctx context.Context, s gorbital.AuthSetup) error {
 		CodeLimiter:             limits.code,
 		NoticeLimiter:           limits.notice,
 		APIKeyLimiter:           limits.apiKey,
-		APIKeyMaxTTL:            a.settings.apiKeyMaxTTL,
+		APIKeyMaxTTL:            a.settings.apiKeyTTL(),
 		Google:                  google,
 		Apple:                   apple,
 		GitHub:                  gitHub,
@@ -207,7 +208,7 @@ func (a *Authenticator) Setup(ctx context.Context, s gorbital.AuthSetup) error {
 	a.mountWellKnown(s)
 	a.mountSignInTests(s, google, apple, gitHub)
 	s.MailPreviews(authlib.BrandedEmailPreviews(a.brand(s.Name, s.Config))...)
-	reportSignInMethods(ctx, s.Config, d.Logger)
+	reportSignInMethods(ctx, s.Config, a.opts, d.Logger)
 	return nil
 }
 

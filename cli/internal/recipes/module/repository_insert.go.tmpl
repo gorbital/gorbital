@@ -9,15 +9,15 @@ import (
 )
 
 const insert⟦.Ident⟧SQL = `
-	INSERT INTO ⟦.Table⟧ (id, ⟦if .Org⟧org_id, created_by⟦else⟧owner_id⟦end⟧, ⟦.Columns⟧, version, created_at, updated_at)
+	INSERT INTO ⟦.Table⟧ (id, ⟦.OwnerColumnList⟧⟦.Columns⟧, version, created_at, updated_at)
 	VALUES (⟦.InsertPlaceholders⟧)
 	RETURNING ` + ⟦.Var⟧Columns
 
 // Insert⟦.Ident⟧ stores a new ⟦.Human⟧⟦if .HasUniques⟧, or returns ⟦.TakenErrors⟧ when the
-// ⟦if .Org⟧organisation⟦else⟧owner⟦end⟧ already uses the value, ignoring case⟦end⟧.
+// ⟦if .Filtered⟧⟦.Owner⟧ already uses the value⟦else⟧value is already used⟦end⟧, ignoring case⟦end⟧.
 func (s *Store) Insert⟦.Ident⟧(ctx context.Context, ⟦.Var⟧ domain.⟦.Ident⟧) (domain.⟦.Ident⟧, error) {
 	rows, err := s.db.Query(ctx, insert⟦.Ident⟧SQL,
-		⟦.Var⟧.ID, ⟦if .Org⟧⟦.Var⟧.OrgID, ⟦.Var⟧.CreatedBy⟦else⟧⟦.Var⟧.OwnerID⟦end⟧, ⟦range .Fields⟧⟦$.Var⟧.⟦.Ident⟧, ⟦end⟧⟦.Var⟧.Version, ⟦.Var⟧.CreatedAt, ⟦.Var⟧.UpdatedAt)
+		⟦.Var⟧.ID, ⟦if .Org⟧⟦.Var⟧.⟦.ScopeField⟧, ⟦.Var⟧.CreatedBy, ⟦else if .Custom⟧⟦.Var⟧.CreatedBy, ⟦else if .Filtered⟧⟦.Var⟧.OwnerID, ⟦end⟧⟦range .Fields⟧⟦$.Var⟧.⟦.Ident⟧, ⟦end⟧⟦.Var⟧.Version, ⟦.Var⟧.CreatedAt, ⟦.Var⟧.UpdatedAt)
 	if err == nil {
 		⟦.Var⟧, err = pgx.CollectExactlyOneRow(rows, scan⟦.Ident⟧)
 	}

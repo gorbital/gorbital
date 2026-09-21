@@ -119,20 +119,22 @@ func TestPromptNewAsksForMissingValues(t *testing.T) {
 		"shop-api",                 // app name
 		"github.com/acme/shop-api", // module path
 		"2",                        // preset: full
-		"2",                        // tenancy: multi
+		"3",                        // sign-in: full
+		"3",                        // tenancy: named
+		"merchant",                 // what a tenant is called
 		"n",                        // git init: no
 	)
 
 	var name, module, local string
-	preset, tenancy := "minimal", "single"
+	preset, auth, scope := "minimal", "", ""
 	noGit := false
 	var out bytes.Buffer
-	err := promptNew(&name, &module, &preset, &tenancy, &local, &noGit, map[string]bool{}, promptFlags{plain: true}, stdin, &out)
+	err := promptNew(&name, &module, &preset, &auth, &scope, &local, &noGit, map[string]bool{}, promptFlags{plain: true}, stdin, &out)
 	if err != nil {
 		t.Fatalf("promptNew() error = %v\noutput:\n%s", err, out.String())
 	}
-	if name != "shop-api" || module != "github.com/acme/shop-api" || preset != "full" || tenancy != "multi" || local != "" || !noGit {
-		t.Errorf("answers = name %q, module %q, preset %q, tenancy %q, local %q, noGit %v\noutput:\n%s", name, module, preset, tenancy, local, noGit, out.String())
+	if name != "shop-api" || module != "github.com/acme/shop-api" || preset != "full" || auth != "full" || scope != "merchant" || local != "" || !noGit {
+		t.Errorf("answers = name %q, module %q, preset %q, auth %q, scope %q, local %q, noGit %v\noutput:\n%s", name, module, preset, auth, scope, local, noGit, out.String())
 	}
 	// Without --local the published library is used, not asked for.
 	if s := out.String(); strings.Contains(s, "gorbital checkout") {

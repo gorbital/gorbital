@@ -122,9 +122,13 @@ Every route requires a signed-in caller (no `guard.Public()`) and the read or wr
 
 The migration creates the table with a `CHECK` per field limit and enum, a unique index per unique field on `(owner_id, lower(field))`, and an index per sort led by `owner_id`, plus `-- +goose Down`. `owner_id` has no foreign key: an app on `gorbital.Main` may not have the sign-in tables. Change the migration freely until it is released; afterwards, add a new one with `orb gen migration`.
 
+### Access scopes
+
+`--scope` states who may read and write the records: `user` (the default), `tenant`, `public` or `custom`. [Resource access scopes](resource-access.md) goes through all four, what each generates and how `orb routes` and `orb doctor` read the rule back. What follows is `tenant` under the organisations vocabulary, which is what `--org` and `--scope org` have always written.
+
 ### Organisations
 
-With `--org`, the records belong to an organisation instead of a user, and its members reach them through their role. The layout, the file names and the operations are the same; what differs is who may call a route, what every statement filters on, and the tests. Shelfie's club books are the example, which this command writes unchanged ([chapter 8](../examples/shelfie/08-book-clubs.md)):
+With `--scope tenant` (or its old names `--org` and `--scope org`), the records belong to a tenant instead of a user, and its members reach them through their role. The layout, the file names and the operations are the same; what differs is who may call a route, what every statement filters on, and the tests. Shelfie's club books are the example, which this command writes unchanged ([chapter 8](../examples/shelfie/08-book-clubs.md)):
 
 ```bash
 orb gen module ClubBook title:string:unique 'author:string?' 'status:enum(proposed,reading,finished)' note:text --org
@@ -146,7 +150,7 @@ gorbital.Main(
 
 **Routes and the guard.** `delivery/routes.go` groups the routes under `/v1/orgs/{orgId}/club-books`, and every route has `guard.OrgMember(usecase.PermRead)` or `guard.OrgMember(usecase.PermWrite)` instead of `guard.Permission`. The guard asks the organisations module about the `{orgId}` of the path before the body is read: someone who isn't a member, an unknown or deleted organisation and a malformed ID all get 404 `org_not_found`, so organisation IDs can't be probed; a role without the permission gets 403 `forbidden`, and one that needs a second factor 403 `mfa_required`. On success the actor acts in the organisation (its `OrgID` and the role's permissions) and the request's database connections carry it for row-level security. Each input type has ``OrgID string `path:"orgId"` ``.
 
-**Permissions.** `module.go` declares `clubbooks.club_book.read` and `.write` with `OrgRoles: []string{"owner", "admin", "member"}`: organisation permissions, which the organisations module gives to those roles, so every member reads and writes, as v0.1's organisation resources were. Platform roles grant nothing in an organisation, and an API key only what its scopes include. To keep members to reading, drop `"member"` from the write permission.
+**Permissions.** `module.go` declares `clubbooks.club_book.read` and `.write` with `OrgRoles: []string{"owner", "admin", "member"}` (`ScopeRoles`, under a tenancy the app named itself): organisation permissions, which the organisations module gives to those roles, so every member reads and writes, as v0.1's organisation resources were. Platform roles grant nothing in an organisation, and an API key only what its scopes include. To keep members to reading, drop `"member"` from the write permission.
 
 **Use cases and SQL.** Each use case takes the organisation ID from the path (`CreateClubBook(ctx, orgID, fields)`, `GetClubBook(ctx, orgID, id)`, …). `memberID` in `service.go` checks that the actor acts in that organisation, which the guard guarantees, and returns the member's ID, a user or the organisation's own service account; without the guard the use case answers 401 rather than trusting the path. The record has `OrgID` and `CreatedBy` (in responses, `created_by`), and every statement filters on `org_id` or inserts it: `WHERE id = $1 AND org_id = $2`, never relying on row-level security alone. Another organisation's club book is 404 `club_book_not_found`, as an unknown ID is. Audit events carry the organisation, which the recorder takes from the actor.
 

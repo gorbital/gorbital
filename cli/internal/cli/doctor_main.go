@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,6 +10,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,10 +18,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gorbital.dev/cli/internal/recipes"
 )
 
 // The checks orb doctor runs in apps on gorbital.Main (ADR-0083): the module
-// list, ejected modules, the middleware stack and the request timeout.
+// list, ejected modules, the middleware stack, the request timeout and the
+// access rules the generator wrote (ADR-0091).
 
 // modules checks internal/modules/modules.gen.go against the module
 // directories, and reports directories that declare no module.
@@ -259,7 +264,7 @@ func (d *doctor) requestTimeout(env []string) {
 
 // ejected checks the built-in modules gorbital.lock records as ejected: the
 // app has their code, and whether the library's package changed since, so
-// the app may be missing fixes (orb eject).
+// the app may be missing fixes (ADR-0092).
 func (d *doctor) ejected(ctx context.Context) {
 	lock, err := readLock(d.dir)
 	if err != nil || len(lock.Ejected) == 0 {
@@ -270,10 +275,10 @@ func (d *doctor) ejected(ctx context.Context) {
 		m, _ := lookupEjectable(e.Module)
 		if info, err := os.Stat(d.path(m.dir())); err != nil || !info.IsDir() {
 			d.add(doctorFail, "ejected", fmt.Sprintf("gorbital.lock records %s as ejected, but %s is missing, so the app doesn't build", m.name, m.dir()),
-				fmt.Sprintf("restore it from git history, or go back to the library's %s: remove the entry from gorbital.lock and change the imports back (docs/guides/ejecting-a-module.md)", m.pkg))
+				fmt.Sprintf("restore it from git history, or go back to the library's %s: remove the entry from gorbital.lock and change the imports back (docs/guides/the-code-in-your-repo.md)", m.pkg))
 			continue
 		}
-		since := fmt.Sprintf("%s is the app's code, ejected from %s %s on %s", m.dir(), m.importPath(), e.Version, e.Date)
+		since := fmt.Sprintf("%s is the app's code, copied from %s %s on %s", m.dir(), m.importPath(), e.Version, e.Date)
 		if libErr != nil {
 			d.add(doctorWarn, "ejected", since+"; couldn't compare it with the library: "+firstLine(libErr.Error()), "check that go.mod requires gorbital.dev/gorbital and go mod download works")
 			continue
@@ -290,7 +295,7 @@ func (d *doctor) ejected(ctx context.Context) {
 				detail += ". Changelog: " + strings.Join(entries, " · ")
 			}
 			d.add(doctorWarn, "ejected", detail,
-				fmt.Sprintf("compare %s with %s in gorbital.dev/gorbital %s and port the fixes you need: library releases and orb upgrade don't change ejected modules", m.dir(), m.pkg, lib.Version))
+				fmt.Sprintf("compare %s with %s in gorbital.dev/gorbital %s and port the fixes you need: library releases and orb upgrade don't change the modules the app owns", m.dir(), m.pkg, lib.Version))
 		}
 	}
 }
@@ -368,3 +373,88 @@ func changelogMentions(changelog, pkg, version string) []string {
 
 // changelogVersion finds a version in a changelog heading.
 var changelogVersion = regexp.MustCompile(`v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?`)
+
+// resourceScopes checks the access rules the generator wrote (ADR-0091):
+// a tenant module whose generated repository queries don't mention the
+// tenant column, and a custom module whose policy is still unimplemented.
+//
+// It is a static check over generated files, and it says so: it reads the
+// repository files orb gen module wrote and looks for the column, nothing
+// more. It can't see SQL added later, a query built at run time, or a view
+// that widens the rows, so a clean run is a reminder and not a proof that
+// a module is isolated. Row-level security (ADR-0061) is the defence that
+// doesn't depend on a query being right.
+func (d *doctor) resourceScopes(app appInfo) {
+	scopes := appModuleScopes(app.dir)
+	if len(scopes) == 0 {
+		return // no module records a scope: nothing to check against
+	}
+	column := appVocabulary(app.dir).Column
+	for _, name := range slices.Sorted(maps.Keys(scopes)) {
+		switch scopes[name] {
+		case recipes.ScopeTenant:
+			d.tenantQueries(name, column)
+		case recipes.ScopeCustom:
+			d.customPolicy(name)
+		}
+	}
+}
+
+// sqlStatement finds a query in a generated repository file.
+var sqlStatement = regexp.MustCompile(`SELECT |INSERT INTO |UPDATE |DELETE FROM `)
+
+// tenantQueries reports the generated repository files of a tenant module
+// whose SQL doesn't mention the tenant column.
+func (d *doctor) tenantQueries(module, column string) {
+	dir := d.path(recipes.ModulesDir + "/" + module + "/repository")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return // no generated repository to read: orb doctor reads only what orb wrote
+	}
+	var unfiltered []string
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil || !sqlStatement.Match(src) || bytes.Contains(src, []byte(column)) {
+			continue
+		}
+		unfiltered = append(unfiltered, name)
+	}
+	if len(unfiltered) == 0 {
+		return
+	}
+	d.add(doctorWarn, "scopes",
+		fmt.Sprintf("the %s module's records belong to %s %s, but the generated SQL in %s/%s/repository/%s doesn't mention %s (a static check of the generated files: it can't see SQL you added later, a query built at run time, or a view that widens the rows)",
+			module, article(column), strings.TrimSuffix(column, "_id"), recipes.ModulesDir, module, strings.Join(unfiltered, ", "), column),
+		"add AND "+column+" = $n to the query, or change the module's scope in gorbital.yaml if its records no longer belong to one; row-level security (orb add rls) is the defence that doesn't depend on the query")
+}
+
+// customPolicy reports a custom module whose policy.go is still
+// unimplemented, so the module refuses every request with 501.
+func (d *doctor) customPolicy(module string) {
+	path := d.path(recipes.ModulesDir + "/" + module + "/policy.go")
+	src, err := os.ReadFile(path)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		d.add(doctorWarn, "scopes",
+			fmt.Sprintf("gorbital.yaml records the %s module as --scope custom, but it has no policy.go, so nothing states who may see and change its records", module),
+			"write the rule in "+recipes.ModulesDir+"/"+module+"/policy.go, or record the module's real scope in gorbital.yaml")
+		return
+	case err != nil || !bytes.Contains(src, []byte("gorbital.ErrNotImplemented")):
+		return
+	}
+	d.add(doctorWarn, "scopes",
+		fmt.Sprintf("the %s module's access policy isn't written: %s/%s/policy.go still returns gorbital.ErrNotImplemented, so every request to the module is refused with 501 (a static check of the generated file)", module, recipes.ModulesDir, module),
+		"write CanRead, CanWrite and Filter in "+recipes.ModulesDir+"/"+module+"/policy.go; its policy_test.go fails until you do")
+}
+
+// article is "a" or "an" for a word.
+func article(word string) string {
+	if strings.ContainsAny(word[:1], "aeio") {
+		return "an"
+	}
+	return "a"
+}

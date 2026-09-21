@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"gorbital.dev/modules/postgres/pgtest"
+
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	authrepository "example.com/acme-api/internal/modules/auth/repository"
 	"example.com/acme-api/internal/modules/auth/repository/migrations"
 	authusecase "example.com/acme-api/internal/modules/auth/usecase"
-	"gorbital.dev/modules/postgres/pgtest"
 )
 
 func newStore(t *testing.T) *authrepository.Store {

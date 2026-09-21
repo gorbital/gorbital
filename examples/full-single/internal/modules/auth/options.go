@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -37,6 +38,9 @@ type options struct {
 	closed            bool
 	brand             *mail.Brand
 	routeMiddleware   []func(http.Handler) http.Handler
+	// methods are the sign-in methods the app serves (Methods); nil is
+	// every one of them.
+	methods map[Method]bool
 
 	beforeLogin  []func(ctx context.Context, tx pgx.Tx, a LoginAttempt) error
 	afterLogin   []func(ctx context.Context, e LoginEvent) error
@@ -58,6 +62,103 @@ func newOptions(opts []Option) options {
 		o.errs = append(o.errs, errors.New("authhttp: RegisterFields and WithoutRegistration: without registration there are no registration fields"))
 	}
 	return o
+}
+
+// A Method is one way of signing in, with the operations, runtime
+// settings, jobs, rate limiters and permissions that belong to it.
+// [Methods] chooses the ones an app serves. The values are public API: the
+// operations API and the CLI's profiles name them.
+type Method string
+
+// The sign-in methods [Methods] chooses from. Their migrations are applied
+// whichever are served, so the tables of a method an app leaves out exist
+// and stay empty, and adding the method later is one line in main.go
+// (ADR-0089).
+const (
+	// MethodPassword is registration, email verification, signing in with
+	// a password, sessions, password changes and deleting the account.
+	// Every app serves it: it is what this package implements.
+	MethodPassword Method = "password"
+	// MethodOperators is the operators' account APIs under
+	// /ops/auth/users, with the ops.auth.write permission.
+	MethodOperators Method = "operators"
+	// MethodTOTP is two-factor authentication with an authenticator app,
+	// its recovery codes and finishing a sign-in with them.
+	MethodTOTP Method = "totp"
+	// MethodPasskeys is signing in with a passkey, and adding, naming and
+	// removing them.
+	MethodPasskeys Method = "passkeys"
+	// MethodSocial is Google, Apple and GitHub sign-in and the accounts
+	// linked to them.
+	MethodSocial Method = "social"
+	// MethodAPIKeys is the API keys of a signed-in account and the
+	// platform's service accounts, with their ops.service_accounts
+	// permissions.
+	MethodAPIKeys Method = "api_keys"
+)
+
+// allMethods are the methods an app serves without the [Methods] option.
+var allMethods = []Method{MethodPassword, MethodOperators, MethodTOTP, MethodPasskeys, MethodSocial, MethodAPIKeys}
+
+// Methods chooses the sign-in methods the app serves, such as
+// authhttp.Methods(authhttp.MethodPassword, authhttp.MethodOperators) for
+// an app that wants an email address, a password and the operators'
+// account APIs. Without the option every method is served, which is v0.2's
+// sign-in byte for byte.
+//
+// A method the app doesn't serve has no operations, so its paths are 404
+// and they leave the OpenAPI document, and it declares no runtime
+// settings, jobs, rate limiters or permissions, so /ops doesn't list them
+// and no role can be granted them. Its migrations are applied all the
+// same: the tables exist and stay empty, so adding the method later is
+// this one line and a restart (ADR-0089).
+//
+// [MethodPassword] is required: this package is the password
+// implementation, and an app that doesn't want passwords wants another
+// authenticator. A set without it, or with a method that doesn't exist, is
+// reported by [Authenticator.CheckConfig], so the app exits with status 2
+// before it connects.
+func Methods(m ...Method) Option {
+	return optionFunc(func(o *options) {
+		set := make(map[Method]bool, len(m))
+		for _, method := range m {
+			if !slices.Contains(allMethods, method) {
+				o.errs = append(o.errs, fmt.Errorf("authhttp: Methods(%q): the sign-in methods are %s", method, methodNames()))
+				return
+			}
+			set[method] = true
+		}
+		if !set[MethodPassword] {
+			o.errs = append(o.errs, fmt.Errorf("authhttp: Methods: %s is required: authhttp is the password implementation, and an app without passwords wants another gorbital.Authenticator", MethodPassword))
+			return
+		}
+		o.methods = set
+	})
+}
+
+// methodNames lists the methods for an error message.
+func methodNames() string {
+	names := make([]string, len(allMethods))
+	for i, m := range allMethods {
+		names[i] = string(m)
+	}
+	return strings.Join(names, ", ")
+}
+
+// has reports whether the app serves m: every method without the Methods
+// option.
+func (o options) has(m Method) bool { return o.methods == nil || o.methods[m] }
+
+// methodSet is the served methods as the delivery package takes them.
+func (o options) methodSet() delivery.MethodSet {
+	if o.methods == nil {
+		return nil
+	}
+	set := make(delivery.MethodSet, len(o.methods))
+	for m, on := range o.methods {
+		set[delivery.Method(m)] = on
+	}
+	return set
 }
 
 // MinPasswordLength raises the shortest password accepted when an account

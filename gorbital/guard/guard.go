@@ -101,38 +101,60 @@ func RecentReauth() gorbital.RouteOption {
 	})
 }
 
-// OrgMember refuses callers who aren't members of the organisation in the
-// route's {orgId} path parameter with a role granting permission, for
-// routes under /v1/orgs/{orgId}/ (ADR-0023, ADR-0048). It asks the app's
-// organisations module (gorbital.dev/gorbital/orgshttp), as
-// orgs.RequireMember does, on every request:
+// Scope refuses callers who aren't members of the scope in the route's
+// path, with a role granting permission (ADR-0088). The scope is the app's
+// tenancy: organisations by default, or whatever the app named with
+// gorbital.WithScope — merchants, clinics, restaurants. The path parameter
+// is the scope's PathParam, "orgId" unless the app changed it, so routes
+// look like /v1/orgs/{orgId}/… or /v1/merchants/{merchantId}/….
 //
-//   - 404 org_not_found when the organisation doesn't exist, is deleted, has
-//     a malformed ID, or the caller isn't a member: the three look the same,
-//     so organisation IDs can't be probed;
+// It asks the app's scope authorizer on every request:
+//
+//   - 404 with the scope's refusal code ("org_not_found" by default) when
+//     the scope doesn't exist, is deleted, has a malformed ID, or the
+//     caller isn't a member: the four look the same, so scope IDs can't be
+//     probed;
 //   - 403 mfa_required when the member's role grants permission only to a
 //     session signed in with a second factor, never to API keys;
 //   - 403 forbidden when the role doesn't grant it.
 //
 // Members are users with a session, their API keys (within the keys'
-// scopes), and the organisation's own service accounts through their keys;
-// a service account never reaches another organisation. Platform roles grant
-// nothing in an organisation.
+// scopes), and the scope's own service accounts through their keys; a
+// service account never reaches another scope. Platform roles grant
+// nothing in a scope.
 //
-// On success, the actor acts in the organisation: its OrgID is set and its
+// On success, the actor acts in the scope: its OrgID is set and its
 // permissions are those of the member's role, so audit events carry the
-// organisation, guards after it such as [Permission] check organisation
-// permissions, and the request's database connections carry the
-// organisation for row-level security (postgres.WithOrg, ADR-0061).
-// Declare the permission with gorbital.Permission.OrgRoles.
+// scope, guards after it such as [Permission] check scope permissions, and
+// the request's database connections carry it for row-level security
+// (gorbital.Scope.Session, ADR-0061). Declare the permission with
+// gorbital.Permission.ScopeRoles.
 //
-// Registration fails when the path has no {orgId} or the route is public,
-// and gorbital.New fails when the app has no organisations module.
+// Registration fails when the path has no scope parameter or the route is
+// public, and gorbital.New fails when the app has no scope.
+func Scope(permission string) gorbital.RouteOption {
+	return addGuard(route.Guard{
+		Name:     "scope:" + permission,
+		Statuses: []int{http.StatusForbidden, http.StatusNotFound},
+		Scope:    &route.Scope{Permission: permission},
+		Err:      validName("permission", permission),
+	})
+}
+
+// OrgMember refuses callers who aren't members of the organisation in the
+// route's {orgId} path parameter with a role granting permission, for
+// routes under /v1/orgs/{orgId}/ (ADR-0023, ADR-0048).
+//
+// Organisations are one scope (ADR-0088): prefer [Scope], which is this
+// guard under the app's own tenancy; an app that mounts
+// gorbital.dev/gorbital/orgshttp and changes nothing sees no difference.
+// This name keeps working for all of v0.x. Its guard name in logs and
+// metrics stays "org_member:<permission>".
 func OrgMember(permission string) gorbital.RouteOption {
 	return addGuard(route.Guard{
 		Name:     "org_member:" + permission,
 		Statuses: []int{http.StatusForbidden, http.StatusNotFound},
-		Org:      &route.Org{Permission: permission},
+		Scope:    &route.Scope{Permission: permission},
 		Err:      validName("permission", permission),
 	})
 }

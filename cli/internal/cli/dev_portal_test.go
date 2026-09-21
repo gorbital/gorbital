@@ -15,6 +15,7 @@ import (
 
 	"gorbital.dev/cli/internal/genplan"
 	"gorbital.dev/cli/internal/portal"
+	"gorbital.dev/cli/internal/recipes"
 	"gorbital.dev/cli/internal/routes"
 )
 
@@ -407,12 +408,21 @@ func TestPortalModuleAndMiddlewareGenerators(t *testing.T) {
 	ctx := context.Background()
 
 	plan, err := gens["module"].Plan(ctx, json.RawMessage(`{"name":"Shelf","fields":["name:string:unique","description:text","visibility:enum(private,shared)"],"plural":"Shelves"}`))
-	if err != nil || plan.Generator != "module" || len(plan.Changes) != 27 || plan.Result.(genModuleResult).Route != "/v1/shelves" {
+	if err != nil || plan.Generator != "module" || len(plan.Changes) != 28 || plan.Result.(genModuleResult).Route != "/v1/shelves" {
 		t.Fatalf("module plan = %+v, %v", plan, err)
 	}
-	if plan, err := gens["module"].Plan(ctx, json.RawMessage(`{"name":"Shelf","fields":["name:string"],"plural":"Shelves","org":true}`)); err != nil ||
-		plan.Result.(genModuleResult).Route != "/v1/orgs/{orgId}/shelves" || plan.Result.(genModuleResult).Scope != "org" {
-		t.Errorf("module plan with org = %+v, %v", plan, err)
+	// "org" is the old spelling of the tenant scope, and "scope" the
+	// current one; both plan the same module (ADR-0091).
+	for _, input := range []string{`{"name":"Shelf","fields":["name:string"],"plural":"Shelves","org":true}`,
+		`{"name":"Shelf","fields":["name:string"],"plural":"Shelves","scope":"tenant"}`} {
+		if plan, err := gens["module"].Plan(ctx, json.RawMessage(input)); err != nil ||
+			plan.Result.(genModuleResult).Route != "/v1/orgs/{orgId}/shelves" || plan.Result.(genModuleResult).Scope != recipes.ScopeTenant {
+			t.Errorf("module plan for %s = %+v, %v", input, plan, err)
+		}
+	}
+	if plan, err := gens["module"].Plan(ctx, json.RawMessage(`{"name":"Catalogue","fields":["name:string"],"scope":"public"}`)); err != nil ||
+		plan.Result.(genModuleResult).Scope != recipes.ScopePublic {
+		t.Errorf("module plan with --scope public = %+v, %v", plan, err)
 	}
 	if _, err := gens["module"].Apply(ctx, json.RawMessage(`{"name":"Shelf","fields":["name:string:unique","description:text","visibility:enum(private,shared)"],"plural":"Shelves"}`), true); err != nil {
 		t.Fatal(err)

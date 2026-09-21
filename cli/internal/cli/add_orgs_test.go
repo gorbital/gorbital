@@ -18,9 +18,14 @@ import (
 func newGitApp(t *testing.T, args ...string) {
 	t.Helper()
 	isolateGit(t)
+	repo := repoAbs(t)
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if code, _, errOut := runOrb(t, append([]string{"new", "shop-api", "--skip-tidy", "--no-git", "--json"}, args...)...); code != 0 {
+	// --local: orb new copies sign-in from the library, and a test should
+	// take it from this checkout rather than the module proxy. Without it
+	// the copy downloads recipes.LibraryVersion, so every test here would
+	// fail between a release's commit and its tag.
+	if code, _, errOut := runOrb(t, append([]string{"new", "shop-api", "--skip-tidy", "--no-git", "--json", "--local", repo}, args...)...); code != 0 {
 		t.Fatalf("orb new %v = %d: %s", args, code, errOut)
 	}
 	t.Chdir(filepath.Join(dir, "shop-api"))

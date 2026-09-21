@@ -251,9 +251,9 @@ Note also what Plateful does *not* use: no `BeforeLogin`, no `AfterLogin`, no `O
 
 Deeper treatments, rather than repeating them here: [Sign-in hooks](../guides/sign-in-hooks.md) (the order of the sign-in, the refusal codes, what clients receive) and [Extra registration fields](../guides/extra-registration-fields.md) (validation, the transaction order, the "complete your profile" pattern, and why these fields are unverified input).
 
-## 5. What you cannot change
+## 5. What options don't reach
 
-Options and hooks are a deliberately closed set. These are fixed, and several were proposed as options and rejected:
+Options and hooks are a deliberately closed set. No option changes these, and several of them were proposed as options and rejected:
 
 | Fixed | Why |
 |---|---|
@@ -265,44 +265,36 @@ Options and hooks are a deliberately closed set. These are fixed, and several we
 | The table layout and the migrations | |
 | The permission names | |
 
-If what you want is on that list, or is a change to what sign-in *does* — a different session model, another table layout, removing operations your API must not have — then options won't reach it, and the honest answer is ejection.
+If what you want is on that list, or is a change to what sign-in *does* — a different session model, another table layout, removing operations your API must not have — then no option reaches it. The code is in `internal/modules/auth`, so you open the file and change it. That is the next section, and it is a bigger step than it looks.
 
-## 6. Ejecting, and what it costs
+## 6. Editing the module, and what it costs
 
-```bash
-orb eject auth
-```
+Nothing stops you. `internal/modules/auth/usecase/login.go` is a file in your repository like any other; change it, run `go test ./...`, commit. There is no command to run first and no permission to ask for — that is what "in your repository" means, and it is why `orb new` put it there instead of hiding it behind a dependency.
 
-It copies `gorbital.dev/gorbital/authhttp` — at the version your `go.mod` requires — into `internal/modules/auth`: the root package and its four layers, with tests, with import paths rewritten to your app's. It rewrites `cmd/api`'s imports so `main.go` builds the module from your copy with the same options and hooks (the package keeps its name, so **no call changes**). It copies the module's migrations into `db/migrations` under the same versions, so the database sees nothing new. Then it records the ejection in `gorbital.lock` and runs `go mod tidy`.
-
-```text
-✓ Ejected auth: gorbital.dev/gorbital/authhttp v0.2.0 is now internal/modules/auth
-```
-
-The API, the database and the behaviour are unchanged. That is the good news.
+The cost arrives later, and it is a security cost.
 
 > [!WARNING]
-> **The cost is permanent and it is a security cost.** An ejected module is your code. Fixes and features the library ships for it no longer reach your app — **security fixes included**.
+> **A flow you change is a flow you maintain.** When gorbital fixes something in `authhttp`, that fix reaches the library. It does not reach your copy, because your copy is yours — **security fixes included**. Nothing merges it for you.
 
 The tooling helps, but only by telling you:
 
-- `orb doctor` has an `ejected` check. It passes while the library's package at the version `go.mod` requires still matches what was copied; it warns when that package has changed, and quotes the changelog entries naming it.
+- `orb doctor` has an `ejected` check, one line per module the app owns. It passes while the library's package at the version `go.mod` requires still matches what was copied into your app; it warns when that package has changed, and quotes the changelog entries naming it.
 - Acting on the warning is manual: read the entries, diff `internal/modules/auth` against the package in your module cache, and port the fixes you need.
 
-Two practical notes:
+This is the whole argument for working down the list. An option or a hook is a line in `main.go` that every later release keeps working. An edit to `login.go` is a diff you carry forever, and one you have to re-read every time the upstream file moves. Both are legitimate; they are not the same price.
 
-- **Eject `orgs` before `auth`.** `orgshttp.Module` takes `*authhttp.Authenticator`, so the library's organisations module would not fit your copy. `orb eject` detects it and refuses with the order to use.
-- **Going back is by hand.** There is no un-eject command.
+Two practical notes on what you own:
 
-`orb eject` also handles `flags`, `mailevents`, `ops` and `orgs`. And it is another thing that requires the v0.2 layout — see [chapter 1](01-create-the-app.md#2-why---preset-full-is-not-a-preference).
+- **The primitives are not in your copy.** Password hashing, session token generation, TOTP and API-key hashing are `gorbital.dev/modules/auth`, and they stay in the library permanently — there is no version of this app where they are your files ([ADR-0092](../adr/0092-what-the-framework-owns.md)). Fixes to those do reach you, with `go get`. What you own is the flows that call them.
+- **`orgs` imports `auth`.** `internal/modules/orgs` takes the authenticator from `internal/modules/auth`, the same way the library's `orgshttp` takes `authhttp`'s. Changing the authenticator's exported shape is a change in two modules.
 
-> **Don't do this:** eject to change one thing. Every later library release becomes your merge.
-> **Do this instead:** work down the list — an option, then a hook, then a module of your own alongside sign-in (Plateful's `customers` table lives in the `orders` module, not in an ejected copy of `authhttp`), and only then eject. [Ejecting a module](../guides/ejecting-a-module.md) has a table mapping common wishes to the option or hook that covers them.
+> **Don't do this:** edit a flow to change one thing. Every later library release becomes your merge.
+> **Do this instead:** work down the list — an option, then a hook, then a module of your own alongside sign-in (Plateful's `customers` table lives in the `orders` module, not in an edited copy of `authhttp`), and only then the module's own code. [The code in your repo](../guides/the-code-in-your-repo.md) has a table mapping common wishes to the option or hook that covers them.
 
 ## What just happened
 
 You got sixty-six operations for one line, changed two things about them with two options, and added two fields to the registration form by writing one struct and one function — both of which live in your own module, in the transaction that creates the account.
 
-You also now know the boundary: what options reach, what hooks reach, and what only ejection reaches. That boundary is the same idea as [chapter 2](02-framework-and-your-app.md)'s, applied to the largest thing the library gives you.
+You also now know the boundary: what options reach, what hooks reach, and what only an edit to the module itself reaches — and that the last of those is available to you at any time, at a price paid later rather than now. That boundary is the same idea as [chapter 2](02-framework-and-your-app.md)'s, applied to the largest thing the framework hands you.
 
 Next: [chapter 5](05-the-restaurants-module.md) builds the first module of your own.

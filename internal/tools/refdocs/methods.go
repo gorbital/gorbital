@@ -35,7 +35,7 @@ const methodsDir = "docs/methods"
 const methodsOverlayDir = "internal/tools/refdocs/overlay/methods"
 
 // nextVersion is the Since of identifiers not in any released listing.
-const nextVersion = "v0.2.0 (unreleased)"
+const nextVersion = "v0.3.0 (unreleased)"
 
 // errMethods reports stale Methods pages or undocumented identifiers.
 var errMethods = errors.New("docs/methods is out of date or the library has undocumented API; fix the problems above, then run: go run -C internal/tools/refdocs . -methods -write")

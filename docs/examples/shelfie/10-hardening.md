@@ -8,7 +8,7 @@ None of it is authentication. Each layer removes one way a request can hurt the 
 
 Pagebound signs each delivery with a secret the two of you share, in the [Standard Webhooks](https://www.standardwebhooks.com) scheme: a delivery ID, the time it was signed, and an HMAC-SHA256 of all three over the raw body. `guard.Webhook` checks it **before the body is parsed**, so a forged request never costs a JSON decode and never learns what validation would have said.
 
-<!-- include examples/apps/shelfie/internal/modules/partners/delivery/routes.go#routes -->
+<!-- include examples/shelfie/internal/modules/partners/delivery/routes.go#routes -->
 
 | Option | Why |
 |---|---|
@@ -23,9 +23,9 @@ Every refusal is `401 invalid_webhook_signature`, whatever was wrong: a missing 
 
 The secrets come from the environment in `main.go`, and the module takes them, so nothing below `cmd/api` reads the environment:
 
-<!-- include examples/apps/shelfie/cmd/api/partners.go#partner-secrets -->
+<!-- include examples/shelfie/cmd/api/partners.go#partner-secrets -->
 
-<!-- include examples/apps/shelfie/internal/modules/partners/module.go#module -->
+<!-- include examples/shelfie/internal/modules/partners/module.go#module -->
 
 Two behaviours are worth naming:
 
@@ -40,33 +40,33 @@ Verification proves *who* sent a request. It says nothing about whether the app 
 
 **Seen before.** Senders retry, and a captured delivery can be replayed inside the signature's tolerance. Pagebound's own ID for the delivery is unique per partner in the table, and one statement decides:
 
-<!-- include examples/apps/shelfie/db/migrations/20260920000006_partner_purchases.sql#partner-purchases -->
+<!-- include examples/shelfie/db/migrations/20260920000006_partner_purchases.sql#partner-purchases -->
 
-<!-- include examples/apps/shelfie/internal/modules/partners/repository/insert_purchase.go#insert-purchase -->
+<!-- include examples/shelfie/internal/modules/partners/repository/insert_purchase.go#insert-purchase -->
 
 so a repeat returns the purchase the first delivery stored, without a second row and without a second audit event:
 
-<!-- include examples/apps/shelfie/internal/modules/partners/usecase/record_purchase.go#record-purchase -->
+<!-- include examples/shelfie/internal/modules/partners/usecase/record_purchase.go#record-purchase -->
 
 The recipe [Receiving payment webhooks](../recipes/receiving-payment-webhooks.md) takes the same pattern further, and enqueues the side effect in the transaction that writes the row.
 
 **Makes sense.** The domain checks every field, exactly as it would for a reader's own request:
 
-<!-- include examples/apps/shelfie/internal/modules/partners/domain/purchase.go#new-purchase -->
+<!-- include examples/shelfie/internal/modules/partners/domain/purchase.go#new-purchase -->
 
 ## 4. Test what the partner can't do
 
 The tests sign deliveries the way Pagebound does, so the bytes that are signed are the bytes the app verifies:
 
-<!-- include examples/apps/shelfie/internal/modules/partners/partners_test.go#sign -->
+<!-- include examples/shelfie/internal/modules/partners/partners_test.go#sign -->
 
 A delivery is recorded once:
 
-<!-- include examples/apps/shelfie/internal/modules/partners/partners_test.go#replay-test -->
+<!-- include examples/shelfie/internal/modules/partners/partners_test.go#replay-test -->
 
 and nothing unauthentic is recorded at all:
 
-<!-- include examples/apps/shelfie/internal/modules/partners/partners_test.go#refused-test -->
+<!-- include examples/shelfie/internal/modules/partners/partners_test.go#refused-test -->
 
 `TestASignedDeliveryStillHasToBeValid` sends correctly signed nonsense and expects the module's own codes; `TestPurchasesAreTheReadersOwn` checks that `GET /v1/purchases` never leaks another reader's; `TestWithoutASecretEveryDeliveryIsRefused` builds the app with no secret at all.
 
@@ -85,7 +85,7 @@ APP_REQUEST_TIMEOUT=30s
 
 [Chapter 5](05-operations.md) set `OPS_ALLOWED_IPS`, and it is worth repeating here because it belongs to this list:
 
-<!-- include examples/apps/shelfie/.env.example#ops-allowed-ips -->
+<!-- include examples/shelfie/.env.example#ops-allowed-ips -->
 
 Every `/ops/` route runs the IP filter first, before the sign-in check, the guards and the input parsing: an address outside the list gets `403 ip_not_allowed` and learns nothing else. The address compared is the client's **after** `APP_TRUSTED_PROXIES`, so behind a load balancer list the balancer there, or every request appears to come from it.
 

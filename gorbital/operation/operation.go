@@ -4,7 +4,7 @@
 // The built-in modules (opshttp, flagshttp, mailevents, orgshttp) keep v0.1's
 // declarations, so their move into the library reads line by line and their
 // OpenAPI compares with the frozen v0.1.0 documents (ADR-0083). A module
-// ejected with orb eject keeps them too, and code moved from a v0.1 app can
+// the app holds as its own code keeps them too, and code moved from a v0.1 app can
 // replace huma.Register(api, op, handler) with Register(r, op, handler).
 // New code uses gorbital.Get, gorbital.Post and the other verbs with route
 // options instead.

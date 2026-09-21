@@ -1,0 +1,33 @@
+package scope
+
+import (
+	"context"
+
+	"gorbital.dev/gorbital"
+)
+
+// AuthorizeScope decides whether the actor in ctx may act in ⟦.Profile.Vocabulary.A⟧
+// ⟦.Profile.Vocabulary.Name⟧, and with which permissions. gorbital does not know, so
+// nothing here is implemented: fill it in and delete the error.
+//
+// This file is yours from the moment it landed. orb generated it once and
+// will not write it again, and orb upgrade never touches it.
+//
+// The tables are in db/migrations/⟦.Profile.ScopeMigration⟧: ⟦.Profile.ScopeTable⟧ and
+// ⟦.Profile.ScopeMembersTable⟧, with one role per member. A finished
+// implementation reads the member's role for scopeID, and
+//
+//   - returns [gorbital.ErrScopeNotFound] when scopeID is not ⟦.Profile.Vocabulary.A⟧
+//     ⟦.Profile.Vocabulary.Name⟧ the actor is a member of — one that doesn't exist, is
+//     deleted, or exists without them — so IDs can't be probed;
+//   - returns actor.ErrUnauthenticated without an actor at all;
+//   - returns actor.ErrForbidden when their role doesn't grant permission;
+//   - otherwise returns a context whose actor acts in the ⟦.Profile.Vocabulary.Name⟧:
+//     actor.WithScope(ctx, scopeID, permissions of the role).
+//
+// While it returns gorbital.ErrNotImplemented every
+// /v1/⟦.Profile.Vocabulary.Segment⟧/{⟦.Profile.Vocabulary.PathParam⟧}/… route refuses, authorizer_test.go fails,
+// and orb doctor names this module.
+func (t *Tenants) AuthorizeScope(ctx context.Context, scopeID, permission string) (context.Context, error) {
+	return ctx, gorbital.ErrNotImplemented // decide: who is a member of this ⟦.Profile.Vocabulary.Name⟧, and what does their role grant?
+}

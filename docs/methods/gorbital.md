@@ -42,9 +42,9 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 
 ## Contents
 
-- Constants: [`MailDevMail`](#MailDevMail), [`MailMailpit`](#MailMailpit), [`MailProvider`](#MailProvider), [`StorageLocal`](#StorageLocal), [`StorageS3`](#StorageS3), [`StorageSpaces`](#StorageSpaces), [`StorageR2`](#StorageR2), [`StorageMinIO`](#StorageMinIO), [`RetentionJob`](#RetentionJob)
-- Variables: [`ErrUsage`](#ErrUsage)
-- Functions: [`Declare`](#Declare), [`Delete`](#Delete), [`Get`](#Get), [`Grants`](#Grants), [`Main`](#Main), [`Migrate`](#Migrate), [`Mount`](#Mount), [`OrgGrants`](#OrgGrants), [`Patch`](#Patch), [`Post`](#Post), [`Put`](#Put)
+- Constants: [`MailDevMail`](#MailDevMail), [`MailMailpit`](#MailMailpit), [`MailProvider`](#MailProvider), [`StorageLocal`](#StorageLocal), [`StorageS3`](#StorageS3), [`StorageSpaces`](#StorageSpaces), [`StorageR2`](#StorageR2), [`StorageMinIO`](#StorageMinIO), [`DefaultScopeName`](#DefaultScopeName), [`DefaultScopePathParam`](#DefaultScopePathParam), [`DefaultScopeNotFoundCode`](#DefaultScopeNotFoundCode), [`RetentionJob`](#RetentionJob)
+- Variables: [`ErrNotImplemented`](#ErrNotImplemented), [`ErrScopeNotFound`](#ErrScopeNotFound), [`ErrUsage`](#ErrUsage)
+- Functions: [`Declare`](#Declare), [`Delete`](#Delete), [`Get`](#Get), [`Grants`](#Grants), [`Main`](#Main), [`Migrate`](#Migrate), [`Mount`](#Mount), [`OrgGrants`](#OrgGrants), [`Patch`](#Patch), [`Post`](#Post), [`Put`](#Put), [`ScopeGrants`](#ScopeGrants)
 - Types:
   - [`App`](#App): [`New`](#New), [`App.Close`](#App.Close), [`App.Deps`](#App.Deps), [`App.Handler`](#App.Handler), [`App.Run`](#App.Run)
   - [`AuthConfig`](#AuthConfig)
@@ -58,15 +58,18 @@ Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
   - [`MailConfig`](#MailConfig)
   - [`Migration`](#Migration)
   - [`Module`](#Module)
-  - [`Option`](#Option): [`WithAuth`](#WithAuth), [`WithLogger`](#WithLogger), [`WithMailer`](#WithMailer), [`WithMailerFunc`](#WithMailerFunc), [`WithMiddleware`](#WithMiddleware), [`WithMiddlewareFunc`](#WithMiddlewareFunc), [`WithMigrations`](#WithMigrations), [`WithModules`](#WithModules), [`WithName`](#WithName), [`WithStack`](#WithStack), [`WithStorage`](#WithStorage), [`WithStorageFunc`](#WithStorageFunc)
+  - [`Option`](#Option): [`WithAuth`](#WithAuth), [`WithLogger`](#WithLogger), [`WithMailer`](#WithMailer), [`WithMailerFunc`](#WithMailerFunc), [`WithMiddleware`](#WithMiddleware), [`WithMiddlewareFunc`](#WithMiddlewareFunc), [`WithMigrations`](#WithMigrations), [`WithModules`](#WithModules), [`WithName`](#WithName), [`WithScope`](#WithScope), [`WithScopeWords`](#WithScopeWords), [`WithStack`](#WithStack), [`WithStorage`](#WithStorage), [`WithStorageFunc`](#WithStorageFunc)
   - [`OrgAuthorizer`](#OrgAuthorizer)
   - [`Permission`](#Permission)
   - [`PermissionDeclarer`](#PermissionDeclarer)
-  - [`Platform`](#Platform): [`Platform.Authenticate`](#Platform.Authenticate), [`Platform.OnShutdown`](#Platform.OnShutdown), [`Platform.RateLimiters`](#Platform.RateLimiters), [`Platform.Retention`](#Platform.Retention), [`Platform.SetOrgAuthorizer`](#Platform.SetOrgAuthorizer), [`Platform.SignInMethods`](#Platform.SignInMethods)
+  - [`Platform`](#Platform): [`Platform.Authenticate`](#Platform.Authenticate), [`Platform.OnShutdown`](#Platform.OnShutdown), [`Platform.RateLimiters`](#Platform.RateLimiters), [`Platform.Retention`](#Platform.Retention), [`Platform.SetOrgAuthorizer`](#Platform.SetOrgAuthorizer), [`Platform.SetScope`](#Platform.SetScope), [`Platform.SignInMethods`](#Platform.SignInMethods)
   - [`RateLimiter`](#RateLimiter)
   - [`Retention`](#Retention)
   - [`RouteOption`](#RouteOption): [`AuthenticateAfterInput`](#AuthenticateAfterInput), [`Customize`](#Customize), [`Deprecated`](#Deprecated), [`Description`](#Description), [`Errors`](#Errors), [`OperationID`](#OperationID), [`Status`](#Status), [`Summary`](#Summary), [`Tags`](#Tags), [`Timeout`](#Timeout), [`Use`](#Use)
   - [`Router`](#Router): [`Router.Group`](#Router.Group)
+  - [`Scope`](#Scope): [`DefaultOrgScope`](#DefaultOrgScope)
+  - [`ScopeAuthorizer`](#ScopeAuthorizer)
+  - [`ScopeRole`](#ScopeRole)
   - [`SignInMethod`](#SignInMethod)
   - [`Stack`](#Stack): [`Stack.Default`](#Stack.Default)
   - [`StorageConfig`](#StorageConfig)
@@ -92,7 +95,7 @@ const (
 
 Email delivery modes, the values of MAIL\_DELIVERY.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="StorageLocal"></a>
 <a id="StorageS3"></a>
@@ -116,7 +119,23 @@ const (
 
 Storage drivers, the values of STORAGE\_DRIVER.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
+
+<a id="DefaultScopeName"></a>
+<a id="DefaultScopePathParam"></a>
+<a id="DefaultScopeNotFoundCode"></a>
+
+```go
+const (
+	DefaultScopeName         = "organisation"
+	DefaultScopePathParam    = route.OrgIDParam
+	DefaultScopeNotFoundCode = "org_not_found"
+)
+```
+
+Defaults for the fields of a [Scope](#Scope) left empty. They are the vocabulary of v0.1 and v0.2 organisation apps, whose HTTP contract they keep.
+
+*Since `v0.3.0 (unreleased)`*
 
 <a id="RetentionJob"></a>
 
@@ -126,9 +145,42 @@ const RetentionJob = "retention"
 
 RetentionJob is the name of the built-in job that calls every [Retention.Delete](#Retention.Delete) once a day. Job names are public API: /ops/jobs keeps their configuration and history under them.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 ## Variables
+
+<a id="ErrNotImplemented"></a>
+
+```go
+var ErrNotImplemented = errors.New("gorbital: not implemented")
+```
+
+ErrNotImplemented is what a decision the app hasn't made yet returns. It exists so that "nobody has written this rule" is a refusal in its own right, distinguishable from "the rule ran and said no": a module that returns it is unfinished, not restrictive.
+
+orb gen module --scope custom writes a policy.go whose CanRead, CanWrite and Filter return it (ADR-0091). The generated module maps it to 501 not\_implemented, its shipped test fails while any of the three still returns it, and orb doctor names the module until they don't. An unwritten access rule therefore refuses every request and fails the build, rather than serving every row to everyone:
+
+```go
+// CanRead reports whether the actor in ctx may read this order.
+func (p Policy) CanRead(ctx context.Context, order domain.Order) error {
+	return gorbital.ErrNotImplemented // decide: who may read one order?
+}
+```
+
+Application code is free to return it from anything else it has not finished. The framework itself never returns it.
+
+*Since `v0.3.0 (unreleased)`*
+
+<a id="ErrScopeNotFound"></a>
+
+```go
+var ErrScopeNotFound = errors.New("gorbital: scope not found")
+```
+
+ErrScopeNotFound is what a [ScopeAuthorizer](#ScopeAuthorizer) returns for a scope the actor is not a member of: one that doesn't exist, is deleted, or exists and doesn't have them. The guard answers all three, and a malformed ID, with 404 and the scope's NotFoundCode, so scope IDs can't be probed.
+
+orgs.ErrOrgNotFound is treated the same way, so an organisations authorizer needs no change.
+
+*Since `v0.3.0 (unreleased)`*
 
 <a id="ErrUsage"></a>
 
@@ -138,7 +190,7 @@ var ErrUsage = errors.New("usage")
 
 ErrUsage marks an error in how a command was called, such as a missing argument. [Main](#Main) exits with status 2 for it; wrap it in a [Command](#Command)'s errors: fmt.Errorf("%w: grant-role \<email> \<role>", gorbital.ErrUsage).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 ## Functions
 
@@ -156,7 +208,7 @@ Permissions with OrgRoles go to d.OrgPermissions, the others to d.Permissions; g
 
 It returns an error naming the module for an invalid or duplicate module name, a permission declared by two modules, a permission with both Roles and OrgRoles, a missing registry, or an invalid declaration (which the registries report by panicking).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -196,7 +248,7 @@ func Delete[I, O any](r *Router, path string, handler func(context.Context, *I) 
 
 Delete registers a DELETE operation. See [Get](#Get).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -222,7 +274,7 @@ func Get[I, O any](r *Router, path string, handler func(context.Context, *I) (*O
 
 Get registers a GET operation for path under r's prefix. The handler takes the request context and its typed input, and returns its typed output or an error; Huma validates the input and documents both (ADR-0082).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -248,7 +300,7 @@ func Grants(role string, modules ...Module) []string
 
 Grants returns the permissions the modules give to the platform role role, sorted and without duplicates, for declaring the role in the permission catalog.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -304,7 +356,7 @@ version [--json]            print the build's version, commit and Go version
 
 Main never returns: it exits with status 0 on success, 1 on a runtime error, and 2 for a usage or configuration error, such as an unknown command or an invalid environment variable. Errors go to standard error, prefixed with the app's name.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -332,7 +384,7 @@ Migrate applies every pending migration: the merged goose history of the library
 
 Apps run it from the migrate command ([Main](#Main)) before starting a new version; New never migrates (ADR-0017). It returns an error for a missing DATABASE\_URL, conflicting migrations (naming both files), or a migration that fails, after reporting the ones applied before it.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -358,7 +410,7 @@ api must declare the bearer security scheme (openapi.WithBearerAuth) when any ro
 
 Mount returns the first error, naming the module: an invalid or duplicate module name, errors to map without a mapper, a mapping the mapper refuses, an invalid path, two routes with the same method and path or the same operation ID, or a route Huma can't register (such as an unsupported input type). Routes registered before the error stay registered, so an app treats any error as fatal.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -416,7 +468,7 @@ func OrgGrants(role string, modules ...Module) []string
 
 OrgGrants returns the permissions the modules give to the organisation role role ([Permission.OrgRoles](#Permission.OrgRoles)), sorted and without duplicates, for declaring the role in the organisation catalog.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -451,7 +503,7 @@ func Patch[I, O any](r *Router, path string, handler func(context.Context, *I) (
 
 Patch registers a PATCH operation. See [Get](#Get).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -477,7 +529,7 @@ func Post[I, O any](r *Router, path string, handler func(context.Context, *I) (*
 
 Post registers a POST operation. See [Get](#Get).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -503,7 +555,7 @@ func Put[I, O any](r *Router, path string, handler func(context.Context, *I) (*O
 
 Put registers a PUT operation. See [Get](#Get).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -517,6 +569,41 @@ Output:
 
 ```text
 PUT /v1/books/{id}/title id=books-put-v1-books-by-id-title summary="Replace a book's title" tags=[] secured=true deprecated=false
+```
+
+<a id="ScopeGrants"></a>
+
+### func ScopeGrants
+
+```go
+func ScopeGrants(role string, modules ...Module) []string
+```
+
+ScopeGrants returns the permissions the modules give to the scope role role ([Permission.ScopeRoles](#Permission.ScopeRoles)), sorted and without duplicates, for declaring the role in the scope catalog. It is [OrgGrants](#OrgGrants) under the name the framework now uses for tenancy (ADR-0088).
+
+*Since `v0.3.0 (unreleased)`*
+
+**Example**
+
+```go
+orders := gorbital.Module{
+	Name: "orders",
+	Permissions: []gorbital.Permission{
+		{Name: "orders.order.read", Description: "See orders", ScopeRoles: []string{"owner", "manager", "courier"}},
+		{Name: "orders.order.refund", Description: "Refund an order", ScopeRoles: []string{"owner"}},
+	},
+}
+fmt.Println(gorbital.ScopeGrants("owner", orders))
+fmt.Println(gorbital.ScopeGrants("courier", orders))
+fmt.Println(gorbital.Grants("owner", orders)) // platform roles hold none of them
+```
+
+Output:
+
+```text
+[orders.order.read orders.order.refund]
+[orders.order.read]
+[]
 ```
 
 ## Types
@@ -533,7 +620,7 @@ type App struct {
 
 An App is a built application: its HTTP handler, background workers and the resources they hold. [New](#New) builds it; [App.Run](#App.Run) serves it until a shutdown signal; [App.Close](#App.Close) releases it without running.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -562,7 +649,7 @@ New connects to PostgreSQL and loads the stored settings, flags and job override
 
 It returns an error, after closing whatever it had opened, for a missing DATABASE\_URL, an unreachable database, conflicting migrations, a module declaration that fails (a duplicate module, route, operation ID, permission, setting, flag or job, naming both modules), an S3-compatible STORAGE\_DRIVER without [WithStorage](#WithStorage), or MAIL\_DELIVERY=provider without [WithMailer](#WithMailer).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -597,7 +684,7 @@ func (a *App) Close(ctx context.Context) error
 
 Close releases the app's resources without running it, in the reverse order New opened them. Call it when Run is never called, such as in tests.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -624,7 +711,7 @@ func (a *App) Deps() Deps
 
 Deps returns the dependencies the app passes to its modules, for commands, seed data and tests that use the same stores.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -646,7 +733,7 @@ func (a *App) Handler() http.Handler
 
 Handler returns the app's HTTP handler: every route behind the middleware stack, as Run serves it. Use it in tests, or to serve the app from another server; background workers run only with Run.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -672,7 +759,7 @@ Run serves HTTP and runs the background workers until ctx is done or a shutdown 
 
 The workers are the settings, flags and job definition listeners, the job client, the release heartbeat and the request collector, plus the metrics listener when METRICS\_ADDR is set. Run releases the app's resources when it returns, so a Close after it does nothing.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -751,7 +838,7 @@ AuthConfig holds the sign-in variables of a v0.1 app: the encryption keys for se
 
 Checks that need a sign-in provider's own package are the authenticator's, so apps without sign-in don't compile those packages: parsing the Apple private key, WEBAUTHN\_APPLE\_APP\_IDS and WEBAUTHN\_ANDROID\_APPS, and matching WEBAUTHN\_ORIGINS to WEBAUTHN\_RP\_ID (ADR-0083).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -837,7 +924,7 @@ receives it, explicitly and once per app:
 
 An authenticator that also has a method CheckConfig(cfg Config) error has it called first, by New before connecting to anything and by Main before such a command; its error is a configuration error (exit status 2), as for [LoadConfig](#LoadConfig). gorbital.dev/gorbital/authhttp checks there what needs sign-in's own packages, such as the Apple private key.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -913,7 +1000,7 @@ An Authenticator resolves who makes each request. Its middleware runs at the Aut
 
 A value that also has a method Module() Module contributes that module too: its routes, permissions, settings, jobs and migrations. One with a method Setup(ctx, AuthSetup) error receives the app's configuration, dependencies and permission catalog before it serves, and one with a method CheckConfig(Config) error checks the configuration first ([AuthSetup](#AuthSetup)), and one with a method SignInMethods(Config) \[]SignInMethod reports its sign-in methods to the operations API ([Platform.SignInMethods](#Platform.SignInMethods)). gorbital.dev/gorbital/authhttp has all of them.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -946,7 +1033,7 @@ type Command struct {
 
 A Command is a subcommand of [Main](#Main) beside the built-in ones. A value passed to [WithAuth](#WithAuth) that has a method Commands() \[]Command contributes its commands, as the built-in sign-in does for its role commands.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1082,7 +1169,7 @@ type Config struct {
 
 Config is every boot setting of an app: secrets and infrastructure, read from environment variables by [LoadConfig](#LoadConfig). The names, defaults and checks are those of a v0.1 app's internal/app/config.go, so a v0.1 deployment's environment works unchanged. Values operators change at runtime are runtime settings, not configuration (ADR-0031).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1112,7 +1199,7 @@ LoadConfig reads the configuration from src, such as config.OS. It reports every
 
 Production refuses: a missing or unknown APP\_ENV; http CORS origins, passkey origins, public URL or default return address; MAIL\_DELIVERY other than provider; STORAGE\_DRIVER=local; and DEV\_CONSOLE\_TOKEN.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1149,7 +1236,7 @@ func (c Config) Production() bool
 
 Production reports whether the app runs in production mode.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1189,7 +1276,7 @@ type Declarations struct {
 
 Declarations are the registries [Declare](#Declare) adds modules' declarations to.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1242,7 +1329,7 @@ Deps are the app's shared dependencies, passed to each module's Routes.
 
 Every field may be nil: all of them are while the OpenAPI document is exported without a database, and Storage is nil unless the app configures file storage. A module registers the same routes either way and uses its dependencies only when handling requests.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1285,7 +1372,7 @@ type DevConsoleConfig struct {
 
 DevConsoleConfig is the development console's configuration (ADR-0065).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1318,7 +1405,7 @@ type MailConfig struct {
 
 MailConfig holds the email provider's secrets. The provider itself is the app's choice ([WithMailer](#WithMailer)); these are the variables a v0.1 app's Resend provider reads, kept so a provider constructor can use them.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1358,7 +1445,7 @@ type Migration struct {
 
 A Migration is one goose migration file a module contributes to the app's single migration history (ADR-0083). Library modules number their files locally, such as 00001\_settings.sql; Version places the file in the app's history, and is the version a v0.1 app holds the same file under, so an upgraded database sees it as applied.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1474,7 +1561,7 @@ func Module() gorbital.Module {
 }
 ```
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1551,7 +1638,7 @@ type Option interface {
 
 An Option configures [New](#New), [Main](#Main) and [Migrate](#Migrate). Every option is one line in main.go that names what the app contains (ADR-0081).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1573,7 +1660,7 @@ func WithAuth(a Authenticator) Option
 
 WithAuth sets the app's authenticator. Without one, requests have no actor, so only guard.Public() routes succeed, and New logs how many routes can't be reached.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1591,7 +1678,7 @@ func WithLogger(logger *slog.Logger) Option
 
 WithLogger sets the logger of the app and its modules. Without it, New builds one from APP\_LOG\_LEVEL and APP\_LOG\_FORMAT through the telemetry module, which also feeds the dev console and the hourly log archive.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1609,7 +1696,7 @@ func WithMailer(s mail.Sender) Option
 
 WithMailer sets the provider email is delivered through when MAIL\_DELIVERY is provider, the only mode production allows. Modules don't send through it directly: Deps.Mailer queues each message as a job, and the mail worker delivers it through this sender, skipping suppressed addresses. In development, devmail and mailpit deliver over SMTP without it.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1631,7 +1718,7 @@ func WithMailerFunc(open func(cfg Config) (mail.Sender, error)) Option
 
 WithMailerFunc sets the email provider like [WithMailer](#WithMailer), built from the loaded configuration, such as an API key in Config.Mail. An error from open fails New as a configuration error.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1651,7 +1738,7 @@ func WithMiddleware(middleware ...func(http.Handler) http.Handler) Option
 
 WithMiddleware adds middleware that runs on every request after the built-in stack: after authentication, rate limits and idempotency keys, so it can read the actor. Middleware added by WithMiddleware and [WithMiddlewareFunc](#WithMiddlewareFunc) runs in the order the options are given.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1669,7 +1756,7 @@ func WithMiddlewareFunc(build func(d Deps) func(http.Handler) http.Handler) Opti
 
 WithMiddlewareFunc adds middleware like [WithMiddleware](#WithMiddleware), built with the app's dependencies once they exist, such as a middleware that reads a runtime setting or writes to the database.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1697,7 +1784,7 @@ func WithMigrations(fsys fs.FS) Option
 
 WithMigrations sets the app's own goose migrations, usually the embedded files of its db/migrations package. [Migrate](#Migrate) merges them with the library's and the modules' migrations by version; New reports pending ones; the dev console lists them.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1719,7 +1806,7 @@ func WithModules(modules ...Module) Option
 
 WithModules adds modules to the app, after those added before. Order matters only for reading: each module's routes, settings and permissions are its own, and a duplicate fails New naming both modules.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1737,12 +1824,103 @@ func WithName(name string) Option
 
 WithName sets the app's name, used as the service name in logs, traces and metrics, the OpenAPI document's title and the database connections' application name. Without it, the name is the last element of the main module's path, such as shelfie for example.com/shelfie.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
 ```go
 gorbital.Main(gorbital.WithName("shelfie"), gorbital.WithModules(modulesAll()...))
+```
+
+<a id="WithScope"></a>
+
+#### func WithScope
+
+```go
+func WithScope(s Scope, a ScopeAuthorizer) Option
+```
+
+WithScope gives the app its tenancy: what a tenant is called, how its IDs look, which roles it has, and how a request's tenant reaches the database, with the authorizer that decides who may act in one (ADR-0088). Every route with guard.Scope asks it.
+
+An app that mounts gorbital.dev/gorbital/orgshttp doesn't need this: the module sets the scope itself. Use it for an app with its own membership tables:
+
+```go
+gorbital.WithScope(gorbital.Scope{
+	Name:         "merchant",
+	PathParam:    "merchantId",
+	NotFoundCode: "merchant_not_found",
+	ValidID:      merchants.ValidID,
+	Roles:        merchants.Roles,
+	Session:      postgres.WithScope,
+}, merchants.NewAuthorizer(db))
+```
+
+[New](#New) fails when a is nil, the scope is invalid, or a module also sets one: an app has one source of truth for membership.
+
+*Since `v0.3.0 (unreleased)`*
+
+**Example**
+
+```go
+// An app with its own membership tables gives gorbital the vocabulary
+// and the authorizer; guard.Scope asks it on every scope route.
+opts := []gorbital.Option{
+	gorbital.WithName("shop-api"),
+	gorbital.WithScope(merchantScope(), members{}),
+}
+fmt.Println(len(opts), "options")
+```
+
+Output:
+
+```text
+2 options
+```
+
+<a id="WithScopeWords"></a>
+
+#### func WithScopeWords
+
+```go
+func WithScopeWords(s Scope) Option
+```
+
+WithScopeWords says what the app calls its tenant when a module owns membership and renames it, such as orgshttp.Module(auth, orgshttp.ScopeName("merchant", "merchants", "merchantId")). The module still sets the scope and its authorizer; this only tells the parts of [New](#New) that run before any module's Platform does — the route checks of guard.Scope, and the OpenAPI document \`openapi --dir\` exports without connecting to anything — which words to expect:
+
+```go
+gorbital.WithScopeWords(gorbital.Scope{
+	Name:         "merchant",
+	PathParam:    "merchantId",
+	NotFoundCode: "merchant_not_found",
+})
+```
+
+It carries no authorizer, so it is not a second scope: an app whose membership is its own uses [WithScope](#WithScope) instead, which says the same words and more.
+
+*Since `v0.3.0 (unreleased)`*
+
+**Example**
+
+```go
+// An app whose membership is a module's, mounted under its own words:
+// the module still sets the scope, and this says the words before it
+// runs, for guard.Scope's route checks and the exported OpenAPI
+// document.
+opts := []gorbital.Option{
+	gorbital.WithName("shop-api"),
+	gorbital.WithScopeWords(gorbital.Scope{
+		Name:         "merchant",
+		PathParam:    "merchantId",
+		NotFoundCode: "merchant_not_found",
+	}),
+}
+fmt.Println(len(opts), "options")
+```
+
+Output:
+
+```text
+2 options
 ```
 
 <a id="WithStack"></a>
@@ -1755,7 +1933,7 @@ func WithStack(build func(s Stack) []func(http.Handler) http.Handler) Option
 
 WithStack replaces the order of the built-in middleware stack: build receives every built-in step and returns the steps to run, outermost first. Leaving out Recover or Auth is allowed, and logged as a warning when New builds the handler. [WithMiddleware](#WithMiddleware) still runs after the returned steps.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1776,7 +1954,7 @@ func WithStorage(s storage.Store) Option
 
 WithStorage sets the app's file storage, passed to modules as Deps.Storage. Without it, New opens the local driver for STORAGE\_DRIVER=local (the default in development) and refuses the S3-compatible drivers, whose client gorbital doesn't import: pass one, built from Config.Storage with [WithStorageFunc](#WithStorageFunc).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1795,7 +1973,7 @@ func WithStorageFunc(open func(cfg Config) (storage.Store, error)) Option
 
 WithStorageFunc sets the app's file storage like [WithStorage](#WithStorage), built from the loaded configuration, as main.go needs for a store whose settings come from STORAGE\_\* variables. An error from open fails New as a configuration error. A nil store with a nil error keeps the built-in choice, so one function can serve every STORAGE\_DRIVER: the local driver for local, and a configuration error naming this option for the others.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1818,18 +1996,13 @@ type OrgAuthorizer interface {
 }
 ```
 
-An OrgAuthorizer decides whether the actor of a request may act in an organisation, for guard.OrgMember. gorbital.dev/gorbital/orgshttp is one; it gives it to the app with [Platform.SetOrgAuthorizer](#Platform.SetOrgAuthorizer).
+An OrgAuthorizer decides whether the actor of a request may act in an organisation.
 
-AuthorizeOrg checks that the actor in ctx is a member of orgID (a user, or a service account of that organisation authenticated by its API key) whose role grants permission, and returns a context whose actor acts in the organisation: actor.Actor.OrgID set, and Permissions those of the role, limited by an API key's scopes. It returns
+Organisations are one [Scope](#Scope) (ADR-0088): prefer [ScopeAuthorizer](#ScopeAuthorizer), whose AuthorizeScope has exactly these semantics. This interface, [Platform.SetOrgAuthorizer](#Platform.SetOrgAuthorizer) and guard.OrgMember keep working for all of v0.x and carry no Deprecated marker, so staticcheck does not fail the build of an app that already uses them.
 
-  - orgs.ErrOrgNotFound when orgID isn't an organisation the actor is a member of, deleted and nonexistent ones included, so organisation IDs can't be probed;
-  - actor.ErrUnauthenticated without a member actor;
-  - actor.ErrStepUpRequired when the role grants permission only to sessions verified with a second factor;
-  - actor.ErrForbidden when the role doesn't grant it;
+AuthorizeOrg checks that the actor in ctx is a member of orgID (a user, or a service account of that organisation authenticated by its API key) whose role grants permission, and returns a context whose actor acts in the organisation: actor.Actor.OrgID set, and Permissions those of the role, limited by an API key's scopes. Its errors are [ScopeAuthorizer](#ScopeAuthorizer)'s, with orgs.ErrOrgNotFound accepted in place of [ErrScopeNotFound](#ErrScopeNotFound).
 
-and any other error for a failure, which the guard answers with 500. orgs.RequireMember has exactly these semantics.
-
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1854,6 +2027,7 @@ orgs: organisation not found
 <a id="Permission.Name"></a>
 <a id="Permission.Description"></a>
 <a id="Permission.Roles"></a>
+<a id="Permission.ScopeRoles"></a>
 <a id="Permission.OrgRoles"></a>
 
 ### type Permission
@@ -1865,6 +2039,22 @@ type Permission struct {
 	// Roles are the platform roles that hold the permission, such as
 	// "user". A role the app doesn't declare grants nothing.
 	Roles []string
+	// ScopeRoles are the scope roles that hold the permission, such as
+	// "owner", "admin" and "member" for organisations, or whatever the
+	// app's [Scope] declares: a member holds it only while acting in a
+	// scope, through guard.Scope. A permission with ScopeRoles is a scope
+	// permission: it is declared in the scope catalog
+	// ([Platform.OrgPermissions]), not the platform's, and can't have
+	// Roles too.
+	ScopeRoles []string
+
+	// OrgRoles is the v0.2 name of ScopeRoles, still honoured: prefer
+	// ScopeRoles in new code, and set one or the other, never both. It
+	// carries no Deprecated marker on purpose — v0.3.0 is a patch, and a
+	// marker would make staticcheck fail the build of every app that
+	// already uses the name, including the copies of sign-in and
+	// organisations orb new wrote for them.
+	//
 	// OrgRoles are the organisation roles that hold the permission, such
 	// as "owner", "admin" and "member" (ADR-0023, ADR-0048): a member holds
 	// it only while acting in an organisation, through guard.OrgMember. A
@@ -1877,7 +2067,7 @@ type Permission struct {
 
 A Permission is a permission a module checks, such as "books.book.write".
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1913,7 +2103,7 @@ type PermissionDeclarer interface {
 
 A PermissionDeclarer declares permissions. \*auth.Catalog implements it.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -1988,7 +2178,7 @@ A Platform is what [New](#New) builds for the app as a whole, beyond [Deps](#Dep
 
 Platform is for gorbital's built-in modules. App modules use Deps: a Platform's fields follow what the built-in modules need, and grow with them (ADR-0083).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2020,7 +2210,7 @@ func (p *Platform) Authenticate(ctx context.Context, r *http.Request) (actor.Act
 
 Authenticate runs the app's authentication step again for r, such as a long-running stream checking that its session hasn't ended: the authenticator ([WithAuth](#WithAuth)) and, in development, the dev console's operator on /ops/. It sees r's headers and client address, but none of the values in r's context, so an actor set before doesn't carry over. It returns the actor the step resolved, and false when the request isn't authenticated any more.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2047,7 +2237,7 @@ func (p *Platform) OnShutdown(fn func())
 
 OnShutdown adds fn to what runs when [App.Run](#App.Run) starts shutting down, before the server stops taking requests, such as closing streams that would hold it open.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2075,7 +2265,7 @@ func (p *Platform) RateLimiters() []RateLimiter
 
 RateLimiters returns every named rate limiter of the app: the built-in one of the RateLimit step (auth\_ip), those modules declare in Module.RateLimiters, in module order, then those guard.RateLimit creates, by name.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2100,7 +2290,7 @@ func (p *Platform) Retention() []Retention
 
 Retention returns how long each kind of data is kept: what gorbital builds, then each module's Module.Retention, in module order.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2122,9 +2312,11 @@ _ = report
 func (p *Platform) SetOrgAuthorizer(a OrgAuthorizer) error
 ```
 
-SetOrgAuthorizer makes a the app's [OrgAuthorizer](#OrgAuthorizer), which every route with guard.OrgMember asks. It is for the organisations module (gorbital.dev/gorbital/orgshttp), which calls it from Module.Platform. It returns an error when a is nil or the app already has one: an app has one source of truth for memberships.
+SetOrgAuthorizer makes a the app's organisation authorizer.
 
-*Since `v0.2.0 (unreleased)`*
+Prefer [Platform.SetScope](#Platform.SetScope) with a [Scope](#Scope), which lets the app name its own tenancy and validate its own IDs. This call is [Platform.SetScope](#Platform.SetScope) with the default organisation scope: the v0.1 and v0.2 vocabulary, and no ID validation of its own, so a malformed ID is refused by the authorizer exactly as an unknown one is.
+
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2146,6 +2338,40 @@ Output:
 orgs
 ```
 
+<a id="Platform.SetScope"></a>
+
+#### func (*Platform) SetScope
+
+```go
+func (p *Platform) SetScope(s Scope, a ScopeAuthorizer) error
+```
+
+SetScope makes s the app's scope and a its authorizer, which every route with guard.Scope asks. It is for a module that owns membership, such as gorbital.dev/gorbital/orgshttp, called from Module.Platform. An app that authorizes scopes itself uses [WithScope](#WithScope) instead.
+
+It returns an error when a is nil, the scope is invalid, or the app already has one.
+
+*Since `v0.3.0 (unreleased)`*
+
+**Example**
+
+```go
+// A module that owns membership sets the scope once the app is built.
+// gorbital.dev/gorbital/orgshttp does this for organisations.
+merchants := gorbital.Module{
+	Name: "merchants",
+	Platform: func(p *gorbital.Platform) error {
+		return p.SetScope(merchantScope(), members{})
+	},
+}
+fmt.Println(merchants.Name)
+```
+
+Output:
+
+```text
+merchants
+```
+
 <a id="Platform.SignInMethods"></a>
 
 #### func (*Platform) SignInMethods
@@ -2162,7 +2388,7 @@ SignInMethods(cfg gorbital.Config) []gorbital.SignInMethod
 
 It returns an empty list without an authenticator or when the authenticator doesn't report its methods. gorbital.dev/gorbital/authhttp reports every method a v0.1 app listed.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2203,7 +2429,7 @@ type RateLimiter struct {
 
 A RateLimiter describes a named rate limiter a module creates on Deps.RateLimits, for GET /ops/auth/rate-limits, where operators reset a key's budget. Limiters of guard.RateLimit are listed without one.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2264,7 +2490,7 @@ type Retention struct {
 
 A Retention is how long one kind of a module's data is kept and what deletes it, listed by GET /ops/retention. Exactly one of Delete, Job and EnforcedBy says what deletes the data.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2304,7 +2530,7 @@ type RouteOption = route.Option
 
 A RouteOption configures a route, or every route of a group. Options of a group apply first, then the route's own.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2333,9 +2559,9 @@ func AuthenticateAfterInput() RouteOption
 
 AuthenticateAfterInput checks the route's authenticated actor after Huma has parsed and validated the input, just before the handler, instead of before parsing. The route still requires sign-in, in the OpenAPI document and on every request: only the order of refusals changes, so a request without credentials and with an invalid body gets 422 validation\_failed (or 400) rather than 401 unauthenticated.
 
-It exists for code that must keep v0.1's order of responses, such as sign-in's endpoints (gorbital.dev/gorbital/authhttp) and a module ejected from them; new routes don't need it. Registration fails when the route is public or has guards, which run before input parsing and would see a request nobody authenticated.
+It exists for code that must keep v0.1's order of responses, such as sign-in's endpoints (gorbital.dev/gorbital/authhttp) and the copies of them an app holds; new routes don't need it. Registration fails when the route is public or has guards, which run before input parsing and would see a request nobody authenticated.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2383,7 +2609,7 @@ Customize changes the Huma operation before it is registered, for what the other
 
 fn can't change the method, path, operation ID, security requirements or operation middleware: registration fails when it does, so a route can't leave deny by default or its guards behind.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2441,7 +2667,7 @@ func Deprecated() RouteOption
 
 Deprecated marks the route deprecated in the OpenAPI document.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2467,7 +2693,7 @@ func Description(markdown string) RouteOption
 
 Description sets the OpenAPI description, in Markdown.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2498,7 +2724,7 @@ func Errors(statuses ...int) RouteOption
 
 Errors documents error statuses the route returns, in addition to those its guards document.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2530,7 +2756,7 @@ func OperationID(id string) RouteOption
 
 OperationID sets the operation ID. Without it, the ID is the module's name followed by the one Huma generates from the method and path, such as "books-post-v1-books". Operation IDs are public API: client generators name their functions after them.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2556,7 +2782,7 @@ func Status(code int) RouteOption
 
 Status sets the success status, such as http.StatusCreated.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2587,7 +2813,7 @@ func Summary(s string) RouteOption
 
 Summary sets the OpenAPI summary. Without it, Huma generates one from the method and path.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2613,7 +2839,7 @@ func Tags(tags ...string) RouteOption
 
 Tags sets the OpenAPI tags. Without it, a route has none.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2639,7 +2865,7 @@ func Timeout(d time.Duration) RouteOption
 
 Timeout gives a route a shorter deadline than the app's request timeout (APP\_REQUEST\_TIMEOUT): after d, a handler that hasn't started its response gets 503 request\_timeout, and its context is cancelled. A context deadline can only be shortened, so a longer d has no effect: raise APP\_REQUEST\_TIMEOUT, or leave the Timeout step out with [WithStack](#WithStack), for routes that need longer. Streaming responses that have started aren't cut off (timeout.New).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2685,7 +2911,7 @@ A route can't remove middleware its group added: put routes that need different 
 
 Route middleware needs an API built on Huma's humago adapter, as openapi.New builds it.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2743,7 +2969,7 @@ type Router struct {
 
 A Router registers a module's routes under a path prefix with shared options. [Mount](#Mount) passes each module's Routes a Router for that module.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2777,7 +3003,7 @@ func (r *Router) Group(prefix string, opts ...RouteOption) *Router
 
 Group returns a Router for the routes under prefix, which is empty or starts with a slash, with opts added to the options of r.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2804,6 +3030,213 @@ Output:
 ```text
 GET /v1/books/{id} id=books-get-v1-books-by-id summary="Get v1 books by ID" tags=[Books] secured=true deprecated=false
 GET /v1/catalog/{id} id=books-get-v1-catalog-by-id summary="Get v1 catalog by ID" tags=[Books] secured=false deprecated=false
+```
+
+<a id="Scope"></a>
+<a id="Scope.Name"></a>
+<a id="Scope.PathParam"></a>
+<a id="Scope.NotFoundCode"></a>
+<a id="Scope.ValidID"></a>
+<a id="Scope.Roles"></a>
+<a id="Scope.Session"></a>
+
+### type Scope
+
+```go
+type Scope struct {
+	// Name is the concept in lowercase singular, such as "organisation" or
+	// "merchant". It names guards in logs and metrics and appears in the
+	// registration errors the guards return.
+	Name string
+
+	// PathParam is the path parameter scope routes carry the ID in, such
+	// as "orgId". Registration fails for a scope route whose path lacks
+	// it. Empty uses [DefaultScopePathParam].
+	PathParam string
+
+	// NotFoundCode is the problem code that refuses a request for a scope
+	// the actor is not a member of, such as "org_not_found". Unknown,
+	// deleted, forbidden and malformed IDs are all refused with it and
+	// 404, so scope IDs can't be probed. Empty uses
+	// [DefaultScopeNotFoundCode].
+	NotFoundCode string
+
+	// ValidID reports whether s is a well-formed scope ID. A malformed ID
+	// is refused exactly as an unknown one is, before the authorizer is
+	// asked, so it never reaches the app's queries. Nil accepts any
+	// non-empty string, which is correct for an app whose authorizer
+	// validates the ID itself.
+	ValidID func(s string) bool
+
+	// Roles are the scope's roles, most privileged first, with what each
+	// one grants. [Permission.ScopeRoles] names them. Roles a permission
+	// names and this list doesn't are declared with a generic description.
+	//
+	// They order and describe the roles in the scope catalog, which is
+	// built before any module's Platform runs. A scope set with
+	// [WithScope] is in place by then; one set with [Platform.SetScope] is
+	// not, so its roles keep the owner, admin and member order and
+	// descriptions of organisation apps. Set the scope with [WithScope]
+	// when the roles are the app's own.
+	Roles []ScopeRole
+
+	// Session carries the scope into the request's database connections,
+	// for row-level security (postgres.WithScope, ADR-0061). Nil leaves
+	// connections unscoped, which is correct only for an app that filters
+	// by scope in every query.
+	Session func(ctx context.Context, scopeID string) context.Context
+}
+```
+
+A Scope is the app's tenancy: what a tenant is called, how its IDs look, which roles it has, and how a request's tenant reaches the database (ADR-0088). The framework never learns the app's table names and never queries them; membership lives behind the [ScopeAuthorizer](#ScopeAuthorizer).
+
+gorbital.dev/gorbital/orgshttp supplies one for organisations. An app with its own membership tables supplies its own:
+
+```go
+gorbital.WithScope(gorbital.Scope{
+	Name:         "merchant",
+	PathParam:    "merchantId",
+	NotFoundCode: "merchant_not_found",
+	ValidID:      merchants.ValidID,
+	Roles:        merchants.Roles,
+	Session:      postgres.WithScope,
+}, merchants.NewAuthorizer(db))
+```
+
+*Since `v0.3.0 (unreleased)`*
+
+**Example**
+
+```go
+s := merchantScope()
+fmt.Println(s.Name, s.PathParam, s.NotFoundCode)
+// Routes carry the ID in the scope's own parameter.
+fmt.Println("/v1/merchants/{" + s.PathParam + "}/orders")
+```
+
+Output:
+
+```text
+merchant merchantId merchant_not_found
+/v1/merchants/{merchantId}/orders
+```
+
+<a id="DefaultOrgScope"></a>
+
+#### func DefaultOrgScope
+
+```go
+func DefaultOrgScope() Scope
+```
+
+DefaultOrgScope is the tenancy of v0.1 and v0.2 organisation apps: the concept named "organisation" in {orgId}, refused with org\_not\_found, the roles owner, admin and member, and the organisation carried into the request's connections for row-level security.
+
+It has no ValidID: gorbital does not know how an app's organisation IDs are shaped. gorbital.dev/gorbital/orgshttp supplies orgs.ParseID with its own DefaultScope.
+
+*Since `v0.3.0 (unreleased)`*
+
+**Example**
+
+```go
+s := gorbital.DefaultOrgScope()
+fmt.Println(s.Name, s.PathParam, s.NotFoundCode)
+for _, r := range s.Roles {
+	fmt.Print(r.Name, " ")
+}
+fmt.Println()
+```
+
+Output:
+
+```text
+organisation orgId org_not_found
+owner admin member
+```
+
+<a id="ScopeAuthorizer"></a>
+<a id="ScopeAuthorizer.AuthorizeScope"></a>
+
+### type ScopeAuthorizer
+
+```go
+type ScopeAuthorizer interface {
+	AuthorizeScope(ctx context.Context, scopeID, permission string) (context.Context, error)
+}
+```
+
+A ScopeAuthorizer decides whether the actor of a request may act in a scope, for guard.Scope. An app sets one with [WithScope](#WithScope); a module sets one with [Platform.SetScope](#Platform.SetScope).
+
+AuthorizeScope checks that the actor in ctx is a member of scopeID whose role grants permission, and returns a context whose actor acts in the scope: actor.Actor.OrgID set to scopeID, and Permissions those of the role, limited by an API key's scopes. It returns
+
+  - [ErrScopeNotFound](#ErrScopeNotFound) when scopeID isn't a scope the actor is a member of, deleted and nonexistent ones included;
+  - actor.ErrUnauthenticated without a member actor;
+  - actor.ErrStepUpRequired when the role grants permission only to sessions verified with a second factor;
+  - actor.ErrForbidden when the role doesn't grant it;
+
+and any other error for a failure, which the guard answers with 500. orgs.RequireMember has exactly these semantics.
+
+*Since `v0.3.0 (unreleased)`*
+
+**Example**
+
+```go
+var authorizer gorbital.ScopeAuthorizer = members{
+	"mch_1/usr_ada": "owner",
+	"mch_1/usr_bo":  "courier",
+}
+ada := actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_ada"})
+bo := actor.With(context.Background(), actor.Actor{Kind: actor.KindUser, ID: "usr_bo"})
+
+ctx, err := authorizer.AuthorizeScope(ada, "mch_1", "orders.order.refund")
+a, _ := actor.From(ctx)
+fmt.Println(a.OrgID, err)
+
+_, err = authorizer.AuthorizeScope(bo, "mch_1", "orders.order.refund")
+fmt.Println(err)
+
+_, err = authorizer.AuthorizeScope(ada, "mch_2", "orders.order.read")
+fmt.Println(err)
+```
+
+Output:
+
+```text
+mch_1 <nil>
+actor: permission denied
+gorbital: scope not found
+```
+
+<a id="ScopeRole"></a>
+<a id="ScopeRole.Name"></a>
+<a id="ScopeRole.Description"></a>
+
+### type ScopeRole
+
+```go
+type ScopeRole struct {
+	Name        string
+	Description string
+}
+```
+
+A ScopeRole is one role of a [Scope](#Scope), such as an organisation's owner.
+
+*Since `v0.3.0 (unreleased)`*
+
+**Example**
+
+```go
+for _, r := range merchantScope().Roles {
+	fmt.Printf("%s: %s\n", r.Name, r.Description)
+}
+```
+
+Output:
+
+```text
+owner: Runs the merchant
+manager: Manages staff and orders
+courier: Delivers orders
 ```
 
 <a id="SignInMethod"></a>
@@ -2836,7 +3269,7 @@ type SignInMethod struct {
 
 A SignInMethod is a way to sign in and whether the app has it configured, as GET /ops/auth/providers lists it and the auth-providers command prints it (ADR-0045). It never holds configuration values.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2942,7 +3375,7 @@ gorbital.WithStack(func(s gorbital.Stack) []func(http.Handler) http.Handler {
 })
 ```
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -2979,7 +3412,7 @@ func (s Stack) Default() []func(http.Handler) http.Handler
 
 Default returns the steps in the default order, outermost first: the order of a v0.1 app's routes.go, with Timeout added after AccessLog so timed-out requests are logged with their 503.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -3029,7 +3462,7 @@ type StorageConfig struct {
 
 StorageConfig is file storage from STORAGE\_\* (ADR-0075). The local driver is built in; S3-compatible drivers are passed by the app ([WithStorage](#WithStorage)), built from these values.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 

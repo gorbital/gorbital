@@ -91,7 +91,7 @@ func TestAddMailSMTPWithFlags(t *testing.T) {
 func TestAddMailRecordsTheProviderInTheLock(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if code, _, errOut := runOrb(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git", "--json", "--no-eject"); code != 0 {
+	if code, _, errOut := runOrb(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git", "--json", "--local", repoAbs(t)); code != 0 {
 		t.Fatalf("orb new = %d, stderr %q", code, errOut)
 	}
 	t.Chdir(filepath.Join(dir, "shop-api"))
@@ -111,7 +111,13 @@ func TestAddMailRecordsTheProviderInTheLock(t *testing.T) {
 	if after.Inputs.Mail != recipes.MailSMTP || after.Orb != before.Orb || len(after.Files) != len(before.Files) || after.tracks(".env") {
 		t.Errorf("lock after orb add mail = %+v, want mail smtp and the same release and files", after)
 	}
+	// The lock records what the templates render; the copy of sign-in
+	// afterwards points main.go's imports at it, so that file differs on
+	// disk by design (see TestNewCreatesApp).
 	for _, f := range after.Files {
+		if len(after.Ejected) > 0 && f.Path == "cmd/api/main.go" {
+			continue
+		}
 		if sha256Hex([]byte(readFile(t, f.Path))) != f.SHA256 {
 			t.Errorf("gorbital.lock hash of %s is stale after orb add mail", f.Path)
 		}

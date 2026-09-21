@@ -44,7 +44,7 @@ const (
 
 Mail providers GET /ops/mail reports.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 ## Functions
 
@@ -58,7 +58,7 @@ func Module(opts ...Option) gorbital.Module
 
 Module returns the operations API. Its name is "ops".
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -109,7 +109,7 @@ type Option func(*options)
 
 An Option configures [Module](#Module).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -129,7 +129,7 @@ func MailProvider(name string) Option
 
 MailProvider sets the email provider GET /ops/mail reports: [ProviderResend](#ProviderResend) (the default), whose API key and webhook secret it reports as configured or missing, or [ProviderSMTP](#ProviderSMTP). It doesn't change how email is sent: that is gorbital.WithMailer's.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 

@@ -32,35 +32,46 @@ import (
 const repoRoot = "../../.."
 
 // goldenApps maps each golden app to the template directory it generates.
+// Only examples/full-multi generates the v0.3.0 tree: it is the richest
+// shape, and the manifest decides what a narrower one leaves out
+// (ADR-0090 §3). The other golden apps on gorbital.Main have no dst: their
+// copies of the built-in modules are refreshed from this checkout all the
+// same, so CI's diff of examples/ catches a golden app that has drifted.
 var goldenApps = []struct {
 	src, dst string
 	// main marks golden apps on gorbital.Main, whose generated files hold
 	// library text that isn't theirs to rename.
 	main bool
-	// preset and tenancy name the preset whose built-in modules orb new
-	// ejects, for golden apps on gorbital.Main.
-	preset, tenancy string
+	// auth and scope name the profile whose built-in modules orb new
+	// copies, for golden apps on gorbital.Main.
+	auth, scope string
 }{
 	{"../../../examples/minimal", "minimal", false, "", ""},
 	{"../../../examples/v0.1/full-single", "full", false, "", ""},
 	{"../../../examples/v0.1/full-multi", "full-multi", false, "", ""},
-	{"../../../examples/full-single", "v0.2/full", true, "full", recipes.TenancySingle},
-	{"../../../examples/full-multi", "v0.2/full-multi", true, "full", recipes.TenancyMulti},
+	{"../../../examples/full-multi", recipes.TreeV03, true, recipes.AuthFull, recipes.DefaultScopeName},
+	{"../../../examples/full-single", "", true, recipes.AuthFull, recipes.ScopeSingle},
+	{"../../../examples/api-basic", "", true, recipes.AuthBasic, recipes.ScopeNone},
 }
 
 func main() {
 	ctx := context.Background()
 	for _, app := range goldenApps {
-		if err := generateApp(ctx, app.src, app.dst, app.main, app.preset, app.tenancy); err != nil {
+		if _, err := os.Stat(app.src); os.IsNotExist(err) && app.dst == "" {
+			continue // a golden app this branch doesn't have yet
+		}
+		if err := generateApp(ctx, app.src, app.dst, app.main, app.auth, app.scope); err != nil {
 			fmt.Fprintln(os.Stderr, "gen:", err)
 			os.Exit(1)
 		}
 	}
 }
 
-func generateApp(ctx context.Context, src, dst string, main bool, preset, tenancy string) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
+func generateApp(ctx context.Context, src, dst string, main bool, auth, scope string) error {
+	if dst != "" {
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return err
+		}
 	}
 	// Only files git tracks or would track become templates: anything
 	// git-ignored next to a golden app (.env, keys, coverage output) stays
@@ -77,23 +88,24 @@ func generateApp(ctx context.Context, src, dst string, main bool, preset, tenanc
 	if !ok {
 		fmt.Fprintf(os.Stderr, "gen: %s isn't in a git work tree; git-ignored files other than .env files would become templates\n", src)
 	}
-	var ejected []recipes.EjectedModule
-	if p, found := recipes.LookupPreset(preset, tenancy); found {
-		ejected = p.Ejects()
-	}
-	if len(ejected) == 0 {
+	if auth == "" {
 		if ok {
 			opts = append(opts, generate.OnlyFiles(files))
 		}
 		return generate.Run(src, dst, opts...)
 	}
-	return generateEjected(ctx, src, dst, files, ejected, opts)
+	profile, err := recipes.ParseProfile(auth, scope)
+	if err != nil {
+		return err
+	}
+	return generateEjected(ctx, src, dst, profile, files, opts)
 }
 
 // generateEjected writes the templates of the golden app at src, which
 // holds ejected, from a copy without them, then writes the golden app again
 // from that copy with the modules ejected from this checkout.
-func generateEjected(ctx context.Context, src, dst string, files map[string]bool, ejected []recipes.EjectedModule, opts []generate.Option) error {
+func generateEjected(ctx context.Context, src, dst string, profile recipes.Profile, files map[string]bool, opts []generate.Option) error {
+	ejected := profile.Copies()
 	tmp, err := os.MkdirTemp("", "orb-gen-")
 	if err != nil {
 		return err
@@ -119,17 +131,43 @@ func generateEjected(ctx context.Context, src, dst string, files map[string]bool
 	if err := recordSurface(ctx, tmp); err != nil {
 		return err
 	}
-	only := map[string]bool{}
-	for p := range copied {
-		if _, err := os.Stat(filepath.Join(tmp, filepath.FromSlash(p))); err == nil {
-			only[p] = true
+	if dst != "" {
+		only := map[string]bool{}
+		for p := range copied {
+			if templated(p) {
+				if _, err := os.Stat(filepath.Join(tmp, filepath.FromSlash(p))); err == nil {
+					only[p] = true
+				}
+			}
+		}
+		if err := generate.Run(tmp, dst, append(opts, generate.OnlyFiles(only))...); err != nil {
+			return err
+		}
+		if err := conditionalise(dst); err != nil {
+			return err
+		}
+		if err := copyTreeExtras(dst); err != nil {
+			return err
+		}
+		if err := checkManifest(dst); err != nil {
+			return err
 		}
 	}
-	if err := generate.Run(tmp, dst, append(opts, generate.OnlyFiles(only))...); err != nil {
+
+	// The golden app is what the templates write, not the other way
+	// round: render the tree back over it, then put the copied modules in
+	// as orb new does.
+	tree := dst
+	if tree == "" {
+		tree = recipes.TreeV03
+	}
+	if err := renderInto(tree, tmp, profile); err != nil {
+		return err
+	}
+	if err := goIn(ctx, tmp, "mod", "tidy"); err != nil {
 		return err
 	}
 
-	// The golden app: what orb new writes from those templates.
 	checkout, err := filepath.Abs(repoRoot)
 	if err != nil {
 		return err
@@ -138,6 +176,9 @@ func generateEjected(ctx context.Context, src, dst string, files map[string]bool
 		return fmt.Errorf("eject into %s: %w", src, err)
 	}
 	if err := goIn(ctx, tmp, "mod", "tidy"); err != nil {
+		return err
+	}
+	if err := produceAPI(ctx, tmp); err != nil {
 		return err
 	}
 	if err := recordSurface(ctx, tmp); err != nil {

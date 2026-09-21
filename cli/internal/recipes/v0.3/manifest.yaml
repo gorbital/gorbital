@@ -1,0 +1,50 @@
+# Which features each template in this tree belongs to (ADR-0090 §4).
+#
+# orb new writes a path when every feature listed is on, and skips it
+# otherwise; always means every profile gets it. A template with no entry
+# here, and an entry naming no template, both fail go generate and CI, so a
+# file can never silently stop being written for some shape.
+#
+#   auth.local    --auth basic or --auth full: the app has gorbital's sign-in
+#   auth.full     --auth full: every sign-in method
+#   scope.named   --scope <name>: the supplied organisations, under the app's words
+#   scope.custom  --scope custom: the app's own membership rules
+#   scope.any     either kind of tenancy
+paths:
+  .dockerignore.tmpl:                                  always
+  .env.example.tmpl:                                   always
+  .gitignore.tmpl:                                     always
+  AGENTS.md.tmpl:                                      always
+  ARCHITECTURE.md.tmpl:                                always
+  AUTH_PROVIDERS.md.tmpl:                              [auth.full]
+  Dockerfile.tmpl:                                     always
+  README.md.tmpl:                                      always
+  cmd/api/app_test.go.tmpl:                            always
+  cmd/api/mail.go.tmpl:                                always
+  cmd/api/main.go.tmpl:                                always
+  cmd/api/main_test.go.tmpl:                           always
+  cmd/api/storage.go.tmpl:                             always
+  compose.yaml.tmpl:                                   always
+  db/migrations/20260916000001_scope.sql.tmpl:         [scope.custom]
+  db/migrations/migrations.go.tmpl:                    always
+  db/row_level_security.sql.tmpl:                      [scope.named]
+  go.mod.tmpl:                                         always
+  gorbital.yaml.tmpl:                                  always
+  internal/modules/architecture_test.go.tmpl:          always
+  internal/modules/modules.gen.go.tmpl:                always
+  internal/modules/ping/delivery/echo.go.tmpl:         always
+  internal/modules/ping/delivery/ping.go.tmpl:         always
+  internal/modules/ping/delivery/responses.go.tmpl:    always
+  internal/modules/ping/delivery/routes.go.tmpl:       always
+  internal/modules/ping/domain/message.go.tmpl:        always
+  internal/modules/ping/domain/message_test.go.tmpl:   always
+  internal/modules/ping/module.go.tmpl:                always
+  internal/modules/ping/ping_test.go.tmpl:             always
+  internal/modules/ping/usecase/echo.go.tmpl:          always
+  internal/modules/ping/usecase/ping.go.tmpl:          always
+  internal/modules/ping/usecase/service.go.tmpl:       always
+  internal/modules/ping/usecase/service_test.go.tmpl:  always
+  internal/modules/scope/authorizer.go.tmpl:           [scope.custom]
+  internal/modules/scope/authorizer_test.go.tmpl:      [scope.custom]
+  internal/modules/scope/scope.go.tmpl:                [scope.custom]
+  internal/modules/surface_test.go.tmpl:               always

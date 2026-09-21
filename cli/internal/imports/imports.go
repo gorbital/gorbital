@@ -129,10 +129,25 @@ func regroup(filename string, src []byte, moved map[string]bool) ([]byte, error)
 			if !moved[it.path] {
 				continue
 			}
-			score := make([]int, group+1)
-			// Imports still to move don't say where a group belongs.
+			// A group keeps its shape when something in it is staying;
+			// that import is what says where the group belongs. A group
+			// whose imports are all moving -- the layers of one copied
+			// module, say -- has nothing staying to speak for it, so its
+			// own members speak for it instead. Without that it scores
+			// nothing and empties into whichever group scores one for
+			// merely not being the standard library.
+			anchored := false
 			for _, other := range items {
-				if !moved[other.path] {
+				if other.group == it.group && !moved[other.path] {
+					anchored = true
+					break
+				}
+			}
+			score := make([]int, group+1)
+			for j, other := range items {
+				switch {
+				case j == i:
+				case !moved[other.path], !anchored && other.group == it.group:
 					score[other.group] = max(score[other.group], affinity(it.path, other.path))
 				}
 			}

@@ -46,3 +46,15 @@ func ExampleInTx() {
 		log.Fatal(err)
 	}
 }
+
+// WithScope carries one scope into a context's connections, so row-level
+// security policies limit them to that scope's rows. Use it where code
+// acts in one scope without a scoped actor, such as a job working through
+// one merchant's orders.
+func ExampleWithScope() {
+	ctx := postgres.WithScope(context.Background(), "mch_1")
+
+	// Connections acquired from ctx now set postgres.ScopeSetting to
+	// mch_1, and policies written against it see only that merchant.
+	log.Println(postgres.ScopeSetting, ctx != nil)
+}

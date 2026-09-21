@@ -1,8 +1,20 @@
 ⟦- if .Org -⟧
-// Package ⟦.Package⟧ is the ⟦.PluralHuman⟧ module: ⟦.PluralHuman⟧ that belong to an
-// organisation, whose members reach them through their role, in four layers
+// Package ⟦.Package⟧ is the ⟦.PluralHuman⟧ module: ⟦.PluralHuman⟧ that belong to ⟦.ScopeA⟧
+// ⟦.ScopeName⟧, whose members reach them through their role, in four layers
 // (domain, usecase, repository, delivery) with one file per operation in
 // each. orb gen module wrote it; the code is yours to change.
+⟦- else if .Public -⟧
+// Package ⟦.Package⟧ is the ⟦.PluralHuman⟧ module: ⟦.PluralHuman⟧ anyone can read,
+// which only a caller with the write permission can change, in four layers
+// (domain, usecase, repository, delivery) with one file per operation in
+// each. orb gen module wrote it; the code is yours to change.
+⟦- else if .Custom -⟧
+// Package ⟦.Package⟧ is the ⟦.PluralHuman⟧ module: ⟦.PluralHuman⟧ whose access rule is
+// this module's own, in policy.go, in four layers (domain, usecase,
+// repository, delivery) with one file per operation in each. orb gen module
+// wrote it with --scope custom, so it added no rule of its own: until
+// policy.go is written, the module refuses every request and its tests
+// fail. The code is yours to change.
 ⟦- else -⟧
 // Package ⟦.Package⟧ is the ⟦.PluralHuman⟧ module: ⟦.PluralHuman⟧ that belong to the
 // signed-in user, in four layers (domain, usecase, repository, delivery)
@@ -24,30 +36,81 @@ import (
 )
 ⟦if .Org⟧
 // Module returns the ⟦.PluralHuman⟧ module. main.go adds it with every other
-// module through modules.All; its routes need the organisations module
-// (orgshttp.Module), which answers guard.OrgMember. Error codes and
+// module through modules.All; its routes need the ⟦.Vocabulary.Plural⟧ module
+⟦- if .Vocabulary.IsOrganisations⟧
+// (orgshttp.Module), which answers ⟦.ScopeGuard⟧. Error codes and
+⟦- else⟧
+// (gorbital.WithScope), which answers ⟦.ScopeGuard⟧. Error codes and
+⟦- end⟧
 // permission names are public API: add new ones, never change existing
 // ones.
 func Module() gorbital.Module {
 	return gorbital.Module{
 		Name: ⟦quote .Package⟧,
-		// guard.OrgMember answers org_not_found for an organisation the caller
+		// ⟦.ScopeGuard⟧ answers ⟦.ScopeNotFoundCode⟧ for ⟦.ScopeA⟧ ⟦.ScopeName⟧ the caller
 		// isn't a member of, and forbidden for a role without the permission.
 		Errors: []httpx.Mapping{
 			{Err: domain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
 			{Err: domain.ErrInvalid⟦.Ident⟧, Status: http.StatusUnprocessableEntity, Code: "validation_failed", Detail: "the ⟦.Human⟧ is not valid"},
-			{Err: domain.Err⟦.Ident⟧NotFound, Status: http.StatusNotFound, Code: "⟦.Snake⟧_not_found", Detail: "the organisation has no ⟦.Human⟧ with this ID"},
+			{Err: domain.Err⟦.Ident⟧NotFound, Status: http.StatusNotFound, Code: "⟦.Snake⟧_not_found", Detail: "the ⟦.ScopeName⟧ has no ⟦.Human⟧ with this ID"},
 ⟦- range .Uniques⟧
-			{Err: domain.Err⟦$.Ident⟧⟦.Ident⟧Taken, Status: http.StatusConflict, Code: "⟦$.Snake⟧_⟦.Name⟧_taken", Detail: "the organisation already has ⟦$.A⟧ ⟦$.Human⟧ with this ⟦.Human⟧"},
+			{Err: domain.Err⟦$.Ident⟧⟦.Ident⟧Taken, Status: http.StatusConflict, Code: "⟦$.Snake⟧_⟦.Name⟧_taken", Detail: "the ⟦$.ScopeName⟧ already has ⟦$.A⟧ ⟦$.Human⟧ with this ⟦.Human⟧"},
 ⟦- end⟧
 			{Err: domain.Err⟦.Ident⟧VersionConflict, Status: http.StatusConflict, Code: "⟦.Snake⟧_version_conflict", Detail: "the ⟦.Human⟧ changed since you read it; get it again and retry"},
 		},
-		// Organisation permissions: every member holds them through their
-		// role in the organisation, an API key only when its scopes include
-		// them. Platform roles grant nothing in an organisation.
+		// ⟦.ScopeTitle⟧ permissions: every member holds them through their
+		// role in the ⟦.ScopeName⟧, an API key only when its scopes include
+		// them. Platform roles grant nothing in ⟦.ScopeA⟧ ⟦.ScopeName⟧.
 		Permissions: []gorbital.Permission{
-			{Name: usecase.PermRead, Description: "See the organisation's ⟦.PluralHuman⟧", OrgRoles: []string{"owner", "admin", "member"}},
-			{Name: usecase.PermWrite, Description: "Create, change and delete the organisation's ⟦.PluralHuman⟧", OrgRoles: []string{"owner", "admin", "member"}},
+			{Name: usecase.PermRead, Description: "See the ⟦.ScopeName⟧'s ⟦.PluralHuman⟧", ⟦.ScopeRolesField⟧: []string{⟦.ScopeGoRoles⟧}},
+			{Name: usecase.PermWrite, Description: "Create, change and delete the ⟦.ScopeName⟧'s ⟦.PluralHuman⟧", ⟦.ScopeRolesField⟧: []string{⟦.ScopeGoRoles⟧}},
+		},
+⟦- else if .Public⟧
+// Module returns the ⟦.PluralHuman⟧ module. main.go adds it with every other
+// module through modules.All. Error codes and permission names are public
+// API: add new ones, never change existing ones.
+func Module() gorbital.Module {
+	return gorbital.Module{
+		Name: ⟦quote .Package⟧,
+		Errors: []httpx.Mapping{
+			{Err: domain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+			{Err: domain.ErrInvalid⟦.Ident⟧, Status: http.StatusUnprocessableEntity, Code: "validation_failed", Detail: "the ⟦.Human⟧ is not valid"},
+			{Err: domain.Err⟦.Ident⟧NotFound, Status: http.StatusNotFound, Code: "⟦.Snake⟧_not_found", Detail: "no ⟦.Human⟧ has this ID"},
+⟦- range .Uniques⟧
+			{Err: domain.Err⟦$.Ident⟧⟦.Ident⟧Taken, Status: http.StatusConflict, Code: "⟦$.Snake⟧_⟦.Name⟧_taken", Detail: "⟦$.A⟧ ⟦$.Human⟧ with this ⟦.Human⟧ already exists"},
+⟦- end⟧
+			{Err: domain.Err⟦.Ident⟧VersionConflict, Status: http.StatusConflict, Code: "⟦.Snake⟧_version_conflict", Detail: "the ⟦.Human⟧ changed since you read it; get it again and retry"},
+		},
+		// Reading needs no permission, because reading needs no sign-in.
+		// Writing does: a public ⟦.Human⟧ is published by somebody.
+		Permissions: []gorbital.Permission{
+			{Name: usecase.PermWrite, Description: "Create, change and delete ⟦.PluralHuman⟧", Roles: []string{"user"}},
+		},
+⟦- else if .Custom⟧
+// Module returns the ⟦.PluralHuman⟧ module. main.go adds it with every other
+// module through modules.All. Error codes and permission names are public
+// API: add new ones, never change existing ones.
+func Module() gorbital.Module {
+	return gorbital.Module{
+		Name: ⟦quote .Package⟧,
+		Errors: []httpx.Mapping{
+			{Err: domain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
+			{Err: domain.ErrInvalid⟦.Ident⟧, Status: http.StatusUnprocessableEntity, Code: "validation_failed", Detail: "the ⟦.Human⟧ is not valid"},
+			{Err: domain.Err⟦.Ident⟧NotFound, Status: http.StatusNotFound, Code: "⟦.Snake⟧_not_found", Detail: "no ⟦.Human⟧ you may see has this ID"},
+⟦- range .Uniques⟧
+			{Err: domain.Err⟦$.Ident⟧⟦.Ident⟧Taken, Status: http.StatusConflict, Code: "⟦$.Snake⟧_⟦.Name⟧_taken", Detail: "⟦$.A⟧ ⟦$.Human⟧ with this ⟦.Human⟧ already exists"},
+⟦- end⟧
+			{Err: domain.Err⟦.Ident⟧VersionConflict, Status: http.StatusConflict, Code: "⟦.Snake⟧_version_conflict", Detail: "the ⟦.Human⟧ changed since you read it; get it again and retry"},
+			// Until policy.go is written, every request is refused with
+			// 501 rather than served: an unimplemented rule is not an
+			// open one.
+			{Err: gorbital.ErrNotImplemented, Status: http.StatusNotImplemented, Code: "not_implemented", Detail: "the ⟦.PluralHuman⟧ access policy isn't written yet"},
+		},
+		// The permission is the floor, not the rule: Policy decides who may
+		// see and change one ⟦.Human⟧ (policy.go).
+		Permissions: []gorbital.Permission{
+			{Name: usecase.PermRead, Description: "Ask for ⟦.PluralHuman⟧; the policy decides which ones", Roles: []string{"user"}},
+			{Name: usecase.PermWrite, Description: "Ask to change ⟦.PluralHuman⟧; the policy decides which ones", Roles: []string{"user"}},
 		},
 ⟦- else⟧
 // Module returns the ⟦.PluralHuman⟧ module. main.go adds it with every other
@@ -75,7 +138,15 @@ func Module() gorbital.Module {
 		Routes: func(r *gorbital.Router, d gorbital.Deps) {
 			// d is zero while the OpenAPI document is exported: the service
 			// is built, but no use case runs.
+⟦- if .Custom⟧
+			// Policy is the module's access rule, in policy.go. The store
+			// asks it which rows a list may return; the service asks it
+			// about every ⟦.Human⟧ it returns or changes.
+			policy := Policy{}
+			svc := usecase.NewService(repository.NewStore(d.DB, policy), policy, d.Audit, d.Logger)
+⟦- else⟧
 			svc := usecase.NewService(repository.NewStore(d.DB), d.Audit, d.Logger)
+⟦- end⟧
 			delivery.Register(r, svc)
 		},
 	}

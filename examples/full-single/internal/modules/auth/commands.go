@@ -10,9 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"example.com/acme-api/internal/modules/auth/domain"
-	"example.com/acme-api/internal/modules/auth/repository"
-	"example.com/acme-api/internal/modules/auth/usecase"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"gorbital.dev/actor"
@@ -20,6 +17,10 @@ import (
 	"gorbital.dev/modules/auditpg"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/postgres"
+
+	"example.com/acme-api/internal/modules/auth/domain"
+	"example.com/acme-api/internal/modules/auth/repository"
+	"example.com/acme-api/internal/modules/auth/usecase"
 )
 
 // Commands returns sign-in's commands, which gorbital.Main serves beside
@@ -200,7 +201,7 @@ func (a *Authenticator) runRotateAuthKeys(ctx context.Context, cfg gorbital.Conf
 // gorbital.LoadConfig and CheckConfig have refused an invalid or partial
 // configuration.
 func (a *Authenticator) runAuthProviders(_ context.Context, cfg gorbital.Config, _ []string, w io.Writer) error {
-	writeSignInMethods(w, cfg)
+	writeSignInMethods(w, cfg, a.opts)
 	return nil
 }
 

@@ -41,7 +41,7 @@ func bashBlock(t *testing.T, markdown, want string) []string {
 func TestNewPrintsTheStepsTheREADMEDoes(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	code, out, errOut := runOrb(t, "new", "shop-api", "--skip-tidy", "--no-git", "--preset", "full")
+	code, out, errOut := runOrb(t, "new", "shop-api", "--skip-tidy", "--no-git", "--preset", "full", "--local", repoAbs(t))
 	if code != 0 {
 		t.Fatalf("orb new --preset full = %d: %s", code, errOut)
 	}
@@ -66,8 +66,8 @@ func TestNewPrintsTheStepsTheREADMEDoes(t *testing.T) {
 // multi-tenant one its organisations, as its own code (v0.2.1): the
 // modules in internal/modules, their migrations in db/migrations, main.go
 // importing the copies and gorbital.lock recording them with the library's
-// hash, so orb doctor can say when the library changes. --no-eject keeps
-// them in the library.
+// hash, so orb doctor can say when the library changes.There is no flag
+// that keeps them in the library: an app has one shape (ADR-0092).
 func TestNewAppHoldsSignIn(t *testing.T) {
 	repo, err := filepath.Abs(repoRoot(t))
 	if err != nil {
@@ -75,21 +75,16 @@ func TestNewAppHoldsSignIn(t *testing.T) {
 	}
 	for _, tt := range []struct {
 		tenancy    string
-		noEject    bool
 		modules    []string
 		migrations []string
 	}{
-		{"single", false, []string{"auth"}, []string{"20260915000001_auth.sql", "20260918000070_auth_bans.sql"}},
-		{"multi", false, []string{"orgs", "auth"}, []string{"20260915000001_auth.sql", "20260916000001_orgs.sql", "20260918000002_settings_org_purge.sql"}},
-		{"multi", true, nil, nil},
+		{"single", []string{"auth"}, []string{"20260915000001_auth.sql", "20260918000070_auth_bans.sql"}},
+		{"multi", []string{"orgs", "auth"}, []string{"20260915000001_auth.sql", "20260916000001_orgs.sql", "20260918000002_settings_org_purge.sql"}},
 	} {
-		t.Run(fmt.Sprintf("%s no-eject=%v", tt.tenancy, tt.noEject), func(t *testing.T) {
+		t.Run(tt.tenancy, func(t *testing.T) {
 			dir := t.TempDir()
 			t.Chdir(dir)
 			args := []string{"new", "shop-api", "--module", "example.com/shop-api", "--preset", "full", "--tenancy", tt.tenancy, "--local", repo, "--skip-tidy", "--no-git", "--json"}
-			if tt.noEject {
-				args = append(args, "--no-eject")
-			}
 			code, out, errOut := runOrb(t, args...)
 			if code != 0 {
 				t.Fatalf("orb %v = %d: %s", args, code, errOut)
@@ -129,49 +124,48 @@ func TestNewAppHoldsSignIn(t *testing.T) {
 					t.Errorf("db/migrations lacks %s: %v", name, err)
 				}
 			}
-			if tt.noEject {
-				for _, m := range []string{"auth", "orgs"} {
-					if _, err := os.Stat(filepath.Join(app, "internal", "modules", m)); err == nil {
-						t.Errorf("--no-eject wrote internal/modules/%s", m)
-					}
-				}
-				for _, imp := range []string{`"gorbital.dev/gorbital/authhttp"`, `"gorbital.dev/gorbital/orgshttp"`} {
-					if !strings.Contains(main, imp) {
-						t.Errorf("with --no-eject main.go doesn't import %s:\n%s", imp, main)
-					}
-				}
-				if migrations, _ := filepath.Glob(filepath.Join(app, "db", "migrations", "*_auth*.sql")); len(migrations) > 0 {
-					t.Errorf("--no-eject copied sign-in's migrations %v", migrations)
-				}
-			}
 		})
 	}
 }
 
+// goldenApps are the three shapes orb new writes byte for byte: the
+// shapes the guides document (ADR-0090 §7). The other six are covered by
+// the create-build-vet-test matrix in CI, which has no golden app to
+// compare with.
+var goldenApps = []struct{ name, auth, scope string }{
+	{"full-multi", recipes.AuthFull, recipes.DefaultScopeName},
+	{"full-single", recipes.AuthFull, recipes.ScopeSingle},
+	{"api-basic", recipes.AuthBasic, recipes.ScopeNone},
+}
+
 // TestNewAppIsTheGoldenApp: orb new with the golden apps' name and module
-// writes the golden apps in examples/, sign-in and organisations included,
-// file for file. api/surface.json is left out: --skip-tidy doesn't record
-// it (go generate does, into both). When it fails after a change to a
-// library module or to a golden app, run go generate ./internal/recipes/.
+// writes the golden apps in examples/, sign-in and organisations
+// included, file for file — the demonstration module it generates and the
+// API artefacts it produces among them (ADR-0090 §5). When it fails after
+// a change to a library module or to a golden app, run
+// go generate ./internal/recipes/.
 func TestNewAppIsTheGoldenApp(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds and runs each golden app")
+	}
 	repo, err := filepath.Abs(repoRoot(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, tenancy := range []string{"single", "multi"} {
-		t.Run(tenancy, func(t *testing.T) {
+	for _, golden := range goldenApps {
+		t.Run(golden.name, func(t *testing.T) {
 			dir := t.TempDir()
 			t.Chdir(dir)
-			if code, _, errOut := runOrb(t, "new", generate.PlaceholderName, "--module", generate.PlaceholderModule, "--preset", "full", "--tenancy", tenancy, "--local", repo, "--skip-tidy", "--no-git"); code != 0 {
+			if code, _, errOut := runOrb(t, "new", generate.PlaceholderName, "--module", generate.PlaceholderModule, "--auth", golden.auth, "--scope", golden.scope, "--local", repo, "--no-git"); code != 0 {
 				t.Fatalf("orb new = %d: %s", code, errOut)
 			}
 			app := filepath.Join(dir, generate.PlaceholderName)
-			golden := filepath.Join(repo, "examples", "full-"+tenancy)
+			golden := filepath.Join(repo, "examples", golden.name)
 			tracked, ok, err := generate.GitFiles(t.Context(), golden)
 			if err != nil || !ok {
-				t.Skipf("examples/full-%s isn't in a git work tree (%v)", tenancy, err)
+				t.Skipf("%s isn't in a git work tree (%v)", golden, err)
 			}
-			skip := map[string]bool{"go.mod": true, "go.sum": true, "gorbital.lock": true, surfacePath: true}
+			skip := map[string]bool{"go.mod": true, "go.sum": true, "gorbital.lock": true}
 			written := map[string]bool{}
 			_ = filepath.WalkDir(app, func(p string, d fs.DirEntry, err error) error {
 				if err == nil && !d.IsDir() {
@@ -186,13 +180,13 @@ func TestNewAppIsTheGoldenApp(t *testing.T) {
 				}
 				want := readFile(t, filepath.Join(golden, filepath.FromSlash(rel)))
 				if got, err := os.ReadFile(filepath.Join(app, filepath.FromSlash(rel))); err != nil || string(got) != want {
-					t.Errorf("orb new wrote %s differently from examples/full-%s (%v); run go generate ./internal/recipes/", rel, tenancy, err)
+					t.Errorf("orb new wrote %s differently from %s (%v); run go generate ./internal/recipes/", rel, golden, err)
 				}
 				delete(written, rel)
 			}
 			for rel := range written {
 				if !skip[rel] {
-					t.Errorf("orb new wrote %s, which examples/full-%s lacks; run go generate ./internal/recipes/", rel, tenancy)
+					t.Errorf("orb new wrote %s, which %s lacks; run go generate ./internal/recipes/", rel, golden)
 				}
 			}
 		})

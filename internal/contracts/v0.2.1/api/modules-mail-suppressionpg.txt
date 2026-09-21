@@ -1,0 +1,39 @@
+pkg gorbital.dev/modules/mail/suppressionpg, const MaxEmailLength = 320
+pkg gorbital.dev/modules/mail/suppressionpg, const MaxEmailLength ideal-int
+pkg gorbital.dev/modules/mail/suppressionpg, const ReasonBounce = "bounce"
+pkg gorbital.dev/modules/mail/suppressionpg, const ReasonBounce Reason
+pkg gorbital.dev/modules/mail/suppressionpg, const ReasonComplaint = "complaint"
+pkg gorbital.dev/modules/mail/suppressionpg, const ReasonComplaint Reason
+pkg gorbital.dev/modules/mail/suppressionpg, func NewStore(*pgxpool.Pool) (*Store, error)
+pkg gorbital.dev/modules/mail/suppressionpg, method (*Store) Add(context.Context, ...Entry) ([]Suppression, error)
+pkg gorbital.dev/modules/mail/suppressionpg, method (*Store) AddOnce(context.Context, string, time.Time, ...Entry) ([]Suppression, error)
+pkg gorbital.dev/modules/mail/suppressionpg, method (*Store) List(context.Context, Filter) (Page, error)
+pkg gorbital.dev/modules/mail/suppressionpg, method (*Store) Remove(context.Context, int64) (Suppression, error)
+pkg gorbital.dev/modules/mail/suppressionpg, method (*Store) Suppressed(context.Context, []string) ([]string, error)
+pkg gorbital.dev/modules/mail/suppressionpg, type Entry struct
+pkg gorbital.dev/modules/mail/suppressionpg, type Entry struct, Detail string
+pkg gorbital.dev/modules/mail/suppressionpg, type Entry struct, Email string
+pkg gorbital.dev/modules/mail/suppressionpg, type Entry struct, Reason Reason
+pkg gorbital.dev/modules/mail/suppressionpg, type Entry struct, Source string
+pkg gorbital.dev/modules/mail/suppressionpg, type Filter struct
+pkg gorbital.dev/modules/mail/suppressionpg, type Filter struct, Cursor string
+pkg gorbital.dev/modules/mail/suppressionpg, type Filter struct, Limit int
+pkg gorbital.dev/modules/mail/suppressionpg, type Filter struct, Reason Reason
+pkg gorbital.dev/modules/mail/suppressionpg, type Page struct
+pkg gorbital.dev/modules/mail/suppressionpg, type Page struct, NextCursor string
+pkg gorbital.dev/modules/mail/suppressionpg, type Page struct, Suppressions []Suppression
+pkg gorbital.dev/modules/mail/suppressionpg, type Reason string
+pkg gorbital.dev/modules/mail/suppressionpg, type Store struct
+pkg gorbital.dev/modules/mail/suppressionpg, type Suppression struct
+pkg gorbital.dev/modules/mail/suppressionpg, type Suppression struct, CreatedAt time.Time
+pkg gorbital.dev/modules/mail/suppressionpg, type Suppression struct, Detail string
+pkg gorbital.dev/modules/mail/suppressionpg, type Suppression struct, Email string
+pkg gorbital.dev/modules/mail/suppressionpg, type Suppression struct, ID int64
+pkg gorbital.dev/modules/mail/suppressionpg, type Suppression struct, Reason Reason
+pkg gorbital.dev/modules/mail/suppressionpg, type Suppression struct, Source string
+pkg gorbital.dev/modules/mail/suppressionpg, type Suppression struct, UpdatedAt time.Time
+pkg gorbital.dev/modules/mail/suppressionpg, var ErrDuplicateDelivery error
+pkg gorbital.dev/modules/mail/suppressionpg, var ErrInvalidCursor error
+pkg gorbital.dev/modules/mail/suppressionpg, var ErrInvalidEntry error
+pkg gorbital.dev/modules/mail/suppressionpg, var ErrNotFound error
+pkg gorbital.dev/modules/mail/suppressionpg, var Migrations fs.FS

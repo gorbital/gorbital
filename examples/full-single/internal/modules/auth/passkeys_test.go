@@ -196,7 +196,7 @@ func TestWebAuthnConfiguration(t *testing.T) {
 	// The sign-in methods block names what's missing (ADR-0045).
 	cfg, _ := load(map[string]string{"WEBAUTHN_APPLE_APP_IDS": "ABCDE12345.com.example.app"})
 	var out bytes.Buffer
-	writeSignInMethods(&out, cfg)
+	writeSignInMethods(&out, cfg, options{})
 	for _, want := range []string{
 		"Sign-in methods", "✓ Email and password", "✓ Authenticator apps (2FA)", "✓ Passkeys in browsers", "RP ID localhost",
 		"✓ Passkeys in iOS apps", "ABCDE12345.com.example.app",
@@ -208,7 +208,7 @@ func TestWebAuthnConfiguration(t *testing.T) {
 	}
 	noKeys, _ := load(map[string]string{"APP_ENV": "production", "AUTH_ENCRYPTION_KEYS": testEncryptionKeys})
 	out.Reset()
-	writeSignInMethods(&out, noKeys)
+	writeSignInMethods(&out, noKeys, options{})
 	if !strings.Contains(out.String(), "– Passkeys in browsers") || !strings.Contains(out.String(), "set WEBAUTHN_RP_ID, WEBAUTHN_ORIGINS in .env") {
 		t.Errorf("WriteSignInMethods() in production without passkeys:\n%s", out.String())
 	}

@@ -13,15 +13,19 @@ import (
 )
 
 func TestLockRoundTrip(t *testing.T) {
-	preset, _ := recipes.LookupPreset("full", recipes.TenancyMulti)
+	preset, _ := recipes.LookupPreset("full", recipes.TenancySingle)
+	profile, err := recipes.ProfileFromTenancy(recipes.TenancyMulti)
+	if err != nil {
+		t.Fatal(err)
+	}
 	d := recipes.Data{Name: "shop-api", Module: "example.com/shop-api", Local: "/src/gorbital"}
 	files := []recipes.File{
 		{Path: "internal/app/app.go", SHA256: "b"},
 		{Path: "go.mod", SHA256: "g"},
 		{Path: ".env.example", SHA256: "a"},
 	}
-	want := newLock(preset, d, files)
-	if want.Inputs != (lockInputs{Name: "shop-api", Module: "example.com/shop-api", Preset: "full", Tenancy: "multi", Mail: "resend", Layout: recipes.LayoutV02}) {
+	want := newLock(preset, profile, d, files)
+	if want.Inputs != (lockInputs{Name: "shop-api", Module: "example.com/shop-api", Preset: "full", Tenancy: "multi", Mail: "resend", Layout: recipes.LayoutV02, Auth: recipes.AuthFull, Scope: recipes.DefaultScopeName}) {
 		t.Errorf("inputs = %+v", want.Inputs)
 	}
 	if paths := lockPaths(want); !slices.Equal(paths, []string{".env.example", "internal/app/app.go"}) {

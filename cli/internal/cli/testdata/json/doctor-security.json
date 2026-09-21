@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "app": "fixture-api",
+  "copies": [],
+  "findings": [
+    {
+      "rule": "credential-stored-unhashed",
+      "status": "fail",
+      "file": "db/migrations/{timestamp}_fixture.sql",
+      "line": 0,
+      "message": "{text}",
+      "why": "{text}",
+      "fix": "{text}",
+      "docs": "the-code-in-your-repo.md"
+    },
+    {
+      "rule": "credential-in-route-path",
+      "status": "warn",
+      "file": "internal/modules/fixture/delivery/routes.go",
+      "line": 0,
+      "message": "{text}",
+      "why": "{text}",
+      "fix": "{text}",
+      "docs": "modules-and-routes.md"
+    }
+  ],
+  "rules": [
+    {
+      "name": "credential-stored-unhashed",
+      "about": "{text}",
+      "docs": "the-code-in-your-repo.md"
+    },
+    {
+      "name": "password-without-kdf",
+      "about": "{text}",
+      "docs": "authentication.md"
+    }
+  ],
+  "checked": [
+    "{text}",
+    "{text}"
+  ],
+  "not_checked": [
+    "{text}",
+    "{text}"
+  ],
+  "failures": 0,
+  "warnings": 0
+}

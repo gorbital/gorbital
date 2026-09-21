@@ -8,12 +8,13 @@ package repository
 import (
 	"context"
 
-	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
-	orgsusecase "example.com/acme-api/internal/modules/orgs/usecase"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"gorbital.dev/modules/postgres"
+
+	orgsdomain "example.com/acme-api/internal/modules/orgs/domain"
+	orgsusecase "example.com/acme-api/internal/modules/orgs/usecase"
 )
 
 // Store implements the orgs use cases' storage port. It runs on the pool, or

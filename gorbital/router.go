@@ -125,8 +125,8 @@ func Customize(fn func(api huma.API, op *huma.Operation)) RouteOption {
 // (or 400) rather than 401 unauthenticated.
 //
 // It exists for code that must keep v0.1's order of responses, such as
-// sign-in's endpoints (gorbital.dev/gorbital/authhttp) and a module ejected
-// from them; new routes don't need it. Registration fails when the route is
+// sign-in's endpoints (gorbital.dev/gorbital/authhttp) and the copies of
+// them an app holds; new routes don't need it. Registration fails when the route is
 // public or has guards, which run before input parsing and would see a
 // request nobody authenticated.
 func AuthenticateAfterInput() RouteOption {
@@ -309,10 +309,12 @@ type registry struct {
 	paths      map[string]string // method and path with parameters blanked → module
 	limiters   map[string]sharedLimiter
 	refusals   metric.Int64Counter
-	// orgs authorizes guard.OrgMember; nil outside an app built by New
-	// with an organisations module. orgRoutes are the routes that use it.
-	orgs      OrgAuthorizer
-	orgRoutes []string
+	// scope and scopeAuth authorize guard.Scope; scopeAuth is nil outside
+	// an app built by New with a scope. scopeRoutes are the routes that
+	// use it.
+	scope       Scope
+	scopeAuth   ScopeAuthorizer
+	scopeRoutes []string
 }
 
 func newRegistry(api huma.API, mapper *httpx.Mapper, rateLimits *ratelimitpg.Store) *registry {

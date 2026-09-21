@@ -4,6 +4,78 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
+## v0.3.0 (2026-09-21)
+
+Tenancy becomes a contract your app fills in, sign-in becomes a choice, and a generated resource states its access rule instead of assuming one. The library is additive; the CLI removes two things.
+
+### Tenancy is yours to name
+
+#### Added
+
+- `gorbital.Scope` and `gorbital.ScopeAuthorizer`: the framework's tenancy is now five pieces of data your app supplies — the concept's name, the path parameter its ID arrives in, the code a refusal carries, whether an ID is well formed, and its roles — plus a one-method authorizer that decides membership ([Tenancy](docs/guides/tenancy.md), [ADR-0088](docs/adr/0088-scope-tenancy-as-a-contract.md)). Your API can say `/v1/merchants/{merchantId}/orders` and refuse with `merchant_not_found`. **The framework never learns your table names and never queries them**; membership lives behind the authorizer, in one function you write.
+- `gorbital.WithScope`, `Platform.SetScope`, `gorbital.ErrScopeNotFound`, `gorbital.ScopeRole`, `gorbital.ScopeGrants`, `Permission.ScopeRoles`, `guard.Scope` and `postgres.WithScope`.
+- `orgshttp.DefaultScope` supplies the organisation vocabulary, and `orgshttp.ScopeName` mounts the same organisations module under your own words: it changes the paths, the path parameter, the refusal code and the OpenAPI tag, and deliberately changes no table, migration, permission or role name.
+- `orgshttp.Module` takes an `Identity` interface instead of `*authhttp.Authenticator`, so organisations work with whatever authenticates the app. `orgshttp.WithoutServiceAccounts` is for an identity that cannot issue API keys.
+
+#### Changed
+
+- `guard.OrgMember`, `OrgAuthorizer`, `Platform.SetOrgAuthorizer` and `Permission.OrgRoles` are the older names of the four above. They keep working for all of v0.x and carry no `Deprecated` marker, so `staticcheck` does not fail the build of an app that already uses them.
+- `actor.Actor.OrgID` and the row-level-security session setting `gorbital.org_id` keep their names. Both now mean *the scope*; renaming either would change what already-stored audit rows and live policies mean.
+
+### Sign-in is a choice
+
+#### Added
+
+- `authhttp.Methods` gates sign-in by method: password (13 operations), operators (16), TOTP (5), passkeys (9), social (12) and API keys (19 including organisation service accounts). A disabled method registers no routes, declares no settings, jobs, limiters or permissions, and appears in no OpenAPI document; its paths answer 404, never 401 ([Sign-in profiles](docs/adr/0089-sign-in-profiles.md)).
+
+#### Unchanged on purpose
+
+- A method that is off keeps its migrations. The tables exist and stay empty, so turning the method on later is a line in `main.go` and not a migration applied out of order.
+
+### A resource states its access rule
+
+#### Added
+
+- `orb gen module --scope user|tenant|public|custom` ([Resource access](docs/guides/resource-access.md), [ADR-0091](docs/adr/0091-resource-access-policies.md)). `custom` writes a `policy.go` into the module as your file, with `CanRead`, `CanWrite` and `Filter` returning `gorbital.ErrNotImplemented`, which the module maps to 501: an unwritten rule refuses rather than serving every row. The generator adds no implicit tenant filter and no tenant column.
+- `orb routes` gains a scope column. `orb doctor` names `tenant` modules whose generated repository queries have lost the tenant column, and `custom` modules whose policy is unimplemented — a static check over generated files, which the output says.
+- Generated isolation tests for `user` and `tenant`, in your app's own vocabulary.
+
+#### Changed
+
+- `--scope org` is the older name of `--scope tenant` and still works. `--json` reports the canonical `tenant`.
+
+### A copy that knows what it is missing
+
+Since v0.2.1 `orb new` writes sign-in and organisations into the app as the app's own code, so a fix in the library does not reach them with `go get`. This is the other half of that trade ([ADR-0092 §7](docs/adr/0092-what-the-framework-owns.md)).
+
+#### Added
+
+- **`orb doctor --security`** ([The code in your repo](docs/guides/the-code-in-your-repo.md#orb-doctor---security)). For each module `gorbital.lock` records as copied from the library, it fetches the version the copy was made from and reports: whether that version's source still hashes to what the lock recorded, how many of the files your app holds changed upstream and which of them, how many you have changed yourself so that porting is a merge rather than a copy, the files the library has gained since, the changelog entries naming the package by release, and the `diff -ru` to run. It then runs seven static rules over your own Go syntax trees and the SQL in `db/migrations`: `credential-stored-unhashed`, `password-without-kdf`, `secret-compared-directly`, `weak-random-secret`, `scope-query-without-soft-delete`, `credential-in-route-path` and `secret-in-log`, each with the file, the line, why it matters, the fix and a guide. `--json` like the rest of `orb doctor`; exit code 1 when something failed.
+- **It cannot tell you whether a change upstream is a security fix**, and says so. gorbital publishes no advisory feed, so there are no advisory IDs and no severities; the sign-in flow it may name beside a changed file is read from the file's name and labelled a hint. Every run ends by listing what it checked and what it did not, because a clean run is not an assurance. No finding prints a value it found — only where it is and what it is called.
+
+### Removed
+
+- **`orb eject`.** `orb new` has written sign-in and organisations into the app since v0.2.1, so the command answers a question nobody has ([ADR-0092](docs/adr/0092-what-the-framework-owns.md)). The name stays registered for this release and explains itself rather than failing as an unknown command; the copy machinery underneath still runs for `orb new`, `orb add orgs` and `orb upgrade --layout v0.2`.
+- **`orb new --no-eject`.** There was one shape of Full app and one flag that asked for a second; now there is only the first.
+- `opshttp`, `flagshttp` and `mailevents` can no longer be copied into an app. They are plumbing, not business rules.
+
+### The example applications moved
+
+- The showcase applications live in [github.com/gorbital/examples](https://github.com/gorbital/examples), tagged in step with the library ([ADR-0093](docs/adr/0093-the-examples-repository.md)). Their history moved with them and this repository's CI no longer builds them.
+- `examples/minimal`, `examples/full-single`, `examples/full-multi`, `examples/v0.1/*` and `examples/shelfie` stay: they are not documentation but the source the CLI's templates are generated from and compared against.
+- A page includes their code by marker as before; `scripts/examples.sh` fetches the ref `docs/examples.json` pins, and `docscheck` fails when it is missing or stale.
+
+### Documentation
+
+#### Added
+
+- [Tenancy](docs/guides/tenancy.md), [Access control](docs/guides/access-control.md) and [Resource access](docs/guides/resource-access.md).
+- ADRs [0088](docs/adr/0088-scope-tenancy-as-a-contract.md), [0089](docs/adr/0089-sign-in-profiles.md), [0090](docs/adr/0090-composing-presets.md), [0091](docs/adr/0091-resource-access-policies.md), [0092](docs/adr/0092-what-the-framework-owns.md), [0093](docs/adr/0093-the-examples-repository.md), and the [v0.3.0 roadmap](docs/v0.3-roadmap.md).
+
+#### Fixed
+
+- `refdocs` recorded new identifiers as arriving in `v0.2.0`, frozen two releases ago.
+
 ## v0.2.1 (2026-09-18)
 
 A new app now carries its own sign-in and organisations. Existing apps are unchanged.
@@ -12,7 +84,7 @@ A new app now carries its own sign-in and organisations. Existing apps are uncha
 
 #### Changed
 
-- `orb new --preset full` puts the whole sign-in module in the app, at `internal/modules/auth`, and with `--tenancy multi` the whole organisations module too, at `internal/modules/orgs` — every file, every test and every migration, in `db/migrations`. You can read exactly what registration, login, email verification, password reset, sessions, two-factor authentication and the organisation process do, and change them. It is what `orb eject` already did, now done for you when the app is created ([Ejecting a module](docs/guides/ejecting-a-module.md)).
+- `orb new --preset full` puts the whole sign-in module in the app, at `internal/modules/auth`, and with `--tenancy multi` the whole organisations module too, at `internal/modules/orgs` — every file, every test and every migration, in `db/migrations`. You can read exactly what registration, login, email verification, password reset, sessions, two-factor authentication and the organisation process do, and change them. It is what `orb eject` already did, now done for you when the app is created ([The code in your repo](docs/guides/the-code-in-your-repo.md)).
 - The HTTP API, the database and the behaviour are the same as an app that imports the modules from the library.
 - What moves is the flows — handlers, use cases, repositories and migrations. The primitives they call stay in the library: Argon2id password hashing, session tokens, TOTP, passkey and OAuth/OIDC verification (`gorbital.dev/modules/auth`) and organisation authorisation (`gorbital.dev/modules/orgs`), so fixes to those still reach you with `go get`. A fix to a flow you own does not: `orb doctor` reports each module the app owns and warns when the library's version of it has changed, quoting the changelog.
 - `orb new --no-eject` keeps sign-in and organisations in the library, as in v0.2.0.
@@ -153,7 +225,7 @@ New decision records for the line: [ADR-0081](docs/adr/0081-a-framework-you-impo
 #### Added
 
 - New Full apps on the new layout ([ADR-0083](docs/adr/0083-modules-stack-migrations-and-ejection.md#phase-9-implementation-notes-new-apps-on-the-v02-layout-2026-09-17)): `orb new --preset full` writes an app on `gorbital.Main`, generated from the ported golden apps `examples/full-single` and `examples/full-multi`: `cmd/api/main.go` with `authhttp`, `opshttp`, `flagshttp`, `mailevents` (and `orgshttp`), the email provider and file storage in `cmd/api`, the `projects` module as `orb gen module` writes it and a `ping` module with a runtime setting and a feature flag, tests through `gorbitaltest`, and `api/surface.json` recording only the app's own names. v0.1 apps keep their layout: the v0.1-layout golden apps move to `examples/v0.1`, `gorbital.lock` records `layout`, and `orb upgrade`, `orb add orgs` and `orb add mail` use the templates of the app's own layout (`orb upgrade --json` and `orb add orgs --json` gain `layout`). In the new layout `orb add mail` replaces `cmd/api/mail.go`, and `orb add storage`, `orb add rls` and `orb add orgs` work. [Getting started](docs/start/quickstart.md) rewritten for the new layout.
-- `orb eject <auth|flags|mailevents|ops|orgs>` ([ADR-0083](docs/adr/0083-modules-stack-migrations-and-ejection.md#phase-9-implementation-notes-orb-eject-2026-09-17), guide: [Ejecting a module](docs/guides/ejecting-a-module.md), [CLI](docs/guides/cli.md#orb-eject)): copies a built-in module, at the `gorbital.dev/gorbital` version the app builds with, into `internal/modules/<module>` as layered code the app owns, with its tests; changes the app's imports of the package (its name, options and hooks kept), copies its migrations into `db/migrations` under the same versions, records the ejection in `gorbital.lock` (field `ejected`) and runs `go mod tidy`; `--dry-run`, `--diff`, `--json`, `--allow-dirty`, `--skip-tidy`. The API, database and behaviour don't change. `orb gen modules` doesn't list ejected modules; `orb doctor` reports each (`ejected`) and warns when the library's package changed since, quoting the changelog; `orb upgrade` keeps them. `orb eject` records `api/surface.json` again after copying a module: its error codes and audit actions are the app's own names from then on, which the app's `TestPublicSurface` compares.
+- `orb eject <auth|flags|mailevents|ops|orgs>` ([ADR-0083](docs/adr/0083-modules-stack-migrations-and-ejection.md#phase-9-implementation-notes-orb-eject-2026-09-17), guide: [The code in your repo](docs/guides/the-code-in-your-repo.md)): copies a built-in module, at the `gorbital.dev/gorbital` version the app builds with, into `internal/modules/<module>` as layered code the app owns, with its tests; changes the app's imports of the package (its name, options and hooks kept), copies its migrations into `db/migrations` under the same versions, records the ejection in `gorbital.lock` (field `ejected`) and runs `go mod tidy`; `--dry-run`, `--diff`, `--json`, `--allow-dirty`, `--skip-tidy`. The API, database and behaviour don't change. `orb gen modules` doesn't list ejected modules; `orb doctor` reports each (`ejected`) and warns when the library's package changed since, quoting the changelog; `orb upgrade` keeps them. `orb eject` records `api/surface.json` again after copying a module: its error codes and audit actions are the app's own names from then on, which the app's `TestPublicSurface` compares.
 - `orb upgrade --layout v0.2` ([ADR-0083](docs/adr/0083-modules-stack-migrations-and-ejection.md#phase-9-implementation-notes-orb-upgrade---layout-v02-2026-09-17), docs: [Upgrading apps](docs/start/upgrading.md#move-to-the-v02-layout), recipe [Upgrading a v0.1 app](docs/examples/recipes/upgrading-a-v0.1-app.md)): the opt-in move of a v0.1 app to the new layout. Generated code the app never changed is deleted and the library runs it; a built-in module it changed is kept as the app's own code, copied like `orb eject` with the change placed in the library's file and recorded in `gorbital.lock`; the app's own modules stay in `internal/modules`, their `huma.Register` calls becoming `gorbital` routes (or `operation.Register`) and their error mappings and permissions moving into each `Module` value; middleware added to `internal/app/routes.go` becomes `gorbital.WithStack` in `main.go`, with its files moved to `cmd/api`. `db/migrations` is untouched, so a database the v0.1 app migrated has nothing to apply, and the OpenAPI document only gains `x-gorbital-guards`. The app gets `UPGRADE-v0.2.md`; changes orb can't make stop the move unless `--allow-manual` keeps them under `_upgrade-v0.1/`. Flags: `--dry-run`, `--diff`, `--json`, `--allow-dirty`, `--allow-manual`, `--yes`, `--no-input`, `--skip-tidy`, `--skip-build`.
 
 #### Changed

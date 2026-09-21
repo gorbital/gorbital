@@ -16,7 +16,7 @@ The URL names a server, not a database: every test gets a new `pgtest_…` datab
 
 ## An app per test
 
-<!-- include examples/apps/shelfie/internal/modules/books/books_test.go#new-app -->
+<!-- include examples/shelfie/internal/modules/books/books_test.go#new-app -->
 
 `gorbitaltest.New` takes the options your `main.go` passes to `gorbital.Main`. For each test it:
 
@@ -29,7 +29,7 @@ It takes about 0.2 s on a laptop, so every test can have its own app. Don't mark
 
 ## Requests
 
-<!-- include examples/apps/shelfie/internal/modules/books/books_test.go#create-and-read -->
+<!-- include examples/shelfie/internal/modules/books/books_test.go#create-and-read -->
 
 | Call | Sends |
 |---|---|
@@ -79,7 +79,7 @@ bob, _ := app.SignUp(t, "bob@example.com")
 
 `res.Status`, `res.Header` and `res.Body` are there for anything else.
 
-<!-- include examples/apps/shelfie/internal/modules/books/books_test.go#protection -->
+<!-- include examples/shelfie/internal/modules/books/books_test.go#protection -->
 
 Test deny by default for every module: a route that should need sign-in answers 401 to `app.Client()`, and one that needs a permission answers 403 to a caller without it.
 
@@ -92,7 +92,7 @@ Background workers don't run in tests, so nothing is delivered. What the app que
 | `app.Mail(t)` | Every email modules sent through `Deps.Mailer`, oldest first, with the sender filled in from the `mail.*` settings |
 | `app.Jobs(t, kind)` | Every job of `kind` enqueued through `Deps.Jobs`, oldest first, with its JSON arguments; `""` for all |
 
-<!-- include examples/apps/shelfie/internal/modules/books/books_test.go#mail-and-jobs -->
+<!-- include examples/shelfie/internal/modules/books/books_test.go#mail-and-jobs -->
 
 To test what a job does, call its worker's `Work` directly in a test of its package.
 

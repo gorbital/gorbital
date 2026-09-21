@@ -76,15 +76,27 @@ The [Quickstart](docs/start/quickstart.md) walks through it with the real output
 - **Plain Go.** Standard `net/http` and `log/slog`, constructors instead of a DI container, no reflection wiring. You give up the conveniences of a heavier framework.
 - **PostgreSQL only.** Jobs, sessions, rate limits, settings and audit logs live there too. There's no Redis, Kafka or SaaS to run. No MySQL, no SQLite: if that rules you out, it rules you out.
 - **You own the code.** A layered structure with one folder per domain module. `orb upgrade` merges template changes on a branch and never overwrites your edits silently. You also maintain what's generated.
-- **Flows in your repository, primitives in the library.** The sign-in and organisation flows are generated into `internal/modules/auth` and `internal/modules/orgs`, where you can read and change them. Argon2id passwords, session tokens, OAuth, TOTP and passkeys are versioned library packages that code calls, so upgrading the library brings their fixes; `orb doctor` tells you when a flow you own changed upstream.
+- **Three layers, and only the first is ours.** Argon2id passwords, session tokens, OAuth, TOTP and passkeys are versioned library packages, and no command moves them into your app: that is the one place a small change is a security hole you cannot see. The sign-in and organisation *flows* are written into `internal/modules/auth` and `internal/modules/orgs`, where you read and change them. What a role means, what a tenant is and who may do what are yours alone, and are not in the library at all. `orb doctor --security` tells you when a flow you own has a fix waiting upstream.
+- **Your tenant, your word.** Tenancy is a contract you fill in — its name, its path parameter, its ID format, its roles — so your API says `/v1/merchants/{merchantId}/orders` and refuses with `merchant_not_found`. The framework never learns your table names and never queries them. Organisations are the implementation we supply, not the model you inherit.
 - **Operations from day one.** Health and readiness checks, OpenTelemetry, Prometheus metrics, runtime settings, feature flags, maintenance mode, incidents and an ops API guarded by roles and 2FA.
 
 ## Presets
 
+```bash
+orb new shop-api    --auth basic --scope merchant     # password sign-in, merchants own the data
+orb new catalog-api --auth none  --scope none         # a public API: no users, no auth tables
+orb new club-api    --auth basic --scope custom       # your own membership rules from commit one
+orb new saas-api    --auth full  --scope organisation # everything
+```
+
 | Preset | What you get |
 |---|---|
 | **Minimal** | HTTP server, configuration, structured logs, tracing, health checks, security headers, OpenAPI docs, development-only dev console APIs. No database. |
-| **Full** | Everything in Minimal, plus PostgreSQL, background jobs, email through Resend or SMTP, sign-in with email and password, Google, Apple and GitHub, 2FA, passkeys, roles and permissions, API keys and service accounts, runtime settings, feature flags, idempotency keys, file storage, audit logs, live observability and incidents, and the ops API. With `--tenancy multi`: organisations, members, invitations and optional row-level security. |
+| **Full** | Everything in Minimal, plus PostgreSQL, background jobs, email through Resend or SMTP, roles and permissions, runtime settings, feature flags, idempotency keys, file storage, audit logs, live observability and incidents, and the ops API. |
+
+`--auth` decides how much sign-in a Full app gets: `none` (no users, no auth tables), `basic` (email and password, sessions, operators — 29 endpoints) or `full` (and 2FA, passkeys, Google, Apple, GitHub, API keys and service accounts — 74).
+
+`--scope` decides what owns the data: `none`, `single` (users), `custom` (your tables and your rules), or a name of your own, which mounts organisations under that word with members, invitations and optional row-level security.
 
 ## Modules
 

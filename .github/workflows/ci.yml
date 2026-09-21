@@ -52,7 +52,7 @@ jobs:
       fail-fast: false
       matrix:
         go: ["1.26.x", "1.27.x"]
-        module: [".", modules/auditpg, modules/auth, modules/devconsole, modules/flags, modules/idempotency, modules/jobs, modules/jwt, modules/mail/resend, modules/mail/smtp, modules/mail/suppressionpg, modules/observability, modules/openapi, modules/orgs, modules/postgres, modules/ratelimitpg, modules/releases, modules/settings, modules/storage, modules/telemetry, gorbital, cli, examples/full-multi, examples/full-single, examples/minimal, examples/v0.1/full-multi, examples/v0.1/full-single, internal/tools/apicheck, internal/tools/docscheck, internal/tools/refdocs]
+        module: [".", modules/auditpg, modules/auth, modules/devconsole, modules/flags, modules/idempotency, modules/jobs, modules/jwt, modules/mail/resend, modules/mail/smtp, modules/mail/suppressionpg, modules/observability, modules/openapi, modules/orgs, modules/postgres, modules/ratelimitpg, modules/releases, modules/settings, modules/storage, modules/telemetry, gorbital, cli, examples/full-multi, examples/full-single, examples/minimal, examples/shelfie, examples/v0.1/full-multi, examples/v0.1/full-single, internal/tools/apicheck, internal/tools/docscheck, internal/tools/refdocs]
     defaults:
       run:
         working-directory: ${{ matrix.module }}
@@ -79,13 +79,15 @@ jobs:
   lint:
     name: lint ${{ matrix.module }}
     runs-on: ubuntu-latest
+    # examples/shelfie is a test fixture, not a template source: the cli
+    # module compares orb gen module's output against it (examples/README.md).
     # examples/v0.1/* are frozen: they generate the v0.1 templates, and
     # orb upgrade --layout v0.2 refuses an app that doesn't match them byte
     # for byte (ADR-0083). They are built and tested, never linted.
     strategy:
       fail-fast: false
       matrix:
-        module: [".", modules/auditpg, modules/auth, modules/devconsole, modules/flags, modules/idempotency, modules/jobs, modules/jwt, modules/mail/resend, modules/mail/smtp, modules/mail/suppressionpg, modules/observability, modules/openapi, modules/orgs, modules/postgres, modules/ratelimitpg, modules/releases, modules/settings, modules/storage, modules/telemetry, gorbital, cli, examples/full-multi, examples/full-single, examples/minimal, internal/tools/apicheck, internal/tools/docscheck, internal/tools/refdocs]
+        module: [".", modules/auditpg, modules/auth, modules/devconsole, modules/flags, modules/idempotency, modules/jobs, modules/jwt, modules/mail/resend, modules/mail/smtp, modules/mail/suppressionpg, modules/observability, modules/openapi, modules/orgs, modules/postgres, modules/ratelimitpg, modules/releases, modules/settings, modules/storage, modules/telemetry, gorbital, cli, examples/full-multi, examples/full-single, examples/minimal, examples/shelfie, internal/tools/apicheck, internal/tools/docscheck, internal/tools/refdocs]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -151,14 +153,19 @@ jobs:
         working-directory: cli
         run: |
           go generate ./internal/recipes/
-          git diff --exit-code -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2 ../examples/full-single ../examples/full-multi
-          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.2 ../examples/full-single ../examples/full-multi)"
+          git diff --exit-code -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.3 ../examples/full-single ../examples/full-multi ../examples/api-basic
+          test -z "$(git status --porcelain -- internal/recipes/minimal internal/recipes/full internal/recipes/full-multi internal/recipes/v0.3 ../examples/full-single ../examples/full-multi ../examples/api-basic)"
       - name: exported Go API matches the listings in api/ (ADR-0054)
         run: go run -C internal/tools/apicheck .
       - name: docs/reference matches the golden apps' error codes, audit actions, permissions, settings and jobs
         run: go run -C internal/tools/refdocs .
       - name: docs/methods matches the library's doc comments and Example functions; exported API is documented
         run: go run -C internal/tools/refdocs . -methods
+      # The showcase applications the pages include code from are in their
+      # own repository now (ADR-0093); docscheck resolves a marker under
+      # examples/apps/ against this checkout of it.
+      - name: fetch the examples repository at the ref docs/examples.json pins
+        run: scripts/examples.sh
       - name: docs links, includes and docs/docs.json resolve
         run: go run -C internal/tools/docscheck .
       - name: api/openapi.json matches examples/minimal code
@@ -173,6 +180,11 @@ jobs:
           git diff --exit-code -- api/openapi.json
       - name: api/openapi.json matches examples/full-multi code
         working-directory: examples/full-multi
+        run: |
+          go run ./cmd/api openapi > api/openapi.json
+          git diff --exit-code -- api/openapi.json
+      - name: api/openapi.json matches examples/api-basic code
+        working-directory: examples/api-basic
         run: |
           go run ./cmd/api openapi > api/openapi.json
           git diff --exit-code -- api/openapi.json
@@ -195,7 +207,7 @@ jobs:
       - name: govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
-          for m in . modules/auditpg modules/auth modules/devconsole modules/flags modules/idempotency modules/jobs modules/jwt modules/mail/resend modules/mail/smtp modules/mail/suppressionpg modules/observability modules/openapi modules/orgs modules/postgres modules/ratelimitpg modules/releases modules/settings modules/storage modules/telemetry gorbital cli examples/full-multi examples/full-single examples/minimal examples/v0.1/full-multi examples/v0.1/full-single internal/tools/apicheck internal/tools/docscheck internal/tools/refdocs; do
+          for m in . modules/auditpg modules/auth modules/devconsole modules/flags modules/idempotency modules/jobs modules/jwt modules/mail/resend modules/mail/smtp modules/mail/suppressionpg modules/observability modules/openapi modules/orgs modules/postgres modules/ratelimitpg modules/releases modules/settings modules/storage modules/telemetry gorbital cli examples/full-multi examples/full-single examples/minimal examples/shelfie examples/v0.1/full-multi examples/v0.1/full-single internal/tools/apicheck internal/tools/docscheck internal/tools/refdocs; do
             echo "== $m"
             (cd "$m" && govulncheck ./...)
           done
@@ -260,22 +272,27 @@ jobs:
           ORB_COMPAT_PUBLISHED: "1"
         run: go test -run TestScaffoldCompatibility -count=1 -timeout 30m -v ./internal/cli/
 
-  secrets:
-    name: secret scan
+  profiles:
+    name: orb new --auth ${{ matrix.auth }} --scope ${{ matrix.scope }}
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: gitleaks
-        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --redact --no-banner
-
-  example-apps:
-    name: example apps
-    runs-on: ubuntu-latest
-    # The apps in examples/apps whose code the docs' Examples tab includes
-    # (examples/apps/README.md). Passes when there are none.
+    # The nine shapes orb new can create (ADR-0090 §2). Three of them have
+    # a golden app the generated/ job compares byte for byte; the other six
+    # have none, so this job creates, builds, vets and tests each one
+    # instead. Golden files are for the shapes we document; the matrix is
+    # for the shapes we support.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { auth: none, scope: none }
+          - { auth: basic, scope: none }
+          - { auth: basic, scope: single }
+          - { auth: basic, scope: custom }
+          - { auth: basic, scope: organisation }
+          - { auth: full, scope: none }
+          - { auth: full, scope: single }
+          - { auth: full, scope: custom }
+          - { auth: full, scope: organisation }
     services:
       postgres:
         image: postgres:18
@@ -290,22 +307,8 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
-      mailpit:
-        image: axllent/mailpit:v1.27
-        ports:
-          - 1025:1025
-          - 8025:8025
-        options: >-
-          --health-cmd "/mailpit readyz"
-          --health-interval 2s
-          --health-timeout 3s
-          --health-retries 30
     env:
       GORBITAL_TEST_DATABASE_URL: postgres://gorbital:gorbital@localhost:5432/gorbital?sslmode=disable
-      GORBITAL_REQUIRE_DB: "1"
-      GORBITAL_TEST_MAILPIT_SMTP: localhost:1025
-      GORBITAL_TEST_MAILPIT_URL: http://localhost:8025
-      GORBITAL_REQUIRE_MAILPIT: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -314,32 +317,42 @@ jobs:
         with:
           go-version: "1.26.x"
           cache-dependency-path: "**/go.sum"
-      - name: gofmt, vet, build and test every app in examples/apps
+      - name: create the app
         run: |
-          shopt -s nullglob
-          mods=(examples/apps/*/go.mod)
-          if [ ${#mods[@]} -eq 0 ]; then
-            echo "no example apps in examples/apps yet"
-            exit 0
+          go build -C cli -o "$RUNNER_TEMP/orb" ./cmd/orb
+          mkdir -p "$RUNNER_TEMP/apps"
+          cd "$RUNNER_TEMP/apps"
+          "$RUNNER_TEMP/orb" new profile-api --auth "${{ matrix.auth }}" --scope "${{ matrix.scope }}" \
+            --local "$GITHUB_WORKSPACE" --no-git --no-input
+      - name: build and vet it
+        working-directory: ${{ runner.temp }}/apps/profile-api
+        run: |
+          go build ./...
+          go vet ./...
+      # A custom scope is generated red on purpose: its authorizer returns
+      # gorbital.ErrNotImplemented until the app writes the rule, and its
+      # test says so (ADR-0091's --scope custom, roadmap item 53). Every
+      # other package must pass.
+      - name: run its tests
+        working-directory: ${{ runner.temp }}/apps/profile-api
+        run: |
+          if [ "${{ matrix.scope }}" = custom ]; then
+            go test $(go list ./... | grep -v /internal/modules/scope)
+            ! go test ./internal/modules/scope
+          else
+            go test ./...
           fi
-          status=0
-          for mod in "${mods[@]}"; do
-            dir=$(dirname "$mod")
-            echo "::group::$dir"
-            if ! (
-              cd "$dir" &&
-              unformatted=$(gofmt -l .) &&
-              { [ -z "$unformatted" ] || { echo "not gofmt-formatted: $unformatted"; false; }; } &&
-              go vet ./... &&
-              go build ./... &&
-              go test -race -timeout 40m ./...
-            ); then
-              echo "::error::$dir failed"
-              status=1
-            fi
-            echo "::endgroup::"
-          done
-          exit $status
+
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: gitleaks
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --redact --no-banner
 
   contracts:
     name: frozen v0.1.0 contracts

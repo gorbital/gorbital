@@ -1,0 +1,5 @@
+{
+  "repository": "https://github.com/gorbital/examples",
+  "ref": "v0.3.0",
+  "note": "The showcase applications the Examples and Build an app pages include code from (ADR-0093). A path a page writes as examples/apps/<app>/... is <app>/... in that repository. Run scripts/examples.sh to fetch this ref into .examples, which docscheck and the docs site's build both read. The ref is tagged in lockstep with the library's release, so bump it in the same pull request as the library's version."
+}

@@ -190,8 +190,8 @@ func TestOrgMemberNeedsOrganisations(t *testing.T) {
 		modules []gorbital.Module
 		want    string
 	}{
-		{"no organisations module", []gorbital.Module{booksInOrgs()}, "guard.OrgMember on GET /v1/orgs/{orgId}/books needs organisations"},
-		{"two authorizers", []gorbital.Module{booksInOrgs(), orgsModule("orgs", fakeOrgs{}), orgsModule("more_orgs", fakeOrgs{})}, "already has an organisation authorizer"},
+		{"no organisations module", []gorbital.Module{booksInOrgs()}, "guard.Scope on GET /v1/orgs/{orgId}/books needs a scope"},
+		{"two authorizers", []gorbital.Module{booksInOrgs(), orgsModule("orgs", fakeOrgs{}), orgsModule("more_orgs", fakeOrgs{})}, "the app already has a scope"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			url := pgtest.NewDatabase(t)

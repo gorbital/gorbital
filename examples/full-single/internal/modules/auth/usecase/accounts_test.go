@@ -10,13 +10,14 @@ import (
 	"testing"
 	"time"
 
-	authdomain "example.com/acme-api/internal/modules/auth/domain"
-	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 	"gorbital.dev/actor"
 	"gorbital.dev/config"
 	authlib "gorbital.dev/modules/auth"
 	"gorbital.dev/modules/auth/social"
 	"gorbital.dev/modules/auth/social/socialtest"
+
+	authdomain "example.com/acme-api/internal/modules/auth/domain"
+	authusecase "example.com/acme-api/internal/modules/auth/usecase"
 )
 
 func TestRegisterVerifyLogin(t *testing.T) {

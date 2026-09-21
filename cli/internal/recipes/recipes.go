@@ -1,16 +1,20 @@
 // Package recipes renders the project templates used by orb new.
 //
-// Each preset's templates are generated from a hand-written golden app by
-// `go generate`: minimal/ from examples/minimal; v0.2/full/ and
-// v0.2/full-multi/, the layout orb new writes (apps on gorbital.Main,
-// ADR-0083), from examples/full-single and examples/full-multi; and full/
-// and full-multi/, the v0.1 layout that v0.1 apps keep, from
+// Each tree of templates is generated from a hand-written golden app by
+// `go generate`: minimal/ from examples/minimal; v0.3/, the layout orb
+// new writes (apps on gorbital.Main, ADR-0083), from examples/full-multi;
+// and full/ and full-multi/, the v0.1 layout that v0.1 apps keep, from
 // examples/v0.1/full-single and examples/v0.1/full-multi (ADR-0041,
-// ADR-0048). Never edit them by hand.
+// ADR-0048). Never edit them by hand — except the hand-written part of
+// v0.3/, which lives in gen/tree/ and is copied over the generated one.
+//
+// One tree serves every shape: manifest.yaml says which features each
+// path belongs to, and Profile.Render writes the ones the app asked for
+// (ADR-0090).
 //
 // The golden Full apps show what orb new writes, sign-in and organisations
-// included (v0.2.1); the v0.2 templates hold neither, and orb new copies
-// them in from the library version the app requires (Preset.Ejects). go
+// included (v0.2.1); the templates hold neither, and orb new copies
+// them in from the library version the app requires (Profile.Copies). go
 // generate takes them out of the golden apps and puts them back from the
 // checkout (./gen).
 package recipes
@@ -37,7 +41,7 @@ import (
 // templatesFS holds this directory's preset and email templates, laid out
 // like an older release's cli/internal/recipes (ADR-0050).
 //
-//go:embed all:minimal all:full all:full-multi all:v0.2 mail/*.tmpl
+//go:embed all:minimal all:full all:full-multi all:v0.3 mail/*.tmpl
 var templatesFS embed.FS
 
 // Recipe identities: the names of the preset template trees.
@@ -46,7 +50,7 @@ const (
 	FullName      = "base-full"
 	FullMultiName = "base-full-multi"
 	// LibraryVersion is the gorbital library version generated apps require.
-	LibraryVersion = "v0.2.1"
+	LibraryVersion = "v0.3.0"
 )
 
 // App layouts. A layout is how an app's code is organised, and which
@@ -116,8 +120,10 @@ type EjectedModule struct {
 // Dir returns the module's directory in the app, slash-separated.
 func (m EjectedModule) Dir() string { return "internal/modules/" + m.Name }
 
-// Ejects returns the built-in modules orb new copies into an app of the
-// preset, in the order it copies them: since v0.2.1 a Full app holds its
+// Ejects returns the built-in modules orb copies into an app of the
+// preset, in the order it copies them. orb new works from a Profile
+// instead (Profile.Copies); this stays for orb upgrade --layout v0.2 and
+// orb add orgs, which rebuild an app from what its lock records: since v0.2.1 a Full app holds its
 // sign-in, and a multi-tenant one its organisations, in internal/modules
 // (orb new --no-eject keeps them in the library). Organisations come first:
 // the library's orgshttp takes the library's sign-in, so sign-in can only
@@ -200,6 +206,10 @@ type Data struct {
 	// Local, when set, is a path to a gorbital checkout used through
 	// replace directives (development before a release is published).
 	Local string
+	// Profile is the app's shape, which the v0.3.0 tree's conditional
+	// templates read (ADR-0090 §6). It is the zero Profile for the v0.1
+	// trees, which have no conditionals of their own.
+	Profile Profile
 }
 
 // LocalDir is the directory of a library module in the local checkout, as a
@@ -222,12 +232,22 @@ type File struct {
 // renderTree renders the templates under base in fsys, keyed by the
 // slash-separated path of each file they produce.
 func renderTree(fsys fs.FS, base string, d Data) (map[string][]byte, error) {
+	return renderTreeFunc(fsys, base, d, func(string) bool { return true })
+}
+
+// renderTreeFunc renders the templates under base that keep reports, keyed
+// by the slash-separated path of each file they produce. keep takes the
+// template's path relative to base.
+func renderTreeFunc(fsys fs.FS, base string, d Data, keep func(rel string) bool) (map[string][]byte, error) {
 	tree := map[string][]byte{}
 	err := fs.WalkDir(fsys, base, func(p string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() {
 			return err
 		}
 		rel := strings.TrimPrefix(p, base+"/")
+		if !keep(rel) {
+			return nil
+		}
 
 		src, err := fs.ReadFile(fsys, p)
 		if err != nil {

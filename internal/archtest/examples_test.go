@@ -19,10 +19,12 @@ var multiTenantChanges = []string{
 	// main.go adds the organisations module.
 	"cmd/api/main.go",
 	"cmd/api/app_test.go", // tests the app with organisations
-	// Projects belong to an organisation instead of a user, and run after
-	// the organisations module's migrations.
-	"db/migrations/20260915000002_projects.sql",
-	"db/migrations/20260916000002_projects.sql",
+	// Projects belong to an organisation instead of a user.
+	// Since v0.3.0 orb new generates the module rather than writing it
+	// from templates (ADR-0090 §5), so both apps' migrations have the
+	// one version every app of a release gets, and only their contents
+	// differ.
+	"db/migrations/20260918000071_projects.sql",
 	"internal/modules/projects/",
 	// Organisations, the app's own code as orb new copies it (v0.2.1), and
 	// its migrations.
@@ -34,6 +36,7 @@ var multiTenantChanges = []string{
 	"db/row_level_security.sql",
 
 	"go.mod",
+	"go.sum", // organisations pull in what the single-tenant app doesn't
 	"gorbital.yaml",
 	// Generated or written for each app.
 	"api/openapi.json",

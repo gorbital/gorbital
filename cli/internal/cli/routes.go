@@ -16,8 +16,14 @@ import (
 const routesUsage = `Usage: orb routes [flags]
 
 Lists every route of the app in the current directory: method, path,
-operation ID, module, guards, middleware, handler and where it is registered
-(file:line). Public routes, which need no sign-in, say public in GUARDS.
+operation ID, module, the access rule it serves under, guards, middleware,
+handler and where it is registered (file:line). Public routes, which need no
+sign-in, say public in GUARDS.
+
+SCOPE is who the route's records belong to (ADR-0091): the app's tenant,
+user, public or custom, as gorbital.yaml records the module's scope, or
+what the route's guards say. A dash means neither knows, as for the routes
+of a library module.
 
 The routes come from the app's OpenAPI document, built with
 go run ./cmd/api openapi (or read with --openapi), joined with the app's Go
@@ -58,7 +64,7 @@ func runRoutes(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	if err != nil {
 		return err
 	}
-	list = list.Filter(*module, *public, *appOnly)
+	list = list.Scopes(appModuleScopes(app.dir), appVocabulary(app.dir).Name).Filter(*module, *public, *appOnly)
 	if *asJSON {
 		return writeJSON(stdout, list)
 	}
@@ -98,7 +104,7 @@ func writeRoutes(w io.Writer, l routes.List) {
 		unplaced = unplaced || r.Source == nil
 	}
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	header := "METHOD\tPATH\tOPERATION\tMODULE\tGUARDS\t"
+	header := "METHOD\tPATH\tOPERATION\tMODULE\tSCOPE\tGUARDS\t"
 	if withMiddleware {
 		header += "MIDDLEWARE\t"
 	}
@@ -112,7 +118,7 @@ func writeRoutes(w io.Writer, l routes.List) {
 		case !l.GuardsKnown:
 			guards = "?"
 		}
-		line := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t", r.Method, r.Path, r.OperationID, dash(r.Module), dash(guards))
+		line := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t", r.Method, r.Path, r.OperationID, dash(r.Module), dash(r.Scope), dash(guards))
 		if withMiddleware {
 			line += dash(strings.Join(r.Middleware, ", ")) + "\t"
 		}

@@ -100,7 +100,7 @@ db/migrations/       yours and copies of the library's
 | `library` | Generated code you never changed. It is deleted, and the library runs it |
 | `template` | Written from the v0.2 templates, such as an example module nobody changed |
 | `converted` | One of your modules, converted where it is: its `huma.Register` calls become `gorbital.Get`/`Post`/… with route options, and the error mappings and permissions it had in `internal/app` move into its `Module` value |
-| `kept` | A built-in module you changed. The library's module is copied into the app as [`orb eject`](../guides/ejecting-a-module.md) copies it, your change is moved into the copy, and `gorbital.lock` records where it came from |
+| `kept` | A built-in module you changed. The library's module is copied into `internal/modules` as the app's own code, your change is moved into the copy, and `gorbital.lock` records where it came from ([The code in your repo](../guides/the-code-in-your-repo.md)) |
 | `carried` | A change moved to where it belongs: middleware you added to `internal/app/routes.go` becomes `gorbital.WithStack(stack)` (or `gorbital.WithMiddleware`) in `main.go`, with the file it lives in moved to `cmd/api` |
 | `manual` | A change orb can't make: it stops the move and says why. Make it yourself, or convert the rest with `--allow-manual`, which keeps those files in `_upgrade-v0.1/` (the go command ignores the directory) |
 | `follow-up` | Something left for you that doesn't stop the move, such as an HTTP test of the old composition root |

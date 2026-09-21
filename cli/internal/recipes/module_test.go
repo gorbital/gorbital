@@ -9,7 +9,7 @@ import (
 	"gorbital.dev/cli/internal/imports"
 )
 
-const goldenShelfie = "../../../examples/apps/shelfie"
+const goldenShelfie = "../../../examples/shelfie"
 
 // shelvesData is the golden module's command:
 //
@@ -44,7 +44,7 @@ func clubBooksData(t *testing.T) ModuleData {
 }
 
 // TestModuleMatchesShelfie checks that orb gen module reproduces
-// examples/apps/shelfie's shelves module (owned by users), its clubbooks
+// examples/shelfie's shelves module (owned by users), its clubbooks
 // module (owned by organisations) and their migrations exactly, and that
 // the architecture test it writes into apps without one is Shelfie's
 // (ADR-0083). After changing the templates, run
@@ -60,13 +60,16 @@ func TestModuleMatchesShelfie(t *testing.T) {
 //
 //	orb gen module Project name:string:unique description:text 'status:enum(active,archived)'
 //
-// owned by users in examples/full-single, and with --org by organisations in
-// examples/full-multi. Their migrations keep the versions of the v0.1 golden
-// apps' projects migrations: the multi-tenant one runs after the
-// organisations module's, so its foreign key to orgs is created.
-var goldenProjects = []struct{ dir, scope, migration string }{
-	{"../../../examples/full-single", ScopeUser, "20260915000002"},
-	{"../../../examples/full-multi", ScopeOrg, "20260916000002"},
+// owned by users in examples/full-single and examples/api-basic, and with
+// --scope tenant by organisations in examples/full-multi. Since v0.3.0 orb
+// new generates the module rather than writing it from templates
+// (ADR-0090 §5), so every app of a release has one migration version for
+// it: the first after the built-in modules', which run in the same
+// history.
+var goldenProjects = []struct{ dir, scope string }{
+	{"../../../examples/full-single", ScopeUser},
+	{"../../../examples/api-basic", ScopeUser},
+	{"../../../examples/full-multi", ScopeOrg},
 }
 
 // TestModuleMatchesGoldenApps checks that orb gen module reproduces the
@@ -75,12 +78,12 @@ var goldenProjects = []struct{ dir, scope, migration string }{
 // go test -run 'TestModuleMatches' -update and review the diff.
 func TestModuleMatchesGoldenApps(t *testing.T) {
 	for _, golden := range goldenProjects {
-		t.Run(golden.scope, func(t *testing.T) {
+		t.Run(filepath.Base(golden.dir), func(t *testing.T) {
 			fields, err := ParseModuleFields([]string{"name:string:unique", "description:text", "status:enum(active,archived)"})
 			if err != nil {
 				t.Fatal(err)
 			}
-			d, err := NewModuleData("example.com/acme-api", "Project", fields, ResourceOptions{Scope: golden.scope, Migration: golden.migration})
+			d, err := NewModuleData("example.com/acme-api", "Project", fields, ResourceOptions{Scope: golden.scope, Migration: DemoMigrationVersion})
 			if err != nil {
 				t.Fatal(err)
 			}

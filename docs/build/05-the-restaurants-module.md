@@ -57,7 +57,7 @@ Field types are `string`, `string?`, `text` and `enum` and nothing else. Platefu
 
 The generated migration creates a `restaurants` table with its own `id` and an `org_id`. On Plateful every organisation runs exactly one restaurant, so that table would need `org_id NOT NULL UNIQUE` — and a one-to-one side table is one row split in two. Every reader would have to learn which half holds the name, which ID a route takes, and why an organisation and its restaurant can drift apart. The product owner put it more simply: an organisation *is* a restaurant.
 
-So Plateful deletes the generated table and puts the restaurant's fields on `orgs`. The organisation's `id` is the restaurant's ID everywhere — in `/v1/restaurants/{id}`, in `orders.org_id`, in `restaurant_ratings` — and the organisation's `name` is the restaurant's name. That is possible because [chapter 4](04-sign-in-you-didnt-write.md) ejected the organisations module: its table is now your code, and a tenant's own fields belong on the tenant.
+So Plateful deletes the generated table and puts the restaurant's fields on `orgs`. The organisation's `id` is the restaurant's ID everywhere — in `/v1/restaurants/{id}`, in `orders.org_id`, in `restaurant_ratings` — and the organisation's `name` is the restaurant's name. That is possible because the organisations module is Plateful's own code, written into `internal/modules/orgs` when the app was created ([chapter 4](04-sign-in-you-didnt-write.md)): its table is yours, and a tenant's own fields belong on the tenant.
 
 The columns arrive in a migration of their own, `db/migrations/20260918010020_orgs_restaurant.sql`:
 
@@ -65,7 +65,7 @@ The columns arrive in a migration of their own, `db/migrations/20260918010020_or
 
 Read three decisions off it:
 
-- **A new migration, not an edit to the ejected one.** `20260916000001_orgs.sql` has run on every database Plateful has — yours, CI's, production's. goose records it as applied and never runs it again, so a column added to that file would appear in new databases and silently never reach the existing ones. A migration that has run is history: you add the next one, you never rewrite it. (The same rule is why the organisations module keeps a byte-for-byte copy of that file.)
+- **A new migration, not an edit to the one that created the table.** `20260916000001_orgs.sql` has run on every database Plateful has — yours, CI's, production's. goose records it as applied and never runs it again, so a column added to that file would appear in new databases and silently never reach the existing ones. A migration that has run is history: you add the next one, you never rewrite it. (The same rule is why the organisations module keeps a byte-for-byte copy of that file.)
 - **Every organisation has the columns; only a restaurant needs them filled.** A new account's personal workspace is an organisation too. `profile_created_at` stays `NULL` until the staff first save a profile, and the table-level `CHECK` requires an address only after that. The unique index on names is partial for the same reason: two personal workspaces may share a name, two restaurants may not.
 - **The CHECK constraints match the domain's limits**, exactly as the generated table's did, so the database and `domain.validate` refuse the same values.
 

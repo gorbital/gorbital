@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -77,9 +78,10 @@ func TestNewValidation(t *testing.T) {
 	}
 }
 
-// TestNewCreatesApp checks what the templates write; with --no-eject, the
-// files gorbital.lock tracks are exactly those. TestNewAppHoldsSignIn checks
-// the copied modules.
+// TestNewCreatesApp checks what the templates write. The copied sign-in and
+// organisation modules are the library's own code, not template output, so
+// the checks below skip their directories; TestNewAppHoldsSignIn covers
+// them.
 func TestNewCreatesApp(t *testing.T) {
 	for _, tt := range []struct {
 		preset   string
@@ -93,13 +95,13 @@ func TestNewCreatesApp(t *testing.T) {
 			"go.mod":        "module example.com/shop-api\n",
 			"gorbital.yaml": "preset: minimal",
 		}},
-		{"full", "multi", "base-full-multi", 40, map[string]string{
-			"gorbital.yaml":                             "tenancy: multi",
-			"cmd/api/main.go":                           `gorbital.WithModules(orgshttp.Module(auth)),`,
-			"internal/modules/modules.gen.go":           `"example.com/shop-api/internal/modules/projects"`,
-			"db/migrations/20260916000002_projects.sql": "org_id      text        NOT NULL,",
+		{"full", "multi", "base-full-multi", 28, map[string]string{
+			"gorbital.yaml":                   "tenancy: multi",
+			"cmd/api/main.go":                 `gorbital.WithModules(orgshttp.Module(auth)),`,
+			"internal/modules/modules.gen.go": `"example.com/shop-api/internal/modules/projects"`,
+			"db/migrations/" + recipes.DemoMigrationVersion + "_projects.sql": "org_id      text        NOT NULL,",
 		}},
-		{"full", "single", "base-full", 40, map[string]string{
+		{"full", "single", "base-full", 28, map[string]string{
 			"go.mod":                              "module example.com/shop-api\n",
 			"gorbital.yaml":                       "layout: v0.2",
 			"compose.yaml":                        "POSTGRES_DB: shop-api",
@@ -111,7 +113,7 @@ func TestNewCreatesApp(t *testing.T) {
 	} {
 		t.Run(tt.recipe, func(t *testing.T) {
 			t.Chdir(t.TempDir())
-			code, out, errOut := runOrb(t, "new", "shop-api", "--module", "example.com/shop-api", "--preset", tt.preset, "--tenancy", tt.tenancy, "--skip-tidy", "--no-git", "--json", "--no-eject")
+			code, out, errOut := runOrb(t, "new", "shop-api", "--module", "example.com/shop-api", "--preset", tt.preset, "--tenancy", tt.tenancy, "--skip-tidy", "--no-git", "--json", "--local", repoAbs(t))
 			if code != 0 {
 				t.Fatalf("orb new --preset %s --tenancy %s = %d, stderr %q", tt.preset, tt.tenancy, code, errOut)
 			}
@@ -128,6 +130,10 @@ func TestNewCreatesApp(t *testing.T) {
 			wantInputs := lockInputs{Name: "shop-api", Module: "example.com/shop-api", Preset: tt.preset, Tenancy: tt.tenancy}
 			if tt.preset == "full" {
 				wantInputs.Mail, wantInputs.Layout = "resend", recipes.LayoutV02
+				wantInputs.Auth, wantInputs.Scope = recipes.AuthFull, recipes.ScopeSingle
+				if tt.tenancy == recipes.TenancyMulti {
+					wantInputs.Scope = recipes.DefaultScopeName
+				}
 			}
 			lock, err := readLock("shop-api")
 			// Every rendered file is tracked except go.mod.
@@ -135,16 +141,34 @@ func TestNewCreatesApp(t *testing.T) {
 				len(lock.Files) != res.Files-1 || lock.tracks("go.mod") {
 				t.Errorf("gorbital.lock = %+v (%v), want %s with inputs %+v and %d files", lock, err, LockAPIVersion, wantInputs, res.Files-1)
 			}
+			// gorbital.lock records what the TEMPLATES render, which is the
+			// base orb upgrade merges a new version against. Copying sign-in
+			// and organisations in afterwards points some of those files'
+			// imports at the copies, so they differ on disk on purpose; the
+			// upgrade re-applies the same rewrite after merging. Changing the
+			// recorded hash to what is on disk breaks orb add orgs, whose
+			// merge of main.go then has a base that is not a template.
+			rewrittenByCopy := []string{"cmd/api/main.go", "internal/modules/projects/projects_test.go"}
 			for _, f := range lock.Files {
+				if len(lock.Ejected) > 0 && slices.Contains(rewrittenByCopy, f.Path) {
+					continue
+				}
 				if got, _ := os.ReadFile(filepath.Join("shop-api", filepath.FromSlash(f.Path))); sha256Hex(got) != f.SHA256 {
 					t.Errorf("gorbital.lock hash of %s doesn't match the file", f.Path)
 				}
 			}
 			assertLockRebuilds(t, "shop-api")
 
+			copied := []string{filepath.Join("shop-api", "internal", "modules", "auth"), filepath.Join("shop-api", "internal", "modules", "orgs")}
 			_ = filepath.WalkDir("shop-api", func(p string, d fs.DirEntry, err error) error {
-				if err != nil || d.IsDir() {
+				if err != nil {
 					return err
+				}
+				if d.IsDir() {
+					if slices.Contains(copied, p) {
+						return fs.SkipDir // the library's code, not the templates'
+					}
+					return nil
 				}
 				b, _ := os.ReadFile(p)
 				b = bytes.ReplaceAll(b, []byte("acme-api-7d9f8-x2kq"), nil) // an OpenAPI example of the library's /ops
@@ -161,12 +185,12 @@ func TestNewCreatesApp(t *testing.T) {
 
 func TestNewFullPrintsNextSteps(t *testing.T) {
 	t.Chdir(t.TempDir())
-	code, out, errOut := runOrb(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git")
+	code, out, errOut := runOrb(t, "new", "shop-api", "--preset", "full", "--skip-tidy", "--no-git", "--local", repoAbs(t))
 	if code != 0 {
 		t.Fatalf("orb new --preset full = %d, stderr %q", code, errOut)
 	}
 	for _, want := range []string{
-		"creating shop-api in ./shop-api\n", "preset full · tenancy single · library", "✓ wrote ", "\ncreated shop-api\n",
+		"creating shop-api in ./shop-api\n", "auth full · scope single · library", "✓ wrote ", "\ncreated shop-api\n",
 		"docker compose up -d --wait", "go run ./cmd/api migrate", "go run ./cmd/api seed", "http://127.0.0.1:3100/mail", "admin@example.com", "gorbital.Main", "orb gen module",
 		"AUTH_PROVIDERS.md", "POSTGRES_PORT", "orb add mail", "next: cd shop-api\n        orb dev\n",
 	} {
@@ -181,11 +205,11 @@ func TestNewFullPrintsNextSteps(t *testing.T) {
 		}
 	}
 
-	code, out, errOut = runOrb(t, "new", "team-api", "--preset", "full", "--tenancy", "multi", "--skip-tidy", "--no-git")
+	code, out, errOut = runOrb(t, "new", "team-api", "--preset", "full", "--tenancy", "multi", "--skip-tidy", "--no-git", "--local", repoAbs(t))
 	if code != 0 {
 		t.Fatalf("orb new --preset full --tenancy multi = %d, stderr %q", code, errOut)
 	}
-	for _, want := range []string{"preset full · tenancy multi · library", "personal workspace", "orgs.invitation_url", "next: cd team-api"} {
+	for _, want := range []string{"auth full · scope organisation · library", "personal workspace", "orgs.invitation_url", "next: cd team-api"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("orb new --tenancy multi output lacks %q:\n%s", want, out)
 		}

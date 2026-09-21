@@ -168,6 +168,9 @@ type Migration struct {
 
 ### 7. Ejection
 
+> [!NOTE]
+> **Superseded in part by [ADR-0092](0092-what-the-framework-owns.md) (2026-09-21).** The `orb eject` command described in this section was removed in v0.3.0: since v0.2.1 `orb new` writes sign-in and organisations into the app, so an on-demand copy answers a question nobody has. The copy machinery below is unchanged and still runs, as internal plumbing, for `orb new`, `orb add orgs` and `orb upgrade --layout v0.2`; `opshttp`, `flagshttp` and `mailevents` are library-only from v0.3.0 on. What follows records the design as it stood on 2026-09-17.
+
 `orb eject <auth|ops|orgs|flags|mailevents>`:
 
 1. Reads the `gorbital.dev/gorbital` version from `go.mod` and copies that version's package source from the module cache into `internal/modules/<name>/`, rewriting its import path; the result is layered owned code with its tests.
@@ -468,7 +471,7 @@ The generators and commands for this layout: [roadmap items 76–82](../v0.2-roa
 | Decision | Why |
 |---|---|
 | The templates (`cli/internal/recipes/module`) are ADR-0039's resource template, rearranged into §3's tree: the same fields, names, validation, keyset pagination, versioned updates, audit and owner isolation; permissions checked by `guard.Permission` in `routes.go` instead of in the use cases, as in Shelfie's books module | One behaviour for both generators, one layout; the guard checks permissions before the body is read |
-| **Golden output is an example app**: `examples/apps/shelfie/internal/modules/shelves` and its migration are the unedited output, compared byte for byte by `TestModuleMatchesShelfie` (`-update` rewrites them); `TestGeneratedCodePasses` generates modules of every field shape, middleware and a guard into a copy of Shelfie, then runs gofmt, vet, golangci-lint and every test on PostgreSQL | Generated code is a product: it compiles, lints and passes its own tests in a real app, and chapter 9 includes it |
+| **Golden output is an example app**: `examples/shelfie/internal/modules/shelves` (at `examples/apps/shelfie` until [ADR-0093](0093-the-examples-repository.md) moved the showcase applications out and kept this one, because it is a fixture) and its migration are the unedited output, compared byte for byte by `TestModuleMatchesShelfie` (`-update` rewrites them); `TestGeneratedCodePasses` generates modules of every field shape, middleware and a guard into a copy of Shelfie, then runs gofmt, vet, golangci-lint and every test on PostgreSQL | Generated code is a product: it compiles, lints and passes its own tests in a real app, and chapter 9 includes it |
 | Tests are HTTP tests through `gorbitaltest` plus domain tests; no repository or use-case tests on their own | The whole stack (guards, error mappings, SQL) is what the module promises; one database per test costs about 0.2 s |
 | Field types are `orb gen resource`'s, plus **optional strings** (`name:string?`, 0–100 characters, sortable, never unique or the title); `orb gen resource` refuses `?` | A frequent need; text and enums are already optional |
 | **`--org` is refused until Phase 7** (`guard.OrgMember`), with exit 2 and a message; `orb gen resource --scope org` in an app on `gorbital.Main` too. *Superseded by Phase 7: `--org` generates organisation modules ([below](#orb-gen-module---org))* | The owner-scoped variant is right today; org scoping without its guard would duplicate v0.1's use-case checks the library is replacing |
@@ -761,7 +764,7 @@ The Dev Portal's module form offers `--org` (gorbital-dashboards `framework/phas
 - `orb new` offers no way to create a v0.1-layout app.
 ## Phase 9 implementation notes: orb eject (2026-09-17)
 
-`orb eject <auth|flags|mailevents|ops|orgs>` (roadmap item 84) implements §7. Guide: [Ejecting a module](../guides/ejecting-a-module.md); command reference: [CLI](../guides/cli.md#orb-eject).
+`orb eject <auth|flags|mailevents|ops|orgs>` (roadmap item 84) implements §7. The command was removed in v0.3.0 ([ADR-0092](0092-what-the-framework-owns.md)); what an app's own copy of a module is, and how it is maintained, is now [The code in your repo](../guides/the-code-in-your-repo.md).
 
 ### What is copied, and where
 

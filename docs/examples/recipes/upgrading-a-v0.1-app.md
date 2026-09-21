@@ -52,7 +52,7 @@ move shop-api from the v0.1 layout to v0.2 (gorbital.Main) (dry run)
   library    internal/modules/flags  5 generated files you never changed; gorbital.dev/gorbital/flagshttp runs them now
   library    internal/modules/mailevents  7 generated files you never changed; gorbital.dev/gorbital/mailevents runs them now
   library    internal/modules/ops  38 generated files you never changed; gorbital.dev/gorbital/opshttp runs them now
-  kept       internal/modules/auth  you changed it, so the app keeps it: the library's gorbital.dev/gorbital/authhttp copied in as orb eject copies it, with your changes
+  kept       internal/modules/auth  you changed it, so the app keeps it: the library's gorbital.dev/gorbital/authhttp copied into internal/modules, with your changes
              internal/modules/auth/usecase/register.go: 2 changes carried over
              could become: authhttp.OnRegister, authhttp.RegisterFields, authhttp.WithoutRegistration
   converted  internal/modules/notes/  the app's module: routes, errors and permissions in its Module value
@@ -176,7 +176,7 @@ orb doctor
 ```text
   ok    gorbital.lock  from orb v0.1.0-dev; 3 of 30 files gorbital wrote are edited or removed
   ok    modules        internal/modules/modules.gen.go lists 3 modules: notes, ping, projects
-  ok    ejected        internal/modules/auth is the app's code, ejected from gorbital.dev/gorbital/authhttp …; the library's copy hasn't changed since
+  ok    ejected        internal/modules/auth is the app's code, copied from gorbital.dev/gorbital/authhttp …; the library's copy hasn't changed since
   ok    stack          the custom stack at cmd/api/main.go:43 keeps Recover and Auth
 ```
 
@@ -200,7 +200,7 @@ auth := authhttp.New(authhttp.OnRegister(func(ctx context.Context, tx pgx.Tx, a 
 }))
 ```
 
-Then delete `internal/modules/auth`, drop its `ejected` entry from `gorbital.lock` and import `gorbital.dev/gorbital/authhttp` in `main.go` again ([Ejecting a module](../../guides/ejecting-a-module.md#going-back-to-the-library)). Keep the copy if the change is bigger than a hook: `orb doctor` tells you when the library's version of the module changes.
+Then delete `internal/modules/auth`, drop its `ejected` entry from `gorbital.lock` and import `gorbital.dev/gorbital/authhttp` in `main.go` again ([The code in your repo](../../guides/the-code-in-your-repo.md#apps-that-came-from-somewhere-else)). Keep the copy if the change is bigger than a hook: `orb doctor` tells you when the library's version of the module changes.
 
 ## What was left
 

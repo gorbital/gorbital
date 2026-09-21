@@ -48,7 +48,7 @@ const DefaultTolerance = 5 * time.Minute
 
 DefaultTolerance is how far a signed timestamp may be from the receiver's clock, either way, unless a configuration sets another.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="MaxIDLength"></a>
 
@@ -58,7 +58,7 @@ const MaxIDLength = 255
 
 MaxIDLength bounds a signed delivery ID, which receivers may store to refuse replays.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="MinSecretBytes"></a>
 
@@ -68,7 +68,7 @@ const MinSecretBytes = 16
 
 MinSecretBytes is the shortest secret [NewHMAC](#NewHMAC) and [NewStandard](#NewStandard) accept.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="StandardSecretPrefix"></a>
 
@@ -78,7 +78,7 @@ const StandardSecretPrefix = "whsec_"
 
 StandardSecretPrefix starts Standard Webhooks signing secrets.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 ## Variables
 
@@ -98,7 +98,7 @@ var (
 
 Errors returned by [HMAC.Verify](#HMAC.Verify). Check them with [errors.Is](https://pkg.go.dev/errors#Is); answer both with the same 401, so a sender doesn't learn which check failed.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 ## Functions
 
@@ -112,7 +112,7 @@ func DecodeStandardSecret(secret string) ([]byte, error)
 
 DecodeStandardSecret decodes a Standard Webhooks signing secret, with or without its "whsec\_" prefix, so apps can refuse a mistyped secret when they start. It returns an error, never quoting the secret, when the secret is empty, isn't base64 or is shorter than [MinSecretBytes](#MinSecretBytes) bytes.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -139,7 +139,7 @@ type Encoding int
 
 Encoding is how a signature is written in its header.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -179,7 +179,7 @@ const (
 
 Signature encodings.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 <a id="HMAC"></a>
 
@@ -193,7 +193,7 @@ type HMAC struct {
 
 HMAC verifies HMAC-SHA256 webhook signatures. Create one with [NewHMAC](#NewHMAC) or [NewStandard](#NewStandard). It is safe for concurrent use.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -226,7 +226,7 @@ func NewHMAC(cfg HMACConfig) (*HMAC, error)
 
 NewHMAC returns a verifier for cfg. It returns an error when there is no secret, a secret is shorter than [MinSecretBytes](#MinSecretBytes), SignatureHeader is empty, the encoding is unknown or Tolerance is negative. Errors never quote a secret.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -262,7 +262,7 @@ func NewStandard(cfg StandardConfig) (*HMAC, error)
 
 NewStandard returns a verifier for the Standard Webhooks scheme ([https://www.standardwebhooks.com](https://www.standardwebhooks.com)): headers "\<prefix>id", "\<prefix>timestamp" (Unix seconds) and "\<prefix>signature" (space-separated "v1,\<base64>" entries), signed with HMAC-SHA256 over "\<id>.\<timestamp>.\<body>". Retries of one event keep the ID and get a new timestamp. It returns an error when there is no secret or a secret isn't base64 of at least [MinSecretBytes](#MinSecretBytes) bytes, without quoting it.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -321,7 +321,7 @@ func (v *HMAC) Verify(_ context.Context, header http.Header, body []byte) error
 
 Verify checks a request's headers and raw body. It returns nil when the configured headers are present and well formed, the timestamp (if any) is within the tolerance, and at least one signature entry is the HMAC-SHA256 of the signed content with one of the secrets. It returns [ErrTimestamp](#ErrTimestamp) for a timestamp outside the tolerance and [ErrInvalidSignature](#ErrInvalidSignature) for anything else. Every entry is compared with every secret in constant time, so timing doesn't reveal which one matched.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -398,7 +398,7 @@ type HMACConfig struct {
 
 HMACConfig configures [NewHMAC](#NewHMAC).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -458,7 +458,7 @@ type StandardConfig struct {
 
 StandardConfig configures [NewStandard](#NewStandard).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 
@@ -500,7 +500,7 @@ type Verifier interface {
 
 A Verifier checks that a webhook request comes from its sender: header is the request's headers and body its raw body, exactly as received. It returns nil for an authentic request, and an error wrapping [ErrInvalidSignature](#ErrInvalidSignature) otherwise. Implementations are safe for concurrent use.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 

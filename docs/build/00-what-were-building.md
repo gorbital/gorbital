@@ -168,7 +168,7 @@ If you want a smaller first app, [Shelfie](../examples/shelfie/00-start-a-projec
 | [1. Create the app](01-create-the-app.md) | `orb new`, why `--preset full` is not optional, and the tree it writes |
 | [2. The framework and your app](02-framework-and-your-app.md) | Where the library ends and your code begins |
 | [3. Configuration and the first run](03-configuration-and-first-run.md) | `.env`, what `orb dev` does in order, the credentials it prints once |
-| [4. Sign-in, in your repository](04-sign-in-you-didnt-write.md) | What `authhttp.New()` gives you, the options, the four hooks, and ejecting |
+| [4. Sign-in, in your repository](04-sign-in-you-didnt-write.md) | What `authhttp.New()` gives you, the options, the four hooks, and the cost of editing the module itself |
 | [5. The restaurants module](05-the-restaurants-module.md) | `orb gen module --org`, the four layers, errors, permissions and settings |
 | [6. Migrations and the database](06-migrations-and-the-database.md) | One merged history, forward-only migrations, `InTx`, constraint helpers, `pgtest` |
 | [7. The menu, money and photos](07-the-menu-money-and-photos.md) | Money as integer minor units, and uploads through `modules/storage` |

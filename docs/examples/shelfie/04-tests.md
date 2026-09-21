@@ -18,13 +18,13 @@ Each test gets a new database next to `shelfie`, migrated with the library's mig
 
 `internal/modules/books/books_test.go` builds the app with the options `main.go` passes to `gorbital.Main`:
 
-<!-- include examples/apps/shelfie/internal/modules/books/books_test.go#new-app -->
+<!-- include examples/shelfie/internal/modules/books/books_test.go#new-app -->
 
 ## Requests as a reader
 
 `gorbitaltest.User` is a signed-in reader holding the permissions you name; `app.As` sends requests as them:
 
-<!-- include examples/apps/shelfie/internal/modules/books/books_test.go#create-and-read -->
+<!-- include examples/shelfie/internal/modules/books/books_test.go#create-and-read -->
 
 `AssertStatus` fails the test with the response body when the status is wrong, and `JSON` decodes the body. The test checks what the domain does to the input: the title trimmed, the ISBN's hyphens removed, the default status.
 
@@ -32,7 +32,7 @@ Each test gets a new database next to `shelfie`, migrated with the library's mig
 
 [Chapter 2](02-protecting-routes.md) read the guards on these routes; this is how a module tests them. Deny by default, owners and scopes, for every module:
 
-<!-- include examples/apps/shelfie/internal/modules/books/books_test.go#protection -->
+<!-- include examples/shelfie/internal/modules/books/books_test.go#protection -->
 
 - `app.Client()` has nobody signed in: every books route answers 401 `unauthenticated`.
 - Bob gets 404 `book_not_found` for Ada's book, as for a book that doesn't exist, so book IDs can't be probed.
@@ -48,7 +48,7 @@ Each test gets a new database next to `shelfie`, migrated with the library's mig
 
 Workers don't run in tests. `app.Mail` returns the email the app queued, and `app.Jobs` the jobs it enqueued, so a test checks both without anything being sent:
 
-<!-- include examples/apps/shelfie/internal/modules/books/books_test.go#mail-and-jobs -->
+<!-- include examples/shelfie/internal/modules/books/books_test.go#mail-and-jobs -->
 
 The books module sends neither yet; the test shows the calls, and a later chapter's welcome email is checked the same way.
 
@@ -56,7 +56,7 @@ The books module sends neither yet; the test shows the calls, and a later chapte
 
 `gorbitaltest`'s principals stay the default: a test that doesn't pass `gorbital.WithAuth` gets requests as `gorbitaltest.User` and `gorbitaltest.APIKey`. A test that passes `gorbital.WithAuth(authhttp.New())`, as `main.go` does, replaces them with sign-in itself, and signs in the way the web and mobile apps do:
 
-<!-- include examples/apps/shelfie/internal/modules/books/signin_test.go#sign-in -->
+<!-- include examples/shelfie/internal/modules/books/signin_test.go#sign-in -->
 
 - The verification code is read from `app.Mail`: the email is queued, never sent.
 - Every account holds the `user` role, which the books module's permissions name, so a new reader can add a book.
@@ -67,7 +67,7 @@ The books module sends neither yet; the test shows the calls, and a later chapte
 | Test | Checks | Needs |
 |---|---|---|
 | `internal/modules/books/domain/book_test.go` | The rules of `NewBook` and `Apply`, and a fuzz test of ISBN normalisation (`go test -fuzz FuzzNormalizeISBN ./internal/modules/books/domain`) | Nothing |
-| `internal/modules/architecture_test.go` | The layers: `domain` imports only the standard library, `delivery` never imports `repository`, a module never imports another module's layers (only its root package, such as an ejected sign-in module's authenticator) | Nothing |
+| `internal/modules/architecture_test.go` | The layers: `domain` imports only the standard library, `delivery` never imports `repository`, a module never imports another module's layers (only its root package, such as the app's own sign-in module's authenticator) | Nothing |
 | `internal/modules/books/protection_test.go` | [Chapter 2](02-protecting-routes.md)'s guards: deny by default, a missing permission, the rate limit, and the recent sign-in `DELETE /v1/books` needs | A database |
 | `internal/modules/books/client_version_test.go`, `subscription_test.go`, `delivery/require_client_version_test.go` | [Chapter 3](03-your-own-middleware.md)'s middleware and guard, end to end and on their own | The first two, a database |
 | `cmd/api/main_test.go` | `api/openapi.json` is what the code describes; after changing a route, run `go run ./cmd/api openapi --dir api` | Go |

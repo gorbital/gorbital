@@ -11,9 +11,15 @@ import (
 )
 
 const (
+⟦- if .Filtered⟧
 	select⟦.Ident⟧SQL = `SELECT ` + ⟦.Var⟧Columns + ` FROM ⟦.Table⟧ WHERE id = $1 AND ⟦.ScopeColumn⟧ = $2`
+⟦- else⟧
+	select⟦.Ident⟧SQL = `SELECT ` + ⟦.Var⟧Columns + ` FROM ⟦.Table⟧ WHERE id = $1`
+⟦- end⟧
 	forUpdate = ` FOR UPDATE`
 )
+
+⟦- if .Filtered⟧
 
 // Select⟦.Ident⟧ returns one of ⟦.ScopeVar⟧'s ⟦.PluralHuman⟧, or Err⟦.Ident⟧NotFound.
 // lock locks the row until the transaction ends.
@@ -23,6 +29,20 @@ func (s *Store) Select⟦.Ident⟧(ctx context.Context, ⟦.ScopeVar⟧, id stri
 		sql += forUpdate
 	}
 	rows, err := s.db.Query(ctx, sql, id, ⟦.ScopeVar⟧)
+⟦- else⟧
+
+// Select⟦.Ident⟧ returns the ⟦.Human⟧ with this ID, or Err⟦.Ident⟧NotFound. lock
+// locks the row until the transaction ends.
+⟦- if .Custom⟧
+// It applies no rule of its own: the caller asks the policy.
+⟦- end⟧
+func (s *Store) Select⟦.Ident⟧(ctx context.Context, id string, lock bool) (domain.⟦.Ident⟧, error) {
+	sql := select⟦.Ident⟧SQL
+	if lock {
+		sql += forUpdate
+	}
+	rows, err := s.db.Query(ctx, sql, id)
+⟦- end⟧
 	if err != nil {
 		return domain.⟦.Ident⟧{}, err
 	}

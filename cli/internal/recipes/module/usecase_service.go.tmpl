@@ -1,10 +1,23 @@
 ⟦- if .Org -⟧
 // Package usecase holds the ⟦.PluralHuman⟧ module's operations, one file each:
-// each works in the organisation of the request's path, finds the member
+// each works in the ⟦.ScopeName⟧ of the request's path, finds the member
 // acting in it, applies the domain rules, stores the result through the
-// Store port, limited to that organisation, and records an audit event.
-// Routes check membership and permissions with guard.OrgMember before a use
+// Store port, limited to that ⟦.ScopeName⟧, and records an audit event.
+// Routes check membership and permissions with ⟦.ScopeGuard⟧ before a use
 // case runs (delivery/routes.go).
+⟦- else if .Public -⟧
+// Package usecase holds the ⟦.PluralHuman⟧ module's operations, one file each:
+// each applies the domain rules, stores the result through the Store port
+// and records an audit event. Reads are world-readable and run for callers
+// who aren't signed in; writes need ⟦.PermWrite⟧, which the routes check
+// before a use case runs (delivery/routes.go).
+⟦- else if .Custom -⟧
+// Package usecase holds the ⟦.PluralHuman⟧ module's operations, one file each:
+// each applies the domain rules, stores the result through the Store port
+// and records an audit event. Who may see and change one ⟦.Human⟧ is the
+// module's own rule: every operation asks the Policy port, which policy.go
+// implements, and the routes' permissions are the floor under it, not the
+// rule itself.
 ⟦- else -⟧
 // Package usecase holds the ⟦.PluralHuman⟧ module's operations, one file each:
 // each finds the signed-in user, who owns the ⟦.PluralHuman⟧ it reads or changes,
@@ -23,24 +36,46 @@ import (
 	"log/slog"
 	"time"
 
+⟦- if .Public⟧
+
+	"gorbital.dev/audit"
+	"gorbital.dev/page"
+⟦- else if .Custom⟧
+
+	"gorbital.dev/actor"
+	"gorbital.dev/audit"
+	"gorbital.dev/gorbital"
+	"gorbital.dev/page"
+⟦- else⟧
+
 	"gorbital.dev/actor"
 	"gorbital.dev/audit"
 	"gorbital.dev/page"
+⟦- end⟧
 
 	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
 )
 
 ⟦- if .Org⟧
-// Permissions the ⟦.PluralHuman⟧ routes require in an organisation. Every member
+// Permissions the ⟦.PluralHuman⟧ routes require in ⟦.ScopeA⟧ ⟦.ScopeName⟧. Every member
 // holds them through their role (module.go); an API key only when its scopes
 // include them. Permission names are public API.
+⟦- else if .Public⟧
+// The permission the ⟦.PluralHuman⟧ writes require. Reading needs none: the
+// routes that read are public. Permission names are public API.
+⟦- else if .Custom⟧
+// Permissions the ⟦.PluralHuman⟧ routes require before Policy is asked. Holding
+// one lets a caller ask; the policy decides what they get. Permission names
+// are public API.
 ⟦- else⟧
 // Permissions the ⟦.PluralHuman⟧ routes require. Every signed-in user holds them
 // through the user role (module.go); an API key only when its scopes include
 // them. Permission names are public API.
 ⟦- end⟧
 const (
+⟦- if not .Public⟧
 	PermRead  = ⟦quote .PermRead⟧
+⟦- end⟧
 	PermWrite = ⟦quote .PermWrite⟧
 )
 
@@ -54,11 +89,27 @@ const (
 // Service runs the ⟦.PluralHuman⟧ use cases. It is safe for concurrent use.
 type Service struct {
 	store    Store
+⟦- if .Custom⟧
+	policy   Policy
+⟦- end⟧
 	recorder audit.Recorder
 	logger   *slog.Logger
 	now      func() time.Time
 	newID    func() string
 }
+
+⟦- if .Custom⟧
+
+// NewService returns a Service storing ⟦.PluralHuman⟧ in store, asking policy who
+// may see and change them, and recording changes in recorder. All three may
+// be nil while the OpenAPI document is exported, when no use case runs.
+func NewService(store Store, policy Policy, recorder audit.Recorder, logger *slog.Logger) *Service {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
+	return &Service{store: store, policy: policy, recorder: recorder, logger: logger, now: time.Now, newID: newID}
+}
+⟦- else⟧
 
 // NewService returns a Service storing ⟦.PluralHuman⟧ in store and recording
 // changes in recorder. Both may be nil while the OpenAPI document is
@@ -69,6 +120,7 @@ func NewService(store Store, recorder audit.Recorder, logger *slog.Logger) *Serv
 	}
 	return &Service{store: store, recorder: recorder, logger: logger, now: time.Now, newID: newID}
 }
+⟦- end⟧
 
 var idEncoding = base32.NewEncoding("abcdefghijklmnopqrstuvwxyz234567").WithPadding(base32.NoPadding)
 
@@ -84,15 +136,15 @@ func newID() string {
 func (s *Service) clock() time.Time { return s.now().UTC().Truncate(time.Microsecond) }
 
 ⟦- if .Org⟧
-// memberID returns the member acting in orgID, the organisation in the
-// request's path: a user, or the organisation's own service account.
-// guard.OrgMember checked the membership and the permission, and left the
-// organisation in the actor; a request acting in no organisation or in
+// memberID returns the member acting in ⟦.ScopeVar⟧, the ⟦.ScopeName⟧ in the
+// request's path: a user, or the ⟦.ScopeName⟧'s own service account.
+// ⟦.ScopeGuard⟧ checked the membership and the permission, and left the
+// ⟦.ScopeName⟧ in the actor; a request acting in no ⟦.ScopeName⟧ or in
 // another one, such as on a route without the guard, gets
 // ErrUnauthenticated.
-func memberID(ctx context.Context, orgID string) (string, error) {
+func memberID(ctx context.Context, ⟦.ScopeVar⟧ string) (string, error) {
 	a, ok := actor.From(ctx)
-	if !ok || a.ID == "" || orgID == "" || a.OrgID != orgID {
+	if !ok || a.ID == "" || ⟦.ScopeVar⟧ == "" || a.OrgID != ⟦.ScopeVar⟧ {
 		return "", domain.ErrUnauthenticated
 	}
 	return a.ID, nil
@@ -100,7 +152,23 @@ func memberID(ctx context.Context, orgID string) (string, error) {
 
 // audit records an event after the change it describes; a failed audit
 // write is logged, not returned. The recorder adds the actor, the
-// organisation and the request.
+// ⟦.ScopeName⟧ and the request.
+⟦- else if .Public⟧
+// audit records an event after the change it describes; a failed audit
+// write is logged, not returned. The recorder adds the actor and request.
+⟦- else if .Custom⟧
+// actorID returns who is acting, which the policy usually compares against.
+// The routes let only authenticated callers through.
+func actorID(ctx context.Context) (string, error) {
+	a, ok := actor.From(ctx)
+	if !ok || a.ID == "" {
+		return "", domain.ErrUnauthenticated
+	}
+	return a.ID, nil
+}
+
+// audit records an event after the change it describes; a failed audit
+// write is logged, not returned. The recorder adds the actor and request.
 ⟦- else⟧
 // ownerID returns the signed-in user, who owns the ⟦.PluralHuman⟧ an operation
 // reads or changes. The routes let only authenticated callers through; a
@@ -127,6 +195,10 @@ func (s *Service) audit(ctx context.Context, action, id string, metadata map[str
 // rest, such as driver errors, which aren't API.
 func storeError(op string, err error) error {
 	known := []error{
+⟦- if .Custom⟧
+		// An unwritten policy is a refusal of its own, answered with 501.
+		gorbital.ErrNotImplemented,
+⟦- end⟧
 		domain.ErrInvalid⟦.Ident⟧, domain.Err⟦.Ident⟧NotFound,
 		⟦range .Uniques⟧domain.Err⟦$.Ident⟧⟦.Ident⟧Taken, ⟦end⟧domain.Err⟦.Ident⟧VersionConflict,
 		page.ErrInvalidSort,

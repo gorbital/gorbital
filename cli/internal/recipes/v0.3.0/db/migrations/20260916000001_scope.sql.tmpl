@@ -1,0 +1,28 @@
+-- ⟦.Profile.ScopeTitle⟧ and their members: this app's tenancy
+-- (orb new --scope custom, ADR-0088). The rules are in
+-- internal/modules/scope; these are the tables they read.
+--
+-- Change them freely before the first deployment. After that, add a
+-- migration instead: this one has run.
+-- +goose Up
+CREATE TABLE ⟦.Profile.ScopeTable⟧ (
+    id          text PRIMARY KEY,
+    name        text        NOT NULL CHECK (length(name) BETWEEN 1 AND 100),
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    updated_at  timestamptz NOT NULL DEFAULT now(),
+    deleted_at  timestamptz
+);
+
+CREATE TABLE ⟦.Profile.ScopeMembersTable⟧ (
+    ⟦.Profile.Vocabulary.Column⟧   text        NOT NULL REFERENCES ⟦.Profile.ScopeTable⟧ (id) ON DELETE CASCADE,
+    user_id     text        NOT NULL,
+    role        text        NOT NULL CHECK (role IN (⟦.Profile.SQLRoles⟧)),
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (⟦.Profile.Vocabulary.Column⟧, user_id)
+);
+
+CREATE INDEX ⟦.Profile.ScopeMembersTable⟧_user ON ⟦.Profile.ScopeMembersTable⟧ (user_id);
+
+-- +goose Down
+DROP TABLE ⟦.Profile.ScopeMembersTable⟧;
+DROP TABLE ⟦.Profile.ScopeTable⟧;

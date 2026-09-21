@@ -21,7 +21,7 @@ import (
 // fallback is what an unstamped build of this tree reports, so it names the
 // release being prepared: it reaches users' apps through gorbital.lock and
 // orb upgrade's branch and commit names.
-var Version = moduleVersion("v0.2.1-dev", debug.ReadBuildInfo)
+var Version = moduleVersion("v0.3.0-dev", debug.ReadBuildInfo)
 
 // cliModulePath is the module orb is built from.
 const cliModulePath = "gorbital.dev/cli"
@@ -62,8 +62,6 @@ Usage:
                                  generate middleware or a guard with its test (apps using gorbital.Main)
   orb gen modules [flags]        list internal/modules in modules.gen.go (apps using gorbital.Main)
   orb routes [flags]             list every route: guards, public routes, handlers and source
-  orb eject <module> [flags]     copy a built-in module (auth, flags, mailevents, ops, orgs) into the app
-                                 as code it owns (apps using gorbital.Main)
   orb add mail [flags]           set up email with Resend or SMTP (Full preset apps)
   orb add orgs [flags]           turn a single-tenant app multi-tenant on a branch (Full preset apps)
   orb add rls [flags]            turn on row-level security for organisations' data (multi-tenant apps)
@@ -71,6 +69,7 @@ Usage:
   orb upgrade [flags]            merge this release's templates into the app on a branch
   orb upgrade --layout v0.2      move a v0.1 app (internal/app) to the v0.2 layout (gorbital.Main)
   orb doctor [flags]             check the app, its environment and database, and say what to fix
+  orb doctor --security          review the code the app owns: what changed upstream, and static rules
   orb version [--json]           print version information
   orb help                       show this help
 
@@ -155,7 +154,7 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io
 	case "routes":
 		err = runRoutes(ctx, args[1:], stdout, stderr)
 	case "eject":
-		err = runEject(ctx, args[1:], stdin, stdout, stderr)
+		err = errEjectRemoved
 	case "doctor":
 		err = runDoctor(ctx, args[1:], stdout, stderr)
 	case "version", "-version", "--version":

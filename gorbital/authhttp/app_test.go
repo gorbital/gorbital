@@ -114,11 +114,18 @@ func newAppWithURL(t *testing.T, env map[string]string, configure ...func(*gorbi
 	return buildApp(t, testConfig(t, full), configure...), url
 }
 
-// buildApp migrates cfg's database and builds an app on it.
+// buildApp migrates cfg's database and builds an app on it, with v0.1's
+// sign-in.
 func buildApp(t *testing.T, cfg gorbital.Config, configure ...func(*gorbital.Config, *Authenticator)) *testApp {
 	t.Helper()
+	return buildAppWith(t, cfg, New(), configure...)
+}
+
+// buildAppWith is buildApp for an authenticator built with options, such
+// as Methods.
+func buildAppWith(t *testing.T, cfg gorbital.Config, auth *Authenticator, configure ...func(*gorbital.Config, *Authenticator)) *testApp {
+	t.Helper()
 	ctx := context.Background()
-	auth := New()
 	for _, c := range configure {
 		c(&cfg, auth)
 	}

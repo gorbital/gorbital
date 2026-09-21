@@ -8,7 +8,7 @@ import "gorbital.dev/gorbital/operation"
 
 Package operation registers operations declared as huma.Operation values, as v0.1 apps declare them for huma.Register, on a gorbital.Router.
 
-The built-in modules (opshttp, flagshttp, mailevents, orgshttp) keep v0.1's declarations, so their move into the library reads line by line and their OpenAPI compares with the frozen v0.1.0 documents (ADR-0083). A module ejected with orb eject keeps them too, and code moved from a v0.1 app can replace huma.Register(api, op, handler) with Register(r, op, handler). New code uses gorbital.Get, gorbital.Post and the other verbs with route options instead.
+The built-in modules (opshttp, flagshttp, mailevents, orgshttp) keep v0.1's declarations, so their move into the library reads line by line and their OpenAPI compares with the frozen v0.1.0 documents (ADR-0083). A module the app holds as its own code keeps them too, and code moved from a v0.1 app can replace huma.Register(api, op, handler) with Register(r, op, handler). New code uses gorbital.Get, gorbital.Post and the other verbs with route options instead.
 
 Stability: experimental until v0.2.0 (ADR-0015, ADR-0083).
 
@@ -30,7 +30,7 @@ Register registers handler for op on r with the route options op's fields transl
 
 Register panics, which gorbital.Mount reports as an error naming the module, for an op with a field it doesn't carry over (such as Hidden or Middlewares), another security requirement, or a method other than GET, POST, PUT, PATCH and DELETE: dropping them silently would change the operation.
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 

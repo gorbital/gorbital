@@ -70,10 +70,14 @@ const doctorUsage = `Usage: orb doctor [flags]
 Checks the app in the current directory and prints what to fix: the Go
 toolchain, git, Docker and the Go orb was built with; gorbital.lock and the
 library version; the lines generators insert at (v0.1 apps) or the module
-list, modules copied with orb eject, the middleware stack and
+list, the built-in modules the app owns, the middleware stack and
 APP_REQUEST_TIMEOUT (apps on gorbital.Main);
 .env; whether api/ matches the code; and the database's migrations and
 row-level security. It changes nothing (ADR-0051).
+
+--security runs a review of its own instead: what has changed upstream in
+the modules the app owns a copy of, and static rules over the app's own
+code. Run "orb doctor --security -h" for what it can and cannot tell you.
 
 Exit codes: 0 when no check failed (warnings allowed), 1 when one did, 2 for
 invalid usage.
@@ -84,8 +88,13 @@ func runDoctor(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	flags.SetOutput(stderr)
 	asJSON := flags.Bool("json", false, "print the result as JSON")
 	fast := flags.Bool("fast", false, "skip the checks that build the app: api/ files and database")
+	security := flags.Bool("security", false, "review the code the app owns instead: what changed upstream, and static rules")
 	flags.Usage = func() {
-		fmt.Fprint(stderr, doctorUsage+"\nFlags:\n")
+		usage := doctorUsage
+		if slices.Contains(args, "--security") || slices.Contains(args, "-security") {
+			usage = doctorSecurityUsage
+		}
+		fmt.Fprint(stderr, usage+"\nFlags:\n")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(args); err != nil {
@@ -98,6 +107,9 @@ func runDoctor(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	if err != nil {
 		return err
 	}
+	if *security {
+		return runDoctorSecurity(ctx, app, *asJSON, stdout)
+	}
 
 	d := &doctor{dir: app.dir, res: doctorResult{App: filepath.Base(app.dir), Layout: appLayout(app.dir), Checks: []doctorCheck{}}}
 	main := d.res.Layout == layoutMain
@@ -106,6 +118,8 @@ func runDoctor(ctx context.Context, args []string, stdout, stderr io.Writer) err
 	switch {
 	case main:
 		d.modules(app)
+		d.profile()
+		d.resourceScopes(app)
 		d.ejected(ctx)
 		d.stack()
 	case d.res.Preset == "full":
@@ -215,7 +229,7 @@ func (d *doctor) project(ctx context.Context) {
 	case lock.APIVersion == lockAPIVersionV1:
 		d.add(doctorWarn, "gorbital.lock", "written by an early development build of orb, without the release that created the app", "orb upgrade --from <commit that created the app>")
 	case !lock.rendered():
-		d.add(doctorOK, "gorbital.lock", fmt.Sprintf("records %d modules orb eject copied", len(lock.Ejected)), "")
+		d.add(doctorOK, "gorbital.lock", fmt.Sprintf("records %d built-in modules the app owns", len(lock.Ejected)), "")
 	default:
 		edited := 0
 		for _, f := range lock.Files {

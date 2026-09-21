@@ -13,43 +13,87 @@ import (
 	"⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
 )
 
+⟦- if .Custom⟧
+
+// A listQuery is one sort's SQL in two halves, so the policy's conditions
+// can be added to the WHERE clause before the rows are ordered.
+type listQuery struct{ where, order string }
+⟦- end⟧
+
 // select⟦.Plural⟧SQL holds one fixed query per sort, keyed "created_at",
 // "-created_at" and so on. Only the allowlisted sort expressions below become
 // SQL text; every value is a placeholder. Pages use keyset
 // pagination: the next page starts after the last row's (sort value, id).
+⟦- if .Custom⟧
+// What the policy adds is appended to the WHERE clause, with its own
+// placeholders numbered after the ones here.
+var select⟦.Plural⟧SQL = func() map[string]listQuery {
+⟦- else⟧
 var select⟦.Plural⟧SQL = func() map[string]string {
+⟦- end⟧
 	sorts := []struct{ field, key, after string }{
-		{"created_at", `created_at`, `$3::timestamptz`},
-		{"updated_at", `updated_at`, `$3::timestamptz`},
+		{"created_at", `created_at`, `$⟦.PositionPlaceholder⟧::timestamptz`},
+		{"updated_at", `updated_at`, `$⟦.PositionPlaceholder⟧::timestamptz`},
 		// Text sorts ignore case and compare byte by byte, so the order
 		// doesn't depend on the database's locale.
 ⟦- range .Strings⟧
-		{⟦quote .Name⟧, `lower(⟦.Name⟧) COLLATE "C"`, `lower($3::text) COLLATE "C"`},
+		{⟦quote .Name⟧, `lower(⟦.Name⟧) COLLATE "C"`, `lower($⟦$.PositionPlaceholder⟧::text) COLLATE "C"`},
 ⟦- end⟧
 	}
+⟦- if .Custom⟧
+	queries := make(map[string]listQuery, 2*len(sorts))
+⟦- else⟧
 	queries := make(map[string]string, 2*len(sorts))
+⟦- end⟧
 	for _, s := range sorts {
 		for _, desc := range []bool{false, true} {
 			name, dir, cmp := s.field, "ASC", ">"
 			if desc {
 				name, dir, cmp = "-"+s.field, "DESC", "<"
 			}
-			queries[name] = `
+⟦- if .Custom⟧
+			queries[name] = listQuery{
+				where: `
 	SELECT ` + ⟦.Var⟧Columns + ` FROM ⟦.Table⟧
-	WHERE ⟦.ScopeColumn⟧ = $1
+	WHERE TRUE
 ⟦- range $i, $f := .Enums⟧
 	  AND ($⟦$.EnumPlaceholder $i⟧::text = '' OR ⟦$f.Name⟧ = $⟦$.EnumPlaceholder $i⟧)
 ⟦- end⟧
-	  AND (NOT $2::boolean OR (` + s.key + `, id) ` + cmp + ` (` + s.after + `, $4))
+	  AND (NOT $⟦.AfterPlaceholder⟧::boolean OR (` + s.key + `, id) ` + cmp + ` (` + s.after + `, $⟦.PositionIDPlaceholder⟧))`,
+				order: `
 	ORDER BY ` + s.key + ` ` + dir + `, id ` + dir + `
-	LIMIT $5`
+	LIMIT $⟦.LimitPlaceholder⟧`,
+			}
+⟦- else⟧
+			queries[name] = `
+	SELECT ` + ⟦.Var⟧Columns + ` FROM ⟦.Table⟧
+⟦- if .Filtered⟧
+	WHERE ⟦.ScopeColumn⟧ = $1
+⟦- else⟧
+	WHERE TRUE
+⟦- end⟧
+⟦- range $i, $f := .Enums⟧
+	  AND ($⟦$.EnumPlaceholder $i⟧::text = '' OR ⟦$f.Name⟧ = $⟦$.EnumPlaceholder $i⟧)
+⟦- end⟧
+	  AND (NOT $⟦.AfterPlaceholder⟧::boolean OR (` + s.key + `, id) ` + cmp + ` (` + s.after + `, $⟦.PositionIDPlaceholder⟧))
+	ORDER BY ` + s.key + ` ` + dir + `, id ` + dir + `
+	LIMIT $⟦.LimitPlaceholder⟧`
+⟦- end⟧
 		}
 	}
 	return queries
 }()
 
-// Select⟦.Plural⟧ returns up to q.Limit of ⟦if .Org⟧an organisation's⟦else⟧an owner's⟦end⟧ ⟦.PluralHuman⟧ in q.Sort
+⟦- if .Custom⟧
+
+// Select⟦.Plural⟧ returns up to q.Limit ⟦.PluralHuman⟧ in q.Sort order, starting
+// after q.After — the ones the policy leaves. Filter runs before every
+// list, and a policy that narrows nothing returns every row in the table.
+⟦- else⟧
+
+// Select⟦.Plural⟧ returns up to q.Limit of ⟦if .Filtered⟧⟦.OwnerA⟧ ⟦.Owner⟧'s⟦else⟧the⟦end⟧ ⟦.PluralHuman⟧ in q.Sort
 // order, starting after q.After.
+⟦- end⟧
 func (s *Store) Select⟦.Plural⟧(ctx context.Context, q usecase.ListQuery) ([]domain.⟦.Ident⟧, error) {
 	name := q.Sort.Field
 	if q.Sort.Desc {
@@ -75,7 +119,17 @@ func (s *Store) Select⟦.Plural⟧(ctx context.Context, q usecase.ListQuery) ([
 	if q.After != nil {
 		afterID = q.After.ID
 	}
-	rows, err := s.db.Query(ctx, sql, q.⟦.ScopeField⟧, q.After != nil, after, afterID, q.Limit⟦range .Enums⟧, q.⟦.Ident⟧⟦end⟧)
+⟦- if .Custom⟧
+	narrowed := &Query{}
+	if err := s.filter.Filter(ctx, narrowed); err != nil {
+		return nil, err
+	}
+	conditions, extra := narrowed.where(⟦.PolicyFirstArg⟧)
+	args := []any{q.After != nil, after, afterID, q.Limit⟦range .Enums⟧, q.⟦.Ident⟧⟦end⟧}
+	rows, err := s.db.Query(ctx, sql.where+conditions+sql.order, append(args, extra...)...)
+⟦- else⟧
+	rows, err := s.db.Query(ctx, sql, ⟦if .Filtered⟧q.⟦.ScopeField⟧, ⟦end⟧q.After != nil, after, afterID, q.Limit⟦range .Enums⟧, q.⟦.Ident⟧⟦end⟧)
+⟦- end⟧
 	if err != nil {
 		return nil, err
 	}

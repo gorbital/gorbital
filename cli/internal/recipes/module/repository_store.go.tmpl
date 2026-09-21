@@ -5,6 +5,10 @@ package repository
 
 import (
 	"context"
+⟦- if .Custom⟧
+	"strconv"
+	"strings"
+⟦- end⟧
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,6 +19,86 @@ import (
 	"⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
 )
 
+⟦- if .Custom⟧
+// A Filter narrows a list query to the rows the caller may see. The
+// module's policy.go implements it, and this package never decides for
+// itself which rows a list returns.
+type Filter interface {
+	Filter(ctx context.Context, q *Query) error
+}
+
+// A Query is a list query before it runs: the conditions the policy adds
+// to it and their arguments. An empty Query returns every ⟦.Human⟧ in the
+// table, so a policy that narrows nothing publishes everything.
+type Query struct {
+	conditions []string
+	args       []any
+}
+
+// And narrows the query with an SQL condition whose ? placeholders take
+// args, in order:
+//
+//	q.And("created_by = ?", actorID)
+//	q.And("state = ANY(?)", []string{"open", "closed"})
+//
+// Conditions are joined with AND and only the condition text reaches the
+// database as SQL; every argument is a placeholder.
+func (q *Query) And(condition string, args ...any) {
+	q.conditions = append(q.conditions, condition)
+	q.args = append(q.args, args...)
+}
+
+// where returns the conditions as SQL, numbering their placeholders from
+// $first, and the arguments they take.
+func (q *Query) where(first int) (string, []any) {
+	var b strings.Builder
+	next := first
+	for _, condition := range q.conditions {
+		b.WriteString("\n\t  AND (")
+		for {
+			before, after, found := strings.Cut(condition, "?")
+			b.WriteString(before)
+			if !found {
+				break
+			}
+			b.WriteString("$" + strconv.Itoa(next))
+			next, condition = next+1, after
+		}
+		b.WriteString(")")
+	}
+	return b.String(), q.args
+}
+
+// Conditions returns what the policy added, for policy_test.go: the
+// conditions in order and the arguments they take.
+func (q *Query) Conditions() ([]string, []any) { return q.conditions, q.args }
+
+// Store implements usecase.Store. It runs on the pool, or on a transaction
+// inside InTx, and asks filter which rows a list may return.
+type Store struct {
+	db     postgres.DBTX
+	pool   *pgxpool.Pool // nil inside a transaction
+	filter Filter
+}
+
+var _ usecase.Store = (*Store)(nil)
+
+// NewStore returns a store on pool that narrows every list with filter.
+func NewStore(pool *pgxpool.Pool, filter Filter) *Store {
+	return &Store{db: pool, pool: pool, filter: filter}
+}
+
+// InTx runs fn with a store bound to one transaction. Inside a transaction,
+// fn joins it.
+func (s *Store) InTx(ctx context.Context, fn func(tx usecase.Store) error) error {
+	if s.pool == nil {
+		return fn(s)
+	}
+	return postgres.InTx(ctx, s.pool, func(tx pgx.Tx) error {
+		return fn(&Store{db: tx, filter: s.filter})
+	})
+}
+⟦- else⟧
 // Store implements usecase.Store. It runs on the pool, or on a transaction
 // inside InTx.
 type Store struct {
@@ -39,13 +123,14 @@ func (s *Store) InTx(ctx context.Context, fn func(tx usecase.Store) error) error
 		return fn(&Store{db: tx})
 	})
 }
+⟦- end⟧
 
 // ⟦.Var⟧Columns are the columns scan⟦.Ident⟧ reads, in its order.
-const ⟦.Var⟧Columns = `id, ⟦if .Org⟧org_id, created_by⟦else⟧owner_id⟦end⟧, ⟦.Columns⟧, version, created_at, updated_at`
+const ⟦.Var⟧Columns = `id, ⟦.OwnerColumnList⟧⟦.Columns⟧, version, created_at, updated_at`
 
 func scan⟦.Ident⟧(row pgx.CollectableRow) (domain.⟦.Ident⟧, error) {
 	var ⟦.Var⟧ domain.⟦.Ident⟧
-	err := row.Scan(&⟦.Var⟧.ID, ⟦if .Org⟧&⟦.Var⟧.OrgID, &⟦.Var⟧.CreatedBy⟦else⟧&⟦.Var⟧.OwnerID⟦end⟧, ⟦range .Fields⟧&⟦$.Var⟧.⟦.Ident⟧, ⟦end⟧&⟦.Var⟧.Version, &⟦.Var⟧.CreatedAt, &⟦.Var⟧.UpdatedAt)
+	err := row.Scan(&⟦.Var⟧.ID, ⟦if .Org⟧&⟦.Var⟧.⟦.ScopeField⟧, &⟦.Var⟧.CreatedBy, ⟦else if .Custom⟧&⟦.Var⟧.CreatedBy, ⟦else if .Filtered⟧&⟦.Var⟧.OwnerID, ⟦end⟧⟦range .Fields⟧&⟦$.Var⟧.⟦.Ident⟧, ⟦end⟧&⟦.Var⟧.Version, &⟦.Var⟧.CreatedAt, &⟦.Var⟧.UpdatedAt)
 	⟦.Var⟧.CreatedAt, ⟦.Var⟧.UpdatedAt = ⟦.Var⟧.CreatedAt.UTC(), ⟦.Var⟧.UpdatedAt.UTC()
 	return ⟦.Var⟧, err
 }
@@ -56,7 +141,7 @@ func constraintError(err error) error {
 	if constraint, ok := postgres.UniqueViolation(err); ok {
 		switch constraint {
 ⟦- range .Uniques⟧
-		case "⟦$.Table⟧_⟦if $.Org⟧org⟦else⟧owner⟦end⟧_⟦.Name⟧":
+		case "⟦$.UniqueIndex .Name⟧":
 			return domain.Err⟦$.Ident⟧⟦.Ident⟧Taken
 ⟦- end⟧
 		}

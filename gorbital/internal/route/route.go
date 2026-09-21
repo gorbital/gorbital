@@ -55,19 +55,20 @@ type Guard struct {
 	// Limit, when set, is resolved to a limiter at registration and
 	// checked instead of Check.
 	Limit *Limit
-	// Org, when set, makes the guard check organisation membership with the
-	// app's organisation authorizer instead of Check (guard.OrgMember).
-	Org *Org
+	// Scope, when set, makes the guard check membership of the app's scope
+	// with the app's scope authorizer instead of Check (guard.Scope).
+	Scope *Scope
 	// Err makes registration fail, for a guard built with invalid arguments.
 	Err error
 }
 
-// OrgIDParam is the path parameter guard.OrgMember reads the organisation
-// ID from.
+// OrgIDParam is the path parameter an app that has not named its scope
+// reads the scope ID from. It is the default of gorbital.Scope.PathParam,
+// and the parameter every v0.1 and v0.2 organisation route uses.
 const OrgIDParam = "orgId"
 
-// Org is the membership check of guard.OrgMember.
-type Org struct {
+// Scope is the membership check of guard.Scope.
+type Scope struct {
 	// Permission is the permission the member's role must grant.
 	Permission string
 }

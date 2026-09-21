@@ -13,17 +13,42 @@ type Update⟦.Ident⟧Input struct {
 }
 
 ⟦- if .Org⟧
-// Update⟦.Ident⟧ changes one of the organisation orgID's ⟦.PluralHuman⟧. It returns
+// Update⟦.Ident⟧ changes one of the ⟦.ScopeName⟧ ⟦.ScopeVar⟧'s ⟦.PluralHuman⟧. It returns
 // Err⟦.Ident⟧VersionConflict when in.Version is no longer current. An update
 // that changes nothing returns the ⟦.Human⟧ as it is.
-func (s *Service) Update⟦.Ident⟧(ctx context.Context, orgID, id string, in Update⟦.Ident⟧Input) (domain.⟦.Ident⟧, error) {
-	if _, err := memberID(ctx, orgID); err != nil {
+func (s *Service) Update⟦.Ident⟧(ctx context.Context, ⟦.ScopeVar⟧, id string, in Update⟦.Ident⟧Input) (domain.⟦.Ident⟧, error) {
+	if _, err := memberID(ctx, ⟦.ScopeVar⟧); err != nil {
 		return domain.⟦.Ident⟧{}, err
 	}
 	var updated domain.⟦.Ident⟧
 	var changed []string
 	err := s.store.InTx(ctx, func(tx Store) error {
-		current, err := tx.Select⟦.Ident⟧(ctx, orgID, id, true)
+		current, err := tx.Select⟦.Ident⟧(ctx, ⟦.ScopeVar⟧, id, true)
+⟦- else if .Public⟧
+// Update⟦.Ident⟧ changes one ⟦.Human⟧. It returns Err⟦.Ident⟧VersionConflict when
+// in.Version is no longer current. An update that changes nothing returns
+// the ⟦.Human⟧ as it is. The route requires PermWrite.
+func (s *Service) Update⟦.Ident⟧(ctx context.Context, id string, in Update⟦.Ident⟧Input) (domain.⟦.Ident⟧, error) {
+	var updated domain.⟦.Ident⟧
+	var changed []string
+	err := s.store.InTx(ctx, func(tx Store) error {
+		current, err := tx.Select⟦.Ident⟧(ctx, id, true)
+⟦- else if .Custom⟧
+// Update⟦.Ident⟧ changes one ⟦.Human⟧ when the policy lets the caller change it.
+// It returns Err⟦.Ident⟧VersionConflict when in.Version is no longer current.
+// An update that changes nothing returns the ⟦.Human⟧ as it is. The policy
+// is asked inside the transaction, about the row it locked.
+func (s *Service) Update⟦.Ident⟧(ctx context.Context, id string, in Update⟦.Ident⟧Input) (domain.⟦.Ident⟧, error) {
+	var updated domain.⟦.Ident⟧
+	var changed []string
+	err := s.store.InTx(ctx, func(tx Store) error {
+		current, err := tx.Select⟦.Ident⟧(ctx, id, true)
+		if err != nil {
+			return err
+		}
+		if err := s.policy.CanWrite(ctx, current); err != nil {
+			return err
+		}
 ⟦- else⟧
 // Update⟦.Ident⟧ changes one of the signed-in user's ⟦.PluralHuman⟧. It returns
 // Err⟦.Ident⟧VersionConflict when in.Version is no longer current. An update
@@ -38,9 +63,11 @@ func (s *Service) Update⟦.Ident⟧(ctx context.Context, id string, in Update�
 	err = s.store.InTx(ctx, func(tx Store) error {
 		current, err := tx.Select⟦.Ident⟧(ctx, owner, id, true)
 ⟦- end⟧
+⟦- if not .Custom⟧
 		if err != nil {
 			return err
 		}
+⟦- end⟧
 		if current.Version != in.Version {
 			return domain.Err⟦.Ident⟧VersionConflict
 		}

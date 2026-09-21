@@ -28,7 +28,7 @@ func Module() gorbital.Module
 
 Module returns the mail events module. Its name is "mailevents". gorbital.New fails with a configuration error when RESEND\_WEBHOOK\_SECRET is set but isn't a Resend signing secret (whsec\_…).
 
-*Since `v0.2.0 (unreleased)`*
+*Since `v0.3.0 (unreleased)`*
 
 **Example**
 

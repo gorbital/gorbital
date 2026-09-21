@@ -10,16 +10,18 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gorbital.dev/cli/internal/recipes"
 )
 
-// newMainApp copies examples/apps/shelfie without the shelves and clubbooks
+// newMainApp copies examples/shelfie without the shelves and clubbooks
 // modules, which orb gen module generates, and makes the copy the working
 // directory. With
 // buildable, the copy's replace directives point at this repository, so it
 // builds.
 func newMainApp(t *testing.T, buildable bool) string {
 	t.Helper()
-	shelfie := filepath.Join(repoRoot(t), "examples", "apps", "shelfie")
+	shelfie := filepath.Join(repoRoot(t), "examples", "shelfie")
 	dir := filepath.Join(t.TempDir(), "shelfie")
 	err := filepath.WalkDir(shelfie, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -55,8 +57,10 @@ func newMainApp(t *testing.T, buildable bool) string {
 	}
 	writeFile(t, filepath.Join(dir, filepath.FromSlash(modulesGenPath)), string(list))
 	if buildable {
+		// absoluteReplaces resolves each directive against the application's
+		// own directory, so this doesn't care how deep examples/shelfie is.
 		goMod := readFile(t, filepath.Join(dir, "go.mod"))
-		writeFile(t, filepath.Join(dir, "go.mod"), strings.ReplaceAll(goMod, " => ../../..", " => "+repoRoot(t)))
+		writeFile(t, filepath.Join(dir, "go.mod"), absoluteReplaces(t, goMod, shelfie))
 	}
 	t.Chdir(dir)
 	return dir
@@ -84,12 +88,12 @@ var clubBooksArgs = []string{"gen", "module", "ClubBook", "title:string:unique",
 
 func TestGenModule(t *testing.T) {
 	dir := newMainApp(t, false)
-	shelfie := filepath.Join(repoRoot(t), "examples", "apps", "shelfie")
+	shelfie := filepath.Join(repoRoot(t), "examples", "shelfie")
 
 	code, out, errOut := runOrb(t, append(shelvesArgs, "--dry-run", "--json")...)
 	var res genModuleResult
 	if code != 0 || json.Unmarshal([]byte(out), &res) != nil || !res.DryRun || res.Module != "shelves" || res.Route != "/v1/shelves" ||
-		!slices.Equal(res.Permissions, []string{"shelves.shelf.read", "shelves.shelf.write"}) || len(res.Files) != 27 {
+		!slices.Equal(res.Permissions, []string{"shelves.shelf.read", "shelves.shelf.write"}) || len(res.Files) != 28 {
 		t.Fatalf("orb gen module --dry-run --json = %d %s %s", code, out, errOut)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "internal", "modules", "shelves")); err == nil {
@@ -109,8 +113,8 @@ func TestGenModule(t *testing.T) {
 		t.Error("modules.gen.go doesn't list shelves")
 	}
 	for _, f := range res.Files {
-		if f == modulesGenPath {
-			continue // Shelfie's lists clubbooks too
+		if f == modulesGenPath || f == manifestPath {
+			continue // Shelfie's lists clubbooks too, and records their scopes
 		}
 		golden := f
 		if strings.HasSuffix(f, "_shelves.sql") {
@@ -134,25 +138,25 @@ func TestGenModule(t *testing.T) {
 
 func TestGenModuleOrg(t *testing.T) {
 	dir := newMainApp(t, false)
-	shelfie := filepath.Join(repoRoot(t), "examples", "apps", "shelfie")
+	shelfie := filepath.Join(repoRoot(t), "examples", "shelfie")
 
 	code, out, errOut := runOrb(t, append(clubBooksArgs, "--dry-run", "--json")...)
 	var res genModuleResult
-	if code != 0 || json.Unmarshal([]byte(out), &res) != nil || res.Scope != "org" || res.Route != "/v1/orgs/{orgId}/club-books" || res.RowLevelSecurity ||
-		!slices.Equal(res.Permissions, []string{"clubbooks.club_book.read", "clubbooks.club_book.write"}) || len(res.Files) != 27 {
+	if code != 0 || json.Unmarshal([]byte(out), &res) != nil || res.Scope != recipes.ScopeTenant || res.Route != "/v1/orgs/{orgId}/club-books" || res.RowLevelSecurity ||
+		!slices.Equal(res.Permissions, []string{"clubbooks.club_book.read", "clubbooks.club_book.write"}) || len(res.Files) != 28 {
 		t.Fatalf("orb gen module --org --dry-run --json = %d %s %s", code, out, errOut)
 	}
 
 	// Shelfie's main.go adds orgshttp, so the next steps don't ask for it.
 	code, out, errOut = runOrb(t, append(clubBooksArgs, "--allow-dirty")...)
 	if code != 0 || !strings.Contains(out, "for an organisation's club books (guard.OrgMember)") || !strings.Contains(out, "GET /v1/orgs") ||
-		!strings.Contains(out, "Every organisation role (owner, admin, member)") || strings.Contains(out, "orgshttp.Module(auth)") {
+		!strings.Contains(out, "Every organisation role (owner, admin and member)") || strings.Contains(out, "orgshttp.Module(auth)") {
 		t.Fatalf("orb gen module --org = %d %s %s", code, out, errOut)
 	}
 	// The files are Shelfie's clubbooks module, which TestModuleMatchesShelfie
 	// keeps equal to the templates.
 	for _, f := range res.Files {
-		if f == modulesGenPath {
+		if f == modulesGenPath || f == manifestPath {
 			continue
 		}
 		golden := f
@@ -262,10 +266,11 @@ func TestGenModuleErrors(t *testing.T) {
 			t.Errorf("orb gen module %q = %d %q, want %d containing %q", tt.args, code, errOut, tt.code, tt.want)
 		}
 	}
-	// orb gen resource --scope org is orb gen module --org.
+	// orb gen resource --scope org is orb gen module --scope tenant: org is
+	// the old name of the scope, and reported under the new one.
 	code, out, errOut := runOrb(t, "gen", "resource", "Shelf", "name:string", "--scope", "org", "--dry-run", "--json")
 	var res genModuleResult
-	if code != 0 || json.Unmarshal([]byte(out), &res) != nil || res.Scope != "org" || res.Route != "/v1/orgs/{orgId}/shelfs" {
+	if code != 0 || json.Unmarshal([]byte(out), &res) != nil || res.Scope != recipes.ScopeTenant || res.Route != "/v1/orgs/{orgId}/shelfs" {
 		t.Errorf("orb gen resource --scope org = %d %s %s", code, out, errOut)
 	}
 
@@ -314,6 +319,12 @@ func TestGeneratedCodePasses(t *testing.T) {
 		clubBooksArgs,
 		{"gen", "module", "Customer", "email:string:unique", "full_name:string", "nickname:string?", "account_code:string:unique", "notes:text", "tier:enum(free,pro,enterprise)", "region:enum(eu,us)"},
 		{"gen", "module", "Note", "title:string", "body:text"},
+		// The scopes without an ownership column (ADR-0091). The custom
+		// module's own tests are red until its policy is written, so this
+		// one gets a policy before the suite runs.
+		{"gen", "module", "Catalogue", "name:string:unique", "blurb:text", "state:enum(draft,live)", "--scope", "public"},
+		{"gen", "module", "Ticket", "subject:string:unique", "body:text", "state:enum(open,closed)", "--scope", "custom"},
+		{"policy"},
 		{"gen", "middleware", "RequireClientVersion", "--module", "customers"},
 		{"gen", "middleware", "ActiveSubscription", "--module", "customers", "--guard"},
 		{"gen", "middleware", "TenantHeader", "--global"},
@@ -324,8 +335,12 @@ func TestGeneratedCodePasses(t *testing.T) {
 		{"rls"},
 		{"gen", "module", "Invoice", "number:string:unique", "notes:text", "--org"},
 	} {
-		if args[0] == "rls" {
+		switch args[0] {
+		case "rls":
 			addRowLevelSecurity(t, dir)
+			continue
+		case "policy":
+			writeTicketPolicy(t, dir)
 			continue
 		}
 		if code, out, errOut := runOrb(t, append(args, "--allow-dirty", "--no-input")...); code != 0 {
@@ -361,6 +376,35 @@ func TestGeneratedCodePasses(t *testing.T) {
 	}
 	run("go", "test", "-count=1", "./...")
 }
+
+// writeTicketPolicy writes the access rule a --scope custom module is
+// generated without: the developer's job, done here so the generated
+// module's own tests can run. Every ticket is its creator's, which is a
+// rule gorbital could have guessed and therefore didn't.
+func writeTicketPolicy(t *testing.T, dir string) {
+	t.Helper()
+	path := filepath.Join(dir, "internal", "modules", "tickets", "policy.go")
+	src := readFile(t, path)
+	src = strings.ReplaceAll(src, `"gorbital.dev/gorbital"`, `"gorbital.dev/actor"`)
+	for _, method := range []string{"CanRead", "CanWrite"} {
+		decl := "func (p Policy) " + method + "(ctx context.Context, ticket domain.Ticket) error {\n"
+		src = strings.Replace(src, decl+"\treturn gorbital.ErrNotImplemented", decl+ownerCheck, 1)
+	}
+	filter := "func (p Policy) Filter(ctx context.Context, q *repository.Query) error {\n"
+	src = strings.Replace(src, filter+"\treturn gorbital.ErrNotImplemented", filter+ownerFilter, 1)
+	if strings.Contains(src, "return gorbital.ErrNotImplemented") {
+		t.Fatalf("the generated policy.go didn't have the stubs this test replaces:\n%s", src)
+	}
+	writeFile(t, path, src)
+}
+
+// The bodies writeTicketPolicy puts in place of the stubs.
+const (
+	ownerCheck = "\tif a, ok := actor.From(ctx); !ok || a.ID != ticket.CreatedBy {\n" +
+		"\t\treturn domain.ErrTicketNotFound\n\t}\n\treturn nil"
+	ownerFilter = "\ta, ok := actor.From(ctx)\n\tif !ok {\n\t\treturn domain.ErrUnauthenticated\n\t}\n" +
+		"\tq.And(\"created_by = ?\", a.ID)\n\treturn nil"
+)
 
 // addRowLevelSecurity adds the multi-tenant apps' row-level security
 // migration (orb add rls's file) to the app in dir, as its next migration.

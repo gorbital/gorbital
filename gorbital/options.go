@@ -50,6 +50,8 @@ type options struct {
 	stack      func(Stack) []func(http.Handler) http.Handler
 	logger     *slog.Logger
 	migrations fs.FS
+	scope      Scope
+	scopeAuth  ScopeAuthorizer
 }
 
 func newOptions(opts []Option) options {
@@ -95,6 +97,51 @@ func WithModules(modules ...Module) Option {
 // can't be reached.
 func WithAuth(a Authenticator) Option {
 	return optionFunc(func(o *options) { o.auth = a })
+}
+
+// WithScope gives the app its tenancy: what a tenant is called, how its
+// IDs look, which roles it has, and how a request's tenant reaches the
+// database, with the authorizer that decides who may act in one
+// (ADR-0088). Every route with guard.Scope asks it.
+//
+// An app that mounts gorbital.dev/gorbital/orgshttp doesn't need this: the
+// module sets the scope itself. Use it for an app with its own membership
+// tables:
+//
+//	gorbital.WithScope(gorbital.Scope{
+//		Name:         "merchant",
+//		PathParam:    "merchantId",
+//		NotFoundCode: "merchant_not_found",
+//		ValidID:      merchants.ValidID,
+//		Roles:        merchants.Roles,
+//		Session:      postgres.WithScope,
+//	}, merchants.NewAuthorizer(db))
+//
+// [New] fails when a is nil, the scope is invalid, or a module also sets
+// one: an app has one source of truth for membership.
+func WithScope(s Scope, a ScopeAuthorizer) Option {
+	return optionFunc(func(o *options) { o.scope, o.scopeAuth = s, a })
+}
+
+// WithScopeWords says what the app calls its tenant when a module owns
+// membership and renames it, such as
+// orgshttp.Module(auth, orgshttp.ScopeName("merchant", "merchants", "merchantId")).
+// The module still sets the scope and its authorizer; this only tells the
+// parts of [New] that run before any module's Platform does — the route
+// checks of guard.Scope, and the OpenAPI document `openapi --dir` exports
+// without connecting to anything — which words to expect:
+//
+//	gorbital.WithScopeWords(gorbital.Scope{
+//		Name:         "merchant",
+//		PathParam:    "merchantId",
+//		NotFoundCode: "merchant_not_found",
+//	})
+//
+// It carries no authorizer, so it is not a second scope: an app whose
+// membership is its own uses [WithScope] instead, which says the same
+// words and more.
+func WithScopeWords(s Scope) Option {
+	return optionFunc(func(o *options) { o.scope = s.withDefaults() })
 }
 
 // WithStorage sets the app's file storage, passed to modules as

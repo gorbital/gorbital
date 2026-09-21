@@ -29,7 +29,7 @@ module is a directory under internal/modules whose package declares
 
 	func Module() gorbital.Module
 
-Built-in modules copied with orb eject aren't listed: main.go adds them.
+Built-in modules the app owns aren't listed: main.go adds them.
 
 The file is generated: never edit it. orb dev rewrites it when a module is
 added or removed, and go generate ./internal/modules runs this command. The

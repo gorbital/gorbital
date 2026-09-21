@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 
+	"gorbital.dev/gorbital"
+	authlib "gorbital.dev/modules/auth"
+
 	"example.com/acme-api/internal/modules/auth/delivery"
 	authdomain "example.com/acme-api/internal/modules/auth/domain"
 	"example.com/acme-api/internal/modules/auth/usecase"
-	"gorbital.dev/gorbital"
-	authlib "gorbital.dev/modules/auth"
 )
 
 // Organisations is what sign-in needs from an app's organisations
@@ -61,7 +62,12 @@ func (a *Authenticator) UseOrganisations(o Organisations) error {
 // schemas and error codes (ADR-0058). The organisations module registers
 // them; they work once [Authenticator.UseOrganisations] is called, and
 // before [Authenticator.Setup] they register for the OpenAPI document only.
+// An app that doesn't serve [MethodAPIKeys] has no service accounts, so it
+// registers none of them.
 func (a *Authenticator) OrgServiceAccountRoutes(r *gorbital.Router) {
+	if !a.opts.has(MethodAPIKeys) {
+		return
+	}
 	delivery.RegisterOrgServiceAccounts(r, a.service())
 }
 

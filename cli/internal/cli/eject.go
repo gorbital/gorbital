@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -23,47 +22,35 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/huh"
-
 	"gorbital.dev/cli/internal/genplan"
 	"gorbital.dev/cli/internal/imports"
 	"gorbital.dev/cli/internal/recipes"
 )
 
-const ejectUsage = `Usage: orb eject <module> [flags]
+// An ejectRemovedMessage is an error whose whole value is a page of prose
+// for a person: nothing wraps it, Main prints it and exits. It is a type
+// of its own rather than errors.New so that it can be several sentences,
+// capitalised and punctuated, which is what the reader needs and what the
+// rules for an error fragment forbid.
+type ejectRemovedMessage string
 
-Copies a built-in module of gorbital.dev/gorbital into the app as code the
-app owns, for changes no option or hook covers (ADR-0083). Modules:
+func (e ejectRemovedMessage) Error() string { return string(e) }
 
-  auth         sign-in (gorbital.dev/gorbital/authhttp)
-  flags        client feature flags (gorbital.dev/gorbital/flagshttp)
-  mailevents   email events (gorbital.dev/gorbital/mailevents)
-  ops          the operations API (gorbital.dev/gorbital/opshttp)
-  orgs         organisations (gorbital.dev/gorbital/orgshttp)
+// errEjectRemoved answers `orb eject`, removed in v0.3.0 (ADR-0092). The
+// name stays registered for one release so a script or an old page gets an
+// answer rather than "unknown command".
+const errEjectRemoved = ejectRemovedMessage(`orb eject was removed in v0.3.0.
 
-In an app on gorbital.Main, orb eject:
+Sign-in and organisations are already in your app, under internal/modules:
+orb new put them there. There is nothing to eject.
 
-  1. copies the package, at the gorbital.dev/gorbital version go.mod requires
-     (or its replace directive's directory), into internal/modules/<module>:
-     the root package and its layers, internal/<layer> becoming <layer>,
-     with their tests and import paths changed to the app's; tests of the
-     library itself (marked //orb:noeject) aren't copied
-  2. changes the app's imports of the package, so cmd/api/main.go builds the
-     module from the copy with the same options and hooks; the package keeps
-     its name, so no call changes
-  3. copies the module's migrations into db/migrations under the same
-     versions, so a database sees nothing new
-  4. records the ejection in gorbital.lock, then runs go mod tidy
+The library keeps what you should never write yourself -- password hashing,
+session tokens, TOTP, API-key hashing -- and no command moves it into an
+app. To change how sign-in behaves, use the options and hooks in
+gorbital.dev/gorbital/authhttp (see docs/guides/the-code-in-your-repo.md).`)
 
-The API, database and behaviour are unchanged. From then on library releases
-don't change the module; orb doctor says when the library's copy changes.
-Eject orgs before auth: gorbital's orgshttp takes sign-in's authenticator.
-
-Exit codes: 0 when the module is ejected (or would be, with --dry-run), 1
-when orb eject refuses or fails, 2 for invalid usage, 130 when cancelled.
-`
-
-// An ejectableModule is a built-in module orb eject copies into apps.
+// An ejectableModule is a built-in module orb new and orb add copy into
+// apps. orb eject is gone; the planner below is what those commands run.
 type ejectableModule struct {
 	// name is what orb eject takes and the directory under
 	// internal/modules, such as auth.
@@ -96,14 +83,6 @@ func lookupEjectable(name string) (ejectableModule, bool) {
 		return ejectableModule{}, false
 	}
 	return ejectableModules[i], true
-}
-
-func ejectableNames() string {
-	names := make([]string, len(ejectableModules))
-	for i, m := range ejectableModules {
-		names[i] = m.name
-	}
-	return strings.Join(names, ", ")
 }
 
 // moduleLayers are the directories an app module has below it (ADR-0083).
@@ -143,187 +122,6 @@ type ejectResult struct {
 type ejectSkipped struct {
 	Path   string `json:"path"`
 	Reason string `json:"reason"`
-}
-
-func runEject(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
-	flags := flag.NewFlagSet("orb eject", flag.ContinueOnError)
-	flags.SetOutput(stderr)
-	dryRun := flags.Bool("dry-run", false, "show what would change without writing")
-	diff := flags.Bool("diff", false, "print the plan as a unified diff")
-	asJSON := flags.Bool("json", false, "print the result as JSON")
-	allowDirty := flags.Bool("allow-dirty", false, "allow uncommitted changes in the git repository")
-	skipTidy := flags.Bool("skip-tidy", false, "don't run go mod tidy")
-	var p promptFlags
-	flags.BoolVar(&p.yes, "yes", false, "eject without asking for confirmation")
-	flags.BoolVar(&p.noInput, "no-input", false, "never prompt; fail if the module isn't given")
-	flags.BoolVar(&p.plain, "plain", false, "plain line-by-line prompts (screen-reader friendly)")
-	flags.Usage = func() {
-		fmt.Fprint(stderr, ejectUsage+"\nFlags:\n")
-		flags.PrintDefaults()
-	}
-	positional, err := parseInterspersed(flags, args)
-	if err != nil {
-		return err
-	}
-	if len(positional) > 1 {
-		return usageError("orb eject takes one module: " + ejectableNames())
-	}
-	app, err := findApp()
-	if err != nil {
-		return err
-	}
-	ask := shouldPrompt(p, *asJSON, stdin, stdout)
-	name := ""
-	if len(positional) == 1 {
-		name = positional[0]
-	}
-	if name == "" {
-		if !ask {
-			return usageError("orb eject needs a module: " + ejectableNames())
-		}
-		if name, err = promptEjectModule(app, p, stdin, stderr); err != nil {
-			return err
-		}
-	}
-	if _, ok := lookupEjectable(name); !ok {
-		return usageError(fmt.Sprintf("orb eject can't eject %q; the built-in modules are %s", name, ejectableNames()))
-	}
-
-	plan, err := planEject(ctx, app, name, time.Now())
-	if err != nil {
-		return err
-	}
-	result := plan.Result.(ejectResult)
-	result.DryRun = *dryRun
-	if !*dryRun {
-		if ask && !p.yes {
-			ok, err := confirm("Eject "+name+"? The app owns the copy from then on.", plan.Summary, p, stdin, stderr)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				return errAborted
-			}
-		}
-		if !*allowDirty {
-			if err := requireCleanGit(ctx, app.dir); err != nil {
-				return err
-			}
-		}
-		if err := genplan.Apply(app.dir, plan); err != nil {
-			return err
-		}
-		if !*skipTidy {
-			var out bytes.Buffer
-			if err := runIn(ctx, app.dir, &out, "go", "mod", "tidy"); err != nil {
-				return fmt.Errorf("the module is ejected, but go mod tidy failed: %w: %s", err, strings.TrimSpace(out.String()))
-			}
-			result.Tidied = true
-		}
-		// The module's error codes and audit actions are the app's names
-		// now, so the app's own record of them is written again (ADR-0054).
-		recorded, err := recordSurface(ctx, app.dir)
-		if err != nil {
-			return fmt.Errorf("the module is ejected, but recording %s failed: %w", surfacePath, err)
-		}
-		result.Surface = recorded
-	}
-
-	if *asJSON {
-		return writeJSON(stdout, result)
-	}
-	verb := "Ejected"
-	if *dryRun {
-		verb = "Would eject (dry run)"
-	}
-	fmt.Fprintf(stdout, "✓ %s %s: %s %s is now %s\n\n%s", verb, name, result.Package, result.Version, result.Directory, plan.Summary)
-	if *diff {
-		fmt.Fprintf(stdout, "\n%s", genplan.Diff(plan))
-	}
-	if !*dryRun {
-		steps := plan.Next
-		if *skipTidy {
-			steps = append([]string{"go mod tidy"}, steps...)
-		}
-		if result.Surface {
-			fmt.Fprintf(stdout, "  %s records the module's names, which are yours now\n", surfacePath)
-		}
-		fmt.Fprintf(stdout, "\nNext:\n")
-		for _, s := range steps {
-			fmt.Fprintf(stdout, "  %s\n", s)
-		}
-		fmt.Fprintf(stdout, "\nThe code is yours: library releases no longer change it, and orb doctor says when the library's %s changes.\n", path.Base(result.Package))
-	}
-	return nil
-}
-
-// promptEjectModule asks which of the modules cmd/api uses to eject.
-func promptEjectModule(app appInfo, p promptFlags, stdin io.Reader, stderr io.Writer) (string, error) {
-	lock, _ := readLock(app.dir)
-	var options []huh.Option[string]
-	for _, m := range ejectableModules {
-		if _, done := lock.ejected(m.name); done {
-			continue
-		}
-		if uses, _ := commandImports(app.dir, m.importPath()); len(uses) > 0 {
-			options = append(options, huh.NewOption(fmt.Sprintf("%s: %s (%s)", m.name, m.about, m.importPath()), m.name))
-		}
-	}
-	if len(options) == 0 {
-		return "", errors.New("cmd/api uses no built-in module orb eject copies (" + ejectableNames() + ")")
-	}
-	name := options[0].Value
-	form := huh.NewForm(huh.NewGroup(huh.NewSelect[string]().Title("Which module should the app own?").
-		Description("The copy stops receiving library fixes; prefer options and hooks when they cover the change.").
-		Options(options...).Value(&name)))
-	return name, runForm(form, p, stdin, stderr)
-}
-
-// planEject returns the plan of ejecting the module named name from the app,
-// refusing an app that isn't on gorbital.Main, a module the app doesn't use
-// or already ejected, and a module a library package the app uses depends
-// on. The plan's Result is an ejectResult.
-func planEject(ctx context.Context, app appInfo, name string, now time.Time) (genplan.Plan, error) {
-	m, ok := lookupEjectable(name)
-	if !ok {
-		return genplan.Plan{}, usageError(fmt.Sprintf("orb eject can't eject %q; the built-in modules are %s", name, ejectableNames()))
-	}
-	switch appLayout(app.dir) {
-	case layoutV01:
-		return genplan.Plan{}, fmt.Errorf("this app uses the v0.1 layout (internal/app), where %s is generated code the app already owns; orb eject works in apps on gorbital.Main: convert the app with orb upgrade --layout v0.2, which keeps a changed module as owned code", m.dir())
-	case layoutMain:
-	default:
-		return genplan.Plan{}, errors.New("orb eject works in apps on gorbital.Main: go.mod doesn't require gorbital.dev/gorbital")
-	}
-	if !callsGorbitalMain(app.dir) {
-		return genplan.Plan{}, errors.New("orb eject works in apps on gorbital.Main: no Go file in cmd/api calls gorbital.Main")
-	}
-
-	lock, err := readLock(app.dir)
-	lockExists := err == nil
-	if err != nil && !errors.Is(err, errNoLock) {
-		return genplan.Plan{}, err
-	}
-	if lockExists && lock.APIVersion != LockAPIVersion {
-		return genplan.Plan{}, errors.New("gorbital.lock was written by an early development build of orb; run orb upgrade --from <commit that created the app> first")
-	}
-	if e, done := lock.ejected(m.name); done {
-		return genplan.Plan{}, fmt.Errorf("%s is already ejected: %s is the app's code, copied from %s %s on %s", m.name, m.dir(), e.Package, e.Version, e.Date)
-	}
-	if _, err := os.Stat(filepath.Join(app.dir, filepath.FromSlash(m.dir()))); err == nil {
-		return genplan.Plan{}, fmt.Errorf("%s already exists; move it away to eject %s", m.dir(), m.name)
-	}
-	if err := checkModuleUse(app.dir, m); err != nil {
-		return genplan.Plan{}, err
-	}
-	if err := checkLibraryDependents(ctx, app.dir, m); err != nil {
-		return genplan.Plan{}, err
-	}
-	lib, err := resolveLibrary(ctx, app.dir)
-	if err != nil {
-		return genplan.Plan{}, err
-	}
-	return planEjectFrom(app, m, lib, lock, lockExists, now)
 }
 
 // A librarySource is the gorbital.dev/gorbital module an app builds with.
@@ -380,7 +178,7 @@ func goOutputIn(ctx context.Context, dir string, stderr io.Writer, args ...strin
 func planEjectFrom(app appInfo, m ejectableModule, lib librarySource, lock lockFile, lockExists bool, now time.Time) (genplan.Plan, error) {
 	src := filepath.Join(lib.Dir, m.pkg)
 	if info, err := os.Stat(src); err != nil || !info.IsDir() {
-		return genplan.Plan{}, fmt.Errorf("%s %s has no %s package; orb eject copies modules from v0.2.0 on", gorbitalImportPath, lib.Version, m.pkg)
+		return genplan.Plan{}, fmt.Errorf("%s %s has no %s package; modules are copied into apps from v0.2.0 on", gorbitalImportPath, lib.Version, m.pkg)
 	}
 	res := ejectResult{
 		Module: m.name, Package: m.importPath(), Version: lib.Version, Directory: m.dir(),
@@ -804,11 +602,11 @@ func readMigrationLiteral(lit *ast.CompositeLit, imports map[string]string, libD
 	for _, elt := range lit.Elts {
 		kv, ok := elt.(*ast.KeyValueExpr)
 		if !ok {
-			return mig, errors.New("orb eject reads gorbital.Migration literals with field names")
+			return mig, errors.New("copying a module reads gorbital.Migration literals with field names")
 		}
 		key, ok := kv.Key.(*ast.Ident)
 		if !ok {
-			return mig, errors.New("orb eject reads gorbital.Migration literals with field names")
+			return mig, errors.New("copying a module reads gorbital.Migration literals with field names")
 		}
 		switch key.Name {
 		case "Version":
@@ -834,7 +632,7 @@ func readMigrationLiteral(lit *ast.CompositeLit, imports map[string]string, libD
 	}
 	rest, inModule := strings.CutPrefix(fsImport, m.importPath()+"/")
 	if mig.version <= 0 || mig.name == "" || mig.file == "" || !inModule || !fs.ValidPath(mig.file) {
-		return mig, errors.New("orb eject copies migrations declared with a literal Version, Name and File and an FS of the module's own package")
+		return mig, errors.New("only migrations declared with a literal Version, Name and File and an FS of the module's own package are copied")
 	}
 	content, err := os.ReadFile(filepath.Join(libDir, m.pkg, filepath.FromSlash(rest), filepath.FromSlash(mig.file))) //nolint:gosec // the library's source
 	if err != nil {
@@ -935,13 +733,6 @@ func commandImports(dir, imp string) (map[string]string, error) {
 	return found, nil
 }
 
-// callsGorbitalMain reports whether a non-test file of cmd/api calls
-// gorbital.Main.
-func callsGorbitalMain(dir string) bool {
-	calls, _ := commandSelectors(dir, gorbitalImportPath, "Main")
-	return calls
-}
-
 // commandSelectors reports whether a non-test file of cmd/api that imports
 // imp under a usable name refers to name in it, such as authhttp.New.
 func commandSelectors(dir, imp, name string) (bool, error) {
@@ -993,11 +784,11 @@ func checkModuleUse(dir string, m ejectableModule) error {
 		return err
 	}
 	if len(uses) == 0 {
-		return fmt.Errorf("the app doesn't use %s: no file of cmd/api imports %s, so there is nothing to eject", m.pkg, m.importPath())
+		return fmt.Errorf("the app doesn't use %s: no file of cmd/api imports %s, so there is nothing to copy", m.pkg, m.importPath())
 	}
 	for file, name := range uses {
 		if name == "_" || name == "." {
-			return fmt.Errorf("%s imports %s as %q, which orb eject can't follow; import it by name and call %s.%s, as a new app's main.go does, then run orb eject %s again", file, m.importPath(), name, m.pkg, m.constructor, m.name)
+			return fmt.Errorf("%s imports %s as %q, which the copy can't follow; import it by name and call %s.%s, as a new app's main.go does", file, m.importPath(), name, m.pkg, m.constructor)
 		}
 	}
 	calls, err := commandSelectors(dir, m.importPath(), m.constructor)
@@ -1005,62 +796,7 @@ func checkModuleUse(dir string, m ejectableModule) error {
 		return err
 	}
 	if !calls {
-		return fmt.Errorf("cmd/api imports %s but never calls %s.%s, which orb eject keeps while it changes the import; add the module with %s.%s in main.go, as a new app's does, then run orb eject %s again", m.importPath(), m.pkg, m.constructor, m.pkg, m.constructor, m.name)
+		return fmt.Errorf("cmd/api imports %s but never calls %s.%s, which the copy keeps while it changes the import; add the module with %s.%s in main.go, as a new app's does", m.importPath(), m.pkg, m.constructor, m.pkg, m.constructor)
 	}
 	return nil
-}
-
-// checkLibraryDependents refuses to eject a module another library package
-// the app builds with imports, such as orgshttp, which takes sign-in's
-// authenticator: the app's copy would have other types than the ones that
-// package expects.
-func checkLibraryDependents(ctx context.Context, dir string, m ejectableModule) error {
-	var stderr bytes.Buffer
-	out, err := goOutputIn(ctx, dir, &stderr, "list", "-deps", "-json=ImportPath,Imports", "./...")
-	if err != nil {
-		return fmt.Errorf("list the app's packages: %w: %s", err, strings.TrimSpace(stderr.String()))
-	}
-	dec := json.NewDecoder(bytes.NewReader(out))
-	var dependents []string
-	for {
-		var pkg struct {
-			ImportPath string
-			Imports    []string
-		}
-		if err := dec.Decode(&pkg); errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return fmt.Errorf("read go list's output: %w", err)
-		}
-		inLibrary := strings.HasPrefix(pkg.ImportPath, gorbitalImportPath+"/")
-		own := pkg.ImportPath == m.importPath() || strings.HasPrefix(pkg.ImportPath, m.importPath()+"/")
-		if inLibrary && !own && slices.Contains(pkg.Imports, m.importPath()) {
-			dependents = append(dependents, pkg.ImportPath)
-		}
-	}
-	if len(dependents) == 0 {
-		return nil
-	}
-	slices.Sort(dependents)
-	var first []string
-	for _, d := range dependents {
-		if other, ok := ejectableFor(d); ok {
-			first = append(first, "orb eject "+other.name)
-		}
-	}
-	fix := "those packages need the library's " + m.pkg
-	if len(first) > 0 {
-		fix = "eject first: " + strings.Join(first, ", ")
-	}
-	return fmt.Errorf("the app uses %s from the library, which imports %s and takes its types, so the app's copy wouldn't fit it; %s", strings.Join(dependents, ", "), m.importPath(), fix)
-}
-
-// ejectableFor returns the ejectable module a library package belongs to.
-func ejectableFor(imp string) (ejectableModule, bool) {
-	for _, m := range ejectableModules {
-		if imp == m.importPath() || strings.HasPrefix(imp, m.importPath()+"/") {
-			return m, true
-		}
-	}
-	return ejectableModule{}, false
 }

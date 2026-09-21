@@ -16,8 +16,8 @@ Stability: stable (ADR-0015, ADR-0054).
 
 ## Contents
 
-- Constants: [`OrgSetting`](#OrgSetting), [`BypassSetting`](#BypassSetting), [`DefaultConnectTimeout`](#DefaultConnectTimeout)
-- Functions: [`CheckViolation`](#CheckViolation), [`ForeignKeyViolation`](#ForeignKeyViolation), [`HealthCheck`](#HealthCheck), [`InTx`](#InTx), [`InTxWithOptions`](#InTxWithOptions), [`IsNoRows`](#IsNoRows), [`IsRetryable`](#IsRetryable), [`Migrate`](#Migrate), [`MigrateDown`](#MigrateDown), [`NotNullViolation`](#NotNullViolation), [`Open`](#Open), [`UniqueViolation`](#UniqueViolation), [`WithOrg`](#WithOrg), [`WithoutRowLevelSecurity`](#WithoutRowLevelSecurity)
+- Constants: [`OrgSetting`](#OrgSetting), [`ScopeSetting`](#ScopeSetting), [`BypassSetting`](#BypassSetting), [`DefaultConnectTimeout`](#DefaultConnectTimeout)
+- Functions: [`CheckViolation`](#CheckViolation), [`ForeignKeyViolation`](#ForeignKeyViolation), [`HealthCheck`](#HealthCheck), [`InTx`](#InTx), [`InTxWithOptions`](#InTxWithOptions), [`IsNoRows`](#IsNoRows), [`IsRetryable`](#IsRetryable), [`Migrate`](#Migrate), [`MigrateDown`](#MigrateDown), [`NotNullViolation`](#NotNullViolation), [`Open`](#Open), [`UniqueViolation`](#UniqueViolation), [`WithOrg`](#WithOrg), [`WithScope`](#WithScope), [`WithoutRowLevelSecurity`](#WithoutRowLevelSecurity)
 - Types:
   - [`Beginner`](#Beginner)
   - [`DBTX`](#DBTX)
@@ -29,6 +29,7 @@ Stability: stable (ADR-0015, ADR-0054).
 ## Constants
 
 <a id="OrgSetting"></a>
+<a id="ScopeSetting"></a>
 <a id="BypassSetting"></a>
 
 ```go
@@ -36,6 +37,12 @@ const (
 	// OrgSetting holds the organisation ID of the acquiring context, or ""
 	// when it has none.
 	OrgSetting = "gorbital.org_id"
+	// ScopeSetting is [OrgSetting] under the name the framework uses for
+	// tenancy since v0.3.0 (ADR-0088). There is one session setting whatever
+	// an app calls its scope: it is invisible to people, row-level-security
+	// policies in live databases name it, and renaming it would change what
+	// those policies mean.
+	ScopeSetting = OrgSetting
 	// BypassSetting is "on" for a context from [WithoutRowLevelSecurity],
 	// otherwise "".
 	BypassSetting = "gorbital.rls_bypass"
@@ -49,7 +56,7 @@ org_id = current_setting('gorbital.org_id', true)
     OR current_setting('gorbital.rls_bypass', true) = 'on'
 ```
 
-*Since `v0.1.0`*
+*Since `v0.1.0`: OrgSetting, BypassSetting; `v0.3.0 (unreleased)`: ScopeSetting*
 
 <a id="DefaultConnectTimeout"></a>
 
@@ -273,6 +280,30 @@ WithOrg returns a copy of ctx whose connections carry orgID in [OrgSetting](#Org
 The organisation is set when a connection is acquired: a transaction keeps the one its context had at BeginTx.
 
 *Since `v0.1.0`*
+
+<a id="WithScope"></a>
+
+### func WithScope
+
+```go
+func WithScope(ctx context.Context, scopeID string) context.Context
+```
+
+WithScope returns a copy of ctx whose connections carry scopeID in [ScopeSetting](#ScopeSetting), so row-level security policies limit them to that scope's rows. It is [WithOrg](#WithOrg) under the name the framework uses for tenancy since v0.3.0, and is what gorbital.Scope.Session is usually set to.
+
+*Since `v0.3.0 (unreleased)`*
+
+**Example**
+
+WithScope carries one scope into a context's connections, so row-level security policies limit them to that scope's rows. Use it where code acts in one scope without a scoped actor, such as a job working through one merchant's orders.
+
+```go
+ctx := postgres.WithScope(context.Background(), "mch_1")
+
+// Connections acquired from ctx now set postgres.ScopeSetting to
+// mch_1, and policies written against it see only that merchant.
+log.Println(postgres.ScopeSetting, ctx != nil)
+```
 
 <a id="WithoutRowLevelSecurity"></a>
 

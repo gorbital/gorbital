@@ -1,3 +1,9 @@
+pkg gorbital.dev/gorbital, const DefaultScopeName = "organisation"
+pkg gorbital.dev/gorbital, const DefaultScopeName ideal-string
+pkg gorbital.dev/gorbital, const DefaultScopeNotFoundCode = "org_not_found"
+pkg gorbital.dev/gorbital, const DefaultScopeNotFoundCode ideal-string
+pkg gorbital.dev/gorbital, const DefaultScopePathParam = "orgId"
+pkg gorbital.dev/gorbital, const DefaultScopePathParam ideal-string
 pkg gorbital.dev/gorbital, const MailDevMail = "devmail"
 pkg gorbital.dev/gorbital, const MailDevMail ideal-string
 pkg gorbital.dev/gorbital, const MailMailpit = "mailpit"
@@ -19,6 +25,7 @@ pkg gorbital.dev/gorbital, const StorageSpaces ideal-string
 pkg gorbital.dev/gorbital, func AuthenticateAfterInput() RouteOption
 pkg gorbital.dev/gorbital, func Customize(func(huma.API, *huma.Operation)) RouteOption
 pkg gorbital.dev/gorbital, func Declare(Declarations, ...Module) error
+pkg gorbital.dev/gorbital, func DefaultOrgScope() Scope
 pkg gorbital.dev/gorbital, func Delete[I any, O any](*Router, string, func(context.Context, *I) (*O, error), ...RouteOption)
 pkg gorbital.dev/gorbital, func Deprecated() RouteOption
 pkg gorbital.dev/gorbital, func Description(string) RouteOption
@@ -35,6 +42,7 @@ pkg gorbital.dev/gorbital, func OrgGrants(string, ...Module) []string
 pkg gorbital.dev/gorbital, func Patch[I any, O any](*Router, string, func(context.Context, *I) (*O, error), ...RouteOption)
 pkg gorbital.dev/gorbital, func Post[I any, O any](*Router, string, func(context.Context, *I) (*O, error), ...RouteOption)
 pkg gorbital.dev/gorbital, func Put[I any, O any](*Router, string, func(context.Context, *I) (*O, error), ...RouteOption)
+pkg gorbital.dev/gorbital, func ScopeGrants(string, ...Module) []string
 pkg gorbital.dev/gorbital, func Status(int) RouteOption
 pkg gorbital.dev/gorbital, func Summary(string) RouteOption
 pkg gorbital.dev/gorbital, func Tags(...string) RouteOption
@@ -49,6 +57,8 @@ pkg gorbital.dev/gorbital, func WithMiddlewareFunc(func(Deps) func(http.Handler)
 pkg gorbital.dev/gorbital, func WithMigrations(fs.FS) Option
 pkg gorbital.dev/gorbital, func WithModules(...Module) Option
 pkg gorbital.dev/gorbital, func WithName(string) Option
+pkg gorbital.dev/gorbital, func WithScope(Scope, ScopeAuthorizer) Option
+pkg gorbital.dev/gorbital, func WithScopeWords(Scope) Option
 pkg gorbital.dev/gorbital, func WithStack(func(Stack) []func(http.Handler) http.Handler) Option
 pkg gorbital.dev/gorbital, func WithStorage(storage.Store) Option
 pkg gorbital.dev/gorbital, func WithStorageFunc(func(Config) (storage.Store, error)) Option
@@ -61,6 +71,7 @@ pkg gorbital.dev/gorbital, method (*Platform) OnShutdown(func())
 pkg gorbital.dev/gorbital, method (*Platform) RateLimiters() []RateLimiter
 pkg gorbital.dev/gorbital, method (*Platform) Retention() []Retention
 pkg gorbital.dev/gorbital, method (*Platform) SetOrgAuthorizer(OrgAuthorizer) error
+pkg gorbital.dev/gorbital, method (*Platform) SetScope(Scope, ScopeAuthorizer) error
 pkg gorbital.dev/gorbital, method (*Platform) SignInMethods() []SignInMethod
 pkg gorbital.dev/gorbital, method (*Router) Group(string, ...RouteOption) *Router
 pkg gorbital.dev/gorbital, method (Config) Production() bool
@@ -173,6 +184,7 @@ pkg gorbital.dev/gorbital, type Permission struct, Description string
 pkg gorbital.dev/gorbital, type Permission struct, Name string
 pkg gorbital.dev/gorbital, type Permission struct, OrgRoles []string
 pkg gorbital.dev/gorbital, type Permission struct, Roles []string
+pkg gorbital.dev/gorbital, type Permission struct, ScopeRoles []string
 pkg gorbital.dev/gorbital, type PermissionDeclarer interface { Permission }
 pkg gorbital.dev/gorbital, type PermissionDeclarer interface, Permission(string, string)
 pkg gorbital.dev/gorbital, type Platform struct
@@ -200,6 +212,18 @@ pkg gorbital.dev/gorbital, type Retention struct, Oldest func(context.Context) (
 pkg gorbital.dev/gorbital, type Retention struct, Setting *settings.Setting[time.Duration]
 pkg gorbital.dev/gorbital, type RouteOption = route.Option
 pkg gorbital.dev/gorbital, type Router struct
+pkg gorbital.dev/gorbital, type Scope struct
+pkg gorbital.dev/gorbital, type Scope struct, Name string
+pkg gorbital.dev/gorbital, type Scope struct, NotFoundCode string
+pkg gorbital.dev/gorbital, type Scope struct, PathParam string
+pkg gorbital.dev/gorbital, type Scope struct, Roles []ScopeRole
+pkg gorbital.dev/gorbital, type Scope struct, Session func(context.Context, string) context.Context
+pkg gorbital.dev/gorbital, type Scope struct, ValidID func(string) bool
+pkg gorbital.dev/gorbital, type ScopeAuthorizer interface { AuthorizeScope }
+pkg gorbital.dev/gorbital, type ScopeAuthorizer interface, AuthorizeScope(context.Context, string, string) (context.Context, error)
+pkg gorbital.dev/gorbital, type ScopeRole struct
+pkg gorbital.dev/gorbital, type ScopeRole struct, Description string
+pkg gorbital.dev/gorbital, type ScopeRole struct, Name string
 pkg gorbital.dev/gorbital, type SignInMethod struct
 pkg gorbital.dev/gorbital, type SignInMethod struct, Detail string
 pkg gorbital.dev/gorbital, type SignInMethod struct, Enabled bool
@@ -234,11 +258,26 @@ pkg gorbital.dev/gorbital, type StorageConfig struct, PublicURL string
 pkg gorbital.dev/gorbital, type StorageConfig struct, Region string
 pkg gorbital.dev/gorbital, type StorageConfig struct, SecretKey config.Secret
 pkg gorbital.dev/gorbital, type StorageConfig struct, SigningKey config.Secret
+pkg gorbital.dev/gorbital, var ErrNotImplemented error
+pkg gorbital.dev/gorbital, var ErrScopeNotFound error
 pkg gorbital.dev/gorbital, var ErrUsage error
+pkg gorbital.dev/gorbital/authhttp, const MethodAPIKeys = "api_keys"
+pkg gorbital.dev/gorbital/authhttp, const MethodAPIKeys Method
+pkg gorbital.dev/gorbital/authhttp, const MethodOperators = "operators"
+pkg gorbital.dev/gorbital/authhttp, const MethodOperators Method
+pkg gorbital.dev/gorbital/authhttp, const MethodPasskeys = "passkeys"
+pkg gorbital.dev/gorbital/authhttp, const MethodPasskeys Method
+pkg gorbital.dev/gorbital/authhttp, const MethodPassword = "password"
+pkg gorbital.dev/gorbital/authhttp, const MethodPassword Method
+pkg gorbital.dev/gorbital/authhttp, const MethodSocial = "social"
+pkg gorbital.dev/gorbital/authhttp, const MethodSocial Method
+pkg gorbital.dev/gorbital/authhttp, const MethodTOTP = "totp"
+pkg gorbital.dev/gorbital/authhttp, const MethodTOTP Method
 pkg gorbital.dev/gorbital/authhttp, func APIKeyMaxTTL(time.Duration) Option
 pkg gorbital.dev/gorbital/authhttp, func AfterLogin(func(context.Context, LoginEvent) error) Option
 pkg gorbital.dev/gorbital/authhttp, func BeforeLogin(func(context.Context, pgx.Tx, LoginAttempt) error) Option
 pkg gorbital.dev/gorbital/authhttp, func Brand(mail.Brand) Option
+pkg gorbital.dev/gorbital/authhttp, func Methods(...Method) Option
 pkg gorbital.dev/gorbital/authhttp, func MinPasswordLength(int) Option
 pkg gorbital.dev/gorbital/authhttp, func New(...Option) *Authenticator
 pkg gorbital.dev/gorbital/authhttp, func OnRegister(func(context.Context, pgx.Tx, NewAccount) error) Option
@@ -269,6 +308,7 @@ pkg gorbital.dev/gorbital/authhttp, type LoginAttempt struct, UserAgent string
 pkg gorbital.dev/gorbital/authhttp, type LoginEvent struct
 pkg gorbital.dev/gorbital/authhttp, type LoginEvent struct, SessionID string
 pkg gorbital.dev/gorbital/authhttp, type LoginEvent struct, embedded LoginAttempt
+pkg gorbital.dev/gorbital/authhttp, type Method string
 pkg gorbital.dev/gorbital/authhttp, type NewAccount struct
 pkg gorbital.dev/gorbital/authhttp, type NewAccount struct, IP string
 pkg gorbital.dev/gorbital/authhttp, type NewAccount struct, Method string
@@ -347,6 +387,7 @@ pkg gorbital.dev/gorbital/guard, func Permission(string) gorbital.RouteOption
 pkg gorbital.dev/gorbital/guard, func Public() gorbital.RouteOption
 pkg gorbital.dev/gorbital/guard, func RateLimit(int, time.Duration, ...RateLimitOption) gorbital.RouteOption
 pkg gorbital.dev/gorbital/guard, func RecentReauth() gorbital.RouteOption
+pkg gorbital.dev/gorbital/guard, func Scope(string) gorbital.RouteOption
 pkg gorbital.dev/gorbital/guard, func Webhook(webhook.Verifier, ...WebhookOption) gorbital.RouteOption
 pkg gorbital.dev/gorbital/guard, func WebhookBodyLimit(int64) WebhookOption
 pkg gorbital.dev/gorbital/guard, method (Request) Header(string) string
@@ -370,5 +411,10 @@ pkg gorbital.dev/gorbital/opshttp, func MailProvider(string) Option
 pkg gorbital.dev/gorbital/opshttp, func Module(...Option) gorbital.Module
 pkg gorbital.dev/gorbital/opshttp, type Option func(*options)
 pkg gorbital.dev/gorbital/orgshttp, func Brand(mail.Brand) Option
-pkg gorbital.dev/gorbital/orgshttp, func Module(*authhttp.Authenticator, ...Option) gorbital.Module
+pkg gorbital.dev/gorbital/orgshttp, func DefaultScope() gorbital.Scope
+pkg gorbital.dev/gorbital/orgshttp, func Module(Identity, ...Option) gorbital.Module
+pkg gorbital.dev/gorbital/orgshttp, func ScopeName(string, string, string) Option
+pkg gorbital.dev/gorbital/orgshttp, func WithoutServiceAccounts() Option
+pkg gorbital.dev/gorbital/orgshttp, type Identity interface { UseOrganisations }
+pkg gorbital.dev/gorbital/orgshttp, type Identity interface, UseOrganisations(authhttp.Organisations) error
 pkg gorbital.dev/gorbital/orgshttp, type Option func(*options)

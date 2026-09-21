@@ -84,6 +84,49 @@ func TestRoutes(t *testing.T) {
 	}
 }
 
+// TestRoutesScopes checks the scope column (ADR-0091): every route of a
+// generated module says which access rule it serves under, in the app's
+// own words, and a route whose module records none says nothing rather
+// than guessing from a permission guard.
+func TestRoutesScopes(t *testing.T) {
+	newMainApp(t, false)
+	for _, args := range [][]string{
+		append(shelvesArgs, "--allow-dirty"),
+		{"gen", "module", "Catalogue", "name:string:unique", "--scope", "public", "--allow-dirty"},
+		{"gen", "module", "Ticket", "subject:string:unique", "--scope", "custom", "--allow-dirty"},
+	} {
+		if code, _, errOut := runOrb(t, append(args, "--no-input")...); code != 0 {
+			t.Fatalf("orb %s = %d %s", strings.Join(args, " "), code, errOut)
+		}
+	}
+	fakeRoutesExport(t, nil)
+
+	code, out, errOut := runOrb(t, "routes", "--app", "--json")
+	var list routes.List
+	if code != 0 || json.Unmarshal([]byte(out), &list) != nil {
+		t.Fatalf("orb routes --app --json = %d %s %s", code, out, errOut)
+	}
+	want := map[string]string{
+		"GET /v1/shelves":         "user",
+		"POST /v1/shelves":        "user",
+		"GET /v1/catalogues":      "public",
+		"POST /v1/catalogues":     "public", // the module is public; the route's own guard is the write permission
+		"GET /v1/tickets":         "custom",
+		"DELETE /v1/tickets/{id}": "custom",
+		// clubbooks is Shelfie's organisation module, which this app
+		// doesn't generate; profiles is hand-written and records nothing.
+		"GET /v1/profile": "",
+	}
+	for _, r := range list.Routes {
+		if scope, checked := want[r.Method+" "+r.Path]; checked && r.Scope != scope {
+			t.Errorf("%s %s scope = %q, want %q", r.Method, r.Path, r.Scope, scope)
+		}
+	}
+	if !strings.Contains(readFile(t, manifestPath), "catalogues: public") {
+		t.Errorf("gorbital.yaml doesn't record the modules' scopes:\n%s", readFile(t, manifestPath))
+	}
+}
+
 func TestRoutesErrors(t *testing.T) {
 	newMainApp(t, false)
 	fakeRoutesExport(t, errors.New("exit status 1: undefined: books"))

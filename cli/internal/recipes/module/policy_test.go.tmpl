@@ -1,0 +1,56 @@
+package ⟦.Package⟧
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"gorbital.dev/gorbital"
+
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/repository"
+)
+
+// TestPolicyIsImplemented fails until policy.go decides who may see and
+// change ⟦.A⟧ ⟦.Human⟧. That is deliberate, and it is the whole point of
+// --scope custom: the module is generated red, because gorbital cannot
+// know the rule and a module that serves every row to everyone must not
+// look finished.
+//
+// Delete nothing here. Write the three methods, and this test goes green
+// on its own. Then add the tests this one cannot write: for each kind of
+// caller your rule names, one that may and one that may not.
+func TestPolicyIsImplemented(t *testing.T) {
+	ctx := context.Background()
+	p := Policy{}
+	⟦.Var⟧ := domain.⟦.Ident⟧{ID: "⟦.IDPrefix⟧_example", CreatedBy: "usr_example"}
+
+	for _, tt := range []struct {
+		method string
+		err    error
+	}{
+		{"CanRead", p.CanRead(ctx, ⟦.Var⟧)},
+		{"CanWrite", p.CanWrite(ctx, ⟦.Var⟧)},
+		{"Filter", p.Filter(ctx, &repository.Query{})},
+	} {
+		if errors.Is(tt.err, gorbital.ErrNotImplemented) {
+			t.Errorf("Policy.%s isn't written yet: decide who may see and change ⟦.A⟧ ⟦.Human⟧ in policy.go, and delete the gorbital.ErrNotImplemented it returns", tt.method)
+		}
+	}
+}
+
+// TestFilterNarrowsTheList fails while Filter adds no condition. A list
+// query nothing narrows returns every ⟦.Human⟧ in the table to whoever
+// asked, which is what ⟦.A⟧ ⟦.Human⟧ with a custom rule is not.
+//
+// Replace this with the real cases once Filter is written: a caller who
+// sees some rows, and one who sees none.
+func TestFilterNarrowsTheList(t *testing.T) {
+	q := &repository.Query{}
+	if err := (Policy{}).Filter(context.Background(), q); err != nil {
+		return // TestPolicyIsImplemented reports it
+	}
+	if conditions, _ := q.Conditions(); len(conditions) == 0 {
+		t.Error("Policy.Filter added no condition, so GET ⟦.RoutePath⟧ returns every ⟦.Human⟧ in the table to every caller with ⟦.PermRead⟧")
+	}
+}

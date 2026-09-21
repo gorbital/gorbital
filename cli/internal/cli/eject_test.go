@@ -1,21 +1,23 @@
 package cli
 
 import (
-	"encoding/json"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
+
+	"gorbital.dev/cli/internal/recipes"
 )
 
-// copyExampleApp copies examples/apps/<name> with its replace directives
+// copyExampleApp copies examples/<name> with its replace directives
 // pointing at this repository, so it builds, commits it and makes the copy
 // the working directory.
 func copyExampleApp(t *testing.T, name string) string {
 	t.Helper()
-	return copyAppAt(t, filepath.Join("examples", "apps", name), name)
+	return copyAppAt(t, filepath.Join("examples", name), name)
 }
 
 // copyAppAt copies the app at rel in the repository into a temporary
@@ -72,137 +74,27 @@ func absoluteReplaces(t *testing.T, goMod, appDir string) string {
 	return strings.Join(out, "")
 }
 
-func eject(t *testing.T, wantCode int, args ...string) (ejectResult, string) {
+// copyModuleIntoApp copies a built-in module into the app in the working
+// directory, the way orb new does. orb eject is gone (ADR-0092), so a test
+// that needs a freshly copied module runs the planner the remaining
+// commands run.
+func copyModuleIntoApp(t *testing.T, name string) {
 	t.Helper()
-	code, out, errOut := runOrb(t, append([]string{"eject"}, args...)...)
-	if code != wantCode {
-		t.Fatalf("orb eject %v = %d, want %d; stdout %s stderr %s", args, code, wantCode, out, errOut)
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
 	}
-	var res ejectResult
-	if slices.Contains(args, "--json") && code == 0 {
-		if err := json.Unmarshal([]byte(out), &res); err != nil {
-			t.Fatalf("orb eject --json output %q: %v", out, err)
-		}
+	m, ok := lookupEjectable(name)
+	if !ok {
+		t.Fatalf("no built-in module %q", name)
 	}
-	return res, out + errOut
-}
-
-func TestEjectDryRunWritesNothing(t *testing.T) {
-	dir := copyExampleApp(t, "shelfie")
-	res, _ := eject(t, 0, "orgs", "--dry-run", "--json")
-	if !res.DryRun || res.Module != "orgs" || res.Package != "gorbital.dev/gorbital/orgshttp" || res.Directory != "internal/modules/orgs" || res.Version != "v0.2.0" {
-		t.Errorf("result = %+v", res)
+	lib, err := resolveLibrary(t.Context(), dir)
+	if err != nil {
+		t.Fatal(err)
 	}
-	// Layers without internal/, the migrations under Shelfie's versions, the
-	// library's own tests left out.
-	for _, want := range []string{"internal/modules/orgs/orgshttp.go", "internal/modules/orgs/module.go", "internal/modules/orgs/usecase/orgs.go",
-		"internal/modules/orgs/repository/migrations/00001_orgs.sql", "internal/modules/orgs/delivery/jobs/orgspurge/orgspurge.go", "internal/modules/orgs/app_test.go"} {
-		if !slices.Contains(res.Files, want) {
-			t.Errorf("files lack %s", want)
-		}
+	if _, err := ejectIntoNewApp(dir, []recipes.EjectedModule{{Name: m.name, Package: m.importPath()}}, lib, time.Now()); err != nil {
+		t.Fatal(err)
 	}
-	if slices.ContainsFunc(res.Files, func(f string) bool {
-		return strings.Contains(f, "/internal/modules/orgs/internal/") || strings.HasSuffix(f, "migrate_test.go")
-	}) {
-		t.Errorf("files = %v, want no internal/ directory and no library tests", res.Files)
-	}
-	if !slices.Equal(res.Migrations, []string{"db/migrations/20260916000001_orgs.sql", "db/migrations/20260918000002_settings_org_purge.sql"}) {
-		t.Errorf("migrations = %v", res.Migrations)
-	}
-	if len(res.NotCopied) != 3 || res.NotCopied[0].Reason == "" {
-		t.Errorf("not copied = %+v, want the three library tests with reasons", res.NotCopied)
-	}
-	for _, want := range []string{"cmd/api/main.go", "internal/modules/clubbooks/clubbooks_test.go", lockPath} {
-		if !slices.Contains(res.Modified, want) {
-			t.Errorf("modified = %v, want %s", res.Modified, want)
-		}
-	}
-	if status := git(t, "status", "--porcelain"); status != "" {
-		t.Errorf("--dry-run changed the app:\n%s", status)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "internal", "modules", "orgs")); err == nil {
-		t.Error("--dry-run wrote the module")
-	}
-
-	// The text output names what happens, and --diff shows main.go's change.
-	_, out := eject(t, 0, "flags", "--dry-run", "--diff")
-	for _, want := range []string{"Would eject (dry run) flags", "internal/modules/flags", `-	"gorbital.dev/gorbital/flagshttp"`, `+	flagshttp "example.com/shelfie/internal/modules/flags"`} {
-		if !strings.Contains(out, want) {
-			t.Errorf("orb eject flags --dry-run --diff lacks %q:\n%s", want, out)
-		}
-	}
-}
-
-func TestEjectRefusals(t *testing.T) {
-	copyExampleApp(t, "shelfie")
-	for _, tt := range []struct {
-		args []string
-		code int
-		want string
-	}{
-		{[]string{"payments"}, 2, `can't eject "payments"`},
-		{[]string{"--no-input"}, 2, "orb eject needs a module"},
-		{[]string{"flags", "ops"}, 2, "takes one module"},
-		{[]string{"mailevents"}, 1, "the app doesn't use mailevents"},
-		{[]string{"auth", "--dry-run"}, 1, "gorbital.dev/gorbital/orgshttp from the library, which imports gorbital.dev/gorbital/authhttp and takes its types, so the app's copy wouldn't fit it; eject first: orb eject orgs"},
-	} {
-		if _, out := eject(t, tt.code, tt.args...); !strings.Contains(out, tt.want) {
-			t.Errorf("orb eject %v = %q, want %q", tt.args, out, tt.want)
-		}
-	}
-
-	// A dirty tree is refused unless --allow-dirty.
-	writeFile(t, "notes.txt", "draft")
-	if _, out := eject(t, 1, "flags", "--skip-tidy"); !strings.Contains(out, "uncommitted changes") {
-		t.Errorf("orb eject in a dirty tree = %q", out)
-	}
-	eject(t, 0, "flags", "--skip-tidy", "--allow-dirty")
-	if lock, err := readLock("."); err != nil || len(lock.Ejected) != 1 || lock.Ejected[0].Module != "flags" || lock.Ejected[0].SHA256 == "" || lock.rendered() {
-		t.Errorf("gorbital.lock = %+v, %v", lock, err)
-	}
-
-	// Ejecting twice is refused, also as a dry run.
-	for _, args := range [][]string{{"flags", "--allow-dirty"}, {"flags", "--dry-run"}} {
-		if _, out := eject(t, 1, args...); !strings.Contains(out, "flags is already ejected: internal/modules/flags is the app's code, copied from gorbital.dev/gorbital/flagshttp v0.2.0") {
-			t.Errorf("orb eject %v again = %q", args, out)
-		}
-	}
-	// modules.gen.go doesn't list the copy: main.go adds it.
-	if code, out, errOut := runOrb(t, "gen", "modules", "--json"); code != 0 || strings.Contains(out, `"flags"`) || !strings.Contains(out, `"changed": false`) {
-		t.Errorf("orb gen modules after ejecting flags = %d %s %s", code, out, errOut)
-	}
-}
-
-func TestEjectRefusesOtherApps(t *testing.T) {
-	t.Run("v0.1 layout", func(t *testing.T) {
-		t.Chdir(t.TempDir())
-		writeFile(t, "go.mod", "module example.com/shop\n\ngo 1.26.0\n\nrequire gorbital.dev v0.1.0\n")
-		writeFile(t, "internal/app/modules.go", "package app\n")
-		if _, out := eject(t, 1, "auth"); !strings.Contains(out, "this app uses the v0.1 layout") || !strings.Contains(out, "orb upgrade --layout v0.2") {
-			t.Errorf("orb eject in a v0.1 app = %q", out)
-		}
-	})
-	t.Run("no gorbital.Main", func(t *testing.T) {
-		t.Chdir(t.TempDir())
-		writeFile(t, "go.mod", "module example.com/shop\n\ngo 1.26.0\n\nrequire gorbital.dev/gorbital v0.2.0\n")
-		writeFile(t, "cmd/api/main.go", "package main\n\nimport \"gorbital.dev/gorbital/flagshttp\"\n\nfunc main() { _ = flagshttp.Module() }\n")
-		if _, out := eject(t, 1, "flags"); !strings.Contains(out, "no Go file in cmd/api calls gorbital.Main") {
-			t.Errorf("orb eject without gorbital.Main = %q", out)
-		}
-	})
-	t.Run("main.go orb eject can't follow", func(t *testing.T) {
-		t.Chdir(t.TempDir())
-		writeFile(t, "go.mod", "module example.com/shop\n\ngo 1.26.0\n\nrequire gorbital.dev/gorbital v0.2.0\n")
-		main := "package main\n\nimport (\n\t\"gorbital.dev/gorbital\"\n\tbuiltin \"gorbital.dev/gorbital/opshttp\"\n)\n\nvar option builtin.Option\n\nfunc main() { gorbital.Main() }\n"
-		writeFile(t, "cmd/api/main.go", main)
-		if _, out := eject(t, 1, "ops"); !strings.Contains(out, "never calls opshttp.Module") {
-			t.Errorf("orb eject with a module added elsewhere = %q", out)
-		}
-		writeFile(t, "cmd/api/main.go", strings.Replace(main, "builtin ", "_ ", 1))
-		if _, out := eject(t, 1, "ops"); !strings.Contains(out, `imports gorbital.dev/gorbital/opshttp as "_"`) {
-			t.Errorf("orb eject with a blank import = %q", out)
-		}
-	})
 }
 
 func TestRewriteGoImports(t *testing.T) {
@@ -302,22 +194,24 @@ func TestChangelogMentions(t *testing.T) {
 func TestDoctorEjectedModules(t *testing.T) {
 	copyExampleApp(t, "shelfie")
 	writeFile(t, ".env", readFile(t, ".env.example"))
-	eject(t, 0, "flags", "--skip-tidy", "--allow-dirty")
+	copyModuleIntoApp(t, "flags")
 	fakeDoctorCommands(t, `{"current":1,"latest":1,"pending":0}`)
+	// Shelfie already owns sign-in and organisations, so the checks are
+	// read by the module they name.
 	check := func(res doctorResult, status, detail string) {
 		t.Helper()
 		for _, c := range res.Checks {
-			if c.Name == "ejected" {
+			if c.Name == "ejected" && strings.Contains(c.Detail, "flags") {
 				if c.Status != status || !strings.Contains(c.Detail, detail) {
-					t.Errorf("ejected check = %+v, want %s containing %q", c, status, detail)
+					t.Errorf("the flags check = %+v, want %s containing %q", c, status, detail)
 				}
 				return
 			}
 		}
-		t.Errorf("no ejected check in %+v", res.Checks)
+		t.Errorf("no ejected check for flags in %+v", res.Checks)
 	}
 	res := doctorRun(t, 0, "--fast")
-	check(res, doctorOK, "internal/modules/flags is the app's code, ejected from gorbital.dev/gorbital/flagshttp v0.2.0")
+	check(res, doctorOK, "internal/modules/flags is the app's code, copied from gorbital.dev/gorbital/flagshttp")
 	for _, c := range res.Checks {
 		if (c.Name == "modules" || c.Name == "gorbital.lock") && c.Status != doctorOK {
 			t.Errorf("%s check = %+v, want ok with an ejected module", c.Name, c)
@@ -329,7 +223,11 @@ func TestDoctorEjectedModules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lock.Ejected[0].SHA256 = strings.Repeat("0", 64)
+	for i, e := range lock.Ejected {
+		if e.Module == "flags" {
+			lock.Ejected[i].SHA256 = strings.Repeat("0", 64)
+		}
+	}
 	data, _ := lock.encode()
 	writeFile(t, lockPath, string(data))
 	res = doctorRun(t, 0, "--fast")

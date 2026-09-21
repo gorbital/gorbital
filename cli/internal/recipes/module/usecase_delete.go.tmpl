@@ -3,12 +3,29 @@ package usecase
 import "context"
 
 ⟦- if .Org⟧
-// Delete⟦.Ident⟧ removes one of the organisation orgID's ⟦.PluralHuman⟧.
-func (s *Service) Delete⟦.Ident⟧(ctx context.Context, orgID, id string) error {
-	if _, err := memberID(ctx, orgID); err != nil {
+// Delete⟦.Ident⟧ removes one of the ⟦.ScopeName⟧ ⟦.ScopeVar⟧'s ⟦.PluralHuman⟧.
+func (s *Service) Delete⟦.Ident⟧(ctx context.Context, ⟦.ScopeVar⟧, id string) error {
+	if _, err := memberID(ctx, ⟦.ScopeVar⟧); err != nil {
 		return err
 	}
-	if err := s.store.Delete⟦.Ident⟧(ctx, orgID, id); err != nil {
+	if err := s.store.Delete⟦.Ident⟧(ctx, ⟦.ScopeVar⟧, id); err != nil {
+⟦- else if .Public⟧
+// Delete⟦.Ident⟧ removes one ⟦.Human⟧. The route requires PermWrite.
+func (s *Service) Delete⟦.Ident⟧(ctx context.Context, id string) error {
+	if err := s.store.Delete⟦.Ident⟧(ctx, id); err != nil {
+⟦- else if .Custom⟧
+// Delete⟦.Ident⟧ removes one ⟦.Human⟧ when the policy lets the caller change
+// it. It reads the ⟦.Human⟧ first, because the policy decides on the record
+// and not on its ID.
+func (s *Service) Delete⟦.Ident⟧(ctx context.Context, id string) error {
+	⟦.Var⟧, err := s.store.Select⟦.Ident⟧(ctx, id, false)
+	if err != nil {
+		return storeError("delete", err)
+	}
+	if err := s.policy.CanWrite(ctx, ⟦.Var⟧); err != nil {
+		return storeError("delete", err)
+	}
+	if err := s.store.Delete⟦.Ident⟧(ctx, id); err != nil {
 ⟦- else⟧
 // Delete⟦.Ident⟧ removes one of the signed-in user's ⟦.PluralHuman⟧.
 func (s *Service) Delete⟦.Ident⟧(ctx context.Context, id string) error {

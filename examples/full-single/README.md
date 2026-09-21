@@ -1,6 +1,6 @@
 # acme-api
 
-A Go API created with [gorbital](https://gorbital.dev) (Full preset, single-tenant). It runs on `gorbital.Main`: `/ops`, jobs, email and the middleware come from the library. The app's own code is `cmd/api/main.go`, its modules in `internal/modules`, sign-in among them (`internal/modules/auth`, see [Sign-in is your code](#sign-in-is-your-code)), and its migrations in `db/migrations`.
+A Go API created with [gorbital](https://gorbital.dev) (`--auth full --scope single`: records belong to users). It runs on `gorbital.Main`: `/ops`, jobs, email and the middleware come from the library. The app's own code is `cmd/api/main.go`, its modules in `internal/modules`, sign-in among them (`internal/modules/auth`, see [Sign-in is your code](#sign-in-is-your-code)), and its migrations in `db/migrations`.
 
 ## Run
 
@@ -84,7 +84,7 @@ Browsers sign in without `"transport"` and get an HttpOnly session cookie instea
 | Routes and their guards | `delivery/routes.go` |
 | Tables | `repository/migrations/`, the same SQL as the `*_auth*.sql` files in `db/migrations` |
 
-`cmd/api/main.go` builds it with `authhttp.New(...)`, imported from `internal/modules/auth`: the options and hooks work as the library's do. `gorbital.lock` records the library version it was copied from. From then on library releases don't change it: run `orb doctor`, which says when the library's `authhttp` has changed since and quotes the changelog entries, then port the fixes you want. To keep sign-in in the library instead, create the app with `orb new --no-eject`.
+`cmd/api/main.go` builds it with `authhttp.New(...)`, imported from `internal/modules/auth`: the options and hooks work as the library's do. `gorbital.lock` records the library version it was copied from. From then on library releases don't change it: run `orb doctor`, which says when the library's `authhttp` has changed since and quotes the changelog entries, then port the fixes you want.
 
 ## Configuration
 
@@ -137,7 +137,7 @@ The app starts with two example modules that show the patterns the rest of the c
 
 | Example | To remove |
 |---|---|
-| `projects` module (`/v1/projects`) | Delete `internal/modules/projects/` and run `orb gen modules` (orb dev does). If its migration already ran, add a migration that drops the `projects` table; otherwise delete `db/migrations/20260915000002_projects.sql` |
+| `projects` module (`/v1/projects`) | Delete `internal/modules/projects/` and run `orb gen modules` (orb dev does). If its migration already ran, add a migration that drops the `projects` table; otherwise delete `db/migrations/20260918000071_projects.sql` |
 | `ping` module (`/v1/ping`, the `example.ping_message` setting and `example.ping_time` flag) | Delete `internal/modules/ping/` and run `orb gen modules` |
 
 Then run `go test ./internal/modules -run TestPublicSurface -update` (removing names is deliberate here), `go run ./cmd/api openapi --dir api` and `go test ./...`.
