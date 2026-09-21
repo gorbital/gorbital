@@ -374,7 +374,7 @@ func TestSocialConfiguration(t *testing.T) {
 	}
 	cfg, _ := load(map[string]string{"GOOGLE_CLIENT_ID": "web", "GOOGLE_CLIENT_SECRET": "s", "APPLE_TEAM_ID": "T", "APPLE_KEY_ID": "K", "APPLE_PRIVATE_KEY_FILE": keyFile, "APPLE_BUNDLE_IDS": "com.example.app"})
 	var out bytes.Buffer
-	writeSignInMethods(&out, cfg)
+	writeSignInMethods(&out, cfg, options{})
 	for _, want := range []string{
 		"✓ Google sign-in", "callback http://localhost:8080/v1/auth/google/callback", "– Google sign-in in iOS apps", "set GOOGLE_IOS_CLIENT_ID in .env",
 		"– Apple sign-in ", "AUTH_PROVIDERS.md#apple-sign-in", "✓ Apple sign-in in iOS apps", "com.example.app",
@@ -520,12 +520,12 @@ func TestGitHubSignInEndToEnd(t *testing.T) {
 
 	// The sign-in methods status.
 	var out bytes.Buffer
-	writeSignInMethods(&out, testConfig(t, gitHubEnv))
+	writeSignInMethods(&out, testConfig(t, gitHubEnv), options{})
 	if !strings.Contains(out.String(), "✓ GitHub sign-in") || !strings.Contains(out.String(), "callback http://localhost:8080/v1/auth/github/callback") {
 		t.Errorf("WriteSignInMethods() with GitHub:\n%s", out.String())
 	}
 	out.Reset()
-	writeSignInMethods(&out, testConfig(t, nil))
+	writeSignInMethods(&out, testConfig(t, nil), options{})
 	if !strings.Contains(out.String(), "– GitHub sign-in") || !strings.Contains(out.String(), "set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET in .env") || !strings.Contains(out.String(), "AUTH_PROVIDERS.md#github-sign-in") {
 		t.Errorf("WriteSignInMethods() without GitHub:\n%s", out.String())
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"slices"
 	"time"
 
 	"example.com/acme-api/internal/modules/auth/delivery"
@@ -34,15 +33,20 @@ const (
 // operations API lists in /ops/auth/rate-limits and /ops/retention), and its
 // migrations under the versions v0.1 apps hold them under, so a v0.1
 // database migrates as a no-op.
+//
+// Everything but the migrations is what the app's sign-in methods declare
+// ([Methods]): a method it doesn't serve has no routes, settings, jobs,
+// limiters or permissions, so /ops lists none of them. The migrations are
+// applied whichever methods are served (ADR-0089).
 func (a *Authenticator) Module() gorbital.Module {
 	return gorbital.Module{
 		Name:         "auth",
 		Errors:       errorMappings(),
-		Permissions:  permissions(),
-		Settings:     func(r *settings.Registry) { *a.settings = declareSettings(r, a.opts.apiKeyMaxTTL) },
+		Permissions:  permissions(a.opts),
+		Settings:     func(r *settings.Registry) { *a.settings = declareSettings(r, a.opts.apiKeyMaxTTL, a.opts.has) },
 		Jobs:         a.defineJobs,
 		Migrations:   moduleMigrations(),
-		RateLimiters: slices.Clone(limiters),
+		RateLimiters: rateLimiters(a.opts),
 		Retention:    a.retention,
 		Routes: func(r *gorbital.Router, _ gorbital.Deps) {
 			// svc is nil while the OpenAPI document is exported: the
@@ -57,6 +61,7 @@ func (a *Authenticator) routes() delivery.Config {
 	c := delivery.Config{
 		Cookie: authlib.DefaultCookieName, Middleware: a.opts.routeMiddleware,
 		Registration: a.opts.registration, MinPasswordLength: a.opts.minPasswordLength,
+		Methods: a.opts.methodSet(),
 	}
 	if t := a.signInTester(); t != nil {
 		// Test round trips return to the real callbacks; they are answered
@@ -95,14 +100,23 @@ func moduleMigrations() []gorbital.Migration {
 // ops.auth.read and ops.auth.write are sign-in's: besides /ops/auth/users,
 // the operations API (gorbital.dev/gorbital/opshttp) checks them for
 // /ops/auth/providers and /ops/auth/rate-limits, and doesn't declare them,
-// so an app with both declares each once.
-func permissions() []gorbital.Permission {
-	return []gorbital.Permission{
+// so an app with both declares each once. They stay declared whichever
+// methods the app serves, because those two pages are the operations API's
+// and not the operators' account APIs; the service-account permissions are
+// declared only by an app that serves [MethodAPIKeys], so no role can be
+// granted a permission for an operation it doesn't have (ADR-0089).
+func permissions(o options) []gorbital.Permission {
+	perms := []gorbital.Permission{
 		{Name: usecase.PermOpsAuthRead, Description: "See which sign-in methods are configured", Roles: []string{rolePlatformAdmin, roleOpsViewer}},
 		{Name: usecase.PermOpsAuthWrite, Description: "Manage accounts: create, ban, delete, end sessions, remove passkeys and links, reset second factors, impersonate in development", Roles: []string{rolePlatformAdmin}},
-		{Name: usecase.PermServiceAccountsRead, Description: "See service accounts and their API keys", Roles: []string{rolePlatformAdmin, roleOpsViewer}},
-		{Name: usecase.PermServiceAccountsWrite, Description: "Create, change and delete service accounts and their API keys", Roles: []string{rolePlatformAdmin}},
 	}
+	if o.has(MethodAPIKeys) {
+		perms = append(perms,
+			gorbital.Permission{Name: usecase.PermServiceAccountsRead, Description: "See service accounts and their API keys", Roles: []string{rolePlatformAdmin, roleOpsViewer}},
+			gorbital.Permission{Name: usecase.PermServiceAccountsWrite, Description: "Create, change and delete service accounts and their API keys", Roles: []string{rolePlatformAdmin}},
+		)
+	}
+	return perms
 }
 
 // declareRoles declares the user role every account holds when no module
@@ -145,6 +159,8 @@ func (a *Authenticator) retention(gorbital.Deps) []gorbital.Retention {
 
 // defineJobs defines auth_cleanup and auth_revoke_tokens with v0.1's
 // defaults. Operators can override them in /ops/jobs/definitions.
+// auth_revoke_tokens revokes Apple's tokens, so only an app that serves
+// [MethodSocial] defines it (ADR-0089).
 func (a *Authenticator) defineJobs(defs *jobs.Definitions, d gorbital.Deps) {
 	jobs.Define(defs, jobs.Definition[authcleanup.Args]{
 		Name:        authcleanup.Name,
@@ -160,6 +176,9 @@ func (a *Authenticator) defineJobs(defs *jobs.Definitions, d gorbital.Deps) {
 		Queue:       "default",
 		Priority:    2,
 	})
+	if !a.opts.has(MethodSocial) {
+		return
+	}
 	jobs.Define(defs, jobs.Definition[authrevoke.Args]{
 		Name:        authrevoke.Name,
 		Description: "Revokes the Apple refresh tokens of unlinked identities and deleted accounts, retrying failures with backoff.",

@@ -24,14 +24,17 @@ import (
 const purgeJob = orgspurge.Name
 
 // errorMappings are the error codes of a v0.1 app's module_orgs.go: the
-// organisations module's, and those every org-scoped module shares. Error
-// codes are public API: add new ones, never change existing ones.
-func errorMappings() []httpx.Mapping {
+// organisations module's, and those every scope-scoped module shares. The
+// scope's refusals are worded and coded as the guard words and codes them,
+// so an app that renamed its scope (orgshttp.ScopeName) gets one answer
+// whichever refuses. Error codes are public API: add new ones, never
+// change existing ones.
+func errorMappings(s gorbital.Scope) []httpx.Mapping {
 	return []httpx.Mapping{
 		{Err: actor.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
-		{Err: actor.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "your role in this organisation doesn't allow this"},
-		{Err: actor.ErrStepUpRequired, Status: http.StatusForbidden, Code: "mfa_required", Detail: "sign in with two-factor authentication to do this in this organisation"},
-		{Err: orgslib.ErrOrgNotFound, Status: http.StatusNotFound, Code: "org_not_found", Detail: "you aren't a member of an organisation with this ID"},
+		{Err: actor.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "your role in this " + s.Name + " doesn't allow this"},
+		{Err: actor.ErrStepUpRequired, Status: http.StatusForbidden, Code: "mfa_required", Detail: "sign in with two-factor authentication to do this in this " + s.Name},
+		{Err: orgslib.ErrOrgNotFound, Status: http.StatusNotFound, Code: s.NotFoundCode, Detail: notFoundDetail(s)},
 		{Err: orgsdomain.ErrUnauthenticated, Status: http.StatusUnauthorized, Code: "unauthenticated", Detail: "authentication is required"},
 		{Err: orgsdomain.ErrForbidden, Status: http.StatusForbidden, Code: "forbidden", Detail: "missing permission for this operation"},
 		{Err: orgsdomain.ErrSessionRequired, Status: http.StatusForbidden, Code: "session_required", Detail: "sign in to do this: an API key can't join or leave organisations"},
@@ -54,27 +57,40 @@ func errorMappings() []httpx.Mapping {
 	}
 }
 
+// notFoundDetail is the 404's detail, worded as gorbital.Scope words it,
+// so organisations keep v0.1's wording.
+func notFoundDetail(s gorbital.Scope) string {
+	if s.Name == gorbital.DefaultScopeName {
+		return "you aren't a member of an organisation with this ID"
+	}
+	return "you aren't a member of a " + s.Name + " with this ID"
+}
+
 // permissions are a v0.1 app's organisation permissions: the platform ones
 // every user holds (the user role), and the organisation ones owners,
 // admins and members hold through their role in each organisation. Names
-// are public API.
-func permissions() []gorbital.Permission {
+// are public API. serviceAccounts leaves out the permission of the
+// operations orgshttp.WithoutServiceAccounts leaves out.
+func permissions(serviceAccounts bool) []gorbital.Permission {
 	owner := []string{orgslib.RoleOwner}
 	admins := []string{orgslib.RoleOwner, orgslib.RoleAdmin}
 	all := []string{orgslib.RoleOwner, orgslib.RoleAdmin, orgslib.RoleMember}
-	return []gorbital.Permission{
+	perms := []gorbital.Permission{
 		{Name: usecase.PermOrgCreate, Description: "Create organisations", Roles: []string{"user"}},
 		{Name: usecase.PermOrgList, Description: "See the organisations you belong to", Roles: []string{"user"}},
 
-		{Name: usecase.PermOrgRead, Description: "See the organisation", OrgRoles: all},
-		{Name: usecase.PermOrgUpdate, Description: "Rename the organisation", OrgRoles: admins},
-		{Name: usecase.PermOrgDelete, Description: "Delete and restore the organisation", OrgRoles: owner},
-		{Name: usecase.PermMembersRead, Description: "See the members", OrgRoles: all},
-		{Name: usecase.PermMembersManage, Description: "Invite people, change roles and remove members, up to your own role", OrgRoles: admins},
-		{Name: usecase.PermSettingsRead, Description: "See the organisation's settings and their history", OrgRoles: all},
-		{Name: usecase.PermSettingsWrite, Description: "Change the organisation's settings", OrgRoles: admins},
-		{Name: usecase.PermServiceAccountsManage, Description: "Create and manage service accounts and their API keys, up to your own role", OrgRoles: admins},
+		{Name: usecase.PermOrgRead, Description: "See the organisation", ScopeRoles: all},
+		{Name: usecase.PermOrgUpdate, Description: "Rename the organisation", ScopeRoles: admins},
+		{Name: usecase.PermOrgDelete, Description: "Delete and restore the organisation", ScopeRoles: owner},
+		{Name: usecase.PermMembersRead, Description: "See the members", ScopeRoles: all},
+		{Name: usecase.PermMembersManage, Description: "Invite people, change roles and remove members, up to your own role", ScopeRoles: admins},
+		{Name: usecase.PermSettingsRead, Description: "See the organisation's settings and their history", ScopeRoles: all},
+		{Name: usecase.PermSettingsWrite, Description: "Change the organisation's settings", ScopeRoles: admins},
 	}
+	if serviceAccounts {
+		perms = append(perms, gorbital.Permission{Name: usecase.PermServiceAccountsManage, Description: "Create and manage service accounts and their API keys, up to your own role", ScopeRoles: admins})
+	}
+	return perms
 }
 
 // moduleMigrations are the organisations module's migrations with the

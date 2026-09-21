@@ -184,11 +184,29 @@ type Config struct {
 	// one is stated instead of 12 wherever a password field documents the
 	// minimum.
 	MinPasswordLength int
+	// Methods are the sign-in methods the app serves (authhttp's Methods):
+	// each method's operations are registered only when it is in the set.
+	// The zero set is every method, which is v0.1's operations.
+	Methods MethodSet
+}
+
+// public is an operation anyone may call.
+func public(op huma.Operation) huma.Operation {
+	op.Tags = []string{"Auth"}
+	return op
+}
+
+// signedIn is an operation that requires a session or an API key.
+func signedIn(op huma.Operation) huma.Operation {
+	op.Tags, op.Security = []string{"Auth"}, openapi.Bearer
+	op.Errors = append([]int{http.StatusUnauthorized}, op.Errors...)
+	return op
 }
 
 // Register adds the authentication operations to r, with v0.1's operation
-// IDs, paths and documentation. A nil svc registers the operations without
-// their dependencies, for exporting the OpenAPI document.
+// IDs, paths and documentation, one group per sign-in method c.Methods
+// serves (ADR-0089). A nil svc registers the operations without their
+// dependencies, for exporting the OpenAPI document.
 func Register(router *gorbital.Router, svc *authusecase.Service, c Config) {
 	h := &handler{svc: svc, cookie: c.Cookie}
 	r := routesOn(router)
@@ -198,15 +216,28 @@ func Register(router *gorbital.Router, svc *authusecase.Service, c Config) {
 	if len(c.Middleware) > 0 {
 		r.signIn = router.Group("", gorbital.Use(c.Middleware...))
 	}
-	public := func(op huma.Operation) huma.Operation {
-		op.Tags = []string{"Auth"}
-		return op
+	registerPassword(r, h, c)
+	if c.Methods.Has(MethodOperators) {
+		registerOpsUsers(r, h)
 	}
-	signedIn := func(op huma.Operation) huma.Operation {
-		op.Tags, op.Security = []string{"Auth"}, openapi.Bearer
-		op.Errors = append([]int{http.StatusUnauthorized}, op.Errors...)
-		return op
+	if c.Methods.Has(MethodTOTP) {
+		registerMFA(r, h, public, signedIn)
 	}
+	if c.Methods.Has(MethodPasskeys) {
+		registerPasskeys(r, h, public, signedIn)
+	}
+	if c.Methods.Has(MethodSocial) {
+		registerSocial(r, h, public, signedIn)
+	}
+	if c.Methods.Has(MethodAPIKeys) {
+		registerAPIKeys(r, h, signedIn)
+	}
+}
+
+// registerPassword adds the operations every app serves: registration,
+// email verification, signing in and out, passwords, sessions and deleting
+// the account.
+func registerPassword(r *routes, h *handler, c Config) {
 	limited := []int{http.StatusUnprocessableEntity, http.StatusTooManyRequests}
 
 	if c.Registration != nil {
@@ -276,12 +307,6 @@ func Register(router *gorbital.Router, svc *authusecase.Service, c Config) {
 		Description:   "Requires the password, and with two-factor authentication on a code, recovery code or passkey response (start one with `POST /v1/auth/passkeys/verification`). Signs out every device.",
 		DefaultStatus: http.StatusNoContent, Errors: []int{http.StatusServiceUnavailable},
 	}), h.deleteAccount)
-
-	registerMFA(r, h, public, signedIn)
-	registerPasskeys(r, h, public, signedIn)
-	registerSocial(r, h, public, signedIn)
-	registerAPIKeys(r, h, signedIn)
-	registerOpsUsers(r, h)
 }
 
 func (h *handler) verify(ctx context.Context, in *verifyInput) (*struct{}, error) {

@@ -102,7 +102,6 @@ require (
 	gorbital.dev/modules/mail/smtp v0.2.1 // indirect
 	gorbital.dev/modules/mail/suppressionpg v0.2.1 // indirect
 	gorbital.dev/modules/observability v0.2.1 // indirect
-	gorbital.dev/modules/orgs v0.2.1 // indirect
 	gorbital.dev/modules/releases v0.2.1 // indirect
 	gorbital.dev/modules/telemetry v0.2.1 // indirect
 	rsc.io/qr v0.2.0 // indirect
