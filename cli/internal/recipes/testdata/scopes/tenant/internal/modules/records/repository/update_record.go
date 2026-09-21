@@ -1,0 +1,34 @@
+package repository
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5"
+
+	"gorbital.dev/modules/postgres"
+
+	"example.com/app/internal/modules/records/domain"
+)
+
+const updateRecordSQL = `
+	UPDATE records
+	SET title = $3, note = $4, state = $5, updated_at = $6, version = version + 1
+	WHERE id = $1 AND org_id = $2 AND version = $7
+	RETURNING ` + recordColumns
+
+// UpdateRecord saves record when the stored version is still record.Version and
+// returns it with the next version. It returns ErrRecordVersionConflict when
+// no row has that version (changed, deleted or not the organisation's), and
+// ErrRecordTitleTaken.
+func (s *Store) UpdateRecord(ctx context.Context, record domain.Record) (domain.Record, error) {
+	rows, err := s.db.Query(ctx, updateRecordSQL,
+		record.ID, record.OrgID, record.Title, record.Note, record.State, record.UpdatedAt, record.Version)
+	if err != nil {
+		return domain.Record{}, constraintError(err)
+	}
+	updated, err := pgx.CollectExactlyOneRow(rows, scanRecord)
+	if postgres.IsNoRows(err) {
+		return domain.Record{}, domain.ErrRecordVersionConflict
+	}
+	return updated, constraintError(err)
+}

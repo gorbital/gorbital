@@ -67,8 +67,14 @@ type Route struct {
 	// gorbital.Use (outer first), then the route's, in the order they run.
 	Middleware []string `json:"middleware"`
 	// Public reports a route that needs no sign-in.
-	Public     bool `json:"public"`
-	Deprecated bool `json:"deprecated"`
+	Public bool `json:"public"`
+	// Scope is the access rule the route serves under (ADR-0091): the
+	// app's tenant ("organisation", "merchant"), "user", "public" or
+	// "custom". It is the scope the module was generated with, as
+	// gorbital.yaml records it, or what the route's own guards say; empty
+	// when neither knows, as for a library module's routes.
+	Scope      string `json:"scope"`
+	Deprecated bool   `json:"deprecated"`
 }
 
 // List is every route of an app.
@@ -133,6 +139,42 @@ func Build(app, dir string, doc []byte, source string) (List, error) {
 		list.Warnings = append(list.Warnings, "the OpenAPI document has no x-gorbital-guards (an app on the v0.1 layout): guards and middleware aren't listed, and public means no security requirement")
 	}
 	return list, nil
+}
+
+// Scopes fills in each route's access rule (ADR-0091): modules maps a
+// module's directory to the scope it was generated with, as the app's
+// gorbital.yaml records it, and tenant is what the app calls its tenant.
+// A route whose module records a scope takes it; otherwise a public route
+// is "public" and a route with a scope guard is the tenant's. Nothing is
+// inferred from a plain permission guard, which says who may call a route
+// and not whose records it serves.
+func (l List) Scopes(modules map[string]string, tenant string) List {
+	if tenant == "" {
+		tenant = "tenant"
+	}
+	scoped := make([]Route, len(l.Routes))
+	copy(scoped, l.Routes)
+	for i := range scoped {
+		r := &scoped[i]
+		switch scope := modules[r.Module]; {
+		case scope == "tenant":
+			r.Scope = tenant
+		case scope != "":
+			r.Scope = scope
+		case r.Public:
+			r.Scope = "public"
+		case slices.ContainsFunc(r.Guards, isScopeGuard):
+			r.Scope = tenant
+		}
+	}
+	l.Routes = scoped
+	return l
+}
+
+// isScopeGuard reports a guard that asks the app's scope authorizer:
+// guard.Scope, or its old name guard.OrgMember.
+func isScopeGuard(guard string) bool {
+	return strings.HasPrefix(guard, "scope:") || strings.HasPrefix(guard, "org_member:")
 }
 
 // Filter keeps the routes of module (when not empty), only public ones with
