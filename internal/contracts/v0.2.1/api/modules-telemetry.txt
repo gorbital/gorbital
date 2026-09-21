@@ -1,0 +1,35 @@
+pkg gorbital.dev/modules/telemetry, const KeyOrgID = "org_id"
+pkg gorbital.dev/modules/telemetry, const KeyOrgID ideal-string
+pkg gorbital.dev/modules/telemetry, const KeyRequestID = "request_id"
+pkg gorbital.dev/modules/telemetry, const KeyRequestID ideal-string
+pkg gorbital.dev/modules/telemetry, const KeySpanID = "span_id"
+pkg gorbital.dev/modules/telemetry, const KeySpanID ideal-string
+pkg gorbital.dev/modules/telemetry, const KeyTraceID = "trace_id"
+pkg gorbital.dev/modules/telemetry, const KeyTraceID ideal-string
+pkg gorbital.dev/modules/telemetry, const LogFormatJSON = "json"
+pkg gorbital.dev/modules/telemetry, const LogFormatJSON LogFormat
+pkg gorbital.dev/modules/telemetry, const LogFormatText = "text"
+pkg gorbital.dev/modules/telemetry, const LogFormatText LogFormat
+pkg gorbital.dev/modules/telemetry, func NewLogHandler(slog.Handler) slog.Handler
+pkg gorbital.dev/modules/telemetry, func RecordRoute(http.Handler) http.Handler
+pkg gorbital.dev/modules/telemetry, func Setup(context.Context, string, string, ...Option) (*Telemetry, error)
+pkg gorbital.dev/modules/telemetry, func WithLogFormat(LogFormat) Option
+pkg gorbital.dev/modules/telemetry, func WithLogLevel(slog.Leveler) Option
+pkg gorbital.dev/modules/telemetry, func WithLogTee(slog.Handler) Option
+pkg gorbital.dev/modules/telemetry, func WithLogWriter(io.Writer) Option
+pkg gorbital.dev/modules/telemetry, func WithOTLPExport(bool) Option
+pkg gorbital.dev/modules/telemetry, func WithPrometheus(bool) Option
+pkg gorbital.dev/modules/telemetry, func WithRuntimeMetrics() Option
+pkg gorbital.dev/modules/telemetry, func WithSampleRatio(float64) Option
+pkg gorbital.dev/modules/telemetry, func WithSpanExporter(trace.SpanExporter) Option
+pkg gorbital.dev/modules/telemetry, func WithTraceContextFrom([]netip.Prefix) Option
+pkg gorbital.dev/modules/telemetry, func WithoutGlobals() Option
+pkg gorbital.dev/modules/telemetry, method (*Telemetry) HTTPMiddleware() func(http.Handler) http.Handler
+pkg gorbital.dev/modules/telemetry, method (*Telemetry) Logger() *slog.Logger
+pkg gorbital.dev/modules/telemetry, method (*Telemetry) MeterProvider() metric.MeterProvider
+pkg gorbital.dev/modules/telemetry, method (*Telemetry) MetricsHandler() http.Handler
+pkg gorbital.dev/modules/telemetry, method (*Telemetry) Shutdown(context.Context) error
+pkg gorbital.dev/modules/telemetry, method (*Telemetry) TracerProvider() trace.TracerProvider
+pkg gorbital.dev/modules/telemetry, type LogFormat string
+pkg gorbital.dev/modules/telemetry, type Option interface { apply }
+pkg gorbital.dev/modules/telemetry, type Telemetry struct

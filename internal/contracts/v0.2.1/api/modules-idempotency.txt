@@ -1,0 +1,41 @@
+pkg gorbital.dev/modules/idempotency, const DefaultLockTTL = 300000000000
+pkg gorbital.dev/modules/idempotency, const DefaultLockTTL time.Duration
+pkg gorbital.dev/modules/idempotency, const DefaultMaxResponseBytes = 1048576
+pkg gorbital.dev/modules/idempotency, const DefaultMaxResponseBytes ideal-int
+pkg gorbital.dev/modules/idempotency, const DefaultRetention = 86400000000000
+pkg gorbital.dev/modules/idempotency, const DefaultRetention time.Duration
+pkg gorbital.dev/modules/idempotency, const Header = "Idempotency-Key"
+pkg gorbital.dev/modules/idempotency, const Header ideal-string
+pkg gorbital.dev/modules/idempotency, const MaxKeyLength = 255
+pkg gorbital.dev/modules/idempotency, const MaxKeyLength ideal-int
+pkg gorbital.dev/modules/idempotency, const ReplayedHeader = "Idempotent-Replayed"
+pkg gorbital.dev/modules/idempotency, const ReplayedHeader ideal-string
+pkg gorbital.dev/modules/idempotency, func ActorScope(*http.Request) (string, bool)
+pkg gorbital.dev/modules/idempotency, func DontStore(context.Context)
+pkg gorbital.dev/modules/idempotency, func Fingerprint(string, string, []byte) []byte
+pkg gorbital.dev/modules/idempotency, func Middleware(*Store, ...MiddlewareOption) func(http.Handler) http.Handler
+pkg gorbital.dev/modules/idempotency, func NewStore(*pgxpool.Pool, ...Option) (*Store, error)
+pkg gorbital.dev/modules/idempotency, func WithClock(func() time.Time) Option
+pkg gorbital.dev/modules/idempotency, func WithLockTTL(time.Duration) Option
+pkg gorbital.dev/modules/idempotency, func WithLogger(*slog.Logger) Option
+pkg gorbital.dev/modules/idempotency, func WithMaxResponseBytes(int) MiddlewareOption
+pkg gorbital.dev/modules/idempotency, func WithRetention(func(context.Context) time.Duration) Option
+pkg gorbital.dev/modules/idempotency, func WithScope(func(*http.Request) (string, bool)) MiddlewareOption
+pkg gorbital.dev/modules/idempotency, func WithSkip(func(*http.Request) bool) MiddlewareOption
+pkg gorbital.dev/modules/idempotency, method (*Lock) Complete(context.Context, Response) error
+pkg gorbital.dev/modules/idempotency, method (*Lock) Release(context.Context) error
+pkg gorbital.dev/modules/idempotency, method (*Store) Claim(context.Context, string, string, []byte) (*Lock, *Response, error)
+pkg gorbital.dev/modules/idempotency, method (*Store) DeleteExpired(context.Context, int) (int64, error)
+pkg gorbital.dev/modules/idempotency, method (*Store) Oldest(context.Context) (time.Time, bool, error)
+pkg gorbital.dev/modules/idempotency, type Lock struct
+pkg gorbital.dev/modules/idempotency, type MiddlewareOption interface { apply }
+pkg gorbital.dev/modules/idempotency, type Option func(*Store)
+pkg gorbital.dev/modules/idempotency, type Response struct
+pkg gorbital.dev/modules/idempotency, type Response struct, Body []byte
+pkg gorbital.dev/modules/idempotency, type Response struct, Header http.Header
+pkg gorbital.dev/modules/idempotency, type Response struct, Status int
+pkg gorbital.dev/modules/idempotency, type Store struct
+pkg gorbital.dev/modules/idempotency, var ErrInProgress error
+pkg gorbital.dev/modules/idempotency, var ErrKeyReused error
+pkg gorbital.dev/modules/idempotency, var ErrLockLost error
+pkg gorbital.dev/modules/idempotency, var Migrations fs.FS
