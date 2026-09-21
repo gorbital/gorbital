@@ -1,0 +1,98 @@
+# Shelfie's own pipeline, from chapter 12 of the Examples tab. GitHub reads
+# workflows only from the repository root, so this file runs nothing here;
+# copy it to .github/workflows/ci.yml in your own repository.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # docs:start test-job
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: shelfie
+          POSTGRES_PASSWORD: shelfie
+          POSTGRES_DB: shelfie
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shelfie -d shelfie"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      # Every test clones a template database migrated once from
+      # db/migrations, so the suite needs no migrate step of its own.
+      GORBITAL_TEST_DATABASE_URL: postgres://shelfie:shelfie@localhost:5432/shelfie?sslmode=disable
+      # Without it a missing database skips the database tests; in CI a
+      # missing database must fail instead.
+      GORBITAL_REQUIRE_DB: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+      - run: test -z "$(gofmt -l .)" || { gofmt -l .; false; }
+      - run: go vet ./...
+      - run: go test -race ./...
+      # The document clients are generated from is part of the code.
+      - name: api/ matches the routes
+        run: |
+          go run ./cmd/api openapi --dir api
+          git diff --exit-code -- api
+  # docs:end test-job
+
+  # docs:start migrate-job
+  migrate:
+    name: migrations apply to a copy of production
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.x"
+      # A restore of the production backup, not production itself: this job
+      # proves the migrations apply to real data before a release does.
+      - name: apply to the staging database
+        env:
+          APP_ENV: production
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          AUTH_ENCRYPTION_KEYS: ${{ secrets.STAGING_AUTH_ENCRYPTION_KEYS }}
+        run: |
+          go run ./cmd/api migrate --status
+          go run ./cmd/api migrate
+  # docs:end migrate-job
+
+  # docs:start image-job
+  image:
+    name: image
+    runs-on: ubuntu-latest
+    needs: migrate
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # buildinfo.version reaches GET /version and every log line.
+          build-args: VERSION=${{ github.sha }}
+          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
+  # docs:end image-job
