@@ -19,34 +19,73 @@ gorbital.Main(
 )
 ```
 
-App modules scope their routes to an organisation with guard.OrgMember, which asks this module whether the caller is a member whose role grants a permission, and declare their permissions with gorbital.Permission's OrgRoles:
+Organisations are one tenancy an app can have (ADR-0088): the module makes [DefaultScope](#DefaultScope) the app's scope, so app modules scope their routes to an organisation with guard.Scope, which asks this module whether the caller is a member whose role grants a permission, and declare their permissions with gorbital.Permission's ScopeRoles:
 
 ```go
 invoices := r.Group("/v1/orgs/{orgId}/invoices")
-gorbital.Get(invoices, "", h.list, guard.OrgMember("invoices.invoice.read"))
+gorbital.Get(invoices, "", h.list, guard.Scope("invoices.invoice.read"))
 ```
+
+[Module](#Module) takes an [Identity](#Identity) rather than a particular sign-in.
 
 Stability: experimental until v0.2.0 (ADR-0015, ADR-0081).
 
 ## Contents
 
-- Functions: [`Module`](#Module)
+- Functions: [`DefaultScope`](#DefaultScope), [`Module`](#Module)
 - Types:
-  - [`Option`](#Option): [`Brand`](#Brand)
+  - [`Identity`](#Identity)
+  - [`Option`](#Option): [`Brand`](#Brand), [`WithoutServiceAccounts`](#WithoutServiceAccounts)
 
 ## Functions
+
+<a id="DefaultScope"></a>
+
+### func DefaultScope
+
+```go
+func DefaultScope() gorbital.Scope
+```
+
+DefaultScope is the tenancy organisations give an app (ADR-0088): the concept named "organisation", its ID in {orgId} and shaped like orgs.ParseID accepts, refused with 404 org\_not\_found, the roles owner, admin and member, and the organisation carried into the request's connections for row-level security. It is the vocabulary of v0.1 and v0.2 multi-tenant apps, so their HTTP contract doesn't change.
+
+[Module](#Module) sets it with gorbital.Platform.SetScope, so an app that mounts organisations needs nothing else for guard.Scope. An app that writes its own membership rules starts from its own gorbital.Scope instead.
+
+Unlike gorbital.DefaultOrgScope it has a ValidID: only this package may import gorbital.dev/modules/orgs, so only this package knows how an organisation ID is shaped.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// The tenancy organisations give an app: guard.Scope refuses a
+// request for an organisation the caller isn't a member of with this
+// code, and reads the ID from this path parameter.
+s := orgshttp.DefaultScope()
+var roles []string
+for _, r := range s.Roles {
+	roles = append(roles, r.Name)
+}
+fmt.Println(s.Name, s.PathParam, s.NotFoundCode, roles, s.ValidID("org_mfrggzdfmztwq2lkmfrggzdfmy"), s.ValidID("merchant_1234"))
+```
+
+Output:
+
+```text
+organisation orgId org_not_found [owner admin member] true false
+```
 
 <a id="Module"></a>
 
 ### func Module
 
 ```go
-func Module(auth *authhttp.Authenticator, opts ...Option) gorbital.Module
+func Module(id Identity, opts ...Option) gorbital.Module
 ```
 
-Module returns organisations as a module named "orgs". auth is the app's sign-in, the value passed to gorbital.WithAuth: organisation members are its accounts (org\_members references auth\_users), a new account gets a personal workspace, deleting an account leaves or deletes its organisations, and organisations' service accounts are sign-in's.
+Module returns organisations as a module named "orgs". id is the app's sign-in, the value passed to gorbital.WithAuth when that is gorbital.dev/gorbital/authhttp: organisation members are its accounts (org\_members references auth\_users), a new account gets a personal workspace, deleting an account leaves or deletes its organisations, and organisations' service accounts are sign-in's.
 
-gorbital.New fails with a configuration error when auth is nil or isn't the app's authenticator. Mounted by hand with gorbital.Mount, the module registers its routes for the OpenAPI document only.
+gorbital.New fails with a configuration error when id is nil, or is the app's authenticator's type and not the app's authenticator. Mounted by hand with gorbital.Mount, the module registers its routes for the OpenAPI document only.
 
 *Since `v0.2.0 (unreleased)`*
 
@@ -54,7 +93,7 @@ gorbital.New fails with a configuration error when auth is nil or isn't the app'
 
 ```go
 // cmd/api/main.go of a multi-tenant app: sign-in, /ops, organisations,
-// then the app's modules, whose routes use guard.OrgMember.
+// then the app's modules, whose routes use guard.Scope.
 main := func() {
 	auth := authhttp.New()
 	gorbital.Main(
@@ -69,7 +108,7 @@ _ = main
 m := orgshttp.Module(authhttp.New())
 var orgRoles []string
 for _, p := range m.Permissions {
-	orgRoles = append(orgRoles, p.OrgRoles...)
+	orgRoles = append(orgRoles, p.ScopeRoles...)
 }
 slices.Sort(orgRoles)
 fmt.Println(m.Name, slices.Compact(orgRoles))
@@ -87,6 +126,51 @@ orgs [admin member owner]
 ```
 
 ## Types
+
+<a id="Identity"></a>
+<a id="Identity.UseOrganisations"></a>
+
+### type Identity
+
+```go
+type Identity interface {
+	// UseOrganisations connects the identity to o: a new account gets a
+	// personal workspace, deleting an account is refused while it is an
+	// organisation's only owner and otherwise leaves its organisations,
+	// and o authorizes the organisations whose service accounts the
+	// identity manages. It is called once, while the app is built.
+	UseOrganisations(o authhttp.Organisations) error
+}
+```
+
+An Identity is what organisations need from the app's sign-in: organisation members are its accounts (org\_members references auth\_users), so it tells organisations about accounts as they are created and deleted, and asks them before deleting one. \*authhttp.Authenticator is one, and nothing in the library is any other: the interface is the seam that keeps organisations from requiring gorbital's own sign-in (ADR-0088, ADR-0092).
+
+An identity that issues API keys also has
+
+```go
+OrgServiceAccountRoutes(r *gorbital.Router)
+```
+
+which registers the operations on organisations' service accounts; [WithoutServiceAccounts](#WithoutServiceAccounts) leaves them out for an identity that doesn't.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// *authhttp.Authenticator is one, and so is an app's own sign-in.
+var _ orgshttp.Identity = authhttp.New()
+var id orgshttp.Identity = &ownIdentity{}
+// An identity that can't issue API keys leaves out the operations on
+// organisations' service accounts.
+fmt.Println(orgshttp.Module(id, orgshttp.WithoutServiceAccounts()).Name)
+```
+
+Output:
+
+```text
+orgs
+```
 
 <a id="Option"></a>
 
@@ -133,4 +217,38 @@ Brand sets what invitation emails have in common with the app's other emails: it
 brand := mail.Brand{Name: "Acme", URL: "https://acme.example.com", SupportEmail: "help@acme.example.com"}
 auth := authhttp.New(authhttp.Brand(brand))
 _ = gorbital.WithModules(orgshttp.Module(auth, orgshttp.Brand(brand)))
+```
+
+<a id="WithoutServiceAccounts"></a>
+
+#### func WithoutServiceAccounts
+
+```go
+func WithoutServiceAccounts() Option
+```
+
+WithoutServiceAccounts leaves out the operations on organisations' service accounts and their API keys (/v1/orgs/{orgId}/service-accounts, ADR-0058) and the orgs.service\_accounts.manage permission that guards them.
+
+They are sign-in's operations, registered through the [Identity](#Identity)'s OrgServiceAccountRoutes: an identity that can't issue API keys doesn't have that method. Without this option gorbital.New fails, naming it.
+
+*Since `v0.2.0 (unreleased)`*
+
+**Example**
+
+```go
+// /v1/orgs/{orgId}/service-accounts and its API keys are sign-in's
+// operations; an app whose identity doesn't issue keys leaves them
+// out, with the orgs.service_accounts.manage permission.
+m := orgshttp.Module(authhttp.New(), orgshttp.WithoutServiceAccounts())
+var names []string
+for _, p := range m.Permissions {
+	names = append(names, p.Name)
+}
+fmt.Println(slices.Contains(names, "orgs.service_accounts.manage"))
+```
+
+Output:
+
+```text
+false
 ```
