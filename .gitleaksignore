@@ -88,3 +88,37 @@ bac0dea8c1174cc2a3c2a0acaa01ec4aac0ab988:examples/apps/admin-tool/internal/modul
 bac0dea8c1174cc2a3c2a0acaa01ec4aac0ab988:examples/apps/admin-tool/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:224
 bac0dea8c1174cc2a3c2a0acaa01ec4aac0ab988:examples/apps/admin-tool/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:244
 bac0dea8c1174cc2a3c2a0acaa01ec4aac0ab988:examples/apps/admin-tool/internal/modules/auth/ops_users_test.go:generic-api-key:20
+
+# Reviewed 2026-09-21 for v0.2.2.
+#
+# The sign-in test harness's made-up provider credentials, and the dev
+# console token a test serves: GOCSPX- followed by the alphabet, sequential
+# hex, and a base64url string nobody issued. They arrive under new
+# fingerprints whenever a golden app is regenerated or added.
+5be8d2313e47260363f4c499dc36914bf3741bb9:examples/apps/shelfie/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:151
+5be8d2313e47260363f4c499dc36914bf3741bb9:examples/apps/shelfie/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:224
+5be8d2313e47260363f4c499dc36914bf3741bb9:examples/apps/shelfie/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:244
+5be8d2313e47260363f4c499dc36914bf3741bb9:examples/apps/shelfie/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:35
+5be8d2313e47260363f4c499dc36914bf3741bb9:examples/apps/shelfie/internal/modules/auth/delivery/signintest/signintest_test.go:jwt:150
+5be8d2313e47260363f4c499dc36914bf3741bb9:examples/apps/shelfie/internal/modules/auth/ops_users_test.go:generic-api-key:20
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-multi/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:151
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-multi/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:224
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-multi/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:244
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-multi/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:35
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-multi/internal/modules/auth/delivery/signintest/signintest_test.go:jwt:150
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-multi/internal/modules/auth/ops_users_test.go:generic-api-key:20
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-single/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:151
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-single/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:224
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-single/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:244
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-single/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:35
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-single/internal/modules/auth/delivery/signintest/signintest_test.go:jwt:150
+77bf5777fc98593de7694d04eb5121e120b890fc:examples/full-single/internal/modules/auth/ops_users_test.go:generic-api-key:20
+a017e9f8ce51a76da9ef4142c05dce34d0e13e20:examples/api-basic/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:151
+a017e9f8ce51a76da9ef4142c05dce34d0e13e20:examples/api-basic/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:224
+a017e9f8ce51a76da9ef4142c05dce34d0e13e20:examples/api-basic/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:244
+a017e9f8ce51a76da9ef4142c05dce34d0e13e20:examples/api-basic/internal/modules/auth/delivery/signintest/signintest_test.go:generic-api-key:35
+a017e9f8ce51a76da9ef4142c05dce34d0e13e20:examples/api-basic/internal/modules/auth/delivery/signintest/signintest_test.go:jwt:150
+a017e9f8ce51a76da9ef4142c05dce34d0e13e20:examples/api-basic/internal/modules/auth/ops_users_test.go:generic-api-key:20
+#
+# The string crypto/subtle, a Go package named in a documentation table.
+aba10c74b00fac50b7eb84ae0d9ac5d3461dc406:docs/v0.3-roadmap.md:generic-api-key:89
