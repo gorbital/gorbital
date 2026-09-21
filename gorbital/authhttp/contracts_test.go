@@ -325,8 +325,8 @@ func TestSurfaceKeepsV010Names(t *testing.T) {
 		}
 	}
 	for _, l := range limiters {
-		if !slices.Contains(matches(limiterName, string(readFile(t, "limits.go"))), l.Name) {
-			t.Errorf("limiter %q is listed but not created", l.Name)
+		if !slices.Contains(matches(limiterName, string(readFile(t, "limits.go"))), l.limiter.Name) {
+			t.Errorf("limiter %q is listed but not created", l.limiter.Name)
 		}
 	}
 }

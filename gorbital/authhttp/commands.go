@@ -201,7 +201,7 @@ func (a *Authenticator) runRotateAuthKeys(ctx context.Context, cfg gorbital.Conf
 // gorbital.LoadConfig and CheckConfig have refused an invalid or partial
 // configuration.
 func (a *Authenticator) runAuthProviders(_ context.Context, cfg gorbital.Config, _ []string, w io.Writer) error {
-	writeSignInMethods(w, cfg)
+	writeSignInMethods(w, cfg, a.opts)
 	return nil
 }
 
