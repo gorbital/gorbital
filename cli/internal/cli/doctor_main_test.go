@@ -137,3 +137,67 @@ var opaque = g.WithStack(stackFrom(1))
 		t.Errorf("timeout soon = %+v", c)
 	}
 }
+
+// TestDoctorChecksResourceScopes covers the static check over the access
+// rules the generator wrote (ADR-0091): a tenant module whose generated
+// SQL lost the tenant column, and a custom module whose policy is still
+// unimplemented. It is a check of generated files, and its output says so.
+func TestDoctorChecksResourceScopes(t *testing.T) {
+	dir := newMainApp(t, true)
+	writeFile(t, ".env", readFile(t, ".env.example"))
+	fakeDoctorCommands(t, `{"current":20260920000001,"latest":20260920000001,"pending":0}`)
+	for _, args := range [][]string{
+		append(clubBooksArgs, "--allow-dirty", "--no-input"),
+		{"gen", "module", "Ticket", "subject:string:unique", "--scope", "custom", "--allow-dirty", "--no-input"},
+	} {
+		if code, _, errOut := runOrb(t, args...); code != 0 {
+			t.Fatalf("orb %s = %d %s", strings.Join(args, " "), code, errOut)
+		}
+	}
+
+	// A freshly generated tenant module filters by the tenant column, so
+	// only the unwritten policy is reported.
+	scopes := scopeChecks(doctorRun(t, 0))
+	if len(scopes) != 1 || scopes[0].Status != doctorWarn ||
+		!strings.Contains(scopes[0].Detail, "the tickets module's access policy isn't written") ||
+		!strings.Contains(scopes[0].Detail, "a static check of the generated file") {
+		t.Fatalf("scope checks = %+v, want one warning about the unwritten policy", scopes)
+	}
+
+	// The tenant column dropped out of one generated query.
+	query := filepath.Join(dir, "internal", "modules", "clubbooks", "repository", "delete_club_book.go")
+	writeFile(t, query, strings.ReplaceAll(readFile(t, query), " AND org_id = $2", ""))
+	scopes = scopeChecks(doctorRun(t, 0))
+	if len(scopes) != 2 || !strings.Contains(scopes[0].Detail, "repository/delete_club_book.go doesn't mention org_id") ||
+		!strings.Contains(scopes[0].Detail, "it can't see SQL you added later") ||
+		!strings.Contains(scopes[0].Fix, "row-level security") {
+		t.Fatalf("scope checks = %+v, want the clubbooks query reported", scopes)
+	}
+
+	// A written policy is no longer reported; nor is a module whose scope
+	// the manifest doesn't record.
+	policy := filepath.Join(dir, "internal", "modules", "tickets", "policy.go")
+	writeFile(t, policy, strings.ReplaceAll(readFile(t, policy), "gorbital.ErrNotImplemented", "nil"))
+	writeFile(t, query, readFile(t, query)+"\n// org_id\n")
+	if scopes := scopeChecks(doctorRun(t, 0)); len(scopes) != 0 {
+		t.Errorf("scope checks = %+v, want none once the policy is written and the query filters", scopes)
+	}
+
+	// An app whose manifest records no module scope is not checked at all:
+	// orb doctor reads what orb wrote, and guesses nothing.
+	writeFile(t, filepath.Join(dir, manifestPath), "name: shelfie\nmodule: example.com/shelfie\npreset: full\n")
+	if scopes := scopeChecks(doctorRun(t, 0)); len(scopes) != 0 {
+		t.Errorf("scope checks = %+v, want none without the manifest's record", scopes)
+	}
+}
+
+// scopeChecks are the access-rule checks of a doctor run.
+func scopeChecks(res doctorResult) []doctorCheck {
+	var found []doctorCheck
+	for _, c := range res.Checks {
+		if c.Name == "scopes" {
+			found = append(found, c)
+		}
+	}
+	return found
+}

@@ -7,12 +7,28 @@ import (
 )
 
 ⟦- if .Org⟧
-// Get⟦.Ident⟧ returns one of the organisation orgID's ⟦.PluralHuman⟧.
-func (s *Service) Get⟦.Ident⟧(ctx context.Context, orgID, id string) (domain.⟦.Ident⟧, error) {
-	if _, err := memberID(ctx, orgID); err != nil {
+// Get⟦.Ident⟧ returns one of the ⟦.ScopeName⟧ ⟦.ScopeVar⟧'s ⟦.PluralHuman⟧.
+func (s *Service) Get⟦.Ident⟧(ctx context.Context, ⟦.ScopeVar⟧, id string) (domain.⟦.Ident⟧, error) {
+	if _, err := memberID(ctx, ⟦.ScopeVar⟧); err != nil {
 		return domain.⟦.Ident⟧{}, err
 	}
-	⟦.Var⟧, err := s.store.Select⟦.Ident⟧(ctx, orgID, id, false)
+	⟦.Var⟧, err := s.store.Select⟦.Ident⟧(ctx, ⟦.ScopeVar⟧, id, false)
+⟦- else if .Public⟧
+// Get⟦.Ident⟧ returns one ⟦.Human⟧, to anyone who asks.
+func (s *Service) Get⟦.Ident⟧(ctx context.Context, id string) (domain.⟦.Ident⟧, error) {
+	⟦.Var⟧, err := s.store.Select⟦.Ident⟧(ctx, id, false)
+⟦- else if .Custom⟧
+// Get⟦.Ident⟧ returns one ⟦.Human⟧ when the policy lets the caller read it.
+func (s *Service) Get⟦.Ident⟧(ctx context.Context, id string) (domain.⟦.Ident⟧, error) {
+	⟦.Var⟧, err := s.store.Select⟦.Ident⟧(ctx, id, false)
+	if err != nil {
+		return domain.⟦.Ident⟧{}, storeError("get", err)
+	}
+	if err := s.policy.CanRead(ctx, ⟦.Var⟧); err != nil {
+		return domain.⟦.Ident⟧{}, storeError("get", err)
+	}
+	return ⟦.Var⟧, nil
+}
 ⟦- else⟧
 // Get⟦.Ident⟧ returns one of the signed-in user's ⟦.PluralHuman⟧.
 func (s *Service) Get⟦.Ident⟧(ctx context.Context, id string) (domain.⟦.Ident⟧, error) {
@@ -22,8 +38,10 @@ func (s *Service) Get⟦.Ident⟧(ctx context.Context, id string) (domain.⟦.Id
 	}
 	⟦.Var⟧, err := s.store.Select⟦.Ident⟧(ctx, owner, id, false)
 ⟦- end⟧
+⟦- if not .Custom⟧
 	if err != nil {
 		return domain.⟦.Ident⟧{}, storeError("get", err)
 	}
 	return ⟦.Var⟧, nil
 }
+⟦- end⟧

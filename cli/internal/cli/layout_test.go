@@ -162,7 +162,7 @@ func TestV02GenResource(t *testing.T) {
 		args  []string
 		scope string
 	}{
-		{[]string{"gen", "resource", "Customer", "name:string", "--allow-dirty", "--json"}, recipes.ScopeOrg},
+		{[]string{"gen", "resource", "Customer", "name:string", "--allow-dirty", "--json"}, recipes.ScopeTenant},
 		{[]string{"gen", "resource", "Note", "title:string", "--scope", "user", "--allow-dirty", "--json"}, recipes.ScopeUser},
 	} {
 		code, out, errOut := runOrb(t, tt.args...)

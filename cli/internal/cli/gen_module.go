@@ -48,12 +48,27 @@ Field types:
 The first required string field is the title. For example:
   orb gen module Shelf name:string:unique description:text 'visibility:enum(private,shared)' --plural Shelves
 
-With --org, the routes are under /v1/orgs/{orgId}/<names>, guarded by
-guard.OrgMember, the permissions go to the organisation roles owner, admin
-and member, and the table has org_id NOT NULL referencing orgs. The app needs
-the organisations module: add orgshttp.Module(auth) in main.go. When the app
-has row-level security (a *_row_level_security.sql migration, or rls: true in
-gorbital.yaml), the migration adds the organisation policy.
+--scope states who may read and write the records, and the generated code
+says which rule it follows (ADR-0091). There is no guessing beyond the
+default: tenant in an app with a tenancy, user otherwise.
+
+  user     they belong to the signed-in user, and to nobody else
+  tenant   they belong to a tenant — an organisation unless gorbital.yaml
+           names another — whose members reach them through their role: the
+           routes are under /v1/orgs/{orgId}/<names>, the table has org_id
+           NOT NULL referencing orgs, and the app needs the organisations
+           module (add orgshttp.Module(auth) in main.go). --org is the old
+           name of this scope, and org the old name of the value
+  public    world-readable: reads are guard.Public() and need no sign-in,
+           writes still need the write permission, and the table has no
+           ownership column
+  custom   the module's own rule, in a policy.go the generator writes once
+           and never touches again. Its CanRead, CanWrite and Filter return
+           gorbital.ErrNotImplemented, and the module's tests fail until
+           they don't. No tenant filter and no tenant column are added
+
+When the app has row-level security (a *_row_level_security.sql migration,
+or rls: true in gorbital.yaml), a tenant module's migration adds the policy.
 
 In an app on the v0.1 layout (internal/app/modules.go), use orb gen resource.
 `
@@ -105,7 +120,30 @@ type moduleInput struct {
 	specs    []string
 	plural   string
 	idPrefix string
-	org      bool
+	// scope is who the records belong to: user, tenant, public or custom
+	// (ADR-0091), or "" for the app's default. org is the old spelling of
+	// --scope tenant, kept as a flag for all of v0.x.
+	scope string
+	org   bool
+}
+
+// resolveScope returns the module's scope: --scope, --org, or the app's
+// default — tenant in an app with a tenancy, user otherwise. The generator
+// never guesses beyond that: public and custom are always asked for.
+func (in moduleInput) resolveScope(dir string) (string, error) {
+	scope, err := recipes.ParseScope(in.scope)
+	if err != nil {
+		return "", usageError(err.Error())
+	}
+	switch {
+	case scope != "" && in.org && scope != recipes.ScopeTenant:
+		return "", usageError(fmt.Sprintf("--org is the old name of --scope tenant, so it can't be given with --scope %s", scope))
+	case scope != "":
+		return scope, nil
+	case in.org, appTenancy(dir) == recipes.TenancyMulti:
+		return recipes.ScopeTenant, nil
+	}
+	return recipes.ScopeUser, nil
 }
 
 func runGenModule(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
@@ -114,7 +152,8 @@ func runGenModule(ctx context.Context, args []string, stdin io.Reader, stdout, s
 	var in moduleInput
 	flags.StringVar(&in.plural, "plural", "", "plural name when adding -s or -es is wrong, such as Shelves")
 	flags.StringVar(&in.idPrefix, "id-prefix", "", "2 to 8 lowercase letters that start every ID (default: derived from the name, such as shl)")
-	flags.BoolVar(&in.org, "org", false, "records belong to an organisation: routes under /v1/orgs/{orgId}/ with guard.OrgMember (needs orgshttp)")
+	flags.StringVar(&in.scope, "scope", "", "who may read and write the records: "+recipes.ScopeUsage+" (default: tenant in an app with a tenancy, user otherwise)")
+	flags.BoolVar(&in.org, "org", false, "the old name of --scope tenant")
 	dryRun := flags.Bool("dry-run", false, "show what would be generated without writing")
 	diff := flags.Bool("diff", false, "print the plan as a unified diff")
 	asJSON := flags.Bool("json", false, "print the result as JSON")
@@ -199,8 +238,16 @@ func genModule(ctx context.Context, app appInfo, in moduleInput, run genModuleRu
 	if !run.dryRun {
 		fmt.Fprintf(stdout, "\nNext:\n%s\nThe code is yours: change the rules in %s/domain and the SQL in %s/repository.\n",
 			numbered(plan.Next), data.Dir(), data.Dir())
-		if data.Org {
-			fmt.Fprintf(stdout, "Every organisation role (owner, admin, member) gets %s and %s; change OrgRoles in %s/module.go.\n", data.PermRead(), data.PermWrite(), data.Dir())
+		switch data.Scope {
+		case recipes.ScopeTenant:
+			fmt.Fprintf(stdout, "Every %s role (%s) gets %s and %s; change %s in %s/module.go.\n",
+				data.ScopeName(), data.ScopeRoleList(), data.PermRead(), data.PermWrite(), data.ScopeRolesField(), data.Dir())
+		case recipes.ScopePublic:
+			fmt.Fprintf(stdout, "Every %s is world-readable: GET %s and GET %s/{id} serve callers who aren't signed in. Writes still need %s.\n",
+				data.Human, data.RoutePath(), data.RoutePath(), data.PermWrite())
+		case recipes.ScopeCustom:
+			fmt.Fprintf(stdout, "The %s module does not pass its own tests yet, and that is deliberate: CanRead, CanWrite and Filter in %s/policy.go return gorbital.ErrNotImplemented until you write them. gorbital doesn't know who may see %s %s.\n",
+				data.Package, data.Dir(), data.A(), data.Human)
 		}
 		if result.RowLevelSecurity {
 			fmt.Fprintf(stdout, "The migration forces row-level security on %s with the organisation policy.\n", data.Table)
@@ -271,9 +318,16 @@ func planModule(app appInfo, in moduleInput, now time.Time) (genplan.Plan, recip
 	if err != nil {
 		return genplan.Plan{}, none, err
 	}
-	opts := recipes.ResourceOptions{Plural: in.plural, IDPrefix: in.idPrefix, Migration: version, Scope: recipes.ScopeUser}
-	if in.org {
-		opts.Scope, opts.RLS = recipes.ScopeOrg, mainAppRowLevelSecurity(app.dir)
+	scope, err := in.resolveScope(app.dir)
+	if err != nil {
+		return genplan.Plan{}, none, err
+	}
+	opts := recipes.ResourceOptions{
+		Plural: in.plural, IDPrefix: in.idPrefix, Migration: version,
+		Scope: scope, Vocabulary: appVocabulary(app.dir),
+	}
+	if scope == recipes.ScopeTenant {
+		opts.RLS = mainAppRowLevelSecurity(app.dir)
 	}
 	data, err := recipes.NewModuleData(app.module, in.name, fields, opts)
 	if err != nil {
@@ -314,6 +368,15 @@ func planModule(app appInfo, in moduleInput, now time.Time) (genplan.Plan, recip
 		return genplan.Plan{}, none, err
 	}
 	plan.Changes = append(plan.Changes, list)
+	if manifest := manifestSource(app.dir); len(manifest) > 0 {
+		// The module records its scope in gorbital.yaml as well as in its
+		// own header comment, so orb routes and orb doctor can read the
+		// access rule back (ADR-0091 §2).
+		plan.Changes = append(plan.Changes, genplan.Change{
+			Path: manifestPath, Kind: genplan.Modify, Before: manifest,
+			Content: recipes.SetModuleScope(manifest, data.Package, data.Scope),
+		})
+	}
 
 	plan.Summary = moduleSummary(data, plan)
 	plan.Next = []string{
@@ -322,8 +385,17 @@ func planModule(app appInfo, in moduleInput, now time.Time) (genplan.Plan, recip
 		"go test ./" + data.Dir() + "/...",
 		"go run ./cmd/api, sign in, then POST " + data.RoutePath(),
 	}
-	if data.Org {
-		plan.Next[3] = "go run ./cmd/api, sign in, find your personal workspace's ID with GET /v1/orgs, then POST " + data.RoutePath()
+	switch data.Scope {
+	case recipes.ScopeTenant:
+		if data.Vocabulary.IsOrganisations() {
+			plan.Next[3] = "go run ./cmd/api, sign in, find your personal workspace's ID with GET /v1/orgs, then POST " + data.RoutePath()
+		} else {
+			plan.Next[3] = "go run ./cmd/api, sign in as a member of " + data.ScopeA() + " " + data.ScopeName() + ", then POST " + data.RoutePath()
+		}
+	case recipes.ScopePublic:
+		plan.Next[3] = "go run ./cmd/api, then GET " + data.RoutePath() + " without signing in; POST needs " + data.PermWrite()
+	case recipes.ScopeCustom:
+		plan.Next = slices.Insert(plan.Next, 0, "Write CanRead, CanWrite and Filter in "+data.Dir()+"/policy.go; the module's tests fail until you do")
 	}
 	if _, err := root.Stat(filepath.FromSlash(surfaceTestPath)); err == nil {
 		plan.Next = slices.Insert(plan.Next, 2, surfaceCommand(recipes.LayoutV02)+" (records the new error codes, audit actions and permissions in api/surface.json)")
@@ -337,7 +409,7 @@ func planModule(app appInfo, in moduleInput, now time.Time) (genplan.Plan, recip
 		plan.Next = append([]string{"Add gorbital.WithModules(modules.All()...) to gorbital.Main in cmd/api/main.go, importing " + app.module + "/internal/modules"}, plan.Next...)
 	}
 	plan.Result = genModuleResult{
-		Name: data.Ident, Module: data.Package, Route: data.RoutePath(), Table: data.Table, Scope: data.Scope(),
+		Name: data.Ident, Module: data.Package, Route: data.RoutePath(), Table: data.Table, Scope: data.Scope,
 		Permissions: []string{data.PermRead(), data.PermWrite()}, Migration: data.MigrationPath(),
 		RowLevelSecurity: data.RLS, Files: plan.Paths(),
 	}
@@ -424,13 +496,21 @@ func mainAppRowLevelSecurity(dir string) bool {
 func moduleSummary(d recipes.ModuleData, plan genplan.Plan) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "  Module:      %s (table %s, IDs like %s_…)\n", d.Package, d.Table, d.IDPrefix)
-	if d.Org {
-		fmt.Fprintf(&b, "  API:         %s, for an organisation's %s (guard.OrgMember)\n", d.RoutePath(), d.PluralHuman)
-		fmt.Fprintf(&b, "  Permissions: %s, %s (organisation roles owner, admin and member)\n", d.PermRead(), d.PermWrite())
+	switch d.Scope {
+	case recipes.ScopeTenant:
+		fmt.Fprintf(&b, "  API:         %s, for %s %s's %s (%s)\n", d.RoutePath(), d.OwnerA(), d.Owner(), d.PluralHuman, d.ScopeGuard())
+		fmt.Fprintf(&b, "  Permissions: %s, %s (%s roles %s)\n", d.PermRead(), d.PermWrite(), d.ScopeName(), d.ScopeRoleList())
 		if d.RLS {
 			b.WriteString("  Security:    row-level security policy in the migration\n")
 		}
-	} else {
+	case recipes.ScopePublic:
+		fmt.Fprintf(&b, "  API:         %s, world-readable: reads are guard.Public()\n", d.RoutePath())
+		fmt.Fprintf(&b, "  Permissions: %s (writes only; reads need none)\n", d.PermWrite())
+	case recipes.ScopeCustom:
+		fmt.Fprintf(&b, "  API:         %s, with the module's own rule in policy.go\n", d.RoutePath())
+		fmt.Fprintf(&b, "  Permissions: %s, %s, and then CanRead, CanWrite and Filter\n", d.PermRead(), d.PermWrite())
+		b.WriteString("  Policy:      unimplemented: the module's tests fail until policy.go is written\n")
+	default:
 		fmt.Fprintf(&b, "  API:         %s, for the signed-in user's %s\n", d.RoutePath(), d.PluralHuman)
 		fmt.Fprintf(&b, "  Permissions: %s, %s (the user role)\n", d.PermRead(), d.PermWrite())
 	}

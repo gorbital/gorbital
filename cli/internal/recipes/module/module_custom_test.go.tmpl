@@ -1,0 +1,139 @@
+package ⟦.Package⟧_test⟦$t := .Title⟧⟦$e := .FirstEnum⟧
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"testing"
+
+	"gorbital.dev/gorbital"
+	"gorbital.dev/gorbital/gorbitaltest"
+
+	"⟦.Module⟧/db/migrations"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/domain"
+	"⟦.Module⟧/internal/modules/⟦.Package⟧/usecase"
+)
+
+// These tests drive the ⟦.PluralHuman⟧ routes through the app's real middleware
+// stack, on a new database per test (gorbitaltest).
+//
+// What they can check is the floor under the module's own rule: that
+// nothing reaches a handler without signing in and holding the
+// permission, and that an unwritten policy refuses rather than serves.
+// Who may see and change which ⟦.Human⟧ is policy.go's decision, so the
+// tests for it are yours to write — see policy_test.go.
+
+// newApp builds the app with the ⟦.PluralHuman⟧ module for the test.
+func newApp(t *testing.T) *gorbitaltest.App {
+	t.Helper()
+	return gorbitaltest.New(t,
+		gorbital.WithModules(⟦.Package⟧.Module()),
+		gorbital.WithMigrations(migrations.FS),
+	)
+}
+
+// api⟦.Ident⟧ is ⟦.A⟧ ⟦.Human⟧ as the API returns it.
+type api⟦.Ident⟧ struct {
+	ID string `json:"id"`
+⟦- range .Fields⟧
+	⟦.Ident⟧ string `json:"⟦.Name⟧"`
+⟦- end⟧
+	Version int64 `json:"version"`
+}
+
+const collection = ⟦quote .RoutePath⟧
+
+// policyWritten reports whether policy.go still returns
+// gorbital.ErrNotImplemented. While it does, the module answers 501 to
+// everything and the tests below that need a working rule skip: the
+// failure that matters then is policy_test.go's, and one red test is
+// enough to stop a build.
+func policyWritten() bool {
+	var none domain.⟦.Ident⟧
+	p := ⟦.Package⟧.Policy{}
+	return !errors.Is(p.CanRead(context.Background(), none), gorbital.ErrNotImplemented) &&
+		!errors.Is(p.CanWrite(context.Background(), none), gorbital.ErrNotImplemented)
+}
+
+// Test⟦.Plural⟧NeedSigningIn checks what holds whatever the policy says: no
+// route serves a caller who isn't signed in or doesn't hold the
+// permission. The policy is asked after these, never instead of them.
+func Test⟦.Plural⟧NeedSigningIn(t *testing.T) {
+	app := newApp(t)
+	item := collection + "/⟦.IDPrefix⟧_mfrggzdfmztwq2lkmfrggzdfmy"
+	stranger := app.Client()
+
+	for name, res := range map[string]*gorbitaltest.Response{
+		"list":   stranger.Get(collection),
+		"get":    stranger.Get(item),
+		"create": stranger.Post(collection, map[string]any{⟦.BodyFields "Website"⟧}),
+		"update": stranger.Patch(item, map[string]any{"version": 1, ⟦quote $t.Name⟧: "Mine now"}),
+		"delete": stranger.Delete(item),
+	} {
+		t.Run("signed out "+name, func(t *testing.T) {
+			res.AssertProblem(t, http.StatusUnauthorized, "unauthenticated")
+		})
+	}
+
+	reader := app.As(gorbitaltest.User("usr_bob", usecase.PermRead))
+	reader.Post(collection, map[string]any{⟦.BodyFields "By a reader"⟧}).AssertProblem(t, http.StatusForbidden, "forbidden")
+	reader.Patch(item, map[string]any{"version": 1, ⟦quote $t.Name⟧: "By a reader"}).AssertProblem(t, http.StatusForbidden, "forbidden")
+	reader.Delete(item).AssertProblem(t, http.StatusForbidden, "forbidden")
+}
+
+// TestUnwrittenPolicyRefusesEveryRequest checks that a module whose rule
+// nobody has written yet serves nothing: 501 not_implemented, not a row.
+// Once policy.go is written this test skips, and the tests of your own
+// rule take over.
+func TestUnwrittenPolicyRefusesEveryRequest(t *testing.T) {
+	if policyWritten() {
+		t.Skip("policy.go is written: replace this test with the cases your rule names")
+	}
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada", usecase.PermRead, usecase.PermWrite))
+	item := collection + "/⟦.IDPrefix⟧_mfrggzdfmztwq2lkmfrggzdfmy"
+
+	for name, res := range map[string]*gorbitaltest.Response{
+		"list":   ada.Get(collection),
+		"get":    ada.Get(item),
+		"create": ada.Post(collection, map[string]any{⟦.BodyFields "Website"⟧}),
+		"update": ada.Patch(item, map[string]any{"version": 1, ⟦quote $t.Name⟧: "Mine now"}),
+		"delete": ada.Delete(item),
+	} {
+		t.Run(name, func(t *testing.T) {
+			res.AssertProblem(t, http.StatusNotImplemented, "not_implemented")
+		})
+	}
+}
+
+// TestCreateAndGet⟦.Ident⟧ is the round trip, once the policy lets the
+// caller through. Adjust the actor to one your rule allows.
+func TestCreateAndGet⟦.Ident⟧(t *testing.T) {
+	if !policyWritten() {
+		t.Skip("policy.go isn't written yet (policy_test.go says so)")
+	}
+	app := newApp(t)
+	ada := app.As(gorbitaltest.User("usr_ada", usecase.PermRead, usecase.PermWrite))
+
+	res := ada.Post(collection, map[string]any{⟦.BodyFields "Website"⟧})
+	res.AssertStatus(t, http.StatusCreated)
+	var created api⟦.Ident⟧
+	res.JSON(t, &created)
+
+	var got api⟦.Ident⟧
+	ada.Get(collection+"/"+created.ID).JSON(t, &got)
+	if got != created {
+		t.Errorf("GET = %+v, want %+v", got, created)
+	}
+
+	rows, err := app.App().Deps().DB.Query(context.Background(),
+		`SELECT action FROM audit_events WHERE resource_type = '⟦.Snake⟧' AND resource_id = $1`, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	if !rows.Next() {
+		t.Errorf("creating ⟦.A⟧ ⟦.Human⟧ recorded no audit event")
+	}
+}

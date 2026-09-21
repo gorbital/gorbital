@@ -257,6 +257,7 @@ pkg gorbital.dev/gorbital, type StorageConfig struct, PublicURL string
 pkg gorbital.dev/gorbital, type StorageConfig struct, Region string
 pkg gorbital.dev/gorbital, type StorageConfig struct, SecretKey config.Secret
 pkg gorbital.dev/gorbital, type StorageConfig struct, SigningKey config.Secret
+pkg gorbital.dev/gorbital, var ErrNotImplemented error
 pkg gorbital.dev/gorbital, var ErrScopeNotFound error
 pkg gorbital.dev/gorbital, var ErrUsage error
 pkg gorbital.dev/gorbital/authhttp, const MethodAPIKeys = "api_keys"

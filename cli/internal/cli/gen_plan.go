@@ -112,16 +112,23 @@ type resourceInput struct {
 	specs    []string // field specs, such as name:string:unique
 	plural   string
 	idPrefix string
-	scope    string // user, org, or "" for the app's default
+	scope    string // user, tenant (or its old name org), or "" for the app's default
 }
 
 // checkResourceApp checks that the app can take a resource and returns the
-// scope its records belong to: scope, or the app's default (organisations in
-// multi-tenant apps, users otherwise). The command runs it before asking
+// scope its records belong to: scope, or the app's default (the tenant in
+// multi-tenant apps, the user otherwise). The command runs it before asking
 // questions, so an app problem is reported first.
+//
+// The v0.1 layout has two scopes: public and custom modules are written by
+// orb gen module, for apps on gorbital.Main (ADR-0091).
 func checkResourceApp(app appInfo, scope string) (string, error) {
-	if scope != "" && scope != recipes.ScopeUser && scope != recipes.ScopeOrg {
-		return "", usageError(fmt.Sprintf("unknown --scope %q (want user or org)", scope))
+	scope, err := recipes.ParseScope(scope)
+	if err != nil {
+		return "", usageError(err.Error())
+	}
+	if scope == recipes.ScopePublic || scope == recipes.ScopeCustom {
+		return "", usageError(fmt.Sprintf("--scope %s needs an app on gorbital.Main, where orb gen module writes it; this app is on the v0.1 layout, whose resources are user or tenant", scope))
 	}
 	modulesGo := filepath.Join("internal", "app", "modules.go")
 	if _, err := os.Stat(filepath.Join(app.dir, modulesGo)); errors.Is(err, fs.ErrNotExist) {
@@ -132,16 +139,16 @@ func checkResourceApp(app appInfo, scope string) (string, error) {
 	if info, err := os.Stat(filepath.Join(app.dir, "internal", "modules", "auth")); err != nil || !info.IsDir() {
 		return "", fmt.Errorf("%s has no internal/modules/auth: resources belong to signed-in users, so orb gen resource needs the Full preset's auth module", app.dir)
 	}
-	// Records belong to organisations in multi-tenant apps unless the scope says otherwise.
+	// Records belong to the tenant in multi-tenant apps unless the scope says otherwise.
 	_, orgsErr := os.Stat(filepath.Join(app.dir, "internal", "modules", "orgs"))
 	if scope == "" {
 		scope = recipes.ScopeUser
 		if appTenancy(app.dir) == recipes.TenancyMulti {
-			scope = recipes.ScopeOrg
+			scope = recipes.ScopeTenant
 		}
 	}
-	if scope == recipes.ScopeOrg && orgsErr != nil {
-		return "", fmt.Errorf("%s has no internal/modules/orgs: --scope org needs organisations; add them with orb add orgs, or create the app with orb new --tenancy multi", app.dir)
+	if scope == recipes.ScopeTenant && orgsErr != nil {
+		return "", fmt.Errorf("%s has no internal/modules/orgs: --scope tenant needs the app's tenancy; add organisations with orb add orgs, or create the app with orb new --tenancy multi", app.dir)
 	}
 	return scope, nil
 }
@@ -173,7 +180,10 @@ func planResource(app appInfo, in resourceInput, now time.Time) (genplan.Plan, r
 	if err != nil {
 		return genplan.Plan{}, recipes.ResourceData{}, err
 	}
-	data, err := recipes.NewResourceData(app.module, in.name, fields, recipes.ResourceOptions{Plural: in.plural, IDPrefix: in.idPrefix, Migration: version, Scope: scope, RLS: appRowLevelSecurity(app.dir)})
+	data, err := recipes.NewResourceData(app.module, in.name, fields, recipes.ResourceOptions{
+		Plural: in.plural, IDPrefix: in.idPrefix, Migration: version,
+		Scope: scope, Vocabulary: appVocabulary(app.dir), RLS: appRowLevelSecurity(app.dir),
+	})
 	if err != nil {
 		return genplan.Plan{}, recipes.ResourceData{}, usageError(err.Error())
 	}

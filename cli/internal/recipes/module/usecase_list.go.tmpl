@@ -18,7 +18,7 @@ func listOptions() page.Options {
 	}
 }
 
-// List⟦.Plural⟧Input selects a page of ⟦if .Org⟧an organisation's⟦else⟧the signed-in user's⟦end⟧ ⟦.PluralHuman⟧.
+// List⟦.Plural⟧Input selects a page of ⟦if .Org⟧⟦.OwnerA⟧ ⟦.Owner⟧'s⟦else if .Filtered⟧the signed-in user's⟦else if .Custom⟧the ⟦.PluralHuman⟧ the policy allows, from all⟦else⟧all⟦end⟧ ⟦.PluralHuman⟧.
 type List⟦.Plural⟧Input struct {
 	Page page.Params
 ⟦- range .Enums⟧
@@ -37,13 +37,28 @@ type cursor struct {
 }
 
 ⟦- if .Org⟧
-// List⟦.Plural⟧ returns a page of the organisation orgID's ⟦.PluralHuman⟧, sorted by
+// List⟦.Plural⟧ returns a page of the ⟦.ScopeName⟧ ⟦.ScopeVar⟧'s ⟦.PluralHuman⟧, sorted by
 // one field (newest first by default).
-func (s *Service) List⟦.Plural⟧(ctx context.Context, orgID string, in List⟦.Plural⟧Input) (page.Result[domain.⟦.Ident⟧], error) {
+func (s *Service) List⟦.Plural⟧(ctx context.Context, ⟦.ScopeVar⟧ string, in List⟦.Plural⟧Input) (page.Result[domain.⟦.Ident⟧], error) {
 	var none page.Result[domain.⟦.Ident⟧]
-	if _, err := memberID(ctx, orgID); err != nil {
+	if _, err := memberID(ctx, ⟦.ScopeVar⟧); err != nil {
 		return none, err
 	}
+	req, err := in.Page.Request(listOptions())
+⟦- else if .Public⟧
+// List⟦.Plural⟧ returns a page of every ⟦.Human⟧, to anyone who asks, sorted by
+// one field (newest first by default).
+func (s *Service) List⟦.Plural⟧(ctx context.Context, in List⟦.Plural⟧Input) (page.Result[domain.⟦.Ident⟧], error) {
+	var none page.Result[domain.⟦.Ident⟧]
+	req, err := in.Page.Request(listOptions())
+⟦- else if .Custom⟧
+// List⟦.Plural⟧ returns a page of the ⟦.PluralHuman⟧ the policy lets the caller
+// see, sorted by one field (newest first by default). The narrowing
+// happens in the store, which asks Policy.Filter before every list: it is
+// the only thing between this request and every row in the table.
+func (s *Service) List⟦.Plural⟧(ctx context.Context, in List⟦.Plural⟧Input) (page.Result[domain.⟦.Ident⟧], error) {
+	var none page.Result[domain.⟦.Ident⟧]
+	req, err := in.Page.Request(listOptions())
 ⟦- else⟧
 // List⟦.Plural⟧ returns a page of the signed-in user's ⟦.PluralHuman⟧, sorted by one
 // field (newest first by default).
@@ -53,8 +68,8 @@ func (s *Service) List⟦.Plural⟧(ctx context.Context, in List⟦.Plural⟧Inp
 	if err != nil {
 		return none, err
 	}
-⟦- end⟧
 	req, err := in.Page.Request(listOptions())
+⟦- end⟧
 	if err != nil {
 		return none, err
 	}
@@ -68,7 +83,11 @@ func (s *Service) List⟦.Plural⟧(ctx context.Context, in List⟦.Plural⟧Inp
 ⟦- end⟧
 
 	q := ListQuery{
-		⟦if .Org⟧OrgID: orgID⟦else⟧OwnerID: owner⟦end⟧,
+⟦- if .Org⟧
+		⟦.ScopeField⟧: ⟦.ScopeVar⟧,
+⟦- else if .Filtered⟧
+		⟦.ScopeField⟧: owner,
+⟦- end⟧
 ⟦- range .Enums⟧
 		⟦.Ident⟧: in.⟦.Ident⟧,
 ⟦- end⟧
