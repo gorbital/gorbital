@@ -2,6 +2,8 @@
 
 In a multi-tenant app, data belongs to organisations. People join them as members with one role each, invite others by email, and reach an organisation's rows only while they are members. Decision: [ADR-0048](../adr/0048-organisations-v0-4.md).
 
+Organisations are the tenancy gorbital *supplies*, not the tenancy it imposes. Since v0.3.0 a tenant is a contract your app fills in — your word for it, your ID format, your roles — and this module is one implementation of that contract. `--scope merchant` mounts everything below under `/v1/merchants/{merchantId}/…`, refusing with `merchant_not_found`, changing no table and no role name; `--scope custom` writes the membership rules into your app instead. See [Tenancy](../guides/tenancy.md) and [ADR-0088](../adr/0088-scope-tenancy-as-a-contract.md).
+
 ## What the organisations module gives you
 
 In a multi-tenant app each organisation is one tenant — a company, a team, a restaurant. Since v0.2.1 the whole module is in your repository at `internal/modules/orgs`, with its migrations in `db/migrations`, so you can read and change every part of it:
@@ -21,19 +23,19 @@ In a multi-tenant app each organisation is one tenant — a company, a team, a r
 The authorisation rules themselves stay in the library (`gorbital.dev/modules/orgs`), so fixes to them reach you with `go get`.
 
 > [!NOTE]
-> Tenancy is chosen when you create the app. To turn an existing single-tenant app multi-tenant, run `orb add orgs`: it merges the multi-tenant files into yours on a branch and adds migrations that give every account a personal workspace and move projects into it. See [Upgrading apps](upgrading.md).
+> The scope is chosen when you create the app (`--scope`; `--tenancy multi` is its older name and still works). To turn an existing single-tenant app multi-tenant, run `orb add orgs`: it merges the multi-tenant files into yours on a branch and adds migrations that give every account a personal workspace and move projects into it. See [Upgrading apps](upgrading.md).
 
 ## Create a multi-tenant app
 
 <div class="code-group">
 
 ```bash terminal
-orb new acme-api --preset full --tenancy multi
+orb new acme-api --preset full --scope organisation
 ```
 
 ```text output
 creating acme-api in ./acme-api
-preset full · tenancy multi · library ../gorbital
+auth full · scope organisation · library ../gorbital
 
 ✓ ran go mod tidy
 ✓ initialised git

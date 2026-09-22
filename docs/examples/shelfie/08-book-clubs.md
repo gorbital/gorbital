@@ -118,7 +118,7 @@ The foreign key to `orgs` is added in a `DO` block when `orgs` exists. It always
 
 Row-level security makes PostgreSQL itself return only the rows of the club a connection carries, so a query that forgot its `org_id` filter still can't read or write another club's books ([Row-level security](../../guides/row-level-security.md)). The guard already sets the club on the request's connections; what turns it on is a migration with the policies.
 
-`orb add rls` writes that migration in apps created with `orb new --preset full --tenancy multi`: it needs their `gorbital.lock`, which Shelfie, an app on `gorbital.Main`, doesn't have, so it stops with `has no gorbital.lock`. In Shelfie you add the migration yourself, under the next version and named `<version>_row_level_security.sql`, with the `DO` block of a multi-tenant app's `db/row_level_security.sql`. For every table with a `NOT NULL org_id`, `club_books` included and the organisations module's memberships and invitations aside, it runs:
+`orb add rls` writes that migration in apps created with `orb new --preset full --scope organisation`: it needs their `gorbital.lock`, which Shelfie, an app on `gorbital.Main`, doesn't have, so it stops with `has no gorbital.lock`. In Shelfie you add the migration yourself, under the next version and named `<version>_row_level_security.sql`, with the `DO` block of a multi-tenant app's `db/row_level_security.sql`. For every table with a `NOT NULL org_id`, `club_books` included and the organisations module's memberships and invitations aside, it runs:
 
 ```sql
 ALTER TABLE club_books ENABLE ROW LEVEL SECURITY;

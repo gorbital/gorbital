@@ -32,14 +32,17 @@ If you see `command not found: orb`, Go's `bin` folder isn't on your `PATH`: add
 Still in **Terminal 2**, in the folder where you keep your projects:
 
 ```bash
-orb new acme-api --preset full --tenancy single
+orb new acme-api --preset full --auth full --scope single
 ```
 
 | Part | Means |
 |---|---|
 | `acme-api` | Your app's name: its folder, database and Docker project |
 | `--preset full` | Database, sign-in, jobs, email, admin API. `minimal` is a small API without a database |
-| `--tenancy single` | Data belongs to individual users. `multi` makes it belong to organisations, with members and invitations ([Organisations](organisations.md)) |
+| `--auth full` | Every sign-in method: passwords, 2FA, passkeys, Google, Apple, GitHub, API keys. `basic` is an email address and a password; `none` has no accounts and no auth tables |
+| `--scope single` | Data belongs to individual users. A word of your own — `organisation`, `merchant`, `clinic` — makes it belong to that instead, with members and invitations ([Tenancy](../guides/tenancy.md), [Organisations](organisations.md)). `none` means nothing owns it, and `custom` writes the membership rules into the app |
+
+`--tenancy single` and `--tenancy multi` are the older names of `--scope single` and `--scope organisation`. They still work, and mean the same thing.
 
 Leave the flags out to be asked each question with arrow keys instead. `orb new` writes the files, runs `go mod tidy` to download dependencies, and creates an empty git repository.
 
@@ -245,7 +248,7 @@ func options() []gorbital.Option {
 }
 ```
 
-Sign-in is already in your repository, in `internal/modules/auth` (and organisations in `internal/modules/orgs` with `--tenancy multi`), with its migrations in `db/migrations` — read it to see exactly how registration, login and password reset work. `/ops` and the rest come from the library. Your own code goes in `internal/modules`. In **Terminal 2**, add your own kind of data:
+Sign-in is already in your repository, in `internal/modules/auth` (and organisations in `internal/modules/orgs` when the app has a named scope), with its migrations in `db/migrations` — read it to see exactly how registration, login and password reset work. `/ops` and the rest come from the library. Your own code goes in `internal/modules`. In **Terminal 2**, add your own kind of data:
 
 ```bash
 orb gen module Invoice number:string:unique 'status:enum(draft,sent,paid)'

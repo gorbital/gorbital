@@ -82,6 +82,8 @@ Creates an app.
 orb new                                   # asks for everything
 orb new my-api                            # asks for the rest
 orb new my-api --module github.com/you/my-api --yes
+orb new my-api --preset full --auth basic --scope none     # an API with sign-in and no tenants
+orb new my-api --preset full --auth full  --scope merchant # merchants own the data
 orb new my-api --local ~/code/gorbital    # use a gorbital checkout instead of the published library
 orb new my-api --no-start                 # create it, but don't start orb dev
 ```
@@ -91,12 +93,19 @@ orb new my-api --no-start                 # create it, but don't start orb dev
 | App name | `<name>` (positional) | required |
 | Go module path | `--module` | the app name |
 | Preset (Minimal or Full) | `--preset minimal\|full` | `minimal` (Custom arrives later) |
-| Tenancy (Full only): records belong to users, or to organisations | `--tenancy single\|multi` | `single` |
+| Sign-in (Full only): how much of it the app gets | `--auth none\|basic\|full` | `full` |
+| Scope (Full only): what owns the records | `--scope none\|single\|custom\|<name>` | `single` |
 | Initialise git | `--no-git` | yes |
+
+`--auth none` writes no accounts and no auth tables; `basic` an email address, a password, sessions and the operators' account APIs (29 endpoints); `full` adds 2FA, passkeys, Google, Apple, GitHub, API keys and service accounts (74) ([ADR-0089](../adr/0089-sign-in-profiles.md)).
+
+`--scope single` gives the records to individual users and `none` to nobody. **A name of your own** — `organisation`, `merchant`, `clinic` — mounts the supplied organisations module under that word: it changes the paths, the path parameter, the refusal code and the OpenAPI tag, and deliberately changes no table, migration, permission or role name. `custom` writes the membership rules into the app instead ([Tenancy](tenancy.md), [ADR-0088](../adr/0088-scope-tenancy-as-a-contract.md)).
+
+`--tenancy single|multi` is the v0.2 spelling, kept for all of v0.x: `single` means `--scope single` and `multi` means `--scope organisation`. `--help` marks it deprecated.
 
 Other flags: `--local <path>` (use a gorbital checkout instead of the published library; default: the checkout you run `orb` inside, if any), `--skip-tidy` (don't run `go mod tidy`), `--json`, `--yes`, `--no-input`, `--plain`.
 
-With `--preset full`, `orb new` writes sign-in into the app: `internal/modules/auth` (and `internal/modules/orgs` with `--tenancy multi`), every migration in `db/migrations`, `cmd/api/main.go` importing those packages, and `gorbital.lock` recording where each was copied from. It is the app's code from the first commit, and there is one shape of Full app: since v0.3.0 no flag keeps these modules in the library instead ([ADR-0092](../adr/0092-what-the-framework-owns.md)). The API, the database and the behaviour are the same as importing them from the library, and the primitives they call — password hashing, session tokens, TOTP, passkey and OAuth verification — stay there ([The code in your repo](the-code-in-your-repo.md)).
+With `--preset full`, `orb new` writes sign-in into the app: `internal/modules/auth` (and `internal/modules/orgs` with a named scope), every migration in `db/migrations`, `cmd/api/main.go` importing those packages, and `gorbital.lock` recording where each was copied from. It is the app's code from the first commit, and there is one shape of Full app: since v0.3.0 no flag keeps these modules in the library instead ([ADR-0092](../adr/0092-what-the-framework-owns.md)). The API, the database and the behaviour are the same as importing them from the library, and the primitives they call — password hashing, session tokens, TOTP, passkey and OAuth verification — stay there ([The code in your repo](the-code-in-your-repo.md)).
 
 Questions come one at a time. Each answered question folds into one line, and values you passed by flag are listed the same way, so every answer is on screen before the last question: create the app, yes or no.
 
@@ -104,7 +113,10 @@ Questions come one at a time. Each answered question folds into one line, and va
 ✓ app name … shop-api
 ✓ Go module path … github.com/acme/shop-api
 ✓ preset … full
-✓ tenancy … multi
+✓ sign-in … full
+✓ tenancy … organisation
+✓ tenant … merchant
+✓ roles … owner, admin, member (change them in gorbital.yaml)
 ✓ gorbital checkout … /Users/you/code/gorbital
 ✓ initialise a git repository? … yes
 ? create shop-api in ./shop-api? … yes  no
@@ -114,7 +126,7 @@ Then `orb new` prints a log: one line per finished step, where things are in the
 
 ```text
 creating shop-api in ./shop-api
-preset full · library gorbital.dev v0.1.0
+auth full · scope merchant · library gorbital.dev v0.3.2
 
 ✓ wrote 63 files
 ✓ ran go mod tidy
@@ -137,7 +149,7 @@ created shop-api
 | **Minimal** | HTTP API with configuration, telemetry, health checks, security headers and interactive docs | Go |
 | **Full** | Everything in Minimal, plus PostgreSQL, runtime settings, background jobs, email (Resend, or SMTP with `orb add mail`), authentication and platform roles, audit log, release tracking, `/ops/*` APIs, and two example modules: `projects` (as `orb gen module` writes it) and `ping` (a public endpoint with a runtime setting and a feature flag) | Go and Docker |
 
-A Full app runs on `gorbital.Main` (ADR-0083): `cmd/api/main.go` adds the built-in modules (sign-in with `authhttp`, `/ops` with `opshttp`, client flags, email events, and organisations with `orgshttp` in a multi-tenant app) and the app's own modules from `internal/modules/modules.gen.go`, with the app's migrations from `db/migrations`. `cmd/api/mail.go` and `cmd/api/storage.go` hold the email provider and S3-compatible storage. It is exactly [examples/full-single](../../examples/full-single) with your name and module path ([ADR-0041](../adr/0041-full-preset-generation.md)): its database, Compose project and service name are your app's name. With `--tenancy multi` it is exactly [examples/full-multi](../../examples/full-multi) instead: data belongs to organisations, with members, one role each, invitations, personal workspaces and org-scoped projects under `/v1/orgs/{orgId}/…` ([ADR-0048](../adr/0048-organisations-v0-4.md)). Tenancy is chosen at creation; `orb add orgs` turns a single-tenant app into a multi-tenant one later. Apps created by orb v0.1 keep the v0.1 layout (`internal/app`, [examples/v0.1/full-single](../../examples/v0.1/full-single)): every command below works in them as documented for v0.1, and they upgrade within their layout. Minimal apps keep composing core packages directly (roadmap decision D17). After creating one:
+A Full app runs on `gorbital.Main` (ADR-0083): `cmd/api/main.go` adds the built-in modules (sign-in with `authhttp`, `/ops` with `opshttp`, client flags, email events, and organisations with `orgshttp` in a multi-tenant app) and the app's own modules from `internal/modules/modules.gen.go`, with the app's migrations from `db/migrations`. `cmd/api/mail.go` and `cmd/api/storage.go` hold the email provider and S3-compatible storage. It is exactly [examples/full-single](../../examples/full-single) with your name and module path ([ADR-0041](../adr/0041-full-preset-generation.md)): its database, Compose project and service name are your app's name. With a named scope it is exactly [examples/full-multi](../../examples/full-multi) instead: data belongs to organisations, with members, one role each, invitations, personal workspaces and org-scoped projects under `/v1/orgs/{orgId}/…` ([ADR-0048](../adr/0048-organisations-v0-4.md)). The scope is chosen at creation; `orb add orgs` turns a single-tenant app into a multi-tenant one later. Apps created by orb v0.1 keep the v0.1 layout (`internal/app`, [examples/v0.1/full-single](../../examples/v0.1/full-single)): every command below works in them as documented for v0.1, and they upgrade within their layout. Minimal apps keep composing core packages directly (roadmap decision D17). After creating one:
 
 ```bash
 cd my-api
@@ -218,7 +230,7 @@ Safety checks: the app must have `internal/app/jobs.go` with the anchor; existin
 
 In an app on `gorbital.Main`, `orb gen resource` runs [`orb gen module`](#orb-gen-module) with the same name, fields and flags (`--scope org` is the old name of `--scope tenant`; without `--scope` the module is owned by users, or by the tenant in a multi-tenant app) and says so; what follows describes apps on the v0.1 layout.
 
-Generates a module for records that belong to the signed-in user, in an app created with the Full preset: domain rules, use cases, a repository with hand-written SQL, `/v1/<names>` endpoints, tests and a migration. In a multi-tenant app (`orb new --tenancy multi`) records belong to an organisation instead: endpoints under `/v1/orgs/{orgId}/<names>`, every use case checks membership and a `<module>.<resource>.read` or `.write` permission with `orgs.RequireMember`, and the tests include non-members, roles without the permission and cross-organisation requests ([ADR-0048](../adr/0048-organisations-v0-4.md)). Everything it writes is your code to change ([ADR-0039](../adr/0039-resource-module-template.md)); `examples/v0.1/full-single/internal/modules/projects` is exactly what it generates for the first example below, and `examples/v0.1/full-multi/internal/modules/projects` what it generates there. This describes an app on the v0.1 layout; in an app on `gorbital.Main` it runs [`orb gen module`](#orb-gen-module) (with `--org` by default in a multi-tenant app).
+Generates a module for records that belong to the signed-in user, in an app created with the Full preset: domain rules, use cases, a repository with hand-written SQL, `/v1/<names>` endpoints, tests and a migration. In a multi-tenant app (`orb new --scope organisation`) records belong to an organisation instead: endpoints under `/v1/orgs/{orgId}/<names>`, every use case checks membership and a `<module>.<resource>.read` or `.write` permission with `orgs.RequireMember`, and the tests include non-members, roles without the permission and cross-organisation requests ([ADR-0048](../adr/0048-organisations-v0-4.md)). Everything it writes is your code to change ([ADR-0039](../adr/0039-resource-module-template.md)); `examples/v0.1/full-single/internal/modules/projects` is exactly what it generates for the first example below, and `examples/v0.1/full-multi/internal/modules/projects` what it generates there. This describes an app on the v0.1 layout; in an app on `gorbital.Main` it runs [`orb gen module`](#orb-gen-module) (with `--org` by default in a multi-tenant app).
 
 ```bash
 orb gen resource                                                        # asks for everything
@@ -652,12 +664,12 @@ orb doctor · shop-api (full, single tenancy)
 
   ok    go             go1.26.8; go.mod needs 1.26.0
   ok    git            installed
-  ok    orb            v0.1.0 built with go1.26.8
+  ok    orb            v0.3.2 built with go1.26.8
   ok    gorbital.yaml  full preset, single tenancy
   warn  docker         Docker isn't running or isn't installed
                        fix: start Docker Desktop (or Docker Engine with Compose v2): orb dev runs PostgreSQL and Mailpit in it
-  ok    gorbital.lock  from orb v0.1.0; 3 of 214 files gorbital wrote are edited or removed
-  ok    library        gorbital.dev v0.1.0
+  ok    gorbital.lock  from orb v0.3.2; 3 of 214 files gorbital wrote are edited or removed
+  ok    library        gorbital.dev v0.3.2
   ok    anchors        every line generators insert at is in place
   ok    .env           has every variable .env.example has
   ok    api files      openapi.json, postman_collection.json and llms.txt match the code

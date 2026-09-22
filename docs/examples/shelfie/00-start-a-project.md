@@ -26,13 +26,13 @@ shelfie/
 ## 1. Create it
 
 ```bash
-orb new shelfie --preset full --tenancy single --module example.com/shelfie
+orb new shelfie --preset full --scope single --module example.com/shelfie
 ```
 
 | Part | Means |
 |---|---|
 | `--preset full` | PostgreSQL, sign-in, jobs, email, the audit log and the `/ops` APIs. `minimal` is an HTTP API with none of them |
-| `--tenancy single` | A book belongs to the reader who added it. `multi` makes data belong to organisations instead; Shelfie stays single-tenant and adds book clubs on top in [chapter 8](08-book-clubs.md) |
+| `--scope single` | A book belongs to the reader who added it. A named scope such as `organisation` makes data belong to that instead; Shelfie stays single-tenant and adds book clubs on top in [chapter 8](08-book-clubs.md). `--tenancy single` is its older name and still works |
 | `--module example.com/shelfie` | The Go module path, which every import in the app starts with. Without it the app's name is used |
 
 Leave the flags out to be asked each question instead. `orb new` writes the files, runs `go mod tidy`, and creates a git repository:
@@ -52,7 +52,7 @@ git add -A && git commit -m "Create shelfie"
 
 ## 2. main.go
 
-`cmd/api/main.go` is the whole wiring of the app — the file below is what `orb new --preset full --tenancy single` writes, with `acme-api` where yours says `shelfie` and `example.com/acme-api` where yours says `example.com/shelfie`:
+`cmd/api/main.go` is the whole wiring of the app — the file below is what `orb new --preset full --scope single` writes, with `acme-api` where yours says `shelfie` and `example.com/acme-api` where yours says `example.com/shelfie`:
 
 <!-- include examples/full-single/cmd/api/main.go -->
 

@@ -23,7 +23,7 @@ Further v0.x releases follow as work lands. In Go terms v0 carries no compatibil
 | [Foundation](#foundation) | Done, in v0.1.0 | `orb new` (Minimal), `orb dev`, core library, `/docs` |
 | [Data and identity](#data-and-identity) | Done, in v0.1.0 | Full preset: PostgreSQL, settings, jobs, email, sign-in, roles, audit, `orb gen` |
 | [Strong authentication](#strong-authentication) | Done, in v0.1.0 | Authenticator apps, passkeys, Google and Apple sign-in |
-| [Organisations](#organisations) | Done, in v0.1.0 | `orb new --tenancy multi`, org-scoped resources |
+| [Organisations](#organisations) | Done, in v0.1.0 | `orb new --scope organisation` (`--tenancy multi` in v0.1 and v0.2), org-scoped resources |
 | [Operations and upgrades](#operations-and-upgrades) | Done, in v0.1.0 | `orb upgrade`, `orb add orgs`, `orb doctor`, ops endpoints, maintenance mode |
 | [Stability and security review](#stability-and-security-review) | Built, in v0.1.0; internal review done, external review open; `v1.0.0` waits for it | Rate limits shared across instances, trusted proxies, internal security review fixes, API freeze checks, reference pages |
 | [Operations and integrations](#operations-and-integrations) | Done, in v0.1.0 | Per-organisation settings, feature flags, API keys and service accounts, GitHub sign-in, idempotency keys, row-level security option (`orb add rls`), Resend bounce and complaint webhooks, Prometheus `/metrics`, live observability and incidents, local dev console APIs |

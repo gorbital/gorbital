@@ -64,7 +64,7 @@ The email provider isn't asked at creation: new Full apps use Resend, and `orb a
 | **Full** | Minimal + PostgreSQL, runtime settings, jobs, email, full authentication, users/roles/permissions, tenancy choice, audit logs, operations APIs, seed data, tests, CI option. |
 A Custom preset (a feature checklist) isn't planned: every offered combination would need its own tested golden app ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
 
-Every prompt has a flag (`--module`, `--preset`, `--tenancy`, `--local`, `--no-git`, `--yes`) for CI and AI agents. Each preset is a whole template tree generated from a golden app; `orb add` and `orb upgrade` move an app from one tree to another with the same 3-way merge ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
+Every prompt has a flag (`--module`, `--preset`, `--auth`, `--scope`, `--local`, `--no-git`, `--yes`) for CI and AI agents. Each preset is a whole template tree generated from a golden app; `orb add` and `orb upgrade` move an app from one tree to another with the same 3-way merge ([ADR-0050](adr/0050-upgrades-and-adding-features.md)).
 
 ---
 
