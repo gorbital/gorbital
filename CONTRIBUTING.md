@@ -58,14 +58,14 @@ The mistake to avoid is a module that requires a sibling at an older version. Th
 
 **The bump belongs in the release commit, not in an ordinary pull request.** Between releases every `gorbital.dev` requirement, and `recipes.LibraryVersion`, name the last *published* version, because `orb new` generates an app outside this repository: it has no `replace` directives and resolves from the module proxy, so a version the proxy does not have yet fails `go mod tidy` in every generated app. Naming the new version is therefore the last thing that happens before the tags are pushed, and it is why a release is its own commit.
 
-1. **Point every requirement at the new version** and commit the result, on `main`, as the release commit. Nothing in the release is edited by hand.
+1. **Point every requirement at the new version** and commit the result as the release commit, on a branch that is **not** under `release/`: the `release lines` ruleset reserves those for the maintenance lines in the table above and only lets a merged pull request update them, so a release-prep branch there can be created and then never pushed to again. `framework/release-vX.Y.Z` works. Nothing in the release is edited by hand.
 
    ```bash
    scripts/set-requirements.sh v0.3.2
    git diff            # 22 go.mod files and recipes.LibraryVersion
    ```
 
-   CI on that commit will fail the `orb new` profile jobs until the tags exist, because the version it names is not published yet. That is expected, and it is the reason step 3 follows immediately.
+   CI passes on that commit even though the version it names is not published: `orb new --local` and the golden apps replace **every** gorbital module with the checkout, so nothing resolves from the proxy. If a job does fail on `unknown revision`, a `replace` is missing rather than the release being early — add it instead of pushing the tag to make the error go away.
 
 2. **Run the checks in CI, before any tag exists.** In Actions, run *Release library* with "Run workflow" and the version. Its `requirements` job must be green. Running `scripts/set-requirements.sh v0.3.2 --check` locally proves the same thing, but the workflow leaves a record that the release was checked.
 
