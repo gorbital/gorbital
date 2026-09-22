@@ -4,7 +4,7 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
-## Unreleased (v0.3.2)
+## v0.3.2 (2026-09-22)
 
 Nothing about the library or the CLI changes. This release exists to retract `v0.3.0` and to move the check that should have stopped it out of a script somebody has to remember to run.
 
