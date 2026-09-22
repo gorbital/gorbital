@@ -62,6 +62,10 @@ Usage:
                                  generate middleware or a guard with its test (apps using gorbital.Main)
   orb gen modules [flags]        list internal/modules in modules.gen.go (apps using gorbital.Main)
   orb routes [flags]             list every route: guards, public routes, handlers and source
+  orb explain route <METHOD> <PATH>
+                                 what a request to one route passes through: guards, scope, handler and files
+  orb explain permission <name>  which routes require a permission, and where it is declared
+  orb explain scope [<module>]   what a tenant is called here, and what each module's records belong to
   orb add mail [flags]           set up email with Resend or SMTP (Full preset apps)
   orb add orgs [flags]           turn a single-tenant app multi-tenant on a branch (Full preset apps)
   orb add rls [flags]            turn on row-level security for organisations' data (multi-tenant apps)
@@ -153,6 +157,8 @@ func Main(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io
 		err = runUpgrade(ctx, args[1:], stdin, stdout, stderr)
 	case "routes":
 		err = runRoutes(ctx, args[1:], stdout, stderr)
+	case "explain":
+		err = runExplain(ctx, args[1:], stdout, stderr)
 	case "eject":
 		err = errEjectRemoved
 	case "doctor":

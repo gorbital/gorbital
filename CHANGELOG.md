@@ -4,6 +4,12 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
+## Unreleased
+
+### Added
+
+- **`orb explain`**, a read-only command that answers what happens when one route is called, where `orb routes` answers what routes exist. `orb explain route <METHOD> <PATH>` prints the sign-in a request needs, the guards it passes, the permissions they carry, whether `guard.OrgMember` also requires membership of the tenant in the path, the scope the module's records belong to and the column they carry, the middleware, the handler with the line it is registered on, and the module files to read next — its `repository`, its `policy.go` for a `--scope custom` module, and the tests beside the route. `orb explain permission <name>` lists every route whose guards require a permission and where the app names it; `orb explain scope [<module>]` prints what this app calls a tenant ([ADR-0088](docs/adr/0088-scope-tenancy-as-a-contract.md)) and the access rule each generated module was created with ([ADR-0091](docs/adr/0091-resource-access-policies.md)). All three take `--json` and `--openapi`; a path that is not a route says what it is near, and one served by another method says which. It reads and prints, and changes nothing.
+
 ## v0.3.2 (2026-09-22)
 
 Nothing about the library or the CLI changes. This release exists to retract `v0.3.0` and to move the check that should have stopped it out of a script somebody has to remember to run.
