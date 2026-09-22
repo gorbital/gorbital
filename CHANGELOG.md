@@ -4,12 +4,33 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
+## Unreleased (v0.3.2)
+
+Nothing about the library or the CLI changes. This release exists to retract `v0.3.0` and to move the check that should have stopped it out of a script somebody has to remember to run.
+
+### Retracted
+
+- **`v0.3.0`, in all 22 modules.** It is unusable: `gorbital.dev/gorbital@v0.3.0` does not build at all, and 18 of the 22 modules require `gorbital.dev` or a sibling at `v0.2.1`, so even the ones that compile resolve a combination this repository never built. Every `go.mod` now carries `retract v0.3.0` with a rationale `go get` shows. A `retract` reaches people only through a later version, which is why this release exists; `v0.3.2` is the same code as `v0.3.1`.
+- `v0.3.1`'s requirements named `v0.3.0`, so retracting `v0.3.0` without this release would leave `gorbital.dev/gorbital@v0.3.1` depending on a retracted version. Every requirement in the set now names `v0.3.2`.
+
+### Fixed
+
+- **The check that would have caught `v0.3.0` already existed and was skipped.** `scripts/release.sh` has refused a module requiring a sibling at another version since before `v0.3.0`; running it would have printed 19 errors and exited 1. It is a local script, so nothing made running it a condition of pushing a tag — and `v0.3.1` was tagged without it too, its requirements naming `v0.3.0` rather than `v0.3.1`. The check now also runs in Actions, on the tag push and on `workflow_dispatch` before any tag exists, where skipping it is visible.
+- `scripts/consumer-check.sh`, added for `v0.3.1`, was referenced by no workflow and no document. The *Release library* workflow now runs it against each pushed tag, retrying while the proxy fetches, so a version that does not build for a consumer fails a job within minutes instead of waiting for a bug report.
+
+### Added
+
+- **`scripts/set-requirements.sh`**: points every `gorbital.dev` requirement in the repository at one version, or checks that they all already do. Preparing a release stops being 22 hand-edited `go.mod` files, which is where `v0.3.0` went wrong. `scripts/release.sh` calls its `--check` instead of carrying its own copy of the rule.
+- A release runbook in [CONTRIBUTING.md](CONTRIBUTING.md#releasing): what to run, in what order, before a tag reaches the proxy, and how to retract a version that should not have shipped.
+
 ## v0.3.1 (2026-09-21)
 
 ### Fixed
 
 - **`gorbital.dev/gorbital@v0.3.0` does not build for anyone who downloads it.** Twelve modules' `go.mod` still required their siblings at `v0.2.1`, and the `replace` directives that make this repository work do not apply to a consumer. Only `gorbital.dev/gorbital` actually broke — it is the one that calls a symbol this release added to a sibling — so it resolved `gorbital.dev/modules/postgres v0.2.1` and failed on `undefined: postgres.WithScope`. The other twenty modules build at `v0.3.0`. Every sibling requirement now names `v0.3.0`, and the whole set is retagged `v0.3.1` so one version resolves across all of it. Use `v0.3.1`; `v0.3.0` cannot be repaired, because release tags are immutable.
 - The release runbook gains the check that would have caught it: `go get` the module into an empty module and build it, before any tag is pushed.
+
+  *Corrected in v0.3.2:* eighteen modules carried a stale requirement, not twelve. Eleven required a sibling under `modules/` at `v0.2.1` (`gorbital` and ten others) and seven required only the root module `gorbital.dev`. The runbook this entry names did not exist, and `scripts/consumer-check.sh` was wired to nothing.
 
 ## v0.3.0 (2026-09-21)
 

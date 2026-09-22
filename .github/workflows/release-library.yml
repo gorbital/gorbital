@@ -7,6 +7,13 @@ name: Release library
 # doesn't match the change (ADR-0015, ADR-0054). Run it by hand before
 # tagging with "Run workflow". It needs the earlier release and gorbital.dev
 # to be downloadable, so it works from the first public release on.
+#
+# Two jobs guard the mistake that shipped v0.3.0. "requirements" checks that
+# every gorbital.dev requirement names the version being released; run it
+# with "Run workflow" BEFORE tagging, because a tag cannot be moved once the
+# module proxy has it. "consumer" then builds the tagged module the way
+# somebody who downloads it does, with no replace directives, which is the
+# only check that sees what a consumer sees.
 on:
   push:
     tags: ["v*", "modules/**/v*", "gorbital/v*"]
@@ -24,6 +31,61 @@ permissions:
   contents: read
 
 jobs:
+  requirements:
+    name: requirements name the release version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+          cache-dependency-path: "**/go.sum"
+      - name: every gorbital.dev requirement names this version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            version="$INPUT_VERSION"
+          else
+            version="${REF_NAME##*/}"
+          fi
+          scripts/set-requirements.sh "$version" --check
+
+  consumer:
+    name: the tagged module builds for a consumer
+    runs-on: ubuntu-latest
+    # Only after a tag exists: the check downloads the published version.
+    if: github.event_name == 'push'
+    needs: requirements
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+          cache-dependency-path: "**/go.sum"
+      - name: go get and build in an empty module
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          case "$REF_NAME" in
+            modules/*|gorbital/*|cli/*) dir="${REF_NAME%/v*}"; version="${REF_NAME##*/}" ;;
+            *) dir="."; version="$REF_NAME" ;;
+          esac
+          module=$(sed -n 's/^module //p' "$dir/go.mod")
+          # The proxy may not have the tag for a few seconds after the push.
+          for attempt in 1 2 3 4 5; do
+            if scripts/consumer-check.sh "$module" "$version"; then exit 0; fi
+            echo "attempt $attempt failed; the proxy may still be fetching" >&2
+            sleep 20
+          done
+          echo "$module@$version does not build for a consumer" >&2
+          exit 1
+
   gorelease:
     runs-on: ubuntu-latest
     steps:

@@ -50,21 +50,22 @@ done < <(find modules -name go.mod -not -path '*/testdata/*' | sort)
 [[ -f gorbital/go.mod ]] && dirs+=(gorbital)
 
 tags=()
-status=0
 for dir in "${dirs[@]}"; do
   prefix=""
   [[ $dir != . ]] && prefix="$dir/"
   tags+=("${prefix}${version}")
-  # Every gorbital module this one requires must be at the release version.
-  while read -r path req; do
-    if [[ $req != "$version" ]]; then
-      echo "$dir/go.mod requires $path $req, want $version" >&2
-      status=1
-    fi
-  done < <(sed -nE 's/^[[:space:]]*(require[[:space:]]+)?(gorbital\.dev(\/[^[:space:]]*)?)[[:space:]]+(v[^[:space:]]+).*/\2 \4/p' "$dir/go.mod" | grep -v '=>' || true)
 done
 tags+=("cli/${version}")
-[[ $status -eq 0 ]] || exit 1
+
+# Every gorbital module a module requires must be at the release version, or
+# the tag ships a combination this repository never built: the replace
+# directives here hide a stale requirement, and a consumer has none. v0.3.0
+# shipped that way and did not build for anyone who downloaded it. Fix a
+# failure with scripts/set-requirements.sh "$version", then commit.
+if ! scripts/set-requirements.sh "$version" --check; then
+  echo "run: scripts/set-requirements.sh $version" >&2
+  exit 1
+fi
 
 for tag in "${tags[@]}"; do
   if git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null || git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
