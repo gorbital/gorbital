@@ -35,8 +35,11 @@ var multiTenantChanges = []string{
 	// migration.
 	"db/row_level_security.sql",
 
+	// go.mod differs by the organisations requirement; go.sum no longer
+	// differs at all. Both apps replace modules/orgs with the checkout, so
+	// neither records a hash for it, and the single-tenant app needed one
+	// only while it resolved organisations from the module proxy.
 	"go.mod",
-	"go.sum", // organisations pull in what the single-tenant app doesn't
 	"gorbital.yaml",
 	// Generated or written for each app.
 	"api/openapi.json",

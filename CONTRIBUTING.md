@@ -50,6 +50,45 @@ More in [Testing](docs/guides/testing.md).
 
 Documentation follows the same branches: the docs site serves each line from its branch ([ADR-0084](docs/adr/0084-versioned-documentation.md)). A change to how developers use gorbital documents itself in the same pull request: the guide, the Methods page (doc comments and `Example` functions), the example app and its chapter when it shows the feature, upgrade notes and changelog.
 
+## Releasing
+
+A release tags the root module, every module under `modules/`, `gorbital/` and the CLI at one version on one commit of `main`. **A tag that reaches the module proxy cannot be moved or deleted**, so every check runs before the push.
+
+The mistake to avoid is a module that requires a sibling at an older version. The `replace` directives in this repository point at the checkout, so everything builds here whatever the requirements say; a consumer has no `replace` directives and gets the version the requirement names. `v0.3.0` shipped 18 modules requiring `v0.2.1`, and `gorbital.dev/gorbital@v0.3.0` did not build for anyone who downloaded it.
+
+**The bump belongs in the release commit, not in an ordinary pull request.** Between releases every `gorbital.dev` requirement, and `recipes.LibraryVersion`, name the last *published* version, because `orb new` generates an app outside this repository: it has no `replace` directives and resolves from the module proxy, so a version the proxy does not have yet fails `go mod tidy` in every generated app. Naming the new version is therefore the last thing that happens before the tags are pushed, and it is why a release is its own commit.
+
+1. **Point every requirement at the new version** and commit the result, on `main`, as the release commit. Nothing in the release is edited by hand.
+
+   ```bash
+   scripts/set-requirements.sh v0.3.2
+   git diff            # 22 go.mod files and recipes.LibraryVersion
+   ```
+
+   CI on that commit will fail the `orb new` profile jobs until the tags exist, because the version it names is not published yet. That is expected, and it is the reason step 3 follows immediately.
+
+2. **Run the checks in CI, before any tag exists.** In Actions, run *Release library* with "Run workflow" and the version. Its `requirements` job must be green. Running `scripts/set-requirements.sh v0.3.2 --check` locally proves the same thing, but the workflow leaves a record that the release was checked.
+
+3. **Create the tags**, which repeats the requirements check and refuses a dirty tree or a commit that isn't on `origin/main`.
+
+   ```bash
+   scripts/release.sh v0.3.2 --check   # nothing is created
+   scripts/release.sh v0.3.2 --push
+   ```
+
+4. **Watch the workflows.** Each tag push runs `requirements` again and then `consumer`, which does `go get` and `go build` in an empty module with no `replace` directives and no workspace: the only check that sees what a consumer sees. A red `consumer` job means the version is broken for everybody, and the fix is a new version, not a moved tag.
+
+5. **Retract a broken version** in the next release rather than leaving it resolvable. Add it to every affected module's `go.mod` with a rationale `go get` can show, and say in the changelog which version replaces it.
+
+   ```
+   // v0.3.0 requires gorbital.dev modules at v0.2.1, so gorbital.dev/gorbital
+   // does not build and the rest resolve a combination that was never tested.
+   // v0.3.1 is the same code with the requirements corrected.
+   retract v0.3.0
+   ```
+
+   A `retract` only reaches anyone through a **later** version, so the release that adds it must itself be tagged and pushed.
+
 ## Documenting methods
 
 The [Methods](docs/methods/index.md) tab of the docs has a page for every package of the library, generated from its source: signatures, doc comments, `Example` functions and the release each identifier arrived in. What you write in Go is what readers see.
