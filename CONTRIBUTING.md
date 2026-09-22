@@ -78,7 +78,16 @@ The mistake to avoid is a module that requires a sibling at an older version. Th
 
 4. **Watch the workflows.** Each tag push runs `requirements` again and then `consumer`, which does `go get` and `go build` in an empty module with no `replace` directives and no workspace: the only check that sees what a consumer sees. A red `consumer` job means the version is broken for everybody, and the fix is a new version, not a moved tag.
 
-5. **Retract a broken version** in the next release rather than leaving it resolvable. Add it to every affected module's `go.mod` with a rationale `go get` can show, and say in the changelog which version replaces it.
+5. **Publish the GitHub release.** *Release orb* builds and signs the binaries and leaves them on a **draft** release, so the tag is on the proxy while GitHub still shows the previous version as Latest. Nothing publishes it for you.
+
+   ```bash
+   gh release view v0.3.2 --json isDraft,assets   # 8 assets, draft=true
+   gh release edit v0.3.2 --draft=false --latest --notes-file notes.md
+   ```
+
+   Write the notes from the version's changelog section; the draft arrives with an empty body. `v0.3.1` and `v0.3.2` were each published hours late because this step is easy to miss after the tags succeed.
+
+6. **Retract a broken version** in the next release rather than leaving it resolvable. Add it to every affected module's `go.mod` with a rationale `go get` can show, and say in the changelog which version replaces it.
 
    ```
    // v0.3.0 requires gorbital.dev modules at v0.2.1, so gorbital.dev/gorbital
