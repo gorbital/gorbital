@@ -25,6 +25,7 @@ import (
 	"gorbital.dev/cli/internal/pgmeta"
 	"gorbital.dev/cli/internal/portal"
 	"gorbital.dev/cli/internal/portal/ui"
+	"gorbital.dev/cli/internal/recipes"
 	"gorbital.dev/cli/internal/routes"
 	"gorbital.dev/cli/internal/tunnel"
 )
@@ -353,6 +354,21 @@ func (d *devRunner) project() portal.Project {
 				p.Tenancy = value
 			case "mail":
 				p.Mail = value
+			}
+		}
+		// How much sign-in the app serves and what it calls a tenant come
+		// from the readers that own those keys rather than from the loop
+		// above: a named scope is a nested block, which no flat reader
+		// sees. orb gen module and orb doctor read the manifest the same
+		// way (ADR-0088, ADR-0089).
+		profile := recipes.ProfileFromManifest(manifest)
+		p.Auth, p.Scope = profile.Auth, profile.Scope
+		if v := recipes.ReadVocabulary(manifest); v.Declared {
+			p.ScopeName, p.ScopePlural = v.Name, v.Plural
+			if p.Scope == "" {
+				// A declared scope writes its name inside the block, so
+				// the flat value is empty: the name is the scope.
+				p.Scope = v.Name
 			}
 		}
 	}

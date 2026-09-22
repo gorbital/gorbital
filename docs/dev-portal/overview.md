@@ -14,7 +14,7 @@ The Overview is where the link lands: the app's state and output as they happen,
 | Restarts | Since `orb dev` started |
 | Readiness | The answer of `GET /readyz`, polled every 10 s |
 | Output | The app's and `orb dev`'s lines as they arrive, with a filter (All, App, orb), Load more (older lines, up to the 2,000 `orb dev` keeps) and Clear (the view only) |
-| Project | Name, module, preset, tenancy, database, mail provider, directory, and a chip per feature |
+| Project | Name, module, preset, sign-in and scope, database, mail provider, directory, and a chip per feature |
 | Links | The API, the dev console and the API docs; the inbox and Grafana when they apply |
 | Health | The checks `/ops/system` reports: PostgreSQL with its latency, the migration state |
 
