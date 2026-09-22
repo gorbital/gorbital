@@ -5,8 +5,8 @@ go 1.26.0
 require (
 	github.com/jackc/pgx/v5 v5.11.0
 	go.opentelemetry.io/otel/trace v1.46.0
-	gorbital.dev v0.3.1
-	gorbital.dev/modules/postgres v0.3.1
+	gorbital.dev v0.3.2
+	gorbital.dev/modules/postgres v0.3.2
 )
 
 require (

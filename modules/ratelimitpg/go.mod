@@ -6,8 +6,8 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/metric v1.46.0
-	gorbital.dev v0.3.1
-	gorbital.dev/modules/postgres v0.3.1
+	gorbital.dev v0.3.2
+	gorbital.dev/modules/postgres v0.3.2
 )
 
 require (
