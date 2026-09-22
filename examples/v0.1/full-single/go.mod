@@ -122,7 +122,6 @@ replace (
 	gorbital.dev/modules/mail/suppressionpg => ../../../modules/mail/suppressionpg
 	gorbital.dev/modules/observability => ../../../modules/observability
 	gorbital.dev/modules/openapi => ../../../modules/openapi
-	gorbital.dev/modules/orgs => ../../../modules/orgs
 	gorbital.dev/modules/postgres => ../../../modules/postgres
 	gorbital.dev/modules/ratelimitpg => ../../../modules/ratelimitpg
 	gorbital.dev/modules/settings => ../../../modules/settings
