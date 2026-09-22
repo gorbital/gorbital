@@ -33,7 +33,10 @@ Your app keeps building if you uninstall `orb`.
 
 ## Status
 
-**`v0.1.0` is the first public release.** Everything in the [roadmap](docs/roadmap.md) marked done is in it.
+**`v0.3.2` is the current release**, published on 2026-09-22. `v0.1.0` was the first public one; everything in the
+[roadmap](docs/roadmap.md) marked done is in the current release, and every change is in the
+[changelog](CHANGELOG.md). **Do not use `v0.3.0`:** it is retracted and does not build outside this repository, and
+`go get` says so. `v0.3.2` is the same code as `v0.3.1` with every module requiring the version it ships with.
 
 v0 carries no compatibility promise: a minor release may change the API, and when it does, the [changelog](CHANGELOG.md) and [upgrade notes](docs/guides/upgrade-notes.md) say what to do. The compatibility checks already run on every change. `v1.0.0` freezes the API and starts the scaffold compatibility promise, and it ships only after the external security review signs off ([stability](docs/guides/stability.md)).
 
@@ -56,7 +59,7 @@ go get gorbital.dev@latest
 ## Quickstart
 
 ```bash
-orb new my-api --preset full --tenancy single
+orb new my-api --preset full --scope single
 cd my-api
 orb dev
 ```
@@ -120,6 +123,7 @@ The root module holds the small core. Everything that brings a dependency is its
 | `gorbital.dev/modules/telemetry` | OpenTelemetry tracing and metrics, logs correlated with traces, Prometheus |
 | `gorbital.dev/modules/openapi` | Huma on the standard `http.ServeMux`, problem+json errors, API docs |
 | `gorbital.dev/modules/devconsole` | Development-only `/_dev` APIs for the Dev Portal |
+| `gorbital.dev/modules/jwt` | Tokens from an external identity provider (Auth0, Clerk, Supabase, Firebase, Cognito) verified against its JWKS |
 | `gorbital.dev/modules/mail/resend` | Email through Resend, with bounce and complaint webhooks |
 | `gorbital.dev/modules/mail/smtp` | Email through any SMTP server |
 | `gorbital.dev/modules/mail/suppressionpg` | The email suppression list in PostgreSQL |
@@ -130,7 +134,9 @@ API reference for every package: [pkg.go.dev/gorbital.dev](https://pkg.go.dev/go
 ## Documentation
 
 - **Start:** [What you need](docs/start/prerequisites.md), [Quickstart](docs/start/quickstart.md), [Your first resource](docs/start/first-resource.md), [Concepts](docs/start/concepts.md)
+- **Build a whole app:** [Build an app](docs/build/00-what-were-building.md), twenty-three chapters that write Plateful, a restaurant platform, from `orb new` to deployment
 - **Sign-in:** [Overview](docs/sign-in/overview.md), [Every key and credential](docs/sign-in/all-keys.md)
+- **Own your model:** [Tenancy](docs/guides/tenancy.md), [Access control](docs/guides/access-control.md), [Resource access](docs/guides/resource-access.md), [The code in your repo](docs/guides/the-code-in-your-repo.md)
 - **Build and run:** [Architecture](docs/architecture.md), [Life of a request](docs/guides/request-lifecycle.md), [Environment variables](docs/guides/environment-variables.md), [Testing](docs/guides/testing.md), [Running in production](docs/guides/production.md)
 - **Keep up to date:** [Upgrading](docs/start/upgrading.md), [Upgrade notes](docs/guides/upgrade-notes.md), [Stability](docs/guides/stability.md)
 - **Why it's built this way:** [Decision records](docs/adr/README.md), [Roadmap](docs/roadmap.md)

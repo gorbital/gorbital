@@ -14,13 +14,14 @@ comparison fails, and `orb new` writes something nobody wrote on purpose.
 | `minimal/` | `cli/internal/recipes/minimal` — the Minimal preset |
 | `full-single/` | `cli/internal/recipes/full` — the Full preset, one tenancy |
 | `full-multi/` | `cli/internal/recipes/full-multi` — the Full preset with organisations |
+| `api-basic/` | no tree of its own: it is the third shape of the Full preset, `--auth basic --scope none`. The conditional templates decide which paths each shape gets, and `TestGoldenApps` checks them against all three (ADR-0090) |
 | `v0.1/full-single/`, `v0.1/full-multi/` | the v0.1 layout, frozen: `orb upgrade --layout v0.2` refuses an app that doesn't match them byte for byte (ADR-0083) |
 
 And one application is a **test fixture** rather than a template source:
 
 | Directory | What it verifies |
 |---|---|
-| `shelfie/` | the golden output of `orb gen module`. `cli/internal/recipes/module_test.go` renders a module and compares it with `shelfie/internal/modules/shelves` and `internal/modules/clubbooks` file by file, and `cli/internal/cli`'s tests copy the whole application to run `orb gen module`, `orb eject` and `orb doctor` against a real one. Move it and four test files stop finding their golden |
+| `shelfie/` | the golden output of `orb gen module`. `cli/internal/recipes/module_test.go` renders a module and compares it with `shelfie/internal/modules/shelves` and `internal/modules/clubbooks` file by file, and `cli/internal/cli`'s tests copy the whole application to run `orb gen module`, `orb add orgs` and `orb doctor` against a real one. Move it and four test files stop finding their golden |
 
 Shelfie is also the application the Examples chapters teach, so it is
 documentation as well — but that is not why it is here. It is here because

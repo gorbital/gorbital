@@ -1,0 +1,68 @@
+pkg gorbital.dev/modules/postgres, const BypassSetting = "gorbital.rls_bypass"
+pkg gorbital.dev/modules/postgres, const BypassSetting ideal-string
+pkg gorbital.dev/modules/postgres, const DefaultConnectTimeout = 5000000000
+pkg gorbital.dev/modules/postgres, const DefaultConnectTimeout time.Duration
+pkg gorbital.dev/modules/postgres, const OrgSetting = "gorbital.org_id"
+pkg gorbital.dev/modules/postgres, const OrgSetting ideal-string
+pkg gorbital.dev/modules/postgres, const ScopeSetting = "gorbital.org_id"
+pkg gorbital.dev/modules/postgres, const ScopeSetting ideal-string
+pkg gorbital.dev/modules/postgres, func CheckRowLevelSecurity(context.Context, DBTX) (RowLevelSecurityReport, error)
+pkg gorbital.dev/modules/postgres, func CheckViolation(error) (string, bool)
+pkg gorbital.dev/modules/postgres, func ForeignKeyViolation(error) (string, bool)
+pkg gorbital.dev/modules/postgres, func HealthCheck(*pgxpool.Pool) health.Check
+pkg gorbital.dev/modules/postgres, func InTx(context.Context, Beginner, func(pgx.Tx) error) error
+pkg gorbital.dev/modules/postgres, func InTxWithOptions(context.Context, Beginner, pgx.TxOptions, func(pgx.Tx) error) error
+pkg gorbital.dev/modules/postgres, func IsNoRows(error) bool
+pkg gorbital.dev/modules/postgres, func IsRetryable(error) bool
+pkg gorbital.dev/modules/postgres, func Migrate(context.Context, *pgxpool.Pool, fs.FS) ([]int64, error)
+pkg gorbital.dev/modules/postgres, func MigrateDown(context.Context, *pgxpool.Pool, fs.FS) (int64, error)
+pkg gorbital.dev/modules/postgres, func MigrationList(context.Context, *pgxpool.Pool, fs.FS) ([]MigrationInfo, error)
+pkg gorbital.dev/modules/postgres, func Migrations(context.Context, *pgxpool.Pool, fs.FS) (MigrationState, error)
+pkg gorbital.dev/modules/postgres, func NotNullViolation(error) (string, bool)
+pkg gorbital.dev/modules/postgres, func Open(context.Context, config.Secret, ...Option) (*pgxpool.Pool, error)
+pkg gorbital.dev/modules/postgres, func UniqueViolation(error) (string, bool)
+pkg gorbital.dev/modules/postgres, func WithApplicationName(string) Option
+pkg gorbital.dev/modules/postgres, func WithConnectTimeout(time.Duration) Option
+pkg gorbital.dev/modules/postgres, func WithLogger(*slog.Logger) Option
+pkg gorbital.dev/modules/postgres, func WithMaxConnIdleTime(time.Duration) Option
+pkg gorbital.dev/modules/postgres, func WithMaxConnLifetime(time.Duration) Option
+pkg gorbital.dev/modules/postgres, func WithMaxConns(int32) Option
+pkg gorbital.dev/modules/postgres, func WithMeterProvider(metric.MeterProvider) Option
+pkg gorbital.dev/modules/postgres, func WithMinConns(int32) Option
+pkg gorbital.dev/modules/postgres, func WithOrg(context.Context, string) context.Context
+pkg gorbital.dev/modules/postgres, func WithScope(context.Context, string) context.Context
+pkg gorbital.dev/modules/postgres, func WithTracerProvider(trace.TracerProvider) Option
+pkg gorbital.dev/modules/postgres, func WithoutRowLevelSecurity(context.Context, string) context.Context
+pkg gorbital.dev/modules/postgres, method (RowLevelSecurityReport) On() bool
+pkg gorbital.dev/modules/postgres, type Beginner interface { BeginTx }
+pkg gorbital.dev/modules/postgres, type Beginner interface, BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
+pkg gorbital.dev/modules/postgres, type DBTX interface { Exec, Query, QueryRow }
+pkg gorbital.dev/modules/postgres, type DBTX interface, Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+pkg gorbital.dev/modules/postgres, type DBTX interface, Query(context.Context, string, ...any) (pgx.Rows, error)
+pkg gorbital.dev/modules/postgres, type DBTX interface, QueryRow(context.Context, string, ...any) pgx.Row
+pkg gorbital.dev/modules/postgres, type MigrationInfo struct
+pkg gorbital.dev/modules/postgres, type MigrationInfo struct, Applied bool
+pkg gorbital.dev/modules/postgres, type MigrationInfo struct, AppliedAt time.Time
+pkg gorbital.dev/modules/postgres, type MigrationInfo struct, Path string
+pkg gorbital.dev/modules/postgres, type MigrationInfo struct, Version int64
+pkg gorbital.dev/modules/postgres, type MigrationState struct
+pkg gorbital.dev/modules/postgres, type MigrationState struct, Current int64
+pkg gorbital.dev/modules/postgres, type MigrationState struct, Latest int64
+pkg gorbital.dev/modules/postgres, type MigrationState struct, Pending int
+pkg gorbital.dev/modules/postgres, type Option interface { apply }
+pkg gorbital.dev/modules/postgres, type RowLevelSecurityReport struct
+pkg gorbital.dev/modules/postgres, type RowLevelSecurityReport struct, Bypasses bool
+pkg gorbital.dev/modules/postgres, type RowLevelSecurityReport struct, Forced []string
+pkg gorbital.dev/modules/postgres, type RowLevelSecurityReport struct, NotForced []string
+pkg gorbital.dev/modules/postgres, type RowLevelSecurityReport struct, Role string
+pkg gorbital.dev/modules/postgres, type RowLevelSecurityReport struct, Unprotected []string
+pkg gorbital.dev/modules/postgres/pgtest, const EnvRequire = "GORBITAL_REQUIRE_DB"
+pkg gorbital.dev/modules/postgres/pgtest, const EnvRequire ideal-string
+pkg gorbital.dev/modules/postgres/pgtest, const EnvURL = "GORBITAL_TEST_DATABASE_URL"
+pkg gorbital.dev/modules/postgres/pgtest, const EnvURL ideal-string
+pkg gorbital.dev/modules/postgres/pgtest, func New(testing.TB, ...Option) *pgxpool.Pool
+pkg gorbital.dev/modules/postgres/pgtest, func NewDatabase(testing.TB, ...Option) string
+pkg gorbital.dev/modules/postgres/pgtest, func URL(testing.TB) string
+pkg gorbital.dev/modules/postgres/pgtest, func WithMaxConns(int32) Option
+pkg gorbital.dev/modules/postgres/pgtest, func WithMigrations(fs.FS) Option
+pkg gorbital.dev/modules/postgres/pgtest, type Option interface { apply }

@@ -1,0 +1,62 @@
+pkg gorbital.dev/modules/releases, const DefaultHeartbeat = 30000000000
+pkg gorbital.dev/modules/releases, const DefaultHeartbeat time.Duration
+pkg gorbital.dev/modules/releases, const DefaultRetention = 7776000000000000
+pkg gorbital.dev/modules/releases, const DefaultRetention time.Duration
+pkg gorbital.dev/modules/releases, func NewStore(*pgxpool.Pool, ...Option) (*Store, error)
+pkg gorbital.dev/modules/releases, func NewTracker(*pgxpool.Pool, buildinfo.Info, ...Option) (*Tracker, error)
+pkg gorbital.dev/modules/releases, func WithClock(func() time.Time) Option
+pkg gorbital.dev/modules/releases, func WithHeartbeat(time.Duration) Option
+pkg gorbital.dev/modules/releases, func WithHost(string) Option
+pkg gorbital.dev/modules/releases, func WithLogger(*slog.Logger) Option
+pkg gorbital.dev/modules/releases, func WithRetention(time.Duration) Option
+pkg gorbital.dev/modules/releases, func WithRetentionFunc(func(context.Context) time.Duration) Option
+pkg gorbital.dev/modules/releases, method (*Store) Current(context.Context) ([]CurrentRelease, error)
+pkg gorbital.dev/modules/releases, method (*Store) Instances(context.Context, InstanceFilter) (InstancePage, error)
+pkg gorbital.dev/modules/releases, method (*Store) Releases(context.Context, ReleaseFilter) (ReleasePage, error)
+pkg gorbital.dev/modules/releases, method (*Tracker) InstanceID() string
+pkg gorbital.dev/modules/releases, method (*Tracker) Run(context.Context) error
+pkg gorbital.dev/modules/releases, type CurrentRelease struct
+pkg gorbital.dev/modules/releases, type CurrentRelease struct, Commit string
+pkg gorbital.dev/modules/releases, type CurrentRelease struct, Instances []Instance
+pkg gorbital.dev/modules/releases, type CurrentRelease struct, Version string
+pkg gorbital.dev/modules/releases, type Instance struct
+pkg gorbital.dev/modules/releases, type Instance struct, BuildTime *time.Time
+pkg gorbital.dev/modules/releases, type Instance struct, Commit string
+pkg gorbital.dev/modules/releases, type Instance struct, GoVersion string
+pkg gorbital.dev/modules/releases, type Instance struct, Host string
+pkg gorbital.dev/modules/releases, type Instance struct, ID int64
+pkg gorbital.dev/modules/releases, type Instance struct, InstanceID string
+pkg gorbital.dev/modules/releases, type Instance struct, LastSeenAt time.Time
+pkg gorbital.dev/modules/releases, type Instance struct, Modified bool
+pkg gorbital.dev/modules/releases, type Instance struct, Running bool
+pkg gorbital.dev/modules/releases, type Instance struct, StartedAt time.Time
+pkg gorbital.dev/modules/releases, type Instance struct, StoppedAt *time.Time
+pkg gorbital.dev/modules/releases, type Instance struct, Version string
+pkg gorbital.dev/modules/releases, type InstanceFilter struct
+pkg gorbital.dev/modules/releases, type InstanceFilter struct, Commit string
+pkg gorbital.dev/modules/releases, type InstanceFilter struct, Cursor string
+pkg gorbital.dev/modules/releases, type InstanceFilter struct, Limit int
+pkg gorbital.dev/modules/releases, type InstanceFilter struct, RunningOnly bool
+pkg gorbital.dev/modules/releases, type InstanceFilter struct, Version string
+pkg gorbital.dev/modules/releases, type InstancePage struct
+pkg gorbital.dev/modules/releases, type InstancePage struct, Instances []Instance
+pkg gorbital.dev/modules/releases, type InstancePage struct, NextCursor string
+pkg gorbital.dev/modules/releases, type Option interface { apply }
+pkg gorbital.dev/modules/releases, type Release struct
+pkg gorbital.dev/modules/releases, type Release struct, Commit string
+pkg gorbital.dev/modules/releases, type Release struct, FirstStartedAt time.Time
+pkg gorbital.dev/modules/releases, type Release struct, LastSeenAt time.Time
+pkg gorbital.dev/modules/releases, type Release struct, Modified bool
+pkg gorbital.dev/modules/releases, type Release struct, Running int
+pkg gorbital.dev/modules/releases, type Release struct, Starts int
+pkg gorbital.dev/modules/releases, type Release struct, Version string
+pkg gorbital.dev/modules/releases, type ReleaseFilter struct
+pkg gorbital.dev/modules/releases, type ReleaseFilter struct, Cursor string
+pkg gorbital.dev/modules/releases, type ReleaseFilter struct, Limit int
+pkg gorbital.dev/modules/releases, type ReleasePage struct
+pkg gorbital.dev/modules/releases, type ReleasePage struct, NextCursor string
+pkg gorbital.dev/modules/releases, type ReleasePage struct, Releases []Release
+pkg gorbital.dev/modules/releases, type Store struct
+pkg gorbital.dev/modules/releases, type Tracker struct
+pkg gorbital.dev/modules/releases, var ErrInvalidCursor error
+pkg gorbital.dev/modules/releases, var Migrations fs.FS

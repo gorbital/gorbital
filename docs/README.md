@@ -13,7 +13,9 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | Install what you need | [What you need](start/prerequisites.md) |
 | Create and run an app | [Quickstart](start/quickstart.md) |
 | Add your own data | [Add your first module](start/first-resource.md), [Modules and routes](guides/modules-and-routes.md) |
-| Follow a whole app, chapter by chapter | [Examples](examples/index.md) |
+| Build a whole app, chapter by chapter | [Build an app](build/00-what-were-building.md) |
+| Read shorter worked examples | [Examples](examples/index.md) |
+| Decide what a tenant is in your API | [Tenancy](guides/tenancy.md) |
 | Set up Google, Apple, GitHub, passkeys or email | [Set up sign-in](sign-in/overview.md), [Every key and credential](sign-in/all-keys.md) |
 | Fix a problem | [Troubleshooting](start/troubleshooting.md) |
 | Launch | [Go-live checklist](sign-in/go-live.md), [Running in production](guides/production.md) |
@@ -46,6 +48,9 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Your main.go](guides/main-go.md) | Every option of `gorbital.Main`: what each adds to the app |
 | [Modules and routes](guides/modules-and-routes.md) | `gorbital.Module`, the four layers, the route table, error mappings |
 | [Guards and middleware](guides/guards-and-middleware.md) | Deny by default, the built-in guards, guards and middleware of your own |
+| [Tenancy](guides/tenancy.md) | `gorbital.Scope`: your word for a tenant, its path parameter, its ID format, its roles, and the authorizer that answers membership |
+| [Access control](guides/access-control.md) | What a role means versus who holds it: permissions in code, membership in your database |
+| [Resource access](guides/resource-access.md) | `orb gen module --scope`: the access rule a generated module states instead of assuming |
 | [The middleware stack](guides/middleware-stack.md) | Every step in order, and `gorbital.WithStack` |
 | [Security layers](guides/security-layers.md) | Request timeout, IP filter, signed webhooks, external identity providers |
 | [Generating code](guides/generating-code.md) | `orb gen module`, `orb gen middleware`, `orb routes` |
@@ -79,11 +84,14 @@ The documentation has two audiences, and the website at [docs.gorbital.dev](http
 | [Running in production](guides/production.md) | Image, configuration, migrations, scaling, observability (including Prometheus), operations, what never to do |
 | [Upgrade notes](guides/upgrade-notes.md) | What changes for existing apps in each release, and what to do before deploying |
 | [Local development](guides/local-development.md) | Working on the gorbital repository |
+| [Dev Portal](guides/dev-portal.md) | The web UI `orb dev` serves at 127.0.0.1:3100: every screen, and what is still planned |
+| [Git in the Dev Portal](guides/git.md) | The Git screen: which commands it runs, and the configuration of yours it uses |
 | [Dev console APIs](guides/dev-console.md) | `modules/devconsole`: development-only `/_dev/` APIs for local tools, the token `orb dev` prints, endpoints, streams, security checks |
 | [Security overview](security/README.md) | How security is reviewed and reported; the [internal review of September 2026](security/2026-09-internal-review.md) |
 | [Benchmarks](benchmarks.md) | What is measured, the budgets CI enforces, and the results |
 | [Roadmap](roadmap.md) | Milestones and status |
 | [v0.2 roadmap](v0.2-roadmap.md) | The phases of v0.2, their decisions and their status |
+| [v0.3 roadmap](v0.3-roadmap.md) | The phases of v0.3: tenancy as a contract, sign-in profiles, resource access policies |
 | [Changelog](../CHANGELOG.md) | Notable changes in each release |
 | [Architecture decision records](adr/README.md) | Every decision with context, options and trade-offs |
 
@@ -98,6 +106,8 @@ Generated from the golden apps by `go run -C internal/tools/refdocs . -write` an
 | [Permissions and roles](reference/permissions.md) | Platform and organisation catalogs: which roles hold which permissions, required two-factor authentication |
 | [Runtime settings](reference/settings.md) | Every setting: type, default, bounds, reason and restart required |
 | [Jobs](reference/jobs.md) | Every job: default schedule, timeout, attempts, what it does |
+
+The [Methods](methods/index.md) pages are generated the same way, from the library's own doc comments and `Example` functions: one page per package, with every exported identifier, its signature and the release it arrived in (`go run -C internal/tools/refdocs . -methods -write`).
 
 ## Project
 
@@ -122,6 +132,10 @@ Generated from the golden apps by `go run -C internal/tools/refdocs . -write` an
 |---|---|
 | [examples/minimal](../examples/minimal) | Minimal preset: HTTP, config, telemetry, health, docs, dev console APIs; no database |
 | [examples/full-single](../examples/full-single) | Full preset: PostgreSQL, runtime settings, feature flags, jobs, audit log, email with the suppression list, authentication with 2FA, passkeys, Google, Apple and GitHub, API keys and service accounts, roles, idempotency keys, ops APIs with live observability and incidents, dev console APIs, the `projects` example |
-| [examples/full-multi](../examples/full-multi) | Full preset with `--tenancy multi`: everything above plus organisations, members, invitations, organisation settings, flags and service accounts, org-scoped projects and the row-level security policies that `orb add rls` applies |
+| [examples/full-multi](../examples/full-multi) | Full preset with `--scope organisation`: everything above plus organisations, members, invitations, organisation settings, flags and service accounts, org-scoped projects and the row-level security policies that `orb add rls` applies |
+| [examples/api-basic](../examples/api-basic) | Full preset with `--auth basic --scope none`: an API with an email address, a password and the operators' account APIs, and no tenancy at all |
+| [examples/shelfie](../examples/shelfie) | The golden output of `orb gen module`, and the app the Examples chapters teach |
 
-Library packages document their API in Go doc comments, rendered in the package reference on the website and by `go doc gorbital.dev/modules/jobs`.
+These are template sources and test fixtures, not samples to copy — [examples/README.md](../examples/README.md) says what generates from each. The showcase applications the [Build an app](build/00-what-were-building.md) chapters and the recipes include code from live in their own repository since v0.3.0 ([ADR-0093](adr/0093-the-examples-repository.md)): <https://github.com/gorbital/examples>, at the ref [`docs/examples.json`](examples.json) pins, which `scripts/examples.sh` fetches.
+
+Library packages document their API in Go doc comments, rendered in the [Methods](methods/index.md) pages and by `go doc gorbital.dev/modules/jobs`.

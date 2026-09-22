@@ -47,7 +47,7 @@ const SignUpPassword = "correct horse battery staple"
 
 SignUpPassword is the password of the accounts [App.SignUp](#App.SignUp) creates.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 ## Functions
 
@@ -61,7 +61,7 @@ func APIKey(userID string, scopes ...string) auth.Principal
 
 APIKey returns the principal of a request authenticated with an API key of the user userID, scoped to scopes: the actor holds exactly those permissions, and guards that need a session, such as guard.RecentReauth, refuse it.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -86,7 +86,7 @@ func User(id string, permissions ...string) auth.Principal
 
 User returns the principal of a signed-in user with a session holding permissions. The session signed in and verified a second factor just now, so guard.RecentReauth allows it.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -115,7 +115,7 @@ type App struct {
 
 An App is a gorbital app built for one test.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -136,7 +136,7 @@ func New(t testing.TB, opts ...gorbital.Option) *App
 
 New builds an app with opts on a new, migrated database for the test, and closes it when the test ends. The configuration is development's defaults, with logs at warning level and above written to the test's output, and the log archive and local file storage in temporary directories. opts are applied after gorbitaltest's own, so a gorbital.WithLogger or gorbital.WithAuth of the test's wins.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -157,7 +157,7 @@ func NewWithEnv(t testing.TB, env map[string]string, opts ...gorbital.Option) *A
 
 NewWithEnv is [New](#New) with environment variables on top of development's defaults, as an app's .env sets them, such as AUTH\_ENCRYPTION\_KEYS for an app whose sign-in enrols authenticator apps. The process environment is never read. DATABASE\_URL is always the test's database.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -183,7 +183,7 @@ func (a *App) App() *gorbital.App
 
 App returns the built app, for its handler and its dependencies, such as Deps().DB to prepare rows.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -207,7 +207,7 @@ func (a *App) As(p auth.Principal) *Client
 
 As returns a client whose requests carry p, as the authenticator sets it for a signed-in caller: see [User](#User) and [APIKey](#APIKey).
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -228,7 +228,7 @@ func (a *App) Client() *Client
 
 Client returns a client whose requests carry no principal, as a caller that isn't signed in.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -250,7 +250,7 @@ func (a *App) Config() gorbital.Config
 
 Config returns the configuration the app was built with, such as for running a command of the authenticator (gorbital.Command) against the test's database.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -275,7 +275,7 @@ func (a *App) Jobs(t testing.TB, kind string) []Job
 
 Jobs returns the jobs the app enqueued of kind, oldest first, or every job when kind is empty.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -299,7 +299,7 @@ func (a *App) Mail(t testing.TB) []mail.Message
 
 Mail returns the email the app queued, oldest first, with the sender the mail.\* runtime settings filled in.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -326,7 +326,7 @@ SignUp creates an account for email through sign-in's own endpoints, in an app w
 
 The account is real: hooks run (such as the personal workspace of gorbital.dev/gorbital/orgshttp), and its requests go through the authenticator, API key scopes and second factors included, so tests of organisations and other features that store the user's ID use it rather than [User](#User).
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -364,7 +364,7 @@ type Client struct {
 
 A Client sends requests to an app's handler, through its whole middleware stack.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -386,7 +386,7 @@ func (c *Client) Delete(path string) *Response
 
 Delete sends a DELETE request for path.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -407,7 +407,7 @@ func (c *Client) Do(req *http.Request) *Response
 
 Do sends req as it is, with the client's principal and headers added.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -430,7 +430,7 @@ func (c *Client) Get(path string) *Response
 
 Get sends a GET request for path, which may have a query string.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -451,7 +451,7 @@ func (c *Client) Patch(path string, body any) *Response
 
 Patch sends a PATCH request with body encoded as JSON.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -472,7 +472,7 @@ func (c *Client) Post(path string, body any) *Response
 
 Post sends a POST request with body encoded as JSON; a nil body sends none.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -494,7 +494,7 @@ func (c *Client) Put(path string, body any) *Response
 
 Put sends a PUT request with body encoded as JSON.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -515,7 +515,7 @@ func (c *Client) WithHeader(name, value string) *Client
 
 WithHeader returns a copy of c that sends the header on every request, such as Idempotency-Key.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -548,7 +548,7 @@ type Job struct {
 
 A Job is a job the app enqueued.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -583,7 +583,7 @@ type Response struct {
 
 A Response is what the app answered.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -605,7 +605,7 @@ func (r *Response) AssertProblem(t testing.TB, status int, code string)
 
 AssertProblem fails the test unless the response is a problem+json error with status and code, such as 404 and "book\_not\_found".
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -626,7 +626,7 @@ func (r *Response) AssertStatus(t testing.TB, want int)
 
 AssertStatus fails the test when the response's status isn't want, showing the body.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -647,7 +647,7 @@ func (r *Response) JSON(t testing.TB, v any)
 
 JSON decodes the body into v, failing the test when it isn't JSON of that shape.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
