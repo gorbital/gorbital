@@ -6,7 +6,7 @@ Plateful's `cmd/api/main.go` contains one line about authentication:
 auth := authhttp.New(signInOptions()...)
 ```
 
-Behind it are sixty-six HTTP operations, twelve database tables, email verification, sessions, two-factor authentication, passkeys, Google, Apple and GitHub, API keys and an operator's account-management API — and **all of it is in your repository**. `orb new` put the whole sign-in module in `internal/modules/auth`, and with `--tenancy multi` the whole organisations module in `internal/modules/orgs`, with every migration in `db/migrations`. `authhttp` in that line is your own package, imported under the name the library uses, so its options and hooks are exactly the ones below.
+Behind it are sixty-six HTTP operations, twelve database tables, email verification, sessions, two-factor authentication, passkeys, Google, Apple and GitHub, API keys and an operator's account-management API — and **all of it is in your repository**. `orb new` put the whole sign-in module in `internal/modules/auth`, and with a named scope such as `--scope organisation` the whole organisations module in `internal/modules/orgs`, with every migration in `db/migrations`. `authhttp` in that line is your own package, imported under the name the library uses, so its options and hooks are exactly the ones below.
 
 You did not have to write it, and you can read every line of it. This chapter says what it gives you, what you can change through options and hooks without editing it, and what changes when you edit it directly.
 

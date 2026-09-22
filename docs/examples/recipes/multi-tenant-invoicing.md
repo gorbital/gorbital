@@ -134,7 +134,7 @@ So a member of Globex who sends one of Acme's invoice IDs under Globex's path ge
 
 Row-level security makes PostgreSQL itself return and accept only the rows of the organisation a connection carries ([Row-level security](../../guides/row-level-security.md#in-an-app-on-gorbitalmain)). `guard.OrgMember` already sets that organisation on the request's connections; the policies are migrations.
 
-`orb add rls` writes them in apps created with `orb new --tenancy multi`, from their `gorbital.lock`, which an app on `gorbital.Main` doesn't have. Here the same migration was added by hand, as `db/migrations/20260922000001_row_level_security.sql`, with the `DO` block of a multi-tenant app's `db/row_level_security.sql`:
+`orb add rls` writes them in apps created with `orb new --scope organisation`, from their `gorbital.lock`, which an app on `gorbital.Main` doesn't have. Here the same migration was added by hand, as `db/migrations/20260922000001_row_level_security.sql`, with the `DO` block of a multi-tenant app's `db/row_level_security.sql`:
 
 <!-- include examples/apps/invoicing/db/migrations/20260922000001_row_level_security.sql#row-level-security -->
 

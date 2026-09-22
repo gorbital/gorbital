@@ -501,7 +501,7 @@ type Extension struct {
 
 Extension serves the console endpoints under Prefix (and Prefix without its final slash) with Handler, after the console's Host, loopback, forwarding and token checks and with its response headers (Cache-Control: no-store, no CORS). The handler answers every method itself. The index lists Prefix in Index.Extensions.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 

@@ -232,6 +232,6 @@ Edit a migration only until it has run anywhere but your computer. After that, a
 
 ## In a multi-tenant app
 
-In an app created with `--tenancy multi`, add `--org` to make invoices belong to an **organisation** instead of a user: endpoints under `/v1/orgs/{orgId}/invoices` guarded by `guard.OrgMember`, an `org_id` column instead of `owner_id`, `invoices.invoice.read` and `.write` held by the organisation roles, and tests proving a member of another organisation gets 404. `orb gen resource` does the same without the flag in such an app. See [Organisations](organisations.md).
+In an app created with a named scope (`--scope organisation`, or a word of your own), add `--scope tenant` to make invoices belong to the **tenant** instead of a user: endpoints under `/v1/orgs/{orgId}/invoices` guarded by `guard.OrgMember`, an `org_id` column instead of `owner_id`, `invoices.invoice.read` and `.write` held by the tenant's roles, and tests proving a member of another tenant gets 404. `--org` is the older name of `--scope tenant` and still works, and `orb gen resource` does the same without the flag in such an app. The other values are `--scope user` (the default in an app without a tenancy) and `--scope public`; what each one writes is in [Resource access](../guides/resource-access.md). See also [Tenancy](../guides/tenancy.md) and [Organisations](organisations.md).
 
 All flags and rules: [CLI reference](../guides/cli.md#orb-gen-module), [Generating code](../guides/generating-code.md).

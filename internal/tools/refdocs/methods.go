@@ -35,7 +35,7 @@ const methodsDir = "docs/methods"
 const methodsOverlayDir = "internal/tools/refdocs/overlay/methods"
 
 // nextVersion is the Since of identifiers not in any released listing.
-const nextVersion = "v0.3.0 (unreleased)"
+const nextVersion = "v0.4.0 (unreleased)"
 
 // errMethods reports stale Methods pages or undocumented identifiers.
 var errMethods = errors.New("docs/methods is out of date or the library has undocumented API; fix the problems above, then run: go run -C internal/tools/refdocs . -methods -write")
@@ -366,6 +366,11 @@ func readOverlays(dir string) (map[string][]byte, error) {
 
 // sinceFS holds the API listings of each release, copied from api/*.txt at
 // its tag (git show v0.1.0:api/<file>), so the check needs no git history.
+// One directory per release whose API a reader can depend on: v0.1.0,
+// v0.2.0 and v0.3.2. v0.3.0 and v0.3.1 have no directory of their own —
+// v0.3.0 is retracted and v0.3.1 requires it, so the v0.3 line's API is
+// dated by the release that ships it, v0.3.2. Add the next one here in the
+// release commit, and move nextVersion on.
 //
 //go:embed since
 var sinceFS embed.FS

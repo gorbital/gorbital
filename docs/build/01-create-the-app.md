@@ -3,7 +3,7 @@
 One command creates Plateful. Two of its flags are not optional in the way flags usually are, and one thing it does at the end surprises people, so this chapter is longer than the command deserves.
 
 ```bash
-orb new plateful --preset full --tenancy multi --module example.com/plateful
+orb new plateful --preset full --scope organisation --module example.com/plateful
 ```
 
 ## 1. The command, flag by flag
@@ -23,14 +23,15 @@ orb new plateful --preset full --tenancy multi --module example.com/plateful
 | App name | `<name>`, positional | required |
 | Go module path | `--module` | the app name |
 | Preset | `--preset minimal\|full` | **`minimal`** |
-| Tenancy (Full only) | `--tenancy single\|multi` | `single` |
+| Sign-in (Full only) | `--auth none\|basic\|full` | `full` |
+| Scope (Full only) | `--scope none\|single\|custom\|<name>` | `single` |
 | Initialise git | `--no-git` | yes |
 
 Other flags: `--local <path>`, `--skip-tidy`, `--start`, `--no-start`, `--json`, `--yes`, `--no-input`, `--plain`.
 
 `--module example.com/plateful` sets the Go module path every import in the app starts with. Without it, the module path is just `plateful`, which works locally and is awkward the moment the code goes anywhere. Use the path you would push to.
 
-`--tenancy multi` is what makes a restaurant an organisation: members, roles, invitations, personal workspaces, and data under `/v1/orgs/{orgId}/…`. Tenancy is chosen now; `orb add orgs` can convert a single-tenant app later, but starting where you mean to end is cheaper.
+`--scope organisation` is what makes a restaurant an organisation: members, roles, invitations, personal workspaces, and data under `/v1/orgs/{orgId}/…`. The scope is chosen now; `orb add orgs` can convert a single-tenant app later, but starting where you mean to end is cheaper. The word is yours — `--scope merchant` mounts the same organisations module under `/v1/merchants/{merchantId}/…`, refusing with `merchant_not_found` ([Tenancy](../guides/tenancy.md)) — and Plateful uses the supplied `organisation` so the paths in this guide match the library's own. `--tenancy single` and `--tenancy multi` are the older names of `--scope single` and `--scope organisation`, and still work.
 
 ## 2. Why `--preset full` is not a preference
 
@@ -88,7 +89,7 @@ the minimal preset has one layout, and keeps it: only Full apps move to v0.2
 > **Don't do this:** run `orb new plateful` and fix the preset later. There is no "later". Every generator this guide uses is unavailable, and the documented conversion path explicitly excludes the preset you'd be converting from.
 > **Do this instead:** pass `--preset full` — or answer the question when `orb new` asks it. If you truly want a small API with no database, Minimal is a good choice; just make it knowingly, and don't expect the rest of this guide to apply.
 
-Two smaller consequences of choosing wrong: `--tenancy multi` requires Full (`--tenancy multi needs the Full preset: organisations need its database and authentication (use --preset full)`), and a Minimal app has no `seed` command, so there is no administrator to sign in as.
+Two smaller consequences of choosing wrong: a scope requires Full (`the minimal preset has no sign-in and no tenants, so --auth and --scope don't apply to it`), and a Minimal app has no `seed` command, so there is no administrator to sign in as.
 
 ## 3. What it prints — and what it does next
 
@@ -96,7 +97,7 @@ Two smaller consequences of choosing wrong: `--tenancy multi` requires Full (`--
 
 ```text
 creating plateful in ./plateful
-preset full · tenancy multi · library gorbital.dev v0.2.0
+auth full · scope organisation · library gorbital.dev v0.3.2
 
 ✓ wrote 65 files
 ✓ ran go mod tidy
@@ -144,7 +145,7 @@ The rule in the code is: start if `--start` was passed, **or** if `--no-start` w
 
 | Invocation | Starts `orb dev`? |
 |---|---|
-| `orb new plateful --preset full --tenancy multi` in a terminal | **Yes** |
+| `orb new plateful --preset full --scope organisation` in a terminal | **Yes** |
 | … with `--no-start` | No |
 | … with `--yes`, `--no-input` or `--json` | No |
 | In CI, or with output piped to a file | No |
@@ -153,7 +154,7 @@ The rule in the code is: start if `--start` was passed, **or** if `--no-start` w
 This is deliberate — the first run is meant to end in the browser — but it is a surprise if you expected a command that creates a directory and exits. Pass `--no-start` when you are scripting, when you want to read the files before anything touches Docker, or when you simply want your prompt back:
 
 ```bash
-orb new plateful --preset full --tenancy multi --module example.com/plateful --no-start
+orb new plateful --preset full --scope organisation --module example.com/plateful --no-start
 ```
 
 [Chapter 3](03-configuration-and-first-run.md) runs `orb dev` deliberately and explains every step it takes.
@@ -165,7 +166,7 @@ If you run `orb new` anywhere **inside a clone of the gorbital repository**, the
 It is not silent, but the disclosure is one dim line in the header you have probably stopped reading:
 
 ```text
-preset full · tenancy multi · library ../.. (found above this directory; --local to change)
+auth full · scope organisation · library ../.. (found above this directory; --local to change)
 ```
 
 and, in the interactive flow, one answered question:
@@ -177,7 +178,7 @@ and, in the interactive flow, one answered question:
 Compare that with the line a normal run prints:
 
 ```text
-preset full · tenancy multi · library gorbital.dev v0.2.0
+auth full · scope organisation · library gorbital.dev v0.3.2
 ```
 
 **Why it matters.** The app now builds against your local edits, including uncommitted ones. It will not build on anyone else's machine, or in CI, until the `replace` block is removed. And the path is not recorded in `gorbital.lock` — the lock deliberately ignores it, because it only ever reaches `go.mod` — so `orb upgrade` will not clean it up for you.

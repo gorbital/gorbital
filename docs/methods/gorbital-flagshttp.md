@@ -27,7 +27,7 @@ const PermRead = flagsusecase.PermFlagsRead
 
 PermRead lets a caller read the client flags. The module grants it to the user role, which every signed-in user holds; an API key needs it in its scopes (ADR-0058). Permission names are public API.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 ## Functions
 
@@ -41,7 +41,7 @@ func Module() gorbital.Module
 
 Module returns the client feature flags API. Its name is "flags".
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 

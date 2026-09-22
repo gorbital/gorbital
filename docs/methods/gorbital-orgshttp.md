@@ -53,7 +53,7 @@ DefaultScope is the tenancy organisations give an app (ADR-0088): the concept na
 
 Unlike gorbital.DefaultOrgScope it has a ValidID: only this package may import gorbital.dev/modules/orgs, so only this package knows how an organisation ID is shaped.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.3.2`*
 
 **Example**
 
@@ -87,7 +87,7 @@ Module returns organisations as a module named "orgs". id is the app's sign-in, 
 
 gorbital.New fails with a configuration error when id is nil, or is the app's authenticator's type and not the app's authenticator. Mounted by hand with gorbital.Mount, the module registers its routes for the OpenAPI document only.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -153,7 +153,7 @@ OrgServiceAccountRoutes(r *gorbital.Router)
 
 which registers the operations on organisations' service accounts; [WithoutServiceAccounts](#WithoutServiceAccounts) leaves them out for an identity that doesn't.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.3.2`*
 
 **Example**
 
@@ -182,7 +182,7 @@ type Option func(*options)
 
 An Option configures [Module](#Module).
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -208,7 +208,7 @@ func Brand(b mail.Brand) Option
 
 Brand sets what invitation emails have in common with the app's other emails: its name, link, logo, support address and footer (mail.Brand). Without it, invitations carry the app's name (gorbital.WithName) linking to APP\_PUBLIC\_URL, as sign-in's emails do without authhttp.Brand; pass the same value to both.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.2.0`*
 
 **Example**
 
@@ -242,7 +242,7 @@ The organisation service accounts under /v1/orgs/{orgId}/service-accounts are si
 
 singular and plural are lowercase letters; param is a letter followed by letters and digits. gorbital.New fails, naming the value, when one isn't.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.3.2`*
 
 **Example**
 
@@ -283,7 +283,7 @@ WithoutServiceAccounts leaves out the operations on organisations' service accou
 
 They are sign-in's operations, registered through the [Identity](#Identity)'s OrgServiceAccountRoutes: an identity that can't issue API keys doesn't have that method, and an app that mounts organisations under its own words ([ScopeName](#ScopeName)) can't have them under /v1/orgs. Without this option gorbital.New fails in both cases, naming it.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.3.2`*
 
 **Example**
 

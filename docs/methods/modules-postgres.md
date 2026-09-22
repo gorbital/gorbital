@@ -56,7 +56,7 @@ org_id = current_setting('gorbital.org_id', true)
     OR current_setting('gorbital.rls_bypass', true) = 'on'
 ```
 
-*Since `v0.1.0`: OrgSetting, BypassSetting; `v0.3.0 (unreleased)`: ScopeSetting*
+*Since `v0.1.0`: OrgSetting, BypassSetting; `v0.3.2`: ScopeSetting*
 
 <a id="DefaultConnectTimeout"></a>
 
@@ -291,7 +291,7 @@ func WithScope(ctx context.Context, scopeID string) context.Context
 
 WithScope returns a copy of ctx whose connections carry scopeID in [ScopeSetting](#ScopeSetting), so row-level security policies limit them to that scope's rows. It is [WithOrg](#WithOrg) under the name the framework uses for tenancy since v0.3.0, and is what gorbital.Scope.Session is usually set to.
 
-*Since `v0.3.0 (unreleased)`*
+*Since `v0.3.2`*
 
 **Example**
 

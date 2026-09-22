@@ -185,6 +185,8 @@ func declarePermissions() *authlib.Catalog {
 
 With `Roles: []string{"user"}` on a module's permission, `Grants` returns it for the user role that every signed-in user holds.
 
+A module whose records belong to a tenant declares `ScopeRoles` instead — the roles *within* a tenant that hold the permission, which `guard.Scope` checks. `OrgRoles` is its v0.2 name and still works. What a role means, and who holds it, are different questions with different answers: [Access control](access-control.md), [Tenancy](tenancy.md).
+
 ```go
 // app.go, before settings.NewStore and flags.NewStore
 if err := gorbital.Declare(gorbital.Declarations{Settings: reg, Flags: flagReg}, appModules...); err != nil {
