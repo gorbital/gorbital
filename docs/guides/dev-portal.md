@@ -33,6 +33,8 @@ The portal is for development: `APP_ENV=production` in `.env` or the environment
 
 ### Landing on a page
 
+Without the cookie the portal shows its sign-in page: one field for the token, which is what `orb dev` prints after `t=` in the link. Use it when the link has scrolled out of the terminal, or to sign a second browser in. There is no account and no password to remember — the portal has one secret, and `orb dev` generates a new one every run.
+
 The link accepts `next`, a path of the portal to land on once the cookie is set: `http://127.0.0.1:3100/_portal/auth?t=<token>&next=/database/schema`. Only paths of the portal itself are accepted; anything else lands on the Overview.
 
 ### Light and dark theme
@@ -45,6 +47,7 @@ The portal follows your system's colour scheme the first time you open it (dark 
 |---|---|
 | `/` and every page | The portal's UI, a Next.js static export embedded in `orb` (built from [gorbital-dashboards](https://github.com/gorbital/gorbital-dashboards)). Pages are open to any local reader and hold nothing secret; every request for data needs the token |
 | `/_portal/auth?t=<token>` | Signs the browser in: sets the `orb_portal` cookie and goes to `/` |
+| `POST /_portal/auth` | Signs the browser in from the portal's own sign-in page: `{"token": "<token>"}` sets the same cookie and answers 204. It needs the `X-Orb-Portal` header, as every request that changes something does, and a wrong token gets 401 and no cookie |
 | `/_portal/api/…` | The portal's own API: the app's state and output, restarts, generators (below) |
 | `/_portal/app/…` | A proxy to the app: `/_portal/app/v1/ping` is the app's `/v1/ping`. Requests to `/_portal/app/_dev/…` and `/_portal/app/ops/…` that carry no `Authorization` get the [dev console](dev-console.md) token added by `orb dev`, so the UI never sees it: in Full apps the token acts as the development operator on `/ops/` ([ADR-0066](../adr/0066-dev-portal.md)). Other requests go through with the headers and cookies you send, minus the portal's own |
 
