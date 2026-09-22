@@ -49,15 +49,17 @@ type patch struct{ from, to string }
 // golden app already has. Everything else conditional is a hand-written
 // template under tree/.
 var patches = map[string][]patch{
-	// Organisations are a requirement only of an app that mounts them.
+	// Organisations are a requirement only of an app that mounts them. The
+	// replace directive is not conditional: gorbital's own tests import
+	// modules/orgs, so go mod tidy resolves it in every app whether or not
+	// the app mounts organisations. Left to the module proxy it fails for
+	// the release commit, which names a version the proxy does not have
+	// yet, and --local exists so that a generated app builds against the
+	// checkout and not the proxy at all.
 	"go.mod.tmpl": {
 		{
 			from: "\tgorbital.dev/modules/orgs ⟦.LibraryVersion⟧ // indirect\n",
 			to:   "⟦- if .Profile.Named⟧\n\tgorbital.dev/modules/orgs ⟦.LibraryVersion⟧ // indirect\n⟦- end⟧\n",
-		},
-		{
-			from: "\tgorbital.dev/modules/orgs => ⟦.LocalDir \"/modules/orgs\"⟧\n",
-			to:   "⟦- if .Profile.Named⟧\n\tgorbital.dev/modules/orgs => ⟦.LocalDir \"/modules/orgs\"⟧\n⟦- end⟧\n",
 		},
 	},
 }

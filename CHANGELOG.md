@@ -11,7 +11,13 @@ Nothing about the library or the CLI changes. This release exists to retract `v0
 ### Retracted
 
 - **`v0.3.0`, in all 22 modules.** It is unusable: `gorbital.dev/gorbital@v0.3.0` does not build at all, and 18 of the 22 modules require `gorbital.dev` or a sibling at `v0.2.1`, so even the ones that compile resolve a combination this repository never built. Every `go.mod` now carries `retract v0.3.0` with a rationale `go get` shows. A `retract` reaches people only through a later version, which is why this release exists; `v0.3.2` is the same code as `v0.3.1`.
-- `v0.3.1`'s requirements named `v0.3.0`, so retracting `v0.3.0` without this release would leave `gorbital.dev/gorbital@v0.3.1` depending on a retracted version. Every requirement in the set now names `v0.3.2`.
+- `v0.3.1`'s requirements named `v0.3.0`, which is now retracted, so every requirement moves to `v0.3.1`. The release commit moves them to `v0.3.2`; see the ordering rule below.
+
+### Fixed: a generated app could not resolve organisations
+
+- **`orb new --local` replaced 19 gorbital modules but not `modules/orgs` unless the app mounted organisations** — and `gorbital`'s own tests import `modules/orgs`, so `go mod tidy` resolves it in *every* generated app. It came from the proxy instead of the checkout, which works only while the version named is already published. `examples/full-single` and `examples/api-basic` had the same gap. The replace is now unconditional in the templates and both golden apps.
+- This is why the release procedure could not be followed. `scripts/release.sh` requires every requirement to name the version being released, which is by definition not published when the tags are made; with organisations coming from the proxy, `go mod tidy` in every generated app failed on `unknown revision modules/orgs/vX.Y.Z`. Skipping `release.sh` was the workaround. All seven golden apps and all nine `orb new` profiles now build offline against an unpublished version.
+- **The bump belongs in the release commit**, and [CONTRIBUTING.md](CONTRIBUTING.md#releasing) now says so. Between releases every requirement and `recipes.LibraryVersion` name the last *published* version, because an app `orb new` generates outside this repository has no `replace` directives and resolves from the proxy.
 
 ### Fixed
 
@@ -20,7 +26,7 @@ Nothing about the library or the CLI changes. This release exists to retract `v0
 
 ### Added
 
-- **`scripts/set-requirements.sh`**: points every `gorbital.dev` requirement in the repository at one version, or checks that they all already do. Preparing a release stops being 22 hand-edited `go.mod` files, which is where `v0.3.0` went wrong. `scripts/release.sh` calls its `--check` instead of carrying its own copy of the rule.
+- **`scripts/set-requirements.sh`**: points every `gorbital.dev` requirement in the repository, and `recipes.LibraryVersion`, at one version, or checks that they all already do. Preparing a release stops being 22 hand-edited `go.mod` files plus a constant in the CLI, which is where `v0.3.0` went wrong. `scripts/release.sh` calls its `--check` instead of carrying its own copy of the rule.
 - A release runbook in [CONTRIBUTING.md](CONTRIBUTING.md#releasing): what to run, in what order, before a tag reaches the proxy, and how to retract a version that should not have shipped.
 
 ## v0.3.1 (2026-09-21)

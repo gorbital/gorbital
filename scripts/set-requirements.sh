@@ -66,9 +66,32 @@ for dir in "${dirs[@]}"; do
   done < <(requirements "$dir")
 done
 
+# recipes.LibraryVersion is the version orb new writes into an app it
+# generates. An app created outside this repository has no replace
+# directives, so this must name a version the module proxy already has:
+# on main it is the last published release, and only the release commit
+# moves it, immediately before the tag is pushed.
+recipes=cli/internal/recipes/recipes.go
+library=$(sed -nE 's/^[[:space:]]*LibraryVersion = "(v[^"]+)".*/\1/p' "$recipes")
+if [[ -z $library ]]; then
+  echo "$recipes: no LibraryVersion constant" >&2
+  exit 1
+fi
+if [[ $library != "$version" ]]; then
+  if [[ $mode == --check ]]; then
+    echo "$recipes has LibraryVersion $library, want $version" >&2
+    status=1
+  else
+    sed -i.bak -E "s/^([[:space:]]*LibraryVersion = )\"v[^\"]+\"/\1\"$version\"/" "$recipes"
+    rm -f "$recipes.bak"
+    echo "$recipes: LibraryVersion $library -> $version"
+    changed=$((changed + 1))
+  fi
+fi
+
 if [[ $mode == --check ]]; then
   [[ $status -eq 0 ]] || exit 1
-  echo "Every gorbital.dev requirement in ${#dirs[@]} modules names $version."
+  echo "Every gorbital.dev requirement in ${#dirs[@]} modules, and recipes.LibraryVersion, names $version."
   exit 0
 fi
 
