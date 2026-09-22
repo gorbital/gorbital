@@ -31,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"io/fs"
 	"net"
 	"net/http"
@@ -260,6 +261,7 @@ func (s *Server) Close() {
 func (s *Server) routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+AuthPath, s.serveAuth)
+	mux.HandleFunc("POST "+AuthPath, s.serveSignIn)
 	mux.Handle(APIPrefix+"db/sql/", s.guard(s.sqlHandler()))
 	mux.Handle(APIPrefix+"db/", s.guard(s.dbHandler()))
 	mux.Handle(APIPrefix, s.guard(s.apiHandler()))
@@ -361,6 +363,62 @@ func (s *Server) serveAuth(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true, SameSite: http.SameSiteStrictMode,
 	})
 	http.Redirect(w, r, landingPath(r.URL.Query().Get("next")), http.StatusSeeOther) //nolint:gosec // G710: landingPath only returns a path of this portal
+}
+
+// signInRequest is the body of POST /_portal/auth: the token orb dev
+// printed, pasted into the portal's sign-in page.
+type signInRequest struct {
+	Token string `json:"token"`
+}
+
+// maxSignInBody caps the sign-in body. The token is a few dozen bytes; the
+// limit exists so that a wrong request cannot make the portal read a large
+// body before refusing it.
+const maxSignInBody = 4 << 10
+
+// serveSignIn takes the token from the portal's own sign-in page and sets
+// the cookie, for the browser that has the token but not the link — a
+// second browser, or a terminal the link scrolled out of.
+//
+// It is registered outside guard, like serveAuth, because signing in is
+// what a request without the cookie is for. It makes the same host and peer
+// checks, and it requires MutationHeader as every other write does: a page
+// on another origin cannot send that header without a preflight this portal
+// never answers, so it cannot use this endpoint to plant a cookie or to try
+// tokens. A wrong token gets no cookie and the same refusal log as any
+// other bad token, and the answer never repeats what was sent.
+func (s *Server) serveSignIn(w http.ResponseWriter, r *http.Request) {
+	h := w.Header()
+	h.Set("Cache-Control", "no-store")
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Referrer-Policy", "no-referrer")
+	h.Set("X-Frame-Options", "DENY")
+	switch {
+	case !loopbackHost(r.Host) || !loopbackPeer(r.RemoteAddr):
+		s.logRefusal(r, refusedHost)
+		writeProblem(w, http.StatusForbidden, "forbidden", "the Dev Portal answers only local connections to http://localhost or http://127.0.0.1")
+		return
+	case r.Header.Get(MutationHeader) == "":
+		s.logRefusal(r, refusedMutation)
+		writeProblem(w, http.StatusForbidden, "forbidden", "requests that change something must carry the "+MutationHeader+" header")
+		return
+	}
+	var body signInRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, maxSignInBody)).Decode(&body); err != nil {
+		writeProblem(w, http.StatusBadRequest, "invalid_body", "send {\"token\": \"…\"}, the token orb dev printed")
+		return
+	}
+	token := strings.TrimSpace(body.Token)
+	if !s.tokenMatches(token) {
+		s.logRefusal(r, refusedToken)
+		writeProblem(w, http.StatusUnauthorized, "unauthorized", "that is not this run's token; orb dev prints a new one every run")
+		return
+	}
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // no Secure: the portal is plain http on a loopback address only
+		Name: CookieName, Value: token, Path: "/",
+		HttpOnly: true, SameSite: http.SameSiteStrictMode,
+	})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // landingPath is the page the sign-in link lands on: next when it is a path
