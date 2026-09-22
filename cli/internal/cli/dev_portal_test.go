@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -467,5 +468,78 @@ func TestPortalModuleAndMiddlewareGenerators(t *testing.T) {
 	app := list.Filter("", false, true)
 	if app.Total != 20 || app.Filter("shelves", false, false).Total != 5 {
 		t.Errorf("the app's routes = %+v", app)
+	}
+}
+
+// TestPortalProjectReadsTheProfile covers the three manifests orb has
+// written: v0.3's declared scope block, v0.3's flat scope, and the v0.2
+// manifest that records only tenancy. The portal reports what the file
+// says and invents nothing for an app that named no tenant (ADR-0088,
+// ADR-0089).
+func TestPortalProjectReadsTheProfile(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		manifest string
+		want     portal.Project
+	}{{
+		name: "v0.3 declared scope",
+		manifest: `name: shop
+module: example.com/shop
+preset: full
+tenancy: multi
+auth: full
+scope:
+  name: merchant
+  plural: merchants
+  column: merchant_id
+roles: [owner, admin, member]
+layout: v0.2
+mail: resend
+`,
+		want: portal.Project{
+			Name: "shop", Module: "example.com/shop", Preset: "full", Tenancy: "multi",
+			Auth: "full", Scope: "merchant", ScopeName: "merchant", ScopePlural: "merchants",
+			Mail: "resend",
+		},
+	}, {
+		name: "v0.3 flat scope",
+		manifest: `name: notes
+module: example.com/notes
+preset: full
+tenancy: single
+auth: basic
+scope: single
+layout: v0.2
+`,
+		want: portal.Project{
+			Name: "notes", Module: "example.com/notes", Preset: "full", Tenancy: "single",
+			Auth: "basic", Scope: "single",
+		},
+	}, {
+		name: "v0.2 manifest",
+		manifest: `name: legacy
+module: example.com/legacy
+preset: full
+tenancy: multi
+mail: smtp
+`,
+		// No auth, no scope and no vocabulary: the app declared none, and
+		// the portal doesn't fill them in from the organisation defaults.
+		want: portal.Project{
+			Name: "legacy", Module: "example.com/legacy", Preset: "full",
+			Tenancy: "multi", Mail: "smtp",
+		},
+	}} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, manifestPath), []byte(tc.manifest), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			got := (&devRunner{dir: dir}).project()
+			tc.want.Dir, tc.want.Features = dir, []string{}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("project() =\n\t%+v\nwant\n\t%+v", got, tc.want)
+			}
+		})
 	}
 }

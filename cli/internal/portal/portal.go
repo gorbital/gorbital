@@ -94,11 +94,28 @@ func CheckToken(token string) error {
 
 // Project describes the app orb dev runs, from gorbital.yaml.
 type Project struct {
-	Name     string   `json:"name"`
-	Module   string   `json:"module"`
-	Preset   string   `json:"preset"`
-	Tenancy  string   `json:"tenancy,omitempty"`
-	Features []string `json:"features"`
+	Name   string `json:"name"`
+	Module string `json:"module"`
+	Preset string `json:"preset"`
+	// Tenancy is the v0.2 spelling of Scope: single or multi. Apps created
+	// before v0.3.0 record only it, so it stays for them (ADR-0088).
+	Tenancy string `json:"tenancy,omitempty"`
+	// Auth is how much sign-in the app serves, from orb new --auth: none,
+	// basic or full. Empty for an app created before v0.3.0, which means
+	// the full sign-in those releases always wrote (ADR-0089).
+	Auth string `json:"auth,omitempty"`
+	// Scope is what the app calls a tenant, from orb new --scope: none,
+	// single, custom, or a name such as organisation or merchant. Empty
+	// for an app created before v0.3.0, which records Tenancy instead
+	// (ADR-0088).
+	Scope string `json:"scope,omitempty"`
+	// ScopeName and ScopePlural are the words the app uses for one tenant
+	// and for many, when its manifest declares a scope block. They are
+	// empty for every other app, including one that named no tenant: the
+	// portal says what the manifest says, and invents no vocabulary.
+	ScopeName   string   `json:"scope_name,omitempty"`
+	ScopePlural string   `json:"scope_plural,omitempty"`
+	Features    []string `json:"features"`
 	// Mail is the email provider recorded in the manifest, if any.
 	Mail string `json:"mail,omitempty"`
 	// Dir is the app directory on this machine.
