@@ -648,6 +648,61 @@ The `--json` output is public API (here `orb routes --app --json`):
 | `routes[].guards`, `middleware`, `tags` | array of strings | Always present, possibly empty |
 | `warnings` | array of strings | What couldn't be found, for people; don't parse them |
 
+## `orb explain`
+
+`orb routes` answers *what routes are there*. `orb explain` answers *what happens when this one is called*: the guards a request passes, the scope its records belong to, the code that serves it, and the files to read next. It changes nothing.
+
+```bash
+orb explain route GET /v1/orgs/{orgId}/projects   # one route, end to end
+orb explain permission projects.project.read      # every route that requires it
+orb explain scope                                 # what a tenant is called here
+orb explain scope projects                        # one module's access rule
+```
+
+Flags come after the subject's arguments: `orb explain route GET /v1/books --json`. Like `orb routes` it takes `--openapi` to read a document instead of building the app, and `--json`.
+
+```text
+GET /v1/orgs/{orgId}/projects
+  List the organisation's projects
+
+Access
+  sign-in             required
+  guards              authenticated, org_member:projects.project.read
+  permissions         projects.project.read
+  membership          required: the caller must belong to the organisation in the path
+  scope               organisation
+  scope column        org_id (every query of this module's rows should carry it)
+  row-level security  off — the query is the only thing keeping one tenant's rows from another's
+
+Request
+  middleware  -
+
+Code
+  module         projects
+  operation      projects-list
+  handler        h.listProjects
+  registered at  internal/modules/projects/delivery/routes.go:32
+  handler at     internal/modules/projects/delivery/list_projects.go:28
+
+Files
+  repository  internal/modules/projects/repository/select_projects.go
+  …
+```
+
+`Files` leaves out the delivery file `Code` already names, and lists the module's `policy.go` for a `--scope custom` module: that file, not a guard, is what decides who may read and change its records.
+
+A path that isn't a route says what it is near, and one served by another method says which:
+
+```text
+$ orb explain route GET /v1/projects
+orb: no route GET /v1/projects in this app
+  did you mean:
+    GET /v1/orgs/{orgId}/projects
+    POST /v1/orgs/{orgId}/projects
+```
+
+**What it does not do.** It does not run the app, read the database or follow a handler's calls, so it describes the route as the app *declares* it, not every effect a request has. Whether the app matches what it declares is [`orb doctor`](#orb-doctor); the code the app owns is [`orb doctor --security`](#orb-doctor---security).
+
 ## `orb doctor`
 
 Checks the app in the current directory and says what to fix. It changes nothing ([ADR-0051](../adr/0051-operations-v0-5.md)).
