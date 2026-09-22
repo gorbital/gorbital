@@ -13,7 +13,7 @@ go run ./cmd/api migrate   # go run ./cmd/migrate in a v0.1 app
 
 Everything below holds in an app built with `gorbital.Main` and [`orgshttp`](../start/organisations.md#in-an-app-on-gorbitalmain), with two things worth saying plainly:
 
-- **The organisation comes from the guard.** [`guard.OrgMember`](../methods/gorbital-guard.md#OrgMember) sets the actor's organisation and `postgres.WithOrg` before the handler runs, so every query the handler and its use cases run carries the organisation of the path they were authorized for. The organisations module's own use cases set it through `orgs.RequireMember`, as in v0.1.
+- **The tenant comes from the guard.** [`guard.Scope`](../methods/gorbital-guard.md#Scope) (and `guard.OrgMember`, its v0.2 name) sets the actor's scope and `postgres.WithScope` before the handler runs, so every query the handler and its use cases run carries the organisation of the path they were authorized for. The organisations module's own use cases set it through `orgs.RequireMember`, as in v0.1.
 - **`orb add rls` is the same command.** It reads the app's `gorbital.lock` and `db/row_level_security.sql` and writes `db/migrations/<version>_row_level_security.sql`, none of which depends on the layout; its end-to-end test runs it on an app of each. Apply it with `go run ./cmd/api migrate`. Modules generated afterwards with `orb gen module --org` carry the policy at the end of their own migration.
 
 A **single-tenant** app has no organisations to separate, so `orb add rls` refuses and tells you to run `orb add orgs` first. Only an app outside that path — one without a `gorbital.lock`, or without `db/row_level_security.sql` — adds the migration by hand: name it `<version>_row_level_security.sql` (the name `orb gen module --org` looks for) and give it the `DO` block a multi-tenant app keeps in `db/row_level_security.sql` (the [invoicing recipe](../examples/recipes/multi-tenant-invoicing.md) shows it); it protects every table with `org_id NOT NULL` except `org_members` and `org_invitations`, the organisations module's own.
@@ -28,7 +28,7 @@ Only one path in the library bypasses the policies: `postgres.Migrate`, for migr
 
 1. **Every connection carries its organisation**
 
-   `postgres.Open` gives every pool a hook that runs when a connection is taken from the pool. It reads the organisation from the context: the actor's `OrgID`, which `orgs.RequireMember` sets after checking membership, or an explicit `postgres.WithOrg(ctx, orgID)`. It sets two session settings on the connection, `gorbital.org_id` and `gorbital.rls_bypass`, and remembers them, so a connection that already has the right values costs nothing. Every multi-tenant app does this from creation, whether or not the policies exist.
+   `postgres.Open` gives every pool a hook that runs when a connection is taken from the pool. It reads the organisation from the context: the actor's `OrgID`, which `orgs.RequireMember` sets after checking membership, or an explicit `postgres.WithScope(ctx, id)` (`postgres.WithOrg` is its older name and still works). It sets two session settings on the connection, `gorbital.org_id` and `gorbital.rls_bypass`, and remembers them, so a connection that already has the right values costs nothing. Every multi-tenant app does this from creation, whether or not the policies exist.
 
 2. **Policies read it**
 
@@ -83,7 +83,7 @@ rows, err := pool.Query(ctx, `SELECT id, org_id FROM invoices WHERE indexed_at I
 
 - The reason names the path. The first connection taken with that context is logged at info level (`row-level security bypassed`, `reason=job:reindex`), and every query span it runs carries `gorbital.rls_bypass`.
 - Decide it in code. Never bypass because of anything in a request.
-- To act in one organisation without an organisation actor, use `postgres.WithOrg(ctx, orgID)` instead.
+- To act in one tenant without a tenant actor, use `postgres.WithScope(ctx, id)` instead (`postgres.WithOrg` is its older name).
 
 Jobs enqueued inside an organisation's request carry its organisation in their metadata, and the jobs middleware puts it back on the actor, so they need neither.
 
@@ -129,3 +129,7 @@ Measured on an Apple M1 Max with PostgreSQL 18 in Docker Desktop ([ADR-0061](../
 - The organisation is taken when a connection is taken: a transaction keeps the organisation of the context that began it.
 - Row-level security protects against a missing filter, not against SQL injection: SQL running as the app's role could change the settings. Queries use placeholders only.
 - Changes to `db/row_level_security.sql` in a later release don't reach apps that already ran `orb add rls`; such a change comes as its own migration with an upgrade note.
+
+## The session setting keeps its name
+
+The setting the policies read is `gorbital.org_id`, and `actor.Actor.OrgID` is still what carries the tenant. v0.3.0 renamed the API around them but deliberately not these two: both now mean *the scope*, whatever the app calls its tenant, and renaming either would change what already-stored audit rows and live policies mean ([ADR-0088](../adr/0088-scope-tenancy-as-a-contract.md)).
