@@ -911,3 +911,68 @@ func TestRoutesEndpoint(t *testing.T) {
 		t.Errorf("routes without the token = %d", res.StatusCode)
 	}
 }
+
+// TestSignInPostSetsCookie covers POST /_portal/auth, which the portal's
+// sign-in page uses: the same cookie as the printed link, and no cookie for
+// anything else. The header requirement is what stops a page on another
+// origin from reaching it at all, so it is checked here too.
+func TestSignInPostSetsCookie(t *testing.T) {
+	_, ts, _ := newTestServer(t, nil)
+	post := func(body, header string) *http.Response {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPost, ts.URL+AuthPath, strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if header != "" {
+			req.Header.Set(MutationHeader, header)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return res
+	}
+
+	res := post(`{"token":"`+testToken+`"}`, "1")
+	defer res.Body.Close()
+	var cookie *http.Cookie
+	for _, c := range res.Cookies() {
+		if c.Name == CookieName {
+			cookie = c
+		}
+	}
+	if res.StatusCode != http.StatusNoContent || cookie == nil || cookie.Value != testToken ||
+		!cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode || cookie.Path != "/" {
+		t.Fatalf("sign-in = %d, cookie %+v, want 204 and the token, HttpOnly, SameSite=Strict, Path=/", res.StatusCode, cookie)
+	}
+	// Surrounding space is what a paste out of a terminal carries.
+	if r := post(`{"token":"  `+testToken+`  "}`, "1"); r.StatusCode != http.StatusNoContent {
+		r.Body.Close()
+		t.Errorf("padded token = %d, want 204", r.StatusCode)
+	} else {
+		r.Body.Close()
+	}
+
+	for name, tc := range map[string]struct {
+		body, header string
+		want         int
+	}{
+		"wrong token": {`{"token":"wrong-` + testToken + `"}`, "1", http.StatusUnauthorized},
+		"empty token": {`{"token":""}`, "1", http.StatusUnauthorized},
+		"no header":   {`{"token":"` + testToken + `"}`, "", http.StatusForbidden},
+		"not json":    {`nonsense`, "1", http.StatusBadRequest},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := post(tc.body, tc.header)
+			defer r.Body.Close()
+			body, _ := io.ReadAll(r.Body)
+			if r.StatusCode != tc.want || len(r.Cookies()) != 0 {
+				t.Errorf("= %d with cookies %v, want %d and none", r.StatusCode, r.Cookies(), tc.want)
+			}
+			if strings.Contains(string(body), testToken) {
+				t.Errorf("the answer repeats the token: %s", body)
+			}
+		})
+	}
+}
