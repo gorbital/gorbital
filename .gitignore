@@ -9,3 +9,7 @@ internal/tools/contracts/contracts
 # the ref docs/examples.json pins, so that docscheck can resolve the
 # <!-- include examples/apps/... --> markers (ADR-0093).
 /.examples/
+
+# The gitleaks scan's report, written by a local or CI secret scan. It
+# names every file and line a rule matched, so it stays out of the tree.
+/.gitleaks-report.json
