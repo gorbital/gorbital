@@ -4,6 +4,13 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
+## Unreleased
+
+### Fixed
+
+- **The Dev Portal showed nothing about the sign-in and the tenant of an app `v0.3.0` created.** It read `gorbital.yaml` with a parser of its own that knew `name`, `module`, `preset`, `tenancy` and `mail` — the keys `v0.2` wrote. Since `v0.3.0` an app also records how much sign-in it serves (`auth`, [ADR-0089](docs/adr/0089-sign-in-profiles.md)) and what it calls a tenant (`scope`, [ADR-0088](docs/adr/0088-scope-tenancy-as-a-contract.md)), and a *named* scope is a nested block, which no flat reader sees: an app made with `orb new --scope merchant` reported neither. `orb dev` now asks the readers that own those keys — the same ones `orb gen module` and `orb doctor` use — and `GET /_portal/api/status` and `GET /_portal/api/project` carry `auth`, `scope`, `scope_name` and `scope_plural`. `tenancy` is unchanged for apps created before `v0.3.0`, and an app that declared no tenant has no vocabulary invented for it. Additive: nothing is removed from either response.
+- `.gitleaks-report.json`, written at the repository root by a local or CI secret scan, is ignored rather than offered for commit.
+
 ## v0.3.2 (2026-09-22)
 
 Nothing about the library or the CLI changes. This release exists to retract `v0.3.0` and to move the check that should have stopped it out of a script somebody has to remember to run.

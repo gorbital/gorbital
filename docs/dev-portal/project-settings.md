@@ -8,7 +8,7 @@ The app as the manifest, `go.mod` and `.env` describe it: name, module, preset, 
 
 | Section | What it shows | Key |
 |---|---|---|
-| App | Name, module, preset, tenancy, features, directory, whether it is a git repository | read-only |
+| App | Name, module, preset, sign-in (`auth`) and what the app calls a tenant (`scope`), features, directory, whether it is a git repository | read-only |
 | Ports and addresses | The app's address (with the URL it is reachable at), the portal's port (applied when `orb dev` restarts), PostgreSQL's host port | `APP_ADDR`, `DEV_PORTAL_PORT`, `POSTGRES_PORT` |
 | Database | The connection as host, port and database, never the password; a pointer to Environment for the URL and to the Database screen for the pool, health and migrations | `DATABASE_URL` |
 | Mail | The delivery (`devmail` with the catcher's address) and the provider, with a link to the Email provider generator | `MAIL_DELIVERY` |
