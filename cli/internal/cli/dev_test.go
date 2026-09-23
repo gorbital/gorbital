@@ -315,3 +315,76 @@ func TestDevSetsAppEnv(t *testing.T) {
 		}
 	}
 }
+
+func TestDevPrepareFreshEmptiesTheDatabaseFirst(t *testing.T) {
+	newDevApp(t, fullManifest, newDevPorts(t).env()+"DATABASE_URL=postgres://app:app@localhost:5432/app?sslmode=disable\n")
+	var out bytes.Buffer
+	d := newDevRunner(&out)
+	f := &fakeCommands{noTool: true}
+	f.install(d)
+	d.database, d.fresh = true, true
+	d.dropSchema = func(context.Context) error {
+		f.calls = append(f.calls, "drop schema public")
+		return nil
+	}
+
+	if err := d.prepare(context.Background()); err != nil {
+		t.Fatalf("prepare() error = %v", err)
+	}
+	if want := []string{"drop schema public", "go run ./cmd/migrate", "go run ./cmd/seed"}; !slices.Equal(f.calls, want) {
+		t.Errorf("commands = %q, want %q", f.calls, want)
+	}
+	if !strings.Contains(out.String(), "--fresh dropped every table") {
+		t.Errorf("output doesn't say the database was emptied:\n%s", out.String())
+	}
+}
+
+func TestDevPrepareFreshRefusesARemoteDatabase(t *testing.T) {
+	newDevApp(t, fullManifest, newDevPorts(t).env()+"DATABASE_URL=postgres://app:secret@db.example.com:5432/app\n")
+	d := newDevRunner(&bytes.Buffer{})
+	f := &fakeCommands{noTool: true}
+	f.install(d)
+	d.database, d.fresh = true, true
+	dropped := false
+	d.dropSchema = func(context.Context) error { dropped = true; return nil }
+
+	err := d.prepare(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "db.example.com") || !strings.Contains(err.Error(), "only a local database") {
+		t.Errorf("prepare() = %v, want a refusal naming the host", err)
+	}
+	if dropped || len(f.calls) != 0 {
+		t.Errorf("a remote database was touched: dropped %v, commands %q", dropped, f.calls)
+	}
+	if strings.Contains(err.Error(), "secret") {
+		t.Errorf("the refusal prints the password: %v", err)
+	}
+}
+
+func TestDevFreshNeedsADatabase(t *testing.T) {
+	newDevApp(t, "preset: minimal\n", newDevPorts(t).env())
+	err := runDev(context.Background(), []string{"--fresh"}, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "has none") {
+		t.Errorf("orb dev --fresh in a Minimal app = %v", err)
+	}
+}
+
+func TestLocalDatabase(t *testing.T) {
+	for raw, want := range map[string]bool{
+		"postgres://app:app@localhost:5432/app":               true,
+		"postgres://app:app@LOCALHOST/app":                    true,
+		"postgresql://app@127.0.0.1:5433/app?sslmode=disable": true,
+		"postgres://app@[::1]:5432/app":                       true,
+		"postgres:///app":                                     true,
+		"postgres:///app?host=/var/run/postgresql":            true,
+		"postgres:///app?host=db.example.com":                 false,
+		"postgres://app@db.example.com/app":                   false,
+		"postgres://app@10.0.0.5/app":                         false,
+		"postgres://app@postgres:5432/app":                    false,
+		"mysql://app@localhost/app":                           false,
+		"":                                                    false,
+	} {
+		if got := localDatabase(raw); got != want {
+			t.Errorf("localDatabase(%q) = %v, want %v", raw, got, want)
+		}
+	}
+}

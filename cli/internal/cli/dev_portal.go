@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -1153,6 +1154,52 @@ func databaseHost(raw string) string {
 // resetDatabase drops the public schema and asks the supervisor to apply
 // migrations and seed data again.
 func (d *devRunner) resetDatabase(ctx context.Context) error {
+	if err := d.emptyDatabase(ctx); err != nil {
+		return err
+	}
+	return d.ResetDatabase()
+}
+
+// emptyDatabase drops the public schema, with every table and row in it, of
+// a database on this machine. Migration files are not touched: the next
+// migrate run applies all of them again.
+func (d *devRunner) emptyDatabase(ctx context.Context) error {
+	env, err := devEnv(".env")
+	if err != nil {
+		return err
+	}
+	if raw := envValue(env, "DATABASE_URL", ""); !localDatabase(raw) {
+		return fmt.Errorf("DATABASE_URL points at %s, which isn't on this machine: only a local database is reset", cmp.Or(databaseHost(raw), "an unreadable address"))
+	}
+	if d.dropSchema != nil {
+		return d.dropSchema(ctx)
+	}
+	return d.dropPublicSchema(ctx)
+}
+
+// localDatabase reports whether a DATABASE_URL names a server on this
+// machine: a loopback address, localhost, or a Unix socket.
+func localDatabase(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") {
+		return false
+	}
+	host := u.Hostname()
+	if host == "" {
+		// No host is a Unix socket, unless the query names a remote one.
+		host = u.Query().Get("host")
+		return host == "" || strings.HasPrefix(host, "/") || localDatabase("postgres://"+host)
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// dropPublicSchema drops and recreates the public schema over the portal's
+// database connection.
+func (d *devRunner) dropPublicSchema(ctx context.Context) error {
 	open := d.databaseConfig().Open
 	if open == nil {
 		return errors.New("this app has no database")
@@ -1172,5 +1219,5 @@ func (d *devRunner) resetDatabase(ctx context.Context) error {
 	if res.Error != nil {
 		return errors.New(res.Error.Message)
 	}
-	return d.ResetDatabase()
+	return nil
 }
