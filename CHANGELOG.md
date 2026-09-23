@@ -10,9 +10,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0
 
 - **`orb dev --fresh`** starts from an empty database: it drops the `public` schema, with every table and row in it, then applies every migration in `db/migrations`, the app's own included, and runs the seed data again, which prints a new administrator password. Migration files are not touched. It is the Dev Portal's **Reset the database**, which until now was the only way to do this, from the terminal. It refuses a Minimal app, and a `DATABASE_URL` that isn't on this machine.
 
+### Changed
+
+- **`orb new` no longer asks for the Go module path.** It was the second question a new user met, it came with no explanation, and the answer almost everyone needs is the default: an API is rarely imported by another module. The module path is the app name unless `--module` sets it, and it is still listed with the answers (`✓ Go module path … my-api`) before anything is written. Scripts that pass `--module` are unchanged.
+
 ### Fixed
 
 - **The Dev Portal's Reset the database dropped the schema of whatever `DATABASE_URL` named**, including a server elsewhere reached with `orb dev --no-services`. It now resets only a database on this machine (`localhost`, a loopback address or a Unix socket), like `orb dev --fresh`, and names the host it refused.
+- **Every `orb` question could be drawn twice.** Prompts padded their line to the full width of the terminal, and a line that fills the last column wraps as soon as the terminal draws one character a column wider than counted — `…` and `↑↓` are two columns wide in some terminals, and resizing the window does the same. Every redraw then left a copy of the question on the line below. Prompts now stop three columns short of the edge and still follow the window when it is resized.
 
 ## v0.3.3 (2026-09-23)
 
