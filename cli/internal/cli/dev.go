@@ -37,6 +37,12 @@ migrations and runs seed data; changed migrations are applied before the
 restart. Services keep running after orb dev stops: docker compose down
 stops them, docker compose down -v also deletes their data.
 
+--fresh starts from an empty database: it drops the public schema, with
+every table and row in it, then applies every migration in db/migrations,
+your own included, and runs the seed data again, which prints a new
+administrator password. Migration files are not touched. It refuses a
+DATABASE_URL that isn't on this machine.
+
 It also serves the Dev Portal at http://127.0.0.1:3100 (DEV_PORTAL_PORT or
 --portal-port to move it) and opens it in your browser: the app's state and
 output, its routes, jobs, logs and email, and the generators, in one place
@@ -72,6 +78,7 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 	noPortal := flags.Bool("no-portal", false, "don't serve the Dev Portal")
 	noOpen := flags.Bool("no-open", false, "don't open the Dev Portal in a browser")
 	tunnelMode := flags.String("tunnel", "", "expose the app on a public HTTPS address with cloudflared: quick or named")
+	fresh := flags.Bool("fresh", false, "drop every table and row in the local database, then apply all migrations and the seed data again")
 	tunnelHostname := flags.String("tunnel-hostname", "", "a named tunnel's public hostname (default ORB_TUNNEL_HOSTNAME, or the one saved from the Dev Portal)")
 	flags.Usage = func() {
 		fmt.Fprint(stderr, devUsage+"\nFlags:\n")
@@ -98,6 +105,10 @@ func runDev(ctx context.Context, args []string, stderr io.Writer) error {
 
 	d := newDevRunner(stderr)
 	d.database = slices.Contains(manifestFeatures(manifest), "postgres")
+	if *fresh && !d.database {
+		return usageError("--fresh resets the database, and this app has none (the Minimal preset)")
+	}
+	d.fresh = *fresh
 	d.services = !*noServices
 	d.observability = *observability
 	d.reload = !*noReload
@@ -135,12 +146,18 @@ type devRunner struct {
 	services      bool     // start the database's Docker Compose services
 	observability bool     // start Grafana and send telemetry to it
 	reload        bool     // watch the app's files and rebuild on change
+	fresh         bool     // drop the schema before migrating (--fresh)
 	extraEnv      []string // set for the app over the environment and .env
 
 	// migrations lists db/migrations with each file's state for the schema
 	// status (ADR-0080); nil uses the portal's database connection. Tests
 	// replace it.
 	migrations func(ctx context.Context) ([]pgmeta.Migration, error)
+
+	// dropSchema empties the database for --fresh and the portal's reset;
+	// nil drops the public schema over the portal's connection. Tests
+	// replace it.
+	dropSchema func(ctx context.Context) error
 
 	// consoleToken is the dev console token given to the app, or "";
 	// consoleTokenFromEnv reports one taken from orb dev's environment.
@@ -323,6 +340,12 @@ func (d *devRunner) prepare(ctx context.Context) error {
 		if err := d.startServices(ctx, env, services); err != nil {
 			return err
 		}
+	}
+	if d.database && d.fresh {
+		if err := d.emptyDatabase(ctx); err != nil {
+			return fmt.Errorf("--fresh: %w", err)
+		}
+		fmt.Fprintln(d.out, "orb: --fresh dropped every table; applying all migrations and seed data again")
 	}
 	if d.database {
 		// The startup schema status is published here (ADR-0080): the hub

@@ -4,6 +4,16 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
+## Unreleased
+
+### Added
+
+- **`orb dev --fresh`** starts from an empty database: it drops the `public` schema, with every table and row in it, then applies every migration in `db/migrations`, the app's own included, and runs the seed data again, which prints a new administrator password. Migration files are not touched. It is the Dev Portal's **Reset the database**, which until now was the only way to do this, from the terminal. It refuses a Minimal app, and a `DATABASE_URL` that isn't on this machine.
+
+### Fixed
+
+- **The Dev Portal's Reset the database dropped the schema of whatever `DATABASE_URL` named**, including a server elsewhere reached with `orb dev --no-services`. It now resets only a database on this machine (`localhost`, a loopback address or a Unix socket), like `orb dev --fresh`, and names the host it refused.
+
 ## v0.3.3 (2026-09-23)
 
 ### Added

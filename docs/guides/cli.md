@@ -777,7 +777,7 @@ In an app with a database (Full preset), before the first start it:
 
 In every app whose `.env.example` declares `DEV_CONSOLE_TOKEN` and that runs with `APP_ENV=development`, `orb dev` also generates a random dev console token (256 bits) for the run, passes it to the app in its environment only (never to `.env` or any file), and prints the [dev console APIs](dev-console.md) address and the token. Rebuilds keep the token; the next run gets a new one. A `DEV_CONSOLE_TOKEN` already set in `orb dev`'s own environment is passed instead and not printed.
 
-While it runs, a changed or new migration is applied before the restart; if it fails, the previous version keeps running. Services keep running after `orb dev` stops, so the next start is fast: `docker compose down` stops them, and `docker compose down -v` also deletes the database.
+While it runs, a changed or new migration is applied before the restart; if it fails, the previous version keeps running. Services keep running after `orb dev` stops, so the next start is fast: `docker compose down` stops them, and `docker compose down -v` also deletes the database. To start over with the same schema and fresh seed data, `orb dev --fresh`.
 
 It also serves the [Dev Portal](dev-portal.md) at http://127.0.0.1:3100 and opens it in your browser ([ADR-0066](../adr/0066-dev-portal.md)): the app's state and output as it happens, restart, stop and start, and the app's dev console APIs through a proxy; more screens arrive with each phase of the [Dev Portal roadmap](../dev-portal-roadmap.md). The printed link holds a token that is new on every run and never written to disk; the portal answers only this machine. Its port is checked before anything starts, like the services' ports.
 
@@ -785,6 +785,7 @@ It also serves the [Dev Portal](dev-portal.md) at http://127.0.0.1:3100 and open
 |---|---|
 | `--observability` | off. Also starts Grafana (`grafana/otel-lgtm`, the `observability` profile in `compose.yaml`) on `GRAFANA_PORT` (3000) and sets `OTEL_EXPORTER_OTLP_ENDPOINT` for the app, so its traces, metrics and logs appear there. Works in Minimal apps too. Grafana receives metrics over OTLP and doesn't scrape the app; to check the Prometheus endpoint locally, set `METRICS_ADDR=127.0.0.1:9464` in `.env` and open http://127.0.0.1:9464/metrics ([production](production.md#prometheus-metrics)) |
 | `--no-services` | start services. Skips Docker and uses `DATABASE_URL` (and `MAILPIT_SMTP_ADDR`) from `.env` as they are; the mail catcher, migrations and seed data still run |
+| `--fresh` | keep the data. Starts from an empty database: drops the `public` schema with every table and row in it, then applies every migration in `db/migrations` — yours included — and runs the seed data again, which prints a new administrator password. Migration files are not touched. Full apps only, and only when `DATABASE_URL` is on this machine (`localhost`, a loopback address or a Unix socket); anything else is refused before a connection is made. The Dev Portal's **Reset the database** does the same while `orb dev` runs |
 | `--no-reload` | reload on change |
 | `--interval` | 500ms between change checks |
 | `--portal-port` | `DEV_PORTAL_PORT` from `.env` or the environment, else 3100 |
