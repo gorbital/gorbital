@@ -42,11 +42,28 @@ func plainPrompts(p promptFlags) bool {
 // runForm shows form on stderr in the gorbital theme, or line by line in
 // plain mode.
 func runForm(form *huh.Form, p promptFlags, stdin io.Reader, stderr io.Writer) error {
-	err := form.WithTheme(theme()).WithAccessible(plainPrompts(p)).WithInput(stdin).WithOutput(stderr).Run()
+	err := form.WithTheme(theme()).WithLayout(insetLayout{huh.LayoutDefault}).
+		WithAccessible(plainPrompts(p)).WithInput(stdin).WithOutput(stderr).Run()
 	if errors.Is(err, huh.ErrUserAborted) {
 		return errAborted
 	}
 	return err
+}
+
+// promptInset is how many columns a prompt leaves free at the right edge of
+// the terminal. huh pads every line to the width it is given; a line that
+// fills the last column wraps as soon as the terminal draws one character a
+// column wider than counted (… and ↑↓ are ambiguous-width, two columns in
+// some terminals), and every redraw then leaves a copy of the question on
+// screen.
+const promptInset = 3
+
+// insetLayout is a huh layout whose groups stay promptInset columns inside
+// the terminal, following it when the window is resized.
+type insetLayout struct{ huh.Layout }
+
+func (l insetLayout) GroupWidth(f *huh.Form, g *huh.Group, w int) int {
+	return l.Layout.GroupWidth(f, g, max(w-promptInset, 1))
 }
 
 // confirm asks a yes/no question, defaulting to yes.

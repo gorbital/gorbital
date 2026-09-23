@@ -91,7 +91,7 @@ orb new my-api --no-start                 # create it, but don't start orb dev
 | Question | Flag | Default |
 |---|---|---|
 | App name | `<name>` (positional) | required |
-| Go module path | `--module` | the app name |
+| Go module path (never asked) | `--module` | the app name |
 | Preset (Minimal or Full) | `--preset minimal\|full` | `minimal` (Custom arrives later) |
 | Sign-in (Full only): how much of it the app gets | `--auth none\|basic\|full` | `full` |
 | Scope (Full only): what owns the records | `--scope none\|single\|custom\|<name>` | `single` |
@@ -107,7 +107,7 @@ Other flags: `--local <path>` (use a gorbital checkout instead of the published 
 
 With `--preset full`, `orb new` writes sign-in into the app: `internal/modules/auth` (and `internal/modules/orgs` with a named scope), every migration in `db/migrations`, `cmd/api/main.go` importing those packages, and `gorbital.lock` recording where each was copied from. It is the app's code from the first commit, and there is one shape of Full app: since v0.3.0 no flag keeps these modules in the library instead ([ADR-0092](../adr/0092-what-the-framework-owns.md)). The API, the database and the behaviour are the same as importing them from the library, and the primitives they call — password hashing, session tokens, TOTP, passkey and OAuth verification — stay there ([The code in your repo](the-code-in-your-repo.md)).
 
-Questions come one at a time. Each answered question folds into one line, and values you passed by flag are listed the same way, so every answer is on screen before the last question: create the app, yes or no.
+The Go module path is not a question: it is the app name unless `--module` sets it, and it is listed with the answers either way. Questions come one at a time. Each answered question folds into one line, and values you passed by flag are listed the same way, so every answer is on screen before the last question: create the app, yes or no.
 
 ```text
 ✓ app name … shop-api
