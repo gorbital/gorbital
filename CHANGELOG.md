@@ -4,7 +4,7 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
-## Unreleased
+## v0.3.4 (2026-09-23)
 
 ### Added
 
@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0
 
 ### Fixed
 
+- **`v0.3.3` shipped a Dev Portal UI from 17 September**, so its sign-in endpoint (`POST /_portal/auth`) had no page to type a token into. The UI is a build of gorbital-dashboards committed in this repository, and nothing rebuilt it before the tag. `v0.3.4` carries the current UI, and `scripts/release.sh` now compares the committed build against gorbital-dashboards and rebuilds it when it is behind, so a release can no longer be cut from a stale one. Use `v0.3.4` rather than `v0.3.3`.
 - **The Dev Portal's Reset the database dropped the schema of whatever `DATABASE_URL` named**, including a server elsewhere reached with `orb dev --no-services`. It now resets only a database on this machine (`localhost`, a loopback address or a Unix socket), like `orb dev --fresh`, and names the host it refused.
 - **Every `orb` question could be drawn twice.** Prompts padded their line to the full width of the terminal, and a line that fills the last column wraps as soon as the terminal draws one character a column wider than counted — `…` and `↑↓` are two columns wide in some terminals, and resizing the window does the same. Every redraw then left a copy of the question on the line below. Prompts now stop three columns short of the edge and still follow the window when it is resized.
 
