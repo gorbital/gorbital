@@ -9,7 +9,7 @@ require (
 	github.com/go-webauthn/webauthn v0.18.1
 	golang.org/x/crypto v0.57.0
 	golang.org/x/oauth2 v0.37.0
-	gorbital.dev v0.3.3
+	gorbital.dev v0.3.4
 	rsc.io/qr v0.2.0
 )
 

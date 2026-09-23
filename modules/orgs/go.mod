@@ -3,8 +3,8 @@ module gorbital.dev/modules/orgs
 go 1.26.0
 
 require (
-	gorbital.dev v0.3.3
-	gorbital.dev/modules/auth v0.3.3
+	gorbital.dev v0.3.4
+	gorbital.dev/modules/auth v0.3.4
 )
 
 require (
