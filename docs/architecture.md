@@ -48,7 +48,7 @@ Three products, versioned together ([ADR-0014](adr/0014-product-shape-and-preset
 ```text
 $ orb new
 ✓ app name … my-api
-✓ Go module path … github.com/acme/my-api
+✓ Go module path … my-api
 ✓ preset … full
 ✓ tenancy … single
 ✓ gorbital checkout … /Users/you/code/gorbital

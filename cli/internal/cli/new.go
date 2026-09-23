@@ -54,7 +54,7 @@ type newResult struct {
 func runNew(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	flags := flag.NewFlagSet("orb new", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	module := flags.String("module", "", "Go module path (default: the app name)")
+	module := flags.String("module", "", "Go module path, which every import in the app starts with (default: the app name; not asked)")
 	preset := flags.String("preset", "minimal", "preset: minimal (HTTP API, no database) or full (PostgreSQL, authentication, jobs, email, audit, ops APIs)")
 	tenancy := flags.String("tenancy", recipes.TenancySingle, "deprecated alias of --scope: single means --scope single, multi means --scope "+recipes.DefaultScopeName)
 	auth := flags.String("auth", "", "how much sign-in: "+recipes.AuthUsage+" (default: full). none has no accounts and no auth tables; basic is an email address, a password and the operators' account APIs")
@@ -434,22 +434,9 @@ func promptNew(name, module, preset, auth, scope, local *string, noGit *bool, se
 		a.answered("app name", *name)
 	}
 
-	moduleOrName := func() string { return cmp.Or(*module, *name) }
-	if !set["module"] {
-		input := huh.NewInput().Title(a.title("Go module path")).Inline(true).Prompt("").
-			Placeholder(*name).Value(module).
-			Validate(func(s string) error {
-				if s == "" {
-					return nil
-				}
-				return validateModule(s)
-			})
-		if err := a.ask(input, "Go module path", moduleOrName); err != nil {
-			return err
-		}
-	} else {
-		a.answered("Go module path", moduleOrName())
-	}
+	// The module path is the app name unless --module says otherwise: an API
+	// is rarely imported by another module, so asking only slows the first run.
+	a.answered("Go module path", cmp.Or(*module, *name))
 
 	if !set["preset"] {
 		sel := huh.NewSelect[string]().Title(a.choiceTitle("preset")).Options(

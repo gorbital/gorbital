@@ -4,6 +4,16 @@ Notable changes to the gorbital library, the `orb` CLI and generated apps. The l
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). `v0.1.0` is the first public release. Until `v1.0.0` there is no compatibility promise between minor versions ([ADR-0015](docs/adr/0015-public-api-and-stability-tiers.md)), though the compatibility checks already run; breaking changes are listed here and in the upgrade notes.
 
+## Unreleased
+
+### Changed
+
+- **`orb new` no longer asks for the Go module path.** It was the second question a new user met, it came with no explanation, and the answer almost everyone needs is the default: an API is rarely imported by another module. The module path is the app name unless `--module` sets it, and it is still listed with the answers (`✓ Go module path … my-api`) before anything is written. Scripts that pass `--module` are unchanged.
+
+### Fixed
+
+- **Every `orb` question could be drawn twice.** Prompts padded their line to the full width of the terminal, and a line that fills the last column wraps as soon as the terminal draws one character a column wider than counted — `…` and `↑↓` are two columns wide in some terminals, and resizing the window does the same. Every redraw then left a copy of the question on the line below. Prompts now stop three columns short of the edge and still follow the window when it is resized.
+
 ## v0.3.3 (2026-09-23)
 
 ### Added

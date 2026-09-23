@@ -16,12 +16,12 @@ orb new plateful --preset full --scope organisation --module example.com/platefu
 
 **What we build ourselves.** Nothing yet.
 
-**How.** Every value can be passed as a flag or answered interactively. Leave a flag out in a terminal and you are asked for it:
+**How.** Every value can be passed as a flag or answered interactively. Leave a flag out in a terminal and you are asked for it — except the Go module path, which is the app name unless you pass `--module`:
 
 | Question | Flag | Default |
 |---|---|---|
 | App name | `<name>`, positional | required |
-| Go module path | `--module` | the app name |
+| Go module path (never asked) | `--module` | the app name |
 | Preset | `--preset minimal\|full` | **`minimal`** |
 | Sign-in (Full only) | `--auth none\|basic\|full` | `full` |
 | Scope (Full only) | `--scope none\|single\|custom\|<name>` | `single` |

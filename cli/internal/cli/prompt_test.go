@@ -5,6 +5,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/huh"
 )
 
 // These tests drive the question flows in plain (accessible) mode, which
@@ -116,13 +118,12 @@ func TestPromptJobSkipsQuestionsAnsweredByFlags(t *testing.T) {
 
 func TestPromptNewAsksForMissingValues(t *testing.T) {
 	stdin := answers(
-		"shop-api",                 // app name
-		"github.com/acme/shop-api", // module path
-		"2",                        // preset: full
-		"3",                        // sign-in: full
-		"3",                        // tenancy: named
-		"merchant",                 // what a tenant is called
-		"n",                        // git init: no
+		"shop-api", // app name
+		"2",        // preset: full
+		"3",        // sign-in: full
+		"3",        // tenancy: named
+		"merchant", // what a tenant is called
+		"n",        // git init: no
 	)
 
 	var name, module, local string
@@ -133,8 +134,12 @@ func TestPromptNewAsksForMissingValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("promptNew() error = %v\noutput:\n%s", err, out.String())
 	}
-	if name != "shop-api" || module != "github.com/acme/shop-api" || preset != "full" || auth != "full" || scope != "merchant" || local != "" || !noGit {
+	if name != "shop-api" || module != "" || preset != "full" || auth != "full" || scope != "merchant" || local != "" || !noGit {
 		t.Errorf("answers = name %q, module %q, preset %q, auth %q, scope %q, local %q, noGit %v\noutput:\n%s", name, module, preset, auth, scope, local, noGit, out.String())
+	}
+	// The module path defaults to the app name and is never asked: --module sets it.
+	if s := out.String(); strings.Contains(s, "module path") {
+		t.Errorf("prompts asked for a Go module path:\n%s", s)
 	}
 	// Without --local the published library is used, not asked for.
 	if s := out.String(); strings.Contains(s, "gorbital checkout") {
@@ -143,6 +148,49 @@ func TestPromptNewAsksForMissingValues(t *testing.T) {
 	// Plain mode prints each answer itself: no folded lines, no colour.
 	if s := out.String(); strings.Contains(s, "✓") || strings.Contains(s, "\x1b[") {
 		t.Errorf("plain prompts printed folded lines or colour:\n%s", s)
+	}
+}
+
+func TestPromptNewShowsTheModulePathWithoutAsking(t *testing.T) {
+	for _, tc := range []struct {
+		name, module, want string
+		set                map[string]bool
+	}{
+		{"default", "", "✓ Go module path … shop-api\n", map[string]bool{}},
+		{"flag", "github.com/acme/shop-api", "✓ Go module path … github.com/acme/shop-api\n", map[string]bool{"module": true}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Every other question is answered by flag, so the prompts run
+			// no form: a module question would fail on the empty input.
+			name, module, preset, local := "shop-api", tc.module, "minimal", ""
+			var auth, scope string
+			noGit := true
+			set := map[string]bool{"preset": true, "no-git": true}
+			for k := range tc.set {
+				set[k] = true
+			}
+			var out bytes.Buffer
+			if err := promptNew(&name, &module, &preset, &auth, &scope, &local, &noGit, set, promptFlags{}, answers(), &out); err != nil {
+				t.Fatalf("promptNew() error = %v\noutput:\n%s", err, out.String())
+			}
+			if module != tc.module || !noGit {
+				t.Errorf("module = %q, noGit = %v; want %q, true", module, noGit, tc.module)
+			}
+			if !strings.Contains(out.String(), tc.want) {
+				t.Errorf("output lacks %q:\n%s", tc.want, out.String())
+			}
+		})
+	}
+}
+
+func TestPromptsStayInsideTheTerminal(t *testing.T) {
+	// A line padded to the full width wraps in terminals that draw … or ↑↓
+	// two columns wide, and every redraw then leaves a copy of the question.
+	l := insetLayout{huh.LayoutDefault}
+	for _, tc := range []struct{ terminal, want int }{{120, 117}, {80, 77}, {3, 1}, {0, 1}} {
+		if got := l.GroupWidth(nil, nil, tc.terminal); got != tc.want {
+			t.Errorf("GroupWidth(%d) = %d, want %d", tc.terminal, got, tc.want)
+		}
 	}
 }
 
