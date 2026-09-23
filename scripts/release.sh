@@ -67,6 +67,40 @@ if ! scripts/set-requirements.sh "$version" --check; then
   exit 1
 fi
 
+# The Dev Portal UI is a build of gorbital-dashboards committed here
+# (ADR-0066), and the binary serves whatever is committed. Nothing rebuilds it
+# on the way past, so a release cut without running scripts/sync-portal.sh
+# ships whatever the last person synced: v0.3.3 went out with a UI from six
+# days earlier — the sign-in endpoint with no page to type a token into.
+#
+# So take the latest rather than trust anyone to remember: compare what is
+# committed against the tip of the dashboards repository, rebuild it when it is
+# behind, and stop so the rebuild can be committed. A release can then only be
+# cut from a UI that matches.
+dashboards="${DASHBOARDS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/../gorbital-dashboards}"
+portal_build="cli/internal/portal/ui/dist/BUILD"
+if [[ ! -f $portal_build ]]; then
+  echo "no $portal_build: run scripts/sync-portal.sh and commit it" >&2
+  exit 1
+fi
+built="$(tr -d '[:space:]' < "$portal_build")"
+if [[ -d "$dashboards/.git" ]]; then
+  git -C "$dashboards" fetch --quiet origin main 2>/dev/null || true
+  tip="$(git -C "$dashboards" rev-parse --short origin/main 2>/dev/null || true)"
+  if [[ -n $tip && $tip != "$built" ]]; then
+    echo "the Dev Portal UI is behind gorbital-dashboards: committed $built, origin/main is $tip"
+    echo "rebuilding it with scripts/sync-portal.sh"
+    scripts/sync-portal.sh "$dashboards"
+    echo "the Dev Portal UI has been rebuilt: commit cli/internal/portal/ui/dist, then run this again" >&2
+    exit 1
+  fi
+  echo "Dev Portal UI matches gorbital-dashboards $built"
+else
+  # Nothing to compare against: say so rather than pass quietly, because
+  # passing quietly is how a stale UI shipped in the first place.
+  echo "warning: no gorbital-dashboards checkout at $dashboards, so the Dev Portal UI ($built) could not be checked against it" >&2
+fi
+
 for tag in "${tags[@]}"; do
   if git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null || git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
     echo "tag $tag already exists" >&2
