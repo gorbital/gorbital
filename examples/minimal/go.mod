@@ -4,10 +4,10 @@ go 1.26.0
 
 require (
 	github.com/danielgtaylor/huma/v2 v2.39.1
-	gorbital.dev v0.3.2
-	gorbital.dev/modules/devconsole v0.3.2
-	gorbital.dev/modules/openapi v0.3.2
-	gorbital.dev/modules/telemetry v0.3.2
+	gorbital.dev v0.3.3
+	gorbital.dev/modules/devconsole v0.3.3
+	gorbital.dev/modules/openapi v0.3.3
+	gorbital.dev/modules/telemetry v0.3.3
 )
 
 require (
